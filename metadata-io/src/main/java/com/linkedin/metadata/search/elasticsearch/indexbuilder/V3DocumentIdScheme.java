@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -20,6 +23,11 @@ import javax.annotation.Nullable;
  *
  * <p>Stamp only when creating an index. Applying a stamped mapping to an existing index would
  * relabel it as current without touching its documents.
+ *
+ * <p>Whether the index a rebuild leaves behind can still take writes under the running scheme is a
+ * separate question, answered for an unstamped index by {@link #countIdsFromAnotherScheme}: the
+ * rebuild is unavoidable without reading every id, but rollback writes into the old index address
+ * its documents when their ids are the running hasher's, which a sample can judge.
  */
 public class V3DocumentIdScheme {
 
@@ -49,6 +57,33 @@ public class V3DocumentIdScheme {
   /** True unless the mapping records exactly the running hasher's scheme. */
   public boolean requiresDocumentRebuild(@Nullable final Map<String, Object> currentMappings) {
     return stampedOn(currentMappings).filter(current()::equals).isEmpty();
+  }
+
+  /**
+   * How many of the sampled documents, given as id to urn, carry an id the running hasher does not
+   * derive from their urn. Zero means a write under the running scheme addresses the documents the
+   * sample saw, so an index that records no scheme may keep receiving rollback writes after its
+   * rebuild. A sample cannot see a minority written under another scheme: an index that lived
+   * through a scheme change and was mostly rewritten since reads as current, and rollback writes
+   * then land beside those documents' old copies, which is the state the index was already in
+   * before the rebuild. A document whose urn does not parse counts as from another scheme, since no
+   * write under the running one can address it.
+   */
+  public long countIdsFromAnotherScheme(
+      @Nonnull final OperationFingerprint operation, @Nonnull final Map<String, String> urnsById) {
+    return urnsById.entrySet().stream()
+        .filter(entry -> !idDerivedFrom(operation, entry.getValue()).equals(entry.getKey()))
+        .count();
+  }
+
+  @Nonnull
+  private String idDerivedFrom(
+      @Nonnull final OperationFingerprint operation, @Nonnull final String urn) {
+    try {
+      return hasher.documentId(operation, Urn.createFromString(urn));
+    } catch (URISyntaxException e) {
+      return "";
+    }
   }
 
   /** A copy of {@code mappings} that records the running scheme, for creating a new index. */

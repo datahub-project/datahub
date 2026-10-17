@@ -22,6 +22,7 @@
         </packages>
         <classes>
             <!-- Container-free; its package otherwise runs only in the unwired es8 suite. -->
+            <class name="com.linkedin.metadata.search.elasticsearch.query.ESSearchDAOAspectFieldNamesTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.query.ESSearchDAOHybridTest"/>
             <!-- Container-free coverage of the entity index write path and the incremental reindex: their
                  packages are in no wired suite, so they are listed one by one. -->

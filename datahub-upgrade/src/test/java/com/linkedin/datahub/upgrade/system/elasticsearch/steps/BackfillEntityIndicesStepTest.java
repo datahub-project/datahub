@@ -15,7 +15,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -340,28 +339,137 @@ public class BackfillEntityIndicesStepTest {
     // A V3 index created before indices were aliased owns the convention name; the swap must
     // delete it to give the alias the name, so a copy is kept and recorded for rollback first.
     String next = alias + "_0_14_0-0_1679000000000";
+    String retained = alias + "_0_14_0-0_1679000001000";
     seedPhase1(IncrementalReindexState.setBackfillPending(null, alias, next, 1000L));
     when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(alias)))
         .thenReturn(Set.of());
+    ESIndexBuilder.IncrementalReindexResult copy =
+        new ESIndexBuilder.IncrementalReindexResult(
+            retained, 1679000001000L, "copy-task", false, 1, 42L, Map.of());
+    when(indexBuilder.startRollbackCopy(
+            eq(opContext), any(ReindexConfig.class), eq(UPGRADE_VERSION)))
+        .thenReturn(copy);
 
     UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    ArgumentCaptor<String> retained = ArgumentCaptor.forClass(String.class);
     InOrder inOrder = inOrder(indexBuilder);
     inOrder
         .verify(indexBuilder)
-        .retainIndexForRollback(eq(opContext), any(ReindexConfig.class), retained.capture());
+        .startRollbackCopy(eq(opContext), any(ReindexConfig.class), eq(UPGRADE_VERSION));
+    inOrder
+        .verify(indexBuilder)
+        .finishRollbackCopy(eq(opContext), any(ReindexConfig.class), eq(copy));
     inOrder.verify(indexBuilder).swapAlias(opContext, alias, next);
-    assertTrue(retained.getValue().startsWith(alias + "_"), "a physical index of the family");
-    assertNotEquals(retained.getValue(), next);
+    verify(indexBuilder, never()).deleteActionWithRetry(any(OperationContext.class), anyString());
     Map<String, String> state = persistedState();
     assertEquals(
         IncrementalReindexState.get(state, alias, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
-        Optional.of(retained.getValue()));
+        Optional.of(retained));
     assertEquals(
         IncrementalReindexState.getStatus(state, alias),
         Optional.of(IncrementalReindexState.Status.COMPLETED));
+  }
+
+  @Test
+  public void testFailedRollbackCopyIsDeletedAndFailsTheRow() throws Exception {
+    String next = alias + "_0_14_0-0_1679000000000";
+    String retained = alias + "_0_14_0-0_1679000001000";
+    seedPhase1(IncrementalReindexState.setBackfillPending(null, alias, next, 1000L));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(alias)))
+        .thenReturn(Set.of());
+    ESIndexBuilder.IncrementalReindexResult copy =
+        new ESIndexBuilder.IncrementalReindexResult(
+            retained, 1679000001000L, "copy-task", false, 1, 42L, Map.of());
+    when(indexBuilder.startRollbackCopy(
+            eq(opContext), any(ReindexConfig.class), eq(UPGRADE_VERSION)))
+        .thenReturn(copy);
+    doThrow(new IllegalStateException("copy did not complete"))
+        .when(indexBuilder)
+        .finishRollbackCopy(eq(opContext), any(ReindexConfig.class), eq(copy));
+
+    UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
+
+    // The copy's reindex is stopped before the copy goes, the row no longer names it, and FAILED is
+    // re-planned.
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    InOrder cleanup = inOrder(indexBuilder);
+    cleanup.verify(indexBuilder).cancelRollbackCopy(opContext, copy);
+    cleanup.verify(indexBuilder).deleteActionWithRetry(opContext, retained);
+    verify(indexBuilder, never()).swapAlias(any(OperationContext.class), anyString(), anyString());
+    Map<String, String> state = persistedState();
+    assertEquals(IncrementalReindexState.getStatus(state, alias), Optional.of(Status.FAILED));
+    assertFalse(
+        state.containsKey(
+            IncrementalReindexState.key(alias, IncrementalReindexState.OLD_BACKING_INDEX_NAME)));
+  }
+
+  @Test
+  public void testACopyWhoseReindexCannotBeConfirmedStoppedIsLeftInPlace() throws Exception {
+    // Deleting an index under a live writer only has the writer recreate it, so an unconfirmed
+    // cancel leaves the copy for cleanup; the row still fails and no longer names it.
+    String next = alias + "_0_14_0-0_1679000000000";
+    String retained = alias + "_0_14_0-0_1679000001000";
+    seedPhase1(IncrementalReindexState.setBackfillPending(null, alias, next, 1000L));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(alias)))
+        .thenReturn(Set.of());
+    ESIndexBuilder.IncrementalReindexResult copy =
+        new ESIndexBuilder.IncrementalReindexResult(
+            retained, 1679000001000L, "copy-task", false, 1, 42L, Map.of());
+    when(indexBuilder.startRollbackCopy(
+            eq(opContext), any(ReindexConfig.class), eq(UPGRADE_VERSION)))
+        .thenReturn(copy);
+    doThrow(new IllegalStateException("copy did not complete"))
+        .when(indexBuilder)
+        .finishRollbackCopy(eq(opContext), any(ReindexConfig.class), eq(copy));
+    doThrow(new IllegalStateException("task not confirmed stopped"))
+        .when(indexBuilder)
+        .cancelRollbackCopy(opContext, copy);
+
+    UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(indexBuilder, never()).deleteActionWithRetry(any(OperationContext.class), anyString());
+    Map<String, String> state = persistedState();
+    assertEquals(IncrementalReindexState.getStatus(state, alias), Optional.of(Status.FAILED));
+    assertFalse(
+        state.containsKey(
+            IncrementalReindexState.key(alias, IncrementalReindexState.OLD_BACKING_INDEX_NAME)));
+  }
+
+  @Test
+  public void testResumedRebuildLeavesThePartialCopyAPreviousRunLeftAndCopiesAfresh()
+      throws Exception {
+    // The previous run recorded its copy and died while it was in flight, perhaps with its reindex
+    // still writing; this run leaves that copy for cleanup and takes a fresh one.
+    String next = alias + "_0_14_0-0_1679000000000";
+    String stale = alias + "_0_14_0-0_1678000000000";
+    String retained = alias + "_0_14_0-0_1679000001000";
+    seedPhase1(
+        IncrementalReindexState.setOldBackingIndexName(
+            IncrementalReindexState.setBackfillPending(null, alias, next, 1000L), alias, stale));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(alias)))
+        .thenReturn(Set.of());
+    ESIndexBuilder.IncrementalReindexResult copy =
+        new ESIndexBuilder.IncrementalReindexResult(
+            retained, 1679000001000L, "copy-task", false, 1, 42L, Map.of());
+    when(indexBuilder.startRollbackCopy(
+            eq(opContext), any(ReindexConfig.class), eq(UPGRADE_VERSION)))
+        .thenReturn(copy);
+
+    UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never()).deleteActionWithRetry(any(OperationContext.class), anyString());
+    InOrder inOrder = inOrder(indexBuilder);
+    inOrder
+        .verify(indexBuilder)
+        .startRollbackCopy(eq(opContext), any(ReindexConfig.class), eq(UPGRADE_VERSION));
+    inOrder.verify(indexBuilder).swapAlias(opContext, alias, next);
+    assertEquals(
+        IncrementalReindexState.get(
+            persistedState(), alias, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of(retained));
   }
 
   @Test
@@ -374,7 +482,7 @@ public class BackfillEntityIndicesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(indexBuilder, never())
-        .retainIndexForRollback(any(OperationContext.class), any(ReindexConfig.class), anyString());
+        .startRollbackCopy(any(OperationContext.class), any(ReindexConfig.class), anyString());
     verify(indexBuilder).swapAlias(opContext, alias, next);
   }
 

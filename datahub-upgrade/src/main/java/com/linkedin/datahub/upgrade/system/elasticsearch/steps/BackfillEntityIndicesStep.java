@@ -358,8 +358,16 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
    * A V3 index created before indices were aliased owns the convention name itself. The alias needs
    * that name and nothing renames an index in place, so the swap has to delete it; the index is
    * first copied to a physical name of its family and that copy recorded as the old backing index,
-   * so rollback dual-write keeps it current and the alias can be swapped back to it. An aliased
-   * index has its old backing index recorded by Phase 1 and is left alone.
+   * so the alias can be swapped back to it. An aliased index has its old backing index recorded by
+   * Phase 1 and is left alone.
+   *
+   * <p>The row names the copy as soon as it exists. A run that dies while the copy is in flight
+   * leaves a row naming it and, possibly, a reindex still writing into it; the next run leaves that
+   * copy alone, since deleting an index under a live writer only has the writer recreate it, and
+   * takes a fresh one. The abandoned copy is a physical index of the family that nothing refers to,
+   * which a later cleanup reaps. A copy that fails has its reindex cancelled and confirmed stopped
+   * before it is deleted; when that cannot be confirmed the copy is left for cleanup too. Either
+   * way the row fails, so Phase 1 plans the rebuild again.
    */
   private Map<String, String> retainConcreteLiveIndex(
       Map<String, String> phase1State,
@@ -370,17 +378,57 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
     if (!indexBuilder.getBackingIndices(opContext, indexName).isEmpty()) {
       return phase1State;
     }
-    final String retained =
-        ESIndexBuilder.getIncrementalNextIndexName(
-            indexName, upgradeVersion, System.currentTimeMillis());
+    IncrementalReindexState.get(
+            phase1State, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+        .ifPresent(
+            previousCopy ->
+                log.info(
+                    "Index {}: a previous run left the copy {}; leaving it for cleanup and copying"
+                        + " afresh",
+                    indexName,
+                    previousCopy));
     log.info(
-        "Index {} owns its name directly; retaining it as {} before the alias takes the name",
-        indexName,
-        retained);
-    indexBuilder.retainIndexForRollback(opContext, config, retained);
-    return persistPhase1(
-        phase1State,
-        state -> IncrementalReindexState.setOldBackingIndexName(state, indexName, retained));
+        "Index {} owns its name directly; copying it before the alias takes the name", indexName);
+    ESIndexBuilder.IncrementalReindexResult copy =
+        indexBuilder.startRollbackCopy(opContext, config, upgradeVersion);
+    final String retained = copy.nextIndexName();
+    Map<String, String> named =
+        persistPhase1(
+            phase1State,
+            state -> IncrementalReindexState.setOldBackingIndexName(state, indexName, retained));
+    try {
+      indexBuilder.finishRollbackCopy(opContext, config, copy);
+    } catch (Exception e) {
+      log.error("Index {}: copy into {} failed; failing the row", indexName, retained, e);
+      try {
+        indexBuilder.cancelRollbackCopy(opContext, copy);
+        indexBuilder.deleteActionWithRetry(opContext, retained);
+      } catch (Exception cleanupFailure) {
+        log.warn(
+            "Index {}: leaving the copy {} in place for cleanup",
+            indexName,
+            retained,
+            cleanupFailure);
+        e.addSuppressed(cleanupFailure);
+      }
+      persistPhase1(
+          named,
+          state ->
+              withStatus(
+                  withoutOldBackingIndex(state, indexName),
+                  indexName,
+                  IncrementalReindexState.Status.FAILED));
+      throw e;
+    }
+    return named;
+  }
+
+  private static Map<String, String> withoutOldBackingIndex(
+      Map<String, String> state, String indexName) {
+    Map<String, String> updated = new HashMap<>(state);
+    updated.remove(
+        IncrementalReindexState.key(indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME));
+    return updated;
   }
 
   /**

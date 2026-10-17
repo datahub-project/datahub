@@ -24,7 +24,9 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -47,7 +49,9 @@ public class CatchUpBatchRebuilderTest {
 
   private final EntityRegistry registry =
       TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
-  private final CatchUpBatchRebuilder rebuilder = new CatchUpBatchRebuilder();
+  private final ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
+  private final CatchUpBatchRebuilder rebuilder =
+      new CatchUpBatchRebuilder(elasticSearchService, new Sha256UrnEntityDocumentIdHasher());
 
   @Test
   public void testBatchesWithoutTheCatchUpMarkAreReturnedAsTheyAre() {
@@ -56,7 +60,7 @@ public class CatchUpBatchRebuilderTest {
     Map<Urn, List<MCLItem>> live =
         Map.of(DATASET, List.of(event(PROPERTIES, new DatasetProperties().setName("live"), null)));
 
-    assertSame(rebuilder.rebuild(opContext, live), live);
+    assertSame(rebuilder.rebuild(opContext, live).batches(), live);
     verify(retriever, never()).getLatestSystemAspects(any(), any());
   }
 
@@ -70,7 +74,7 @@ public class CatchUpBatchRebuilderTest {
         event(PROPERTIES, new DatasetProperties().setName("stale"), BackfillHeaders.MODE_CATCH_UP);
 
     Map<Urn, List<MCLItem>> rebuilt =
-        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed)));
+        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed))).batches();
 
     List<MCLItem> events = rebuilt.get(DATASET);
     assertEquals(
@@ -145,8 +149,10 @@ public class CatchUpBatchRebuilderTest {
                         Map.of(BackfillHeaders.MODE_HEADER_NAME, BackfillHeaders.MODE_CATCH_UP))));
 
     Map<Urn, List<MCLItem>> rebuilt =
-        rebuilder.rebuild(
-            opContext, Map.of(DATASET, List.of(datasetRow), container, List.of(containerRow)));
+        rebuilder
+            .rebuild(
+                opContext, Map.of(DATASET, List.of(datasetRow), container, List.of(containerRow)))
+            .batches();
 
     verify(retriever, times(2)).getLatestSystemAspects(any(), any());
     for (Urn urn : List.of(DATASET, container)) {
@@ -172,7 +178,7 @@ public class CatchUpBatchRebuilderTest {
         event(PROPERTIES, new DatasetProperties().setName("stale"), BackfillHeaders.MODE_CATCH_UP);
 
     Map<Urn, List<MCLItem>> rebuilt =
-        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(live, replayed)));
+        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(live, replayed))).batches();
 
     List<MCLItem> events = rebuilt.get(DATASET);
     assertEquals(events.size(), 2);
@@ -191,7 +197,7 @@ public class CatchUpBatchRebuilderTest {
         event(PROPERTIES, new DatasetProperties().setName("stale"), BackfillHeaders.MODE_CATCH_UP);
 
     Map<Urn, List<MCLItem>> rebuilt =
-        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed)));
+        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed))).batches();
 
     List<MCLItem> events = rebuilt.get(DATASET);
     assertEquals(events.size(), 1);
@@ -200,6 +206,86 @@ public class CatchUpBatchRebuilderTest {
     assertEquals(
         events.get(0).getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME),
         BackfillHeaders.MODE_CATCH_UP);
+  }
+
+  @Test
+  public void testAspectsTheDocumentHoldsThatStorageLostAreReportedForRemoval() {
+    AspectRetriever retriever =
+        retrieverHolding(
+            Map.of(
+                KEY,
+                stored(datasetKey()),
+                PROPERTIES,
+                stored(new DatasetProperties().setName("stored"))));
+    OperationContext opContext = context(retriever);
+    String documentId = new Sha256UrnEntityDocumentIdHasher().documentId(opContext, DATASET);
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(
+            any(), eq("dataset"), eq(Set.of(documentId))))
+        .thenReturn(
+            Map.of(
+                documentId,
+                Map.of(
+                    KEY,
+                    Set.of("platform"),
+                    PROPERTIES,
+                    Set.of("name", "_systemMetadata"),
+                    "globalTags",
+                    Set.of("tags", "_systemMetadata"),
+                    "structuredProperties",
+                    Set.of("structuredProperties"),
+                    "datasetProfile",
+                    Set.of("rowCount"))));
+    MCLItem replayed =
+        event(PROPERTIES, new DatasetProperties().setName("stale"), BackfillHeaders.MODE_CATCH_UP);
+
+    CatchUpBatchRebuilder.RebuiltBatches rebuilt =
+        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed)));
+
+    // The tags and the structured properties are gone from storage; the profile is timeseries,
+    // which storage never lists.
+    assertEquals(
+        rebuilt.removedAspects(),
+        Map.of(
+            DATASET,
+            Map.of(
+                "globalTags", Set.of("tags", "_systemMetadata"),
+                "structuredProperties", Set.of("structuredProperties"))));
+    assertEquals(
+        rebuilt.batches().get(DATASET).stream()
+            .map(MCLItem::getAspectName)
+            .collect(Collectors.toList()),
+        List.of(KEY, PROPERTIES));
+    // One index request for the slice, by document id.
+    verify(elasticSearchService)
+        .aspectFieldNamesBySearchGroup(any(), eq("dataset"), eq(Set.of(documentId)));
+  }
+
+  @Test
+  public void testNothingIsRemovedForAnEntityTheIndexLacksOrStorageHasDropped() {
+    // Gone from storage: deleted whole, so nothing is nulled whatever the index still holds.
+    AspectRetriever retriever = retrieverHolding(Map.of());
+    OperationContext opContext = context(retriever);
+    String documentId = new Sha256UrnEntityDocumentIdHasher().documentId(opContext, DATASET);
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(any(), eq("dataset"), any()))
+        .thenReturn(Map.of(documentId, Map.of(PROPERTIES, Set.of("name"))));
+    MCLItem replayed =
+        event(PROPERTIES, new DatasetProperties().setName("stale"), BackfillHeaders.MODE_CATCH_UP);
+
+    CatchUpBatchRebuilder.RebuiltBatches gone =
+        rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed)));
+
+    assertEquals(gone.removedAspects(), Map.of());
+    assertEquals(gone.batches().get(DATASET).get(0).getChangeType(), ChangeType.DELETE);
+
+    // Absent from the index: nothing to remove.
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(any(), eq("dataset"), any()))
+        .thenReturn(Map.of());
+    CatchUpBatchRebuilder.RebuiltBatches absent =
+        rebuilder.rebuild(
+            context(retrieverHolding(Map.of(KEY, stored(datasetKey())))),
+            Map.of(DATASET, List.of(replayed)));
+
+    assertEquals(absent.removedAspects(), Map.of());
   }
 
   @Test

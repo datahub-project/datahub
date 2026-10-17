@@ -6,8 +6,14 @@ import static org.mockito.Mockito.spy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.GlobalTags;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.ContainerProperties;
@@ -281,6 +287,9 @@ abstract class SearchV3MigrationScenarios {
           hit.getId(),
           harness.hashedDocumentId(UrnUtils.getUrn(SearchV3MigrationHarness.urnOf(hit))),
           "every filled document carries the hashed id");
+      assertTrue(
+          hit.getSourceAsMap().get("systemCreated") instanceof Number,
+          "every filled document records the entity's creation time");
     }
   }
 
@@ -433,9 +442,15 @@ abstract class SearchV3MigrationScenarios {
     // index settings are resolved per index service from the name, so it must still read as V3.
     String legacyIndex = datasetAlias + "_legacy_1600000000000";
     long legacyDocuments = harness.count(harness.v3Client, datasetAlias);
-    harness.replaceWithLegacyIdIndex(datasetAlias, legacyIndex);
+    harness.replaceWithUnstampedIndex(
+        datasetAlias, legacyIndex, SearchV3MigrationHarness::legacyDocumentId);
     assertEquals(harness.backingIndices(datasetAlias), Set.of(legacyIndex));
     assertEquals(harness.count(harness.v3Client, legacyIndex), legacyDocuments);
+
+    // This deploy's consumers are serving before its Phase 1 runs, as they are whenever the
+    // blocking upgrade has steps ahead of this one: they find no state for their version and have
+    // to pick the fill up by polling once it is planned.
+    harness.restartDualWritingConsumers(ID_REBUILD_DEPLOY);
 
     UpgradeStepResult phase1Result = run(phase1(ID_REBUILD_DEPLOY));
 
@@ -468,33 +483,8 @@ abstract class SearchV3MigrationScenarios {
     // Stop the fill after its first dataset page, as a budget would. The resume re-reads that
     // page's last entity and writes it again, so the entities-read figure runs ahead of the index;
     // the swap must not be gated on it.
-    AspectIndexLoader realLoader = harness.aspectIndexLoader();
-    AspectIndexLoader interruptingLoader = spy(realLoader);
-    AtomicBoolean stopped = new AtomicBoolean(false);
-    doAnswer(
-            invocation -> {
-              LoadIndicesArgs args = invocation.getArgument(1);
-              if (!"urn:li:dataset:%".equals(args.urnLike) || stopped.get()) {
-                return invocation.callRealMethod();
-              }
-              AspectIndexLoader.BatchListener listener = invocation.getArgument(3);
-              AspectIndexLoader.BatchListener stopAfterThisBatch =
-                  (lastUrn, rows, urns) -> {
-                    listener.onBatch(lastUrn, rows, urns);
-                    stopped.set(true);
-                    throw new AspectIndexLoader.DeadlineExceeded(lastUrn, rows);
-                  };
-              return realLoader.load(
-                  invocation.getArgument(0),
-                  args,
-                  invocation.getArgument(2),
-                  stopAfterThisBatch,
-                  invocation.getArgument(4));
-            })
-        .when(interruptingLoader)
-        .load(any(), any(), any(), any(), any());
-
-    UpgradeStepResult interruptedRun = run(fill(ID_REBUILD_DEPLOY, interruptingLoader));
+    UpgradeStepResult interruptedRun =
+        run(fill(ID_REBUILD_DEPLOY, loaderStoppingAfterTheFirstDatasetPage()));
     harness.syncWrites();
 
     assertEquals(interruptedRun.result(), DataHubUpgradeState.SUCCEEDED);
@@ -514,14 +504,15 @@ abstract class SearchV3MigrationScenarios {
 
     // A hard delete while the rebuild is in flight. The live writer deletes from the alias, which
     // still serves the old index, and catch-up cannot replay what storage no longer holds; the
-    // consumers that read this deploy's state also delete from the index the fill is building.
+    // consumers, whose poll has picked the fill up since Phase 1 planned it, also delete from the
+    // index the fill is building.
     Urn deletedDataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,split.d1,PROD)");
     assertEquals(
         harness.count(
             harness.v3Client, nextIndex, QueryBuilders.termQuery("urn", deletedDataset.toString())),
         1L,
         "the interrupted run wrote the entity about to be deleted");
-    harness.restartDualWritingConsumers(ID_REBUILD_DEPLOY);
+    harness.awaitFillTarget(datasetAlias);
     harness.entityService.deleteUrn(harness.opContext, deletedDataset);
     harness.syncWrites();
     // The alias still serves the legacy index, whose documents carry the old ids a live delete
@@ -578,9 +569,12 @@ abstract class SearchV3MigrationScenarios {
     harness.deliverToUpgradedConsumers();
     // A V3 index created before indices were aliased owns the convention name itself. The alias
     // needs that name and nothing renames an index in place, so the swap has to delete it; the
-    // fill first copies it to a physical name the rollback dual-write can keep current.
+    // fill first copies it to a physical name the rollback dual-write can keep current. Its
+    // documents carry the running hasher's ids with no stamp recording that, as a writer-created
+    // index does: rebuilt once to record the scheme, with rollback writes continuing after.
     long legacyDocuments = harness.count(harness.v3Client, datasetAlias);
-    harness.replaceWithLegacyIdIndex(datasetAlias, datasetAlias);
+    harness.replaceWithUnstampedIndex(
+        datasetAlias, datasetAlias, urn -> harness.hashedDocumentId(UrnUtils.getUrn(urn)));
     assertEquals(
         harness.backingIndices(datasetAlias), Set.of(), "the live name is an index, not an alias");
     assertEquals(harness.count(harness.v3Client, datasetAlias), legacyDocuments);
@@ -592,6 +586,9 @@ abstract class SearchV3MigrationScenarios {
     assertEquals(
         IncrementalReindexState.getStatus(pending, datasetAlias),
         Optional.of(Status.BACKFILL_PENDING));
+    assertFalse(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(pending, datasetAlias),
+        "the sampled ids are the running hasher's, so rollback writes address its documents");
     String nextIndex =
         IncrementalReindexState.get(
                 pending, datasetAlias, IncrementalReindexState.BACKFILL_TARGET_INDEX)
@@ -616,6 +613,36 @@ abstract class SearchV3MigrationScenarios {
             datasetAlias,
             QueryBuilders.termQuery("urn", writtenDuringRebuild.toString())),
         1L);
+
+    // Stop the fill after its first dataset page, which holds every dataset, then change one of
+    // them: its properties are removed and a tag is added. The consumers delivering here carry no
+    // write targets, as consumers that have not read this deploy's state do, so nothing mirrors
+    // the removal into the index the fill is building and the page's copy of the properties stays
+    // there; the tag write leaves a row in the catch-up window, so catch-up replays the entity and
+    // must drop what storage no longer holds.
+    UpgradeStepResult interruptedRun =
+        run(fill(CONCRETE_REBUILD_DEPLOY, loaderStoppingAfterTheFirstDatasetPage()));
+    harness.syncWrites();
+    assertEquals(interruptedRun.result(), DataHubUpgradeState.SUCCEEDED);
+    Urn changedDuringFill =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,split.d2,PROD)");
+    assertEquals(
+        sourceOf(harness.hits(harness.v3Client, nextIndex), changedDuringFill).get("name"),
+        "dataset 2",
+        "the interrupted run wrote the entity with its properties");
+    harness.entityService.deleteAspect(
+        harness.opContext, changedDuringFill.toString(), "datasetProperties", Map.of(), true);
+    harness.ingest(
+        changedDuringFill,
+        "globalTags",
+        new GlobalTags()
+            .setTags(
+                new TagAssociationArray(
+                    new TagAssociation().setTag(TagUrn.createFromString("urn:li:tag:split-t1")))));
+    harness.syncWrites();
+    assertNull(
+        sourceOf(harness.hits(harness.v3Client, datasetAlias), changedDuringFill).get("name"),
+        "the live index dropped the properties");
 
     UpgradeStepResult fillResult = run(fill(CONCRETE_REBUILD_DEPLOY, harness.aspectIndexLoader()));
     harness.syncWrites();
@@ -646,12 +673,11 @@ abstract class SearchV3MigrationScenarios {
             QueryBuilders.termQuery("urn", writtenDuringRebuild.toString())),
         1L);
 
-    // The copy holds each entity under the id scheme the rebuild replaced. Consumers brought up
-    // after the swap leave it alone: a mirrored write would sit next to the old copy and a
-    // mirrored delete would miss it. A rollback to it returns to its pre-swap content.
-    assertTrue(
+    // The copy holds each entity under the running hasher's ids, so consumers brought up after
+    // the swap keep it current and a rollback to it returns to the present, not to the swap.
+    assertFalse(
         IncrementalReindexState.isOldBackingIndexIdSchemeStale(completed, datasetAlias),
-        "the row records why the copy must not receive live writes");
+        "the row records that the copy may receive live writes");
     harness.restartDualWritingConsumers(CONCRETE_REBUILD_DEPLOY);
     Urn afterSwap =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,split.postretain,PROD)");
@@ -665,12 +691,31 @@ abstract class SearchV3MigrationScenarios {
     assertEquals(
         harness.count(
             harness.v3Client, retained, QueryBuilders.termQuery("urn", afterSwap.toString())),
-        0L,
-        "no live write reaches an index whose ids the running hasher does not produce");
+        1L,
+        "the rollback write reaches the retained copy under the same id");
     assertEquals(
         harness.count(harness.v3Client, retained),
-        legacyDocuments + 1,
-        "the retained copy keeps its pre-swap content");
+        legacyDocuments + 2,
+        "the retained copy holds the pre-swap content and the write since");
+
+    // The page's copy of the removed properties outlived the swap: nothing mirrored the removal,
+    // and the resume rewrote only the page's last entity. Catch-up replays the entity for the tag
+    // it gained, and the replay drops the properties from the document along with the root field
+    // they projected. The retained copy was taken after the change and needs no repair.
+    assertEquals(
+        sourceOf(harness.hits(harness.v3Client, nextIndex), changedDuringFill).get("name"),
+        "dataset 2",
+        "before catch-up the next index still holds the properties the page wrote");
+    UpgradeStepResult catchUpResult = run(catchUp(CONCRETE_REBUILD_DEPLOY));
+    harness.syncWrites();
+
+    assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
+    Map<String, Object> caughtUp =
+        sourceOf(harness.hits(harness.v3Client, nextIndex), changedDuringFill);
+    Map<?, ?> aspects = (Map<?, ?>) caughtUp.get("_aspects");
+    assertNull(caughtUp.get("name"), "the removed aspect's root field is gone");
+    assertNull(aspects.get("datasetProperties"), "and its entry under _aspects");
+    assertNotNull(aspects.get("globalTags"), "the aspect it gained is there");
   }
 
   @Test(dependsOnMethods = "concreteNamedIndexIsRetainedForRollbackWhenRebuilt")
@@ -767,6 +812,45 @@ abstract class SearchV3MigrationScenarios {
         harness.updateIndicesService,
         new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher()),
         true);
+  }
+
+  /** A loader that stops after the first dataset page it writes, as a budget would. */
+  private AspectIndexLoader loaderStoppingAfterTheFirstDatasetPage() {
+    AspectIndexLoader realLoader = harness.aspectIndexLoader();
+    AspectIndexLoader interruptingLoader = spy(realLoader);
+    AtomicBoolean stopped = new AtomicBoolean(false);
+    doAnswer(
+            invocation -> {
+              LoadIndicesArgs args = invocation.getArgument(1);
+              if (!"urn:li:dataset:%".equals(args.urnLike) || stopped.get()) {
+                return invocation.callRealMethod();
+              }
+              AspectIndexLoader.BatchListener listener = invocation.getArgument(3);
+              AspectIndexLoader.BatchListener stopAfterThisBatch =
+                  (lastUrn, rows, urns) -> {
+                    listener.onBatch(lastUrn, rows, urns);
+                    stopped.set(true);
+                    throw new AspectIndexLoader.DeadlineExceeded(lastUrn, rows);
+                  };
+              return realLoader.load(
+                  invocation.getArgument(0),
+                  args,
+                  invocation.getArgument(2),
+                  stopAfterThisBatch,
+                  invocation.getArgument(4));
+            })
+        .when(interruptingLoader)
+        .load(any(), any(), any(), any(), any());
+    return interruptingLoader;
+  }
+
+  /** The source of {@code urn}'s document among {@code hits}. */
+  private static Map<String, Object> sourceOf(List<SearchHit> hits, Urn urn) {
+    return hits.stream()
+        .filter(hit -> urn.toString().equals(SearchV3MigrationHarness.urnOf(hit)))
+        .map(SearchHit::getSourceAsMap)
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("no document for " + urn));
   }
 
   private BackfillEntityIndicesStep fill(String deployVersion, AspectIndexLoader loader) {

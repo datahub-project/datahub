@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.getAllReindexConfigs;
 import static com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils.requireIndexBuilder;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector.URN_FIELD;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -52,6 +53,12 @@ import lombok.extern.slf4j.Slf4j;
 public class BuildIndicesIncrementalStep implements UpgradeStep {
 
   static final String UPGRADE_ID_PREFIX = IncrementalReindexState.UPGRADE_ID_PREFIX;
+
+  /**
+   * Documents read to judge whether an index that records no document-id scheme carries the running
+   * hasher's ids. One request; the index is rebuilt either way.
+   */
+  private static final int ID_SCHEME_SAMPLE_SIZE = 100;
 
   private final OperationContext opContext;
   private final List<ElasticSearchIndexed> indexedServices;
@@ -631,6 +638,65 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     return fills;
   }
 
+  /**
+   * Whether the index a rebuild leaves behind holds its documents under ids the running hasher does
+   * not produce, so that no live write may be mirrored into it after the swap: a mirrored write
+   * would sit beside the old copy and a mirrored delete would miss it. A recorded scheme answers by
+   * itself. An index that records none is judged from a random sample of its documents, which reads
+   * an index built under the running hasher before stamping existed as current and lets rollback
+   * writes continue; the sample's blind spot is described on {@link
+   * V3DocumentIdScheme#countIdsFromAnotherScheme}. An index whose sample cannot be read is treated
+   * as stale, since nothing shows that writes into it would address its documents.
+   */
+  private boolean oldIndexIdSchemeStale(ReindexConfig config, ESIndexBuilder indexBuilder) {
+    Map<String, Object> liveMappings = config.currentMappings();
+    if (!docIdScheme.requiresDocumentRebuild(liveMappings)) {
+      return false;
+    }
+    if (V3DocumentIdScheme.stampedOn(liveMappings).isPresent()) {
+      return true;
+    }
+    final Map<String, String> sample;
+    try {
+      sample =
+          indexBuilder.sampleDocumentFieldById(
+              opContext, config.name(), URN_FIELD, ID_SCHEME_SAMPLE_SIZE);
+    } catch (Exception e) {
+      log.warn(
+          "Index {}: could not sample document ids; treating its documents as written under"
+              + " another document-id scheme, so the index the rebuild leaves behind receives no"
+              + " rollback writes after the swap",
+          config.name(),
+          e);
+      return true;
+    }
+    if (sample.isEmpty()) {
+      log.info(
+          "Index {}: no document-id scheme recorded and no documents to sample; rebuilt, and"
+              + " rollback writes continue after the swap",
+          config.name());
+      return false;
+    }
+    long fromAnotherScheme = docIdScheme.countIdsFromAnotherScheme(opContext, sample);
+    if (fromAnotherScheme > 0) {
+      log.warn(
+          "Index {}: {} of {} sampled documents carry ids from another document-id scheme; rebuilt"
+              + " into a fresh index, and the index the rebuild leaves behind receives no rollback"
+              + " writes after the swap",
+          config.name(),
+          fromAnotherScheme,
+          sample.size());
+      return true;
+    }
+    log.info(
+        "Index {}: no document-id scheme recorded, but all {} sampled documents carry the running"
+            + " scheme's ids; rebuilt once to record it, and rollback writes continue after the"
+            + " swap",
+        config.name(),
+        sample.size());
+    return false;
+  }
+
   /** Whether an existing index already carries the target mappings and settings. */
   private static boolean matchesTarget(ReindexConfig config) {
     return !config.requiresReindex()
@@ -663,9 +729,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         fillTarget = config.name();
       }
       case REBUILD_INTO_NEXT -> {
-        // The live index's documents stay under ids the running hasher does not produce, so after
-        // the swap no live write may be mirrored into it; the row records that for the consumers.
-        oldIdSchemeStale = docIdScheme.requiresDocumentRebuild(config.currentMappings());
+        // Whether live writes may be mirrored into the index the swap leaves behind turns on its
+        // ids, not on the rebuild; the row records the answer for the consumers.
+        oldIdSchemeStale = oldIndexIdSchemeStale(config, indexBuilder);
         Set<String> oldBackingIndices = indexBuilder.getBackingIndices(opContext, config.name());
         oldBackingIndexName =
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;

@@ -253,11 +253,29 @@ public final class IncrementalReindexState {
       @Nonnull String targetIndex,
       long startTime) {
     Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
+    // A fill planned afresh starts from nothing: the progress and verdicts of an earlier attempt
+    // for this index, re-planned after it failed, must not carry over, or the new fill would resume
+    // at the old cursor and skip what came before it.
+    for (String property : FRESH_FILL_PROPERTIES) {
+      result.remove(key(indexName, property));
+    }
     result.put(key(indexName, BACKFILL_TARGET_INDEX), targetIndex);
     result.put(key(indexName, BACKFILL_START_TIME), String.valueOf(startTime));
     result.put(key(indexName, STATUS), Status.BACKFILL_PENDING.name());
     return result;
   }
+
+  /** Properties of an earlier fill attempt that a fill planned afresh does not inherit. */
+  private static final List<String> FRESH_FILL_PROPERTIES =
+      List.of(
+          BACKFILL_CURSOR_ENTITY,
+          BACKFILL_CURSOR_URN,
+          BACKFILL_PROCESSED_COUNT,
+          BACKFILL_TOTAL_ESTIMATE,
+          BACKFILL_URNS_PROCESSED,
+          BACKFILL_GENERATION,
+          BACKFILL_COMPLETE_TIME,
+          OLD_BACKING_INDEX_ID_SCHEME_STALE);
 
   /** Pin the baseline generation every document of this fill is written with. */
   public static Map<String, String> setBackfillGeneration(

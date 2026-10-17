@@ -130,7 +130,7 @@ public class IncrementalReindexWriteTargetsTest {
             new IncrementalReindexWriteTargets.StateSource(opContext, store, upgradeIdUrn),
             true);
 
-    assertTrue(targets.pollState());
+    targets.pollState();
 
     assertEquals(targets.oldBackingIndexFor(V2_INDEX), Optional.empty());
     assertEquals(targets.oldBackingIndexFor(V3_INDEX), Optional.of(V3_OLD_BACKING));
@@ -152,22 +152,25 @@ public class IncrementalReindexWriteTargetsTest {
             true);
     assertFalse(targets.hasRollbackTargets(EntityIndexVersion.V3));
 
-    assertTrue(targets.pollState());
+    targets.pollState();
 
     assertEquals(targets.oldBackingIndexFor(V3_INDEX), Optional.of(V3_OLD_BACKING));
   }
 
   @Test
-  public void testPollerOutlivesAnInFlightFillAndStopsWhenNothingRemains() throws Exception {
+  public void testPollKeepsFollowingTheStateAfterEveryTargetRetires() throws Exception {
     Map<String, String> filling =
         IncrementalReindexState.setBackfillPending(null, V3_INDEX, V3_INDEX + "_next", 100L);
     Map<String, String> swapped =
         phase1(null, V3_INDEX, V3_OLD_BACKING, IncrementalReindexState.Status.COMPLETED);
     Map<String, String> disabled =
         phase1(null, V3_INDEX, V3_OLD_BACKING, IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
+    Map<String, String> replanned =
+        IncrementalReindexState.setBackfillPending(null, V3_INDEX, V3_INDEX + "_next2", 200L);
     DataHubUpgradeResultStore store = mock(DataHubUpgradeResultStore.class);
     when(store.readLatest(any(), eq(upgradeIdUrn)))
-        .thenReturn(enveloped(filling), enveloped(swapped), enveloped(disabled));
+        .thenReturn(
+            enveloped(filling), enveloped(swapped), enveloped(disabled), enveloped(replanned));
     IncrementalReindexWriteTargets targets =
         new IncrementalReindexWriteTargets(
             Map.of(),
@@ -176,15 +179,20 @@ public class IncrementalReindexWriteTargetsTest {
             new IncrementalReindexWriteTargets.StateSource(opContext, store, upgradeIdUrn),
             true);
 
-    // Nothing to dual-write yet, but the fill may still swap: keep polling.
-    assertTrue(targets.pollState());
+    // Nothing to dual-write yet, but the fill is in flight: live deletes reach the next index.
+    targets.pollState();
     assertFalse(targets.hasRollbackTargets(EntityIndexVersion.V3));
+    assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
     // The fill swapped: the target appears without a restart.
-    assertTrue(targets.pollState());
+    targets.pollState();
     assertEquals(targets.oldBackingIndexFor(V3_INDEX), Optional.of(V3_OLD_BACKING));
-    // Phase 2 retired it and no fill is in flight: nothing left to watch.
-    assertFalse(targets.pollState());
+    // Phase 2 retired it and nothing is in flight.
+    targets.pollState();
     assertFalse(targets.hasRollbackTargets(EntityIndexVersion.V3));
+    assertEquals(targets.fillTargetFor(V3_INDEX), Optional.empty());
+    // A fill planned later for the same version is still seen: the poll never stops.
+    targets.pollState();
+    assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next2"));
   }
 
   @Test
@@ -235,11 +243,11 @@ public class IncrementalReindexWriteTargetsTest {
             new IncrementalReindexWriteTargets.StateSource(opContext, store, upgradeIdUrn),
             true);
 
-    assertTrue(targets.pollState());
+    targets.pollState();
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
     // The fill swapped: live deletes stop going to the next index, which the alias now serves,
     // and the swapped-out index becomes the rollback target.
-    assertTrue(targets.pollState());
+    targets.pollState();
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.empty());
     assertEquals(targets.oldBackingIndexFor(V3_INDEX), Optional.of(V3_OLD_BACKING));
   }
@@ -260,7 +268,7 @@ public class IncrementalReindexWriteTargetsTest {
 
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
     assertEquals(targets.oldBackingIndexFor(V2_INDEX), Optional.empty());
-    assertTrue(targets.pollState(), "a fill in flight keeps the poller alive");
+    targets.pollState();
     assertEquals(
         targets.oldBackingIndexFor(V2_INDEX),
         Optional.empty(),
@@ -268,7 +276,7 @@ public class IncrementalReindexWriteTargetsTest {
   }
 
   @Test
-  public void testAFailedStateReadKeepsTheTargetsAndKeepsPolling() throws Exception {
+  public void testAFailedStateReadKeepsTheTargets() throws Exception {
     Map<String, String> filling =
         IncrementalReindexState.setBackfillPending(null, V3_INDEX, V3_INDEX + "_next", 100L);
     DataHubUpgradeResultStore store = mock(DataHubUpgradeResultStore.class);
@@ -284,14 +292,14 @@ public class IncrementalReindexWriteTargetsTest {
             new IncrementalReindexWriteTargets.StateSource(opContext, store, upgradeIdUrn),
             true);
 
-    assertTrue(targets.pollState());
+    targets.pollState();
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
-    // A read that fails is not a state with nothing in flight: the fill target stays, the poller
-    // stays, and live deletes keep reaching the index the fill is building.
-    assertTrue(targets.pollState());
+    // A read that fails is not a state with nothing in flight: the fill target stays and live
+    // deletes keep reaching the index the fill is building.
+    targets.pollState();
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.of(V3_INDEX + "_next"));
     // A state that was read and holds nothing retires it.
-    assertFalse(targets.pollState());
+    targets.pollState();
     assertEquals(targets.fillTargetFor(V3_INDEX), Optional.empty());
   }
 
@@ -309,14 +317,15 @@ public class IncrementalReindexWriteTargetsTest {
   }
 
   @Test
-  public void testPollsOftenWhileARebuildIsInFlight() throws Exception {
+  public void testPollsOftenUntilThisVersionsStateIsReadAndWhileARebuildFills() throws Exception {
     Map<String, String> filling =
         IncrementalReindexState.setBackfillPending(null, V3_INDEX, V3_INDEX + "_next", 100L);
     Map<String, String> swapped =
         phase1(null, V3_INDEX, V3_OLD_BACKING, IncrementalReindexState.Status.COMPLETED);
     DataHubUpgradeResultStore store = mock(DataHubUpgradeResultStore.class);
     when(store.readLatest(any(), eq(upgradeIdUrn)))
-        .thenReturn(enveloped(filling), enveloped(swapped));
+        .thenReturn(
+            (EnvelopedAspect) null, enveloped(Map.of()), enveloped(filling), enveloped(swapped));
     IncrementalReindexWriteTargets targets =
         new IncrementalReindexWriteTargets(
             Map.of(),
@@ -325,15 +334,26 @@ public class IncrementalReindexWriteTargetsTest {
             new IncrementalReindexWriteTargets.StateSource(opContext, store, upgradeIdUrn),
             true);
 
+    long beforeAnyRead = targets.nextPollDelaySeconds();
+    // The upgrade has written nothing for this version yet.
+    targets.pollState();
+    long stillUnread = targets.nextPollDelaySeconds();
+    // Phase 1 wrote its state and planned no fill.
+    targets.pollState();
     long idle = targets.nextPollDelaySeconds();
+    // A rebuild is filling.
     targets.pollState();
     long rebuilding = targets.nextPollDelaySeconds();
+    // It swapped.
     targets.pollState();
     long afterSwap = targets.nextPollDelaySeconds();
 
-    // Only a rebuild's swap can create a target after startup, and it happens while the consumers
-    // are serving, so the poll runs often while one is filling and settles back afterwards.
-    assertTrue(rebuilding < idle, "a rebuild in flight is watched more often");
+    // Consumers can be serving before the upgrade writes any state for their version, and a fill
+    // both starts and swaps while they serve; the poll runs often through both and settles once
+    // the state has been read and nothing is in flight.
+    assertEquals(stillUnread, beforeAnyRead);
+    assertTrue(idle > beforeAnyRead, "a state with nothing in flight slows the poll down");
+    assertEquals(rebuilding, beforeAnyRead);
     assertEquals(afterSwap, idle);
   }
 

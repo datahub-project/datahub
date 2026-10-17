@@ -547,6 +547,40 @@ public class IncrementalReindexStateTest {
     return IncrementalReindexState.setDualWriteStartTime(phase1State, ENTITY_INDEX, dualWriteStart);
   }
 
+  @Test
+  public void testAFillPlannedAfreshDoesNotInheritAnEarlierAttemptsProgress() {
+    Map<String, String> failedAttempt = new java.util.HashMap<>();
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.STATUS),
+        IncrementalReindexState.Status.FAILED.name());
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.BACKFILL_CURSOR_ENTITY),
+        "dataset");
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.BACKFILL_CURSOR_URN),
+        "urn:li:dataset:(urn:li:dataPlatform:hive,last,PROD)");
+    failedAttempt.put(
+        IncrementalReindexState.key(ENTITY_INDEX, IncrementalReindexState.BACKFILL_URNS_PROCESSED),
+        "7");
+    failedAttempt.put(
+        IncrementalReindexState.key(
+            ENTITY_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_ID_SCHEME_STALE),
+        "true");
+
+    Map<String, String> replanned =
+        IncrementalReindexState.setBackfillPending(failedAttempt, ENTITY_INDEX, NEXT_INDEX, 2000L);
+
+    assertEquals(
+        IncrementalReindexState.getStatus(replanned, ENTITY_INDEX),
+        java.util.Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertTrue(IncrementalReindexState.getBackfillCheckpoint(replanned, ENTITY_INDEX).isEmpty());
+    assertTrue(
+        IncrementalReindexState.get(
+                replanned, ENTITY_INDEX, IncrementalReindexState.BACKFILL_URNS_PROCESSED)
+            .isEmpty());
+    assertFalse(IncrementalReindexState.isOldBackingIndexIdSchemeStale(replanned, ENTITY_INDEX));
+  }
+
   private static Map<String, String> timeseriesPhase1State(
       long reindexStart, long dualWriteStart, String oldBacking) {
     Map<String, String> phase1State =

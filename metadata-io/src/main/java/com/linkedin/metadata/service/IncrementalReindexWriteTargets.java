@@ -31,9 +31,10 @@ import lombok.extern.slf4j.Slf4j;
  * swapped index's alias, the same key Phase 1 state uses, so the V2 and V3 update strategies share
  * one source and each resolves its target from the index it just wrote to. Rollback targets are
  * loaded only when rollback dual-write is enabled. An index rebuilt because its documents were
- * written under another document-id scheme has no rollback target: the running hasher's ids would
- * store a second copy of each entity next to the old one, so its old backing index keeps its
- * pre-swap content and a rollback to it returns to that.
+ * written under another document-id scheme, as its stamp or a sample of its ids showed, has no
+ * rollback target: the running hasher's ids would store a second copy of each entity next to the
+ * old one, so its old backing index keeps its pre-swap content and a rollback to it returns to
+ * that.
  *
  * <p><b>Fill targets.</b> A fill that rebuilds an index writes a next physical index while the
  * alias keeps serving the old one, and catch-up re-derives its window from primary storage, where a
@@ -41,21 +42,27 @@ import lombok.extern.slf4j.Slf4j;
  * applied to the index the fill is building; otherwise the deleted entity would come back with the
  * swap. Fill targets are tracked whether or not rollback dual-write is enabled.
  *
- * <p>Loaded once at startup and kept current by polling the persisted upgrade state: an index
- * swapped after startup (a fill rebuilt in the non-blocking phase) is added, an index marked
- * DUAL_WRITE_DISABLED is removed, and a fill's target is dropped once the fill has swapped it in.
- * The poller stops once no target remains and no fill is in flight that could still produce one.
+ * <p>Loaded once at startup and kept current by polling the persisted upgrade state for the life of
+ * the process: an index swapped after startup (a fill rebuilt in the non-blocking phase) is added,
+ * an index marked DUAL_WRITE_DISABLED is removed, and a fill's target is dropped once the fill has
+ * swapped it in. A state that holds nothing means nothing is in flight right now, not that nothing
+ * will be: consumers can be serving before the upgrade has written any state for their version. The
+ * poll runs often until it has read that state and while a fill is in flight, since a fill both
+ * starts and swaps while the consumers are serving, and rarely otherwise. A fill re-planned for the
+ * same version while the consumers idle is seen on the next rare poll. Closing stops the poller;
+ * the targets held so far stay readable.
  */
 @Slf4j
-public class IncrementalReindexWriteTargets {
+public class IncrementalReindexWriteTargets implements AutoCloseable {
 
-  private static final long POLL_INTERVAL_SECONDS = 300;
+  private static final long IDLE_POLL_INTERVAL_SECONDS = 300;
 
   /**
-   * A rebuild in flight swaps on its own schedule, after the consumers are already serving, and its
-   * swapped-out index must become a rollback target before much live traffic passes it by.
+   * Until the state for this version has been read, so a fill planned after startup is mirrored
+   * from its first pages, and while a fill is in flight, so its swapped-out index becomes a
+   * rollback target before much live traffic passes it by.
    */
-  private static final long REBUILD_IN_FLIGHT_POLL_INTERVAL_SECONDS = 15;
+  private static final long WATCHFUL_POLL_INTERVAL_SECONDS = 15;
 
   /** Persists {@code dualWriteStartTime} for the swapped index on its first rollback write. */
   @FunctionalInterface
@@ -81,6 +88,7 @@ public class IncrementalReindexWriteTargets {
   @Nullable private final StateSource stateSource;
   private final boolean rollbackDualWriteEnabled;
   @Nullable private final ScheduledExecutorService statePoller;
+  private volatile boolean phase1StateRead;
 
   public IncrementalReindexWriteTargets(
       @Nonnull final Map<String, RollbackTarget> initialRollbackTargets,
@@ -248,14 +256,16 @@ public class IncrementalReindexWriteTargets {
         removed.oldBackingIndexName());
   }
 
+  /** One pass over the persisted state. */
   @VisibleForTesting
-  /** One pass over the persisted state. Returns whether the poller stays alive. */
-  boolean pollState() {
+  void pollState() {
     if (stateSource == null) {
-      return false;
+      return;
     }
     try {
-      final Map<String, String> phase1State = readPhase1State(stateSource).orElse(Map.of());
+      final Optional<Map<String, String>> read = readPhase1State(stateSource);
+      phase1StateRead |= read.isPresent();
+      final Map<String, String> phase1State = read.orElse(Map.of());
       if (rollbackDualWriteEnabled) {
         for (RollbackTarget target : rollbackTargetsIn(phase1State).values()) {
           if (rollbackTargets.putIfAbsent(target.indexName(), target) == null) {
@@ -276,16 +286,9 @@ public class IncrementalReindexWriteTargets {
           removeRollbackTarget(indexName);
         }
       }
-      final boolean keepPolling =
-          !rollbackTargets.isEmpty() || !fillTargets.isEmpty() || anyFillInFlight(phase1State);
-      if (!keepPolling) {
-        shutdownPoller();
-      }
-      return keepPolling;
     } catch (Exception e) {
       // The targets held so far stay as they are: a failed read says nothing about the state.
       log.warn("Failed to poll incremental reindex state for write targets", e);
-      return true;
     }
   }
 
@@ -313,18 +316,9 @@ public class IncrementalReindexWriteTargets {
             });
   }
 
-  private static boolean anyFillInFlight(@Nonnull final Map<String, String> phase1State) {
-    return IncrementalReindexState.getAllIndexStates(phase1State).keySet().stream()
-        .anyMatch(
-            indexName ->
-                IncrementalReindexState.isBackfillStatus(
-                    IncrementalReindexState.getStatus(phase1State, indexName).orElse(null)));
-  }
-
   /**
    * The persisted Phase 1 state, empty when none is persisted. A failed read is thrown, not
-   * reported as absent: absence retires fill targets and can stop the poller, and a transient
-   * failure must do neither.
+   * reported as absent: absence retires fill targets, and a transient failure must not.
    */
   @Nonnull
   private static Optional<Map<String, String>> readPhase1State(
@@ -354,23 +348,26 @@ public class IncrementalReindexWriteTargets {
   }
 
   private void pollAndReschedule() {
-    if (pollState() && statePoller != null && !statePoller.isShutdown()) {
+    pollState();
+    if (statePoller != null && !statePoller.isShutdown()) {
       statePoller.schedule(this::pollAndReschedule, nextPollDelaySeconds(), TimeUnit.SECONDS);
     }
   }
 
+  @Override
+  public void close() {
+    if (statePoller != null) {
+      statePoller.shutdownNow();
+    }
+  }
+
   /**
-   * Often while a rebuild is filling, since only its swap can create a target; rarely otherwise.
+   * Often until this version's state has been read and while a fill is in flight; rarely otherwise.
    */
   @VisibleForTesting
   long nextPollDelaySeconds() {
-    return fillTargets.isEmpty() ? POLL_INTERVAL_SECONDS : REBUILD_IN_FLIGHT_POLL_INTERVAL_SECONDS;
-  }
-
-  private void shutdownPoller() {
-    if (statePoller != null && !statePoller.isShutdown()) {
-      log.info("No write targets remain or can still appear; stopping state poller");
-      statePoller.shutdown();
-    }
+    return !phase1StateRead || !fillTargets.isEmpty()
+        ? WATCHFUL_POLL_INTERVAL_SECONDS
+        : IDLE_POLL_INTERVAL_SECONDS;
   }
 }

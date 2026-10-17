@@ -7,8 +7,11 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +74,36 @@ public class V3DocumentIdSchemeTest {
     assertEquals(stamped.get("_meta"), Map.of("owner", "datahub", "docIdScheme", "sha256-urn"));
     assertEquals(meta, Map.of("owner", "datahub"));
     assertFalse(((Map<?, ?>) mappings.get("_meta")).containsKey("docIdScheme"));
+  }
+
+  @Test
+  public void testSampledIdsTheRunningHasherDerivesCountAsCurrent() {
+    Urn first = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sample.one,PROD)");
+    Urn second = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sample.two,PROD)");
+    EntityDocumentIdHasher hasher = new Sha256UrnEntityDocumentIdHasher();
+    Map<String, String> sample =
+        Map.of(
+            hasher.documentId(OperationFingerprint.EMPTY, first), first.toString(),
+            hasher.documentId(OperationFingerprint.EMPTY, second), second.toString());
+
+    assertEquals(scheme.countIdsFromAnotherScheme(OperationFingerprint.EMPTY, sample), 0L);
+    assertEquals(scheme.countIdsFromAnotherScheme(OperationFingerprint.EMPTY, Map.of()), 0L);
+  }
+
+  @Test
+  public void testSampledIdsFromAnotherSchemeAreCounted() {
+    Urn hashed = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sample.one,PROD)");
+    String urlEncoded = "urn:li:dataset:(urn:li:dataPlatform:hive,sample.two,PROD)";
+    Map<String, String> sample =
+        Map.of(
+            new Sha256UrnEntityDocumentIdHasher().documentId(OperationFingerprint.EMPTY, hashed),
+            hashed.toString(),
+            URLEncoder.encode(urlEncoded, StandardCharsets.UTF_8),
+            urlEncoded,
+            "some-id",
+            "not a urn");
+
+    assertEquals(scheme.countIdsFromAnotherScheme(OperationFingerprint.EMPTY, sample), 2L);
   }
 
   @Test

@@ -11,7 +11,10 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.PrimaryStorageContext;
@@ -39,21 +42,45 @@ import lombok.extern.slf4j.Slf4j;
  * could hand back the very state the replay is meant to correct. Batches without the catch-up mark
  * are returned as they are.
  *
+ * <p>The rebuilt events can only write what storage holds. What the index holds for an aspect
+ * storage no longer has, after a removal nothing mirrored, would survive the writer's merge, so the
+ * rebuilder also reads, with one request per slice, the aspect names each replayed document carries
+ * and reports the versioned ones storage lost, with the field names the document holds for them,
+ * for the writer to null. Timeseries entries are left alone: storage never lists them.
+ *
  * <p>Two consequences are deliberate. An entity whose key aspect is absent from storage is treated
  * as gone even if other aspect rows remain, so such a legacy entity is removed from the index on
- * replay. And a storage read that fails propagates out of the whole batch: a replay is the only
- * pass over its window, so the failure must surface rather than drop the URN, and the live events
- * grouped into the same batch are redelivered with it.
+ * replay. And a storage or index read that fails propagates out of the whole batch: a replay is the
+ * only pass over its window, so the failure must surface rather than drop the URN; the loader
+ * retries the batch, and the consumer records the failure.
  */
 @Slf4j
 public final class CatchUpBatchRebuilder {
 
-  /** URNs per storage read; bounds the query and the entities held in memory at once. */
+  /** URNs per storage read and per index read; bounds each query and the entities in memory. */
   private static final int READ_SLICE_SIZE = 500;
+
+  /**
+   * The batches to process in place of a replay's, and per entity the aspects its document holds
+   * that storage no longer has, as aspect name to the field names the document holds under it.
+   */
+  public record RebuiltBatches(
+      @Nonnull Map<Urn, List<MCLItem>> batches,
+      @Nonnull Map<Urn, Map<String, Set<String>>> removedAspects) {}
+
+  private final ElasticSearchService elasticSearchService;
+  private final EntityDocumentIdHasher documentIdHasher;
+
+  public CatchUpBatchRebuilder(
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull EntityDocumentIdHasher documentIdHasher) {
+    this.elasticSearchService = elasticSearchService;
+    this.documentIdHasher = documentIdHasher;
+  }
 
   /** The batches to process in place of {@code groupedEvents}; a batch without the mark is kept. */
   @Nonnull
-  public Map<Urn, List<MCLItem>> rebuild(
+  public RebuiltBatches rebuild(
       @Nonnull OperationContext opContext, @Nonnull Map<Urn, List<MCLItem>> groupedEvents) {
     Map<Urn, Set<String>> storedAspectNames = new HashMap<>();
     for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
@@ -63,14 +90,19 @@ public final class CatchUpBatchRebuilder {
       }
     }
     if (storedAspectNames.isEmpty()) {
-      return groupedEvents;
+      return new RebuiltBatches(groupedEvents, Map.of());
     }
     OperationContext primary = primaryStorageContext(opContext);
+    List<Map<Urn, Set<String>>> slices = reads(storedAspectNames);
     Map<Urn, Map<String, SystemAspect>> stored = new HashMap<>();
-    for (Map<Urn, Set<String>> read : reads(storedAspectNames)) {
+    for (Map<Urn, Set<String>> slice : slices) {
       stored.putAll(
-          Optional.ofNullable(primary.getAspectRetriever().getLatestSystemAspects(primary, read))
+          Optional.ofNullable(primary.getAspectRetriever().getLatestSystemAspects(primary, slice))
               .orElse(Map.of()));
+    }
+    Map<Urn, Map<String, Set<String>>> removedAspects = new HashMap<>();
+    for (Map<Urn, Set<String>> slice : slices) {
+      removedAspects.putAll(removedAspects(opContext, slice, stored));
     }
     Map<Urn, List<MCLItem>> rebuilt = new LinkedHashMap<>(groupedEvents);
     for (Urn urn : storedAspectNames.keySet()) {
@@ -79,7 +111,59 @@ public final class CatchUpBatchRebuilder {
           storedStateEvents(
               opContext, urn, groupedEvents.get(urn), stored.getOrDefault(urn, Map.of())));
     }
-    return rebuilt;
+    return new RebuiltBatches(rebuilt, removedAspects);
+  }
+
+  /**
+   * Per entity of one slice, the versioned aspects its document holds that storage no longer has,
+   * each with the field names the document holds for it; one index request per slice. An entity
+   * with no key aspect in storage is deleted whole and needs none, and an entity the index does not
+   * hold has nothing to remove.
+   */
+  @Nonnull
+  private Map<Urn, Map<String, Set<String>>> removedAspects(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Urn, Set<String>> slice,
+      @Nonnull Map<Urn, Map<String, SystemAspect>> stored) {
+    EntitySpec entitySpec =
+        opContext
+            .getEntityRegistry()
+            .getEntitySpec(slice.keySet().iterator().next().getEntityType());
+    Set<String> versioned = storedAspectNames(entitySpec);
+    Map<String, Urn> urnsByDocumentId = new LinkedHashMap<>();
+    for (Urn urn : slice.keySet()) {
+      urnsByDocumentId.put(documentIdHasher.documentId(opContext, urn), urn);
+    }
+    Map<String, Map<String, Set<String>>> inIndex =
+        elasticSearchService.aspectFieldNamesBySearchGroup(
+            opContext, V3IndexKeys.resolve(entitySpec), urnsByDocumentId.keySet());
+    Map<Urn, Map<String, Set<String>>> removed = new HashMap<>();
+    inIndex.forEach(
+        (documentId, aspectsInIndex) -> {
+          Urn urn = urnsByDocumentId.get(documentId);
+          Map<String, SystemAspect> storedAspects = stored.getOrDefault(urn, Map.of());
+          if (!isStored(storedAspects, entitySpec.getKeyAspectName())) {
+            return;
+          }
+          Map<String, Set<String>> gone = new HashMap<>();
+          aspectsInIndex.forEach(
+              (aspectName, fields) -> {
+                if (versioned.contains(aspectName) && !isStored(storedAspects, aspectName)) {
+                  gone.put(aspectName, fields);
+                }
+              });
+          if (!gone.isEmpty()) {
+            log.info("Catch-up replay drops {} from the document of {}", gone.keySet(), urn);
+            removed.put(urn, gone);
+          }
+        });
+    return removed;
+  }
+
+  private static boolean isStored(
+      @Nonnull Map<String, SystemAspect> storedAspects, @Nonnull String aspectName) {
+    SystemAspect stored = storedAspects.get(aspectName);
+    return stored != null && stored.getRecordTemplate() != null;
   }
 
   /**
@@ -137,7 +221,7 @@ public final class CatchUpBatchRebuilder {
     EntitySpec entitySpec = replayedEvent.getEntitySpec();
     StringMap headers = replayedEvent.getMetadataChangeLog().getHeaders();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
-    if (storedAspects.get(entitySpec.getKeyAspectName()) == null) {
+    if (!isStored(storedAspects, entitySpec.getKeyAspectName())) {
       log.info(
           "Catch-up replay finds no key aspect in primary storage for {}; deleting its document",
           urn);
@@ -157,7 +241,7 @@ public final class CatchUpBatchRebuilder {
       return List.of(MCLItemImpl.builder().build(delete, aspectRetriever));
     }
     return storedAspects.entrySet().stream()
-        .filter(entry -> entry.getValue() != null && entry.getValue().getRecordTemplate() != null)
+        .filter(entry -> isStored(storedAspects, entry.getKey()))
         .sorted(Map.Entry.comparingByKey())
         .map(
             entry -> {

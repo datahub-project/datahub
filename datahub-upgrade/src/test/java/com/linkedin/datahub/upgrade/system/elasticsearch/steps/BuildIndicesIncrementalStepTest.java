@@ -18,7 +18,10 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -61,6 +64,12 @@ public class BuildIndicesIncrementalStepTest {
   private static final String INDEX_NAME = "datasetindex_v2";
   private static final String NEXT_INDEX_NAME = "datasetindex_v2_0_14_0-0_1679000000000";
   private static final String V3_INDEX_NAME = "primaryindex_v3";
+  private static final Urn SAMPLED_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sampled,PROD)");
+  private static final String HASHED_ID =
+      new Sha256UrnEntityDocumentIdHasher().documentId(OperationFingerprint.EMPTY, SAMPLED_URN);
+  private static final String LEGACY_ID =
+      "urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Csampled%2CPROD%29";
 
   @Mock private EntityService<?> entityService;
   @Mock private ESIndexBuilder indexBuilder;
@@ -944,12 +953,9 @@ public class BuildIndicesIncrementalStepTest {
 
   @Test
   public void testFilledIndexFromAnotherIdSchemeIsRebuiltIntoANextIndex() throws Throwable {
-    // Unstamped live mapping: a V3 index created before the stamp existed.
-    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, true);
-    when(v3Config.currentMappings()).thenReturn(Map.of("properties", Map.of()));
-    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
-    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(V3_INDEX_NAME)))
-        .thenReturn(Set.of("primaryindex_v3_old"));
+    // Unstamped, and the sampled ids are not the running hasher's: a pre-hashing index.
+    ReindexConfig v3Config = unstampedV3Config();
+    stubSampledIds(Map.of(LEGACY_ID, SAMPLED_URN.toString()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
@@ -977,7 +983,92 @@ public class BuildIndicesIncrementalStepTest {
         Optional.of("primaryindex_v3_old"));
     assertTrue(
         IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
-        "the old index's ids are not the running hasher's: no live write may be mirrored into it");
+        "its sampled ids are not the running hasher's: no live write may be mirrored into it");
+  }
+
+  @Test
+  public void testUnstampedIndexWhoseSampledIdsAreCurrentKeepsRollbackWrites() throws Throwable {
+    // Built under the running hasher before stamping existed: rebuilt once to record the scheme,
+    // and the index the rebuild leaves behind keeps receiving rollback writes.
+    ReindexConfig v3Config = unstampedV3Config();
+    stubSampledIds(Map.of(HASHED_ID, SAMPLED_URN.toString()));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<String> next = ArgumentCaptor.forClass(String.class);
+    verify(indexBuilder).createIndex(any(OperationContext.class), next.capture(), eq(v3Config));
+    assertTrue(next.getValue().startsWith(V3_INDEX_NAME + "_"));
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertEquals(
+        IncrementalReindexState.get(
+            state, V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.of("primaryindex_v3_old"));
+    assertFalse(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
+        "its sampled ids are the running hasher's, so rollback writes address its documents");
+  }
+
+  @Test
+  public void testUnstampedIndexWhoseSampleCannotBeReadGetsNoRollbackWrites() throws Throwable {
+    ReindexConfig v3Config = unstampedV3Config();
+    when(indexBuilder.sampleDocumentFieldById(
+            any(OperationContext.class), eq(V3_INDEX_NAME), eq("urn"), anyInt()))
+        .thenThrow(new IOException("search timed out"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).createIndex(any(OperationContext.class), anyString(), eq(v3Config));
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertTrue(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
+        "nothing shows that writes into it would address its documents");
+  }
+
+  @Test
+  public void testIndexStampedWithAnotherSchemeIsNotSampled() throws Throwable {
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, true);
+    when(v3Config.currentMappings())
+        .thenReturn(
+            Map.of("_meta", Map.of("docIdScheme", "sha256-tenant-urn"), "properties", Map.of()));
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(V3_INDEX_NAME)))
+        .thenReturn(Set.of("primaryindex_v3_old"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).createIndex(any(OperationContext.class), anyString(), eq(v3Config));
+    verify(indexBuilder, never())
+        .sampleDocumentFieldById(any(OperationContext.class), anyString(), anyString(), anyInt());
+    assertTrue(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(persistedState(), V3_INDEX_NAME),
+        "a recorded scheme other than the running one answers by itself");
+  }
+
+  /**
+   * A filled-generation index whose live mapping records no id scheme, behind one backing index.
+   */
+  private ReindexConfig unstampedV3Config() throws IOException {
+    ReindexConfig config = mockReindexConfig(V3_INDEX_NAME, true);
+    when(config.currentMappings()).thenReturn(Map.of("properties", Map.of()));
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
+    when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(V3_INDEX_NAME)))
+        .thenReturn(Set.of("primaryindex_v3_old"));
+    return config;
+  }
+
+  private void stubSampledIds(Map<String, String> urnsById) throws IOException {
+    when(indexBuilder.sampleDocumentFieldById(
+            any(OperationContext.class), eq(V3_INDEX_NAME), eq("urn"), anyInt()))
+        .thenReturn(urnsById);
   }
 
   @Test
@@ -1082,6 +1173,8 @@ public class BuildIndicesIncrementalStepTest {
     assertFalse(
         IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
         "the old index's ids are current, so rollback writes may reach it");
+    verify(indexBuilder, never())
+        .sampleDocumentFieldById(any(OperationContext.class), anyString(), anyString(), anyInt());
   }
 
   @Test
@@ -1123,6 +1216,49 @@ public class BuildIndicesIncrementalStepTest {
         state.containsKey(
             IncrementalReindexState.key(
                 V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX)));
+  }
+
+  @Test
+  public void testAReplannedFillStartsWithoutThePreviousAttemptsProgress() throws Throwable {
+    // The previous attempt filled its types, failed at the end and was marked FAILED with its
+    // cursor and verdicts still on the row; the new fill must not resume at that cursor.
+    ReindexConfig v3Config = unstampedV3Config();
+    stubSampledIds(Map.of(HASHED_ID, SAMPLED_URN.toString()));
+    Map<String, String> previous = new java.util.HashMap<>();
+    previous.put(
+        IncrementalReindexState.key(V3_INDEX_NAME, IncrementalReindexState.STATUS),
+        IncrementalReindexState.Status.FAILED.name());
+    previous.put(
+        IncrementalReindexState.key(V3_INDEX_NAME, IncrementalReindexState.BACKFILL_CURSOR_ENTITY),
+        "dataset");
+    previous.put(
+        IncrementalReindexState.key(V3_INDEX_NAME, IncrementalReindexState.BACKFILL_URNS_PROCESSED),
+        "7");
+    previous.put(
+        IncrementalReindexState.key(
+            V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_ID_SCHEME_STALE),
+        "true");
+    DataHubUpgradeResult previousResult = new DataHubUpgradeResult();
+    previousResult.setState(DataHubUpgradeState.FAILED);
+    previousResult.setResult(new StringMap(previous));
+    when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).createIndex(any(OperationContext.class), anyString(), eq(v3Config));
+    Map<String, String> state = persistedState();
+    assertEquals(
+        IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
+        Optional.of(IncrementalReindexState.Status.BACKFILL_PENDING));
+    assertTrue(IncrementalReindexState.getBackfillCheckpoint(state, V3_INDEX_NAME).isEmpty());
+    assertTrue(
+        IncrementalReindexState.get(
+                state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_URNS_PROCESSED)
+            .isEmpty());
+    assertFalse(
+        IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME),
+        "the earlier attempt's verdict does not carry over; the sample decides again");
   }
 
   @Test

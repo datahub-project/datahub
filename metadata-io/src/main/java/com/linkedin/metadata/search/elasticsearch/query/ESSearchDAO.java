@@ -98,6 +98,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
+import org.opensearch.common.document.DocumentField;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -105,6 +106,9 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
+import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -254,10 +258,90 @@ public class ESSearchDAO {
     return SearchClients.forEntityIndices(opContext, searchRequest, searchConfiguration);
   }
 
+  /** Script field under which {@link #aspectFieldNamesByDocumentId} reads a document's aspects. */
+  private static final String ASPECT_FIELD_NAMES = "aspectFieldNames";
+
+  /**
+   * The aspect names under {@code _aspects}, each with the field names under it, plus the
+   * structured properties aspect, which lives at the root only, reported under its own name with
+   * the root field it owns. Names only.
+   */
+  private static final String ASPECT_FIELD_NAMES_SCRIPT =
+      "Map names = new HashMap();"
+          + " def aspects = params['_source']['_aspects'];"
+          + " if (aspects instanceof Map) {"
+          + "   for (def entry : aspects.entrySet()) {"
+          + "     def fields = entry.getValue();"
+          + "     names[entry.getKey()] ="
+          + "         fields instanceof Map ? new ArrayList(fields.keySet()) : new ArrayList();"
+          + "   }"
+          + " }"
+          + " if (params['_source']['structuredProperties'] instanceof Map) {"
+          + "   names['structuredProperties'] = ['structuredProperties'];"
+          + " }"
+          + " return names;";
+
   @Nonnull
   private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
     return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
+  }
+
+  /**
+   * For each of {@code documentIds} present in {@code indexName}, the aspects its document holds,
+   * as aspect name to the field names the document holds for it: the entries under {@code
+   * _aspects}, and the structured properties aspect, which lives at the root only, with that root
+   * field. One request for the whole set, and names only: the engine reads each document's source
+   * map in a script field and sends no document body back. A document that is not in the index has
+   * no entry.
+   */
+  @Nonnull
+  public Map<String, Map<String, Set<String>>> aspectFieldNamesByDocumentId(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull Collection<String> documentIds) {
+    if (documentIds.isEmpty()) {
+      return Map.of();
+    }
+    SearchSourceBuilder source =
+        new SearchSourceBuilder()
+            .query(QueryBuilders.idsQuery().addIds(documentIds.toArray(new String[0])))
+            .size(documentIds.size())
+            .fetchSource(false)
+            .scriptField(
+                ASPECT_FIELD_NAMES,
+                new Script(ScriptType.INLINE, "painless", ASPECT_FIELD_NAMES_SCRIPT, Map.of()));
+    SearchRequest request = new SearchRequest(indexName).source(source);
+    SearchResponse response;
+    try {
+      response =
+          searchClient(opContext, indexName).search(opContext, request, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      throw new ESQueryException("Failed to read aspect names from " + indexName, e);
+    }
+    Map<String, Map<String, Set<String>>> byDocumentId = new HashMap<>();
+    for (SearchHit hit : response.getHits().getHits()) {
+      byDocumentId.put(hit.getId(), aspectFieldNames(hit.getFields().get(ASPECT_FIELD_NAMES)));
+    }
+    return byDocumentId;
+  }
+
+  @Nonnull
+  @VisibleForTesting
+  static Map<String, Set<String>> aspectFieldNames(@Nullable DocumentField field) {
+    Map<String, Set<String>> byAspect = new HashMap<>();
+    Object value = field == null ? null : field.getValue();
+    if (!(value instanceof Map<?, ?> aspects)) {
+      return byAspect;
+    }
+    aspects.forEach(
+        (aspect, fields) ->
+            byAspect.put(
+                String.valueOf(aspect),
+                fields instanceof Collection<?> names
+                    ? names.stream().map(String::valueOf).collect(Collectors.toSet())
+                    : Set.of()));
+    return byAspect;
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {

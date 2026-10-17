@@ -109,6 +109,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -144,8 +145,9 @@ import org.testng.SkipException;
  * <p>Produced change logs are delivered to one of three consumer shapes. {@link
  * #deliverToV2OnlyConsumers()} models the corpus that already exists before V3 is switched on,
  * {@link #deliverToUpgradedConsumers()} models the consumers of the deploy that enabled V3, and
- * {@link #restartDualWritingConsumers(String)} models consumers brought up after a deploy swapped a
- * V3 alias, which also keep the swapped-out backing index current for a rollback.
+ * {@link #restartDualWritingConsumers(String)} models the consumers of a later deploy, brought up
+ * before or after its Phase 1 ran, which mirror live deletes into the index a fill is building and
+ * keep a swapped-out backing index current for a rollback.
  */
 final class SearchV3MigrationHarness implements AutoCloseable {
 
@@ -179,6 +181,10 @@ final class SearchV3MigrationHarness implements AutoCloseable {
   private static final int HTTP_PORT = 9200;
   private static final Duration STARTUP_TIMEOUT = Duration.ofMinutes(5);
   private static final Duration CLIENT_CONNECT_TIMEOUT = Duration.ofSeconds(60);
+
+  /** Longer than the consumers' watchful poll interval, so a planned fill is seen by one tick. */
+  private static final Duration FILL_TARGET_POLL_TIMEOUT = Duration.ofSeconds(45);
+
   private static final long CLIENT_CONNECT_RETRY_MILLIS = 500;
   private static final Duration SYNC_TIMEOUT = Duration.ofMinutes(1);
   private static final IndicesOptions LENIENT = IndicesOptions.fromOptions(true, true, true, false);
@@ -219,6 +225,7 @@ final class SearchV3MigrationHarness implements AutoCloseable {
   private final Sha256UrnEntityDocumentIdHasher documentIdHasher =
       new Sha256UrnEntityDocumentIdHasher();
   private final InProcessChangeLogProducer producer;
+  @Nullable private IncrementalReindexWriteTargets writeTargets;
 
   /** Skips the calling test unless it was opted into and Docker can run the containers. */
   static void requireOptIn() {
@@ -468,12 +475,16 @@ final class SearchV3MigrationHarness implements AutoCloseable {
   }
 
   /**
-   * Dual-writing consumers brought up after {@code upgradeVersion}'s Phase 1 swapped an alias: they
-   * read that deploy's state at start and repeat every V3 write into the swapped-out backing index
-   * it records, so the alias can be swapped back without losing what arrived since.
+   * The consumers of the deploy {@code upgradeVersion}, brought up whenever the test calls this:
+   * they read that deploy's state at start, poll it afterwards as the real consumers do, repeat
+   * every V3 write into a swapped-out backing index it records, so the alias can be swapped back
+   * without losing what arrived since, and mirror live deletes into the index a fill is building.
    */
   void restartDualWritingConsumers(@Nonnull String upgradeVersion) {
-    IncrementalReindexWriteTargets rollbackTargets =
+    if (writeTargets != null) {
+      writeTargets.close();
+    }
+    writeTargets =
         IncrementalReindexWriteTargets.fromUpgradeResult(
             new IncrementalReindexWriteTargets.StateSource(
                 opContext,
@@ -481,7 +492,25 @@ final class SearchV3MigrationHarness implements AutoCloseable {
                 upgradeUrn(IncrementalReindexState.UPGRADE_ID_PREFIX, upgradeVersion)),
             null,
             true);
-    producer.deliverTo(updateIndices(enabledStrategies(v3Strategy(rollbackTargets))));
+    producer.deliverTo(updateIndices(enabledStrategies(v3Strategy(writeTargets))));
+  }
+
+  /**
+   * Waits until the consumers' poll has picked up the index a fill is building for {@code alias},
+   * as consumers that were serving before the fill was planned have to.
+   */
+  void awaitFillTarget(@Nonnull String alias) throws InterruptedException {
+    if (writeTargets == null) {
+      throw new IllegalStateException("no consumers have been restarted on a deploy's version");
+    }
+    long deadline = System.currentTimeMillis() + FILL_TARGET_POLL_TIMEOUT.toMillis();
+    while (writeTargets.fillTargetFor(alias).isEmpty()) {
+      if (System.currentTimeMillis() > deadline) {
+        throw new AssertionError(
+            "the consumers did not pick up a fill target for " + alias + " by polling");
+      }
+      Thread.sleep(250);
+    }
   }
 
   /** Changes one field's mapping on a V3 index, as a release that evolves the schema would. */
@@ -563,13 +592,17 @@ final class SearchV3MigrationHarness implements AutoCloseable {
   }
 
   /**
-   * Replaces whatever backs {@code alias} with {@code legacyIndex}: the current target mapping
-   * without the document-id scheme stamp, holding the same documents under URL-encoded URN ids.
-   * That is a V3 index built before document ids were hashed. When {@code legacyIndex} is the alias
-   * name itself, the index takes that name directly, as a V3 index created before indices were
-   * aliased did.
+   * Replaces whatever backs {@code alias} with {@code unstampedIndex}: the current target mapping
+   * without the document-id scheme stamp, holding the same documents under the ids {@code
+   * documentIdOf} derives from their URNs. With URL-encoded URN ids that is a V3 index built before
+   * document ids were hashed; with hashed ids it is one a writer created before stamping existed.
+   * When {@code unstampedIndex} is the alias name itself, the index takes that name directly, as a
+   * V3 index created before indices were aliased did.
    */
-  void replaceWithLegacyIdIndex(@Nonnull String alias, @Nonnull String legacyIndex)
+  void replaceWithUnstampedIndex(
+      @Nonnull String alias,
+      @Nonnull String unstampedIndex,
+      @Nonnull Function<String, String> documentIdOf)
       throws Exception {
     List<SearchHit> documents = hits(v3Client, alias);
     Map<String, Object> unstamped =
@@ -587,14 +620,14 @@ final class SearchV3MigrationHarness implements AutoCloseable {
         opContext, new DeleteIndexRequest(current.toArray(new String[0])), RequestOptions.DEFAULT);
     v3IndexBuilder.createIndex(
         opContext,
-        legacyIndex,
-        v3IndexBuilder.buildReindexState(opContext, legacyIndex, unstamped, settings));
-    if (!legacyIndex.equals(alias)) {
+        unstampedIndex,
+        v3IndexBuilder.buildReindexState(opContext, unstampedIndex, unstamped, settings));
+    if (!unstampedIndex.equals(alias)) {
       v3Client.updateIndexAliases(
           opContext,
           new IndicesAliasesRequest()
               .addAliasAction(
-                  IndicesAliasesRequest.AliasActions.add().index(legacyIndex).alias(alias)),
+                  IndicesAliasesRequest.AliasActions.add().index(unstampedIndex).alias(alias)),
           RequestOptions.DEFAULT);
     }
     for (SearchHit document : documents) {
@@ -602,8 +635,8 @@ final class SearchV3MigrationHarness implements AutoCloseable {
       v3BulkProcessor.add(
           opContext,
           urn,
-          new IndexRequest(legacyIndex)
-              .id(legacyDocumentId(urn))
+          new IndexRequest(unstampedIndex)
+              .id(documentIdOf.apply(urn))
               .source(document.getSourceAsMap()));
     }
     v3BulkProcessor.flushAndWait(SYNC_TIMEOUT);
@@ -658,6 +691,9 @@ final class SearchV3MigrationHarness implements AutoCloseable {
 
   @Override
   public void close() {
+    if (writeTargets != null) {
+      writeTargets.close();
+    }
     for (GenericContainer<?> container : containers) {
       try {
         container.stop();

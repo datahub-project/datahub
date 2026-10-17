@@ -93,6 +93,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.index.reindex.BulkByScrollTask;
 import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.search.SearchHit;
@@ -1920,78 +1921,185 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Copies the concrete index named by {@code indexState} into {@code retainedIndexName}, a
-   * physical index of its family, before an alias takes its name. A V3 index created before indices
-   * were aliased owns the convention name itself; the swap that gives that name to the alias has to
-   * delete the index, so the copy is what the alias can be swapped back to and what rollback
-   * dual-write keeps current. The copy takes the index's current mappings, so an index built under
-   * an earlier document-id scheme stays recognisable as such, and the configured settings. Writes
+   * Starts copying the concrete index named by {@code indexState} into a physical index of its
+   * family, before an alias takes its name. A V3 index created before indices were aliased owns the
+   * convention name itself; the swap that gives that name to the alias has to delete the index, so
+   * the copy is what the alias can be swapped back to. The copy takes the index's current mappings,
+   * so an index built under an earlier document-id scheme stays recognisable as such, and the
+   * configured settings; it runs through the same incremental copy a mapping change uses. Writes
    * that land on the index while the copy runs are not in it: catch-up replays them into the next
    * index, and only rollback fidelity is affected.
+   *
+   * <p>The result names the copy as soon as it exists, so the caller can record it before waiting
+   * on it with {@link #finishRollbackCopy}; a run that dies in between leaves a row that names the
+   * partial copy.
    */
-  public void retainIndexForRollback(
+  public IncrementalReindexResult startRollbackCopy(
       @Nonnull OperationContext opContext,
       @Nonnull ReindexConfig indexState,
-      @Nonnull String retainedIndexName)
+      @Nonnull String upgradeVersion)
       throws Exception {
-    String indexName = indexState.name();
     @SuppressWarnings("unchecked")
     Map<String, Object> configuredSettings =
         (Map<String, Object>) indexState.targetSettings().get("index");
-    ReindexConfig retained =
+    ReindexConfig asIs =
         buildReindexState(
             opContext,
-            retainedIndexName,
-            getCurrentMappings(opContext, indexName),
+            indexState.name(),
+            getCurrentMappings(opContext, indexState.name()),
             configuredSettings);
-    createIndex(opContext, retainedIndexName, retained);
     try {
-      long sourceDocCount = getSourceDocCount(opContext, indexName);
-      if (sourceDocCount == 0) {
-        log.info("Retained {} as {}: nothing to copy", indexName, retainedIndexName);
-        return;
+      return buildIndexIncremental(opContext, asIs, upgradeVersion);
+    } catch (Exception e) {
+      throw e;
+    } catch (Throwable t) {
+      throw new IllegalStateException("Copy of " + indexState.name() + " could not start", t);
+    }
+  }
+
+  /** How long a cancelled copy's reindex task is given to stop before the copy is left in place. */
+  private static final long REINDEX_CANCEL_CONFIRM_TIMEOUT_MS = 60_000L;
+
+  private static final long REINDEX_CANCEL_CONFIRM_POLL_MS = 1_000L;
+
+  /**
+   * Stops the reindex behind a copy started by {@link #startRollbackCopy} and confirms it has
+   * stopped, so the copy can be deleted without the task recreating it. A copy that skipped the
+   * reindex has nothing to stop. Throws when the task cannot be confirmed stopped; the caller then
+   * leaves the copy in place.
+   */
+  public void cancelRollbackCopy(
+      @Nonnull OperationContext opContext, @Nonnull IncrementalReindexResult copy)
+      throws InterruptedException {
+    if (copy.skippedEmpty() || copy.taskId() == null || copy.taskId().isEmpty()) {
+      return;
+    }
+    cancelReindexTaskAndConfirm(
+        opContext,
+        copy.taskId(),
+        REINDEX_CANCEL_CONFIRM_TIMEOUT_MS,
+        REINDEX_CANCEL_CONFIRM_POLL_MS);
+  }
+
+  /**
+   * Requests cancellation of a reindex task and waits until the task is gone or reports completion.
+   * The cancel request is best-effort: the confirmation poll is the source of truth, and it also
+   * covers a task that has already stopped on its own.
+   *
+   * @throws IllegalStateException if the task is not confirmed stopped within {@code timeoutMs}
+   */
+  @VisibleForTesting
+  public void cancelReindexTaskAndConfirm(
+      @Nonnull OperationContext opContext, String taskId, long timeoutMs, long pollMs)
+      throws InterruptedException {
+    try {
+      final Request request = new Request("POST", String.format("/_tasks/%s/_cancel", taskId));
+      settingsUpdateRetry.executeRunnable(
+          () -> {
+            try {
+              searchClient.performLowLevelRequest(opContext, request);
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          });
+      log.info("Requested cancellation of reindex task {}", taskId);
+    } catch (RuntimeException e) {
+      log.warn("Cancel request for reindex task {} failed; verifying task state.", taskId, e);
+    }
+
+    final long deadline = System.currentTimeMillis() + timeoutMs;
+    while (true) {
+      try {
+        final Optional<GetTaskResponse> status = getTaskStatus(opContext, taskId);
+        if (status.isEmpty() || status.get().isCompleted()) {
+          log.info("Confirmed reindex task {} is stopped.", taskId);
+          return;
+        }
+      } catch (IOException | RuntimeException e) {
+        // Both shims report a status error unchecked, and a cluster under enough load to reject a
+        // task read is the one this wait exists for; the deadline, not this catch, ends the loop.
+        log.warn("Transient error confirming cancellation of task {}; retrying.", taskId, e);
       }
-      int targetShards = extractTargetShards(retained);
-      Map<String, Object> reindexInfo =
-          submitReindex(
-              opContext,
-              new String[] {indexName},
-              retainedIndexName,
-              getReindexBatchSize(),
-              null,
-              null,
-              targetShards);
-      PollReindexResult poll =
+      if (System.currentTimeMillis() >= deadline) {
+        break;
+      }
+      try {
+        Thread.sleep(pollMs);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw e;
+      }
+    }
+    throw new IllegalStateException(
+        String.format(
+            "Failed to confirm cancellation of reindex task %s within %d ms; leaving its"
+                + " destination in place to avoid concurrent reindexes into it.",
+            taskId, timeoutMs));
+  }
+
+  /**
+   * Waits for a copy started by {@link #startRollbackCopy} and applies the gate the alias swap
+   * applies: the copy must hold at least the documents the source held when it was launched. The
+   * copy's settings are restored afterwards. Throws when the copy did not complete or falls short;
+   * the caller decides what becomes of the copy then.
+   */
+  public void finishRollbackCopy(
+      @Nonnull OperationContext opContext,
+      @Nonnull ReindexConfig indexState,
+      @Nonnull IncrementalReindexResult copy)
+      throws Exception {
+    String indexName = indexState.name();
+    String retainedIndexName = copy.nextIndexName();
+    if (copy.skippedEmpty()) {
+      log.info("Retained {} as {}: nothing to copy", indexName, retainedIndexName);
+      return;
+    }
+    PollReindexResult poll;
+    try {
+      poll =
           pollReindexCompletion(
               opContext,
               indexName,
               retainedIndexName,
-              () -> sourceDocCount,
-              targetShards,
-              reindexInfo,
-              (String) reindexInfo.get("taskId"));
-      if (!poll.completed()) {
-        throw new IllegalStateException(
-            "Copy of " + indexName + " into " + retainedIndexName + " did not complete");
-      }
-      undoReindexOptimalSettings(opContext, retainedIndexName, retained, poll.latestReindexInfo());
-      log.info(
-          "Retained {} as {} ({} documents) for rollback",
-          indexName,
-          retainedIndexName,
-          sourceDocCount);
+              () -> copy.sourceDocCount(),
+              copy.targetShards(),
+              copy.reindexInfo(),
+              copy.taskId());
     } catch (Exception e) {
       throw e;
     } catch (Throwable t) {
       throw new IllegalStateException(
           "Copy of " + indexName + " into " + retainedIndexName + " failed", t);
     }
+    if (!poll.completed()) {
+      throw new IllegalStateException(
+          "Copy of " + indexName + " into " + retainedIndexName + " did not complete");
+    }
+    long retainedDocCount = getCount(opContext, retainedIndexName);
+    if (retainedDocCount < copy.sourceDocCount()) {
+      throw new IllegalStateException(
+          "Copy of "
+              + indexName
+              + " into "
+              + retainedIndexName
+              + " holds "
+              + retainedDocCount
+              + " documents, fewer than the "
+              + copy.sourceDocCount()
+              + " the source held when the copy was launched");
+    }
+    undoReindexOptimalSettings(opContext, retainedIndexName, indexState, poll.latestReindexInfo());
+    log.info(
+        "Retained {} as {} ({} documents) for rollback",
+        indexName,
+        retainedIndexName,
+        copy.sourceDocCount());
   }
 
   /**
    * Points {@code aliasName} at {@code newBackingIndex}. An index the alias pointed at is left in
    * place. A concrete index that owns {@code aliasName} itself is removed, since the alias needs
-   * its name; a caller that must keep it retains a copy first, see {@link #retainIndexForRollback}.
+   * its name; a caller that must keep it retains a copy first, see {@link #startRollbackCopy}.
    * Carries no document-count check; see {@link #validateAndSwapAlias} for when one is needed.
    */
   public void swapAlias(
@@ -2836,6 +2944,35 @@ public class ESIndexBuilder {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * Up to {@code size} documents of {@code indexName} chosen at random, as document id to the value
+   * of {@code field}; documents without the field are left out.
+   */
+  @Nonnull
+  public Map<String, String> sampleDocumentFieldById(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String field,
+      int size)
+      throws IOException {
+    SearchSourceBuilder source =
+        new SearchSourceBuilder()
+            .query(QueryBuilders.functionScoreQuery(ScoreFunctionBuilders.randomFunction()))
+            .size(size)
+            .fetchSource(new String[] {field}, null);
+    SearchResponse response =
+        searchClient.search(
+            opContext, new SearchRequest(indexName).source(source), requestOptionsLong);
+    Map<String, String> valuesById = new HashMap<>();
+    for (SearchHit hit : response.getHits().getHits()) {
+      Object value = hit.getSourceAsMap() == null ? null : hit.getSourceAsMap().get(field);
+      if (value != null) {
+        valuesById.put(hit.getId(), value.toString());
+      }
+    }
+    return valuesById;
   }
 
   /**

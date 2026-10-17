@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -75,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -1957,9 +1959,58 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testCatchUpReplayDropsAnAspectStorageNoLongerHolds() throws Exception {
+    // The fill wrote the entity with its tags, the tags were removed while nothing mirrored the
+    // removal, and a later write put the entity in the catch-up window. The rebuilt events can
+    // only write what storage holds and the document is merged, so the replay nulls what the
+    // document holds for the aspect storage lost.
+    stubTransformedDocument();
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    OperationContext replayContext = contextWithStoredAspects(storedDataset("stored"));
+    String documentId = DigestUtils.sha256Hex(testUrn.toString());
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(any(), eq("dataset"), any()))
+        .thenReturn(
+            Map.of(
+                documentId,
+                Map.of(
+                    DATASET_PROPERTIES_ASPECT_NAME,
+                    Set.of("name", "_systemMetadata"),
+                    "globalTags",
+                    Set.of("tags", "_systemMetadata", "runId"),
+                    "structuredProperties",
+                    Set.of("structuredProperties"))));
+
+    strategy.processBatch(
+        replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(replayContext), eq("dataset"), document.capture(), eq(documentId));
+    JsonNode written = replayContext.getObjectMapper().readTree(document.getValue());
+    assertTrue(
+        written.get("_aspects").get("globalTags").isNull(), "the lost aspect's entry is nulled");
+    assertTrue(written.get("tags").isNull(), "and the root field it projected");
+    assertTrue(
+        written.get("structuredProperties").isNull(),
+        "structured properties live at the root only and are cleared there");
+    assertFalse(
+        written.get("_aspects").has("structuredProperties"),
+        "no entry under _aspects is invented for them");
+    assertFalse(written.has("runId"), "a field the strategy owns is not");
+    assertFalse(written.has("_systemMetadata"), "nor the per-aspect system metadata key");
+    assertFalse(
+        written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).isNull(),
+        "an aspect storage still holds is written");
+  }
+
+  @Test
   public void testLiveDeleteIsMirroredIntoAnInFlightRebuildTarget() throws Exception {
     // A rebuild writes a next index while the alias still serves the old one; catch-up cannot
     // replay a hard delete, so the live delete must reach the next index itself.
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
     String alias =
         operationContext
@@ -1992,10 +2043,186 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testAMirroredDeleteIsDrainedAndIssuedAgainUntilItLands() throws Exception {
+    // Nothing replays a hard delete, so a batch that mirrored one into the index a rebuild is
+    // filling waits for its writes to land; a drain that fails has the mirror issued again.
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    doThrow(new RuntimeException("Bulk transfer failed")).doNothing().when(writeDAO).flushAndWait();
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    UpdateIndicesV3Strategy mirroring =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    mirroring.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    verify(writeDAO, times(2)).flushAndWait();
+    verify(elasticSearchService, times(2))
+        .deleteDocumentByIndexName(eq(operationContext), eq(next), eq(expectedDocId));
+    verify(elasticSearchService)
+        .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), eq(expectedDocId));
+  }
+
+  @Test
+  public void testAMirroredDeleteDrainThatRunsOutOfTimeLeavesTheWritesQueued() throws Exception {
+    // The bulk processor is shared by every consumer thread and idles only when all of them pause,
+    // so a wait that runs out is a busy processor, not a failed write.
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    doThrow(new RuntimeException("Timed out waiting for bulk transfer", new TimeoutException()))
+        .when(writeDAO)
+        .flushAndWait();
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    UpdateIndicesV3Strategy mirroring =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    mirroring.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(writeDAO).flushAndWait();
+    verify(elasticSearchService)
+        .deleteDocumentByIndexName(eq(operationContext), eq(next), anyString());
+  }
+
+  @Test
+  public void testAMirroredDeleteWhoseDrainKeepsFailingFailsTheBatch() throws Exception {
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    doThrow(new RuntimeException("Bulk transfer failed")).when(writeDAO).flushAndWait();
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    UpdateIndicesV3Strategy mirroring =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    RuntimeException thrown =
+        expectThrows(
+            RuntimeException.class,
+            () ->
+                mirroring.processBatch(
+                    operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true));
+
+    assertEquals(thrown.getMessage(), "Bulk transfer failed");
+    verify(writeDAO, times(3)).flushAndWait();
+    verify(elasticSearchService, times(3))
+        .deleteDocumentByIndexName(eq(operationContext), eq(next), anyString());
+  }
+
+  @Test
+  public void testADeleteWithoutAFillTargetDoesNotWaitForTheBulk() throws Exception {
+    // Outside a rebuild a delete costs what it costs today: appended and committed.
+    ESWriteDAO writeDAO = mock(ESWriteDAO.class);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(elasticSearchService)
+        .deleteDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), eq(DigestUtils.sha256Hex(testUrn.toString())));
+    verify(writeDAO, never()).flushAndWait();
+  }
+
+  @Test
+  public void testAFailedMirrorIsSkippedLikeAnyLiveWriteWhileV2IsDualWritten() throws Exception {
+    // The consumer records a failed batch and moves on without redelivering it, so a mirror that
+    // cannot be handed to the bulk processor is logged and skipped like any other live failure:
+    // failing the batch would only drop the other entities' writes with it.
+    IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
+    String alias =
+        operationContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(operationContext, "dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    when(targets.fillTargetFor(alias)).thenReturn(Optional.of(next));
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    doThrow(new IllegalStateException("processor closed"))
+        .when(elasticSearchService)
+        .deleteDocumentByIndexName(any(), eq(next), anyString());
+    when(mockAspectSpec.getName()).thenReturn("datasetKey");
+    when(mockEvent.getAspectName()).thenReturn("datasetKey");
+    when(mockEntitySpec.getAspectSpec("datasetKey")).thenReturn(mockAspectSpec);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.DELETE);
+    UpdateIndicesV3Strategy dualWriting =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .v2Enabled(true)
+            .incrementalReindexWriteTargets(targets)
+            .build();
+
+    dualWriting.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    verify(elasticSearchService)
+        .deleteDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), eq(DigestUtils.sha256Hex(testUrn.toString())));
+    verify(elasticSearchService).deleteDocumentByIndexName(any(), eq(next), anyString());
+  }
+
+  @Test
   public void testLiveAspectDeleteIsMirroredIntoAnInFlightRebuildTarget() throws Exception {
     // A removed aspect has no row to replay either: the partial document that clears its fields
     // on the alias is repeated on the next index.
     stubTransformedDocument();
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     IncrementalReindexWriteTargets targets = mock(IncrementalReindexWriteTargets.class);
     String alias =
         operationContext

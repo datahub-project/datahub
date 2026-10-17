@@ -366,6 +366,25 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
   }
 
+  /**
+   * For each of {@code documentIds} present in {@code searchGroup}'s V3 index, the aspects its
+   * document holds, as aspect name to the field names under it; see {@link
+   * ESSearchDAO#aspectFieldNamesByDocumentId}.
+   */
+  @Nonnull
+  public Map<String, Map<String, Set<String>>> aspectFieldNamesBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull Collection<String> documentIds) {
+    return esSearchDAO.aspectFieldNamesByDocumentId(
+        opContext,
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(opContext, searchGroup),
+        documentIds);
+  }
+
   @Override
   public void appendRunId(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {

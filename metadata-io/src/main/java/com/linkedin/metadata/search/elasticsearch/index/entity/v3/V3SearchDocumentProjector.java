@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Iterator;
@@ -108,7 +109,7 @@ public class V3SearchDocumentProjector {
                       ? objectNode
                       : SearchDocumentTransformer.withSystemCreated(
                           objectNode,
-                          event.getChangeType(),
+                          changeTypeForSystemCreated(event),
                           event.getEntitySpec(),
                           aspectSpec,
                           event.getAuditStamp()));
@@ -116,6 +117,23 @@ public class V3SearchDocumentProjector {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
     }
+  }
+
+  /**
+   * A backfill restates what primary storage holds, so its key aspect carries the row's creation
+   * time the way the upsert that created the entity did, and the document records it. A live
+   * restate records nothing, as before.
+   */
+  private static ChangeType changeTypeForSystemCreated(@Nonnull final MCLItem event) {
+    if (event.getChangeType() != ChangeType.RESTATE) {
+      return event.getChangeType();
+    }
+    final MetadataChangeLog changeLog = event.getMetadataChangeLog();
+    final boolean backfill =
+        changeLog != null
+            && changeLog.getHeaders() != null
+            && changeLog.getHeaders().containsKey(BackfillHeaders.MODE_HEADER_NAME);
+    return backfill ? ChangeType.UPSERT : ChangeType.RESTATE;
   }
 
   private Optional<ObjectNode> transformPreviousAspect(
