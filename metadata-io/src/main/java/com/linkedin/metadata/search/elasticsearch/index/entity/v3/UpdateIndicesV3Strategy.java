@@ -1,4 +1,4 @@
-package com.linkedin.metadata.service;
+package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -16,15 +16,11 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
+import com.linkedin.metadata.service.UpdateIndicesStrategy;
+import com.linkedin.metadata.service.UpdateIndicesUtil;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;

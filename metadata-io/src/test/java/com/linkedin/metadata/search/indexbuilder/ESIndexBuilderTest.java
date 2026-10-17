@@ -448,26 +448,29 @@ public class ESIndexBuilderTest {
   }
 
   /**
-   * A V3 index from before the shared search fields has none of the text subfields V3 full-text
-   * search reads, which only a rebuild adds.
+   * A V3 index from before the shared search fields has none of the text or ngram subfields V3
+   * full-text search reads. Those subfields sit on the root field, and only a rebuild adds them.
    */
   @Test
   void testApplyMappings_ReportsV3IndexWithoutSharedFullTextFields() throws IOException {
     Map<String, Object> perField =
-        searchMappings(
-            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))),
-            Map.of("type", "keyword"));
+        rootField(
+            "name",
+            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))));
     Map<String, Object> shared =
-        searchMappings(
-            Map.of("type", "keyword"),
-            Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
+        rootField(
+            "name", Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
     assertEquals(mappingRebuildErrors("datasetindex_v3", perField, shared), 1);
     assertEquals(mappingRebuildErrors("datasetindex_v2", perField, shared), 0);
     // Once the index has them, other unapplied changes only warn
     Map<String, Object> sharedWithOldRoot =
-        searchMappings(
-            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))),
-            Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
+        rootField(
+            "name",
+            Map.of(
+                "type",
+                "keyword",
+                "fields",
+                Map.of("delimited", Map.of("type", "text"), "text", Map.of("type", "text"))));
     assertEquals(mappingRebuildErrors("datasetindex_v3", sharedWithOldRoot, shared), 0);
 
     when(elasticSearchConfiguration.getEntityIndex())
@@ -487,12 +490,8 @@ public class ESIndexBuilderTest {
                 opContext, staleMappingIndexState("datasetindex_v3", perField, shared)));
   }
 
-  private static Map<String, Object> searchMappings(
-      Map<String, Object> name, Map<String, Object> searchEntityName) {
-    return Map.of(
-        "properties",
-        Map.of(
-            "name", name, "_search", Map.of("properties", Map.of("entityName", searchEntityName))));
+  private static Map<String, Object> rootField(String name, Map<String, Object> mapping) {
+    return Map.of("properties", Map.of(name, mapping));
   }
 
   private static ReindexConfig staleIndexState(String index, Object currentName) {

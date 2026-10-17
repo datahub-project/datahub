@@ -1,4 +1,4 @@
-package com.linkedin.metadata.utils.elasticsearch;
+package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;

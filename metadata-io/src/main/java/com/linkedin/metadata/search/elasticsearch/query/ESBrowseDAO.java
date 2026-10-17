@@ -21,7 +21,6 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
@@ -46,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -709,19 +707,19 @@ public class ESBrowseDAO {
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-    QueryBuilder query =
+    SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
-                opContext,
-                entitySpec,
-                searchConfiguration,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfig)
-            .getQuery(
-                finalOpContext,
-                input,
-                Boolean.TRUE.equals(
-                    finalOpContext.getSearchContext().getSearchFlags().isFulltext()));
+            opContext,
+            entitySpec,
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfig);
+    QueryBuilder query =
+        handler.getQuery(
+            finalOpContext,
+            input,
+            Boolean.TRUE.equals(finalOpContext.getSearchContext().getSearchFlags().isFulltext()));
     queryBuilder.must(query);
 
     if (!path.isEmpty()) {
@@ -730,14 +728,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(
-            finalOpContext,
-            List.of(entityName),
-            filter,
-            entitySpec.getSearchableFieldTypes(),
-            queryFilterRewriteChain,
-            searchConfiguration.getEntityIndex()));
+    queryBuilder.filter(handler.getFilterQuery(finalOpContext, filter));
 
     return queryBuilder;
   }
@@ -756,19 +747,19 @@ public class ESBrowseDAO {
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
-    QueryBuilder query =
+    SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
-                finalOpContext,
-                entitySpecs,
-                searchConfiguration,
-                customSearchConfiguration,
-                queryFilterRewriteChain,
-                searchServiceConfig)
-            .getQuery(
-                finalOpContext,
-                input,
-                Boolean.TRUE.equals(
-                    finalOpContext.getSearchContext().getSearchFlags().isFulltext()));
+            finalOpContext,
+            entitySpecs,
+            searchConfiguration,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            searchServiceConfig);
+    QueryBuilder query =
+        handler.getQuery(
+            finalOpContext,
+            input,
+            Boolean.TRUE.equals(finalOpContext.getSearchContext().getSearchFlags().isFulltext()));
     queryBuilder.must(query);
 
     if (!path.isEmpty()) {
@@ -777,27 +768,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    Map<String, Set<SearchableAnnotation.FieldType>> searchableFields =
-        entitySpecs.stream()
-            .flatMap(entitySpec -> entitySpec.getSearchableFieldTypes().entrySet().stream())
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    Map.Entry::getValue,
-                    (set1, set2) -> {
-                      set1.addAll(set2);
-                      return set1;
-                    }));
-    final List<String> entityNames =
-        entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList());
-    queryBuilder.filter(
-        SearchRequestHandler.getFilterQuery(
-            finalOpContext,
-            entityNames,
-            filter,
-            searchableFields,
-            queryFilterRewriteChain,
-            searchConfiguration.getEntityIndex()));
+    queryBuilder.filter(handler.getFilterQuery(finalOpContext, filter));
 
     return queryBuilder;
   }

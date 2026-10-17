@@ -34,7 +34,6 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMap
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -246,6 +245,9 @@ public class MultiEntityMappingsBuilderTest {
         String where = entitySpec.getName() + "." + aspectSpec.getName() + ".";
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
           SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+          if (!annotation.isV3Searchable()) {
+            continue;
+          }
           String fieldName =
               "/$key".equals(annotation.getFieldName())
                   ? com.linkedin.metadata.models.FieldSpecUtils.getSchemaFieldName(
@@ -325,9 +327,13 @@ public class MultiEntityMappingsBuilderTest {
                       registryContext.getEntityRegistry(), List.of(entitySpec)))
               .entrySet()) {
         for (String source : sharedField.getValue()) {
+          String destination = sharedField.getKey();
+          boolean feedsItself = source.equals(destination);
           assertTrue(
-              copyTo(properties, source).contains("_search." + sharedField.getKey()),
-              entitySpec.getName() + " " + source + " -> " + sharedField.getKey());
+              feedsItself
+                  ? properties.containsKey(destination)
+                  : copyTo(properties, source).contains(destination),
+              entitySpec.getName() + " " + source + " -> " + destination);
           checked++;
         }
       }
@@ -339,12 +345,22 @@ public class MultiEntityMappingsBuilderTest {
         }
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
           SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-          if (annotation.isQueryByDefault()
+          if (annotation.isV3Searchable()
+              && annotation.isQueryByDefault()
               && V3SearchFields.isStringFieldType(annotation.getFieldType())) {
+            String fieldName = annotation.getFieldName();
+            assertNotNull(
+                properties.get(fieldName), entitySpec.getName() + " is missing root " + fieldName);
+            boolean copiesToSharedField =
+                copyTo(properties, fieldName).stream()
+                    .anyMatch(destination -> !String.valueOf(destination).startsWith("_"));
+            boolean isExactSharedField =
+                annotation.resolvedForV3().getSearchLabel().filter(fieldName::equals).isPresent();
             assertTrue(
-                copyTo(properties, annotation.getFieldName()).stream()
-                    .anyMatch(destination -> String.valueOf(destination).startsWith("_search.")),
-                entitySpec.getName() + " " + annotation.getFieldName());
+                copiesToSharedField
+                    || isSharedSearchField(properties.get(fieldName))
+                    || isExactSharedField,
+                entitySpec.getName() + " " + fieldName);
           }
         }
       }
@@ -360,9 +376,8 @@ public class MultiEntityMappingsBuilderTest {
 
   /**
    * The base configuration types the root _system object that per-aspect system metadata copies
-   * into, and fields built from search labels keep their own mapping under _search. Reference
-   * fields are mapped at the root, where V2 queries and filters read them, and under their aspect
-   * in _aspects, where the projector writes the aspect copy.
+   * into. Reference fields are mapped at the root, where V2 queries and filters read them, and
+   * under their aspect in _aspects, where the projector writes the aspect copy.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -375,11 +390,7 @@ public class MultiEntityMappingsBuilderTest {
         new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
       Map<String, Object> properties = getProperties(mapping.getMappings());
       propertiesByIndex.put(mapping.getIndexName(), properties);
-      Map<String, Object> searchFields =
-          (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
-      assertFalse(
-          searchFields.keySet().stream().anyMatch(name -> name.startsWith("_system")),
-          mapping.getIndexName() + " " + searchFields.keySet());
+      assertFalse(properties.containsKey("_search"), mapping.getIndexName());
       Map<String, Object> systemFields =
           (Map<String, Object>) ((Map<String, Object>) properties.get("_system")).get("properties");
       Map<String, Object> modified =
@@ -389,12 +400,9 @@ public class MultiEntityMappingsBuilderTest {
           ((Map<String, Object>) modified.get("time")).get("type"), "date", mapping.getIndexName());
     }
 
-    Map<String, Object> datasetSearchFields =
-        (Map<String, Object>)
-            ((Map<String, Object>) propertiesByIndex.get("datasetindex_v3").get("_search"))
-                .get("properties");
+    Map<String, Object> datasetProperties = propertiesByIndex.get("datasetindex_v3");
     assertEquals(
-        ((Map<String, Object>) datasetSearchFields.get("entityName")).get("normalizer"),
+        ((Map<String, Object>) datasetProperties.get("name")).get("normalizer"),
         "keyword_normalizer");
     Map<String, Object> businessAttributeRef =
         (Map<String, Object>)
@@ -402,16 +410,15 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         ((Map<String, Object>) businessAttributeRef.get("properties")).containsKey("urn"),
         businessAttributeRef.toString());
-    // The referenced entity's fields queried by default copy into _search.other, as V2 searches
+    // The referenced entity's fields queried by default copy into other, as V2 searches
     // them, and never into the shared fields that name the referencing entity
     Map<String, Object> referencedName =
         (Map<String, Object>)
             ((Map<String, Object>) businessAttributeRef.get("properties")).get("name");
-    assertEquals(
-        referencedName.get("copy_to"), List.of("_search.other"), referencedName.toString());
+    assertEquals(referencedName.get("copy_to"), List.of("other"), referencedName.toString());
     assertEquals(
         ((Map<String, Object>) businessAttributeRef.get("properties")).get("urn"),
-        Map.of("type", "keyword", "copy_to", List.of("_search.other")));
+        Map.of("type", "keyword", "copy_to", List.of("other")));
     Map<String, Object> schemaFieldAspects =
         (Map<String, Object>)
             ((Map<String, Object>) propertiesByIndex.get("schemafieldindex_v3").get("_aspects"))
@@ -428,33 +435,46 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   /**
-   * Deliberate V3 change: full-text search reads the shared _search fields, so a string root field
-   * V2 analyzes is a normalized keyword on V3, whose .keyword subfield keeps the stored casing for
-   * filters, facets and sorts, and no root field outside the browse paths is analyzed. Root fields
-   * V2 does not analyze, and the browse paths legacy browse reads by depth, are mapped as on V2,
-   * apart from the fields listed with their reason.
+   * Deliberate V3 change: full-text search reads the shared root fields, so a string root field V2
+   * analyzes is a normalized keyword on V3, whose .keyword subfield keeps the stored casing for
+   * filters, facets and sorts, and no root field outside browse path v2 is analyzed. Browse path v1
+   * is not indexed. Root fields V2 does not analyze are mapped as on V2, apart from the fields
+   * listed with their reason.
    */
   @Test
   @SuppressWarnings("unchecked")
   public void testRegistryRootFieldsAreKeywordsAndOnlySearchFieldsAreAnalyzed() throws IOException {
-    Map<String, String> expectedDifferences =
-        Map.of(
-            "_entityName",
-            "aliases _search.entityName, which the name fields copy into",
-            "urn",
-            "a keyword with ignore_above 512 from the base configuration; full-text search finds"
-                + " its parts in _search.other",
-            "businessAttributeRef",
-            "a reference field keeps the referenced entity's fields unanalyzed; they never copy"
-                + " into the shared fields",
-            "ownerTypes",
-            "object fields are mapped under _aspects only; no query reads them at the root",
-            "structuredPropertyAttributionSources",
-            "structured property attribution is kept with the structuredProperties aspect",
-            "structuredPropertyAttributionActors",
-            "structured property attribution is kept with the structuredProperties aspect",
-            "structuredPropertyAttributionDates",
-            "structured property attribution is kept with the structuredProperties aspect");
+    Map<String, String> expectedDifferences = new HashMap<>();
+    expectedDifferences.put("_entityName", "aliases name, which the name fields copy into");
+    expectedDifferences.put(
+        "urn",
+        "a keyword with ignore_above 512 from the base configuration; full-text search finds"
+            + " its parts in other");
+    expectedDifferences.put(
+        "businessAttributeRef",
+        "a reference field keeps the referenced entity's fields unanalyzed; they never copy"
+            + " into the shared fields");
+    expectedDifferences.put(
+        "ownerTypes",
+        "object fields are mapped under _aspects only; no query reads them at the root");
+    expectedDifferences.put(
+        "structuredPropertyAttributionSources",
+        "structured property attribution is kept with the structuredProperties aspect");
+    expectedDifferences.put(
+        "structuredPropertyAttributionActors",
+        "structured property attribution is kept with the structuredProperties aspect");
+    expectedDifferences.put(
+        "structuredPropertyAttributionDates",
+        "structured property attribution is kept with the structuredProperties aspect");
+    expectedDifferences.put(
+        "createdAt", "access-token times are dates on V3; V2 counted them as longs");
+    expectedDifferences.put(
+        "expiresAt", "access-token times are dates on V3; V2 counted them as longs");
+    Set<String> v2SystemModifiedSidecars =
+        Set.of(
+            "termsModifiedAt",
+            "schemaFieldTermsModifiedAt",
+            "schemaFieldBusinessAttributeModifiedAt");
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Map<String, Map<String, Object>> v3PropertiesByIndex = new HashMap<>();
@@ -478,11 +498,35 @@ public class MultiEntityMappingsBuilderTest {
                 Object v3Field = withoutCopyTo(v3Properties.get(field));
                 // V2 also aliases _entityName inside reference fields, which no query reads
                 v2Field = withoutNestedEntityNameAlias(v2Field);
+                if (v2SystemModifiedSidecars.contains(field)) {
+                  if (v3Field != null) {
+                    differences.add(
+                        v3Index
+                            + "."
+                            + field
+                            + " is a V2 and V2.5 sidecar and must not be mapped on V3");
+                  }
+                  return;
+                }
+                // A field Search V3 turns off, such as a stamp replaced by systemMetadata, has no
+                // root field.
+                if (v3Field == null
+                    && !v3SearchableFieldNames(registryContext, v2Mapping.getIndexName())
+                        .contains(field)) {
+                  return;
+                }
+                if (isSharedSearchField(v3Field)) {
+                  return;
+                }
+                // V3 keyword roots add a byte-safe ignore_above. V2 keywords do not.
                 boolean expected =
                     expectedDifferences.containsKey(field)
                         || (isAnalyzedStringRoot(v2Field)
                             ? isKeywordStringRoot(v3Field)
-                            : sorted(v2Field).equals(sorted(v3Field)));
+                                || isExactUrnRoot(v3Field)
+                                || isUnindexedStringRoot(v3Field)
+                            : sorted(withoutIgnoreAbove(v2Field))
+                                .equals(sorted(withoutIgnoreAbove(v3Field))));
                 if (!expected) {
                   differences.add(v3Index + "." + field + ": V2 " + v2Field + ", V3 " + v3Field);
                 }
@@ -491,7 +535,7 @@ public class MultiEntityMappingsBuilderTest {
           (field, v3Field) -> {
             Set<String> analyzers = new HashSet<>();
             collectAnalysisReferences(v3Field, analyzers, new HashSet<>());
-            if (!"_search".equals(field) && !isBrowsePath(v3Field) && !analyzers.isEmpty()) {
+            if (!isSharedSearchField(v3Field) && !isBrowsePath(v3Field) && !analyzers.isEmpty()) {
               differences.add(v3Index + "." + field + " is analyzed: " + analyzers);
             }
           });
@@ -510,6 +554,34 @@ public class MultiEntityMappingsBuilderTest {
     return !analyzers.isEmpty() && !((Map<String, Object>) v2Field).containsKey("properties");
   }
 
+  /** A shared root field: full-text and autocomplete subfields live on the field itself. */
+  @SuppressWarnings("unchecked")
+  private static Set<String> v3SearchableFieldNames(OperationContext context, String v2IndexName) {
+    String entityIndex = v2IndexName.replace("index_v2", "");
+    Set<String> names = new HashSet<>();
+    for (EntitySpec entitySpec : context.getEntityRegistry().getEntitySpecs().values()) {
+      if (!entityIndex.equals(entitySpec.getName().toLowerCase())) {
+        continue;
+      }
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          if (fieldSpec.getSearchableAnnotation().isV3Searchable()) {
+            names.add(fieldSpec.getSearchableAnnotation().getFieldName());
+          }
+        }
+      }
+    }
+    return names;
+  }
+
+  private static boolean isSharedSearchField(Object field) {
+    return field instanceof Map<?, ?> mapping
+        && mapping.get("fields") instanceof Map<?, ?> subfields
+        && (subfields.containsKey("text")
+            || subfields.containsKey("stemmed")
+            || subfields.containsKey("ngram"));
+  }
+
   /** A normalized keyword whose only subfield is the .keyword that keeps the stored casing. */
   @SuppressWarnings("unchecked")
   private static boolean isKeywordStringRoot(Object v3Field) {
@@ -522,6 +594,24 @@ public class MultiEntityMappingsBuilderTest {
         && mapping.get("fields") instanceof Map<?, ?> fields
         && fields.keySet().equals(Set.of("keyword"))
         && "keyword".equals(((Map<String, Object>) fields.get("keyword")).get("type"));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static boolean isUnindexedStringRoot(Object v3Field) {
+    if (!(v3Field instanceof Map)) {
+      return false;
+    }
+    Map<String, Object> mapping = (Map<String, Object>) v3Field;
+    return "keyword".equals(mapping.get("type"))
+        && Boolean.FALSE.equals(mapping.get("index"))
+        && Boolean.FALSE.equals(mapping.get("doc_values"));
+  }
+
+  private static boolean isExactUrnRoot(Object v3Field) {
+    return v3Field instanceof Map<?, ?> mapping
+        && "keyword".equals(mapping.get("type"))
+        && Integer.valueOf(255).equals(mapping.get("ignore_above"))
+        && !mapping.containsKey("fields");
   }
 
   /** Browse paths are text with a token count, which legacy browse reads for path depth. */
@@ -542,6 +632,22 @@ public class MultiEntityMappingsBuilderTest {
     properties.remove("_entityName");
     Map<String, Object> copy = new HashMap<>((Map<String, Object>) mapping);
     copy.put("properties", properties);
+    return copy;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Object withoutIgnoreAbove(Object mapping) {
+    if (!(mapping instanceof Map)) {
+      return mapping;
+    }
+    Map<String, Object> copy = new HashMap<>();
+    ((Map<String, Object>) mapping)
+        .forEach(
+            (key, value) -> {
+              if (!"ignore_above".equals(key)) {
+                copy.put(key, withoutIgnoreAbove(value));
+              }
+            });
     return copy;
   }
 
@@ -597,9 +703,9 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
-  public void testGetIndexMappingsRejectsReservedSearchField() throws IOException {
+  public void testGetIndexMappingsRejectsReservedSystemField() throws IOException {
     V3MappingContributor contributor =
-        () -> Collections.singletonMap("_search", FieldTypeMapper.getMappingsForKeyword());
+        () -> Collections.singletonMap("_system", FieldTypeMapper.getMappingsForKeyword());
     mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
 
     expectThrows(
@@ -842,7 +948,7 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.KEYWORD,
             "_entityName",
             "datasetProperties",
-            Optional.of("entityName"),
+            Optional.of("name"),
             Optional.empty());
 
     when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
@@ -865,14 +971,14 @@ public class MultiEntityMappingsBuilderTest {
     assertFalse(rootTitle.containsKey("path"), "Projected root fields must not be aliases");
     assertEquals(
         rootTitle.get("copy_to"),
-        List.of("_search.entityName"),
+        List.of("name"),
         "Root projected field should keep its search-label copy_to but no tier target");
 
     assertEquals(rootEntityName.get("type"), "alias");
     assertEquals(
         rootEntityName.get("path"),
-        "_search.entityName",
-        "_entityName must alias the populated _search.entityName so the name suggester resolves it");
+        "name",
+        "_entityName must alias the populated name so the name suggester resolves it");
     assertFalse(
         rootEntityName.containsKey("copy_to"), "An alias field carries no copy_to of its own");
     assertFalse(
@@ -882,9 +988,9 @@ public class MultiEntityMappingsBuilderTest {
 
   /**
    * The V3 name suggester (ESUtils.buildNameSuggestions) queries the _entityName field, so it must
-   * be an Elasticsearch alias to the populated _search.entityName field. A concrete projected root
-   * field is never written by the projector, so suggestions would come back empty. Mirrors V2,
-   * which aliases _entityName to the name field.
+   * be an Elasticsearch alias to the populated name field. A concrete projected root field is never
+   * written by the projector, so suggestions would come back empty. Mirrors V2, which aliases
+   * _entityName to the name field.
    */
   @Test
   public void testEntityNameAliasBacksNameSuggester() {
@@ -895,7 +1001,7 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.KEYWORD,
             "_entityName",
             "datasetProperties",
-            Optional.of("entityName"),
+            Optional.of("name"),
             Optional.empty());
 
     when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
@@ -910,18 +1016,13 @@ public class MultiEntityMappingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> entityNameAlias = (Map<String, Object>) properties.get("_entityName");
     assertEquals(entityNameAlias.get("type"), "alias");
-    assertEquals(entityNameAlias.get("path"), "_search.entityName");
+    assertEquals(entityNameAlias.get("path"), "name");
 
-    // The alias target must exist and be populated (title copies into _search.entityName),
-    // otherwise
-    // the suggester resolves to nothing.
-    @SuppressWarnings("unchecked")
-    Map<String, Object> searchSection = (Map<String, Object>) properties.get("_search");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> searchProperties = (Map<String, Object>) searchSection.get("properties");
+    // The alias target must exist at the document root (title copies into name), otherwise the
+    // suggester resolves to nothing.
     assertTrue(
-        searchProperties.containsKey("entityName"),
-        "alias target _search.entityName must be present for the suggester to resolve");
+        properties.containsKey("name"),
+        "alias target name must be present for the suggester to resolve");
   }
 
   /** As on V2, a field name alias points at the root field documents hold the value under. */
@@ -989,7 +1090,7 @@ public class MultiEntityMappingsBuilderTest {
   /**
    * Deliberate V3 change: a root field that is a keyword for one entity and a word-gram name for
    * another is a normalized keyword like every string root, with no word-gram or ngram subfields;
-   * the name is searched in _search.entityName, which its label still copies it into.
+   * the name is searched in name, which its label still copies it into.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -1010,7 +1111,7 @@ public class MultiEntityMappingsBuilderTest {
             FieldType.WORD_GRAM,
             null,
             "chartInfo",
-            Optional.of("entityName"),
+            Optional.of("name"),
             Optional.empty());
 
     // One shared index: an unset searchGroup gives each entity its own index
@@ -1038,14 +1139,14 @@ public class MultiEntityMappingsBuilderTest {
     assertEquals(aspectTitleFields.keySet(), Set.of("keyword"));
     assertEquals(
         rootTitle.get("copy_to"),
-        List.of("_search.entityName"),
+        List.of("name"),
         "Root projection should keep its search-label copy target");
   }
 
   /**
    * Deliberate V3 change: the root urn is a plain keyword for exact match, and full-text search
-   * finds the urn's parts in _search.other, which it copies into, instead of V2's delimited and
-   * ngram subfields.
+   * finds the urn's parts in other, which it copies into, instead of V2's delimited and ngram
+   * subfields.
    */
   @Test
   public void testGeneratedRootUrnIsKeywordCopiedToOtherSearchField() throws IOException {
@@ -1067,7 +1168,7 @@ public class MultiEntityMappingsBuilderTest {
 
     assertEquals(urn.get("type"), "keyword");
     assertFalse(urn.containsKey("fields"), urn.toString());
-    assertEquals(urn.get("copy_to"), List.of("_search.other"));
+    assertEquals(urn.get("copy_to"), List.of("other"));
 
     // _entityType must be explicitly keyword-mapped: the projector writes it on every document
     // and the entity-type facet aggregates on it, which fails on a dynamic text mapping.
@@ -1083,9 +1184,7 @@ public class MultiEntityMappingsBuilderTest {
         getProperties(
             mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
 
-    Map<String, Object> searchFields =
-        (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
-    assertFalse(searchFields.containsKey("structuredProperties"), searchFields.keySet().toString());
+    assertFalse(properties.containsKey("_search"), properties.keySet().toString());
 
     StructuredPropertyDefinition optedIn =
         new StructuredPropertyDefinition()
@@ -1109,10 +1208,7 @@ public class MultiEntityMappingsBuilderTest {
                 .iterator()
                 .next()
                 .getMappings());
-    Map<String, Object> searchWithProperties =
-        (Map<String, Object>)
-            ((Map<String, Object>) withProperties.get("_search")).get("properties");
-    assertFalse(searchWithProperties.containsKey("structuredProperties"));
+    assertFalse(withProperties.containsKey("_search"));
     Map<String, Object> rootProperties =
         (Map<String, Object>)
             ((Map<String, Object>) withProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD))
@@ -1216,6 +1312,37 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void testSharedHasValuesBooleanCopiesToTheRootName() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Object> aspectBoolean = null;
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      Map<String, Object> properties = getProperties(mapping.getMappings());
+      Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+      if (aspects == null) {
+        continue;
+      }
+      Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+      Map<String, Object> editable =
+          (Map<String, Object>) aspectProperties.get("editableDatasetProperties");
+      if (editable == null) {
+        continue;
+      }
+      Map<String, Object> fields = (Map<String, Object>) editable.get("properties");
+      aspectBoolean = (Map<String, Object>) fields.get("hasDescription");
+      if (aspectBoolean != null) {
+        break;
+      }
+    }
+
+    assertNotNull(aspectBoolean);
+    assertEquals(aspectBoolean.get("type"), "boolean");
+    assertEquals(aspectBoolean.get("copy_to"), List.of("hasDescription"));
+  }
+
+  @Test
   public void testProjectorRootKeysAreMappedFields() throws IOException {
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
     mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig);
@@ -1290,7 +1417,7 @@ public class MultiEntityMappingsBuilderTest {
         "Conflicted object field alias root must have dynamic=true");
   }
 
-  /** A long and a date field of one root name, the one type conflict resolved, map as the date. */
+  /** A long and a date field of one root name do not share a V3 root, so the index is rejected. */
   @Test
   public void testLongAndDateRootFieldMapsAsTheDateField() {
     EntitySpec counted =
@@ -1321,12 +1448,8 @@ public class MultiEntityMappingsBuilderTest {
     when(dated.getSearchGroup()).thenReturn("primary");
     stubEntitySpecs(counted, dated);
 
-    Map<String, Object> properties =
-        getProperties(
-            mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
-
-    assertEquals(
-        properties.get("lastSeen"), FieldTypeMapper.getMappingsForFieldType(FieldType.DATETIME));
+    assertThrows(
+        IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
   }
 
   @Test
@@ -1466,9 +1589,8 @@ public class MultiEntityMappingsBuilderTest {
                 V3SearchFields.TEXT_SEARCH_ANALYZER,
                 V3SearchFields.STEMMED_ANALYZER,
                 V3SearchFields.STEMMED_SEARCH_ANALYZER,
-                "browse_path_hierarchy",
-                "slash_pattern",
-                "browse_path_v2_hierarchy")),
+                "browse_path_v2_hierarchy",
+                "unit_separator_pattern")),
         allReferencedAnalyzers.toString());
     // Deliberate V3 change: no field keeps V2's per-field analysis, and autocomplete's partial
     // analyzer is not mapped
@@ -1748,6 +1870,8 @@ public class MultiEntityMappingsBuilderTest {
         .thenReturn(fieldNameAlias != null ? Collections.singletonList(fieldNameAlias) : null);
     when(searchableAnnotation.getSearchLabel()).thenReturn(searchLabel);
     when(searchableAnnotation.getEntityFieldName()).thenReturn(entityFieldName);
+    when(searchableAnnotation.isV3Searchable()).thenReturn(true);
+    when(searchableAnnotation.resolvedForV3()).thenReturn(searchableAnnotation);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(searchableAnnotation);
     if (fieldType == FieldType.OBJECT) {
       DataSchema mockSchema = mock(DataSchema.class);
@@ -1854,6 +1978,8 @@ public class MultiEntityMappingsBuilderTest {
     when(annotation.getFieldType()).thenReturn(FieldType.URN);
     when(annotation.getFieldName()).thenReturn("owners");
     when(annotation.getEagerGlobalOrdinals()).thenReturn(Optional.of(true));
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
 

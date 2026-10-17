@@ -19,11 +19,14 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -255,5 +258,54 @@ public class V3SearchDocumentProjectorTest {
         (ObjectNode) document.get(MappingConstants.ASPECTS_FIELD_NAME).get("semanticContent");
     assertTrue(aspectNode.has("embeddings"));
     assertEquals(aspectNode.get("skipReason").asText(), "EMPTY_TEXT");
+  }
+
+  @Test
+  public void testEditedDescriptionSetsSharedHasValuesWithoutARootFalse() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    AspectSpec editable = dataset.getAspectSpec("editableDatasetProperties");
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getAspectSpec()).thenReturn(editable);
+    when(event.getAspectName()).thenReturn(editable.getName());
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    EditableDatasetProperties properties = new EditableDatasetProperties();
+    properties.setDescription("An edited description");
+    when(event.getRecordTemplate()).thenReturn(properties);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projected.aspectFields().get("hasDescription").booleanValue());
+    assertTrue(projected.rootFields().get("hasDescription").isNull());
+    assertEquals(
+        projected.aspectFields().get("editedDescription").asText(), "An edited description");
+  }
+
+  @Test
+  public void testClearingTheOnlyDescriptionRemovesSharedHasValues() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    AspectSpec editable = dataset.getAspectSpec("editableDatasetProperties");
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getAspectSpec()).thenReturn(editable);
+    when(event.getAspectName()).thenReturn(editable.getName());
+    EditableDatasetProperties previous = new EditableDatasetProperties();
+    previous.setDescription("An edited description");
+    when(event.getPreviousRecordTemplate()).thenReturn(previous);
+    when(event.getRecordTemplate()).thenReturn(new EditableDatasetProperties());
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+
+    assertFalse(projected.aspectFields().has("hasDescription"));
+    assertTrue(projected.rootFields().get("hasDescription").isNull());
+  }
+
+  private V3SearchDocumentProjector realProjector() {
+    return new V3SearchDocumentProjector(
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH));
   }
 }

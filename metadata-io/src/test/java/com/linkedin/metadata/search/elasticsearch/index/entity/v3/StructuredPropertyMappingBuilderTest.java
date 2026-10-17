@@ -339,7 +339,7 @@ public class StructuredPropertyMappingBuilderTest {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> field = (Map<String, Object>) mappings.get("businessName");
-    assertEquals(field.get("copy_to"), List.of("_search.entityName"));
+    assertEquals(field.get("copy_to"), List.of("name"));
     assertEquals(field.get("type"), "keyword");
     assertAnalyzedSubfields(field, "string");
 
@@ -351,7 +351,7 @@ public class StructuredPropertyMappingBuilderTest {
                     .setCopyTo(new StringArray(List.of("description", "_search.other"))));
     Map<String, Object> noteMapping =
         StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(notes, List.of(dataset));
-    assertEquals(noteMapping.get("copy_to"), List.of("_search.description", "_search.other"));
+    assertEquals(noteMapping.get("copy_to"), List.of("description", "other"));
 
     Map<String, Object> number =
         StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(

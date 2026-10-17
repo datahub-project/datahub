@@ -20,7 +20,14 @@ record DataPlatformInstanceProperties includes CustomProperties, ExternalReferen
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: optional string
 
@@ -29,7 +36,15 @@ record DataPlatformInstanceProperties includes CustomProperties, ExternalReferen
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 }
