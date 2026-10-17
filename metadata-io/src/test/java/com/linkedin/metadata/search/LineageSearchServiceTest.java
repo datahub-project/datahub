@@ -56,12 +56,15 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1656,5 +1659,73 @@ public class LineageSearchServiceTest {
     result.setPageSize(10);
     result.setNumEntities(0);
     return result;
+  }
+
+  @Test
+  public void testLineageDurationTimerTags() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    _lineageSearchService.setMetricUtils(MetricUtils.builder().registry(registry).build());
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:timer-tags");
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    try {
+      // Impact, tortoise, cache miss then hit
+      search(_operationContext, sourceUrn, entities);
+      search(_operationContext, sourceUrn, entities);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "impact", "tortoise", "miss").count(), 1L);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "impact", "tortoise", "hit").count(), 1L);
+
+      // Lightning, cache skipped by the caller
+      search(
+          _operationContext
+              .withSearchFlags(f -> f.setSkipCache(true))
+              .withLineageFlags(f -> new LineageFlags().setForceLightningMode(true)),
+          sourceUrn,
+          entities);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "impact", "lightning", "skip").count(), 1L);
+
+      // Visualization walk
+      search(
+          _operationContext.withLineageFlags(
+              f -> new LineageFlags().setEntitiesExploredPerHopLimit(10)),
+          UrnUtils.getUrn("urn:li:dataset:timer-tags-viz"),
+          entities);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "visualization", "tortoise", "miss")
+              .count(),
+          1L);
+    } finally {
+      _lineageSearchService.setMetricUtils(null);
+    }
+  }
+
+  private void search(OperationContext opContext, Urn sourceUrn, List<String> entities) {
+    _lineageSearchService.searchAcrossLineage(
+        opContext, sourceUrn, LineageDirection.DOWNSTREAM, entities, null, 3, null, null, 0, 10);
+  }
+
+  private static Timer lineageTimer(
+      SimpleMeterRegistry registry,
+      String operationType,
+      String kind,
+      String searchPath,
+      String cache) {
+    Timer timer =
+        registry
+            .find("datahub.lineage.duration")
+            .tags(
+                "operation_type",
+                operationType,
+                "kind",
+                kind,
+                "search_path",
+                searchPath,
+                "cache",
+                cache)
+            .timer();
+    assertNotNull(timer, String.join("/", operationType, kind, searchPath, cache));
+    return timer;
   }
 }
