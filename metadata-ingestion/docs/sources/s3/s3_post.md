@@ -31,8 +31,8 @@ Dataset creation time is determined by the creation time of earliest created fil
 
 How the source determines the highest/lowest partition it is based on the traversal method set in the path_spec.
 
-- If the traversal method is set to `MAX` then the source will try to find the latest partition by ordering the partitions each level and find the latest partiton. This traversal method won't look for earilest partition/creation time but this is the fastest.
-- If the traversal method is set to `MIN_MAX` then the source will try to find the latest and earliest partition by ordering the partitions each level and find the latest/earliest partiton. This traversal sort folders purely by name therefor it is fast but it doesn't guarantee the latest partition will have the latest created file.
+- If the traversal method is set to `MAX` then the source will try to find the latest partition by ordering the partitions each level and find the latest partition. This traversal method won't look for earliest partition/creation time but this is the fastest.
+- If the traversal method is set to `MIN_MAX` then the source will try to find the latest and earliest partition by ordering the partitions each level and find the latest/earliest partition. This traversal sorts folders purely by name therefore it is fast but it doesn't guarantee the latest partition will have the latest created file.
 - If the traversal method is set to `ALL` then the source will try to find the latest and earliest partition by listing all the files in all the partitions and find the creation/last modification time based on the file creations. This is the slowest but for non time partitioned datasets this is the only way to find the latest/earliest partition.
 
 #### Path Specs - Examples
@@ -194,7 +194,7 @@ Above config has 3 path_specs and will ingest following datasets
 
 ```python
 s3://my-bucket/foo/tests/bar.avro # single file table
-s3://my-bucket/foo/tests/*.* # mulitple file level tables
+s3://my-bucket/foo/tests/*.* # multiple file level tables
 s3://my-bucket/foo/tests/{table}/*.avro #table without partition
 s3://my-bucket/foo/tests/{table}/ #table with partition autodetection. Partition only can be detected if it is in the format of key=value
 s3://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
