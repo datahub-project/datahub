@@ -1,5 +1,8 @@
 package com.linkedin.metadata.graph.cache.client;
 
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.entity.Aspect;
@@ -57,10 +60,44 @@ public final class AspectParentWalker {
       if (parent == null || !visited.add(parent.toString())) {
         break;
       }
+      // A soft-deleted parent terminates the chain rather than being skipped over: it should not
+      // anchor a breadcrumb, and its own ancestors are only reachable through it, so continuing
+      // past it would present a hierarchy the user cannot navigate.
+      if (isSoftDeleted(opContext, parent)) {
+        break;
+      }
       parents.add(parent);
       current = parent;
     }
     return parents;
+  }
+
+  /**
+   * Whether {@code urn} carries a {@code status} aspect with {@code removed = true}.
+   *
+   * <p>Costs one aspect read per hop on top of the parent read. This is the cache-miss fallback
+   * path, which is already sequential and one read per hop, so the walk stays O(depth) round trips.
+   *
+   * <p>Fails open: if the status read throws, the parent is treated as live. Truncating a
+   * breadcrumb because of a transient read failure would be a worse outcome than briefly showing a
+   * deleted ancestor.
+   */
+  private static boolean isSoftDeleted(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    try {
+      AspectRetriever aspectRetriever = opContext.getRetrieverContext().getAspectRetriever();
+      Map<Urn, Map<String, Aspect>> aspects =
+          aspectRetriever.getLatestAspectObjects(
+              opContext, Set.of(urn), Set.of(STATUS_ASPECT_NAME));
+      Map<String, Aspect> aspectMap = aspects.get(urn);
+      if (aspectMap == null) {
+        return false;
+      }
+      Aspect status = aspectMap.get(STATUS_ASPECT_NAME);
+      return status != null && new Status(status.data()).isRemoved();
+    } catch (Exception e) {
+      log.error("Failed to read {} for {}", STATUS_ASPECT_NAME, urn, e);
+      return false;
+    }
   }
 
   public static boolean isAncestorOf(
