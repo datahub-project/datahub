@@ -50,6 +50,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
 from datahub.ingestion.source.sap_common.models import (
     EdmxParseResult,
     UnknownColumnType,
@@ -71,6 +72,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES,
     CSN_ANN_AGGREGATION_DEFAULT,
     CSN_ANN_MEASURE_TYPE,
+    CSN_ATTR_LABEL,
     CSN_KEY_BUSINESS_LAYER,
     CSN_KEY_DEFINITIONS,
     CSN_KEY_ELEMENTS,
@@ -1476,6 +1478,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
         asset_name: str = asset_name_opt
+        # Display name: the catalog's own label, falling back to the technical name.
         asset_label: str = asset.get(CATALOG_FIELD_LABEL) or asset_name
         self.report.assets_scanned += 1
 
@@ -1514,14 +1517,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if metadata_url:
             parse_result = self._parse_schema(space_name, asset_name, metadata_url)
 
-        description: Optional[str] = None
         custom_properties = self._base_asset_custom_properties(
             space_name, asset_name, asset, metadata_url
         )
         if parse_result is not None:
-            if parse_result.entity_label:
-                description = parse_result.entity_label
             custom_properties.update(parse_result.entity_custom_props)
+
+        source_label = (
+            parse_result.entity_label if parse_result is not None else None
+        ) or (csn_def.get(CSN_ATTR_LABEL) if csn_def is not None else None)
+        # The display name is the catalog label (or the technical name when the catalog
+        # has none); the EDMX/CSN business label is the dataset's description, suppressed
+        # when it just repeats that name. Keeping the label out of the name avoids
+        # surfacing SAP's auto-generated projection labels as the asset title.
+        description = description_from_source_label(source_label, asset_label)
 
         if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES):
             sub_type: str = DatasetSubTypes.SAP_ANALYTICAL_MODEL
