@@ -42,13 +42,14 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
     const { data, loading } = useGetAssertionRunsQuery({
         variables: {
             assertionUrn: assertion.urn,
-            limit: count,
+            limit: count + 1,
         },
         fetchPolicy: 'cache-first',
     });
-    const visibleRuns = data?.assertion?.runEvents?.runEvents || [];
-    const total = data?.assertion?.runEvents?.total || 0;
-    const showMore = count < total;
+    // The API total is the returned page length. Probe one extra result instead.
+    const runs = data?.assertion?.runEvents?.runEvents || [];
+    const visibleRuns = runs.slice(0, count);
+    const showMore = !loading && runs.length > count;
 
     const timelineItems = visibleRuns.map((run) => {
         return {
