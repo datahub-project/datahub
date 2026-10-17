@@ -11,7 +11,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import auto
-from json.decoder import JSONDecodeError
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1221,8 +1220,10 @@ class DataHubRestEmitter(Closeable, Emitter):
                     f"Unable to emit metadata to DataHub GMS{hint}: {info.get('message')}",
                     info,
                 ) from e
-            except JSONDecodeError:
-                # If we can't parse the JSON, just raise the original error.
+            except ValueError:
+                # Not JSON (e.g. an error page from a proxy). response.json() raises
+                # requests' JSONDecodeError, which derives from simplejson's error rather
+                # than json's when simplejson is installed; both are ValueErrors.
                 raise OperationalError(
                     "Unable to emit metadata to DataHub GMS", {"message": str(e)}
                 ) from e
