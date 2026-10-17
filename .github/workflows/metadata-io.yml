@@ -72,7 +72,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           # build-cache-1 is managed explicitly below with a run-scoped key so the legs restore
           # exactly this run's compiled output.
@@ -134,7 +134,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           # Legs read the seed's build cache; only the seed writes. Avoids matrix write races.
           cache-read-only: true
@@ -232,7 +232,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-read-only: true
           gradle-home-cache-excludes: caches/build-cache-1

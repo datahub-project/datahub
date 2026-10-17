@@ -458,7 +458,7 @@ jobs:
       # build-cache-1 is excluded: task outputs come from the Depot remote build
       # cache (cache.depot.dev), and including it here is what has been reported to
       # exhaust the repo's 10GB Actions cache budget.
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           gradle-home-cache-excludes: caches/build-cache-1
 
@@ -691,7 +691,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
@@ -873,7 +873,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Run stack-free pytest
         run: ./gradlew :smoke-test:stackFreePytest
@@ -950,7 +950,7 @@ jobs:
           run_id: ${{ github.run_id }}
           github_token: ${{ github.token }}
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
 
       - name: Login to DockerHub
@@ -1241,7 +1241,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
