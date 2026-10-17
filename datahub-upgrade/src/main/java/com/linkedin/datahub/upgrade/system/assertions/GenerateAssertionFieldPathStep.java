@@ -14,8 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Kicks off AssertionInfoMutator to populate the fieldPath field on FieldAssertionInfo for all
- * existing assertions.
+ * Kicks off AssertionInfoMutator to populate the shared fieldPaths projection on AssertionInfo for
+ * all existing assertions.
  */
 @Slf4j
 public class GenerateAssertionFieldPathStep extends AbstractMCPStep {
@@ -32,7 +32,7 @@ public class GenerateAssertionFieldPathStep extends AbstractMCPStep {
 
   @Override
   public String id() {
-    return "assertion-field-path-v1";
+    return "assertion-field-path-v2";
   }
 
   @Nonnull

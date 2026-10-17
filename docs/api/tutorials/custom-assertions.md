@@ -40,6 +40,22 @@ monitor upserts (`upsertDatasetFreshnessAssertionMonitor`, volume / field / SQL 
 When updating an existing assertion (pass `urn`), resend every field you want to keep;
 omitted optional fields are cleared.
 
+### Column filters and existing definitions
+
+The Quality tab's Column filter uses the exact schema field paths associated with an assertion.
+Custom assertions, legacy dataset assertions, and native field assertions share this filter.
+For custom assertions, `customAssertion.fields` takes precedence over the legacy singular
+`customAssertion.field`; an explicitly empty `fields` list removes column scope.
+
+DataHub derives the shared `assertionInfo.fieldPaths` search projection from these associations.
+Do not manage that projection independently. Updating or removing associations recomputes it.
+Full nested field paths remain intact, and duplicate references produce one filter value.
+
+After upgrading, the assertion field-path system-update step reprocesses existing definitions.
+If that step is disabled or needs to be retried, [restore the assertion indices](../../how/restore-indices.md).
+Index restoration also derives paths directly from stored definitions, including definitions
+that do not yet have the new projection. Run history does not need to be migrated.
+
 ### Required and optional fields
 
 `upsertCustomAssertion` requires:

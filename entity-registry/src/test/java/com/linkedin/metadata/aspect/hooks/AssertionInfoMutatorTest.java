@@ -18,8 +18,10 @@ import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.SchemaAssertionInfo;
 import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.schema.SchemaFieldSpec;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
@@ -631,9 +634,10 @@ public class AssertionInfoMutatorTest {
                 mockRetrieverContext)
             .collect(Collectors.toList());
 
-    assertEquals(result.stream().filter(Pair::getSecond).count(), 0);
+    assertEquals(result.stream().filter(Pair::getSecond).count(), 1);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
     assertEquals(mutatedInfo.getFieldAssertion().getFieldPath(), "existing_col");
+    assertEquals(mutatedInfo.getFieldPaths(), new StringArray("col1"));
   }
 
   @Test
@@ -696,5 +700,104 @@ public class AssertionInfoMutatorTest {
     assertEquals(result.stream().filter(Pair::getSecond).count(), 0);
     AssertionInfo mutatedInfo = result.get(0).getFirst().getAspect(AssertionInfo.class);
     assertFalse(mutatedInfo.getFieldAssertion().hasFieldPath());
+  }
+
+  @Test
+  public void testCustomFieldPathsFollowAssociations() {
+    String nestedPath = "[version=2.0].[type=struct].address.[type=string].city";
+    Urn first = Urn.createFromTuple("schemaField", testDatasetUrn.toString(), nestedPath);
+    Urn second = Urn.createFromTuple("schemaField", testDatasetUrn.toString(), "col_b");
+    CustomAssertionInfo custom =
+        new CustomAssertionInfo()
+            .setType("Quality")
+            .setEntity(testDatasetUrn)
+            .setField(second)
+            .setFields(new UrnArray(first, second, first));
+    AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.CUSTOM)
+            .setEntityUrn(testDatasetUrn)
+            .setCustomAssertion(custom);
+    info.data().put("fieldPaths", new StringArray("stale").data());
+
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.data().get("fieldPaths"), new StringArray(nestedPath, "col_b").data());
+    assertFalse(mutateAssertion(info));
+
+    custom.setFields(new UrnArray(second));
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.data().get("fieldPaths"), new StringArray("col_b").data());
+
+    custom.setFields(new UrnArray());
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.getFieldPaths(), new StringArray());
+    custom.removeFields();
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.getFieldPaths(), new StringArray("col_b"));
+    custom.removeField();
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.data().get("fieldPaths"), new StringArray().data());
+  }
+
+  @Test
+  public void testCustomLegacyFieldAndDatasetFields() {
+    String path = "func(a,b)+50%off%20";
+    Urn field = SchemaFieldUtils.generateSchemaFieldUrn(testDatasetUrn, path);
+    CustomAssertionInfo custom =
+        new CustomAssertionInfo().setType("Quality").setEntity(testDatasetUrn).setField(field);
+    AssertionInfo info =
+        new AssertionInfo().setType(AssertionType.CUSTOM).setCustomAssertion(custom);
+    mutateAssertion(info);
+    assertEquals(info.data().get("fieldPaths"), new StringArray(path).data());
+
+    DatasetAssertionInfo dataset =
+        new DatasetAssertionInfo().setDataset(testDatasetUrn).setFields(new UrnArray(field));
+    info = new AssertionInfo().setType(AssertionType.DATASET).setDatasetAssertion(dataset);
+    mutateAssertion(info);
+    assertEquals(info.data().get("fieldPaths"), new StringArray(path).data());
+    dataset.removeFields();
+    mutateAssertion(info);
+    assertEquals(info.data().get("fieldPaths"), new StringArray().data());
+  }
+
+  @Test
+  public void testPartialAssertionAndMalformedFieldAssociations() {
+    AssertionInfo partial = new AssertionInfo().setFieldPaths(new StringArray("stale"));
+    assertTrue(mutateAssertion(partial));
+    assertTrue(partial.getFieldPaths().isEmpty());
+
+    AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.CUSTOM)
+            .setCustomAssertion(
+                new CustomAssertionInfo()
+                    .setType("Quality")
+                    .setEntity(testDatasetUrn)
+                    .setFields(
+                        new UrnArray(
+                            UrnUtils.getUrn("urn:li:schemaField:malformed"),
+                            SchemaFieldUtils.generateSchemaFieldUrn(testDatasetUrn, "col_a"))));
+    assertTrue(mutateAssertion(info));
+    assertEquals(info.getFieldPaths(), new StringArray("col_a"));
+  }
+
+  private boolean mutateAssertion(AssertionInfo info) {
+    return test.writeMutation(
+            operationFingerprint,
+            List.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(testAssertionUrn)
+                    .entitySpec(entityRegistry.getEntitySpec(ASSERTION_ENTITY_NAME))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(ASSERTION_ENTITY_NAME)
+                            .getAspectSpec(ASSERTION_INFO_ASPECT_NAME))
+                    .recordTemplate(info)
+                    .build()),
+            mockRetrieverContext)
+        .findFirst()
+        .orElseThrow()
+        .getSecond();
   }
 }

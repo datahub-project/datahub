@@ -6,6 +6,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -82,6 +83,13 @@ public class AssertionInfoMutator extends MutationHook {
           fieldInfo.setFieldPath(path);
           mutated = true;
         }
+      }
+    }
+    if (next != null) {
+      StringArray paths = AssertionUtils.getFieldPathsFromAssertionInfo(next);
+      if ((!paths.isEmpty() || next.hasFieldPaths()) && !paths.equals(next.getFieldPaths())) {
+        next.setFieldPaths(paths);
+        mutated = true;
       }
     }
     return mutated;
