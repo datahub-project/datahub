@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -186,8 +187,14 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nullable final SystemMetadata systemMetadata,
       @Nullable final AspectSpec aspectSpec,
       @Nonnull final EntityRegistry registry) {
-    return UnknownEntityUrnStripper.isFromNewerVersion(
-        aspect, systemMetadata, aspectSpec, registry);
+    return UnknownEntityUrnStripper.isFromNewerVersion(aspect, systemMetadata, aspectSpec, registry)
+        || (aspect != null && UnknownSchemaValues.failsOnlyOnUnknownValues(aspect));
+  }
+
+  @Override
+  public boolean failsOnlyOnValuesFromNewerVersion(
+      @Nullable final ValidationResult validationFailure) {
+    return UnknownSchemaValues.failsOnlyOnUnknownValues(validationFailure);
   }
 
   @Override

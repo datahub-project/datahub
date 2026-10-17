@@ -21,6 +21,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -28,6 +29,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -208,22 +210,8 @@ public class MigrateAspectsStep implements UpgradeStep {
                           // a newer version wrote (e.g. read after a rollback). Rewriting them
                           // here would drop what only that version understands, so leave them.
                           .filter(systemAspect -> !writtenByNewerSchema(systemAspect))
-                          .map(
-                              systemAspect ->
-                                  ChangeItemImpl.builder()
-                                      .changeType(ChangeType.UPSERT)
-                                      .urn(systemAspect.getUrn())
-                                      .entitySpec(systemAspect.getEntitySpec())
-                                      .aspectName(systemAspect.getAspectName())
-                                      .aspectSpec(systemAspect.getAspectSpec())
-                                      .recordTemplate(systemAspect.getRecordTemplate())
-                                      .auditStamp(systemAspect.getAuditStamp())
-                                      .systemMetadata(
-                                          withAppSource(systemAspect.getSystemMetadata()))
-                                      .headers(
-                                          versionHeaders(
-                                              systemAspect.getSystemMetadata().getVersion()))
-                                      .build(opContext.getAspectRetriever()))
+                          .map(this::toChangeItem)
+                          .filter(Objects::nonNull)
                           .collect(Collectors.toList());
 
                   if (!items.isEmpty()) {
@@ -275,6 +263,39 @@ public class MigrateAspectsStep implements UpgradeStep {
       context.report().addLine("State updated: " + getUpgradeIdUrn());
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
+  }
+
+  /**
+   * The migration write, or null when the stored value was written by a newer version and fails
+   * validation here (e.g. an enum symbol that version added without a schema version bump). That
+   * row is left as it is instead of failing the sweep; any other invalid value fails it as before.
+   */
+  @Nullable
+  private ChangeItemImpl toChangeItem(@Nonnull SystemAspect systemAspect) {
+    try {
+      return ChangeItemImpl.builder()
+          .changeType(ChangeType.UPSERT)
+          .urn(systemAspect.getUrn())
+          .entitySpec(systemAspect.getEntitySpec())
+          .aspectName(systemAspect.getAspectName())
+          .aspectSpec(systemAspect.getAspectSpec())
+          .recordTemplate(systemAspect.getRecordTemplate())
+          .auditStamp(systemAspect.getAuditStamp())
+          .systemMetadata(withAppSource(systemAspect.getSystemMetadata()))
+          .headers(versionHeaders(systemAspect.getSystemMetadata().getVersion()))
+          .build(opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      if (!systemAspect.isFromNewerVersion()) {
+        throw e;
+      }
+      log.warn(
+          "{}: leaving {}/{} as stored: its value from a newer version fails validation here: {}",
+          id(),
+          systemAspect.getUrn(),
+          systemAspect.getAspectName(),
+          e.getMessage());
+      return null;
+    }
   }
 
   private boolean writtenByNewerSchema(@Nonnull SystemAspect systemAspect) {
