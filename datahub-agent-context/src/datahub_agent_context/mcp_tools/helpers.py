@@ -103,6 +103,31 @@ def truncate_descriptions(
             truncate_descriptions(item)
 
 
+def resolve_description(entity: dict) -> str:
+    """Return the description a user actually sees for an entity.
+
+    DataHub stores two descriptions and ``get_entities`` returns both:
+
+    - ``editableProperties.description`` -- written through the UI or the API
+    - ``properties.description`` -- supplied by ingestion
+
+    The UI renders the editable one when it is set, so that is the text a reader
+    believes. They can differ: an ingested description from a dbt manifest and a
+    hand-edited one on the same dataset are both present, with different content.
+
+    Callers reading descriptions off a ``get_entities`` response need the same
+    precedence that ``update_description`` already applies when it writes, or
+    they silently read a value nobody is looking at.
+    """
+    editable_description = (entity.get("editableProperties") or {}).get(
+        "description", ""
+    )
+    if editable_description:
+        return editable_description
+
+    return (entity.get("properties") or {}).get("description", "")
+
+
 def truncate_query(query: str) -> str:
     """Truncate a SQL query if it exceeds the maximum length."""
     return truncate_with_ellipsis(
