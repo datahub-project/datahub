@@ -42,6 +42,7 @@ import play.mvc.Result;
 import play.mvc.Security;
 import utils.ConfigUtil;
 import utils.ProductUpdateBootstrap;
+import utils.ProductUpdateHttp;
 
 public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
@@ -139,13 +140,7 @@ public class Application extends Controller {
         return productUpdateSnippet;
       }
       try {
-        HttpRequest request =
-            HttpRequest.newBuilder(URI.create(productUpdatesJsonUrl.trim()))
-                .timeout(Duration.ofSeconds(2))
-                .GET()
-                .build();
-        HttpResponse<String> response =
-            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = ProductUpdateHttp.get(productUpdatesJsonUrl);
         if (response.statusCode() >= 200 && response.statusCode() < 300) {
           productUpdateSnippet = ProductUpdateBootstrap.snippet(response.body());
         } else {

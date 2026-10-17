@@ -4,6 +4,7 @@ import {
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    isProductUpdateHiddenByDismiss,
     readProductUpdateBootstrap,
     resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
@@ -50,6 +51,15 @@ describe('ProductUpdates utilities', () => {
         );
         expect(resolveProductUpdateImage(undefined, true)).toContain('in-product-release-oct2026.png');
         expect(resolveProductUpdateImage('null', false)).toContain('sample-product-update-image.png');
+    });
+
+    it('hides only the announcement id that was dismissed', () => {
+        localStorage.setItem('dismissedProductUpdates', JSON.stringify(['v2.2']));
+        expect(isProductUpdateHiddenByDismiss('v2.2', null)).toBe(true);
+        expect(isProductUpdateHiddenByDismiss('v2.3', null)).toBe(false);
+        expect(isProductUpdateHiddenByDismiss('v2.3', 'v2.2')).toBe(false);
+        expect(isProductUpdateHiddenByDismiss('v2.3', 'v2.3')).toBe(true);
+        localStorage.clear();
     });
 
     it('does not infer a month when the release month is absent or invalid', () => {

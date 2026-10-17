@@ -5,11 +5,7 @@ import { useHistory } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
 import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@app/shared/constants';
-import {
-    checkProductUpdateDismissed,
-    checkShouldSkipWelcomeModal,
-    dismissProductUpdate,
-} from '@app/shared/localStorageUtils';
+import { checkShouldSkipWelcomeModal, dismissProductUpdate } from '@app/shared/localStorageUtils';
 import {
     CTAContainer,
     CloseButton,
@@ -31,6 +27,7 @@ import {
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    isProductUpdateHiddenByDismiss,
     readProductUpdateBootstrap,
     resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
@@ -76,24 +73,25 @@ export default function ProductUpdates() {
     const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 
-    const { visible, pending, dismissed, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
-    const dismiss = useDismissProductAnnouncement(latestUpdate?.id, refetch);
+    const updateId = latestUpdate?.id ?? null;
+    const { visible, pending, dismissed, refetch } = useIsProductAnnouncementVisible(updateId);
+    const dismiss = useDismissProductAnnouncement(updateId, refetch);
 
-    const [dismissedLocally, setDismissedLocally] = useState(() =>
-        bootstrap?.id ? checkProductUpdateDismissed(bootstrap.id) : false,
-    );
+    // Only the id that was dismissed. A new id from GraphQL must not inherit it.
+    const [sessionDismissedId, setSessionDismissedId] = useState<string | null>(null);
+    const dismissedLocally = isProductUpdateHiddenByDismiss(updateId, sessionDismissedId);
     const [sidebarWidth, setSidebarWidth] = useState(NAV_SIDEBAR_WIDTH_EXPANDED);
     const imageFromPayload =
         serverUpdate && bootstrap && serverUpdate.id !== bootstrap.id ? undefined : bootstrap?.image;
     const imageSrc = resolveProductUpdateImage(imageFromPayload, isCloud);
 
     useEffect(() => {
-        if (!dismissed || !latestUpdate?.id) {
+        if (!dismissed || !updateId) {
             return;
         }
-        dismissProductUpdate(latestUpdate.id);
-        setDismissedLocally(true);
-    }, [dismissed, latestUpdate?.id]);
+        dismissProductUpdate(updateId);
+        setSessionDismissedId(updateId);
+    }, [dismissed, updateId]);
 
     const featureAllows = appConfig.loaded ? isFeatureEnabled : Boolean(bootstrap);
     const versionMatches = isVersionMatch(appConfig.config.appVersion, latestUpdate?.requiredVersion);
@@ -148,12 +146,12 @@ export default function ProductUpdates() {
     }, []);
 
     const handleDismiss = useCallback(() => {
-        if (latestUpdate?.id) {
-            dismissProductUpdate(latestUpdate.id);
-            setDismissedLocally(true);
+        if (updateId) {
+            dismissProductUpdate(updateId);
+            setSessionDismissedId(updateId);
         }
         dismiss();
-    }, [dismiss, latestUpdate?.id]);
+    }, [dismiss, updateId]);
 
     const trackClick = (url: string) => {
         if (!latestUpdate) return;

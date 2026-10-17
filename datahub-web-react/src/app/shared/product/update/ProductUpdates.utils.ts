@@ -1,3 +1,5 @@
+import { checkProductUpdateDismissed } from '@app/shared/localStorageUtils';
+
 import cloudProductUpdateImage from '@images/in-product-release-oct2026.png';
 import coreProductUpdateImage from '@images/sample-product-update-image.png';
 
@@ -66,6 +68,20 @@ export function readProductUpdateBootstrap(): VisibleProductUpdateBootstrap | nu
         return null;
     }
     return { ...value, id: value.id };
+}
+
+/**
+ * A dismiss applies only to that announcement id. A later id, from GraphQL or a new HTML payload,
+ * is shown even when an older id was dismissed in this session.
+ */
+export function isProductUpdateHiddenByDismiss(
+    updateId: string | null | undefined,
+    sessionDismissedId: string | null,
+): boolean {
+    if (!updateId) {
+        return false;
+    }
+    return sessionDismissedId === updateId || checkProductUpdateDismissed(updateId);
 }
 
 /** Prefer the hosted image URL so a JSON change can ship without a frontend build. */
