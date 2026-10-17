@@ -792,6 +792,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.graph.sliceFutureDrainTimeoutSeconds",
           "elasticsearch.search.graph.timeoutSeconds",
           "elasticsearch.search.maxTermBucketSize",
+          "elasticsearch.search.defaultMaxAggValues",
           "elasticsearch.search.partial.factor",
           "elasticsearch.search.partial.urnFactor",
           "elasticsearch.search.wordGram.fourGramFactor",

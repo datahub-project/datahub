@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.query.GroupingCriterion;
@@ -130,7 +131,6 @@ public class SearchUtilsTest {
                 .setFulltext(false)
                 .setSkipAggregates(true)
                 .setSkipCache(true)
-                .setMaxAggValues(1)
                 .setSkipHighlighting(true)
                 .setIncludeSoftDeleted(false)
                 .setIncludeRestricted(false),
@@ -144,7 +144,6 @@ public class SearchUtilsTest {
                 .setFulltext(true)
                 .setSkipAggregates(true)
                 .setSkipCache(false)
-                .setMaxAggValues(1)
                 .setSkipHighlighting(true)
                 .setIncludeSoftDeleted(false)
                 .setIncludeRestricted(false),
@@ -158,7 +157,6 @@ public class SearchUtilsTest {
                 .setFulltext(true)
                 .setSkipAggregates(false)
                 .setSkipCache(true)
-                .setMaxAggValues(1)
                 .setSkipHighlighting(true)
                 .setIncludeSoftDeleted(false)
                 .setIncludeRestricted(false),
@@ -186,12 +184,27 @@ public class SearchUtilsTest {
                 .setFulltext(true)
                 .setSkipAggregates(true)
                 .setSkipCache(true)
-                .setMaxAggValues(1)
                 .setSkipHighlighting(false)
                 .setIncludeSoftDeleted(false)
                 .setIncludeRestricted(false),
             SearchUtils.convertSchemaFieldToDataset(defaultFlags)),
         "Expected all default values except skipHighlighting");
+  }
+
+  @Test
+  public void testApplyDefaultSearchFlagsDoesNotDefaultMaxAggValues() {
+    SearchFlags defaultFlags = getDefaultSearchFlags(); // defaultFlags.getMaxAggValues() == 1
+
+    SearchFlags result =
+        SearchUtils.applyDefaultSearchFlags(
+            new SearchFlags().setFulltext(false), "not empty", defaultFlags);
+
+    // Unlike the other flags, an unset maxAggValues must NOT be filled in from defaultFlags here.
+    // AggregationQueryBuilder.facetToAggregationBuilder is the sole consumer of the flag and
+    // applies SearchConfiguration.defaultMaxAggValues itself when it's unset -- if this method
+    // defaulted it too, callers who legitimately want "unset" (so the backend default applies)
+    // would never be able to express that.
+    assertFalse(result.hasMaxAggValues());
   }
 
   @Test
