@@ -34,12 +34,14 @@ describe('viewBuilderProperties', () => {
         expect(typeNamesProp?.valueOptions?.aggregationField).toBe('typeNames');
     });
 
-    it('should include platform property with correct display name', () => {
+    it('should include platform property sourced from the platform facet aggregation', () => {
         const platformProp = viewBuilderProperties.find((p) => p.id === 'platform');
         expect(platformProp?.displayName).toBe('Platform');
         expect(platformProp?.description).toBe('The data platform where the asset lives.');
-        expect(platformProp?.valueType).toBe(ValueTypeId.URN);
-        expect(platformProp?.valueOptions?.entityTypes).toContain(EntityType.DataPlatform);
+        // Aggregation-based so only platforms that actually have assets are offered (not every
+        // seeded DataPlatform), mirroring platformInstance.
+        expect(platformProp?.valueType).toBe(ValueTypeId.ENUM);
+        expect(platformProp?.valueOptions?.aggregationField).toBe('platform');
     });
 
     it('should include owners property with correct display name', () => {
