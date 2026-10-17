@@ -254,6 +254,10 @@ module.exports = {
               to: "https://demo.datahub.com/",
             },
             {
+              label: "Product Tours",
+              href: "https://tours.datahub.com/",
+            },
+            {
               label: "Free Trial",
               href: "https://datahub.com/free-trial/",
             },
