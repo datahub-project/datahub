@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
 
+import { sampleSchemaWithPkFk } from '@app/entityV2/dataset/profile/stories/sampleSchema';
 import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -139,5 +140,23 @@ describe('AboutFieldTab', () => {
 
         expect(screen.getByTestId('field-description')).toBeInTheDocument();
         expect(screen.getByTestId('stats-tab-wrapper')).toBeInTheDocument();
+    });
+    it('renders the foreign key section when the field has a constraint', () => {
+        render(
+            <MockedProvider mocks={[]} addTypename={false}>
+                <TestPageContainer>
+                    <AboutFieldTab
+                        properties={{
+                            ...baseProperties,
+                            schemaFields: sampleSchemaWithPkFk.fields,
+                            expandedDrawerFieldPath: 'shipping_address',
+                            schemaMetadata: sampleSchemaWithPkFk,
+                        }}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Foreign Key to')).toBeInTheDocument();
     });
 });
