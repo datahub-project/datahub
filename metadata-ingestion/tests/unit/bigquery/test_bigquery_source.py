@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
@@ -57,6 +58,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
+    SHARDED_TABLE_BASE_STRIP_REGEX,
     BigqueryQuery,
     BigqueryTableType,
 )
@@ -1375,6 +1377,46 @@ def test_get_tables_for_dataset_query_selection(
 @patch.object(BigQuerySchemaApi, "get_query_result")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("aggregate_sharded_stats", [True, False])
+def test_get_tables_for_dataset_shard_rollup_toggle(
+    get_projects_client: MagicMock,
+    get_bq_client_mock: Mock,
+    query_mock: Mock,
+    aggregate_sharded_stats: bool,
+) -> None:
+    # Only the latest shard of a collapsed sharded table is queried, so when the shards
+    # collapse into one entity the query must sum their stats back onto it; otherwise the
+    # latest shard's own stats are kept unchanged.
+    query_mock.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+
+    list(
+        schema_api.get_tables_for_dataset(
+            project_id="test-project",
+            dataset_name="test-dataset",
+            tables={"table1": MagicMock()},
+            report=BigQueryV2Report(),
+            with_partitions=True,
+            aggregate_sharded_stats=aggregate_sharded_stats,
+        )
+    )
+
+    executed_query = query_mock.call_args[0][0]
+    rollup_present = ") as sh on" in executed_query
+    assert rollup_present is aggregate_sharded_stats
+    if aggregate_sharded_stats:
+        assert "COALESCE(sh.total_rows, p.total_rows) as row_count" in executed_query
+    else:
+        assert "p.total_rows as row_count" in executed_query
+
+
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
 @pytest.mark.parametrize("entity", ["views", "snapshots"])
 @pytest.mark.parametrize("use_legacy_table_stats", [False, True])
 def test_get_views_and_snapshots_legacy_tables_selection(
@@ -1416,13 +1458,140 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     # _make_bigquery_table reads these columns by name; renaming an alias here would
     # silently null out row count / size / last-altered rather than raise.
     query = BigqueryQuery.tables_for_dataset_with_partition_stats
-    assert "p.total_rows as row_count" in query
-    assert "p.total_logical_bytes as bytes" in query
+    assert "{row_count_select} as row_count" in query
+    assert "{bytes_select} as bytes" in query
     assert "p.last_modified_time as last_altered" in query
     # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
     # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
     # silently feed wrong timestamps rather than raise.
     assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
+
+    # Without shard aggregation the row_count / bytes / billable-bytes aliases map straight
+    # onto the PARTITIONS rollup `p`, preserving the pre-existing behaviour.
+    clauses = BigqueryQuery.build_sharded_stats_clauses(
+        project_id="p",
+        dataset_name="d",
+        use_legacy_table_stats=False,
+        aggregate_sharded_stats=False,
+    )
+    assert clauses["row_count_select"] == "p.total_rows"
+    assert clauses["bytes_select"] == "p.total_logical_bytes"
+    assert clauses["active_billable_select"] == "p.active_billable_bytes"
+    assert (
+        clauses["long_term_billable_select"] == "IFNULL(p.long_term_billable_bytes, 0)"
+    )
+    assert clauses["shard_stats_join"] == ""
+
+
+def test_build_sharded_stats_clauses_sums_across_shards() -> None:
+    # Collapsing a date-sharded table keeps only the latest shard, so its stats must be
+    # summed across every shard and fall back to the latest shard's own stats for
+    # un-sharded tables (COALESCE + the `t.table_name != <base>` join condition).
+    partition = BigqueryQuery.build_sharded_stats_clauses(
+        project_id="p",
+        dataset_name="d",
+        use_legacy_table_stats=False,
+        aggregate_sharded_stats=True,
+    )
+    assert partition["row_count_select"] == "COALESCE(sh.total_rows, p.total_rows)"
+    assert (
+        partition["bytes_select"] == "COALESCE(sh.total_bytes, p.total_logical_bytes)"
+    )
+    # Billable bytes always come from PARTITIONS, so the single PARTITIONS rollup `sh`
+    # covers them too in the default path.
+    assert (
+        partition["active_billable_select"]
+        == "COALESCE(sh.active_billable_bytes, p.active_billable_bytes)"
+    )
+    # Long-term billable bytes must also roll up over the shards, not stay on the latest
+    # shard; a regression that drops this COALESCE would still pass the active-only checks.
+    assert (
+        partition["long_term_billable_select"]
+        == "IFNULL(COALESCE(sh.long_term_billable_bytes, p.long_term_billable_bytes), 0)"
+    )
+    assert "INFORMATION_SCHEMA.PARTITIONS" in partition["shard_stats_join"]
+    assert "sum(total_rows) as total_rows" in partition["shard_stats_join"]
+    assert "sum(total_logical_bytes) as total_bytes" in partition["shard_stats_join"]
+    assert "then total_billable_bytes" in partition["shard_stats_join"]
+    assert "and t.table_name != " in partition["shard_stats_join"]
+    # One rollup only: no separate billable subquery is needed in the default path.
+    assert "as shb on" not in partition["shard_stats_join"]
+
+    # Legacy opt-in sums the undocumented __TABLES__ columns for row count / size, and a
+    # second PARTITIONS rollup `shb` for billable bytes (absent from __TABLES__).
+    legacy = BigqueryQuery.build_sharded_stats_clauses(
+        project_id="p",
+        dataset_name="d",
+        use_legacy_table_stats=True,
+        aggregate_sharded_stats=True,
+    )
+    assert legacy["row_count_select"] == "COALESCE(sh.total_rows, ts.row_count)"
+    assert legacy["bytes_select"] == "COALESCE(sh.total_bytes, ts.size_bytes)"
+    assert (
+        legacy["active_billable_select"]
+        == "COALESCE(shb.active_billable_bytes, p.active_billable_bytes)"
+    )
+    # Long-term bytes come from the second PARTITIONS rollup `shb` in the legacy path.
+    assert (
+        legacy["long_term_billable_select"]
+        == "IFNULL(COALESCE(shb.long_term_billable_bytes, p.long_term_billable_bytes), 0)"
+    )
+    assert "__TABLES__" in legacy["shard_stats_join"]
+    assert "sum(size_bytes) as total_bytes" in legacy["shard_stats_join"]
+    assert "as shb on" in legacy["shard_stats_join"]
+    assert "then total_billable_bytes" in legacy["shard_stats_join"]
+
+
+def _sql_shard_base(table_name: str) -> str:
+    # Mirrors the BigQuery REGEXP_REPLACE(name, SHARDED_TABLE_BASE_STRIP_REGEX, r"\1")
+    # that the rollup emits, so the grouping key can be exercised in pure Python.
+    return re.sub(
+        SHARDED_TABLE_BASE_STRIP_REGEX, r"\1", table_name, flags=re.IGNORECASE
+    )
+
+
+def test_shard_base_regex_matches_python_shard_matcher() -> None:
+    # The SQL rollup must group exactly the shards the Python collapse logic groups:
+    # over-grouping would sum unrelated tables' rows/bytes onto a family, under-grouping
+    # would miss siblings. A trailing YYYYMMDD is a shard suffix only when preceded by a
+    # non-digit, so `events_20250101` / `events20250101` collapse but `orders120250101`
+    # (digit before the date) stays distinct.
+    matcher = BigQueryShardPatternMatcher()
+
+    def is_sharded(name: str) -> bool:
+        _, shard = BigqueryTableIdentifier.get_table_and_shard(name, matcher)
+        return shard is not None
+
+    # Shards collapse to a single base; the SQL key is stable across the family and the
+    # self-exclusion (`name != base`) holds because the shard name keeps its date.
+    for family, shards in {
+        "events": ["events_20250101", "events_20250102"],
+        "orders1": ["orders1_20250101", "orders1_20250615"],
+    }.items():
+        bases = {_sql_shard_base(s) for s in shards}
+        assert len(bases) == 1, f"{family} shards must share one rollup key: {bases}"
+        for s in shards:
+            assert is_sharded(s)
+            assert _sql_shard_base(s) != s
+
+    # A digit immediately before the date is NOT a shard: it must not share a key with the
+    # real `orders1` family, and it must be left untouched (no rollup, own stats kept).
+    assert not is_sharded("orders120250101")
+    assert _sql_shard_base("orders120250101") == "orders120250101"
+    assert _sql_shard_base("orders120250101") != _sql_shard_base("orders1_20250101")
+
+    # Date-only names are the "dataset as a sharded table" case: Python collapses them into
+    # a single dataset-level entity, so the SQL key must group them together (here the empty
+    # base) rather than leaving each date as its own un-rolled-up table.
+    assert is_sharded("20250101")
+    assert is_sharded("20250102")
+    assert _sql_shard_base("20250101") == _sql_shard_base("20250102")
+    assert _sql_shard_base("20250101") != "20250101"
+
+    # An un-sharded name is left unchanged, so its `name == base` self-exclusion keeps it
+    # on its own per-table stats.
+    assert not is_sharded("customers")
+    assert _sql_shard_base("customers") == "customers"
 
 
 def test_make_bigquery_table_null_partition_stats() -> None:

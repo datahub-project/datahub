@@ -555,6 +555,7 @@ class BigQuerySchemaApi:
         report: BigQueryV2Report,
         with_partitions: bool = False,
         use_legacy_table_stats: bool = False,
+        aggregate_sharded_stats: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
@@ -565,6 +566,16 @@ class BigQuerySchemaApi:
                 query_template = BigqueryQuery.tables_for_dataset_with_legacy_stats
             else:
                 query_template = BigqueryQuery.tables_for_dataset_with_partition_stats
+
+            # Only the latest shard of a sharded table is queried, so its stats cover that
+            # one shard. When the shards collapse into a single entity, sum every shard's
+            # stats back onto it (see build_sharded_stats_clauses).
+            stats_clauses = BigqueryQuery.build_sharded_stats_clauses(
+                project_id=project_id,
+                dataset_name=dataset_name,
+                use_legacy_table_stats=use_legacy_table_stats,
+                aggregate_sharded_stats=with_partitions and aggregate_sharded_stats,
+            )
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
@@ -577,6 +588,7 @@ class BigQuerySchemaApi:
                         if filter_clause
                         else ""
                     ),
+                    **stats_clauses,
                 ),
             )
 
