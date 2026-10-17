@@ -1099,7 +1099,8 @@ type ProductUpdate {
   requiredVersion: String
 
   """
-  Optional URL to an image to display with the update
+  Image URL from the hosted product-update JSON. The toast paints this on first load when Play
+  inlines the JSON. The image bundled in the frontend is the fallback when this is absent.
   """
   image: String
 

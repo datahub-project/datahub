@@ -1,10 +1,11 @@
 import { Button, Heading, Text, Tooltip } from '@components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
 import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@app/shared/constants';
+import { checkShouldSkipWelcomeModal, dismissProductUpdate } from '@app/shared/localStorageUtils';
 import {
     CTAContainer,
     CloseButton,
@@ -26,6 +27,9 @@ import {
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    isProductUpdateHiddenByDismiss,
+    readProductUpdateBootstrap,
+    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 import {
     useDismissProductAnnouncement,
@@ -38,30 +42,78 @@ import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
+const PRODUCT_UPDATE_PRELOAD_ATTR = 'data-product-update-preload';
+
+/** Start the hosted image fetch before the toast commits, when the HTML did not already preload it. */
+function preloadProductUpdateImage(href: string) {
+    const absolute = new URL(href, window.location.href).href;
+    const existing = document.head.querySelector(`link[${PRODUCT_UPDATE_PRELOAD_ATTR}]`);
+    if (existing instanceof HTMLLinkElement && existing.href === absolute) {
+        return;
+    }
+    existing?.remove();
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = href;
+    link.setAttribute('fetchpriority', 'high');
+    link.setAttribute(PRODUCT_UPDATE_PRELOAD_ATTR, '');
+    document.head.appendChild(link);
+}
+
 export default function ProductUpdates() {
     const { t, i18n } = useTranslation('shared.product');
     const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
-    const latestUpdate = useGetLatestProductAnnouncementData();
     const appConfig = useAppConfig();
+    const [bootstrap] = useState(readProductUpdateBootstrap);
+    const serverUpdate = useGetLatestProductAnnouncementData();
+    const latestUpdate = serverUpdate ?? bootstrap;
     const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 
-    const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
-    const dismiss = useDismissProductAnnouncement(latestUpdate?.id, refetch);
+    const updateId = latestUpdate?.id ?? null;
+    const { visible, pending, dismissed, refetch } = useIsProductAnnouncementVisible(updateId);
+    const dismiss = useDismissProductAnnouncement(updateId, refetch);
 
-    // Local state to hide immediately on dismiss
-    const [isLocallyVisible, setIsLocallyVisible] = useState(false);
+    // Only the id that was dismissed. A new id from GraphQL must not inherit it.
+    const [sessionDismissedId, setSessionDismissedId] = useState<string | null>(null);
+    const dismissedLocally = isProductUpdateHiddenByDismiss(updateId, sessionDismissedId);
     const [sidebarWidth, setSidebarWidth] = useState(NAV_SIDEBAR_WIDTH_EXPANDED);
-
-    // Check if current version matches required version
-    const currentVersion = appConfig.config.appVersion;
-    const versionMatches = isVersionMatch(currentVersion, latestUpdate?.requiredVersion);
+    const imageFromPayload =
+        serverUpdate && bootstrap && serverUpdate.id !== bootstrap.id ? undefined : bootstrap?.image;
+    const imageSrc = resolveProductUpdateImage(imageFromPayload, isCloud);
 
     useEffect(() => {
-        setIsLocallyVisible(visible);
-    }, [visible]);
+        if (!dismissed || !updateId) {
+            return;
+        }
+        dismissProductUpdate(updateId);
+        setSessionDismissedId(updateId);
+    }, [dismissed, updateId]);
+
+    const featureAllows = appConfig.loaded ? isFeatureEnabled : Boolean(bootstrap);
+    const versionMatches = isVersionMatch(appConfig.config.appVersion, latestUpdate?.requiredVersion);
+    // The hosted JSON is enough to paint. The step-state query only hides the toast once it
+    // confirms this user dismissed it. A slow or failed check must not pull the toast back down.
+    const serverAllows = bootstrap ? !dismissed : !pending && visible;
+    const showToast =
+        featureAllows &&
+        isOnHomePage &&
+        checkShouldSkipWelcomeModal() &&
+        !dismissedLocally &&
+        Boolean(latestUpdate?.enabled) &&
+        versionMatches &&
+        serverAllows;
+
+    useLayoutEffect(() => {
+        if (!showToast || !imageSrc) {
+            return undefined;
+        }
+        preloadProductUpdateImage(imageSrc);
+        return undefined;
+    }, [imageSrc, showToast]);
 
     // Measure sidebar width - use MutationObserver for instant updates
     useEffect(() => {
@@ -94,9 +146,12 @@ export default function ProductUpdates() {
     }, []);
 
     const handleDismiss = useCallback(() => {
-        setIsLocallyVisible(false);
+        if (updateId) {
+            dismissProductUpdate(updateId);
+            setSessionDismissedId(updateId);
+        }
         dismiss();
-    }, [dismiss]);
+    }, [dismiss, updateId]);
 
     const trackClick = (url: string) => {
         if (!latestUpdate) return;
@@ -123,30 +178,12 @@ export default function ProductUpdates() {
         return url;
     };
 
-    // Don't show if:
-    if (
-        !isFeatureEnabled ||
-        !isLocallyVisible ||
-        !latestUpdate ||
-        !latestUpdate.enabled ||
-        !versionMatches ||
-        !isOnHomePage
-    ) {
+    if (!showToast || !latestUpdate) {
         return null;
     }
 
-    const {
-        title,
-        header,
-        image,
-        description,
-        primaryCtaText,
-        primaryCtaLink,
-        ctaText,
-        ctaLink,
-        features,
-        releaseMonth,
-    } = latestUpdate;
+    const { title, header, description, primaryCtaText, primaryCtaLink, ctaText, ctaLink, features, releaseMonth } =
+        latestUpdate;
 
     // Helper to check if value is actually present (not null, undefined, or string "null")
     const isPresent = (value: any) => value && value !== 'null' && value !== null;
@@ -200,9 +237,9 @@ export default function ProductUpdates() {
                         </Text>
                     </HeroSection>
                 )}
-                {image && (
+                {imageSrc && (
                     <ImageSection>
-                        <Image src={image} alt={contentTitle || undefined} />
+                        <Image src={imageSrc} alt={contentTitle || undefined} />
                     </ImageSection>
                 )}
                 {displayFeatures && displayFeatures.length > 0 && (

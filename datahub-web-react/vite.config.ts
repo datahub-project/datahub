@@ -137,7 +137,7 @@ function substituteBasePathForDev(): PluginOption {
         name: 'substitute-base-path-dev',
         apply: 'serve',
         transformIndexHtml(html) {
-            return html.replace('@basePath', '/');
+            return html.replace('@basePath', '/').replace('@productUpdateBootstrap', '');
         },
     };
 }

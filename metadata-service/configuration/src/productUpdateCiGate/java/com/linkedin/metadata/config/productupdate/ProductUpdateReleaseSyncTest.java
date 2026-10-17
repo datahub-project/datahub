@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -57,8 +56,16 @@ public class ProductUpdateReleaseSyncTest {
 
   private static final Path UI_LOCALES_DIR = Path.of("datahub-web-react/src/i18n/locales");
 
-  private static final Pattern BUNDLED_IMAGE =
-      Pattern.compile("https://raw\\.githubusercontent\\.com/datahub-project/datahub/[^/]+/(.+)");
+  /** Vite copies {@code datahub-web-react/src/images/*} to this directory. */
+  private static final String LOCAL_IMAGE_ROOT = "assets/platforms/";
+
+  /**
+   * The toast imports its image from here instead of using the payload URL. The payload arrives
+   * after GraphQL, so a remote image becomes the home LCP.
+   */
+  private static final Path BUNDLED_IMAGE_MODULE =
+      Path.of("datahub-web-react/src/app/shared/product/update/ProductUpdates.utils.ts");
+
   private static final Pattern RELEASE_MONTH = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
 
   private Path repoRoot;
@@ -164,19 +171,37 @@ public class ProductUpdateReleaseSyncTest {
   public void testProductUpdateImageExists(@Nonnull ProductUpdateFlavor flavor) throws IOException {
     JsonNode json = readProductUpdate(flavor);
     String image = json.path("image").asText("");
-    Matcher bundled = BUNDLED_IMAGE.matcher(image);
-    if (!bundled.matches()) {
-      // Externally hosted images can't be verified from the repo.
-      return;
-    }
-
-    String imagePath = bundled.group(1);
+    String relative = image.startsWith("/") ? image.substring(1) : image;
     Assert.assertTrue(
-        Files.isRegularFile(repoRoot.resolve(imagePath)),
+        relative.startsWith(LOCAL_IMAGE_ROOT),
+        flavor.jsonPath()
+            + " image must be "
+            + LOCAL_IMAGE_ROOT
+            + "<file> shipped in this build, got: "
+            + image);
+    String filename = relative.substring(LOCAL_IMAGE_ROOT.length());
+    Assert.assertFalse(
+        filename.isEmpty() || filename.contains("/") || filename.contains(".."),
+        flavor.jsonPath() + " image filename must be a single path segment, got: " + filename);
+
+    Path imagePath = repoRoot.resolve("datahub-web-react/src/images").resolve(filename);
+    Assert.assertTrue(
+        Files.isRegularFile(imagePath),
         flavor.jsonPath()
             + " references image "
-            + imagePath
-            + ", which does not exist in the repo. The toast would render with a broken image.");
+            + filename
+            + ", which does not exist in datahub-web-react/src/images. The toast would render"
+            + " with a broken image.");
+
+    String bundledModule = Files.readString(repoRoot.resolve(BUNDLED_IMAGE_MODULE));
+    Assert.assertTrue(
+        bundledModule.contains("@images/" + filename),
+        flavor.jsonPath()
+            + " image "
+            + filename
+            + " must be imported from "
+            + BUNDLED_IMAGE_MODULE
+            + ". The bundled file is the fallback when the hosted payload has no image URL.");
   }
 
   /**

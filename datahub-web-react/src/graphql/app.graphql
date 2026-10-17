@@ -215,7 +215,6 @@ query getLatestProductUpdate($locale: String) {
         header
         requiredVersion
         description
-        image
         primaryCtaText
         primaryCtaLink
         secondaryCtaText
