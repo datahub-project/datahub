@@ -340,6 +340,40 @@ public class EntityUtilsTest {
             .isFromNewerVersion());
   }
 
+  @Test
+  public void testToSystemAspects_MarksEnumValueFromANewerVersion() {
+    // A newer version added the ownership type without a schema version bump; failing validation
+    // only on that symbol is what shows the row came from that version. A real error doesn't.
+    EntityAspect newerEnum =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/enum,PROD)",
+            "ownership",
+            "{\"owners\":[{\"owner\":\"urn:li:corpuser:a\",\"type\":\"TYPE_FROM_NEWER_BUILD\"}],"
+                + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}");
+    EntityAspect wrongType =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/wrongType,PROD)",
+            "ownership",
+            "{\"owners\":[{\"owner\":\"urn:li:corpuser:a\",\"type\":\"TYPE_FROM_NEWER_BUILD\"}],"
+                + "\"lastModified\":{\"time\":\"not-a-number\",\"actor\":\"urn:li:corpuser:datahub\"}}");
+
+    Map<String, Boolean> marked =
+        EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(newerEnum, wrongType))
+            .stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    a -> a.getUrn().toString(), SystemAspect::isFromNewerVersion));
+
+    assertEquals(marked, Map.of(newerEnum.getUrn(), true, wrongType.getUrn(), false));
+
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    assertFalse(
+        EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
+            .get(0)
+            .isFromNewerVersion());
+  }
+
   private static EntityAspect aspectRow(String urn, String aspectName, String metadata) {
     EntityAspect row = new EntityAspect();
     row.setUrn(urn);

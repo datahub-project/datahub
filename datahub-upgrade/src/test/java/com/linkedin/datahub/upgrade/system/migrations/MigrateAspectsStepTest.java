@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
@@ -272,6 +273,56 @@ public class MigrateAspectsStepTest {
     } finally {
       UnknownDataHandlings.reset();
     }
+  }
+
+  @Test
+  public void testEnumValueFromANewerVersionIsLeftAsStored() {
+    // A newer version added the ownership type without a schema version bump, so the row looks
+    // like this version's; it fails validation only on that value and is left, not failing the run.
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+    stubOneRow(
+        "ownership",
+        "{\"owners\":[{\"owner\":\"urn:li:corpuser:a\",\"type\":\"TYPE_FROM_NEWER_BUILD\"}],"
+            + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}");
+
+    UpgradeStepResult result = buildStep(Map.of("ownership", 2L)).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockEntityService, never())
+        .ingestProposal(any(), any(AspectsBatchImpl.class), anyBoolean());
+  }
+
+  @Test
+  public void testEnumValueFromANewerVersionFailsAsBeforeWhenStrict() {
+    when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+    stubOneRow(
+        "ownership",
+        "{\"owners\":[{\"owner\":\"urn:li:corpuser:a\",\"type\":\"TYPE_FROM_NEWER_BUILD\"}],"
+            + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}");
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    try {
+      expectThrows(
+          ValidationException.class,
+          () -> buildStep(Map.of("ownership", 2L)).executable().apply(mockContext));
+    } finally {
+      UnknownDataHandlings.reset();
+    }
+  }
+
+  private void stubOneRow(String aspectName, String metadata) {
+    EbeanAspectV2 row =
+        new EbeanAspectV2(
+            "urn:li:dataset:(urn:li:dataPlatform:hive,db.t,PROD)",
+            aspectName,
+            0L,
+            metadata,
+            new Timestamp(1_000L),
+            "urn:li:corpuser:datahub",
+            null,
+            RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata()));
+    when(mockAspectDao.streamAspectBatchesForMigration(any(), eq(0L), anyInt(), anyInt()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.of(row)).build());
   }
 
   private List<String> migratedUrns() {

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -108,6 +109,12 @@ public interface UnknownDataHandling {
   /** True if the aspect references an entity type the registry doesn't know, anywhere in it. */
   boolean aspectReferencesUnknownEntityType(
       @Nonnull RecordTemplate aspect, @Nonnull EntityRegistry registry);
+
+  /**
+   * True when a validation failure is only on enum symbols or union members this version doesn't
+   * define, which a newer version added (see {@link UnknownSchemaValues}).
+   */
+  boolean failsOnlyOnValuesFromNewerVersion(@Nullable ValidationResult validationFailure);
 
   /** True when an aspect that fails validation can be attributed to a newer version. */
   boolean isFromNewerVersion(
