@@ -95,24 +95,26 @@ public class V3SearchDocumentProjector {
       @Nonnull final AspectSpec aspectSpec) {
     try {
       final boolean isDelete = ChangeType.DELETE.equals(event.getChangeType());
-      return searchDocumentTransformer
-          .transformAspect(
-              opContext,
-              event.getUrn(),
-              event.getRecordTemplate(),
-              aspectSpec,
-              isDelete,
-              event.getAuditStamp())
-          .map(
-              objectNode ->
-                  event.getAuditStamp() == null
-                      ? objectNode
-                      : SearchDocumentTransformer.withSystemCreated(
-                          objectNode,
-                          changeTypeForSystemCreated(event),
-                          event.getEntitySpec(),
-                          aspectSpec,
-                          event.getAuditStamp()));
+      Optional<ObjectNode> transformed =
+          searchDocumentTransformer
+              .transformAspect(
+                  opContext,
+                  event.getUrn(),
+                  event.getRecordTemplate(),
+                  aspectSpec,
+                  isDelete,
+                  event.getAuditStamp())
+              .map(
+                  objectNode ->
+                      event.getAuditStamp() == null
+                          ? objectNode
+                          : SearchDocumentTransformer.withSystemCreated(
+                              objectNode,
+                              changeTypeForSystemCreated(event),
+                              event.getEntitySpec(),
+                              aspectSpec,
+                              event.getAuditStamp()));
+      return transformed;
     } catch (Exception e) {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
@@ -146,8 +148,10 @@ public class V3SearchDocumentProjector {
       return Optional.empty();
     }
     try {
-      return searchDocumentTransformer.transformAspect(
-          opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
+      Optional<ObjectNode> transformed =
+          searchDocumentTransformer.transformAspect(
+              opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
+      return transformed;
     } catch (Exception e) {
       throw propagate(
           "Failed to transform previous V3 aspect " + aspectSpec.getName() + " for " + urn, e);

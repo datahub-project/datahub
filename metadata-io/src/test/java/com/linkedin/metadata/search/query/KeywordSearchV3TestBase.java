@@ -52,8 +52,11 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
@@ -73,12 +76,14 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.MatchedField;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -127,6 +132,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -175,9 +182,14 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
   private static final Urn STEWARD_NOTE = UrnUtils.getUrn("urn:li:structuredProperty:stewardNote");
-  // Its definition keeps its values out of full-text search
+  // No searchConfiguration, so V3 does not analyze it
   private static final Urn INTERNAL_CODE =
       UrnUtils.getUrn("urn:li:structuredProperty:internalCode");
+  // Indexed for an explicit field, absent from default search
+  private static final Urn HIDDEN_LABEL = UrnUtils.getUrn("urn:li:structuredProperty:hiddenLabel");
+  // queryByDefault and the legacy exclusion together: V3 ignores the exclusion
+  private static final Urn LEGACY_EXCLUDED =
+      UrnUtils.getUrn("urn:li:structuredProperty:legacyExcluded");
   // The ORDERS name and key id
   private static final Set<String> ORDERS_VALUES = Set.of("orders", "sales.orders");
   private static final Urn CUSTOMERS_OWNER = UrnUtils.getUrn("urn:li:corpuser:zelda");
@@ -259,36 +271,61 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // Built as MappingsBuilderFactory builds it, with the engine's own mapping details
     engineV3MappingsBuilder = new MultiEntityMappingsBuilder(entityIndex);
     // Both the document transformer and the filter resolver look the definition up
+    DataHubSearchConfig searched = new DataHubSearchConfig().setQueryByDefault(true);
     StructuredPropertyDefinition retentionPolicy =
         new StructuredPropertyDefinition()
             .setQualifiedName(RETENTION_POLICY.getId())
             .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
-            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setSearchConfiguration(searched);
     StructuredPropertyDefinition stewardNote =
         new StructuredPropertyDefinition()
             .setQualifiedName(STEWARD_NOTE.getId())
             .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "rich_text"))
-            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
     StructuredPropertyDefinition internalCode =
         new StructuredPropertyDefinition()
             .setQualifiedName(INTERNAL_CODE.getId())
             .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    StructuredPropertyDefinition hiddenLabel =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(HIDDEN_LABEL.getId())
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
             .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
-            .setSearchConfiguration(new DataHubSearchConfig().setExcludeFromFullTextSearch(true));
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(false));
+    StructuredPropertyDefinition legacyExcluded =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(LEGACY_EXCLUDED.getId())
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setSearchConfiguration(
+                new DataHubSearchConfig()
+                    .setQueryByDefault(true)
+                    .setExcludeFromFullTextSearch(true));
     MockAspectRetriever aspectRetriever =
         new MockAspectRetriever(
             Map.of(
                 RETENTION_POLICY, List.of(retentionPolicy, new Status().setRemoved(false)),
                 STEWARD_NOTE, List.of(stewardNote, new Status().setRemoved(false)),
-                INTERNAL_CODE, List.of(internalCode, new Status().setRemoved(false))));
+                INTERNAL_CODE, List.of(internalCode, new Status().setRemoved(false)),
+                HIDDEN_LABEL, List.of(hiddenLabel, new Status().setRemoved(false)),
+                LEGACY_EXCLUDED, List.of(legacyExcluded, new Status().setRemoved(false))));
     aspectRetriever.setEntityRegistry(entityRegistry);
     RetrieverContext retrieverContext =
         RetrieverContext.builder()
             .aspectRetriever(aspectRetriever)
-            .cachingAspectRetriever(
-                TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+            .cachingAspectRetriever(definitionsWithActiveUsers(aspectRetriever))
             .graphRetriever(GraphRetriever.EMPTY)
-            .searchRetriever(SearchRetriever.EMPTY)
+            .searchRetriever(
+                structuredPropertySearchRetriever(
+                    List.of(
+                        RETENTION_POLICY,
+                        STEWARD_NOTE,
+                        INTERNAL_CODE,
+                        HIDDEN_LABEL,
+                        LEGACY_EXCLUDED)))
             .build();
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
@@ -345,7 +382,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 List.of(
                     Pair.of(RETENTION_POLICY, retentionPolicy),
                     Pair.of(STEWARD_NOTE, stewardNote),
-                    Pair.of(INTERNAL_CODE, internalCode)))
+                    Pair.of(INTERNAL_CODE, internalCode),
+                    Pair.of(HIDDEN_LABEL, hiddenLabel),
+                    Pair.of(LEGACY_EXCLUDED, legacyExcluded)))
             .stream()
             .collect(
                 Collectors.toMap(
@@ -403,7 +442,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                     .setPropertyUrn(RETENTION_POLICY)
                                     .setValues(
                                         new PrimitivePropertyValueArray(
-                                            PrimitivePropertyValue.create("90d")))))),
+                                            PrimitivePropertyValue.create("90d"))),
+                                new StructuredPropertyValueAssignment()
+                                    .setPropertyUrn(LEGACY_EXCLUDED)
+                                    .setValues(
+                                        new PrimitivePropertyValueArray(
+                                            PrimitivePropertyValue.create("nightjar")))))),
                 CUSTOMERS,
                 events(
                     CUSTOMERS,
@@ -434,7 +478,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                     .setPropertyUrn(INTERNAL_CODE)
                                     .setValues(
                                         new PrimitivePropertyValueArray(
-                                            PrimitivePropertyValue.create("kestrel")))))),
+                                            PrimitivePropertyValue.create("kestrel"))),
+                                new StructuredPropertyValueAssignment()
+                                    .setPropertyUrn(HIDDEN_LABEL)
+                                    .setValues(
+                                        new PrimitivePropertyValueArray(
+                                            PrimitivePropertyValue.create("quail")))))),
                 ORDERS_CHART,
                 events(
                     ORDERS_CHART,
@@ -557,6 +606,72 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                         .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
+  }
+
+  private static CachingAspectRetriever definitionsWithActiveUsers(
+      MockAspectRetriever definitions) {
+    CachingAspectRetriever activeUsers =
+        TestOperationContexts.emptyActiveUsersAspectRetriever(definitions::getEntityRegistry);
+    return new CachingAspectRetriever() {
+      @Nonnull
+      @Override
+      public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
+          @Nonnull OperationFingerprint context, Set<Urn> urns, Set<String> aspectNames) {
+        Map<Urn, Map<String, Aspect>> found =
+            new HashMap<>(definitions.getLatestAspectObjects(context, urns, aspectNames));
+        Set<Urn> missing = new HashSet<>();
+        for (Urn urn : urns) {
+          if (!found.containsKey(urn)) {
+            missing.add(urn);
+          }
+        }
+        if (!missing.isEmpty()) {
+          found.putAll(activeUsers.getLatestAspectObjects(context, missing, aspectNames));
+        }
+        return found;
+      }
+
+      @Nonnull
+      @Override
+      public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
+          @Nonnull OperationFingerprint context, Map<Urn, Set<String>> urnAspectNames) {
+        return definitions.getLatestSystemAspects(context, urnAspectNames);
+      }
+
+      @Nonnull
+      @Override
+      public Map<Urn, Boolean> entityExists(@Nonnull OperationFingerprint context, Set<Urn> urns) {
+        return definitions.entityExists(context, urns);
+      }
+
+      @Nonnull
+      @Override
+      public EntityRegistry getEntityRegistry() {
+        return definitions.getEntityRegistry();
+      }
+    };
+  }
+
+  private static SearchRetriever structuredPropertySearchRetriever(List<Urn> propertyUrns) {
+    return new SearchRetriever() {
+      @Override
+      public ScrollResult scroll(
+          List<String> entities,
+          Filter filters,
+          String scrollId,
+          Integer count,
+          List<SortCriterion> sortCriteria,
+          SearchFlags searchFlags) {
+        SearchEntityArray results = new SearchEntityArray();
+        if (scrollId == null) {
+          propertyUrns.forEach(urn -> results.add(new SearchEntity().setEntity(urn)));
+        }
+        return new ScrollResult()
+            .setEntities(results)
+            .setNumEntities(results.size())
+            .setPageSize(results.size());
+      }
+    };
   }
 
   @AfterClass(alwaysRun = true)
@@ -748,8 +863,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Full-text search matches structured property values, whole or by word, except those of a
-   * property whose definition opts out.
+   * Full-text search matches structured properties whose configuration includes them in the default
+   * query. A configured property with queryByDefault false stays filterable, a property with no
+   * configuration is not analyzed, and excludeFromFullTextSearch does not keep a configured
+   * property out of V3 search.
    */
   @Test
   public void testSearchMatchesStructuredPropertyValues() {
@@ -766,15 +883,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         CUSTOMERS);
     assertUrns(
         searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "nightjar", null, null, 0, 10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
             .search(fulltext, List.of(DATASET_ENTITY_NAME), "kestrel", null, null, 0, 10)
             .getEntities());
-    // The opted-out value is indexed all the same, for filters
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "quail", null, null, 0, 10)
+            .getEntities());
     assertUrns(
         searchService
             .filter(
                 opContext,
                 DATASET_ENTITY_NAME,
                 QueryUtils.newFilter("structuredProperties." + INTERNAL_CODE.getId(), "kestrel"),
+                null,
+                0,
+                10)
+            .getEntities(),
+        CUSTOMERS);
+    assertUrns(
+        searchService
+            .filter(
+                opContext,
+                DATASET_ENTITY_NAME,
+                QueryUtils.newFilter("structuredProperties." + HIDDEN_LABEL.getId(), "quail"),
                 null,
                 0,
                 10)
