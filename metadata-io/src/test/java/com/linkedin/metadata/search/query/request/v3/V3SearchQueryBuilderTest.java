@@ -408,6 +408,30 @@ public class V3SearchQueryBuilderTest {
         plain.toString());
   }
 
+  @Test
+  public void testExactMatchClausesCoverUserDisplayName() {
+    // corpuser/corpGroup keep their entity name in displayName (users also fullName), not name or
+    // title. Quoted queries run only the exact/prefix builder (simpleQuery is off for them), so a
+    // quoted user display name returned zero hits while the equivalent quoted dataset or domain
+    // name matched through name.keyword. The light path's exact-name boost had the same gap.
+    EntitySpec corpUserSpec = OP_CONTEXT.getEntityRegistry().getEntitySpec("corpuser");
+    V3SearchQueryBuilder v3Builder = builder(null);
+
+    String fullPath =
+        v3Builder
+            .buildQuery(OP_CONTEXT, List.of(corpUserSpec), "\"Pat Example\"", true, false)
+            .toString();
+    assertTrue(fullPath.contains("\"displayName.keyword\""), fullPath);
+    assertTrue(fullPath.contains("\"fullName.keyword\""), fullPath);
+
+    String lightPath =
+        v3Builder
+            .buildQuery(OP_CONTEXT, List.of(corpUserSpec), "Pat Example", true, true)
+            .toString();
+    assertTrue(lightPath.contains("\"displayName.keyword\""), lightPath);
+    assertTrue(lightPath.contains("\"fullName.keyword\""), lightPath);
+  }
+
   private static V3SearchQueryBuilder builder(CustomSearchConfiguration customConfiguration) {
     return new V3SearchQueryBuilder(SearchQueryBuilderTest.testQueryConfig, customConfiguration);
   }
