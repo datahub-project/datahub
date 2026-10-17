@@ -29,6 +29,19 @@ export default function useFetchChildDataJobs(): boolean {
         onCompleted: (data) => {
             let addedNode = false;
 
+            // The DataFlow's own direct upstream (e.g. a linked source-code Repository via
+            // repositoryLineage) -- separate from, and in addition to, each child job's own
+            // upstream fetched below. Without this, a Repository attached directly to the
+            // DataFlow never renders unless it's also reachable via a child job.
+            data.dataFlow?.upstream?.relationships?.forEach((relationship) => {
+                if (!relationship.entity) return;
+                addedNode = addedNode || !nodes.has(relationship.entity.urn);
+                setDefault(nodes, relationship.entity.urn, makeInitialNode(relationship.entity));
+                const edgeId = getEdgeId(rootUrn, relationship.entity.urn, LineageDirection.Upstream);
+                edges.set(edgeId, { ...edges.get(edgeId), isDisplayed: true });
+                addToAdjacencyList(adjacencyList, LineageDirection.Upstream, rootUrn, relationship.entity.urn);
+            });
+
             const jobs = data.dataFlow?.childJobs;
             jobs?.relationships?.forEach((job) => {
                 if (!job.entity) return;
