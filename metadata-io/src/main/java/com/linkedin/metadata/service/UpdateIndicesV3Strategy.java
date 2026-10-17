@@ -768,7 +768,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             if (rootFieldKept(document, field, Set.of())) {
               continue;
             }
-            document.putNull(field);
+            nullIfAbsent(document, field);
           }
         });
   }
@@ -776,10 +776,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * After a catch-up document is fully built, nulls index fields the restate no longer sets. A
    * child missing from a restated aspect is nulled under {@code _aspects} and, when the finished
-   * document has no value there, at the root. A root field a timeseries aspect in the index still
-   * holds, or that the strategy owns, stays. Structured properties are dotted root keys the
-   * finished document does not set; the parent key is left alone. A leftover {@code
-   * _aspects.structuredProperties} entry is nulled without reading its children as those keys.
+   * document has no value there, at the root. A key missing from an object field the document still
+   * has, such as {@code customProperties}, is nulled inside that object. A root field a timeseries
+   * aspect in the index still holds, or that the strategy owns, stays. Structured properties are
+   * dotted root keys the finished document does not set; the parent key is left alone. A leftover
+   * {@code _aspects.structuredProperties} entry is nulled without reading its children as those
+   * keys.
    */
   private static void clearStaleCatchUpFields(
       @Nonnull ObjectNode document,
@@ -822,15 +824,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       JsonNode aspectNode = aspects == null ? null : aspects.get(aspectName);
       ObjectNode aspect = aspectNode instanceof ObjectNode node ? node : null;
       for (String field : fields) {
-        if (aspect != null
-            && !aspect.has(field)
-            && !STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)) {
-          aspect.putNull(field);
+        if (aspect != null && !STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)) {
+          nullIfAbsent(aspect, field);
         }
         if (rootFieldKept(document, field, timeseriesRootFields)) {
           continue;
         }
-        document.putNull(field);
+        nullIfAbsent(document, field);
       }
     }
   }
@@ -860,7 +860,40 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)
         || V3SearchDocumentProjector.SYSTEM_METADATA_FIELD.equals(field)
         || timeseriesRootFields.contains(field)
-        || document.hasNonNull(field);
+        || valuePresent(document, field);
+  }
+
+  /**
+   * Nulls {@code path} where the finished document does not already have it. A path with {@link
+   * ESSearchDAO#NESTED_FIELD_SEPARATOR} is a key inside an object field; the child is nulled only
+   * when that object is present, so a missing parent is cleared by its own top-level name rather
+   * than by inventing the object here.
+   */
+  private static void nullIfAbsent(@Nonnull ObjectNode root, @Nonnull String path) {
+    String[] parts = path.split(ESSearchDAO.NESTED_FIELD_SEPARATOR, -1);
+    ObjectNode node = root;
+    for (int i = 0; i < parts.length - 1; i++) {
+      JsonNode child = node.get(parts[i]);
+      if (!(child instanceof ObjectNode object)) {
+        return;
+      }
+      node = object;
+    }
+    if (!node.has(parts[parts.length - 1])) {
+      node.putNull(parts[parts.length - 1]);
+    }
+  }
+
+  private static boolean valuePresent(@Nonnull ObjectNode root, @Nonnull String path) {
+    String[] parts = path.split(ESSearchDAO.NESTED_FIELD_SEPARATOR, -1);
+    JsonNode node = root;
+    for (String part : parts) {
+      if (!(node instanceof ObjectNode object) || !object.has(part) || object.get(part).isNull()) {
+        return false;
+      }
+      node = object.get(part);
+    }
+    return true;
   }
 
   private static boolean isTimeseriesAspect(

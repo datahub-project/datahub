@@ -2034,6 +2034,62 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testCatchUpReplayNullsADroppedKeyInsideAnObjectField() throws Exception {
+    ObjectNode customProperties = JsonNodeFactory.instance.objectNode();
+    customProperties.put("kept", "yes");
+    JsonNode written =
+        catchUpDocument(
+            storedDataset("stored"),
+            Map.of(DATASET_PROPERTIES_ASPECT_NAME, Map.of("name", "orders")),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME, objectField("customProperties", customProperties)),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME,
+                Set.of(
+                    "name",
+                    "customProperties",
+                    nestedField("customProperties", "kept"),
+                    nestedField("customProperties", "dropped"))));
+
+    assertEquals(written.get("name").asText(), "orders");
+    assertEquals(written.get("customProperties").get("kept").asText(), "yes");
+    assertTrue(written.get("customProperties").get("dropped").isNull());
+    JsonNode aspectProperties =
+        written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("customProperties");
+    assertEquals(aspectProperties.get("kept").asText(), "yes");
+    assertTrue(aspectProperties.get("dropped").isNull());
+  }
+
+  @Test
+  public void testCatchUpReplayLeavesATimeseriesKeyInsideASharedObjectField() throws Exception {
+    ObjectNode customProperties = JsonNodeFactory.instance.objectNode();
+    customProperties.put("kept", "yes");
+    String rowCount = nestedField("customProperties", "rowCount");
+    JsonNode written =
+        catchUpDocument(
+            storedDataset("stored"),
+            Map.of(),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME, objectField("customProperties", customProperties)),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME,
+                Set.of("customProperties", rowCount),
+                "datasetProfile",
+                Set.of("customProperties", rowCount)));
+
+    assertEquals(written.get("customProperties").get("kept").asText(), "yes");
+    assertFalse(written.get("customProperties").has("rowCount"));
+    assertTrue(
+        written
+            .get("_aspects")
+            .get(DATASET_PROPERTIES_ASPECT_NAME)
+            .get("customProperties")
+            .get("rowCount")
+            .isNull());
+    assertFalse(written.get("_aspects").has("datasetProfile"));
+  }
+
+  @Test
   public void testCatchUpReplayKeepsARootFieldAnotherRestatedAspectSets() throws Exception {
     JsonNode written =
         catchUpDocument(
@@ -2393,6 +2449,12 @@ public class UpdateIndicesV3StrategyTest {
 
   private void stubTransformByAspect(Map<String, Map<String, String>> fieldsByAspect)
       throws Exception {
+    stubTransformByAspect(fieldsByAspect, Map.of());
+  }
+
+  private void stubTransformByAspect(
+      Map<String, Map<String, String>> fieldsByAspect, Map<String, ObjectNode> objectsByAspect)
+      throws Exception {
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
             any(Urn.class),
@@ -2406,8 +2468,25 @@ public class UpdateIndicesV3StrategyTest {
               ObjectNode document = JsonNodeFactory.instance.objectNode();
               document.put("urn", testUrn.toString());
               fieldsByAspect.getOrDefault(spec.getName(), Map.of()).forEach(document::put);
+              ObjectNode objects = objectsByAspect.get(spec.getName());
+              if (objects != null) {
+                objects
+                    .fields()
+                    .forEachRemaining(
+                        entry -> document.set(entry.getKey(), entry.getValue().deepCopy()));
+              }
               return Optional.of(document);
             });
+  }
+
+  private static ObjectNode objectField(String name, ObjectNode value) {
+    ObjectNode fields = JsonNodeFactory.instance.objectNode();
+    fields.set(name, value);
+    return fields;
+  }
+
+  private static String nestedField(String... parts) {
+    return String.join(ESSearchDAO.NESTED_FIELD_SEPARATOR, parts);
   }
 
   private JsonNode catchUpDocument(
@@ -2415,7 +2494,16 @@ public class UpdateIndicesV3StrategyTest {
       Map<String, Map<String, String>> fieldsByAspect,
       Map<String, Set<String>> indexedFields)
       throws Exception {
-    stubTransformByAspect(fieldsByAspect);
+    return catchUpDocument(stored, fieldsByAspect, Map.of(), indexedFields);
+  }
+
+  private JsonNode catchUpDocument(
+      Map<String, SystemAspect> stored,
+      Map<String, Map<String, String>> fieldsByAspect,
+      Map<String, ObjectNode> objectsByAspect,
+      Map<String, Set<String>> indexedFields)
+      throws Exception {
+    stubTransformByAspect(fieldsByAspect, objectsByAspect);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
     when(mockEvent.getMetadataChangeLog())
         .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));

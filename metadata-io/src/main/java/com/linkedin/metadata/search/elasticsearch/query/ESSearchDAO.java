@@ -268,17 +268,28 @@ public class ESSearchDAO {
   public static final String STALE_ASPECTS_STRUCTURED_PROPERTIES = "_aspects.structuredProperties";
 
   /**
-   * Aspect names under {@code _aspects}, each with the field names under it. Structured properties
-   * live at the root as dotted keys ({@code structuredProperties.<name>}), so that entry is those
-   * keys: every top-level {@code _source} key with that prefix, plus each child when {@code
-   * _source.structuredProperties} is itself a map. A leftover {@code _aspects.structuredProperties}
-   * is reported under {@link #STALE_ASPECTS_STRUCTURED_PROPERTIES} and does not replace that list.
-   * Names only.
+   * Separates an object field from a key inside it in the names this script reports ({@code
+   * customProperties<separator>oldKey}). A dot cannot do that: searchable field names contain dots,
+   * and a dotted {@code structuredProperties.*} key is a root field name, not a child of an object.
+   */
+  public static final String NESTED_FIELD_SEPARATOR = "\u001f";
+
+  /**
+   * Aspect names under {@code _aspects}, each with the field names under it. An object field also
+   * contributes each key inside it, joined with {@link #NESTED_FIELD_SEPARATOR}, so a catch-up can
+   * null a map entry the restate dropped. Structured properties live at the root as dotted keys
+   * ({@code structuredProperties.<name>}), so that entry is those keys: every top-level {@code
+   * _source} key with that prefix, plus each child when {@code _source.structuredProperties} is
+   * itself a map. A leftover {@code _aspects.structuredProperties} is reported under {@link
+   * #STALE_ASPECTS_STRUCTURED_PROPERTIES} and does not replace that list. Names only.
    */
   private static final String ASPECT_FIELD_NAMES_SCRIPT =
       "Map names = new HashMap();"
           + " def source = params['_source'];"
           + " if (!(source instanceof Map)) { return names; }"
+          + " def sep = '"
+          + NESTED_FIELD_SEPARATOR
+          + "';"
           + " def aspects = source['_aspects'];"
           + " if (aspects instanceof Map) {"
           + "   for (def entry : aspects.entrySet()) {"
@@ -288,9 +299,27 @@ public class ESSearchDAO {
           + "'] = new ArrayList();"
           + "       continue;"
           + "     }"
-          + "     def fields = entry.getValue();"
-          + "     names[entry.getKey()] ="
-          + "         fields instanceof Map ? new ArrayList(fields.keySet()) : new ArrayList();"
+          + "     def pending = new ArrayList();"
+          + "     def prefixes = new ArrayList();"
+          + "     pending.add(entry.getValue());"
+          + "     prefixes.add('');"
+          + "     def collected = new ArrayList();"
+          + "     while (!pending.isEmpty()) {"
+          + "       def current = pending.remove(pending.size() - 1);"
+          + "       def prefix = prefixes.remove(prefixes.size() - 1);"
+          + "       if (!(current instanceof Map)) { continue; }"
+          + "       for (def child : current.entrySet()) {"
+          + "         if (!(child.getKey() instanceof String)) { continue; }"
+          + "         def key = (String) child.getKey();"
+          + "         def path = prefix == '' ? key : prefix + sep + key;"
+          + "         collected.add(path);"
+          + "         if (child.getValue() instanceof Map) {"
+          + "           pending.add(child.getValue());"
+          + "           prefixes.add(path);"
+          + "         }"
+          + "       }"
+          + "     }"
+          + "     names[entry.getKey()] = collected;"
           + "   }"
           + " }"
           + " def dotted = new ArrayList();"

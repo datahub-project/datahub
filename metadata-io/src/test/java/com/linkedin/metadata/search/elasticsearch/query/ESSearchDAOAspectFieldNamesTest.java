@@ -50,6 +50,12 @@ public class ESSearchDAOAspectFieldNamesTest {
     assertFalse(
         script.contains("= ['structuredProperties']"),
         "the aspect is no longer reported as the single sentinel field");
+    assertTrue(
+        script.contains(ESSearchDAO.NESTED_FIELD_SEPARATOR),
+        "keys inside an object field are reported separately from dotted field names");
+    assertTrue(
+        script.contains("child.getValue() instanceof Map"),
+        "object fields are walked so a dropped map entry can be cleared");
   }
 
   @Test
