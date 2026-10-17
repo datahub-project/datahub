@@ -54,7 +54,17 @@ source:
     extract_warehouses: true
     extract_schemas: true  # Set to false to skip schema containers
     extract_views: true    # Requires sql_endpoint.enabled
-    
+
+    # OneLake shortcuts on lakehouse tables (enabled by default).
+    # Calls GET /workspaces/{workspaceId}/items/{lakehouseId}/shortcuts and tags
+    # matching tables `shortcut` with shortcut_origin_* custom properties (name,
+    # path, workspace id/name, item id/name). include_lineage also emits a
+    # OneLake table target as an upstream; external targets are tagged but not
+    # linked.
+    # shortcuts:
+    #   enabled: true
+    #   include_lineage: false
+
     # Optional: API timeout (seconds)
     # api_timeout: 30
     

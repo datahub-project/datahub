@@ -1495,7 +1495,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+          "description": "View definitions are parsed when `extract_views` is enabled. When `shortcuts.include_lineage` is enabled and the origin table was ingested, shortcut columns are mapped onto the origin columns with the same name.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1532,6 +1532,12 @@
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut target is emitted as an upstream of the shortcut table.",
           "subtype_modifier": null,
           "supported": true
         }

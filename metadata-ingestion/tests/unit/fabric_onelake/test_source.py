@@ -5,8 +5,10 @@ from unittest.mock import MagicMock
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.source.fabric.common.models import (
     FABRIC_WORKSPACE_PLATFORM,
+    FabricWorkspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.onelake.client import IncompleteCatalogListing
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
     FabricOneLakeSource,
@@ -154,3 +156,32 @@ def test_norm_respects_convert_urns_to_lowercase() -> None:
     src.config.convert_urns_to_lowercase = False
     assert FabricOneLakeSource._norm(src, "Sales") == "Sales"
     assert FabricOneLakeSource._norm(src, "CUSTOMERS") == "CUSTOMERS"
+
+
+def test_failed_table_listing_is_a_source_failure() -> None:
+    src = MagicMock()
+    src.client.list_lakehouse_tables.side_effect = IncompleteCatalogListing("truncated")
+
+    emitted = list(
+        FabricOneLakeSource._process_item_tables(
+            src,
+            FabricWorkspace(id="ws-1", name="workspace"),
+            "lh-1",
+            "Lakehouse",
+            LakehouseKey(
+                platform=PLATFORM,
+                env="PROD",
+                workspace_id="ws-1",
+                lakehouse_id="lh-1",
+            ),
+            item_display_name="Lakehouse",
+            schema_map={},
+            emitted_schemas=set(),
+            profile_targets=[],
+            shortcuts={},
+        )
+    )
+
+    assert emitted == []
+    src.report.failure.assert_called_once()
+    src.report.warning.assert_not_called()
