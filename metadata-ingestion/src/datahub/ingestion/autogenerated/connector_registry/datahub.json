@@ -1468,6 +1468,24 @@
           "supported": true
         },
         {
+          "capability": "OWNERSHIP",
+          "description": "Optionally enabled via `extract_owners`. Item default identity userPrincipalName, when the identity is a user. An item with no default identity uses creatorPrincipal from the admin item API. `extract_owners.ownership_type` sets the DataHub ownership type. Children inherit it when `extract_owners.cascade_ownership` is true.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1495,7 +1513,13 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+          "description": "View definitions are parsed when `extract_views` is enabled. When `shortcuts.include_lineage` is enabled and the origin table was ingested, shortcut columns are mapped onto the origin columns with the same name.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via `profiling`. Uses the SQL Analytics Endpoint and the Microsoft ODBC Driver for SQL Server, the same profiler as `mssql-odbc`.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1508,6 +1532,24 @@
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Optionally enabled via `extract_owners`. Item default identity userPrincipalName, when the identity is a user. A warehouse or notebook with no default identity uses creatorPrincipal from the admin item API. `extract_owners.ownership_type` sets the DataHub ownership type. Children inherit it when `extract_owners.cascade_ownership` is true.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The item sensitivity label id from GET /workspaces/{workspaceId}/items/{itemId} is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description.",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1526,6 +1568,12 @@
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut target is emitted as an upstream of the shortcut table.",
           "subtype_modifier": null,
           "supported": true
         }

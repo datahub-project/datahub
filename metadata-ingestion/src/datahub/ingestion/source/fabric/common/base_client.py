@@ -2,13 +2,22 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Mapping, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
+from datahub.ingestion.source.fabric.common.constants import (
+    ITEM_INCLUDE_DEFAULT_IDENTITY,
+)
+from datahub.ingestion.source.fabric.common.models import (
+    FabricItemAnnotations,
+    item_has_principal,
+    item_owner_user_principal_name,
+    sensitivity_label_id,
+)
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 
 logger = logging.getLogger(__name__)
@@ -46,6 +55,8 @@ class BaseFabricClient(ABC):
         auth_helper: FabricAuthHelper,
         timeout: int = 30,
         report: Optional[FabricClientReport] = None,
+        include_owners: bool = True,
+        include_sensitivity_labels: bool = False,
     ):
         """Initialize the base client.
 
@@ -53,9 +64,13 @@ class BaseFabricClient(ABC):
             auth_helper: Authentication helper for getting Bearer tokens
             timeout: Request timeout in seconds
             report: Optional client report for tracking metrics
+            include_owners: When true, look up each item's default identity
+            include_sensitivity_labels: When true, read each item's sensitivity label id
         """
         self.auth_helper = auth_helper
         self.timeout = timeout
+        self.include_owners = include_owners
+        self.include_sensitivity_labels = include_sensitivity_labels
         self._session = self._create_session()
         self.report = report or FabricClientReport()
 
@@ -235,6 +250,146 @@ class BaseFabricClient(ABC):
         """
         logger.info("Listing Fabric workspaces")
         yield from self._paginate("workspaces")
+
+    def get_item(self, workspace_id: str, item_id: str) -> dict:
+        """Get one workspace item, including its default identity.
+
+        GET /workspaces/{workspaceId}/items/{itemId}?include=DefaultIdentity
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/items/get-item
+        """
+        response = self.get(
+            f"workspaces/{workspace_id}/items/{item_id}",
+            params={"include": ITEM_INCLUDE_DEFAULT_IDENTITY},
+        )
+        data = response.json()
+        if not isinstance(data, dict):
+            return {}
+        return data
+
+    def _consume_item_payload(
+        self,
+        payload: Mapping[str, object],
+        annotations: FabricItemAnnotations,
+        *,
+        include_labels: bool,
+        owner_blocked: list[bool],
+    ) -> None:
+        if self.include_owners and not annotations.owner_user_principal_name:
+            if not owner_blocked[0]:
+                annotations.owner_user_principal_name = item_owner_user_principal_name(
+                    payload
+                )
+                if not annotations.owner_user_principal_name and item_has_principal(
+                    payload
+                ):
+                    # An identity is present but it is not a user. Do not
+                    # replace it with the item creator.
+                    owner_blocked[0] = True
+        if include_labels and not annotations.sensitivity_label_id:
+            annotations.sensitivity_label_id = sensitivity_label_id(payload)
+
+    def get_item_annotations(
+        self,
+        workspace_id: str,
+        item_id: str,
+        *,
+        resource_path: Optional[str] = None,
+        listed: Optional[Mapping[str, object]] = None,
+    ) -> FabricItemAnnotations:
+        """Read the item owner and sensitivity label id.
+
+        The label GUID comes from GET /workspaces/{workspaceId}/items/{itemId}
+        when a payload already fetched does not include it. Warehouse owners
+        still try the warehouse GET, then the items endpoint, then
+        ``creatorPrincipal`` on the admin item API. A missing value or a
+        failed lookup does not fail item listing.
+        """
+        include_labels = getattr(self, "include_sensitivity_labels", False)
+        annotations = FabricItemAnnotations()
+        owner_blocked = [False]
+
+        def consume(payload: object) -> None:
+            if isinstance(payload, dict):
+                self._consume_item_payload(
+                    payload,
+                    annotations,
+                    include_labels=include_labels,
+                    owner_blocked=owner_blocked,
+                )
+
+        if listed is not None:
+            consume(listed)
+        if not item_id:
+            return annotations
+
+        def need_owner() -> bool:
+            return (
+                self.include_owners
+                and not annotations.owner_user_principal_name
+                and not owner_blocked[0]
+            )
+
+        def need_label() -> bool:
+            return include_labels and not annotations.sensitivity_label_id
+
+        if resource_path and need_owner():
+            try:
+                response = self.get(resource_path)
+                consume(response.json())
+            except Exception as e:
+                logger.debug(f"Owner lookup failed for {resource_path}: {e}")
+
+        if need_owner() or need_label():
+            # include=DefaultIdentity only while the owner is still missing.
+            # A labels-only lookup is the plain items GET.
+            params = (
+                {"include": ITEM_INCLUDE_DEFAULT_IDENTITY} if need_owner() else None
+            )
+            try:
+                response = self.get(
+                    f"workspaces/{workspace_id}/items/{item_id}",
+                    params=params,
+                )
+                consume(response.json())
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read item {item_id} in workspace {workspace_id}: {e}"
+                )
+
+        if need_owner():
+            try:
+                response = self.get(f"admin/workspaces/{workspace_id}/items/{item_id}")
+                consume(response.json())
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read owner for item {item_id} in workspace "
+                    f"{workspace_id} from the admin item API: {e}"
+                )
+        return annotations
+
+    def get_item_owner_user_principal_name(
+        self,
+        workspace_id: str,
+        item_id: str,
+        *,
+        resource_path: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return the item owner's userPrincipalName, if the API provides one.
+
+        A missing identity or a failed lookup does not fail item listing.
+        ``resource_path`` is a type-specific GET (a warehouse) tried before
+        the generic items endpoint. When the item has no identity at all, the
+        admin item API supplies ``creatorPrincipal``. A service principal
+        identity is left without an owner.
+        """
+        if not self.include_owners:
+            return None
+        return self.get_item_annotations(
+            workspace_id,
+            item_id,
+            resource_path=resource_path,
+        ).owner_user_principal_name
 
     def get(self, endpoint: str, params: Optional[dict] = None) -> requests.Response:
         """Make a GET request.

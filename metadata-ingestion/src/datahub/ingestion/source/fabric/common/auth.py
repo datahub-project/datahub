@@ -19,6 +19,9 @@ ONELAKE_STORAGE_SCOPE = "https://storage.azure.com/.default"
 # SQL Analytics Endpoint requires database scope for Azure AD authentication
 SQL_ANALYTICS_ENDPOINT_SCOPE = "https://database.windows.net/.default"
 
+# Microsoft Graph, used to resolve a sensitivity label id to a name and description.
+GRAPH_API_SCOPE = "https://graph.microsoft.com/.default"
+
 
 class FabricAuthHelper:
     """Helper class for authenticating with Microsoft Fabric REST APIs.
@@ -35,9 +38,8 @@ class FabricAuthHelper:
         """
         self.credential_config = credential_config
         self._credential: Optional[TokenCredential] = None
-        self._cached_token: Optional[str] = None
-        self._cached_scope: Optional[str] = None
-        self._token_expires_at: Optional[float] = None
+        # scope -> (token, expires_at). Fabric and Graph tokens are cached separately.
+        self._token_cache: dict[str, tuple[str, float]] = {}
 
     def get_credential(self) -> TokenCredential:
         """Get the Azure TokenCredential.
@@ -56,6 +58,7 @@ class FabricAuthHelper:
             scope: Optional scope/audience. Defaults to FABRIC_API_SCOPE.
                   Use ONELAKE_STORAGE_SCOPE for OneLake Delta Table APIs.
                   Use SQL_ANALYTICS_ENDPOINT_SCOPE for SQL Analytics Endpoint connections.
+                  Use GRAPH_API_SCOPE to read sensitivity labels.
 
         Returns:
             Bearer token string (without "Bearer " prefix)
@@ -67,36 +70,28 @@ class FabricAuthHelper:
 
         target_scope = scope or FABRIC_API_SCOPE
 
-        # Check if cached token is still valid and for the same scope
-        if (
-            self._cached_token is not None
-            and self._cached_scope == target_scope
-            and self._token_expires_at is not None
-            and time.time() < (self._token_expires_at - 300)
-        ):
-            return self._cached_token
+        cached = self._token_cache.get(target_scope)
+        if cached is not None and time.time() < (cached[1] - 300):
+            return cached[0]
 
         try:
             credential = self.get_credential()
             token_response = credential.get_token(target_scope)
 
-            self._cached_token = token_response.token
-            self._cached_scope = target_scope
-            # Token expires_at is a datetime, convert to timestamp
+            # expires_on can be an int (Unix timestamp) or datetime
             if hasattr(token_response, "expires_on"):
-                # expires_on can be an int (Unix timestamp) or datetime
                 expires_on = token_response.expires_on
                 if isinstance(expires_on, (int, float)):
-                    self._token_expires_at = float(expires_on)
+                    expires_at = float(expires_on)
                 else:
-                    # It's a datetime, convert to timestamp
-                    self._token_expires_at = expires_on.timestamp()
+                    expires_at = expires_on.timestamp()
             else:
                 # Fallback: assume 1 hour validity if expires_on not available
-                self._token_expires_at = time.time() + 3600
+                expires_at = time.time() + 3600
 
+            self._token_cache[target_scope] = (token_response.token, expires_at)
             logger.debug(f"Successfully acquired token for scope: {target_scope}")
-            return self._cached_token
+            return token_response.token
 
         except Exception as e:
             logger.error(f"Failed to acquire token for scope {target_scope}: {e}")

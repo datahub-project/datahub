@@ -23,6 +23,23 @@ source:
         - ".*" # Allow all pipelines by default
       deny: []
 
+    # Item default identity as a DataHub owner. ownership_type is
+    # TECHNICAL_OWNER, BUSINESS_OWNER, DATA_STEWARD, NONE, or
+    # urn:li:ownershipType:<id>. cascade_ownership copies the owner onto
+    # activities that have none of their own.
+    # extract_owners:
+    #   enabled: true
+    #   ownership_type: TECHNICAL_OWNER
+    #   cascade_ownership: true
+
+    # Sensitivity label on the pipeline. The label GUID comes from
+    # GET /workspaces/{workspaceId}/items/{itemId}. The name and description
+    # come from Microsoft Graph. output is tag or glossary_term. A glossary
+    # term's description is the label description.
+    # extract_sensitivity_label:
+    #   enabled: false
+    #   output: tag
+
     # Feature flags
     extract_pipelines: true
     include_lineage: true

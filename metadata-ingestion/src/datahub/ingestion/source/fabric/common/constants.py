@@ -5,6 +5,10 @@ from typing import Dict
 # Fabric web UI base URL for building external links
 FABRIC_APP_BASE_URL = "https://app.fabric.microsoft.com"
 
+# Query value for GET /workspaces/{workspaceId}/items/{itemId}?include=DefaultIdentity.
+# https://learn.microsoft.com/en-us/rest/api/fabric/core/items/get-item
+ITEM_INCLUDE_DEFAULT_IDENTITY = "DefaultIdentity"
+
 # Source: https://learn.microsoft.com/en-us/rest/api/fabric/core/connections/list-supported-connection-types?tabs=HTTP
 # Unmapped connection types fall back to using the connection type string
 # itself as the platform name (e.g. "SapHana" → platform "SapHana").

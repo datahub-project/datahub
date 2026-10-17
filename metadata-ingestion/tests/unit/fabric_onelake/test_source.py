@@ -125,6 +125,18 @@ def test_warehouse_key_guid_uses_fabric_onelake_platform() -> None:
     assert key.guid() == expected
 
 
+def test_usage_table_allow_list_is_case_insensitive() -> None:
+    src = MagicMock()
+    src._ingested_dataset_names = set()
+    FabricOneLakeSource._register_ingested_dataset(src, "ws-1.wh-1.dbo.Orders")
+
+    assert FabricOneLakeSource._is_usage_table_allowed(src, "ws-1.wh-1.dbo.orders")
+    assert not FabricOneLakeSource._is_usage_table_allowed(
+        src, "ws-1.wh-1.information_schema.columns"
+    )
+    assert not FabricOneLakeSource._is_usage_table_allowed(src, "ws-1.wh-1.dbo.tab")
+
+
 def test_norm_respects_convert_urns_to_lowercase() -> None:
     """_norm lowercases identifiers iff convert_urns_to_lowercase=True.
 
