@@ -36,4 +36,7 @@ python -c "from datahub.ingestion.auth.env import build_auth_config_from_env"  #
 # exits 0 and would read as green.
 : "${DATAHUB_GMS_URL:?}"
 : "${KEYCLOAK_TOKEN_ENDPOINT:?}"
+# Keep pytest last: its exit code becomes this script's exit code (set -e/pipefail
+# above) and is what CI reads as pass/fail. Don't add anything after it — a later
+# command's exit code would mask pytest's result.
 pytest /smoke/test_oauth_cli_gms.py -v
