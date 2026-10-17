@@ -16,7 +16,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=sqlite_operator",
+            "externalUrl": "http://airflow.example.com/dags/sqlite_operator",
             "name": "sqlite_operator",
             "env": "PROD"
         }

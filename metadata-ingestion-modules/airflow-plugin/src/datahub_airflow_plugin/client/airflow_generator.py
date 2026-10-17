@@ -52,14 +52,15 @@ def _get_base_url() -> str:
 
     Prefers the Airflow 3 `[api] base_url`; falls back to `[webserver] base_url`
     for users who haven't migrated their `airflow.cfg`, then to localhost.
+    Trailing slashes are stripped so callers can append `/dags/...` safely.
     """
     api_base_url = conf.get("api", "base_url", fallback=None)
     if api_base_url:
-        return api_base_url
+        return api_base_url.rstrip("/")
 
     base_url = conf.get("webserver", "base_url", fallback=None)
     if base_url:
-        return base_url
+        return base_url.rstrip("/")
 
     return "http://localhost:8080"
 
@@ -202,7 +203,7 @@ class AirflowGenerator:
 
         data_flow.properties = flow_property_bag
         base_url = _get_base_url()
-        data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
+        data_flow.url = f"{base_url}/dags/{dag.dag_id}"
 
         if config.capture_ownership_info and dag.owner:
             owners = AirflowGenerator._extract_owners(dag)
