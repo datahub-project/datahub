@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { checkShouldSkipWelcomeModal } from '@app/shared/localStorageUtils';
+import { checkShouldSkipWelcomeModal, dismissProductUpdate } from '@app/shared/localStorageUtils';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLatestProductUpdateQuery } from '@graphql/app.generated';
@@ -43,6 +43,10 @@ export function useGetLatestProductAnnouncementData() {
 
 export type ProductAnnouncementResult = {
     visible: boolean;
+    /** True until the server has answered whether this user dismissed the update. */
+    pending: boolean;
+    /** True only when the server step state says this update was dismissed. */
+    dismissed: boolean;
     refetch: () => void;
 };
 
@@ -59,12 +63,11 @@ export function useIsProductAnnouncementVisible(updateId: string | null | undefi
         fetchPolicy: 'cache-first',
     });
 
+    const unanswered = { visible: false, pending: true, dismissed: false, refetch };
+
     // If userUrn is not loaded yet, don't show the announcement (wait for user context to load)
     if (!userUrn) {
-        return {
-            visible: false,
-            refetch,
-        };
+        return unanswered;
     }
 
     // If welcome modal hasn't been seen/dismissed, don't show product update
@@ -72,34 +75,34 @@ export function useIsProductAnnouncementVisible(updateId: string | null | undefi
     if (!hasSeenWelcomeModal) {
         return {
             visible: false,
+            pending: false,
+            dismissed: false,
             refetch,
         };
     }
 
     // If updateId is not available, don't show
     if (!updateId) {
-        return {
-            visible: false,
-            refetch,
-        };
+        return unanswered;
     }
 
     // If query is loading or has an error, don't show yet
     if (loading || error) {
         return {
             visible: false,
+            pending: !error,
+            dismissed: false,
             refetch,
         };
     }
 
-    // Show announcement if the step state doesn't exist (user hasn't dismissed it)
-    const visible =
-        (data?.batchGetStepStates?.results &&
-            !data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId)) ||
-        false;
+    const dismissed =
+        data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId) || false;
 
     return {
-        visible,
+        visible: !dismissed && !!data?.batchGetStepStates?.results,
+        pending: false,
+        dismissed,
         refetch,
     };
 }
@@ -114,6 +117,9 @@ export function useDismissProductAnnouncement(updateId: string | null | undefine
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
 
     return useCallback(() => {
+        if (updateId) {
+            dismissProductUpdate(updateId);
+        }
         if (!productUpdateStepId) return;
 
         const stepStates = [
@@ -130,5 +136,5 @@ export function useDismissProductAnnouncement(updateId: string | null | undefine
                 console.error('Failed to dismiss product announcement:', error);
             })
             .finally(() => refetch());
-    }, [productUpdateStepId, batchUpdateStepStates, refetch]);
+    }, [updateId, productUpdateStepId, batchUpdateStepStates, refetch]);
 }

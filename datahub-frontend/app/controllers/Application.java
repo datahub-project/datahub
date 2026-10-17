@@ -41,6 +41,7 @@ import play.mvc.ResponseHeader;
 import play.mvc.Result;
 import play.mvc.Security;
 import utils.ConfigUtil;
+import utils.ProductUpdateBootstrap;
 
 public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
@@ -75,6 +76,12 @@ public class Application extends Controller {
   private final String basePath;
   private final String gaTrackingId;
   private final List<String> streamingPathPrefixes;
+  private final String productUpdatesJsonUrl;
+  // The hosted file is already cached for 6 hours in GMS. This keeps the HTML path from calling
+  // out on every document request. A failed fetch leaves the previous snippet (or none) in place.
+  private static final long PRODUCT_UPDATE_CACHE_TTL_MS = Duration.ofHours(6).toMillis();
+  private volatile String productUpdateSnippet = "";
+  private volatile long productUpdateFetchedAtMs = 0;
 
   @Inject
   public Application(
@@ -94,6 +101,10 @@ public class Application extends Controller {
             ? config.getString("analytics.google.tracking.id")
             : null;
     this.streamingPathPrefixes = resolveStreamingPathPrefixes(config);
+    this.productUpdatesJsonUrl =
+        config.hasPath("datahub.productUpdatesJsonUrl")
+            ? config.getString("datahub.productUpdatesJsonUrl")
+            : "";
   }
 
   static List<String> resolveStreamingPathPrefixes(Config config) {
@@ -104,6 +115,51 @@ public class Application extends Controller {
       }
     }
     return List.of();
+  }
+
+  /**
+   * Returns the inlined product-update snippet, refreshing the hosted JSON at most every 6 hours.
+   * The first request waits briefly so the document can include the toast. Later requests reuse the
+   * cache and do not block on the network.
+   */
+  @Nonnull
+  private String currentProductUpdateSnippet() {
+    if (productUpdatesJsonUrl == null || productUpdatesJsonUrl.isBlank()) {
+      return "";
+    }
+    long now = System.currentTimeMillis();
+    if (productUpdateFetchedAtMs != 0 && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
+      return productUpdateSnippet;
+    }
+    synchronized (this) {
+      now = System.currentTimeMillis();
+      if (productUpdateFetchedAtMs != 0 && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
+        return productUpdateSnippet;
+      }
+      try {
+        HttpRequest request =
+            HttpRequest.newBuilder(URI.create(productUpdatesJsonUrl.trim()))
+                .timeout(Duration.ofSeconds(2))
+                .GET()
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+          productUpdateSnippet = ProductUpdateBootstrap.snippet(response.body());
+        } else {
+          logger.warn(
+              "Product update JSON {} returned HTTP {}. Leaving the previous inline snippet in place.",
+              productUpdatesJsonUrl,
+              response.statusCode());
+        }
+      } catch (Exception e) {
+        logger.warn(
+            "Failed to fetch product update JSON from {}: {}. Leaving the previous inline snippet in place.",
+            productUpdatesJsonUrl,
+            e.getMessage());
+      }
+      productUpdateFetchedAtMs = System.currentTimeMillis();
+      return productUpdateSnippet;
+    }
   }
 
   /**
@@ -128,7 +184,9 @@ public class Application extends Controller {
         basePath += "/";
       }
       // Inject <base href="..."/> right after <head> for use in the frontend.
-      String modifiedHtml = html.replace("@basePath", basePath);
+      String modifiedHtml =
+          html.replace("@basePath", basePath)
+              .replace(ProductUpdateBootstrap.PLACEHOLDER, currentProductUpdateSnippet());
 
       // Inject google tracking if it exists, should only be enabled for demo site
       if (gaTrackingId != null && !gaTrackingId.isEmpty()) {

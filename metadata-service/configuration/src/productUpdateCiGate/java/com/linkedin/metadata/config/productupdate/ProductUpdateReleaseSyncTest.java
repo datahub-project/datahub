@@ -201,7 +201,7 @@ public class ProductUpdateReleaseSyncTest {
             + filename
             + " must be imported from "
             + BUNDLED_IMAGE_MODULE
-            + ". The toast renders that import, not the image URL in the product-update payload.");
+            + ". The bundled file is the fallback when the hosted payload has no image URL.");
   }
 
   /**

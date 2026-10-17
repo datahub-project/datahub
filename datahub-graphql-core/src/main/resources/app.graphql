@@ -1099,10 +1099,10 @@ type ProductUpdate {
   requiredVersion: String
 
   """
-  Older clients still read this path. The current toast uses the image bundled in the frontend.
+  Image URL from the hosted product-update JSON. The toast paints this on first load when Play
+  inlines the JSON. The image bundled in the frontend is the fallback when this is absent.
   """
   image: String
-    @deprecated(reason: "The toast uses the image bundled in the frontend.")
 
   """
   Optional description text for the update

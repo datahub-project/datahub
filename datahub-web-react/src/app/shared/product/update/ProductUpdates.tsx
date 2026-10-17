@@ -6,6 +6,11 @@ import { useHistory } from 'react-router-dom';
 import analytics, { EventType } from '@app/analytics';
 import { NAV_SIDEBAR_ID, NAV_SIDEBAR_WIDTH_COLLAPSED, NAV_SIDEBAR_WIDTH_EXPANDED } from '@app/shared/constants';
 import {
+    checkProductUpdateDismissed,
+    checkShouldSkipWelcomeModal,
+    dismissProductUpdate,
+} from '@app/shared/localStorageUtils';
+import {
     CTAContainer,
     CloseButton,
     Content,
@@ -23,10 +28,11 @@ import {
     ToastContainer,
 } from '@app/shared/product/update/ProductUpdates.components';
 import {
-    bundledProductUpdateImage,
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    readProductUpdateBootstrap,
+    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 import {
     useDismissProductAnnouncement,
@@ -41,8 +47,8 @@ import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 const PRODUCT_UPDATE_PRELOAD_ATTR = 'data-product-update-preload';
 
-/** Start the bundled image fetch on the home page, before the product-update query returns. */
-function preloadBundledProductUpdateImage(href: string) {
+/** Start the hosted image fetch before the toast commits, when the HTML did not already preload it. */
+function preloadProductUpdateImage(href: string) {
     const absolute = new URL(href, window.location.href).href;
     const existing = document.head.querySelector(`link[${PRODUCT_UPDATE_PRELOAD_ATTR}]`);
     if (existing instanceof HTMLLinkElement && existing.href === absolute) {
@@ -63,34 +69,53 @@ export default function ProductUpdates() {
     const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
-    const latestUpdate = useGetLatestProductAnnouncementData();
     const appConfig = useAppConfig();
+    const [bootstrap] = useState(readProductUpdateBootstrap);
+    const serverUpdate = useGetLatestProductAnnouncementData();
+    const latestUpdate = serverUpdate ?? bootstrap;
     const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 
-    const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
+    const { visible, pending, dismissed, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
     const dismiss = useDismissProductAnnouncement(latestUpdate?.id, refetch);
 
-    // Local state to hide immediately on dismiss
-    const [isLocallyVisible, setIsLocallyVisible] = useState(false);
+    const [dismissedLocally, setDismissedLocally] = useState(() =>
+        bootstrap?.id ? checkProductUpdateDismissed(bootstrap.id) : false,
+    );
     const [sidebarWidth, setSidebarWidth] = useState(NAV_SIDEBAR_WIDTH_EXPANDED);
-    const imageSrc = bundledProductUpdateImage(isCloud);
-
-    useLayoutEffect(() => {
-        if (!isOnHomePage || !isFeatureEnabled) {
-            return undefined;
-        }
-        preloadBundledProductUpdateImage(imageSrc);
-        return undefined;
-    }, [imageSrc, isFeatureEnabled, isOnHomePage]);
-
-    // Check if current version matches required version
-    const currentVersion = appConfig.config.appVersion;
-    const versionMatches = isVersionMatch(currentVersion, latestUpdate?.requiredVersion);
+    const imageFromPayload =
+        serverUpdate && bootstrap && serverUpdate.id !== bootstrap.id ? undefined : bootstrap?.image;
+    const imageSrc = resolveProductUpdateImage(imageFromPayload, isCloud);
 
     useEffect(() => {
-        setIsLocallyVisible(visible);
-    }, [visible]);
+        if (!dismissed || !latestUpdate?.id) {
+            return;
+        }
+        dismissProductUpdate(latestUpdate.id);
+        setDismissedLocally(true);
+    }, [dismissed, latestUpdate?.id]);
+
+    const featureAllows = appConfig.loaded ? isFeatureEnabled : Boolean(bootstrap);
+    const versionMatches = isVersionMatch(appConfig.config.appVersion, latestUpdate?.requiredVersion);
+    // The hosted JSON is enough to paint. The step-state query only hides the toast once it
+    // confirms this user dismissed it. A slow or failed check must not pull the toast back down.
+    const serverAllows = bootstrap ? !dismissed : !pending && visible;
+    const showToast =
+        featureAllows &&
+        isOnHomePage &&
+        checkShouldSkipWelcomeModal() &&
+        !dismissedLocally &&
+        Boolean(latestUpdate?.enabled) &&
+        versionMatches &&
+        serverAllows;
+
+    useLayoutEffect(() => {
+        if (!showToast || !imageSrc) {
+            return undefined;
+        }
+        preloadProductUpdateImage(imageSrc);
+        return undefined;
+    }, [imageSrc, showToast]);
 
     // Measure sidebar width - use MutationObserver for instant updates
     useEffect(() => {
@@ -123,9 +148,12 @@ export default function ProductUpdates() {
     }, []);
 
     const handleDismiss = useCallback(() => {
-        setIsLocallyVisible(false);
+        if (latestUpdate?.id) {
+            dismissProductUpdate(latestUpdate.id);
+            setDismissedLocally(true);
+        }
         dismiss();
-    }, [dismiss]);
+    }, [dismiss, latestUpdate?.id]);
 
     const trackClick = (url: string) => {
         if (!latestUpdate) return;
@@ -152,15 +180,7 @@ export default function ProductUpdates() {
         return url;
     };
 
-    // Don't show if:
-    if (
-        !isFeatureEnabled ||
-        !isLocallyVisible ||
-        !latestUpdate ||
-        !latestUpdate.enabled ||
-        !versionMatches ||
-        !isOnHomePage
-    ) {
+    if (!showToast || !latestUpdate) {
         return null;
     }
 

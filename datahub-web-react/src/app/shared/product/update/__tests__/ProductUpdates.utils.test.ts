@@ -3,6 +3,9 @@ import {
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    PRODUCT_UPDATE_BOOTSTRAP_KEY,
+    readProductUpdateBootstrap,
+    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 
 describe('ProductUpdates utilities', () => {
@@ -26,6 +29,27 @@ describe('ProductUpdates utilities', () => {
     it('uses the image shipped in this frontend', () => {
         expect(bundledProductUpdateImage(true)).toContain('in-product-release-oct2026.png');
         expect(bundledProductUpdateImage(false)).toContain('sample-product-update-image.png');
+    });
+
+    it('reads an enabled product update injected into the page and ignores a disabled one', () => {
+        window[PRODUCT_UPDATE_BOOTSTRAP_KEY] = {
+            enabled: true,
+            id: 'v2.3',
+            image: 'https://example.com/release.png',
+        };
+        expect(readProductUpdateBootstrap()).toMatchObject({ id: 'v2.3', image: 'https://example.com/release.png' });
+
+        window[PRODUCT_UPDATE_BOOTSTRAP_KEY] = { enabled: false, id: 'v2.3' };
+        expect(readProductUpdateBootstrap()).toBeNull();
+        delete window[PRODUCT_UPDATE_BOOTSTRAP_KEY];
+    });
+
+    it('prefers the hosted image URL and falls back to the bundled file', () => {
+        expect(resolveProductUpdateImage('https://example.com/release.png', true)).toBe(
+            'https://example.com/release.png',
+        );
+        expect(resolveProductUpdateImage(undefined, true)).toContain('in-product-release-oct2026.png');
+        expect(resolveProductUpdateImage('null', false)).toContain('sample-product-update-image.png');
     });
 
     it('does not infer a month when the release month is absent or invalid', () => {

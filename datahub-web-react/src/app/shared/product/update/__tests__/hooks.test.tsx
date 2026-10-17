@@ -61,6 +61,7 @@ const BATCH_GET_STEP_STATES_MOCK_NOT_PRESENT = {
 };
 
 const BATCH_GET_STEP_STATES_MOCK_LOADING = {
+    delay: Infinity,
     request: {
         query: BatchGetStepStatesDocument,
         variables: {
@@ -70,8 +71,11 @@ const BATCH_GET_STEP_STATES_MOCK_LOADING = {
         },
     },
     result: {
-        data: undefined,
-        loading: true,
+        data: {
+            batchGetStepStates: {
+                results: [],
+            },
+        },
     },
 };
 
@@ -128,6 +132,8 @@ describe('product update hooks', () => {
 
             await waitFor(() => {
                 expect(result.current.visible).toBe(false);
+                expect(result.current.dismissed).toBe(true);
+                expect(result.current.pending).toBe(false);
             });
         });
 
@@ -142,6 +148,8 @@ describe('product update hooks', () => {
 
             await waitFor(() => {
                 expect(result.current.visible).toBe(true);
+                expect(result.current.dismissed).toBe(false);
+                expect(result.current.pending).toBe(false);
             });
         });
 
@@ -155,6 +163,8 @@ describe('product update hooks', () => {
             });
 
             expect(result.current.visible).toBe(false);
+            expect(result.current.pending).toBe(true);
+            expect(result.current.dismissed).toBe(false);
         });
 
         it('returns visible=false when welcome modal has not been seen', async () => {
