@@ -13,8 +13,11 @@ from datahub.ingestion.source.sql.sql_types import (
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
+    BytesTypeClass,
     DateTypeClass,
+    MapTypeClass,
     NumberTypeClass,
+    RecordTypeClass,
     StringTypeClass,
     TimeTypeClass,
 )
@@ -137,6 +140,57 @@ def test_resolve_snowflake_type(data_type, expected_data_type):
 def test_resolve_sql_type() -> None:
     assert resolve_sql_type("boolean") == BooleanTypeClass()
     assert resolve_sql_type("varchar") == StringTypeClass()
+
+
+@pytest.mark.parametrize(
+    "column_type, platform, expected_class",
+    [
+        # `TIMESTAMP` is the headline conflict: SQL Server maps it to a binary
+        # rowversion type while every other warehouse maps it to a time type.
+        # Before the platform-aware lookup, SQL Server's entry won every time
+        # because it was unpacked last into the merged mapping.
+        ("TIMESTAMP", "bigquery", TimeTypeClass),
+        ("TIMESTAMP", "snowflake", TimeTypeClass),
+        ("TIMESTAMP", "dataplex", TimeTypeClass),
+        ("TIMESTAMP", "mssql", BytesTypeClass),
+        ("TIMESTAMP", "sqlserver", BytesTypeClass),
+        ("TIMESTAMP", "fabric", BytesTypeClass),
+        ("TIMESTAMP", "fabric-onelake", BytesTypeClass),
+        ("TIMESTAMP", "synapse", BytesTypeClass),
+        ("timestamp", "spark", TimeTypeClass),
+        ("timestamp", "databricks", TimeTypeClass),
+        ("timestamp", "trino", TimeTypeClass),
+        ("timestamp", "presto", TimeTypeClass),
+        ("timestamp", "athena", TimeTypeClass),
+        ("timestamp", "vertica", TimeTypeClass),
+        # `map` is a Spark/Trino/Athena three-way: Spark says RecordType,
+        # Trino and Athena say MapType. The merged mapping gave MapType to
+        # everyone because Athena was unpacked last.
+        ("map", "spark", RecordTypeClass),
+        ("map", "databricks", RecordTypeClass),
+        ("map", "trino", MapTypeClass),
+        ("map", "athena", MapTypeClass),
+        # `point` is a Postgres/Neo4j conflict (BytesType vs StringType).
+        ("point", "postgres", BytesTypeClass),
+        ("point", "redshift", BytesTypeClass),
+        ("point", "neo4j", StringTypeClass),
+        # Platform-specific lookups should still find shared primitives.
+        ("boolean", "bigquery", BooleanTypeClass),
+        ("STRING", "bigquery", StringTypeClass),
+        ("INT64", "bigquery", NumberTypeClass),
+    ],
+)
+def test_resolve_sql_type_platform_disambiguation(
+    column_type, platform, expected_class
+):
+    assert isinstance(resolve_sql_type(column_type, platform), expected_class)
+
+
+def test_resolve_sql_type_unknown_platform_falls_back_to_merged() -> None:
+    # Platforms not in the per-platform map still work via the merged mapping,
+    # keeping existing untagged callers unchanged.
+    assert resolve_sql_type("boolean", "some-unknown-platform") == BooleanTypeClass()
+    assert resolve_sql_type("TIMESTAMP", None) == BytesTypeClass()
 
 
 @pytest.mark.parametrize(
