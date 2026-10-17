@@ -1,29 +1,56 @@
 package com.linkedin.metadata.search.query.request.v3;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.DoubleMap;
+import com.linkedin.datahub.DataHubSearchConfig;
+import com.linkedin.entity.Aspect;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.FieldConfiguration;
 import com.linkedin.metadata.config.search.custom.SearchFields;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.query.request.SearchQueryBuilderTest;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ConstantScoreQueryBuilder;
 import org.opensearch.index.query.DisMaxQueryBuilder;
@@ -75,7 +102,6 @@ public class V3SearchQueryBuilderTest {
                 "_search.entityName.text",
                 "_search.description.text",
                 "_search.columns.text",
-                "_search.structuredProperties.text",
                 "_search.other.text")),
         text.toString());
     assertTrue(text.stream().allMatch(field -> field.endsWith(".text")), text.toString());
@@ -136,13 +162,7 @@ public class V3SearchQueryBuilderTest {
     assertTrue(
         weights.get("_search.description.text") > weights.get("_search.other.text"),
         weights.toString());
-    // Structured property values weigh what DataHub Cloud's query gives them, between the two
-    assertTrue(
-        weights.get("_search.description.text") > weights.get("_search.structuredProperties.text"),
-        weights.toString());
-    assertTrue(
-        weights.get("_search.structuredProperties.text") > weights.get("_search.other.text"),
-        weights.toString());
+    assertFalse(weights.containsKey("_search.structuredProperties.text"), weights.toString());
   }
 
   /**
@@ -213,11 +233,179 @@ public class V3SearchQueryBuilderTest {
   }
 
   @Test
+  public void testStructuredPropertyFieldsUseDefinitionWeights() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+    QueryBuilder query = queryBuilder.buildQuery(context, dataset, "orders table", true);
+    assertFalse(query.toString().contains("_search.structuredProperties"), query.toString());
+    assertFalse(query.toString().contains("customFullTextSearchFields"), query.toString());
+
+    Map<String, Float> text = analyzerFields(query, V3SearchFields.TEXT_SEARCH_ANALYZER);
+    Map<String, Float> stemmed = analyzerFields(query, V3SearchFields.STEMMED_SEARCH_ANALYZER);
+    float description = text.get("_search.description.text");
+    assertEquals(text.get("structuredProperties.retentionPolicy.text") / description, 0.8f, 0.001f);
+    assertEquals(
+        stemmed.get("structuredProperties.retentionPolicy.stemmed") / description, 0.4f, 0.001f);
+    assertEquals(text.get("structuredProperties.weightedNote.text") / description, 3.0f, 0.001f);
+    assertEquals(
+        stemmed.get("structuredProperties.weightedNote.stemmed") / description, 1.25f, 0.001f);
+    assertFalse(text.containsKey("structuredProperties.hiddenLabel.text"), text.toString());
+
+    SimpleQueryStringBuilder propertyClause =
+        find(query, SimpleQueryStringBuilder.class).stream()
+            .filter(
+                clause -> clause.fields().containsKey("structuredProperties.retentionPolicy.text"))
+            .findFirst()
+            .orElseThrow();
+    assertTrue(propertyClause.lenient(), propertyClause.toString());
+    assertFalse(
+        propertyClause.fields().containsKey("_search.entityName.text"), propertyClause.toString());
+
+    Set<String> singleWord =
+        only(find(
+                queryBuilder.buildQuery(context, dataset, "orders", true, true),
+                MultiMatchQueryBuilder.class))
+            .fields()
+            .keySet();
+    assertTrue(
+        singleWord.stream().noneMatch(field -> field.startsWith("structuredProperties.")),
+        singleWord.toString());
+    assertFalse(singleWord.contains("customFullTextSearchFields"), singleWord.toString());
+
+    Set<String> severalWords =
+        only(find(
+                queryBuilder.buildQuery(context, dataset, "orders table", true, true),
+                MultiMatchQueryBuilder.class))
+            .fields()
+            .keySet();
+    assertTrue(
+        severalWords.containsAll(
+            Set.of(
+                "structuredProperties.retentionPolicy.text",
+                "structuredProperties.weightedNote.stemmed")),
+        severalWords.toString());
+    assertFalse(
+        severalWords.contains("structuredProperties.hiddenLabel.text"), severalWords.toString());
+    assertTrue(
+        severalWords.stream().anyMatch(field -> !field.startsWith("_search.")),
+        severalWords.toString());
+  }
+
+  @Test
+  public void testCatalogMissKeepsPropertyFieldsAfterNestedQuery() {
+    V3SearchQueryBuilder queryBuilder = builder(null);
+    OperationContext[] context = new OperationContext[1];
+    context[0] =
+        propertyContext(
+            new SearchRetriever() {
+              @Override
+              public ScrollResult scroll(
+                  @Nonnull List<String> entities,
+                  @Nullable Filter filters,
+                  @Nullable String scrollId,
+                  @Nullable Integer count,
+                  List<SortCriterion> sortCriteria,
+                  @Nullable SearchFlags searchFlags) {
+                // The production retriever builds this listing through the same query builder.
+                queryBuilder.buildQuery(
+                    context[0],
+                    List.of(
+                        context[0]
+                            .getEntityRegistry()
+                            .getEntitySpec(STRUCTURED_PROPERTY_ENTITY_NAME)),
+                    "*",
+                    false);
+                return structuredPropertyPage(
+                    scrollId,
+                    List.of(
+                        UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy"),
+                        UrnUtils.getUrn("urn:li:structuredProperty:weightedNote"),
+                        UrnUtils.getUrn("urn:li:structuredProperty:hiddenLabel")));
+              }
+            });
+    List<EntitySpec> dataset =
+        List.of(context[0].getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+
+    Map<String, Float> text =
+        analyzerFields(
+            queryBuilder.buildQuery(context[0], dataset, "orders table", true),
+            V3SearchFields.TEXT_SEARCH_ANALYZER);
+
+    assertTrue(text.containsKey("structuredProperties.retentionPolicy.text"), text.toString());
+    assertTrue(text.containsKey("structuredProperties.weightedNote.text"), text.toString());
+    assertFalse(text.containsKey("structuredProperties.hiddenLabel.text"), text.toString());
+  }
+
+  @Test
+  public void testFieldConfigurationSelectsStructuredPropertiesByPath() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder configured =
+        builder(
+            CustomSearchConfiguration.builder()
+                .fieldConfigurations(
+                    Map.of(
+                        "addHidden",
+                        searchFields(
+                            SearchFields.builder()
+                                .add(List.of("structuredProperties.hiddenLabel"))
+                                .build()),
+                        "dropProperties",
+                        searchFields(
+                            SearchFields.builder().remove(List.of("structuredProperties")).build()),
+                        "onlyRetention",
+                        searchFields(
+                            SearchFields.builder()
+                                .replace(List.of("structuredProperties.retentionPolicy"))
+                                .build())))
+                .build());
+
+    Set<String> added =
+        analyzerFields(
+                configured.buildQuery(
+                    context.withSearchFlags(flags -> flags.setFieldConfiguration("addHidden")),
+                    dataset,
+                    "orders table",
+                    true),
+                V3SearchFields.TEXT_SEARCH_ANALYZER)
+            .keySet();
+    assertTrue(added.contains("structuredProperties.hiddenLabel.text"), added.toString());
+
+    Set<String> dropped =
+        analyzerFields(
+                configured.buildQuery(
+                    context.withSearchFlags(flags -> flags.setFieldConfiguration("dropProperties")),
+                    dataset,
+                    "orders table",
+                    true),
+                V3SearchFields.TEXT_SEARCH_ANALYZER)
+            .keySet();
+    assertTrue(
+        dropped.stream().noneMatch(field -> field.startsWith("structuredProperties.")),
+        dropped.toString());
+
+    Set<String> replaced =
+        analyzerFields(
+                configured.buildQuery(
+                    context.withSearchFlags(flags -> flags.setFieldConfiguration("onlyRetention")),
+                    dataset,
+                    "orders table",
+                    true),
+                V3SearchFields.TEXT_SEARCH_ANALYZER)
+            .keySet();
+    assertTrue(replaced.contains("structuredProperties.retentionPolicy.text"), replaced.toString());
+    assertFalse(replaced.contains("_search.entityName.text"), replaced.toString());
+    assertFalse(replaced.contains("structuredProperties.weightedNote.text"), replaced.toString());
+  }
+
+  @Test
   public void testLightQueryReadsSharedFields() {
     V3SearchQueryBuilder builder = builder(null);
 
-    // A single name searches the shared fields that name the entity and, as DataHub Cloud's light
-    // query does, the structured property values
+    // A single name searches only the shared fields that name the entity
     Set<String> name =
         only(find(
                 builder.buildQuery(OP_CONTEXT, DATASET, "orders", true, true),
@@ -230,9 +418,8 @@ public class V3SearchQueryBuilderTest {
             "_search.entityName.text",
             "_search.entityName.stemmed",
             "_search.qualifiedName.text",
-            "_search.qualifiedName.stemmed",
-            "_search.structuredProperties.text",
-            "_search.structuredProperties.stemmed"));
+            "_search.qualifiedName.stemmed"));
+    assertFalse(name.contains("customFullTextSearchFields"), name.toString());
 
     // Several words search every shared field
     Set<String> words =
@@ -244,7 +431,9 @@ public class V3SearchQueryBuilderTest {
     assertTrue(
         words.containsAll(Set.of("_search.description.text", "_search.columns.stemmed")),
         words.toString());
-    assertTrue(words.stream().allMatch(field -> field.startsWith("_search.")), words.toString());
+    assertTrue(
+        words.stream().noneMatch(field -> field.startsWith("structuredProperties.")),
+        words.toString());
 
     // An identifier the escaping breaks up is matched whole on the names
     List<MultiMatchQueryBuilder> identity =
@@ -260,6 +449,40 @@ public class V3SearchQueryBuilderTest {
   }
 
   @Test
+  public void testStructuredQuerySplitsPropertiesAndSkipsHiddenOnes() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    QueryBuilder query = builder(null).buildQuery(context, dataset, "orders", false);
+
+    List<QueryStringQueryBuilder> clauses = find(query, QueryStringQueryBuilder.class);
+    // Unset lenient is null, which is strict
+    List<QueryStringQueryBuilder> strict =
+        clauses.stream().filter(clause -> !Boolean.TRUE.equals(clause.lenient())).toList();
+    List<QueryStringQueryBuilder> lenient =
+        clauses.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).toList();
+    assertFalse(strict.isEmpty(), clauses.toString());
+    assertEquals(lenient.size(), 1, clauses.toString());
+    assertTrue(
+        strict.stream().anyMatch(clause -> clause.fields().containsKey("_search.entityName.text")),
+        strict.toString());
+    assertTrue(
+        strict.stream()
+            .flatMap(clause -> clause.fields().keySet().stream())
+            .noneMatch(StructuredPropertyUtils::isStructuredPropertyField),
+        strict.toString());
+    assertEquals(
+        lenient.get(0).fields().keySet().stream()
+            .filter(StructuredPropertyUtils::isStructuredPropertyField)
+            .collect(Collectors.toSet()),
+        Set.of(
+            "structuredProperties.retentionPolicy.text",
+            "structuredProperties.retentionPolicy.stemmed",
+            "structuredProperties.weightedNote.text",
+            "structuredProperties.weightedNote.stemmed"));
+  }
+
+  @Test
   public void testStructuredQueryDefaultFields() {
     QueryBuilder query =
         builder(null)
@@ -271,6 +494,201 @@ public class V3SearchQueryBuilderTest {
         structured.fields().keySet().containsAll(Set.of("_search.entityName.text", "name")),
         structured.fields().toString());
     assertTrue(find(query, SimpleQueryStringBuilder.class).isEmpty());
+  }
+
+  /**
+   * query_string ignores fields() when the text names a field. A fielded /q must run that field
+   * once: a shared field stays strict, and a property field stays lenient so an unmapped property
+   * cannot fail the strict clause.
+   */
+  @Test
+  public void testFieldedStructuredQueryDoesNotScoreTheNamedFieldTwice() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    List<QueryStringQueryBuilder> mixed =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "orders AND name:foo", false));
+    assertEquals(mixed.size(), 3, mixed.toString());
+    assertEquals(mixed.stream().filter(clause -> clause.queryString().equals("orders")).count(), 2);
+    assertEquals(
+        mixed.stream().filter(clause -> clause.queryString().equals("name:foo")).count(), 1);
+    assertNotEquals(
+        Boolean.TRUE,
+        mixed.stream()
+            .filter(clause -> clause.queryString().equals("name:foo"))
+            .findFirst()
+            .orElseThrow()
+            .lenient());
+
+    List<QueryStringQueryBuilder> named =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name:orders", false));
+    assertEquals(named.size(), 1, named.toString());
+    assertEquals(named.get(0).queryString(), "name:orders");
+    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+
+    List<QueryStringQueryBuilder> property =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.retentionPolicy:gold", false));
+    assertEquals(property.size(), 1, property.toString());
+    assertEquals(property.get(0).queryString(), "structuredProperties.retentionPolicy:gold");
+    assertEquals(property.get(0).lenient(), Boolean.TRUE);
+
+    // Not queried by default, and still only on the lenient clause.
+    List<QueryStringQueryBuilder> hidden =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.hiddenLabel:gold", false));
+    assertEquals(hidden.size(), 1, hidden.toString());
+    assertEquals(hidden.get(0).queryString(), "structuredProperties.hiddenLabel:gold");
+    assertEquals(hidden.get(0).lenient(), Boolean.TRUE);
+
+    QueryBuilder conjunctionQuery =
+        queryBuilder.buildQuery(
+            context, dataset, "name:orders AND structuredProperties.retentionPolicy:gold", false);
+    List<QueryStringQueryBuilder> both = queryStrings(conjunctionQuery);
+    assertEquals(both.size(), 2, both.toString());
+    assertEquals(
+        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
+        Set.of("name:orders", "structuredProperties.retentionPolicy:gold"));
+    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+    BoolQueryBuilder conjunction =
+        find(conjunctionQuery, BoolQueryBuilder.class).stream()
+            .filter(clause -> clause.must().size() == 2)
+            .findFirst()
+            .orElseThrow();
+    assertEquals(
+        conjunction.must().stream()
+            .map(clause -> ((QueryStringQueryBuilder) clause).queryString())
+            .collect(Collectors.toSet()),
+        Set.of("name:orders", "structuredProperties.retentionPolicy:gold"));
+
+    List<QueryStringQueryBuilder> either =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "name:orders OR structuredProperties.hiddenLabel:gold", false));
+    assertEquals(either.size(), 2, either.toString());
+    assertEquals(
+        either.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+    assertTrue(
+        either.stream()
+            .filter(clause -> !Boolean.TRUE.equals(clause.lenient()))
+            .noneMatch(clause -> clause.queryString().contains("structuredProperties")),
+        either.toString());
+
+    // The field applies to the whole group, so the group stays one clause and is lenient.
+    List<QueryStringQueryBuilder> group =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context,
+                dataset,
+                "name:(orders OR structuredProperties.retentionPolicy:gold)",
+                false));
+    assertEquals(group.size(), 1, group.toString());
+    assertEquals(
+        group.get(0).queryString(), "name:(orders OR structuredProperties.retentionPolicy:gold)");
+    assertEquals(group.get(0).lenient(), Boolean.TRUE);
+  }
+
+  /** A space after the field colon is valid query-string syntax and must keep the split. */
+  @Test
+  public void testFieldedStructuredQueryAllowsSpaceAfterColon() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    List<QueryStringQueryBuilder> named =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name: orders", false));
+    assertEquals(named.size(), 1, named.toString());
+    assertEquals(named.get(0).queryString(), "name: orders");
+    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+
+    List<QueryStringQueryBuilder> quoted =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name: \"foo\"", false));
+    assertEquals(quoted.size(), 1, quoted.toString());
+    assertEquals(quoted.get(0).queryString(), "name: \"foo\"");
+    assertNotEquals(Boolean.TRUE, quoted.get(0).lenient());
+
+    List<QueryStringQueryBuilder> property =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.retentionPolicy: gold", false));
+    assertEquals(property.size(), 1, property.toString());
+    assertEquals(property.get(0).queryString(), "structuredProperties.retentionPolicy: gold");
+    assertEquals(property.get(0).lenient(), Boolean.TRUE);
+
+    List<QueryStringQueryBuilder> both =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context,
+                dataset,
+                "name: orders AND structuredProperties.retentionPolicy: gold",
+                false));
+    assertEquals(both.size(), 2, both.toString());
+    assertEquals(
+        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
+        Set.of("name: orders", "structuredProperties.retentionPolicy: gold"));
+    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+  }
+
+  @Test
+  public void testUnqualifiedStructuredQueryStaysOneSplit() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    for (String input :
+        List.of(
+            "orders",
+            "orders AND table",
+            "\"name:orders\"",
+            "\"name:orders\" AND table",
+            "foo\\:bar",
+            "/a:b/ AND orders")) {
+      List<QueryStringQueryBuilder> clauses =
+          queryStrings(queryBuilder.buildQuery(context, dataset, input, false));
+      assertEquals(clauses.size(), 2, input + " " + clauses);
+      assertTrue(
+          clauses.stream().allMatch(clause -> clause.queryString().equals(input)),
+          clauses.toString());
+      assertEquals(
+          clauses.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(),
+          1,
+          clauses.toString());
+    }
+  }
+
+  @Test
+  public void testFieldedPropertyStaysLenientWhenPropertiesAreRemoved() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder configured =
+        builder(
+            CustomSearchConfiguration.builder()
+                .fieldConfigurations(
+                    Map.of(
+                        "dropProperties",
+                        searchFields(
+                            SearchFields.builder()
+                                .remove(List.of("structuredProperties"))
+                                .build())))
+                .build());
+
+    List<QueryStringQueryBuilder> clauses =
+        queryStrings(
+            configured.buildQuery(
+                context.withSearchFlags(flags -> flags.setFieldConfiguration("dropProperties")),
+                dataset,
+                "structuredProperties.retentionPolicy:gold",
+                false));
+    assertEquals(clauses.size(), 1, clauses.toString());
+    assertEquals(clauses.get(0).queryString(), "structuredProperties.retentionPolicy:gold");
+    assertEquals(clauses.get(0).lenient(), Boolean.TRUE);
   }
 
   /**
@@ -408,6 +826,143 @@ public class V3SearchQueryBuilderTest {
         plain.toString());
   }
 
+  private static Map<String, Float> analyzerFields(QueryBuilder query, String analyzer) {
+    Map<String, Float> fields = new HashMap<>();
+    find(query, SimpleQueryStringBuilder.class).stream()
+        .filter(clause -> clause.value().contains("~") && analyzer.equals(clause.analyzer()))
+        .forEach(clause -> fields.putAll(clause.fields()));
+    return fields;
+  }
+
+  private static OperationContext propertyContext() {
+    return propertyContext(
+        structuredPropertySearchRetriever(
+            List.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy"),
+                UrnUtils.getUrn("urn:li:structuredProperty:weightedNote"),
+                UrnUtils.getUrn("urn:li:structuredProperty:hiddenLabel"))));
+  }
+
+  private static OperationContext propertyContext(SearchRetriever searchRetriever) {
+    MockAspectRetriever definitions = propertyDefinitions();
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .aspectRetriever(definitions)
+            .cachingAspectRetriever(definitionsWithActiveUsers(definitions))
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(searchRetriever)
+            .build();
+    return TestOperationContexts.systemContextNoSearchAuthorization(retrieverContext);
+  }
+
+  private static MockAspectRetriever propertyDefinitions() {
+    Urn retention = UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
+    Urn weighted = UrnUtils.getUrn("urn:li:structuredProperty:weightedNote");
+    Urn hidden = UrnUtils.getUrn("urn:li:structuredProperty:hiddenLabel");
+    UrnArray datasets = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"));
+    StructuredPropertyDefinition retentionPolicy =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("retentionPolicy")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(datasets)
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
+    StructuredPropertyDefinition weightedNote =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("weightedNote")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(datasets))
+            .setSearchConfiguration(
+                new DataHubSearchConfig()
+                    .setQueryByDefault(true)
+                    .setBoostScore(3.0)
+                    .setSubfieldBoostScores(new DoubleMap(Map.of("stemmed", 1.25d))));
+    StructuredPropertyDefinition hiddenLabel =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("hiddenLabel")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(datasets))
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(false));
+    MockAspectRetriever retriever =
+        new MockAspectRetriever(
+            Map.of(
+                retention, List.of(retentionPolicy),
+                weighted, List.of(weightedNote),
+                hidden, List.of(hiddenLabel)));
+    retriever.setEntityRegistry(TestOperationContexts.defaultEntityRegistry());
+    return retriever;
+  }
+
+  private static CachingAspectRetriever definitionsWithActiveUsers(
+      MockAspectRetriever definitions) {
+    CachingAspectRetriever activeUsers =
+        TestOperationContexts.emptyActiveUsersAspectRetriever(definitions::getEntityRegistry);
+    return new CachingAspectRetriever() {
+      @Nonnull
+      @Override
+      public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
+          @Nonnull OperationFingerprint context, Set<Urn> urns, Set<String> aspectNames) {
+        Map<Urn, Map<String, Aspect>> found =
+            new HashMap<>(definitions.getLatestAspectObjects(context, urns, aspectNames));
+        Set<Urn> missing = new HashSet<>();
+        for (Urn urn : urns) {
+          if (!found.containsKey(urn)) {
+            missing.add(urn);
+          }
+        }
+        if (!missing.isEmpty()) {
+          found.putAll(activeUsers.getLatestAspectObjects(context, missing, aspectNames));
+        }
+        return found;
+      }
+
+      @Nonnull
+      @Override
+      public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
+          @Nonnull OperationFingerprint context, Map<Urn, Set<String>> urnAspectNames) {
+        return definitions.getLatestSystemAspects(context, urnAspectNames);
+      }
+
+      @Nonnull
+      @Override
+      public Map<Urn, Boolean> entityExists(@Nonnull OperationFingerprint context, Set<Urn> urns) {
+        return definitions.entityExists(context, urns);
+      }
+
+      @Nonnull
+      @Override
+      public EntityRegistry getEntityRegistry() {
+        return definitions.getEntityRegistry();
+      }
+    };
+  }
+
+  private static SearchRetriever structuredPropertySearchRetriever(List<Urn> propertyUrns) {
+    return new SearchRetriever() {
+      @Override
+      public ScrollResult scroll(
+          @Nonnull List<String> entities,
+          @Nullable Filter filters,
+          @Nullable String scrollId,
+          @Nullable Integer count,
+          List<SortCriterion> sortCriteria,
+          @Nullable SearchFlags searchFlags) {
+        return structuredPropertyPage(scrollId, propertyUrns);
+      }
+    };
+  }
+
+  private static ScrollResult structuredPropertyPage(
+      @Nullable String scrollId, List<Urn> propertyUrns) {
+    SearchEntityArray results = new SearchEntityArray();
+    if (scrollId == null) {
+      propertyUrns.forEach(urn -> results.add(new SearchEntity().setEntity(urn)));
+    }
+    return new ScrollResult()
+        .setEntities(results)
+        .setNumEntities(results.size())
+        .setPageSize(results.size());
+  }
+
   private static V3SearchQueryBuilder builder(CustomSearchConfiguration customConfiguration) {
     return new V3SearchQueryBuilder(SearchQueryBuilderTest.testQueryConfig, customConfiguration);
   }
@@ -431,11 +986,16 @@ public class V3SearchQueryBuilderTest {
     } else if (query instanceof ConstantScoreQueryBuilder constantScore) {
       found.addAll(find(constantScore.innerQuery(), type));
     } else if (query instanceof BoolQueryBuilder bool) {
-      for (List<QueryBuilder> clauses : List.of(bool.must(), bool.should(), bool.filter())) {
+      for (List<QueryBuilder> clauses :
+          List.of(bool.must(), bool.should(), bool.filter(), bool.mustNot())) {
         clauses.forEach(clause -> found.addAll(find(clause, type)));
       }
     }
     return found;
+  }
+
+  private static List<QueryStringQueryBuilder> queryStrings(QueryBuilder query) {
+    return find(query, QueryStringQueryBuilder.class);
   }
 
   private static <T> T only(List<T> found) {

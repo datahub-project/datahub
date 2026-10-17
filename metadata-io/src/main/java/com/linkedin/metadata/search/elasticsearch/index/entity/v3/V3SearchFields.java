@@ -4,10 +4,10 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.DOC_VALUES;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * The shared search fields of a Search V3 entity index. Full-text search reads a few {@code
@@ -48,12 +49,15 @@ import javax.annotation.Nonnull;
  *       still searches every field V2 searches. An entity whose fields name no {@code entityName}
  *       sends the field its {@code _entityName} alias names to {@code entityName} instead. The urn
  *       and fields of an entity a reference field names ({@code @SearchableRef}) only ever copy
- *       into {@code _search.other}, and matched fields do not report them;
- *   <li>a structured property's {@code string}, {@code rich_text} and {@code urn} values copy into
- *       {@code _search.structuredProperties} from the property's own field (see {@link
- *       StructuredPropertyMappingBuilder}), unless its definition opts out. No searchable field
- *       feeds it, so every index maps it and every search reads it.
+ *       into {@code _search.other}, and matched fields do not report them.
  * </ul>
+ *
+ * <p>Structured properties are not a shared field. A {@code string}, {@code rich_text} or {@code
+ * urn} property whose definition has {@code searchConfiguration} carries {@code text} and {@code
+ * stemmed} subfields on its root keyword field (see {@link StructuredPropertyMappingBuilder}).
+ * Search reads those subfields. {@code queryByDefault} decides whether an unqualified query
+ * includes them. {@code copyTo} also copies each value into the named shared fields, so a query on
+ * those fields matches the property. The stored document is unchanged.
  *
  * <p>These shared fields are the only full-text fields. Root fields and the {@code _aspects} copies
  * stay keywords and typed values for filters, facets and sorts, except the root browse paths, which
@@ -119,8 +123,7 @@ public final class V3SearchFields {
 
   // Shared fields only full-text search reads, which hold just their analyzed subfields. A label a
   // model names keeps its indexed keyword for the sorts, filters and score functions it serves
-  private static final Set<String> TEXT_ONLY_FIELDS =
-      Set.of(DESCRIPTION, COLUMNS, STRUCTURED_PROPERTIES, OTHER);
+  private static final Set<String> TEXT_ONLY_FIELDS = Set.of(DESCRIPTION, COLUMNS, OTHER);
 
   // Indexed shared keywords skip longer values, whose UTF-8 bytes could exceed the engine's term
   // limit: copy_to copies a value the source field skipped
@@ -128,10 +131,10 @@ public final class V3SearchFields {
       ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH);
 
   // Relative weight of a match in each full-text shared field; a field not listed weighs 1. These
-  // replace the per-field @Searchable boostScore on V3. Structured property values weigh what
-  // DataHub Cloud's query gives the field it copies them into
+  // replace the per-field @Searchable boostScore on V3. A structured property weighs what its own
+  // searchConfiguration says.
   private static final Map<String, Float> WEIGHTS =
-      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, STRUCTURED_PROPERTIES, 0.8f, OTHER, 0.5f);
+      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, OTHER, 0.5f);
 
   private static final Set<FieldType> STRING_FIELD_TYPES =
       Set.of(
@@ -206,9 +209,9 @@ public final class V3SearchFields {
   /**
    * The shared fields full-text search reads for these entities, each with the root fields that
    * feed it, in the order the entities and their aspects declare them. A shared field is listed
-   * when at least one string field queried by default feeds it; {@code structuredProperties} always
-   * is, with no root field, since a property can be added to any entity, and {@code other} is,
-   * since every document's urn copies into it.
+   * when at least one string field queried by default feeds it, and {@code other} is, since every
+   * document's urn copies into it. Structured properties are not listed: search reads the root
+   * field of each opted-in property.
    */
   @Nonnull
   public static Map<String, List<String>> fullTextFields(
@@ -228,7 +231,6 @@ public final class V3SearchFields {
                 }
               }
             });
-    queried.add(STRUCTURED_PROPERTIES);
     // The catch-all goes last, so a hit's matched fields list the specific fields first
     queried.remove(OTHER);
     queried.add(OTHER);
@@ -294,6 +296,43 @@ public final class V3SearchFields {
       groups.addAll(group.isEmpty() ? List.of(entitySpec) : group);
     }
     return List.copyOf(groups);
+  }
+
+  /**
+   * Shared fields a structured property's {@code copyTo} writes into for these entities. An entry
+   * names a shared field ({@code entityName}) or a root field that feeds one ({@code name}). A name
+   * that is neither is skipped. Only a field full-text search reads is kept.
+   */
+  @Nonnull
+  public static List<String> copyDestinations(
+      @Nonnull final Collection<EntitySpec> entitySpecs,
+      @Nullable final Collection<String> configured) {
+    if (configured == null || configured.isEmpty()) {
+      return List.of();
+    }
+    final Set<String> fullText = fullTextFields(entitySpecs).keySet();
+    final Map<String, List<SearchableFieldSpec>> roots = rootSourceFieldSpecs(entitySpecs);
+    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
+    final Set<String> destinations = new LinkedHashSet<>();
+    final String prefix = path("");
+    for (String entry : configured) {
+      if (entry == null || entry.isBlank()) {
+        continue;
+      }
+      final String name = entry.startsWith(prefix) ? entry.substring(prefix.length()) : entry;
+      if (fullText.contains(name)) {
+        destinations.add(name);
+        continue;
+      }
+      final List<SearchableFieldSpec> sources = roots.get(name);
+      if (sources == null) {
+        continue;
+      }
+      destinations(sources, fallbacks).stream()
+          .filter(fullText::contains)
+          .forEach(destinations::add);
+    }
+    return List.copyOf(destinations);
   }
 
   /** Whether a root field of these entities copies into the shared field {@code name}. */
@@ -363,6 +402,18 @@ public final class V3SearchFields {
     }
     mapping.put(FIELDS, subfields);
     return mapping;
+  }
+
+  /**
+   * {@code text} and {@code stemmed} subfields for a keyword field full-text search reads, using
+   * the V3 analyzers. The caller copies any existing subfields first: {@link FieldTypeMapper}'s
+   * string mapping is an immutable map.
+   */
+  @Nonnull
+  public static Map<String, Object> analyzedSubfields() {
+    return Map.of(
+        TEXT, textMapping(TEXT_ANALYZER, TEXT_SEARCH_ANALYZER),
+        STEMMED, textMapping(STEMMED_ANALYZER, STEMMED_SEARCH_ANALYZER));
   }
 
   private static Map<String, Object> textMapping(

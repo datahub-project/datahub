@@ -903,7 +903,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(query.contains("_search.entityName.text"), query);
     assertTrue(query.contains("_search.columns.text"), query);
     assertTrue(query.contains("_search.columns.stemmed"), query);
-    assertTrue(query.contains("_search.structuredProperties.text"), query);
+    assertFalse(query.contains("_search.structuredProperties"), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());

@@ -17,6 +17,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.DataSchemaConstants;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -1076,14 +1077,49 @@ public class MultiEntityMappingsBuilderTest {
         getProperties(
             mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
 
-    // The copy_to target of structured property values, mapped before any property exists and
-    // searched only through its analyzed subfields
     Map<String, Object> searchFields =
         (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
-    Map<String, Object> fullText = (Map<String, Object>) searchFields.get("structuredProperties");
-    assertEquals(fullText.get("index"), false, fullText.toString());
-    assertEquals(
-        ((Map<String, Object>) fullText.get("fields")).keySet(), Set.of("text", "stemmed"));
+    assertFalse(searchFields.containsKey("structuredProperties"), searchFields.keySet().toString());
+
+    StructuredPropertyDefinition optedIn =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("optedIn")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.testEntity")))
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
+    StructuredPropertyDefinition plain =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("plainLabel")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.testEntity")));
+    Map<String, Object> withProperties =
+        getProperties(
+            mappingsBuilder
+                .getIndexMappings(
+                    operationContext,
+                    List.of(
+                        Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:optedIn"), optedIn),
+                        Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:plainLabel"), plain)))
+                .iterator()
+                .next()
+                .getMappings());
+    Map<String, Object> searchWithProperties =
+        (Map<String, Object>)
+            ((Map<String, Object>) withProperties.get("_search")).get("properties");
+    assertFalse(searchWithProperties.containsKey("structuredProperties"));
+    Map<String, Object> rootProperties =
+        (Map<String, Object>)
+            ((Map<String, Object>) withProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD))
+                .get("properties");
+    Map<String, Object> optedInFields =
+        (Map<String, Object>) ((Map<String, Object>) rootProperties.get("optedIn")).get("fields");
+    assertTrue(
+        optedInFields.keySet().containsAll(Set.of("keyword", "text", "stemmed")),
+        optedInFields.toString());
+    Map<String, Object> plainFields =
+        (Map<String, Object>)
+            ((Map<String, Object>) rootProperties.get("plainLabel")).get("fields");
+    assertEquals(plainFields.keySet(), Set.of("keyword"), plainFields.toString());
   }
 
   @Test

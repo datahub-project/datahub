@@ -583,18 +583,25 @@ dates and booleans for filters, facets and sorts, except the root browse paths, 
   `_search.entityName` instead. The urn and the fields queried by default of an entity a reference field names
   (`@SearchableRef`) only ever copy into `_search.other`.
 
-Structured property values of type `string`, `rich_text` and `urn` copy into `_search.structuredProperties`, which
-every V3 entity index maps, unless the property's definition sets `excludeFromFullTextSearch` in its
-`searchConfiguration`.
+A structured property is not a shared field. A `string`, `rich_text` or `urn` property is full-text indexed only when
+its definition has a `searchConfiguration`: that adds `text` and `stemmed` subfields to its root keyword field
+`structuredProperties.<field>`. `queryByDefault` decides whether an unqualified search includes the property.
+`boostScore` is the weight of `.text` (0.8 when unset) and `subfieldBoostScores.stemmed` is the weight of `.stemmed`
+(half the `.text` weight when unset). `copyTo` names shared fields (`entityName`, `qualifiedName`, `description`,
+`columns`, `other`) or a root field that feeds one (`name`). Each value is copied into that shared field, so a query
+on it matches the property. The property field and the stored name stay as they are. Unset copies nowhere.
+`excludeFromFullTextSearch` applies to Search V2 and V2.5; Search V3 ignores it.
+Number and date properties are not analyzed, and a `copyTo` on one is ignored. A property with no `searchConfiguration`
+keeps its keyword, number or date field for filters and facets only.
 
 A shared field fed by several fields holds all of their values, so an ingested and an edited description are both
 searchable. An edited display name (`editedName`) lands in `_search.other`, so the name entities sort by stays the
 ingested one, as on V2. A shared field that a field queried by default feeds is analyzed (`text` and `stemmed`, with
 an identifier such as `customer_id` indexed whole and by its parts, short parts such as `id` dropped like any short word); the other
 shared fields stay keywords, dates or numbers. A label a model names keeps its indexed keyword for sorts and filters
-even when it is analyzed, except `description`, `columns`, `structuredProperties` and `other`, which hold only their analyzed subfields. Matches in `_search.entityName` and
-`_search.qualifiedName` weigh 10, in `_search.structuredProperties` 0.8, in `_search.other` 0.5, and in every other
-shared field 1. A search field
+even when it is analyzed, except `description`, `columns` and `other`, which hold only their analyzed subfields. Matches in `_search.entityName` and
+`_search.qualifiedName` weigh 10, in `_search.other` 0.5, and in every other
+shared field 1. A structured property's `.text` subfield weighs its `boostScore`, or 0.8 when that is unset. A field configuration names every opted-in property with `structuredProperties`, or one property with its full field path. A search field
 configuration (`fieldConfigurations` in the search configuration) names a shared field either directly or by any field
 that feeds it, except `_search.other`, which only its own name selects. Matched fields ("Matched on") come from the urn,
 the fields that feed each searched shared field, except `_search.columns`, and of `_search.other` only the fields that
