@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,6 +27,10 @@ import com.linkedin.metadata.graph.GraphService.EdgeTuple;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -36,6 +41,7 @@ import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -509,5 +515,95 @@ public class ElasticSearchGraphServiceTest {
         "Partial flag should be false when LineageResponse has partial=false");
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getRelationships().size(), 1);
+  }
+
+  private static final RelationshipFilter OUTGOING =
+      newRelationshipFilter(
+          new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING);
+
+  private static Map<Urn, Set<String>> fineGrainedLineageSources() {
+    Map<Urn, Set<String>> sources = new LinkedHashMap<>();
+    for (int i = 0; i < 5; i++) {
+      sources.put(
+          UrnUtils.getUrn(
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,db.t,PROD),c"
+                  + i
+                  + ")"),
+          Set.of("DownstreamOf"));
+    }
+    sources.put(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,db.t,PROD)"),
+        Set.of("DownstreamOf", "IsPartOf"));
+    return sources;
+  }
+
+  private static List<String> sourceUrnValues(GraphFilters graphFilters) {
+    return graphFilters.getSourceEntityFilter().getOr().get(0).getAnd().get(0).getValues();
+  }
+
+  @Test
+  public void testRemoveEdgesFromNodesPerUrnByDefault() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    when(mockWriteDAO.getDeleteByQueryUrnBatchSize()).thenReturn(1);
+    Map<Urn, Set<String>> sources = fineGrainedLineageSources();
+
+    test.removeEdgesFromNodes(opContext, sources, OUTGOING);
+
+    ArgumentCaptor<GraphFilters> captor = ArgumentCaptor.forClass(GraphFilters.class);
+    verify(mockWriteDAO, times(sources.size())).deleteByQuery(eq(opContext), captor.capture());
+    for (GraphFilters graphFilters : captor.getAllValues()) {
+      List<String> urns = sourceUrnValues(graphFilters);
+      assertEquals(urns.size(), 1);
+      assertEquals(graphFilters.getRelationshipTypes(), sources.get(UrnUtils.getUrn(urns.get(0))));
+    }
+  }
+
+  @Test
+  public void testRemoveEdgesFromNodesBatchesByRelationshipTypes() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    when(mockWriteDAO.getDeleteByQueryUrnBatchSize()).thenReturn(3);
+    Map<Urn, Set<String>> sources = fineGrainedLineageSources();
+
+    test.removeEdgesFromNodes(opContext, sources, OUTGOING);
+
+    // 5 field urns sharing {DownstreamOf} in chunks of 3 -> 2 requests, plus 1 for the dataset
+    ArgumentCaptor<GraphFilters> captor = ArgumentCaptor.forClass(GraphFilters.class);
+    verify(mockWriteDAO, times(3)).deleteByQuery(eq(opContext), captor.capture());
+
+    Map<String, Set<String>> covered = new HashMap<>();
+    for (GraphFilters graphFilters : captor.getAllValues()) {
+      assertEquals(graphFilters.getRelationshipFilter(), OUTGOING);
+      List<String> urns = sourceUrnValues(graphFilters);
+      assertTrue(urns.size() <= 3);
+      for (String urn : urns) {
+        assertEquals(graphFilters.getRelationshipTypes(), sources.get(UrnUtils.getUrn(urn)));
+        assertNull(covered.put(urn, graphFilters.getRelationshipTypes()));
+      }
+    }
+    assertEquals(covered.size(), sources.size());
+  }
+
+  @Test
+  public void testRemoveEdgesFromNodesSingleUrnGroupMatchesRemoveEdgesFromNode() {
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    when(mockWriteDAO.getDeleteByQueryUrnBatchSize()).thenReturn(1000);
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,db.t,PROD)");
+    Urn field =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,db.t,PROD),c0)");
+    Map<Urn, Set<String>> sources = new LinkedHashMap<>();
+    sources.put(dataset, Set.of("DownstreamOf", "IsPartOf"));
+    sources.put(field, Set.of("DownstreamOf"));
+
+    test.removeEdgesFromNodes(opContext, sources, OUTGOING);
+    ArgumentCaptor<GraphFilters> batched = ArgumentCaptor.forClass(GraphFilters.class);
+    verify(mockWriteDAO, times(2)).deleteByQuery(eq(opContext), batched.capture());
+
+    reset(mockWriteDAO);
+    sources.forEach((urn, types) -> test.removeEdgesFromNode(opContext, urn, types, OUTGOING));
+    ArgumentCaptor<GraphFilters> perUrn = ArgumentCaptor.forClass(GraphFilters.class);
+    verify(mockWriteDAO, times(2)).deleteByQuery(eq(opContext), perUrn.capture());
+
+    assertEquals(batched.getAllValues(), perUrn.getAllValues());
   }
 }

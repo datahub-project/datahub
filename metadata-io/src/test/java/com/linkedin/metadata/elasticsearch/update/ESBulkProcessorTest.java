@@ -12,6 +12,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.bulk.BulkResponse;
@@ -305,6 +306,50 @@ public class ESBulkProcessorTest {
             any(OperationContext.class),
             any(DeleteByQueryRequest.class),
             eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testDeleteByQueryDefaultsToRefreshAndAbortOnConflicts() throws IOException {
+    ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
+    when(mockSearchClient.deleteByQuery(
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockBulkByScrollResponse);
+
+    processor.deleteByQuery(opContext, QueryBuilders.matchAllQuery(), "test-index");
+
+    ArgumentCaptor<DeleteByQueryRequest> captor =
+        ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockSearchClient)
+        .deleteByQuery(any(OperationContext.class), captor.capture(), eq(RequestOptions.DEFAULT));
+    assertTrue(captor.getValue().isRefresh());
+    assertTrue(captor.getValue().isAbortOnVersionConflict());
+    verify(mockSearchClient).flushBulkProcessor();
+  }
+
+  @Test
+  public void testDeleteByQueryWithoutRefreshProceedsOnConflicts() throws IOException {
+    ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
+    when(mockSearchClient.deleteByQuery(
+            any(OperationContext.class),
+            any(DeleteByQueryRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockBulkByScrollResponse);
+
+    Optional<BulkByScrollResponse> result =
+        processor.deleteByQuery(
+            opContext, QueryBuilders.matchAllQuery(), false, true, "test-index");
+
+    assertTrue(result.isPresent());
+    ArgumentCaptor<DeleteByQueryRequest> captor =
+        ArgumentCaptor.forClass(DeleteByQueryRequest.class);
+    verify(mockSearchClient)
+        .deleteByQuery(any(OperationContext.class), captor.capture(), eq(RequestOptions.DEFAULT));
+    assertFalse(captor.getValue().isRefresh());
+    assertFalse(captor.getValue().isAbortOnVersionConflict());
+    assertEquals(captor.getValue().indices(), new String[] {"test-index"});
+    verify(mockSearchClient).flushBulkProcessor();
   }
 
   @Test

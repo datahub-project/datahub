@@ -50,4 +50,19 @@ public class GraphQueryConfiguration {
    * configuration (no Java default).
    */
   private Integer sliceFutureDrainTimeoutSeconds;
+
+  /**
+   * Maximum number of source URNs combined into a single delete_by_query when removing the outgoing
+   * edges of several nodes for one aspect (e.g. every downstream field of a fine-grained
+   * upstreamLineage). Values {@code <= 1} keep one delete_by_query per source URN.
+   */
+  @Builder.Default private int deleteByQueryUrnBatchSize = 1;
+
+  /**
+   * Whether graph delete_by_query requests refresh the index when they complete. Each refresh is
+   * serialized per shard, so with refresh enabled the graph index caps delete_by_query throughput.
+   * When disabled, version conflicts against deletes that are not yet visible are skipped
+   * (conflicts=proceed) instead of aborting the request.
+   */
+  @Builder.Default private boolean deleteByQueryRefresh = true;
 }

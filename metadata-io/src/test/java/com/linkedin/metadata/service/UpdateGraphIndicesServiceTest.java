@@ -5,11 +5,13 @@ import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFi
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -17,13 +19,19 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.FineGrainedLineageDownstreamType;
+import com.linkedin.dataset.FineGrainedLineageUpstreamType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
@@ -51,11 +59,13 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
@@ -500,6 +510,87 @@ public class UpdateGraphIndicesServiceTest {
     // Verify that we have documents for both the update and the addition
     assertTrue(documents.stream().anyMatch(doc -> doc.contains("updatedUser")));
     assertTrue(documents.stream().anyMatch(doc -> doc.contains(upstream3.toString())));
+  }
+
+  private static final int FINE_GRAINED_FIELDS = 25;
+
+  private MetadataChangeLog forceIndexedFineGrainedLineageEvent() throws URISyntaxException {
+    Urn upstream = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,upstream1,PROD)");
+    FineGrainedLineageArray fineGrainedLineages = new FineGrainedLineageArray();
+    for (int i = 0; i < FINE_GRAINED_FIELDS; i++) {
+      fineGrainedLineages.add(
+          new FineGrainedLineage()
+              .setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET)
+              .setUpstreams(
+                  new UrnArray(
+                      UrnUtils.getUrn(String.format("urn:li:schemaField:(%s,up_%d)", upstream, i))))
+              .setDownstreamType(FineGrainedLineageDownstreamType.FIELD)
+              .setDownstreams(
+                  new UrnArray(
+                      UrnUtils.getUrn(
+                          String.format("urn:li:schemaField:(%s,down_%d)", TEST_URN, i)))));
+    }
+    UpstreamLineage upstreamLineage =
+        new UpstreamLineage()
+            .setUpstreams(new UpstreamArray(createUpstream(upstream)))
+            .setFineGrainedLineages(fineGrainedLineages);
+    GenericAspect aspect = GenericRecordUtils.serializeAspect(upstreamLineage);
+
+    return new MetadataChangeLog()
+        .setChangeType(ChangeType.RESTATE)
+        .setEntityType("dataset")
+        .setEntityUrn(TEST_URN)
+        .setAspectName(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)
+        .setPreviousAspectValue(aspect)
+        .setAspect(aspect)
+        .setSystemMetadata(
+            new SystemMetadata()
+                .setProperties(new StringMap(Map.of(Constants.FORCE_INDEXING_KEY, "true"))));
+  }
+
+  @Test
+  public void testForceIndexingFineGrainedLineageDeletesPerUrnByDefault()
+      throws URISyntaxException {
+    test.setGraphDiffMode(true);
+    when(mockWriteDAO.getDeleteByQueryUrnBatchSize()).thenReturn(1);
+
+    test.handleChangeEvent(TEST_OP_CONTEXT, forceIndexedFineGrainedLineageEvent());
+
+    // dataset + one per downstream field
+    verify(mockWriteDAO, times(FINE_GRAINED_FIELDS + 1))
+        .deleteByQuery(eq(TEST_OP_CONTEXT), any(GraphFilters.class));
+  }
+
+  @Test
+  public void testForceIndexingFineGrainedLineageBatchesDeletes() throws URISyntaxException {
+    test.setGraphDiffMode(true);
+    when(mockWriteDAO.getDeleteByQueryUrnBatchSize()).thenReturn(1000);
+
+    test.handleChangeEvent(TEST_OP_CONTEXT, forceIndexedFineGrainedLineageEvent());
+
+    ArgumentCaptor<GraphFilters> captor = ArgumentCaptor.forClass(GraphFilters.class);
+    verify(mockWriteDAO, times(1)).deleteByQuery(eq(TEST_OP_CONTEXT), captor.capture());
+    GraphFilters graphFilters = captor.getValue();
+    assertEquals(graphFilters.getRelationshipTypes(), Set.of("DownstreamOf"));
+    assertEquals(graphFilters.getRelationshipDirection(), RelationshipDirection.OUTGOING);
+    List<String> urns =
+        graphFilters.getSourceEntityFilter().getOr().get(0).getAnd().get(0).getValues();
+    assertEquals(urns.size(), FINE_GRAINED_FIELDS + 1);
+    assertTrue(urns.contains(TEST_URN.toString()));
+
+    // the same edges are re-added as with one delete per urn
+    ArgumentCaptor<String> batchedDocIds = ArgumentCaptor.forClass(String.class);
+    verify(mockWriteDAO, atLeastOnce())
+        .upsertDocument(eq(TEST_OP_CONTEXT), batchedDocIds.capture(), any(String.class));
+
+    reset(mockWriteDAO);
+    when(mockWriteDAO.getDeleteByQueryUrnBatchSize()).thenReturn(1);
+    test.handleChangeEvent(TEST_OP_CONTEXT, forceIndexedFineGrainedLineageEvent());
+    ArgumentCaptor<String> perUrnDocIds = ArgumentCaptor.forClass(String.class);
+    verify(mockWriteDAO, atLeastOnce())
+        .upsertDocument(eq(TEST_OP_CONTEXT), perUrnDocIds.capture(), any(String.class));
+
+    assertEquals(batchedDocIds.getAllValues(), perUrnDocIds.getAllValues());
   }
 
   // Helper method
