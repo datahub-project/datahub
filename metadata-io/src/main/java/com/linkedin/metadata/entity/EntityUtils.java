@@ -395,11 +395,18 @@ public class EntityUtils {
         systemAspect ->
             RecordTemplateValidator.validateTrim(
                 systemAspect.getRecordTemplate(),
-                validationFailure ->
-                    log.warn(
-                        String.format(
-                            "Failed to validate record %s against its schema.",
-                            systemAspect.getRecordTemplate()))));
+                validationFailure -> {
+                  // Enum symbols or union members a newer version added don't bump the schema
+                  // version, so this failure is what shows the aspect came from that version.
+                  if (systemAspect instanceof EntityAspect.EntitySystemAspect entitySystemAspect
+                      && handling().failsOnlyOnValuesFromNewerVersion(validationFailure)) {
+                    entitySystemAspect.setFromNewerVersion(true);
+                  }
+                  log.warn(
+                      String.format(
+                          "Failed to validate record %s against its schema.",
+                          systemAspect.getRecordTemplate()));
+                }));
 
     // TODO consider applying write validation plugins
 

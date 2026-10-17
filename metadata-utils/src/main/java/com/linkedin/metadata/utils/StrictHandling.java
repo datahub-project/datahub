@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -135,6 +136,12 @@ public final class StrictHandling implements UnknownDataHandling {
   @Override
   public boolean aspectReferencesUnknownEntityType(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
+    return false;
+  }
+
+  @Override
+  public boolean failsOnlyOnValuesFromNewerVersion(
+      @Nullable final ValidationResult validationFailure) {
     return false;
   }
 
