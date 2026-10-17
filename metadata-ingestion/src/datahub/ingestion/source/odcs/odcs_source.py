@@ -99,8 +99,11 @@ _VERSION_TO_SCHEMA = {
     "3.0.1": "odcs-v3.0.2.json",
     "3.0.2": "odcs-v3.0.2.json",
     "3.1.0": "odcs-v3.1.0.json",
+    "3.2.0": "odcs-v3.2.0.json",
 }
-_DEFAULT_VERSION = "3.1.0"
+# v3.2 is an additive superset, so contracts without an exact validator match
+# validate against the widest schema.
+_DEFAULT_VERSION = "3.2.0"
 
 _MODEL_FIELDS_CACHE: Dict[type, Set[str]] = {}
 
@@ -1006,7 +1009,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         self._check_owner_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
-            yield mcp.as_workunit()
+            # Field-level aspects (v3.2 deprecation/aiContext) are not
+            # primary-source: a schemaField URN in the checkpoint would be
+            # soft-deleted once a later contract drops the flag.
+            yield mcp.as_workunit(
+                is_primary_source=not (mcp.entityUrn or "").startswith(
+                    "urn:li:schemaField:"
+                )
+            )
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"

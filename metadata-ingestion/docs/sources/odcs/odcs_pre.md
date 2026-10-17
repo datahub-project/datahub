@@ -26,9 +26,9 @@ applies to every logical dataset by default. See the Concept Mapping table on th
 Overview above for per-row semantics, and the [Limitations](#limitations) section below for
 how to disable replication.
 
-- ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
-  v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
-  v2.x — or any value outside `odcs_versions` — are skipped with a warning.
+- ODCS v3.0, v3.1 and v3.2 are supported (any `3.0.x` patch level validates against the same
+  v3.0.2 JSON Schema; `3.1.0` and `3.2.0` against their own schemas). Contracts whose
+  `apiVersion` reports v2.x — or any value outside `odcs_versions` — are skipped with a warning.
 - **Filter which datasets are ingested with `dataset_pattern`.** The allow/deny regexes
   match the composed logical dataset name (`{contract_id}.{schema_name}`, per
   `logical_dataset_name_template`). A non-matching `schema[]` entry is skipped along with its

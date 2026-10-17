@@ -1632,6 +1632,66 @@ def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
     )
 
 
+def test_v32_api_version_is_accepted_and_validated(tmp_path: pathlib.Path) -> None:
+    src = _make_source(tmp_path, strict_validation=True)
+    raw_dict: Dict[str, Any] = {
+        "apiVersion": "v3.2.0",
+        "kind": "DataContract",
+        "id": "x",
+        "version": "1.0.0",
+        "status": "active",
+        "context": "Use for hourly reporting only.",
+        "schema": [
+            {
+                "name": "t",
+                "deprecated": True,
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "logicalType": "vector",
+                        "logicalTypeOptions": {"dimensions": 3},
+                        "synonyms": [{"synonym": "alias_a"}],
+                    }
+                ],
+            }
+        ],
+    }
+    assert src._validate(raw_dict, str(tmp_path / "v32.yaml"))
+    assert src.report.validation_errors == 0
+    assert "3.2.0" in src._validators
+
+
+def test_field_aspects_are_not_stale_removal_candidates(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Field-level deprecation/aiContext must not put schemaField URNs in the
+    stateful checkpoint: dropping a flag later would otherwise soft-delete the
+    field entity. The logical dataset itself stays primary-source."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        "apiVersion: v3.2.0\nkind: DataContract\nid: x\nversion: 1.0.0\n"
+        "status: active\nschema:\n  - name: t\n    properties:\n"
+        "      - name: col_a\n        deprecated: true\n"
+        "        synonyms:\n          - synonym: alias_a\n",
+        encoding="utf-8",
+    )
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    field_wus = [
+        wu
+        for wu in workunits
+        if (_mcp(wu).entityUrn or "").startswith("urn:li:schemaField:")
+    ]
+    assert len(field_wus) == 2
+    assert not any(wu.is_primary_source for wu in field_wus)
+    props_wus = [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+    ]
+    assert props_wus and all(wu.is_primary_source for wu in props_wus)
+
+
 def test_contract_missing_required_id_is_skipped(tmp_path: pathlib.Path) -> None:
     """A document that passes lenient schema validation but cannot be coerced
     into the model (missing required `id`) is skipped, not crashed."""
