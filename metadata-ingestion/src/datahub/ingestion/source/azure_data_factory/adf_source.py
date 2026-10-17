@@ -173,6 +173,10 @@ class AzureDataFactoryContainerKey(ContainerKey):
         SourceCapabilityModifier.ADF_DATA_FACTORY,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class AzureDataFactorySource(StatefulIngestionSourceBase):
     """Extracts metadata and lineage from Azure Data Factory pipelines, activities, and datasets."""
 
@@ -208,6 +212,26 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
             CopyActivityColumnLineageExtractor(),
         ]
+
+    @classmethod
+    def for_probe(
+        cls, config: AzureDataFactoryConfig, client: AzureDataFactoryClient
+    ) -> "AzureDataFactorySource":
+        """An uninitialized source for the probe, which needs a few of this
+        class's helpers but must not run __init__ (stateful ingestion, telemetry).
+
+        Primes only what _extract_resource_group, _extract_table_name and
+        _resolve_dataset_urn read. Keep it next to __init__: if one of those
+        starts reading a new attribute, prime it here too, or the probe fails
+        with AttributeError (reported as a defect, exit 1).
+        """
+        source = cls.__new__(cls)
+        source.config = config
+        source.report = AzureDataFactorySourceReport()
+        source.client = client
+        source._datasets_cache = {}
+        source._linked_services_cache = {}
+        return source
 
     @classmethod
     def create(
