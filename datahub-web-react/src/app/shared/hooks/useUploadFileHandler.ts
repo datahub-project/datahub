@@ -2,7 +2,7 @@ import { notification } from '@components';
 import i18next from 'i18next';
 import { useCallback } from 'react';
 
-import { validateFile } from '@components/components/Editor/extensions/fileDragDrop';
+import { validateFile } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import useFileUpload from '@app/shared/hooks/useFileUpload';

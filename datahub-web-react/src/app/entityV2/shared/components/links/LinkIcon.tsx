@@ -3,10 +3,10 @@ import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
-import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
 import {
     getExtensionFromFileName,
     getFileNameFromUrl,
+    isFileUrl,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
 import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
