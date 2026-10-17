@@ -60,13 +60,13 @@ import lombok.extern.slf4j.Slf4j;
  * from the row, never from this step's result. The non-blocking upgrades are flattened into one
  * run, and a required step's FAILED result ends that run, so reporting the pause as a failure would
  * stop every later non-blocking step for the sake of a fill that is merely waiting for its next
- * run. A row left {@link IncrementalReindexState.Status#FAILED} is different: this step cannot
- * replan it, and the next non-blocking run will not either. Reporting that run as success would
- * leave the index unfilled until a later blocking system update while the job looked finished, so
- * the step fails instead. Before it does, it drops that index's catch-up verdict and resume cursor;
- * a required failure ends the run before catch-up, and Phase 1's replan does not clear them.
- * Catch-up leaves a row in a fill status alone and does not count it as caught up, so it is
- * replayed once the fill completes, whatever the catch-up step persisted in between.
+ * run. A row left {@link IncrementalReindexState.Status#FAILED} is the same kind of wait, including
+ * a V2 {@code _reindex} that timed out or failed its swap: this step cannot replan it, and failing
+ * here would end the run before catch-up. Catch-up skips that row, replays every index that is
+ * ready, and then fails the run, so the job stays red without dropping a peer's window. Phase 1
+ * replans the FAILED row on the next blocking system update. Catch-up leaves a row in a fill status
+ * alone and does not count it as caught up, so it is replayed once the fill completes, whatever the
+ * catch-up step persisted in between.
  *
  * <p>Completeness is established as the fill runs, not counted at the end. Each page is written and
  * drained before the next is read, and a drain returns only when every document was indexed;
@@ -150,28 +150,25 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
       try {
         Map<String, String> phase1State = loadPhase1State(context);
         List<String> pending = pendingFills(phase1State);
-        if (!pending.isEmpty()) {
-          validatePageSize();
-          // Records each index's builder alongside its config; both are needed below.
-          List<ReindexConfig> configs =
-              IndexUtils.getAllReindexConfigs(opContext, indexedServices, structuredProperties);
-          Long deadlineEpochMs = deadlineEpochMs();
-          for (String indexName : pending) {
-            phase1State = fillIndex(context, phase1State, configs, indexName, deadlineEpochMs);
-          }
-        }
-        if (failedFills(phase1State).isEmpty()) {
-          if (pending.isEmpty()) {
-            log.info("No entity indices await a fill");
-          }
+        if (pending.isEmpty()) {
+          // A FAILED row, fill or V2 _reindex, is not pending. Catch-up replays the indices that
+          // are ready and then fails the run; failing here would end the run before that replay.
+          log.info("No entity indices await a fill");
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
-        return failForUnrepairedFills(context, phase1State);
+        validatePageSize();
+        // Records each index's builder alongside its config; both are needed below.
+        List<ReindexConfig> configs =
+            IndexUtils.getAllReindexConfigs(opContext, indexedServices, structuredProperties);
+        Long deadlineEpochMs = deadlineEpochMs();
+        for (String indexName : pending) {
+          phase1State = fillIndex(context, phase1State, configs, indexName, deadlineEpochMs);
+        }
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (AspectIndexLoader.DeadlineExceeded e) {
         // Not a failure: the budget bounds one run, the cursor is checkpointed (fillIndex flushes
         // it on the way out), and the row stays in a fill status for the next run to resume. See
-        // the class comment for why this must not fail the non-blocking run. A row already FAILED
-        // is not that pause: the next non-blocking run cannot repair it, so the run stays failed.
+        // the class comment for why this must not fail the non-blocking run.
         final String paused =
             String.format(
                 "Fill budget of %d hour(s) reached after %d aspects (last urn %s); the fill stays in"
@@ -179,32 +176,12 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
                 buildIndicesConfig.getMaxBackfillHours(), e.rowsProcessed(), e.lastUrn());
         log.warn(paused);
         context.report().addLine(paused);
-        Map<String, String> phase1State = loadPhase1State(context);
-        if (!failedFills(phase1State).isEmpty()) {
-          return failForUnrepairedFills(context, phase1State);
-        }
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Throwable e) {
         log.error("BackfillEntityIndicesStep failed; checkpoints are kept for resume", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
-  }
-
-  /**
-   * A FAILED row waits for the next blocking Phase 1. Failing here keeps the non-blocking run from
-   * reporting success, and drops catch-up progress that this failure would otherwise skip past.
-   */
-  private UpgradeStepResult failForUnrepairedFills(
-      UpgradeContext context, Map<String, String> phase1State) {
-    List<String> failed = failedFills(phase1State);
-    log.error(
-        "Entity index fill(s) left FAILED; this non-blocking run cannot rebuild them. The next"
-            + " blocking system update replans them: {}",
-        failed);
-    IncrementalReindexCatchUpStep.dropProgressForFailedFills(
-        opContext, entityService, context.upgrade(), upgradeVersion, phase1State);
-    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
   }
 
   /** Rows still in a fill status, in a stable order so resumes take them the same way. */
@@ -214,17 +191,6 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
             indexName ->
                 IncrementalReindexState.isBackfillStatus(
                     IncrementalReindexState.getStatus(phase1State, indexName).orElse(null)))
-        .sorted()
-        .collect(Collectors.toList());
-  }
-
-  /** Rows Phase 1 left FAILED. The next blocking run replans them; this one cannot. */
-  private static List<String> failedFills(@Nonnull Map<String, String> phase1State) {
-    return IncrementalReindexState.getAllIndexStates(phase1State).keySet().stream()
-        .filter(
-            indexName ->
-                IncrementalReindexState.getStatus(phase1State, indexName).orElse(null)
-                    == IncrementalReindexState.Status.FAILED)
         .sorted()
         .collect(Collectors.toList());
   }

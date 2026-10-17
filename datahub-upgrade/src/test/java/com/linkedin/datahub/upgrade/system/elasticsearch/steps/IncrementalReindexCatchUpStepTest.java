@@ -608,6 +608,50 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
+  public void testAFailedRowDoesNotSkipCatchUpOfACompletedPeer() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            "chartindex_v2",
+            "chartindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.FAILED);
+    phase1State =
+        IncrementalReindexState.setPhase1State(
+            phase1State,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    stubUpgradeResults(phase1State, Map.of(), DataHubUpgradeState.IN_PROGRESS);
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    ArgumentCaptor<RestoreIndicesArgs> args = ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), args.capture(), any());
+    assertEquals(args.getValue().urnLike, "urn:li:dataset:%");
+  }
+
+  @Test
   public void testCatchUpRunsOnceAFailedFillHasCompleted() {
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(
