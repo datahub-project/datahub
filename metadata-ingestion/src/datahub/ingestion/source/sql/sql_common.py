@@ -7,6 +7,7 @@ from functools import partial
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Dict,
     Iterable,
     List,
@@ -26,7 +27,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import Row
 from sqlalchemy.exc import NoSuchTableError, ProgrammingError
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import Pool, QueuePool
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -406,11 +407,21 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
+    # Pool class to default `poolclass` to when profiling is enabled. Sources whose
+    # dialect defaults to a pool that cannot serve parallel connections (for
+    # example Teradata's SingletonThreadPool) set this to QueuePool. It is a
+    # default: a `poolclass` in the user's options still wins.
+    _profiling_pool_class: ClassVar[Optional[Type[Pool]]] = None
+
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        if not sql_config.is_profiling_enabled():
+            return
+        if self._profiling_pool_class is not None:
+            sql_config.options.setdefault("poolclass", self._profiling_pool_class)
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.is_profiling_enabled() and _pool_accepts_sizing_options(
+        if _pool_accepts_sizing_options(
             sql_config.get_sql_alchemy_url(), sql_config.options
         ):
             sql_config.options.setdefault(

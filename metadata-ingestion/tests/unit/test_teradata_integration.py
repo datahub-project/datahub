@@ -13,6 +13,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.pool import NullPool
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -417,13 +418,21 @@ class TestConfigurationIntegration:
 
             assert mock_sql_config.options["poolclass"] == QueuePool
 
-            # The Teradata dialect defaults to SingletonThreadPool. poolclass must be
-            # set before the base class decides on max_overflow, or it gets dropped
-            # even though the engine is built with QueuePool.
+            # The Teradata dialect defaults to SingletonThreadPool. The base class
+            # applies _profiling_pool_class before deciding on max_overflow, so the
+            # engine gets QueuePool and keeps max_overflow.
             source._add_default_options(config)
 
             assert config.options["poolclass"] == QueuePool
             assert config.options["max_overflow"] == config.profiling.max_workers
+
+            # A poolclass in the user's options is not overridden.
+            config_dict_with_pool = {**config_dict, "options": {"poolclass": NullPool}}
+            config_with_pool = TeradataConfig.model_validate(config_dict_with_pool)
+            source._add_default_options(config_with_pool)
+
+            assert config_with_pool.options["poolclass"] == NullPool
+            assert "max_overflow" not in config_with_pool.options
 
 
 class TestComplexQueryScenarios:
