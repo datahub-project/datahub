@@ -854,7 +854,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Keyword conditions on an unindexed label are left out. Indexed siblings in the same AND stay.
+   * Keyword conditions on an unindexed label are left out. A group with nothing left matches
+   * nothing. Indexed siblings in the same AND stay.
    */
   @Test
   public void testV3OmitsUnindexedLabelFiltersOtherThanContain() {
@@ -870,6 +871,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
       assertFalse(query.contains("daily revenue"), criterion + " " + query);
       assertFalse(query.contains("description.text"), criterion + " " + query);
       assertFalse(query.contains("description.keyword"), criterion + " " + query);
+      assertMatchNone(query);
     }
 
     String platformOnly =
@@ -884,6 +886,15 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             buildCriterion("description", Condition.EQUAL, true, "daily revenue"),
             buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive")),
         platformOnly);
+
+    String either =
+        v3Or(
+            buildCriterion("description", Condition.EQUAL, "daily revenue"),
+            buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
+    assertTrue(either.contains("platform.keyword"), either);
+    assertTrue(either.contains("urn:li:dataPlatform:hive"), either);
+    assertFalse(either.contains("daily revenue"), either);
+    assertMatchNone(either);
   }
 
   /** Existence of an unindexed description is the shared hasDescription boolean. */
@@ -909,6 +920,31 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(query.contains("\"_name\" : \"" + sourceField + "\""), sourceField + " " + query);
     assertFalse(query.contains("description.text"), query);
     assertFalse(query.contains("description.keyword"), query);
+  }
+
+  /** {@code must_not}/{@code match_all} is the empty side of an omitted group. */
+  private static void assertMatchNone(String query) {
+    int matchAll = query.indexOf("\"match_all\"");
+    assertTrue(matchAll > 0, query);
+    int mustNot = query.lastIndexOf("must_not", matchAll);
+    int must = query.lastIndexOf("\"must\"", matchAll);
+    assertTrue(mustNot > must, query.substring(Math.max(0, matchAll - 200), matchAll));
+  }
+
+  private String v3Or(Criterion... branches) {
+    ConjunctiveCriterionArray or = new ConjunctiveCriterionArray();
+    for (Criterion branch : branches) {
+      or.add(new ConjunctiveCriterion().setAnd(new CriterionArray(branch)));
+    }
+    return SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            new Filter().setOr(or),
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            V3_READ_CONFIG.getEntityIndex(),
+            cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+        .toString();
   }
 
   @Test

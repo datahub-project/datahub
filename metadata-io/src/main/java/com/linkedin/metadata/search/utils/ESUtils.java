@@ -500,25 +500,25 @@ public class ESUtils {
         // Otherwise, build boolean query from the deprecated "criteria" field.
         log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
         final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-        filter
-            .getCriteria()
-            .forEach(
-                criterion -> {
-                  if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
-                    QueryBuilder query =
-                        getQueryBuilderFromCriterion(
-                            criterion,
-                            isTimeseries,
-                            searchableFieldTypes,
-                            opContext,
-                            queryFilterRewriteChain,
-                            v3FieldResolver);
-                    if (query != null) {
-                      andQueryBuilder.must(query);
-                    }
-                  }
-                });
-        finalQueryBuilder.should(andQueryBuilder);
+        boolean omitted = false;
+        for (Criterion criterion : filter.getCriteria()) {
+          if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
+            QueryBuilder query =
+                getQueryBuilderFromCriterion(
+                    criterion,
+                    isTimeseries,
+                    searchableFieldTypes,
+                    opContext,
+                    queryFilterRewriteChain,
+                    v3FieldResolver);
+            if (query == null) {
+              omitted = true;
+            } else {
+              andQueryBuilder.must(query);
+            }
+          }
+        }
+        finalQueryBuilder.should(omittedGroup(andQueryBuilder, omitted));
       }
     }
     if (Boolean.TRUE.equals(
@@ -559,32 +559,50 @@ public class ESUtils {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable SearchFieldResolver v3FieldResolver) {
     final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-    conjunctiveCriterion
-        .getAnd()
-        .forEach(
-            criterion -> {
-              if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
-                  || criterion.hasValues()) {
-                QueryBuilder query =
-                    getQueryBuilderFromCriterion(
-                        criterion,
-                        isTimeseries,
-                        searchableFieldTypes,
-                        opContext,
-                        queryFilterRewriteChain,
-                        v3FieldResolver);
-                if (query == null) {
-                  return;
-                }
-                if (!criterion.isNegated()) {
-                  // `filter` instead of `must` (enables caching and bypasses scoring)
-                  andQueryBuilder.filter(query);
-                } else {
-                  andQueryBuilder.mustNot(query);
-                }
-              }
-            });
-    return andQueryBuilder;
+    boolean omitted = false;
+    for (Criterion criterion : conjunctiveCriterion.getAnd()) {
+      if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
+          || criterion.hasValues()) {
+        QueryBuilder query =
+            getQueryBuilderFromCriterion(
+                criterion,
+                isTimeseries,
+                searchableFieldTypes,
+                opContext,
+                queryFilterRewriteChain,
+                v3FieldResolver);
+        if (query == null) {
+          omitted = true;
+          continue;
+        }
+        if (!criterion.isNegated()) {
+          // `filter` instead of `must` (enables caching and bypasses scoring)
+          andQueryBuilder.filter(query);
+        } else {
+          andQueryBuilder.mustNot(query);
+        }
+      }
+    }
+    return omittedGroup(andQueryBuilder, omitted);
+  }
+
+  /**
+   * An empty bool matches every document. A group that omitted every clause must not, or a sole
+   * unindexed filter and an OR branch of one would match the catalog.
+   */
+  @Nonnull
+  private static BoolQueryBuilder omittedGroup(@Nonnull BoolQueryBuilder group, boolean omitted) {
+    if (omitted && !hasClauses(group)) {
+      return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
+    }
+    return group;
+  }
+
+  private static boolean hasClauses(@Nonnull BoolQueryBuilder query) {
+    return !query.filter().isEmpty()
+        || !query.must().isEmpty()
+        || !query.should().isEmpty()
+        || !query.mustNot().isEmpty();
   }
 
   /**
@@ -722,7 +740,8 @@ public class ESUtils {
 
   /**
    * An unindexed label is searchable text. Existence uses the label's hasValues boolean. Every
-   * other condition has no indexed value to match, so the criterion is left out of the query.
+   * other condition has no indexed value to match, so the criterion is left out. A group with no
+   * clause left matches nothing.
    */
   @Nullable
   private static Criterion unindexedV3Criterion(
