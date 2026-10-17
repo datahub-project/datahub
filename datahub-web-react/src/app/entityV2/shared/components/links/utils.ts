@@ -1,4 +1,4 @@
-import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
+import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
 import { GeneralizedLinkFormData, LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 

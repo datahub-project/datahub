@@ -1,19 +1,17 @@
 import React, { memo, useMemo } from 'react';
 
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import AiContextModule from '@app/entityV2/summary/modules/aiContext/AiContextModule';
 import AssetsModule from '@app/entityV2/summary/modules/assets/AssetsModule';
 import ChildHierarchyModule from '@app/entityV2/summary/modules/childHierarchy/ChildHierarchyModule';
 import DataProductsModule from '@app/entityV2/summary/modules/dataProducts/DataProductsModule';
-import LineageModule from '@app/entityV2/summary/modules/lineage/LineageModule';
 import OutputPortsModule from '@app/entityV2/summary/modules/outputPorts/OutputPortsModule';
 import RelatedMetricsModule from '@app/entityV2/summary/modules/relatedMetrics/RelatedMetricsModule';
 import RelatedTermsModule from '@app/entityV2/summary/modules/relatedTerms/RelatedTermsModule';
-import ColumnsModule from '@app/entityV2/summary/modules/schemaTable/ColumnsModule';
 import SemanticModelDatasetsModule from '@app/entityV2/summary/modules/semanticModelDatasets/SemanticModelDatasetsModule';
 import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanticModelDimensions/SemanticModelDimensionsModule';
 import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
 import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
-import MetricSqlModule from '@app/entityV2/summary/modules/sql/MetricSqlModule';
 import SubDataProductsModule from '@app/entityV2/summary/modules/subDataProducts/SubDataProductsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
@@ -28,6 +26,22 @@ import LinkModule from '@app/homeV3/modules/link/LinkModule';
 import PlatformsModule from '@app/homeV3/modules/platforms/PlatformsModule';
 
 import { DataHubPageModuleType } from '@types';
+
+// These three pull Monaco, React Flow, or the syntax highlighter. Home and asset
+// summary render every module type from this file, so a static import would download
+// those libraries before first paint even when the module is not on the page.
+const LineageModule = lazyProfileComponent(
+    'LineageModule',
+    () => import('@app/entityV2/summary/modules/lineage/LineageModule'),
+);
+const ColumnsModule = lazyProfileComponent(
+    'ColumnsModule',
+    () => import('@app/entityV2/summary/modules/schemaTable/ColumnsModule'),
+);
+const MetricSqlModule = lazyProfileComponent(
+    'MetricSqlModule',
+    () => import('@app/entityV2/summary/modules/sql/MetricSqlModule'),
+);
 
 function Module(props: ModuleProps) {
     const { module } = props;
