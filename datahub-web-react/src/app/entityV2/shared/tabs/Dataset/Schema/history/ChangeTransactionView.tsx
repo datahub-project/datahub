@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled, { DefaultTheme } from 'styled-components';
 
 import ChangeEventComponent from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeEvent';
+import { resolveActorName } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { formatTimestamp } from '@app/entityV2/shared/tabs/Dataset/Schema/history/historyUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 
@@ -279,12 +280,6 @@ export interface ChangeTransactionEntry {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function extractActorName(actorUrn?: string | null): string | null {
-    if (!actorUrn) return null;
-    const parts = actorUrn.split(':');
-    return parts[parts.length - 1] || null;
-}
-
 function lifecycleLabel(stage?: string | null): string | null {
     if (!stage) return null;
     const seg = stage.split(':').pop() ?? stage;
@@ -296,12 +291,14 @@ function lifecycleLabel(stage?: string | null): string | null {
 function VersionMilestoneView({
     transaction,
     versionEntry,
+    nameMap,
 }: {
     transaction: ChangeTransaction;
     versionEntry: VersionEntry;
+    nameMap?: Map<string, string>;
 }) {
     const { t } = useTranslation('entity.profile.schema');
-    const actorName = extractActorName(transaction.actor);
+    const actorName = resolveActorName(transaction.actor, nameMap);
     const { isCurrent, tag, comment, isLatest, lifecycleStage, entityPath } = versionEntry;
     const stageSegment = lifecycleStage ? (lifecycleStage.split(':').pop() ?? lifecycleStage) : null;
 
@@ -364,10 +361,10 @@ export default function ChangeTransactionView({
 
     // Render as a version milestone if version metadata is attached
     if (versionEntry) {
-        return <VersionMilestoneView transaction={transaction} versionEntry={versionEntry} />;
+        return <VersionMilestoneView transaction={transaction} versionEntry={versionEntry} nameMap={nameMap} />;
     }
 
-    const actorName = extractActorName(transaction.actor);
+    const actorName = resolveActorName(transaction.actor, nameMap);
 
     return (
         <ChangeTransactionContainer>
