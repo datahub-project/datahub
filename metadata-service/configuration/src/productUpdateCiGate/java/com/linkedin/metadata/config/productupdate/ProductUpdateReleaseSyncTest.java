@@ -59,6 +59,13 @@ public class ProductUpdateReleaseSyncTest {
   /** Vite copies {@code datahub-web-react/src/images/*} to this directory. */
   private static final String LOCAL_IMAGE_ROOT = "assets/platforms/";
 
+  /**
+   * The toast imports its image from here instead of using the payload URL. The payload arrives
+   * after GraphQL, so a remote image becomes the home LCP.
+   */
+  private static final Path BUNDLED_IMAGE_MODULE =
+      Path.of("datahub-web-react/src/app/shared/product/update/ProductUpdates.utils.ts");
+
   private static final Pattern RELEASE_MONTH = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
 
   private Path repoRoot;
@@ -164,18 +171,13 @@ public class ProductUpdateReleaseSyncTest {
   public void testProductUpdateImageExists(@Nonnull ProductUpdateFlavor flavor) throws IOException {
     JsonNode json = readProductUpdate(flavor);
     String image = json.path("image").asText("");
-    if (image.isEmpty() || image.startsWith("https://") || image.startsWith("http://")) {
-      // Externally hosted images can't be verified from the repo.
-      return;
-    }
-
     String relative = image.startsWith("/") ? image.substring(1) : image;
     Assert.assertTrue(
         relative.startsWith(LOCAL_IMAGE_ROOT),
         flavor.jsonPath()
             + " image must be "
             + LOCAL_IMAGE_ROOT
-            + "<file> or an http(s) URL, got: "
+            + "<file> shipped in this build, got: "
             + image);
     String filename = relative.substring(LOCAL_IMAGE_ROOT.length());
     Assert.assertFalse(
@@ -190,6 +192,16 @@ public class ProductUpdateReleaseSyncTest {
             + filename
             + ", which does not exist in datahub-web-react/src/images. The toast would render"
             + " with a broken image.");
+
+    String bundledModule = Files.readString(repoRoot.resolve(BUNDLED_IMAGE_MODULE));
+    Assert.assertTrue(
+        bundledModule.contains("@images/" + filename),
+        flavor.jsonPath()
+            + " image "
+            + filename
+            + " must be imported from "
+            + BUNDLED_IMAGE_MODULE
+            + ". The toast renders that import, not the image URL in the product-update payload.");
   }
 
   /**

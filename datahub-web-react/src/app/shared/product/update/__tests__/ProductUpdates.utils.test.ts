@@ -1,8 +1,8 @@
 import {
+    bundledProductUpdateImage,
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
-    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 
 describe('ProductUpdates utilities', () => {
@@ -23,15 +23,9 @@ describe('ProductUpdates utilities', () => {
         expect(getLocalizedReleaseMonth('ja', '2026-09')).toBe('9月');
     });
 
-    it('anchors a product-update image under assets/platforms and leaves external URLs alone', () => {
-        const resolvePath = (path: string) => path;
-        expect(resolveProductUpdateImage('assets/platforms/in-product-release-oct2026.png', resolvePath)).toBe(
-            '/assets/platforms/in-product-release-oct2026.png',
-        );
-        expect(resolveProductUpdateImage('https://cdn.example/hero.png', resolvePath)).toBe(
-            'https://cdn.example/hero.png',
-        );
-        expect(resolveProductUpdateImage(null, resolvePath)).toBeNull();
+    it('uses the image shipped in this frontend', () => {
+        expect(bundledProductUpdateImage(true)).toContain('in-product-release-oct2026.png');
+        expect(bundledProductUpdateImage(false)).toContain('sample-product-update-image.png');
     });
 
     it('does not infer a month when the release month is absent or invalid', () => {

@@ -1,5 +1,5 @@
 import { Button, Heading, Text, Tooltip } from '@components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
@@ -23,10 +23,10 @@ import {
     ToastContainer,
 } from '@app/shared/product/update/ProductUpdates.components';
 import {
+    bundledProductUpdateImage,
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
-    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 import {
     useDismissProductAnnouncement,
@@ -38,6 +38,25 @@ import { isVersionMatch } from '@app/shared/product/update/versionUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
+
+const PRODUCT_UPDATE_PRELOAD_ATTR = 'data-product-update-preload';
+
+/** Start the bundled image fetch on the home page, before the product-update query returns. */
+function preloadBundledProductUpdateImage(href: string) {
+    const absolute = new URL(href, window.location.href).href;
+    const existing = document.head.querySelector(`link[${PRODUCT_UPDATE_PRELOAD_ATTR}]`);
+    if (existing instanceof HTMLLinkElement && existing.href === absolute) {
+        return;
+    }
+    existing?.remove();
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = href;
+    link.setAttribute('fetchpriority', 'high');
+    link.setAttribute(PRODUCT_UPDATE_PRELOAD_ATTR, '');
+    document.head.appendChild(link);
+}
 
 export default function ProductUpdates() {
     const { t, i18n } = useTranslation('shared.product');
@@ -55,7 +74,15 @@ export default function ProductUpdates() {
     // Local state to hide immediately on dismiss
     const [isLocallyVisible, setIsLocallyVisible] = useState(false);
     const [sidebarWidth, setSidebarWidth] = useState(NAV_SIDEBAR_WIDTH_EXPANDED);
-    const imageSrc = resolveProductUpdateImage(latestUpdate?.image);
+    const imageSrc = bundledProductUpdateImage(isCloud);
+
+    useLayoutEffect(() => {
+        if (!isOnHomePage || !isFeatureEnabled) {
+            return undefined;
+        }
+        preloadBundledProductUpdateImage(imageSrc);
+        return undefined;
+    }, [imageSrc, isFeatureEnabled, isOnHomePage]);
 
     // Check if current version matches required version
     const currentVersion = appConfig.config.appVersion;
