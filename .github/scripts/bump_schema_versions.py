@@ -1043,6 +1043,20 @@ def _without_boost_score(annotation: str) -> str:
     return " ".join(text.split())
 
 
+def _without_query_by_default(annotation: str) -> str:
+    """Drop queryByDefault from a normalized @Searchable value, including path maps.
+
+    The flag selects whether an unqualified query reads the field. Changing it does
+    not change rows stored for the aspect.
+    """
+    text = re.sub(r'"queryByDefault"\s*:\s*(?:true|false|"true"|"false")', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
 def _without_v3_overlay(annotation: str) -> str:
     """Drop a nested v3 value from a normalized @Searchable value.
 
@@ -1101,18 +1115,21 @@ def _annotations_for_version_bump(annotations: dict[str, str]) -> dict[str, str]
     """Annotations that require a stored-aspect migration.
 
     searchLabel selects a shared search field, hasValuesFieldName names that label's
-    existence boolean, and a nested v3 object overrides the label for Search V3 only.
-    Changing any of them rebuilds the index mapping and does not change rows already
-    stored for the aspect, so they are ignored the same way boostScore is. A
-    @Searchable annotation that contains nothing else is ignored too.
+    existence boolean, queryByDefault selects whether an unqualified query reads the
+    field, and a nested v3 object overrides the label for Search V3 only. Changing any
+    of them rebuilds the index and does not change rows already stored for the aspect,
+    so they are ignored the same way boostScore is. A @Searchable annotation that
+    contains nothing else is ignored too.
     """
     compared: dict[str, str] = {}
     for name, value in annotations.items():
         if name != "Searchable":
             compared[name] = value
             continue
-        value = _without_has_values_field_name(
-            _without_search_label(_without_boost_score(_without_v3_overlay(value)))
+        value = _without_query_by_default(
+            _without_has_values_field_name(
+                _without_search_label(_without_boost_score(_without_v3_overlay(value)))
+            )
         )
         if not _is_empty_annotation(value):
             compared[name] = value
