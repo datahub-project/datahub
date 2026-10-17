@@ -152,9 +152,10 @@ public class VersionPropertiesValidatorTest {
   }
 
   @Test
-  public void testVersionSetWithSchemeFromNewerVersionIsNotRejected() {
+  public void testVersionSetWithSchemeFromNewerVersionIsRejected() {
     // A version set a newer version created with a scheme this version doesn't know (read after a
-    // rollback): scheme validation is skipped rather than rejecting every new version.
+    // rollback): adding a version is still rejected. Accepting it would let the version-set side
+    // effect replace that scheme with the new version's, losing the newer version's value.
     VersionProperties properties = new VersionProperties();
     properties.setVersionSet(NEWER_SCHEME_VERSION_SET_URN);
     properties.setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING);
@@ -168,8 +169,7 @@ public class VersionPropertiesValidatorTest {
                 retrieverContext)
             .findAny();
 
-    Assert.assertTrue(
-        exceptions.isEmpty(), exceptions.map(AspectValidationException::getMessage).orElse(null));
+    Assert.assertTrue(exceptions.isPresent());
   }
 
   @Test
