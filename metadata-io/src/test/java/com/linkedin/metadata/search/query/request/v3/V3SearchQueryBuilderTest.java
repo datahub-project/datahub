@@ -606,6 +606,56 @@ public class V3SearchQueryBuilderTest {
     assertEquals(group.get(0).lenient(), Boolean.TRUE);
   }
 
+  /** An unquoted /q value on a text-only label searches its analyzed subfields, not the root. */
+  @Test
+  public void testStructuredQueryRewritesUnquotedTextOnlyLabels() {
+    QueryBuilder query =
+        builder(null)
+            .buildQuery(
+                OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "description:warehouse", true);
+
+    Set<String> texts =
+        find(query, QueryStringQueryBuilder.class).stream()
+            .map(QueryStringQueryBuilder::queryString)
+            .collect(Collectors.toSet());
+    assertTrue(texts.contains("description.text:warehouse"), texts.toString());
+    assertTrue(texts.contains("description.stemmed:warehouse"), texts.toString());
+    assertFalse(texts.contains("description:warehouse"), texts.toString());
+  }
+
+  /** A quoted /q value stays on exact intent and is not promoted to the analyzed subfields. */
+  @Test
+  public void testStructuredQueryQuotedTextOnlyLabelStaysExact() {
+    QueryBuilder query =
+        builder(null)
+            .buildQuery(
+                OP_CONTEXT,
+                DATASET,
+                STRUCTURED_QUERY_PREFIX + "description:\"data warehouse\"",
+                true);
+
+    Set<String> texts =
+        find(query, QueryStringQueryBuilder.class).stream()
+            .map(QueryStringQueryBuilder::queryString)
+            .collect(Collectors.toSet());
+    assertTrue(texts.contains("description:\"data warehouse\""), texts.toString());
+    assertTrue(
+        texts.stream().noneMatch(text -> text.contains(".text") || text.contains(".stemmed")),
+        texts.toString());
+  }
+
+  /** A keyword label is not a text-only field, so /q leaves the field name as written. */
+  @Test
+  public void testStructuredQueryKeywordLabelStaysOnKeywordField() {
+    QueryStringQueryBuilder structured =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "tags:pii", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(structured.queryString(), "tags:pii");
+  }
+
   /** A space after the field colon is valid query-string syntax and must keep the split. */
   @Test
   public void testFieldedStructuredQueryAllowsSpaceAfterColon() {

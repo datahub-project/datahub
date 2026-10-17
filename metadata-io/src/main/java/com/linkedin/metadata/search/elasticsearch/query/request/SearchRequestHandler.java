@@ -126,7 +126,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   // Set when keyword reads go to Search V3, whose full-text query reads the shared root fields
   @Nullable private final V3SearchQueryBuilder v3SearchQueryBuilder;
 
-  @Nullable private final SearchFieldResolver v3SearchFieldResolver;
+  @Getter @Nullable private final SearchFieldResolver v3SearchFieldResolver;
   // Words shorter than this are dropped by the analyzers, so they never match on V3
   private final int v3MinWordLength;
   private final AggregationQueryBuilder aggregationQueryBuilder;
@@ -301,16 +301,29 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable EntityIndexConfiguration entityIndexConfiguration) {
+    return getFilterQuery(
+        opContext,
+        entityNames,
+        filter,
+        searchableFieldTypes,
+        queryFilterRewriteChain,
+        entityIndexConfiguration,
+        null);
+  }
+
+  /**
+   * {@code fieldResolver} is the resolver cached on a {@link SearchRequestHandler}. This method
+   * does not build one: constructing it walks every searchable field of the entity specs.
+   */
+  public static BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityNames,
+      @Nullable Filter filter,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration,
+      @Nullable SearchFieldResolver fieldResolver) {
     final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
-    SearchFieldResolver fieldResolver =
-        readV3
-            ? new SearchFieldResolver(
-                V3SearchFields.indexGroupSpecs(
-                    opContext.getEntityRegistry(),
-                    entityNames.stream()
-                        .map(opContext.getEntityRegistry()::getEntitySpec)
-                        .collect(Collectors.toList())))
-            : null;
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
             readV3 ? EntityFilter.toEntityFilter(opContext, filter) : filter,
@@ -318,7 +331,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain,
-            fieldResolver);
+            readV3 ? fieldResolver : null);
     return applyDefaultSearchFilters(
         opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
   }

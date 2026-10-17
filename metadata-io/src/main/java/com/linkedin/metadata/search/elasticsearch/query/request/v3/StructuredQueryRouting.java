@@ -2,6 +2,8 @@ package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.STEMMED;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.TEXT;
 
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import java.util.ArrayList;
@@ -305,8 +307,67 @@ final class StructuredQueryRouting {
       // A group such as name:(foo OR structuredProperties.bar:baz) is one query_string. Lenient
       // when it names a property, so that field is not evaluated strictly.
       boolean lenient = isPropertyField(field) || mentionsPropertyField(text);
+      if (!lenient && !isQuotedFieldValue(text)) {
+        List<SearchFieldConfig> analyzed = textOnlySubfields(field, shared);
+        if (!analyzed.isEmpty()) {
+          return withBoost(textOnlyQuery(text, analyzed), weight);
+        }
+      }
       return withBoost(clause(text, lenient ? properties : shared, lenient, true), weight);
     }
+  }
+
+  /**
+   * Analyzed subfields of a label whose root is not an indexed keyword. An unquoted {@code /q}
+   * value searches those subfields. A keyword label still searches its keyword field.
+   */
+  @Nonnull
+  private static List<SearchFieldConfig> textOnlySubfields(
+      @Nonnull String field, @Nonnull List<SearchFieldConfig> shared) {
+    List<SearchFieldConfig> analyzed = new ArrayList<>();
+    boolean indexedExact = false;
+    for (SearchFieldConfig config : shared) {
+      String name = config.fieldName();
+      if (name.equals(field) || name.equals(field + ".keyword")) {
+        indexedExact = true;
+      } else if (name.equals(field + "." + TEXT) || name.equals(field + "." + STEMMED)) {
+        analyzed.add(config);
+      }
+    }
+    return indexedExact ? List.of() : analyzed;
+  }
+
+  /** A quoted value ({@code description:"data warehouse"}) stays on exact intent. */
+  private static boolean isQuotedFieldValue(@Nonnull String text) {
+    int colon = text.indexOf(':');
+    if (colon < 0) {
+      return false;
+    }
+    int index = colon + 1;
+    while (index < text.length() && isWhitespace(text.charAt(index))) {
+      index++;
+    }
+    return index < text.length() && text.charAt(index) == '"';
+  }
+
+  @Nonnull
+  private static QueryBuilder textOnlyQuery(
+      @Nonnull String text, @Nonnull List<SearchFieldConfig> analyzed) {
+    int colon = text.indexOf(':');
+    String value = text.substring(colon);
+    List<QueryBuilder> clauses = new ArrayList<>();
+    for (SearchFieldConfig subfield : analyzed) {
+      QueryStringQueryBuilder query = QueryBuilders.queryStringQuery(subfield.fieldName() + value);
+      query.defaultOperator(Operator.AND);
+      query.boost(subfield.boost());
+      clauses.add(query);
+    }
+    if (clauses.size() == 1) {
+      return clauses.get(0);
+    }
+    BoolQueryBuilder bool = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    clauses.forEach(bool::should);
+    return bool;
   }
 
   /**

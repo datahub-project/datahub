@@ -62,6 +62,7 @@ import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
@@ -728,7 +729,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY,
-            entityIndex);
+            entityIndex,
+            cachedV3Resolver(entityIndex));
 
     assertTrue(
         query.filter().stream()
@@ -765,7 +767,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 filter,
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                entityIndex)
+                entityIndex,
+                cachedV3Resolver(entityIndex))
             .toString();
     String v2Filter =
         SearchRequestHandler.getFilterQuery(
@@ -828,7 +831,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 filter,
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                entityIndex)
+                entityIndex,
+                cachedV3Resolver(entityIndex))
             .toString();
     String v2Filter =
         SearchRequestHandler.getFilterQuery(
@@ -869,7 +873,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 filter,
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                V3_READ_CONFIG.getEntityIndex()));
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex())));
   }
 
   @Test
@@ -889,7 +894,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 existenceFilter,
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                V3_READ_CONFIG.getEntityIndex())
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
     assertTrue(query.contains("\"hasDescription\""), query);
     assertFalse(query.contains("hasDescription.keyword"), query);
@@ -908,7 +914,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                                             "hasDescription", Condition.EQUAL, "false"))))),
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                V3_READ_CONFIG.getEntityIndex())
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
     assertTrue(missingDescription.contains("must_not"), missingDescription);
     assertTrue(missingDescription.contains("exists"), missingDescription);
@@ -927,7 +934,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                                         buildCriterion("hasRowCount", Condition.EQUAL, "false"))))),
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                V3_READ_CONFIG.getEntityIndex())
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
     assertTrue(unlabeledFalse.contains("\"hasRowCount\""), unlabeledFalse);
     assertTrue(unlabeledFalse.contains("\"false\""), unlabeledFalse);
@@ -966,6 +974,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 0,
                 10,
                 List.of()));
+  }
+
+  private SearchFieldResolver cachedV3Resolver(EntityIndexConfiguration entityIndex) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            testQueryConfig.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getV3SearchFieldResolver();
   }
 
   private static final ElasticSearchConfiguration V3_READ_CONFIG =
