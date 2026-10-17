@@ -58,7 +58,9 @@ def _stub_setuptools() -> Iterator[None]:
 def load_setup_py_variables() -> Dict:
     """Load variables from setup.py by executing it in a controlled namespace."""
     setup_py_path = METADATA_INGESTION_DIR / "setup.py"
-    code = setup_py_path.read_text().replace("setuptools.setup(", "_setup_args = dict(")
+    code = setup_py_path.read_text(encoding="utf-8").replace(
+        "setuptools.setup(", "_setup_args = dict("
+    )
 
     def _run() -> Dict:
         namespace: Dict = {
@@ -422,7 +424,7 @@ def read_manual_sections(pyproject_path: Path) -> str:
     """Read the manually maintained [tool.*] sections from existing pyproject.toml."""
     if not pyproject_path.exists():
         return ""
-    content = pyproject_path.read_text()
+    content = pyproject_path.read_text(encoding="utf-8")
     for i, line in enumerate(content.splitlines()):
         if line.startswith(MANUAL_SECTION_MARKER):
             return "\n".join(content.splitlines()[i:]) + "\n"
@@ -435,7 +437,7 @@ def main():
         generated = generate_pyproject_toml()
         manual = read_manual_sections(pyproject_path)
         combined = generated + "\n" + manual if manual else generated + "\n"
-        pyproject_path.write_text(combined)
+        pyproject_path.write_text(combined, encoding="utf-8")
         print(f"Wrote {pyproject_path}")
     except Exception as e:
         print(f"Error generating pyproject.toml: {e}", file=sys.stderr)
