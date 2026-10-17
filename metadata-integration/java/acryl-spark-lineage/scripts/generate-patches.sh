@@ -17,16 +17,9 @@ DATAHUB_SRC="$MODULE_DIR/src/main/java/io/openlineage"
 # Files to compare
 FILES=(
   "spark/api/Vendors.java"
-  "spark/api/VendorsContext.java"
-  "spark/api/VendorsImpl.java"
   "spark/agent/util/PathUtils.java"
   "spark/agent/util/PlanUtils.java"
-  "spark/agent/util/RemovePathPatternUtils.java"
-  "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
-  "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
-  "spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
   "spark/agent/lifecycle/plan/TopicPartitionProxy.java"
-  "spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
 )
