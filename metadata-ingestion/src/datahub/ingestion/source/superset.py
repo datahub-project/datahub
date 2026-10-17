@@ -24,6 +24,7 @@ from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dashboard_urn,
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
@@ -82,6 +83,7 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -302,7 +304,9 @@ class SupersetDataset(BaseModel):
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
-    # TODO: Add support for missing dataPlatformInstance/containers
+    # TODO: Add support for the missing containers (database and schema) and for
+    # the dataset dataPlatformInstance, which needs instance-aware dataset URNs
+    # (see gen_dataset_urn)
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
@@ -420,6 +424,7 @@ def get_filter_name(filter_obj):
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by `platform_instance` config")
 @capability(SourceCapability.TAGS, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -912,6 +917,23 @@ class SupersetSource(StatefulIngestionSourceBase):
             f"dataset_id={result.get('id', 'unknown')}"
         )
 
+    def get_data_platform_instance(self) -> Optional[DataPlatformInstanceClass]:
+        """Build the ``dataPlatformInstance`` aspect, or ``None`` when no
+        platform instance is configured.
+
+        DataHub's Navigate panel groups entities by this aspect, so without it
+        everything a Superset run emits is filed under "Default" even when
+        ``platform_instance`` is set.
+        """
+        if not self.config.platform_instance:
+            return None
+        return DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(
+                self.platform, self.config.platform_instance
+            ),
+        )
+
     def construct_dashboard_from_api_data(
         self,
         dashboard_data: dict,
@@ -926,6 +948,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             urn=dashboard_urn,
             aspects=[Status(removed=False)],
         )
+
+        data_platform_instance = self.get_data_platform_instance()
+        if data_platform_instance:
+            dashboard_snapshot.aspects.append(data_platform_instance)
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
@@ -1532,6 +1558,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             urn=chart_urn,
             aspects=[Status(removed=False)],
         )
+
+        data_platform_instance = self.get_data_platform_instance()
+        if data_platform_instance:
+            chart_snapshot.aspects.append(data_platform_instance)
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")

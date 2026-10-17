@@ -15,7 +15,11 @@ from datahub.ingestion.source.superset import (
     get_filter_name,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DashboardInfoClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    DashboardInfoClass,
+    DataPlatformInstanceClass,
+    OwnershipClass,
+)
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 
@@ -3022,3 +3026,137 @@ class TestTagsDefensiveShape:
         assert result is not None
         tag_names = [tag.tag.split(":")[-1] for tag in result.tags]
         assert tag_names == ["good"]
+
+
+def _mock_dataset_detail(requests_mock: rm.Mocker, dataset_id: int) -> None:
+    requests_mock.get(
+        f"http://localhost:8088/api/v1/dataset/{dataset_id}",
+        json={
+            "result": {
+                "id": dataset_id,
+                "table_name": "my_table",
+                "schema": "public",
+                "database": {
+                    "id": 1,
+                    "database_name": "my_database",
+                    "backend": "postgresql",
+                },
+                "columns": [],
+                "metrics": [],
+            }
+        },
+        status_code=200,
+    )
+
+
+def _platform_instance_aspects(aspects: List[Any]) -> List[DataPlatformInstanceClass]:
+    return [
+        aspect for aspect in aspects if isinstance(aspect, DataPlatformInstanceClass)
+    ]
+
+
+def _chart_snapshot(source: SupersetSource, chart_data: Dict[str, Any]) -> Any:
+    workunits = list(source.construct_chart_from_chart_data(chart_data))
+    return next(
+        wu.metadata.proposedSnapshot
+        for wu in workunits
+        if hasattr(wu.metadata, "proposedSnapshot")
+    )
+
+
+_CHART_DATA: Dict[str, Any] = {
+    "id": 42,
+    "slice_name": "Markdown",
+    "url": "/chart/42",
+    "viz_type": "markdown",
+    "datasource_id": None,
+    "params": "{}",
+    "owners": [],
+    "tags": [],
+}
+
+
+class TestDataPlatformInstanceAspect:
+    """The dataPlatformInstance aspect is what DataHub's Navigate panel groups
+    by. Superset accepted a `platform_instance` config without ever emitting
+    the aspect, so every entity was filed under "Default"."""
+
+    INSTANCE_URN = (
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:superset,my_instance)"
+    )
+
+    def test_dashboard_has_aspect_when_platform_instance_set(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        source = _build_source(
+            requests_mock, config=SupersetConfig(platform_instance="my_instance")
+        )
+
+        dashboard_snapshot = source.construct_dashboard_from_api_data(
+            {"id": 7, "dashboard_title": "Sales"}, position_data={}
+        )
+
+        aspects = _platform_instance_aspects(dashboard_snapshot.aspects)
+        assert len(aspects) == 1
+        assert aspects[0].platform == "urn:li:dataPlatform:superset"
+        assert aspects[0].instance == self.INSTANCE_URN
+
+    def test_dashboard_omits_aspect_without_platform_instance(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        source = _build_source(requests_mock)
+
+        dashboard_snapshot = source.construct_dashboard_from_api_data(
+            {"id": 7, "dashboard_title": "Sales"}, position_data={}
+        )
+
+        assert _platform_instance_aspects(dashboard_snapshot.aspects) == []
+
+    def test_chart_has_aspect_when_platform_instance_set(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        source = _build_source(
+            requests_mock, config=SupersetConfig(platform_instance="my_instance")
+        )
+
+        chart_snapshot = _chart_snapshot(source, dict(_CHART_DATA))
+
+        aspects = _platform_instance_aspects(chart_snapshot.aspects)
+        assert len(aspects) == 1
+        assert aspects[0].instance == self.INSTANCE_URN
+
+    def test_chart_omits_aspect_without_platform_instance(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        source = _build_source(requests_mock)
+
+        chart_snapshot = _chart_snapshot(source, dict(_CHART_DATA))
+
+        assert _platform_instance_aspects(chart_snapshot.aspects) == []
+
+    def test_dataset_never_has_aspect(self, requests_mock: rm.Mocker) -> None:
+        # Datasets are deliberately left out for now. Their URNs are built by
+        # get_datasource_urn_from_id, which calls make_dataset_urn without the
+        # platform instance, so an aspect here would name an instance the URN
+        # does not carry and two deployments sharing a table would overwrite
+        # each other's aspect on the same entity. Emitting it needs
+        # instance-aware dataset URNs first (see gen_dataset_urn).
+        source = _build_source(
+            requests_mock, config=SupersetConfig(platform_instance="my_instance")
+        )
+        _mock_dataset_detail(requests_mock, 77)
+
+        dataset_snapshot = source.construct_dataset_from_dataset_data({"id": 77})
+
+        assert _platform_instance_aspects(dataset_snapshot.aspects) == []
+
+    def test_empty_platform_instance_is_treated_as_unset(
+        self, requests_mock: rm.Mocker
+    ) -> None:
+        # An empty string passes config validation but is not a usable
+        # instance name, so it must not produce a bare instance URN.
+        source = _build_source(
+            requests_mock, config=SupersetConfig(platform_instance="")
+        )
+
+        assert source.get_data_platform_instance() is None

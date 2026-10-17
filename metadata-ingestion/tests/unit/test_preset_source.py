@@ -1,5 +1,10 @@
+import requests_mock as rm
+
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.source.preset import PresetConfig
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.source.preset import PresetConfig, PresetSource
+from datahub.metadata.schema_classes import DataPlatformInstanceClass
 
 
 def test_default_values():
@@ -47,3 +52,60 @@ def test_preset_config_parsing():
 
     # Test that regular Superset fields are still parsed
     assert config.connect_uri == "https://preset.io"
+
+
+def _build_preset_source(
+    requests_mock: rm.Mocker, platform_instance: str
+) -> PresetSource:
+    requests_mock.post(
+        "http://localhost:9090/v1/auth/",
+        json={"payload": {"access_token": "dummy_token"}},
+        status_code=200,
+    )
+    requests_mock.get("http://localhost:8088/version", json={}, status_code=200)
+    requests_mock.get(
+        "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+    )
+    for entity in ["dataset", "dashboard", "chart"]:
+        requests_mock.get(
+            f"http://localhost:8088/api/v1/{entity}/related/owners",
+            json={},
+            status_code=200,
+        )
+    config = PresetConfig.model_validate(
+        {
+            "connect_uri": "http://localhost:8088",
+            "manager_uri": "http://localhost:9090",
+            "api_key": "dummy_api_key",
+            "api_secret": "dummy_api_secret",
+            "platform_instance": platform_instance,
+        }
+    )
+    return PresetSource(
+        ctx=PipelineContext(run_id="preset-platform-instance-test"), config=config
+    )
+
+
+def test_preset_inherits_platform_instance_from_superset(requests_mock):
+    """Preset subclasses the Superset source, so it picks up the
+    dataPlatformInstance aspect with no Preset-specific code. The aspect must
+    name the preset platform, not superset."""
+    source = _build_preset_source(requests_mock, platform_instance="my_instance")
+
+    aspect = source.get_data_platform_instance()
+
+    assert isinstance(aspect, DataPlatformInstanceClass)
+    assert aspect.platform == "urn:li:dataPlatform:preset"
+    assert (
+        aspect.instance
+        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:preset,my_instance)"
+    )
+
+
+def test_preset_inherits_platform_instance_capability():
+    capabilities = {
+        setting.capability
+        for setting in PresetSource.get_capabilities()  # type: ignore[attr-defined]
+    }
+
+    assert SourceCapability.PLATFORM_INSTANCE in capabilities

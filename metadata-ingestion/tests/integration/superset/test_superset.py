@@ -836,6 +836,53 @@ def test_superset_ingest(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+def test_superset_platform_instance_ingest(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
+) -> None:
+    """With `platform_instance` set, dashboards and charts carry a
+    dataPlatformInstance aspect so the Navigate panel can group by instance.
+
+    Datasets deliberately do not carry it, because their URNs are built without
+    the platform instance; tests/unit/test_superset_source.py pins that."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "superset-test",
+            "source": {
+                "type": "superset",
+                "config": {
+                    "connect_uri": "mock://mock-domain.superset.com/",
+                    "username": "test_username",
+                    "password": "test_password",
+                    "provider": "db",
+                    "platform_instance": "test_platform_instance",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/superset_platform_instance_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_platform_instance_ingest.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "superset_platform_instance_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
 def test_superset_stateful_ingest(
     pytestconfig: pytest.Config,
     tmp_path: Path,
