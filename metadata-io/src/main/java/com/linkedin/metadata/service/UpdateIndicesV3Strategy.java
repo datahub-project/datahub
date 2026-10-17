@@ -23,6 +23,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMap
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
@@ -152,6 +153,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               urn,
               urnEvents,
               rebuilt.removedAspects().getOrDefault(urn, Map.of()),
+              rebuilt.indexedFields().getOrDefault(urn, Map.of()),
               structuredPropertiesHookEnabled,
               throttleSummary));
     }
@@ -311,12 +313,19 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
       @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Map<String, Set<String>> indexedFields,
       boolean structuredPropertiesHookEnabled,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
     try {
       return processUrnBatchUnchecked(
-          opContext, urn, events, removedAspects, structuredPropertiesHookEnabled, throttleSummary);
+          opContext,
+          urn,
+          events,
+          removedAspects,
+          indexedFields,
+          structuredPropertiesHookEnabled,
+          throttleSummary);
     } catch (RuntimeException e) {
       // Live dual-write: one URN's V3 failure must not stall V2, and the entity's next event
       // rebuilds its document. A replay is different: nothing comes back for a URN it drops. A
@@ -348,6 +357,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
       @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Map<String, Set<String>> indexedFields,
       boolean structuredPropertiesHookEnabled,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
@@ -409,7 +419,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     // Build the combined V3 document with _aspect structure
     ObjectNode combinedDocument =
-        buildV3SearchDocument(opContext, urn, events, removedAspects, throttleSummary);
+        buildV3SearchDocument(
+            opContext, urn, events, removedAspects, indexedFields, throttleSummary);
 
     // As on V2, the structured property mapping hook runs even when no aspect changed
     if (structuredPropertiesHookEnabled) {
@@ -606,6 +617,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * @param events the events for this URN
    * @param removedAspects aspects a catch-up replay found in the document but not in storage, as
    *     aspect name to the field names the document holds for it; empty for a live write
+   * @param indexedFields the raw per-URN field map the index reported for a catch-up replay; empty
+   *     for a live write
    * @return the combined V3 document or null if no aspects to process
    */
   private ObjectNode buildV3SearchDocument(
@@ -613,6 +626,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
       @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Map<String, Set<String>> indexedFields,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
     EntitySpec entitySpec = events.get(0).getEntitySpec();
@@ -719,6 +733,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     liftSemanticEmbeddingsToRoot(opContext, urn, entityType, events, combinedDocument);
 
     applyDocumentContributors(opContext, urn, combinedDocument);
+    if (isCatchUpBatch(events)) {
+      clearStaleCatchUpFields(combinedDocument, entitySpec, events, indexedFields);
+    }
     return combinedDocument;
   }
 
@@ -726,9 +743,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * Nulls what the document holds for aspects primary storage no longer has, as a catch-up replay
    * found them in the index: the entry under {@code _aspects} and the root fields the aspect
    * projected, except a root field an aspect of this batch still sets, which keeps its value, and
-   * the fields the strategy itself owns. Structured properties live at the root only, so losing
-   * that aspect clears its root object instead. The merge the document is written with then clears
-   * them.
+   * the fields the strategy itself owns. Structured properties are dotted root keys, so losing that
+   * aspect nulls those keys and leaves the parent key alone. The merge the document is written with
+   * then clears them.
    */
   private static void removeAspects(
       @Nonnull ObjectNode document, @Nonnull Map<String, Set<String>> removedAspects) {
@@ -743,20 +760,126 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     removedAspects.forEach(
         (aspectName, fields) -> {
           if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-            if (!document.hasNonNull(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME)) {
-              document.putNull(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
-            }
+            nullMissingStructuredPropertyKeys(document, fields);
             return;
           }
           aspects.putNull(aspectName);
           for (String field : fields) {
-            if (!STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)
-                && !V3SearchDocumentProjector.SYSTEM_METADATA_FIELD.equals(field)
-                && !document.hasNonNull(field)) {
-              document.putNull(field);
+            if (rootFieldKept(document, field, Set.of())) {
+              continue;
             }
+            document.putNull(field);
           }
         });
+  }
+
+  /**
+   * After a catch-up document is fully built, nulls index fields the restate no longer sets. A
+   * child missing from a restated aspect is nulled under {@code _aspects} and, when the finished
+   * document has no value there, at the root. A root field a timeseries aspect in the index still
+   * holds, or that the strategy owns, stays. Structured properties are dotted root keys the
+   * finished document does not set; the parent key is left alone. A leftover {@code
+   * _aspects.structuredProperties} entry is nulled without reading its children as those keys.
+   */
+  private static void clearStaleCatchUpFields(
+      @Nonnull ObjectNode document,
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull List<MCLItem> events,
+      @Nonnull Map<String, Set<String>> indexedFields) {
+    if (indexedFields.isEmpty()) {
+      return;
+    }
+    Set<String> timeseriesRootFields = new HashSet<>();
+    indexedFields.forEach(
+        (aspectName, fields) -> {
+          if (isTimeseriesAspect(entitySpec, aspectName)) {
+            timeseriesRootFields.addAll(fields);
+          }
+        });
+    nullMissingStructuredPropertyKeys(
+        document,
+        indexedFields.getOrDefault(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME, Set.of()));
+    if (indexedFields.containsKey(ESSearchDAO.STALE_ASPECTS_STRUCTURED_PROPERTIES)) {
+      aspectsObject(document).putNull(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    }
+
+    Set<String> restated = new HashSet<>();
+    for (MCLItem event : events) {
+      if (event.getChangeType() == ChangeType.RESTATE && event.getRecordTemplate() != null) {
+        restated.add(event.getAspectName());
+      }
+    }
+    JsonNode aspectsNode = document.get(MappingConstants.ASPECTS_FIELD_NAME);
+    ObjectNode aspects = aspectsNode instanceof ObjectNode node ? node : null;
+    for (String aspectName : restated) {
+      if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
+        continue;
+      }
+      Set<String> fields = indexedFields.get(aspectName);
+      if (fields == null) {
+        continue;
+      }
+      JsonNode aspectNode = aspects == null ? null : aspects.get(aspectName);
+      ObjectNode aspect = aspectNode instanceof ObjectNode node ? node : null;
+      for (String field : fields) {
+        if (aspect != null
+            && !aspect.has(field)
+            && !STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)) {
+          aspect.putNull(field);
+        }
+        if (rootFieldKept(document, field, timeseriesRootFields)) {
+          continue;
+        }
+        document.putNull(field);
+      }
+    }
+  }
+
+  /** Dotted {@code structuredProperties.<name>} keys the document does not already set. */
+  private static void nullMissingStructuredPropertyKeys(
+      @Nonnull ObjectNode document, @Nonnull Set<String> fields) {
+    for (String field : fields) {
+      if (isStructuredPropertyKey(field) && !document.hasNonNull(field)) {
+        document.putNull(field);
+      }
+    }
+  }
+
+  private static boolean isStructuredPropertyKey(@Nonnull String field) {
+    return field.startsWith(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME + ".");
+  }
+
+  /**
+   * A root field the catch-up document already sets, that a timeseries aspect in the index holds,
+   * or that the strategy owns, is not nulled.
+   */
+  private static boolean rootFieldKept(
+      @Nonnull ObjectNode document,
+      @Nonnull String field,
+      @Nonnull Set<String> timeseriesRootFields) {
+    return STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)
+        || V3SearchDocumentProjector.SYSTEM_METADATA_FIELD.equals(field)
+        || timeseriesRootFields.contains(field)
+        || document.hasNonNull(field);
+  }
+
+  private static boolean isTimeseriesAspect(
+      @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    return Boolean.TRUE.equals(entitySpec.hasAspect(aspectName))
+        && entitySpec.getAspectSpec(aspectName).isTimeseries();
+  }
+
+  private static boolean isCatchUpBatch(@Nonnull List<MCLItem> events) {
+    return events.stream()
+        .anyMatch(event -> BackfillHeaders.MODE_CATCH_UP.equalsIgnoreCase(backfillMode(event)));
+  }
+
+  @Nonnull
+  private static ObjectNode aspectsObject(@Nonnull ObjectNode document) {
+    JsonNode existing = document.get(MappingConstants.ASPECTS_FIELD_NAME);
+    return existing instanceof ObjectNode node
+        ? node
+        : document.putObject(MappingConstants.ASPECTS_FIELD_NAME);
   }
 
   /**

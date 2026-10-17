@@ -38,6 +38,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -57,13 +58,19 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntit
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -1980,7 +1987,8 @@ public class UpdateIndicesV3StrategyTest {
                     "globalTags",
                     Set.of("tags", "_systemMetadata", "runId"),
                     "structuredProperties",
-                    Set.of("structuredProperties"))));
+                    Set.of("structuredProperties.my_property"))));
+    bindDatasetAspects(replayContext);
 
     strategy.processBatch(
         replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
@@ -1994,8 +2002,11 @@ public class UpdateIndicesV3StrategyTest {
         written.get("_aspects").get("globalTags").isNull(), "the lost aspect's entry is nulled");
     assertTrue(written.get("tags").isNull(), "and the root field it projected");
     assertTrue(
-        written.get("structuredProperties").isNull(),
-        "structured properties live at the root only and are cleared there");
+        written.get("structuredProperties.my_property").isNull(),
+        "a dotted structured-property key the index holds is cleared");
+    assertFalse(
+        written.has("structuredProperties") && written.get("structuredProperties").isNull(),
+        "the parent structuredProperties key is not nulled");
     assertFalse(
         written.get("_aspects").has("structuredProperties"),
         "no entry under _aspects is invented for them");
@@ -2004,6 +2015,110 @@ public class UpdateIndicesV3StrategyTest {
     assertFalse(
         written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).isNull(),
         "an aspect storage still holds is written");
+  }
+
+  @Test
+  public void testCatchUpReplayNullsAFieldARestatedAspectDropped() throws Exception {
+    JsonNode written =
+        catchUpDocument(
+            storedDataset("stored"),
+            Map.of(DATASET_PROPERTIES_ASPECT_NAME, Map.of("name", "orders")),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME, Set.of("name", "description", "_systemMetadata")));
+
+    assertEquals(written.get("name").asText(), "orders");
+    assertTrue(written.get("description").isNull());
+    JsonNode aspect = written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME);
+    assertEquals(aspect.get("name").asText(), "orders");
+    assertTrue(aspect.get("description").isNull());
+  }
+
+  @Test
+  public void testCatchUpReplayKeepsARootFieldAnotherRestatedAspectSets() throws Exception {
+    JsonNode written =
+        catchUpDocument(
+            storedDataset(
+                "stored", Map.of("editableDatasetProperties", new EditableDatasetProperties())),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME,
+                Map.of("description", "from properties"),
+                "editableDatasetProperties",
+                Map.of("name", "edited")),
+            Map.of(DATASET_PROPERTIES_ASPECT_NAME, Set.of("name", "description")));
+
+    assertEquals(written.get("name").asText(), "edited");
+    assertTrue(written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("name").isNull());
+  }
+
+  @Test
+  public void testCatchUpReplayNullsADroppedStructuredPropertyAndKeepsTheRest() throws Exception {
+    JsonNode written =
+        catchUpDocument(
+            storedDataset(
+                "stored", Map.of(STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties())),
+            Map.of(STRUCTURED_PROPERTIES_ASPECT_NAME, Map.of("structuredProperties.other", "kept")),
+            Map.of(
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                Set.of("structuredProperties.my_property", "structuredProperties.other")));
+
+    assertTrue(written.get("structuredProperties.my_property").isNull());
+    assertEquals(written.get("structuredProperties.other").asText(), "kept");
+    assertFalse(
+        written.has("structuredProperties") && written.get("structuredProperties").isNull());
+  }
+
+  @Test
+  public void testCatchUpReplayNullsEveryStructuredPropertyWhenTheAspectIsGone() throws Exception {
+    JsonNode written =
+        catchUpDocument(
+            storedDataset("stored"),
+            Map.of(),
+            Map.of(
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                Set.of("structuredProperties.my_property", "structuredProperties.other")));
+
+    assertTrue(written.get("structuredProperties.my_property").isNull());
+    assertTrue(written.get("structuredProperties.other").isNull());
+    assertFalse(
+        written.has("structuredProperties") && written.get("structuredProperties").isNull());
+  }
+
+  @Test
+  public void testCatchUpReplayNullsAStaleAspectsStructuredPropertiesEntry() throws Exception {
+    JsonNode written =
+        catchUpDocument(
+            storedDataset(
+                "stored", Map.of(STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties())),
+            Map.of(STRUCTURED_PROPERTIES_ASPECT_NAME, Map.of("structuredProperties.other", "kept")),
+            Map.of(
+                ESSearchDAO.STALE_ASPECTS_STRUCTURED_PROPERTIES,
+                Set.of(),
+                STRUCTURED_PROPERTIES_ASPECT_NAME,
+                Set.of("structuredProperties.other")));
+
+    assertTrue(written.get("_aspects").get(STRUCTURED_PROPERTIES_ASPECT_NAME).isNull());
+    assertEquals(written.get("structuredProperties.other").asText(), "kept");
+  }
+
+  @Test
+  public void testCatchUpReplayLeavesTimeseriesFieldsAndRunId() throws Exception {
+    JsonNode written =
+        catchUpDocument(
+            storedDataset("stored"),
+            Map.of(DATASET_PROPERTIES_ASPECT_NAME, Map.of("name", "orders")),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME,
+                Set.of("name", "runId", "rowCount"),
+                "datasetProfile",
+                Set.of("rowCount")));
+
+    assertEquals(written.get("name").asText(), "orders");
+    assertFalse(written.has("runId"));
+    assertFalse(written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).has("runId"));
+    assertFalse(written.has("rowCount"));
+    assertTrue(
+        written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("rowCount").isNull());
+    assertFalse(written.get("_aspects").has("datasetProfile"));
   }
 
   @Test
@@ -2268,6 +2383,73 @@ public class UpdateIndicesV3StrategyTest {
     when(retriever.getLatestSystemAspects(any(), any()))
         .thenReturn(storedAspects.isEmpty() ? Map.of() : Map.of(testUrn, storedAspects));
     return retriever;
+  }
+
+  private void bindDatasetAspects(OperationContext replayContext) {
+    EntitySpec dataset = replayContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME);
+    when(mockEntitySpec.getAspectSpecs()).thenReturn(dataset.getAspectSpecs());
+    when(mockEntitySpec.getKeyAspectName()).thenReturn(dataset.getKeyAspectName());
+  }
+
+  private void stubTransformByAspect(Map<String, Map<String, String>> fieldsByAspect)
+      throws Exception {
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenAnswer(
+            invocation -> {
+              AspectSpec spec = invocation.getArgument(3);
+              ObjectNode document = JsonNodeFactory.instance.objectNode();
+              document.put("urn", testUrn.toString());
+              fieldsByAspect.getOrDefault(spec.getName(), Map.of()).forEach(document::put);
+              return Optional.of(document);
+            });
+  }
+
+  private JsonNode catchUpDocument(
+      Map<String, SystemAspect> stored,
+      Map<String, Map<String, String>> fieldsByAspect,
+      Map<String, Set<String>> indexedFields)
+      throws Exception {
+    stubTransformByAspect(fieldsByAspect);
+    when(elasticSearchService.getEsWriteDAO()).thenReturn(mock(ESWriteDAO.class));
+    when(mockEvent.getMetadataChangeLog())
+        .thenReturn(backfillChangeLog(BackfillHeaders.MODE_CATCH_UP, null));
+    OperationContext replayContext = contextWithStoredAspects(stored);
+    bindDatasetAspects(replayContext);
+    String documentId = DigestUtils.sha256Hex(testUrn.toString());
+    when(elasticSearchService.aspectFieldNamesBySearchGroup(any(), eq("dataset"), any()))
+        .thenReturn(Map.of(documentId, indexedFields));
+
+    strategy.processBatch(
+        replayContext, Collections.singletonMap(testUrn, List.of(mockEvent)), true);
+
+    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(replayContext), eq("dataset"), document.capture(), eq(documentId));
+    return replayContext.getObjectMapper().readTree(document.getValue());
+  }
+
+  private Map<String, SystemAspect> storedDataset(String name, Map<String, RecordTemplate> extra) {
+    Map<String, SystemAspect> stored = new HashMap<>(storedDataset(name));
+    extra.forEach((aspectName, record) -> stored.put(aspectName, storedAspect(record)));
+    return stored;
+  }
+
+  private static StructuredProperties structuredProperties() {
+    PrimitivePropertyValueArray values = new PrimitivePropertyValueArray();
+    values.add(PrimitivePropertyValue.create("kept"));
+    StructuredPropertyValueAssignment assignment =
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(UrnUtils.getUrn("urn:li:structuredProperty:other"))
+            .setValues(values);
+    return new StructuredProperties()
+        .setProperties(new StructuredPropertyValueAssignmentArray(assignment));
   }
 
   private Map<String, SystemAspect> storedDataset(String name) {

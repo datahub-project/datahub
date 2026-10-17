@@ -262,24 +262,57 @@ public class ESSearchDAO {
   private static final String ASPECT_FIELD_NAMES = "aspectFieldNames";
 
   /**
-   * The aspect names under {@code _aspects}, each with the field names under it, plus the
-   * structured properties aspect, which lives at the root only, reported under its own name with
-   * the root field it owns. Names only.
+   * Map key meaning the document still has {@code _aspects.structuredProperties}. Not an aspect
+   * name, and not the list of root structured-property keys.
+   */
+  public static final String STALE_ASPECTS_STRUCTURED_PROPERTIES = "_aspects.structuredProperties";
+
+  /**
+   * Aspect names under {@code _aspects}, each with the field names under it. Structured properties
+   * live at the root as dotted keys ({@code structuredProperties.<name>}), so that entry is those
+   * keys: every top-level {@code _source} key with that prefix, plus each child when {@code
+   * _source.structuredProperties} is itself a map. A leftover {@code _aspects.structuredProperties}
+   * is reported under {@link #STALE_ASPECTS_STRUCTURED_PROPERTIES} and does not replace that list.
+   * Names only.
    */
   private static final String ASPECT_FIELD_NAMES_SCRIPT =
       "Map names = new HashMap();"
-          + " def aspects = params['_source']['_aspects'];"
+          + " def source = params['_source'];"
+          + " if (!(source instanceof Map)) { return names; }"
+          + " def aspects = source['_aspects'];"
           + " if (aspects instanceof Map) {"
           + "   for (def entry : aspects.entrySet()) {"
+          + "     if ('structuredProperties'.equals(entry.getKey())) {"
+          + "       names['"
+          + STALE_ASPECTS_STRUCTURED_PROPERTIES
+          + "'] = new ArrayList();"
+          + "       continue;"
+          + "     }"
           + "     def fields = entry.getValue();"
           + "     names[entry.getKey()] ="
           + "         fields instanceof Map ? new ArrayList(fields.keySet()) : new ArrayList();"
           + "   }"
           + " }"
-          + " if (params['_source']['structuredProperties'] instanceof Map) {"
-          + "   names['structuredProperties'] = ['structuredProperties'];"
+          + " def dotted = new ArrayList();"
+          + " for (def key : source.keySet()) {"
+          + "   if (key instanceof String && ((String) key).startsWith('structuredProperties.')) {"
+          + "     dotted.add(key);"
+          + "   }"
           + " }"
+          + " def nested = source['structuredProperties'];"
+          + " if (nested instanceof Map) {"
+          + "   for (def child : nested.keySet()) {"
+          + "     def dottedKey = 'structuredProperties.' + child;"
+          + "     if (!dotted.contains(dottedKey)) { dotted.add(dottedKey); }"
+          + "   }"
+          + " }"
+          + " if (!dotted.isEmpty()) { names['structuredProperties'] = dotted; }"
           + " return names;";
+
+  /** The painless source {@link #aspectFieldNamesByDocumentId} runs. Visible for its contract. */
+  static String aspectFieldNamesScript() {
+    return ASPECT_FIELD_NAMES_SCRIPT;
+  }
 
   @Nonnull
   private SearchClientShim<?> searchClient(

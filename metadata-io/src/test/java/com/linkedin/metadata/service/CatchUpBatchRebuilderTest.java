@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 
 import com.linkedin.common.AuditStamp;
@@ -242,7 +243,8 @@ public class CatchUpBatchRebuilderTest {
         rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed)));
 
     // The tags and the structured properties are gone from storage; the profile is timeseries,
-    // which storage never lists.
+    // which storage never lists. The raw index map still carries every aspect, including one
+    // storage still holds and the timeseries entry.
     assertEquals(
         rebuilt.removedAspects(),
         Map.of(
@@ -250,6 +252,10 @@ public class CatchUpBatchRebuilderTest {
             Map.of(
                 "globalTags", Set.of("tags", "_systemMetadata"),
                 "structuredProperties", Set.of("structuredProperties"))));
+    assertEquals(
+        rebuilt.indexedFields().get(DATASET).get(PROPERTIES), Set.of("name", "_systemMetadata"));
+    assertEquals(rebuilt.indexedFields().get(DATASET).get("datasetProfile"), Set.of("rowCount"));
+    assertFalse(rebuilt.removedAspects().get(DATASET).containsKey("datasetProfile"));
     assertEquals(
         rebuilt.batches().get(DATASET).stream()
             .map(MCLItem::getAspectName)
@@ -275,6 +281,7 @@ public class CatchUpBatchRebuilderTest {
         rebuilder.rebuild(opContext, Map.of(DATASET, List.of(replayed)));
 
     assertEquals(gone.removedAspects(), Map.of());
+    assertEquals(gone.indexedFields(), Map.of(DATASET, Map.of(PROPERTIES, Set.of("name"))));
     assertEquals(gone.batches().get(DATASET).get(0).getChangeType(), ChangeType.DELETE);
 
     // Absent from the index: nothing to remove.
@@ -286,6 +293,7 @@ public class CatchUpBatchRebuilderTest {
             Map.of(DATASET, List.of(replayed)));
 
     assertEquals(absent.removedAspects(), Map.of());
+    assertEquals(absent.indexedFields(), Map.of());
   }
 
   @Test

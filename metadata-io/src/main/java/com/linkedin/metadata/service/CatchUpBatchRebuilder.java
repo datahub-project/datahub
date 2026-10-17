@@ -61,12 +61,15 @@ public final class CatchUpBatchRebuilder {
   private static final int READ_SLICE_SIZE = 500;
 
   /**
-   * The batches to process in place of a replay's, and per entity the aspects its document holds
-   * that storage no longer has, as aspect name to the field names the document holds under it.
+   * The batches to process in place of a replay's; per entity, the versioned aspects its document
+   * holds that storage no longer has; and the raw per-URN field map the index reported, including
+   * aspects storage still holds, timeseries aspects, dotted structured-property keys, and a stale
+   * {@code _aspects.structuredProperties} marker.
    */
   public record RebuiltBatches(
       @Nonnull Map<Urn, List<MCLItem>> batches,
-      @Nonnull Map<Urn, Map<String, Set<String>>> removedAspects) {}
+      @Nonnull Map<Urn, Map<String, Set<String>>> removedAspects,
+      @Nonnull Map<Urn, Map<String, Set<String>>> indexedFields) {}
 
   private final ElasticSearchService elasticSearchService;
   private final EntityDocumentIdHasher documentIdHasher;
@@ -90,7 +93,7 @@ public final class CatchUpBatchRebuilder {
       }
     }
     if (storedAspectNames.isEmpty()) {
-      return new RebuiltBatches(groupedEvents, Map.of());
+      return new RebuiltBatches(groupedEvents, Map.of(), Map.of());
     }
     OperationContext primary = primaryStorageContext(opContext);
     List<Map<Urn, Set<String>>> slices = reads(storedAspectNames);
@@ -101,8 +104,11 @@ public final class CatchUpBatchRebuilder {
               .orElse(Map.of()));
     }
     Map<Urn, Map<String, Set<String>>> removedAspects = new HashMap<>();
+    Map<Urn, Map<String, Set<String>>> indexedFields = new HashMap<>();
     for (Map<Urn, Set<String>> slice : slices) {
-      removedAspects.putAll(removedAspects(opContext, slice, stored));
+      IndexFields read = indexFields(opContext, slice, stored);
+      removedAspects.putAll(read.removed());
+      indexedFields.putAll(read.indexed());
     }
     Map<Urn, List<MCLItem>> rebuilt = new LinkedHashMap<>(groupedEvents);
     for (Urn urn : storedAspectNames.keySet()) {
@@ -111,17 +117,23 @@ public final class CatchUpBatchRebuilder {
           storedStateEvents(
               opContext, urn, groupedEvents.get(urn), stored.getOrDefault(urn, Map.of())));
     }
-    return new RebuiltBatches(rebuilt, removedAspects);
+    return new RebuiltBatches(rebuilt, removedAspects, indexedFields);
   }
+
+  /** One slice's index read: aspects storage has lost, and the raw field map for every hit. */
+  private record IndexFields(
+      @Nonnull Map<Urn, Map<String, Set<String>>> removed,
+      @Nonnull Map<Urn, Map<String, Set<String>>> indexed) {}
 
   /**
    * Per entity of one slice, the versioned aspects its document holds that storage no longer has,
-   * each with the field names the document holds for it; one index request per slice. An entity
-   * with no key aspect in storage is deleted whole and needs none, and an entity the index does not
-   * hold has nothing to remove.
+   * each with the field names the document holds for it, and the raw map the index returned; one
+   * index request per slice. An entity with no key aspect in storage is deleted whole, so it
+   * contributes nothing to remove, and an entity the index does not hold has nothing to remove. The
+   * raw map is still returned for every hit, including timeseries aspects storage never lists.
    */
   @Nonnull
-  private Map<Urn, Map<String, Set<String>>> removedAspects(
+  private IndexFields indexFields(
       @Nonnull OperationContext opContext,
       @Nonnull Map<Urn, Set<String>> slice,
       @Nonnull Map<Urn, Map<String, SystemAspect>> stored) {
@@ -138,9 +150,14 @@ public final class CatchUpBatchRebuilder {
         elasticSearchService.aspectFieldNamesBySearchGroup(
             opContext, V3IndexKeys.resolve(entitySpec), urnsByDocumentId.keySet());
     Map<Urn, Map<String, Set<String>>> removed = new HashMap<>();
+    Map<Urn, Map<String, Set<String>>> indexed = new HashMap<>();
     inIndex.forEach(
         (documentId, aspectsInIndex) -> {
           Urn urn = urnsByDocumentId.get(documentId);
+          if (urn == null) {
+            return;
+          }
+          indexed.put(urn, aspectsInIndex);
           Map<String, SystemAspect> storedAspects = stored.getOrDefault(urn, Map.of());
           if (!isStored(storedAspects, entitySpec.getKeyAspectName())) {
             return;
@@ -157,7 +174,7 @@ public final class CatchUpBatchRebuilder {
             removed.put(urn, gone);
           }
         });
-    return removed;
+    return new IndexFields(removed, indexed);
   }
 
   private static boolean isStored(
