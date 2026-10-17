@@ -2,6 +2,7 @@ import {
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 
 describe('ProductUpdates utilities', () => {
@@ -20,6 +21,24 @@ describe('ProductUpdates utilities', () => {
     it('formats the configured release month for the requested locale', () => {
         expect(getLocalizedReleaseMonth('en', '2026-09')).toBe('September');
         expect(getLocalizedReleaseMonth('ja', '2026-09')).toBe('9月');
+    });
+
+    it('serves bundled product-update images from the local build', () => {
+        const resolvePath = (path: string) => path;
+        expect(
+            resolveProductUpdateImage(
+                'https://raw.githubusercontent.com/datahub-project/datahub/master/' +
+                    'datahub-web-react/src/images/in-product-release-oct2026.png',
+                resolvePath,
+            ),
+        ).toBe('/assets/platforms/in-product-release-oct2026.png');
+        expect(resolveProductUpdateImage('assets/platforms/sample-product-update-image.png', resolvePath)).toBe(
+            '/assets/platforms/sample-product-update-image.png',
+        );
+        expect(resolveProductUpdateImage('https://cdn.example/hero.png', resolvePath)).toBe(
+            'https://cdn.example/hero.png',
+        );
+        expect(resolveProductUpdateImage(null, resolvePath)).toBeNull();
     });
 
     it('does not infer a month when the release month is absent or invalid', () => {

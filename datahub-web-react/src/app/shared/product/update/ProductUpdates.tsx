@@ -26,6 +26,7 @@ import {
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
+    resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 import {
     useDismissProductAnnouncement,
@@ -54,6 +55,12 @@ export default function ProductUpdates() {
     // Local state to hide immediately on dismiss
     const [isLocallyVisible, setIsLocallyVisible] = useState(false);
     const [sidebarWidth, setSidebarWidth] = useState(NAV_SIDEBAR_WIDTH_EXPANDED);
+    const [useRemoteImage, setUseRemoteImage] = useState(false);
+    const announcedImage = latestUpdate?.image;
+    const bundledImage = resolveProductUpdateImage(announcedImage);
+    const remoteImage =
+        typeof announcedImage === 'string' && /^https?:\/\//i.test(announcedImage) ? announcedImage : null;
+    const imageSrc = useRemoteImage && remoteImage ? remoteImage : bundledImage;
 
     // Check if current version matches required version
     const currentVersion = appConfig.config.appVersion;
@@ -62,6 +69,10 @@ export default function ProductUpdates() {
     useEffect(() => {
         setIsLocallyVisible(visible);
     }, [visible]);
+
+    useEffect(() => {
+        setUseRemoteImage(false);
+    }, [announcedImage]);
 
     // Measure sidebar width - use MutationObserver for instant updates
     useEffect(() => {
@@ -135,18 +146,8 @@ export default function ProductUpdates() {
         return null;
     }
 
-    const {
-        title,
-        header,
-        image,
-        description,
-        primaryCtaText,
-        primaryCtaLink,
-        ctaText,
-        ctaLink,
-        features,
-        releaseMonth,
-    } = latestUpdate;
+    const { title, header, description, primaryCtaText, primaryCtaLink, ctaText, ctaLink, features, releaseMonth } =
+        latestUpdate;
 
     // Helper to check if value is actually present (not null, undefined, or string "null")
     const isPresent = (value: any) => value && value !== 'null' && value !== null;
@@ -200,9 +201,17 @@ export default function ProductUpdates() {
                         </Text>
                     </HeroSection>
                 )}
-                {image && (
+                {imageSrc && (
                     <ImageSection>
-                        <Image src={image} alt={contentTitle || undefined} />
+                        <Image
+                            src={imageSrc}
+                            alt={contentTitle || undefined}
+                            onError={() => {
+                                if (remoteImage && imageSrc !== remoteImage) {
+                                    setUseRemoteImage(true);
+                                }
+                            }}
+                        />
                     </ImageSection>
                 )}
                 {displayFeatures && displayFeatures.length > 0 && (
