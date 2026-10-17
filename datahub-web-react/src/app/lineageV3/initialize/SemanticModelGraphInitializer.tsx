@@ -31,7 +31,8 @@ export default function SemanticModelGraphInitializer({ urn, type }: Props) {
 
 function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
-    useResetLineageGraph(context, urn, type, () => makeRootNode(urn, type));
+    // useFetchSemanticModelEntities does not send the lineage time params to its query.
+    useResetLineageGraph(context, urn, type, () => makeRootNode(urn, type), false);
 
     return useFetchSemanticModelEntities();
 }
