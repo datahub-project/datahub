@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -496,6 +497,201 @@ public class V3SearchQueryBuilderTest {
   }
 
   /**
+   * query_string ignores fields() when the text names a field. A fielded /q must run that field
+   * once: a shared field stays strict, and a property field stays lenient so an unmapped property
+   * cannot fail the strict clause.
+   */
+  @Test
+  public void testFieldedStructuredQueryDoesNotScoreTheNamedFieldTwice() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    List<QueryStringQueryBuilder> mixed =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "orders AND name:foo", false));
+    assertEquals(mixed.size(), 3, mixed.toString());
+    assertEquals(mixed.stream().filter(clause -> clause.queryString().equals("orders")).count(), 2);
+    assertEquals(
+        mixed.stream().filter(clause -> clause.queryString().equals("name:foo")).count(), 1);
+    assertNotEquals(
+        Boolean.TRUE,
+        mixed.stream()
+            .filter(clause -> clause.queryString().equals("name:foo"))
+            .findFirst()
+            .orElseThrow()
+            .lenient());
+
+    List<QueryStringQueryBuilder> named =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name:orders", false));
+    assertEquals(named.size(), 1, named.toString());
+    assertEquals(named.get(0).queryString(), "name:orders");
+    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+
+    List<QueryStringQueryBuilder> property =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.retentionPolicy:gold", false));
+    assertEquals(property.size(), 1, property.toString());
+    assertEquals(property.get(0).queryString(), "structuredProperties.retentionPolicy:gold");
+    assertEquals(property.get(0).lenient(), Boolean.TRUE);
+
+    // Not queried by default, and still only on the lenient clause.
+    List<QueryStringQueryBuilder> hidden =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.hiddenLabel:gold", false));
+    assertEquals(hidden.size(), 1, hidden.toString());
+    assertEquals(hidden.get(0).queryString(), "structuredProperties.hiddenLabel:gold");
+    assertEquals(hidden.get(0).lenient(), Boolean.TRUE);
+
+    QueryBuilder conjunctionQuery =
+        queryBuilder.buildQuery(
+            context, dataset, "name:orders AND structuredProperties.retentionPolicy:gold", false);
+    List<QueryStringQueryBuilder> both = queryStrings(conjunctionQuery);
+    assertEquals(both.size(), 2, both.toString());
+    assertEquals(
+        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
+        Set.of("name:orders", "structuredProperties.retentionPolicy:gold"));
+    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+    BoolQueryBuilder conjunction =
+        find(conjunctionQuery, BoolQueryBuilder.class).stream()
+            .filter(clause -> clause.must().size() == 2)
+            .findFirst()
+            .orElseThrow();
+    assertEquals(
+        conjunction.must().stream()
+            .map(clause -> ((QueryStringQueryBuilder) clause).queryString())
+            .collect(Collectors.toSet()),
+        Set.of("name:orders", "structuredProperties.retentionPolicy:gold"));
+
+    List<QueryStringQueryBuilder> either =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "name:orders OR structuredProperties.hiddenLabel:gold", false));
+    assertEquals(either.size(), 2, either.toString());
+    assertEquals(
+        either.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+    assertTrue(
+        either.stream()
+            .filter(clause -> !Boolean.TRUE.equals(clause.lenient()))
+            .noneMatch(clause -> clause.queryString().contains("structuredProperties")),
+        either.toString());
+
+    // The field applies to the whole group, so the group stays one clause and is lenient.
+    List<QueryStringQueryBuilder> group =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context,
+                dataset,
+                "name:(orders OR structuredProperties.retentionPolicy:gold)",
+                false));
+    assertEquals(group.size(), 1, group.toString());
+    assertEquals(
+        group.get(0).queryString(), "name:(orders OR structuredProperties.retentionPolicy:gold)");
+    assertEquals(group.get(0).lenient(), Boolean.TRUE);
+  }
+
+  /** A space after the field colon is valid query-string syntax and must keep the split. */
+  @Test
+  public void testFieldedStructuredQueryAllowsSpaceAfterColon() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    List<QueryStringQueryBuilder> named =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name: orders", false));
+    assertEquals(named.size(), 1, named.toString());
+    assertEquals(named.get(0).queryString(), "name: orders");
+    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+
+    List<QueryStringQueryBuilder> quoted =
+        queryStrings(queryBuilder.buildQuery(context, dataset, "name: \"foo\"", false));
+    assertEquals(quoted.size(), 1, quoted.toString());
+    assertEquals(quoted.get(0).queryString(), "name: \"foo\"");
+    assertNotEquals(Boolean.TRUE, quoted.get(0).lenient());
+
+    List<QueryStringQueryBuilder> property =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context, dataset, "structuredProperties.retentionPolicy: gold", false));
+    assertEquals(property.size(), 1, property.toString());
+    assertEquals(property.get(0).queryString(), "structuredProperties.retentionPolicy: gold");
+    assertEquals(property.get(0).lenient(), Boolean.TRUE);
+
+    List<QueryStringQueryBuilder> both =
+        queryStrings(
+            queryBuilder.buildQuery(
+                context,
+                dataset,
+                "name: orders AND structuredProperties.retentionPolicy: gold",
+                false));
+    assertEquals(both.size(), 2, both.toString());
+    assertEquals(
+        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
+        Set.of("name: orders", "structuredProperties.retentionPolicy: gold"));
+    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+  }
+
+  @Test
+  public void testUnqualifiedStructuredQueryStaysOneSplit() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    for (String input :
+        List.of(
+            "orders",
+            "orders AND table",
+            "\"name:orders\"",
+            "\"name:orders\" AND table",
+            "foo\\:bar",
+            "/a:b/ AND orders")) {
+      List<QueryStringQueryBuilder> clauses =
+          queryStrings(queryBuilder.buildQuery(context, dataset, input, false));
+      assertEquals(clauses.size(), 2, input + " " + clauses);
+      assertTrue(
+          clauses.stream().allMatch(clause -> clause.queryString().equals(input)),
+          clauses.toString());
+      assertEquals(
+          clauses.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(),
+          1,
+          clauses.toString());
+    }
+  }
+
+  @Test
+  public void testFieldedPropertyStaysLenientWhenPropertiesAreRemoved() {
+    OperationContext context = propertyContext();
+    List<EntitySpec> dataset =
+        List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
+    V3SearchQueryBuilder configured =
+        builder(
+            CustomSearchConfiguration.builder()
+                .fieldConfigurations(
+                    Map.of(
+                        "dropProperties",
+                        searchFields(
+                            SearchFields.builder()
+                                .remove(List.of("structuredProperties"))
+                                .build())))
+                .build());
+
+    List<QueryStringQueryBuilder> clauses =
+        queryStrings(
+            configured.buildQuery(
+                context.withSearchFlags(flags -> flags.setFieldConfiguration("dropProperties")),
+                dataset,
+                "structuredProperties.retentionPolicy:gold",
+                false));
+    assertEquals(clauses.size(), 1, clauses.toString());
+    assertEquals(clauses.get(0).queryString(), "structuredProperties.retentionPolicy:gold");
+    assertEquals(clauses.get(0).lenient(), Boolean.TRUE);
+  }
+
+  /**
    * Deliberate V3 change: a field configuration names shared fields, directly or by a field that
    * feeds one, so removing fieldPaths removes the whole columns field.
    */
@@ -790,11 +986,16 @@ public class V3SearchQueryBuilderTest {
     } else if (query instanceof ConstantScoreQueryBuilder constantScore) {
       found.addAll(find(constantScore.innerQuery(), type));
     } else if (query instanceof BoolQueryBuilder bool) {
-      for (List<QueryBuilder> clauses : List.of(bool.must(), bool.should(), bool.filter())) {
+      for (List<QueryBuilder> clauses :
+          List.of(bool.must(), bool.should(), bool.filter(), bool.mustNot())) {
         clauses.forEach(clause -> found.addAll(find(clause, type)));
       }
     }
     return found;
+  }
+
+  private static List<QueryStringQueryBuilder> queryStrings(QueryBuilder query) {
+    return find(query, QueryStringQueryBuilder.class);
   }
 
   private static <T> T only(List<T> found) {
