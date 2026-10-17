@@ -54,6 +54,7 @@ def _generate_assertion_std_parameters(
     min_value: Optional[Param] = None,
     max_value: Optional[Param] = None,
 ) -> AssertionStdParametersClass:
+    """Only None denotes an absent parameter; empty strings and lists are values."""
     return AssertionStdParametersClass(
         value=_generate_assertion_std_parameter(value) if value is not None else None,
         minValue=_generate_assertion_std_parameter(min_value)
