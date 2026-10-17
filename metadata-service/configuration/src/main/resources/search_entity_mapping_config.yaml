@@ -13,24 +13,31 @@ entity_mapping_config:
         ignore_above: 512
       _entityType:
         type: keyword
+      _system:
+        dynamic: false
+        properties:
+          created:
+            properties:
+              time:
+                type: date
+              actor:
+                type: keyword
+          modified:
+            properties:
+              time:
+                type: date
+              actor:
+                type: keyword
+          lastObserved:
+            type: date
+          runId:
+            type: keyword
+          lastRunId:
+            type: keyword
       _search:
         dynamic: true
         properties:
           entityName:
-            type: keyword
-          _system_aspectCreated_actor:
-            type: keyword
-          _system_aspectCreated_time:
-            type: date
-          _system_aspectModified_actor:
-            type: keyword
-          _system_aspectModified_time:
-            type: date
-          _system_lastObserved:
-            type: date
-          _system_lastRunId:
-            type: keyword
-          _system_runId:
             type: keyword
       runId:
         type: keyword

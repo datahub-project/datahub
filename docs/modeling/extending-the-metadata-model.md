@@ -583,6 +583,10 @@ dates and booleans for filters, facets and sorts, except the root browse paths, 
   `_search.entityName` instead. The urn and the fields queried by default of an entity a reference field names
   (`@SearchableRef`) only ever copy into `_search.other`.
 
+Cross-aspect system metadata is a top-level `_system` object: `created.time`, `created.actor`,
+`modified.time`, `modified.actor`, `lastObserved`, `runId`, and `lastRunId`. It is not the same as
+the root `runId`, `systemCreated`, or `systemIndexModified` fields.
+
 A structured property is not a shared field. A `string`, `rich_text` or `urn` property is full-text indexed only when
 its definition has a `searchConfiguration`: that adds `text` and `stemmed` subfields to its root keyword field
 `structuredProperties.<field>`. `queryByDefault` decides whether an unqualified search includes the property.
@@ -611,7 +615,7 @@ every hit.
 
 **Benefits of the New System:**
 
-1. **Organized Search Fields**: All search-related fields are grouped under `_search.*`
+1. **Organized Search Fields**: Shared search fields stay under `_search.*`. Cross-aspect system metadata is the root `_system` object
 2. **Flexible Querying**: Search queries can target specific sort or ranking fields
 3. **Performance**: Optimized storage and query patterns for complex search scenarios
 

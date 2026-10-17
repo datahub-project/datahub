@@ -468,9 +468,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * The base configuration types the {@code _search._system_*} fields that per-aspect system
-   * metadata copies into; without them the engine maps those copies dynamically. Fields built from
-   * the models' search labels take precedence.
+   * Keeps {@code _search} fields the base configuration types, such as {@code entityName}. Fields
+   * built from the models' search labels take precedence. Cross-aspect system metadata is the root
+   * {@code _system} object from that same base mapping.
    */
   @SuppressWarnings("unchecked")
   private static void keepBaseSearchFields(
