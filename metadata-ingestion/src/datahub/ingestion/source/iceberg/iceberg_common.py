@@ -1,7 +1,7 @@
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import boto3
 from humanfriendly import format_timespan
@@ -25,10 +25,20 @@ from pyiceberg.io import (
 from pyiceberg.utils.properties import get_first_property_value
 from requests.adapters import HTTPAdapter
 from sortedcontainers import SortedList
+from typing_extensions import Annotated
 from urllib3.util import Retry
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    ancestors_in,
+    parent_required,
+)
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -105,13 +115,17 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     catalog: Dict[str, Dict[str, Any]] = Field(
         description="Catalog configuration where to find Iceberg tables.  Only one catalog specification is supported.  The format is the same as [pyiceberg's catalog configuration](https://py.iceberg.apache.org/configuration/), where the catalog name is specified as the object name and attributes are set as key-value pairs.",
     )
-    table_pattern: AllowDenyPattern = Field(
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for tables to filter in ingestion.",
+        description="Regex patterns for tables to filter in ingestion. Matched "
+        "against the full table identifier, `<namespace>.<table>`.",
     )
-    namespace_pattern: AllowDenyPattern = Field(
+    namespace_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.NAMESPACE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for namespaces to filter in ingestion.",
+        description="Regex patterns for namespaces to filter in ingestion. Only "
+        "top-level namespaces are ingested.",
     )
     user_ownership_property: Optional[str] = Field(
         default="owner",
@@ -289,6 +303,37 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
                 "https://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
             )
         return catalog
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: iceberg_probe imports this module for the config type.
+        from datahub.ingestion.source.iceberg.iceberg_probe import (
+            IcebergMetadataProbe,
+        )
+
+        return IcebergMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Tables are listed only for namespaces namespace_pattern keeps
+        (iceberg.py _get_datasets iterates the namespaces _get_namespaces
+        yielded), and namespaces are top-level, with nothing above them."""
+        return ancestors_in(
+            (str(DatasetContainerSubTypes.NAMESPACE),),
+            kind,
+            {str(DatasetSubTypes.TABLE)},
+        )
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """table_pattern is matched against ".".join(dataset_path), the full
+        identifier including its namespace (iceberg.py _process_dataset).
+        ctx.fqn is the parent path and name joined the same way, so a table
+        needs its namespace as the parent. A namespace is matched on its bare
+        name, which is ".".join(namespace) for a top-level namespace."""
+        if ctx.kind != DatasetSubTypes.TABLE:
+            return None
+        if parent_required(ctx):
+            return None
+        return ctx.fqn
 
 
 class TopTableTimings:
