@@ -14,7 +14,6 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
-import io.ebean.Database;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -23,7 +22,7 @@ import org.testng.annotations.Test;
 public class LoadIndicesTest {
 
   @Mock private OperationContext mockOperationContext;
-  @Mock private Database mockDatabase;
+  @Mock private AspectIndexLoader mockLoader;
   @Mock private UpdateIndicesService mockUpdateIndicesService;
   @Mock private LoadIndicesIndexManager mockIndexManager;
   @Mock private SystemMetadataService mockSystemMetadataService;
@@ -39,7 +38,7 @@ public class LoadIndicesTest {
     MockitoAnnotations.openMocks(this);
     loadIndices =
         new LoadIndices(
-            mockDatabase,
+            mockLoader,
             mockUpdateIndicesService,
             mockIndexManager,
             mockSystemMetadataService,

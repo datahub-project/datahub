@@ -24,6 +24,7 @@ import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -1171,6 +1172,36 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class));
+  }
+
+  @Test
+  void testApplyMappings_NeverSendsTheDocIdSchemeStamp() throws IOException {
+    // _meta.docIdScheme is provenance written at creation; a put-mapping onto an existing index
+    // must not relabel it as current (see V3DocumentIdScheme).
+    Map<String, Object> targetMappings = new HashMap<>(createTestMappings());
+    targetMappings.put(
+        V3DocumentIdScheme.META, Map.of(V3DocumentIdScheme.DOC_ID_SCHEME, "sha256-urn"));
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
+    ArgumentCaptor<PutMappingRequest> request = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), request.capture(), any(RequestOptions.class));
+    String sent = request.getValue().source().utf8ToString();
+    Assert.assertFalse(
+        sent.contains(V3DocumentIdScheme.META), "put-mapping must not carry _meta: " + sent);
+    assertTrue(sent.contains("properties"));
   }
 
   @Test
