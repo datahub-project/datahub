@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DataPlatformInstanceClass,
     DateTypeClass,
+    EdgeClass,
     NumberTypeClass,
     RecordTypeClass,
     RestApiPropertiesClass,
@@ -26,7 +27,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
-from datahub.metadata.urns import ApiUrn
+from datahub.metadata.urns import ApiUrn, DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 # Standard API subtypes, carried on the subTypes aspect. "Being an agent's
 # tool" is a relationship, not an intrinsic kind — an MCP tool is just an API.
@@ -135,6 +137,15 @@ class Api(ConfigModel):
             :class:`ApiParam` (each becomes an input ``SchemaField``).
         returns: The API's typed output shape as a list of :class:`ApiParam`
             (each becomes an output ``SchemaField``).
+        input_datasets: The input schema *by reference*: urns of Dataset
+            entities that already model the request payload (e.g. a protobuf
+            message ingested as a Dataset). Emitted as ``Consumes`` lineage
+            edges, so the dataset shows up upstream of the API. Prefer this
+            over ``parameters`` when the payload type is cataloged in its own
+            right and shared across APIs.
+        output_datasets: The output schema *by reference*: urns of Dataset
+            entities modeling the response payload. Emitted as ``Produces``
+            lineage edges (the API is upstream of the dataset).
         external_url: Link to the API's registry entry, docs, or source.
         method: For REST endpoints, the HTTP method (e.g. ``GET``, ``POST``).
             Paired with ``path`` it emits the ``restApiProperties`` aspect.
@@ -159,6 +170,8 @@ class Api(ConfigModel):
     schema_definition: Optional[str] = None
     parameters: Optional[List[ApiParam]] = None
     returns: Optional[List[ApiParam]] = None
+    input_datasets: Optional[List[str]] = None
+    output_datasets: Optional[List[str]] = None
     external_url: Optional[str] = None
     platform: Optional[str] = None
     # REST-specific (subtype REST_ENDPOINT): the (method, path) identity. Emitted
@@ -177,6 +190,26 @@ class Api(ConfigModel):
                 f"HTTP method {method!r} is not one of {sorted(_VALID_HTTP_METHODS)}"
             )
         return method
+
+    @field_validator("input_datasets", "output_datasets", mode="before")
+    @classmethod
+    def normalize_dataset_urns(cls, v: object) -> Optional[List[str]]:
+        if v is None:
+            return None
+        raw: List[str]
+        if isinstance(v, str):
+            raw = [v]
+        elif isinstance(v, list):
+            raw = [str(s) for s in v]
+        else:
+            raise ValueError("dataset references must be a urn or a list of urns")
+        # Fail fast on a malformed urn rather than emitting a dangling edge.
+        # InvalidUrnError is not a ValueError, so re-raise as one for pydantic
+        # to surface it as a ValidationError.
+        try:
+            return [str(DatasetUrn.from_string(urn)) for urn in raw]
+        except InvalidUrnError as e:
+            raise ValueError(f"invalid dataset urn: {e}") from e
 
     @field_validator("subtypes", mode="before")
     @classmethod
@@ -228,6 +261,17 @@ class Api(ConfigModel):
     def _mint_auditstamp(self) -> AuditStampClass:
         return AuditStampClass(time=int(time.time() * 1000.0), actor=_DEFAULT_ACTOR)
 
+    @staticmethod
+    def _dataset_edges(
+        urns: Optional[List[str]], audit_stamp: AuditStampClass
+    ) -> Optional[List[EdgeClass]]:
+        if urns is None:
+            return None
+        return [
+            EdgeClass(destinationUrn=urn, created=audit_stamp, lastModified=audit_stamp)
+            for urn in urns
+        ]
+
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         audit_stamp = self._mint_auditstamp()
         input_fields = (
@@ -250,12 +294,16 @@ class Api(ConfigModel):
                 lastModified=audit_stamp,
             ),
         )
+        input_edges = self._dataset_edges(self.input_datasets, audit_stamp)
+        output_edges = self._dataset_edges(self.output_datasets, audit_stamp)
         # The input/output signature is its own aspect so it can be re-ingested
         # independently when the endpoint's contract changes.
         if (
             self.schema_definition is not None
             or input_fields is not None
             or output_fields is not None
+            or input_edges is not None
+            or output_edges is not None
         ):
             yield MetadataChangeProposalWrapper(
                 entityUrn=self.urn,
@@ -263,6 +311,8 @@ class Api(ConfigModel):
                     schemaDefinition=self.schema_definition,
                     inputFields=input_fields,
                     outputFields=output_fields,
+                    inputDatasetEdges=input_edges,
+                    outputDatasetEdges=output_edges,
                 ),
             )
         # REST-specific (method, path) identity, only for REST endpoints.

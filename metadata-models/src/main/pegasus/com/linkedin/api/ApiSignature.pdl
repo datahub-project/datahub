@@ -1,5 +1,6 @@
 namespace com.linkedin.api
 
+import com.linkedin.common.Edge
 import com.linkedin.schema.SchemaField
 
 /**
@@ -9,6 +10,23 @@ import com.linkedin.schema.SchemaField
  * tool manifest, a function definition) and evolves on its own cadence: when
  * the endpoint's contract changes, only this aspect is re-ingested, leaving the
  * catalog identity (name, ownership, docs) on apiProperties untouched.
+ *
+ * The signature can be expressed two ways, and a side (input or output) should
+ * use one or the other:
+ *
+ *  - Inline: `schemaDefinition` and/or `inputFields` / `outputFields` carry the
+ *    schema on the API itself. Use this when the payload shape is not cataloged
+ *    anywhere else (an ad-hoc JSON body, an MCP tool manifest).
+ *  - By reference: `inputDatasetEdges` / `outputDatasetEdges` point at Dataset
+ *    entities that already model the payload schema (a protobuf message, an Avro
+ *    record, a shared DTO). Use this when the same message type is reused across
+ *    many APIs or also flows through topics/tables, so the schema is defined once
+ *    and the API participates in lineage: request dataset -> API -> response
+ *    dataset.
+ *
+ * If a side has both a dataset reference and inline fields, the referenced
+ * dataset's schema is authoritative and the inline fields are treated as a
+ * cached or partial view.
  */
 @Aspect = {
   "name": "apiSignature"
@@ -35,4 +53,62 @@ record ApiSignature {
    * (a scalar return is a single field; an object return is a field per member).
    */
   outputFields: optional array[SchemaField]
+
+  /**
+   * Datasets whose schema defines what the API accepts, by reference (e.g. the
+   * protobuf request message of a gRPC method, modeled as a Dataset). Multiple
+   * edges mean the API accepts several payload types (e.g. a union input).
+   * A lineage edge: the input dataset is upstream of the API. Edge properties
+   * may carry protocol details such as `streaming: client`.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true,
+      "createdOn": "inputDatasetEdges/*/created/time"
+      "createdActor": "inputDatasetEdges/*/created/actor"
+      "updatedOn": "inputDatasetEdges/*/lastModified/time"
+      "updatedActor": "inputDatasetEdges/*/lastModified/actor"
+      "properties": "inputDatasetEdges/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "inputDatasets",
+      "fieldType": "URN",
+      "numValuesFieldName": "numInputDatasets",
+      "queryByDefault": false
+    }
+  }
+  inputDatasetEdges: optional array[Edge]
+
+  /**
+   * Datasets whose schema defines what the API returns, by reference (e.g. the
+   * protobuf response message of a gRPC method, modeled as a Dataset). A lineage
+   * edge: the API is upstream of the output dataset. Edge properties may carry
+   * protocol details such as `streaming: server`.
+   */
+  @Relationship = {
+    "/*/destinationUrn": {
+      "name": "Produces",
+      "entityTypes": [ "dataset" ],
+      "isUpstream": false,
+      "isLineage": true,
+      "createdOn": "outputDatasetEdges/*/created/time"
+      "createdActor": "outputDatasetEdges/*/created/actor"
+      "updatedOn": "outputDatasetEdges/*/lastModified/time"
+      "updatedActor": "outputDatasetEdges/*/lastModified/actor"
+      "properties": "outputDatasetEdges/*/properties"
+    }
+  }
+  @Searchable = {
+    "/*/destinationUrn": {
+      "fieldName": "outputDatasets",
+      "fieldType": "URN",
+      "numValuesFieldName": "numOutputDatasets",
+      "queryByDefault": false
+    }
+  }
+  outputDatasetEdges: optional array[Edge]
 }
