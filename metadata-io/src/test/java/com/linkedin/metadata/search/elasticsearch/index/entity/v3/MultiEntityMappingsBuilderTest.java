@@ -359,10 +359,10 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   /**
-   * The base configuration types the _search fields system metadata copies into, and fields built
-   * from search labels keep their own mapping. Reference fields are mapped at the root, where V2
-   * queries and filters read them, and under their aspect in _aspects, where the projector writes
-   * the aspect copy.
+   * The base configuration types the root _system object that per-aspect system metadata copies
+   * into, and fields built from search labels keep their own mapping under _search. Reference
+   * fields are mapped at the root, where V2 queries and filters read them, and under their aspect
+   * in _aspects, where the projector writes the aspect copy.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -377,10 +377,16 @@ public class MultiEntityMappingsBuilderTest {
       propertiesByIndex.put(mapping.getIndexName(), properties);
       Map<String, Object> searchFields =
           (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
+      assertFalse(
+          searchFields.keySet().stream().anyMatch(name -> name.startsWith("_system")),
+          mapping.getIndexName() + " " + searchFields.keySet());
+      Map<String, Object> systemFields =
+          (Map<String, Object>) ((Map<String, Object>) properties.get("_system")).get("properties");
+      Map<String, Object> modified =
+          (Map<String, Object>)
+              ((Map<String, Object>) systemFields.get("modified")).get("properties");
       assertEquals(
-          ((Map<String, Object>) searchFields.get("_system_aspectModified_time")).get("type"),
-          "date",
-          mapping.getIndexName());
+          ((Map<String, Object>) modified.get("time")).get("type"), "date", mapping.getIndexName());
     }
 
     Map<String, Object> datasetSearchFields =

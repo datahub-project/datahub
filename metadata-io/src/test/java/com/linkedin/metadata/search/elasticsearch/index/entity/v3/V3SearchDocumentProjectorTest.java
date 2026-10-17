@@ -261,7 +261,7 @@ public class V3SearchDocumentProjectorTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> runId = (Map<String, Object>) systemMetadataProperties.get("runId");
 
-    assertEquals(runId.get("copy_to"), List.of("_search._system_runId"));
+    assertEquals(runId.get("copy_to"), List.of("_system.runId"));
     assertEquals(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, "_systemMetadata");
   }
 
