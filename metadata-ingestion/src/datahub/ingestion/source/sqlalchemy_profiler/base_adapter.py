@@ -176,6 +176,9 @@ class PlatformAdapter(ABC):
         - Creating temp tables/views for custom SQL or partitions
         - Setting up table sampling for large tables
         - Creating the SQLAlchemy Table object
+        - Reporting what it applied on `context.applied`, which is what the
+          profile's partitionSpec is rendered from. Anything the config asked
+          for and `applied` does not report is warned about centrally.
 
         Default implementation: Creates SQLAlchemy table object with no special handling.
         Platforms like BigQuery, Athena, and Trino override this for custom behavior.

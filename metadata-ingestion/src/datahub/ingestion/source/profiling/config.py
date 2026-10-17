@@ -50,13 +50,28 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
         default_factory=OperationConfig,
         description="Experimental feature. To specify operation configs.",
     )
-    limit: Optional[int] = Field(
+    limit: Annotated[
+        Optional[pydantic.PositiveInt],
+        SupportedSources(["bigquery", "dremio", "snowflake"]),
+    ] = Field(
         default=None,
-        description="Max number of documents to profile. By default, profiles all documents.",
+        description="Max number of rows to profile, taken in storage order — not a random "
+        "sample, use `sample_size` for that. Sampling takes precedence: where "
+        "`use_sampling` applies, the table is sampled and this is not applied. Only "
+        "BigQuery, Dremio and Snowflake apply it; wherever it is not applied the run "
+        "warns and the profile is labelled as covering the full table. By default, "
+        "profiles all rows.",
     )
-    offset: Optional[int] = Field(
+    offset: Annotated[
+        Optional[pydantic.NonNegativeInt],
+        SupportedSources(["bigquery", "dremio", "snowflake"]),
+    ] = Field(
         default=None,
-        description="Offset in documents to profile. By default, uses no offset.",
+        description="Number of rows to skip before the profiled window. Whether it applies "
+        "without a `limit` is up to the source: the SQL profiler declines an offset on its "
+        "own, because skipping rows without bounding them scans more rather than less. "
+        "Only BigQuery, Dremio and Snowflake apply it; wherever it is not applied the run "
+        "warns. By default, uses no offset.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -270,13 +285,20 @@ class ProfilingConfig(ProfilingBaseConfig):
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
     )
-    use_sampling: Annotated[bool, SupportedSources(["bigquery", "snowflake"])] = Field(
-        default=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
-        "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+    use_sampling: Annotated[
+        bool, SupportedSources(["bigquery", "excel", "snowflake"])
+    ] = Field(
+        # Defaults to False here and is overridden to True by the three sources
+        # that implement sampling, so the flag is never on where it does nothing.
+        default=False,
+        description="Whether to profile column level stats on a sample of the table rather than all "
+        "of it. Only BigQuery, Excel and Snowflake implement sampling, and it is on by default there; "
+        "on every other source this option has no effect. Smaller tables are not sampled.",
     )
 
-    sample_size: Annotated[int, SupportedSources(["bigquery", "snowflake"])] = Field(
+    sample_size: Annotated[
+        int, SupportedSources(["bigquery", "excel", "kafka", "snowflake"])
+    ] = Field(
         default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",

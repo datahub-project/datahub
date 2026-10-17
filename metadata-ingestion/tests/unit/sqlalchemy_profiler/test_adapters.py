@@ -1,7 +1,8 @@
 """Unit tests for platform adapters."""
 
+import contextlib
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Iterator
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -50,6 +51,35 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 # =============================================================================
 # SQL Assertion Helpers
 # =============================================================================
+
+
+@contextlib.contextmanager
+def mock_temp_table_reflection(adapter: Any) -> Iterator[None]:
+    """Fake reflecting a temp table while leaving plain `sa.Table` construction real.
+
+    A temp table cannot be reflected through a mock connection, but the SQL under
+    test is built from a real `sa.Table`, so only the autoloading call is faked.
+    """
+    real_table = sa.Table
+
+    def table_factory(*args: Any, **kwargs: Any) -> Any:
+        if "autoload_with" in kwargs:
+            return MagicMock()
+        return real_table(*args, **kwargs)
+
+    with (
+        patch("sqlalchemy.Table", side_effect=table_factory),
+        patch.object(
+            adapter, "_use_stored_column_names", side_effect=lambda table, _: table
+        ),
+    ):
+        yield
+
+
+def _mark_sampled(context: Any, *_args: Any, **_kwargs: Any) -> Any:
+    """Stand in for a sampling path: report a sample without issuing any SQL."""
+    context.applied.sample_percentage = 1.0
+    return context
 
 
 def compile_expr_to_sql(expr: sa.sql.expression.ClauseElement, dialect: Dialect) -> str:
@@ -716,7 +746,7 @@ class TestSnowflakeAdapter:
             result = adapter.setup_profiling(context, mock_conn)
 
         assert result.sql_table is not None
-        assert not result.is_sampled
+        assert not result.applied.sampled
         assert result.temp_table is None
         mock_create_table.assert_called_once_with(
             schema="MY_SCHEMA", table="SMALL_TABLE"
@@ -737,10 +767,10 @@ class TestSnowflakeAdapter:
             schema="MY_SCHEMA",
             table="BIG_TABLE",
             pretty_name="test",
-            is_sampled=True,
             temp_table="dh_sample_abc123",
         )
         sampled_context.sql_table = MagicMock()
+        sampled_context.applied.sample_percentage = 1.0
 
         with (
             patch.object(
@@ -752,7 +782,7 @@ class TestSnowflakeAdapter:
         ):
             result = adapter.setup_profiling(context, mock_conn)
 
-        assert result.is_sampled
+        assert result.applied.sampled
         assert result.temp_table == "dh_sample_abc123"
         mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
 
@@ -796,12 +826,12 @@ class TestSnowflakeAdapter:
         ) as mock_create:
             result = adapter.setup_profiling(context, mock_conn)
 
-        assert not result.is_sampled
+        assert not result.applied.sampled
         mock_create.assert_called_once()
 
-    def test_setup_profiling_with_limit_skips_sampling(self, adapter, config):
-        """When config.limit is set, skip sampling and profile directly."""
-        config.use_sampling = True
+    def test_setup_profiling_materializes_the_limit(self, adapter, config):
+        """With sampling off, a limit is materialized into a temp table."""
+        config.use_sampling = False
         config.limit = 100
         adapter.config = config
 
@@ -810,13 +840,56 @@ class TestSnowflakeAdapter:
         )
         mock_conn = MagicMock()
 
-        with patch.object(
-            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
-        ) as mock_create:
+        with (
+            patch.object(adapter, "_create_sampled_temp_table") as mock_sample,
+            patch.object(
+                adapter, "_create_fixed_size_sampled_temp_table"
+            ) as mock_fixed_size,
+            patch.object(adapter, "_get_row_count_from_metadata") as mock_row_count,
+            mock_temp_table_reflection(adapter),
+        ):
             result = adapter.setup_profiling(context, mock_conn)
 
-        assert not result.is_sampled
-        mock_create.assert_called_once()
+        mock_conn.execute.assert_called_once()
+        assert "LIMIT 100" in str(mock_conn.execute.call_args[0][0])
+        assert result.temp_table is not None
+        assert result.applied.limit == 100
+        # A limit is not a sample.
+        assert not result.applied.sampled
+        mock_sample.assert_not_called()
+        mock_fixed_size.assert_not_called()
+        # A limit needs no denominator, so no INFORMATION_SCHEMA round-trip.
+        mock_row_count.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "limit,offset,expected_clause",
+        [
+            (100, None, "LIMIT 100"),
+            (100, 25, "LIMIT 100 OFFSET 25"),
+        ],
+    )
+    def test_limited_temp_table_sql(
+        self, adapter, config, limit, offset, expected_clause
+    ):
+        """LIMIT/OFFSET is materialized into a temp table via CTAS."""
+        config.limit = limit
+        config.offset = offset
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with mock_temp_table_reflection(adapter):
+            adapter._create_limited_temp_table(context, mock_conn)
+
+        executed_sql = " ".join(str(mock_conn.execute.call_args[0][0]).split())
+        assert "CREATE OR REPLACE TEMPORARY TABLE dh_limit_" in executed_sql
+        assert '"MY_SCHEMA"."MY_TABLE"' in executed_sql
+        assert expected_clause in executed_sql
+        assert "TABLESAMPLE" not in executed_sql
+        assert (context.applied.limit, context.applied.offset) == (limit, offset)
 
     def test_setup_profiling_uses_context_row_count(self, adapter, config):
         """When context.row_count is pre-populated, skip INFORMATION_SCHEMA query."""
@@ -836,10 +909,10 @@ class TestSnowflakeAdapter:
             schema="MY_SCHEMA",
             table="BIG_TABLE",
             pretty_name="test",
-            is_sampled=True,
             temp_table="dh_sample_abc123",
         )
         sampled_context.sql_table = MagicMock()
+        sampled_context.applied.sample_percentage = 1.0
 
         with (
             patch.object(adapter, "_get_row_count_from_metadata") as mock_metadata,
@@ -853,7 +926,7 @@ class TestSnowflakeAdapter:
         mock_metadata.assert_not_called()
         # Should sample using the pre-populated row count
         mock_sample.assert_called_once_with(context, mock_conn, 500_000)
-        assert result.is_sampled
+        assert result.applied.sampled
 
     def test_setup_profiling_custom_sql_rejected(self, adapter):
         """The SQLAlchemy adapter rejects custom_sql."""
@@ -867,6 +940,47 @@ class TestSnowflakeAdapter:
 
         with pytest.raises(AssertionError, match="custom_sql is not supported"):
             adapter.setup_profiling(context, mock_conn)
+
+    def test_sampling_takes_precedence_over_a_limit(self, adapter, config):
+        """Both configured: the table is sampled and no limit is reported."""
+        config.use_sampling = True
+        config.limit = 100
+        config.offset = 25
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="BIG_TABLE", pretty_name="test", row_count=10**9
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_sampled_temp_table", side_effect=_mark_sampled
+        ) as mock_sample:
+            result = adapter.setup_profiling(context, mock_conn)
+
+        mock_sample.assert_called_once()
+        assert result.applied.sampled
+        assert result.applied.limit is None
+        assert result.applied.offset is None
+
+    def test_an_offset_without_a_limit_is_declined(self, adapter, config):
+        """A bare offset bounds nothing, so it is not applied and not reported."""
+        config.use_sampling = False
+        config.offset = 25
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="MY_TABLE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch.object(
+            adapter, "_create_sqlalchemy_table", return_value=MagicMock()
+        ):
+            result = adapter.setup_profiling(context, mock_conn)
+
+        mock_conn.execute.assert_not_called()
+        assert result.applied.offset is None
 
     # =========================================================================
     # _create_sampled_temp_table SQL generation tests
@@ -893,7 +1007,7 @@ class TestSnowflakeAdapter:
         assert "dh_sample_" in executed_sql
         assert "TABLESAMPLE BERNOULLI (10.00000000)" in executed_sql
         assert "BLOCK" not in executed_sql
-        assert context.is_sampled
+        assert context.applied.sampled
         assert context.temp_table is not None
 
     def test_sampled_temp_table_block_bernoulli_sql(self, adapter, config):
@@ -1002,10 +1116,12 @@ class TestSnowflakeAdapter:
         # Fixed-size sampling is incompatible with both of these.
         assert "BLOCK" not in executed_sql
         assert "SEED" not in executed_sql
-        assert context.is_sampled
+        assert context.applied.sampled
         assert context.temp_table is not None
-        # The fraction of the table sampled is unknowable without a row count.
-        assert context.sample_percentage is None
+        # The fraction of the table sampled is unknowable without a row count,
+        # but the row count asked for is not, so that is what gets reported.
+        assert context.applied.sample_percentage is None
+        assert context.applied.sample_rows == 10_000
 
     def test_fixed_size_sample_clamped_to_snowflake_limit(
         self, adapter, config, report
@@ -1170,6 +1286,77 @@ class TestBigQueryAdapter:
             # The pooled raw connection must be returned to the pool.
             mock_raw_conn.close.assert_called_once()
 
+    def test_an_applied_limit_is_reported(self, adapter, config):
+        config.use_sampling = False
+        config.limit = 100
+        config.offset = 25
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with (
+            patch.object(adapter, "_create_temp_table_for_query", return_value=context),
+            patch.object(adapter, "_create_sqlalchemy_table", return_value=MagicMock()),
+        ):
+            result = adapter.setup_profiling(context, MagicMock())
+
+        assert (result.applied.limit, result.applied.offset) == (100, 25)
+
+    @pytest.mark.parametrize(
+        "use_sampling,custom_sql",
+        [
+            # Sampling wins; and custom_sql is the source's own query, passed
+            # through untouched, so a limit never reaches the SQL either way.
+            (True, None),
+            (False, "SELECT * FROM t WHERE day = '20230906'"),
+        ],
+    )
+    def test_a_limit_that_is_not_applied_is_not_reported(
+        self, adapter, config, use_sampling, custom_sql
+    ):
+        config.use_sampling = use_sampling
+        config.limit = 100
+        config.offset = 25
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset",
+            table="my_table",
+            custom_sql=custom_sql,
+            pretty_name="test",
+        )
+
+        with (
+            patch.object(adapter, "_create_temp_table_for_query", return_value=context),
+            patch.object(adapter, "_setup_sampling", side_effect=_mark_sampled),
+            patch.object(adapter, "_create_sqlalchemy_table", return_value=MagicMock()),
+        ):
+            result = adapter.setup_profiling(context, MagicMock())
+
+        assert result.applied.limit is None
+        assert result.applied.offset is None
+
+    def test_an_offset_without_a_limit_is_declined(self, adapter, config):
+        """A bare offset bounds nothing, so no temp table and nothing reported."""
+        config.use_sampling = False
+        config.offset = 25
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="my_dataset", table="my_table", pretty_name="test"
+        )
+
+        with (
+            patch.object(adapter, "_create_temp_table_for_query") as mock_temp_table,
+            patch.object(adapter, "_create_sqlalchemy_table", return_value=MagicMock()),
+        ):
+            result = adapter.setup_profiling(context, MagicMock())
+
+        mock_temp_table.assert_not_called()
+        assert result.applied.offset is None
+
     def test_create_temp_table_includes_limit_and_offset(
         self, adapter, mock_bigquery_engine, config
     ):
@@ -1249,9 +1436,9 @@ class TestBigQueryAdapter:
                 result = adapter._setup_sampling(context, mock_conn)
 
                 # Verify sampling was set up
-                assert result.is_sampled
-                assert result.sample_percentage is not None
-                assert result.sample_percentage > 0
+                assert result.applied.sampled
+                assert result.applied.sample_percentage is not None
+                assert result.applied.sample_percentage > 0
 
                 # Verify _create_temp_table_for_query was called
                 assert mock_create.called
@@ -1321,7 +1508,7 @@ class TestBigQueryAdapter:
         # Partition size is measured directly (not taken from the full-table
         # context.row_count), and the sample targets the partition temp table.
         mock_count.assert_called_once()
-        assert result.is_sampled
+        assert result.applied.sampled
         assert "TABLESAMPLE" in captured_sql[0].upper()
         assert "partition_anon" in captured_sql[0]
         assert "my_table" not in captured_sql[0]
@@ -1348,9 +1535,9 @@ class TestBigQueryAdapter:
             result = adapter._setup_sampling(context, Mock())
 
         mock_count.assert_not_called()
-        assert result.is_sampled
+        assert result.applied.sampled
         # sample_pc = 100 * 1000 / 50000 = 2.0
-        assert result.sample_percentage == pytest.approx(2.0)
+        assert result.applied.sample_percentage == pytest.approx(2.0)
 
     def test_setup_sampling_counts_when_row_count_missing(self, adapter, config):
         """Falls back to COUNT(*) when the source didn't provide a row count."""
@@ -1373,7 +1560,7 @@ class TestBigQueryAdapter:
             result = adapter._setup_sampling(context, Mock())
 
         mock_count.assert_called_once()
-        assert result.is_sampled
+        assert result.applied.sampled
 
 
 class TestDatabricksAdapter:
@@ -1743,41 +1930,21 @@ class TestClickHouseAdapter:
         assert result.sql_table is not None
         assert any("ignored" in w.title.lower() for w in report.warnings)
 
-    def test_setup_profiling_warns_on_limit_or_offset(self, adapter, report, config):
-        """limit/offset are unsupported on the ClickHouse SQLAlchemy path; warn and proceed."""
+    def test_setup_profiling_applies_no_bound(self, adapter, config):
+        # ClickHouse creates no temp table here, so limit/offset go unapplied
+        # and unreported; the profiler warns about that centrally.
         config.limit = 500
-        adapter.config = config
-        context = ProfilingContext(
-            schema="test_schema",
-            table="test_table",
-            pretty_name="test_table",
-        )
-        with patch("sqlalchemy.Table") as mock_table_class:
-            mock_table_class.return_value = MagicMock()
-            mock_conn = MagicMock()
-            result = adapter.setup_profiling(context, mock_conn)
-
-        assert result.sql_table is not None
-        assert any("ignored" in w.title.lower() for w in report.warnings)
-
-    def test_setup_profiling_warns_on_offset_without_limit(
-        self, adapter, report, config
-    ):
-        """offset alone (no limit) is also unsupported; warn and proceed."""
         config.offset = 100
         adapter.config = config
         context = ProfilingContext(
-            schema="test_schema",
-            table="test_table",
-            pretty_name="test_table",
+            schema="test_schema", table="test_table", pretty_name="test_table"
         )
-        with patch("sqlalchemy.Table") as mock_table_class:
-            mock_table_class.return_value = MagicMock()
-            mock_conn = MagicMock()
-            result = adapter.setup_profiling(context, mock_conn)
 
-        assert result.sql_table is not None
-        assert any("ignored" in w.title.lower() for w in report.warnings)
+        with patch("sqlalchemy.Table", return_value=MagicMock()):
+            result = adapter.setup_profiling(context, MagicMock())
+
+        assert result.applied.limit is None
+        assert result.applied.offset is None
 
     def test_setup_profiling_no_warning_for_normal_table(self, adapter, report):
         """Normal full-table profiling produces no warning."""

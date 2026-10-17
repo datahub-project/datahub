@@ -50,13 +50,28 @@ class BigQueryAdapter(PlatformAdapter):
         """
         logger.debug(f"BigQuery setup for {context.pretty_name}")
 
-        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table
-        if context.custom_sql or self.config.limit or self.config.offset:
+        # Sampling and limit/offset are two answers to the same question -- how
+        # to profile a big table cheaply -- and they do not compose: sampling an
+        # already-bounded slice pays sampling's cost and loses the validity it
+        # buys. Sampling wins; the profiler warns that the limit went unapplied.
+        #
+        # custom_sql wins over both: it is the source's own query (a partition
+        # filter), passed through untouched, so a limit is not applied there
+        # either. An offset with no limit is declined -- it bounds nothing, and
+        # BigQuery has no spelling for OFFSET without LIMIT.
+        bound = bool(self.config.limit) and not (
+            context.custom_sql or self.config.use_sampling
+        )
+
+        # Step 1: Handle custom SQL or LIMIT/OFFSET via temp table.
+        if context.custom_sql or bound:
             context = self._create_temp_table_for_query(context)
+            if bound:
+                context.applied.limit = self.config.limit
+                context.applied.offset = self.config.offset
 
         # Step 2: Sample large tables (and large partitions) into a temp table.
-        # Skip when a LIMIT is configured — the row set is already bounded.
-        if self.config.use_sampling and not self.config.limit:
+        if self.config.use_sampling:
             context = self._setup_sampling(context, conn)
 
         # Step 3: Create SQLAlchemy table object
@@ -130,28 +145,13 @@ class BigQueryAdapter(PlatformAdapter):
                 schema=context.schema,
             )
 
-            # Build SELECT * query using query builder
+            # Build SELECT * query using query builder. Only reached with a
+            # limit set, and the config constrains it to a positive int.
             query = sa.select(sa.text("*")).select_from(table_obj)
-
-            # Add LIMIT if configured
             if self.config.limit:
-                # Pydantic validates this is an int, but ensure it's positive
-                limit_val = int(self.config.limit)
-                if limit_val <= 0:
-                    raise ValueError(
-                        f"Invalid LIMIT value: {limit_val}. Must be positive."
-                    )
-                query = query.limit(limit_val)
-
-            # Add OFFSET if configured
+                query = query.limit(self.config.limit)
             if self.config.offset:
-                # Pydantic validates this is an int, but ensure it's non-negative
-                offset_val = int(self.config.offset)
-                if offset_val < 0:
-                    raise ValueError(
-                        f"Invalid OFFSET value: {offset_val}. Must be non-negative."
-                    )
-                query = query.offset(offset_val)
+                query = query.offset(self.config.offset)
 
             # Compile query to SQL string for DBAPI execution
             bq_sql = str(
@@ -342,8 +342,7 @@ class BigQueryAdapter(PlatformAdapter):
         context = self._create_temp_table_for_query(context)
         context.custom_sql = old_custom_sql  # Restore
 
-        context.is_sampled = True
-        context.sample_percentage = sample_pc
+        context.applied.sample_percentage = sample_pc
 
         return context
 

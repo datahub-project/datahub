@@ -42,6 +42,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    AppliedProfile,
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
@@ -76,6 +77,44 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+
+def _partition_spec_for(applied: AppliedProfile) -> PartitionSpecClass:
+    """Render a profile's partitionSpec from what the adapter reported.
+
+    Scope (the whole table, or one named partition) and reduction (none, a
+    sample, a bound) are independent axes -- a sampled partition is real, and
+    reports both.
+
+    The `partition` string carries the meaning, not `type`: PartitionSpec.type
+    is @deprecated and documented "Unused!", and the UI classifies on the string
+    alone (FULL_TABLE_SNAPSHOT or empty is the whole table, a SAMPLE prefix is a
+    sample, a leading brace is machine-readable, anything else is a partition
+    id). We still set `type` consistently -- deprecated is not removed, and
+    GenericProfiler does branch on it to decide whether rowCount comes from
+    source metadata -- but it is the string that has to be right.
+
+    The sample marker never carries the sample's size: a BERNOULLI sample lands
+    on a different row count every run, and partitionSpec is part of the emitted
+    aspect, so a size would change the profile of an unchanged table.
+    """
+    if applied.partition is not None:
+        return PartitionSpecClass(
+            type=PartitionTypeClass.PARTITION,
+            partition=f"{applied.partition} SAMPLE"
+            if applied.sampled
+            else applied.partition,
+        )
+    if applied.sampled:
+        return PartitionSpecClass(type=PartitionTypeClass.QUERY, partition="SAMPLE")
+    if applied.limit is not None or applied.offset is not None:
+        return PartitionSpecClass(
+            type=PartitionTypeClass.QUERY,
+            partition=json.dumps(dict(limit=applied.limit, offset=applied.offset)),
+        )
+    return PartitionSpecClass(
+        type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
+    )
 
 
 def _get_columns_to_ignore_sampling(
@@ -306,6 +345,8 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
+        # Same, per bound (limit/offset) the platform adapter did not apply.
+        self._unapplied_bound_logged: Set[str] = set()
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -965,11 +1006,10 @@ class SQLAlchemyProfiler:
         self,
         row_count_future: FutureResult[int],
         profile: DatasetProfileClass,
-        context: ProfilingContext,
         pretty_name: str,
     ) -> Optional[int]:
         """
-        Extract the row count and update the partition spec if sampling was applied.
+        Extract the row count onto the profile.
 
         Returns:
             Row count (or None if unavailable)
@@ -994,23 +1034,6 @@ class SQLAlchemyProfiler:
             )
             profile.rowCount = None
             row_count = None
-
-        # Record that sampling happened, never the sample's size: a BERNOULLI
-        # sample lands on a different row count every run, and partitionSpec is
-        # emitted, so a size would change the profile for an unchanged table.
-        if context.is_sampled:
-            if (
-                profile.partitionSpec
-                and profile.partitionSpec.type == PartitionTypeClass.FULL_TABLE
-            ):
-                profile.partitionSpec = PartitionSpecClass(
-                    type=PartitionTypeClass.QUERY, partition="SAMPLE"
-                )
-            elif (
-                profile.partitionSpec
-                and profile.partitionSpec.type == PartitionTypeClass.PARTITION
-            ):
-                profile.partitionSpec.partition += " SAMPLE"
 
         return row_count
 
@@ -1552,6 +1575,37 @@ class SQLAlchemyProfiler:
             setattr(self._adapter_local, platform, adapter)
         return adapter
 
+    def _warn_unapplied_bounds(
+        self, applied: AppliedProfile, pretty_name: str, platform: str
+    ) -> None:
+        """Report every bound the recipe asked for that the adapter did not apply.
+
+        An adapter declines a bound when it cannot implement it at all, when
+        sampling takes precedence, or when the bound is meaningless (an offset
+        with no limit). The profile is labelled from what it did apply, so the
+        label never claims a bound that was not honoured -- this says so.
+        """
+        for name, requested, was_applied in (
+            ("limit", self.config.limit, applied.limit),
+            ("offset", self.config.offset, applied.offset),
+        ):
+            if requested is None or was_applied is not None:
+                continue
+            self.report.warning(
+                title=f"Profiling: {name} was not applied",
+                message=f"This source did not apply profiling.{name} to this "
+                "asset, so the rows profiled are not bounded by it and the "
+                "profile is not labelled as bounded. A source applies no bound "
+                "while sampling takes precedence over it, when it does not "
+                "implement limit/offset, or for an offset with no limit.",
+                context=(
+                    f"Asset: {pretty_name}; platform={platform}; "
+                    f"{name}={requested}; use_sampling={self.config.use_sampling}"
+                ),
+                log=name not in self._unapplied_bound_logged,
+            )
+            self._unapplied_bound_logged.add(name)
+
     def _generate_single_profile(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -1655,6 +1709,8 @@ class SQLAlchemyProfiler:
                             raise
                         return None
 
+                    self._warn_unapplied_bounds(context.applied, pretty_name, platform)
+
                     # Validate that we have a sql_table to profile
                     if context.sql_table is None:
                         self.report.warning(
@@ -1680,21 +1736,7 @@ class SQLAlchemyProfiler:
                     profile = DatasetProfileClass(timestampMillis=get_sys_time())
                     profile.columnCount = len(sql_table.columns)
 
-                    # Handle partition spec
-                    if partition:
-                        profile.partitionSpec = PartitionSpecClass(partition=partition)
-                    elif self.config.limit:
-                        profile.partitionSpec = PartitionSpecClass(
-                            type=PartitionTypeClass.QUERY,
-                            partition=json.dumps(
-                                dict(limit=self.config.limit, offset=self.config.offset)
-                            ),
-                        )
-                    elif custom_sql or context.is_sampled:
-                        # custom_sql or adapter-driven sampling via temp table
-                        profile.partitionSpec = PartitionSpecClass(
-                            type=PartitionTypeClass.QUERY, partition="SAMPLE"
-                        )
+                    profile.partitionSpec = _partition_spec_for(context.applied)
 
                     # ================================================================
                     # QUERY BATCHING PATTERN
@@ -1781,7 +1823,6 @@ class SQLAlchemyProfiler:
                     row_count = self._extract_row_count(
                         row_count_future=row_count_future,
                         profile=profile,
-                        context=context,
                         pretty_name=pretty_name,
                     )
 

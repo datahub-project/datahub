@@ -1,8 +1,8 @@
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, Union
 
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, SupportedSources
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
@@ -14,6 +14,18 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+
+class ExcelProfilingConfig(ProfilingConfig):
+    # Redeclared with Annotated[...] so schema_extra.supported_sources survives
+    # on the subclass -- a plain redeclaration drops it.
+    use_sampling: Annotated[bool, SupportedSources(["excel"])] = Field(
+        # On by default here, unlike the shared config: Excel implements
+        # sampling, and with it off the profiler sets sample_size to 0.
+        default=True,
+        description="Whether to profile column level stats on a sample of the worksheet "
+        "rather than all of it. Smaller worksheets are not sampled.",
+    )
 
 
 class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -76,8 +88,8 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         "For example to allow the worksheet Sheet1 from file report.xlsx, use the pattern: 'report.Sheet1'.",
     )
 
-    profiling: ProfilingConfig = Field(
-        default=ProfilingConfig(),
+    profiling: ExcelProfilingConfig = Field(
+        default_factory=ExcelProfilingConfig,
         description="Configuration for profiling",
     )
 

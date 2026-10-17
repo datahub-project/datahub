@@ -7,6 +7,38 @@ import sqlalchemy as sa
 
 
 @dataclass
+class AppliedProfile:
+    """What the adapter actually profiled. Presence is the signal.
+
+    `limit`/`offset` mean the profiled rows respect that bound -- not that SQL
+    was emitted for it. An adapter that skips a limit it knows to be redundant
+    still reports it, because the result honours it either way.
+
+    Adapters set the fields they applied; they never replace the object, whose
+    `partition` the profiler seeds from the request.
+    """
+
+    partition: Optional[str] = None
+    sample_percentage: Optional[float] = None
+    sample_rows: Optional[int] = None
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if self.sample_percentage is not None and not (
+            0 <= self.sample_percentage <= 100
+        ):
+            raise ValueError(
+                f"sample_percentage must be in [0, 100], got {self.sample_percentage}"
+            )
+
+    @property
+    def sampled(self) -> bool:
+        """Whether a sample was drawn, by fraction or by fixed row count."""
+        return self.sample_percentage is not None or self.sample_rows is not None
+
+
+@dataclass
 class ProfilingContext:
     """
     Encapsulates all state for profiling a single table.
@@ -46,11 +78,9 @@ class ProfilingContext:
     temp_view: Optional[str] = None
     temp_schema: Optional[str] = None
 
-    # Sampling information. sample_percentage is diagnostic only -- adapters
-    # set it, nothing reads it back; extrapolating sampled statistics to
-    # full-table scale is not done today.
-    is_sampled: bool = False
-    sample_percentage: Optional[float] = None
+    # What the adapter reports it profiled. Seeded in __post_init__ from the
+    # requested partition; adapters add the sample or bound they applied.
+    applied: AppliedProfile = field(init=False)
 
     # Resource tracking for cleanup
     resources_to_cleanup: List[str] = field(default_factory=list)
@@ -61,12 +91,9 @@ class ProfilingContext:
         if not self.table:
             raise ValueError(f"table must be a non-empty string, got: {self.table!r}")
 
-        # Sample percentage must be in range [0, 100] (ge=0, le=100 equivalent)
-        if self.sample_percentage is not None:
-            if not (0 <= self.sample_percentage <= 100):
-                raise ValueError(
-                    f"sample_percentage must be in [0, 100], got {self.sample_percentage}"
-                )
+        # A partition request arrives already honoured: the source narrows to it
+        # (via custom_sql, or a shard's own table name) before any adapter runs.
+        self.applied = AppliedProfile(partition=self.partition)
 
     def add_temp_resource(self, resource_type: str, resource_name: str) -> None:
         """Track a temporary resource that needs cleanup."""
