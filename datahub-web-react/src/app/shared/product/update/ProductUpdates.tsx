@@ -55,12 +55,7 @@ export default function ProductUpdates() {
     // Local state to hide immediately on dismiss
     const [isLocallyVisible, setIsLocallyVisible] = useState(false);
     const [sidebarWidth, setSidebarWidth] = useState(NAV_SIDEBAR_WIDTH_EXPANDED);
-    const [useRemoteImage, setUseRemoteImage] = useState(false);
-    const announcedImage = latestUpdate?.image;
-    const bundledImage = resolveProductUpdateImage(announcedImage);
-    const remoteImage =
-        typeof announcedImage === 'string' && /^https?:\/\//i.test(announcedImage) ? announcedImage : null;
-    const imageSrc = useRemoteImage && remoteImage ? remoteImage : bundledImage;
+    const imageSrc = resolveProductUpdateImage(latestUpdate?.image);
 
     // Check if current version matches required version
     const currentVersion = appConfig.config.appVersion;
@@ -69,10 +64,6 @@ export default function ProductUpdates() {
     useEffect(() => {
         setIsLocallyVisible(visible);
     }, [visible]);
-
-    useEffect(() => {
-        setUseRemoteImage(false);
-    }, [announcedImage]);
 
     // Measure sidebar width - use MutationObserver for instant updates
     useEffect(() => {
@@ -203,15 +194,7 @@ export default function ProductUpdates() {
                 )}
                 {imageSrc && (
                     <ImageSection>
-                        <Image
-                            src={imageSrc}
-                            alt={contentTitle || undefined}
-                            onError={() => {
-                                if (remoteImage && imageSrc !== remoteImage) {
-                                    setUseRemoteImage(true);
-                                }
-                            }}
-                        />
+                        <Image src={imageSrc} alt={contentTitle || undefined} />
                     </ImageSection>
                 )}
                 {displayFeatures && displayFeatures.length > 0 && (

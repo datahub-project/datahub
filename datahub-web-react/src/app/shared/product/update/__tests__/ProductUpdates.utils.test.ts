@@ -23,17 +23,10 @@ describe('ProductUpdates utilities', () => {
         expect(getLocalizedReleaseMonth('ja', '2026-09')).toBe('9月');
     });
 
-    it('serves bundled product-update images from the local build', () => {
+    it('anchors a product-update image under assets/platforms and leaves external URLs alone', () => {
         const resolvePath = (path: string) => path;
-        expect(
-            resolveProductUpdateImage(
-                'https://raw.githubusercontent.com/datahub-project/datahub/master/' +
-                    'datahub-web-react/src/images/in-product-release-oct2026.png',
-                resolvePath,
-            ),
-        ).toBe('/assets/platforms/in-product-release-oct2026.png');
-        expect(resolveProductUpdateImage('assets/platforms/sample-product-update-image.png', resolvePath)).toBe(
-            '/assets/platforms/sample-product-update-image.png',
+        expect(resolveProductUpdateImage('assets/platforms/in-product-release-oct2026.png', resolvePath)).toBe(
+            '/assets/platforms/in-product-release-oct2026.png',
         );
         expect(resolveProductUpdateImage('https://cdn.example/hero.png', resolvePath)).toBe(
             'https://cdn.example/hero.png',

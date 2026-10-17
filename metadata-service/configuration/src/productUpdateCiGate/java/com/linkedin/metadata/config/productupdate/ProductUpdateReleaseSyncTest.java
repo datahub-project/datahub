@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -57,11 +56,9 @@ public class ProductUpdateReleaseSyncTest {
 
   private static final Path UI_LOCALES_DIR = Path.of("datahub-web-react/src/i18n/locales");
 
-  private static final Pattern BUNDLED_GITHUB_IMAGE =
-      Pattern.compile(
-          "https://raw\\.githubusercontent\\.com/datahub-project/datahub/[^/]+/datahub-web-react/src/images/([A-Za-z0-9][A-Za-z0-9._-]*)");
-  private static final Pattern LOCAL_PLATFORM_IMAGE =
-      Pattern.compile("(?:/)?assets/platforms/([A-Za-z0-9][A-Za-z0-9._-]*)");
+  /** Vite copies {@code datahub-web-react/src/images/*} to this directory. */
+  private static final String LOCAL_IMAGE_ROOT = "assets/platforms/";
+
   private static final Pattern RELEASE_MONTH = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
 
   private Path repoRoot;
@@ -167,27 +164,23 @@ public class ProductUpdateReleaseSyncTest {
   public void testProductUpdateImageExists(@Nonnull ProductUpdateFlavor flavor) throws IOException {
     JsonNode json = readProductUpdate(flavor);
     String image = json.path("image").asText("");
-    if (image.isEmpty()) {
+    if (image.isEmpty() || image.startsWith("https://") || image.startsWith("http://")) {
+      // Externally hosted images can't be verified from the repo.
       return;
     }
 
-    Matcher bundled = BUNDLED_GITHUB_IMAGE.matcher(image);
-    Matcher local = LOCAL_PLATFORM_IMAGE.matcher(image);
-    final String filename;
-    if (bundled.matches()) {
-      filename = bundled.group(1);
-    } else if (local.matches()) {
-      filename = local.group(1);
-    } else if (image.startsWith("https://") || image.startsWith("http://")) {
-      // Externally hosted images can't be verified from the repo.
-      return;
-    } else {
-      Assert.fail(
-          flavor.jsonPath()
-              + " image must be assets/platforms/<file> or an http(s) URL, got: "
-              + image);
-      return;
-    }
+    String relative = image.startsWith("/") ? image.substring(1) : image;
+    Assert.assertTrue(
+        relative.startsWith(LOCAL_IMAGE_ROOT),
+        flavor.jsonPath()
+            + " image must be "
+            + LOCAL_IMAGE_ROOT
+            + "<file> or an http(s) URL, got: "
+            + image);
+    String filename = relative.substring(LOCAL_IMAGE_ROOT.length());
+    Assert.assertFalse(
+        filename.isEmpty() || filename.contains("/") || filename.contains(".."),
+        flavor.jsonPath() + " image filename must be a single path segment, got: " + filename);
 
     Path imagePath = repoRoot.resolve("datahub-web-react/src/images").resolve(filename);
     Assert.assertTrue(
