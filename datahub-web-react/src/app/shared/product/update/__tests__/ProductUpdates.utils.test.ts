@@ -1,9 +1,9 @@
 import {
+    PRODUCT_UPDATE_BOOTSTRAP_KEY,
     bundledProductUpdateImage,
     getDefaultProductUpdateLink,
     getLocalizedReleaseMonth,
     getProductUpdateVersion,
-    PRODUCT_UPDATE_BOOTSTRAP_KEY,
     readProductUpdateBootstrap,
     resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';

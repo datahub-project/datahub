@@ -96,8 +96,7 @@ export function useIsProductAnnouncementVisible(updateId: string | null | undefi
         };
     }
 
-    const dismissed =
-        data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId) || false;
+    const dismissed = data?.batchGetStepStates?.results?.some((result) => result?.id === productUpdateStepId) || false;
 
     return {
         visible: !dismissed && !!data?.batchGetStepStates?.results,
