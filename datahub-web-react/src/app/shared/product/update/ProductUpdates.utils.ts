@@ -53,8 +53,11 @@ declare global {
     }
 }
 
+/** Hosted JSON that is enabled and has an id, so the toast can paint before GraphQL. */
+export type VisibleProductUpdateBootstrap = ProductUpdateBootstrap & { id: string };
+
 /** Hosted JSON injected into index.html by the Play server. Absent when the cache is cold. */
-export function readProductUpdateBootstrap(): ProductUpdateBootstrap | null {
+export function readProductUpdateBootstrap(): VisibleProductUpdateBootstrap | null {
     if (typeof window === 'undefined') {
         return null;
     }
@@ -62,7 +65,7 @@ export function readProductUpdateBootstrap(): ProductUpdateBootstrap | null {
     if (!value || typeof value !== 'object' || value.enabled !== true || !value.id) {
         return null;
     }
-    return value;
+    return { ...value, id: value.id };
 }
 
 /** Prefer the hosted image URL so a JSON change can ship without a frontend build. */
