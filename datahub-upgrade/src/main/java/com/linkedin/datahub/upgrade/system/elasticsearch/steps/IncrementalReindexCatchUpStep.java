@@ -76,7 +76,7 @@ import org.opensearch.tasks.TaskInfo;
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
   public static final String UPGRADE_ID_PREFIX = IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX;
-  public static final String LAST_URN_KEY = "lastUrn";
+  public static final String LAST_URN_KEY = IncrementalReindexState.CATCH_UP_LAST_URN;
 
   private static final String TIMESERIES_TIMESTAMP_FIELD = "@timestamp";
 

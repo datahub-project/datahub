@@ -5,6 +5,7 @@ import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +72,9 @@ public final class IncrementalReindexState {
 
   /** Per-index Phase 2 catch-up completion status, stored on the catch-up upgrade result. */
   public static final String CATCH_UP_STATUS = "catchUpStatus";
+
+  /** Resume cursor property. Keys are {@code index.lastUrn} and {@code index.entity.lastUrn}. */
+  public static final String CATCH_UP_LAST_URN = "lastUrn";
 
   /**
    * Entity index generation of this row. Absent on rows written before generations were tracked,
@@ -198,26 +202,46 @@ public final class IncrementalReindexState {
     return result;
   }
 
-  /** Drop a catch-up verdict so a later fill of the same index is replayed. */
+  /**
+   * Drop a catch-up verdict and that index's resume cursors, so a later fill of the same index is
+   * replayed from the start of its own window. Cursors are {@code index.lastUrn} and {@code
+   * index.entity.lastUrn}.
+   */
   public static Map<String, String> clearCatchUpStatus(
       @Nullable Map<String, String> existing, @Nonnull String indexName) {
     Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
     result.remove(key(indexName, CATCH_UP_STATUS));
+    removeResumeCursors(result, indexName);
     return result;
   }
 
   /**
    * {@code updated} merged onto {@code loaded}. A catch-up status {@code updated} no longer carries
-   * is removed, so a cleared verdict is not copied back from the previous result. Every other key
-   * loaded still holds, including a replay's resume cursor.
+   * is removed, and so are that index's resume cursors, so neither is copied back from the previous
+   * result. A cursor for an index whose status {@code updated} still carries is left in place.
    */
   public static Map<String, String> mergeCatchUpState(
       @Nullable Map<String, String> loaded, @Nonnull Map<String, String> updated) {
     Map<String, String> merged = loaded != null ? new HashMap<>(loaded) : new HashMap<>();
     merged.putAll(updated);
     String statusSuffix = SEPARATOR + CATCH_UP_STATUS;
-    merged.keySet().removeIf(key -> key.endsWith(statusSuffix) && !updated.containsKey(key));
+    List<String> clearedIndices = new ArrayList<>();
+    for (String key : new ArrayList<>(merged.keySet())) {
+      if (key.endsWith(statusSuffix) && !updated.containsKey(key)) {
+        merged.remove(key);
+        clearedIndices.add(key.substring(0, key.length() - statusSuffix.length()));
+      }
+    }
+    clearedIndices.forEach(indexName -> removeResumeCursors(merged, indexName));
     return merged;
+  }
+
+  /** Resume cursors for one index: {@code index.lastUrn} and {@code index.<entity>.lastUrn}. */
+  private static void removeResumeCursors(
+      @Nonnull Map<String, String> state, @Nonnull String indexName) {
+    String prefix = indexName + SEPARATOR;
+    String cursorSuffix = SEPARATOR + CATCH_UP_LAST_URN;
+    state.keySet().removeIf(key -> key.startsWith(prefix) && key.endsWith(cursorSuffix));
   }
 
   /** Read the entity index generation for an index; rows predating tracking are V2. */

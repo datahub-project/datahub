@@ -568,8 +568,11 @@ public class IncrementalReindexCatchUpStepTest {
     Map<String, String> catchUpState =
         IncrementalReindexState.setCatchUpStatus(
             null, INDEX_NAME, IncrementalReindexState.CatchUpStatus.COMPLETED);
-    // A resume cursor written by an earlier pass must survive the status being dropped.
-    catchUpState.put(INDEX_NAME + ".lastUrn", "urn:li:dataset:kept");
+    // The cursor belongs to the failed attempt's window. Keeping it would resume the rebuilt
+    // index's catch-up partway through. Another index's cursor is not this fill's.
+    catchUpState.put(INDEX_NAME + ".lastUrn", "urn:li:dataset:stale");
+    catchUpState.put(INDEX_NAME + ".dataset.lastUrn", "urn:li:dataset:stale-type");
+    catchUpState.put("chartindex_v2.lastUrn", "urn:li:chart:kept");
     stubUpgradeResults(phase1State, catchUpState, DataHubUpgradeState.SUCCEEDED);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -578,7 +581,9 @@ public class IncrementalReindexCatchUpStepTest {
     verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
     Map<String, String> persisted = lastPersistedCatchUpResult();
     assertEquals(IncrementalReindexState.getCatchUpStatus(persisted, INDEX_NAME), Optional.empty());
-    assertEquals(persisted.get(INDEX_NAME + ".lastUrn"), "urn:li:dataset:kept");
+    assertFalse(persisted.containsKey(INDEX_NAME + ".lastUrn"));
+    assertFalse(persisted.containsKey(INDEX_NAME + ".dataset.lastUrn"));
+    assertEquals(persisted.get("chartindex_v2.lastUrn"), "urn:li:chart:kept");
   }
 
   @Test
