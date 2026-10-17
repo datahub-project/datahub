@@ -1099,9 +1099,10 @@ type ProductUpdate {
   requiredVersion: String
 
   """
-  Optional URL to an image to display with the update
+  Older clients still read this path. The current toast uses the image bundled in the frontend.
   """
   image: String
+    @deprecated(reason: "The toast uses the image bundled in the frontend.")
 
   """
   Optional description text for the update

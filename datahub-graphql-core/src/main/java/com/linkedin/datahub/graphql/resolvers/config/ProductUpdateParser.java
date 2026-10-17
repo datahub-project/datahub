@@ -113,6 +113,8 @@ public class ProductUpdateParser {
     if (json.has("description")) {
       productUpdate.setDescription(json.get("description").asText());
     }
+    // Deprecated. Current frontends ignore this and render the bundled image. Older frontends
+    // still use it as the img src, so keep passing the local path through.
     if (json.has("image")) {
       productUpdate.setImage(json.get("image").asText());
     }
