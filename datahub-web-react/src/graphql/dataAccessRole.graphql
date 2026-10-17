@@ -1,0 +1,63 @@
+query listDataAccessRoles($input: SearchInput!) {
+    search(input: $input) {
+        start
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Role {
+                    properties {
+                        name
+                        description
+                        type
+                        requestUrl
+                    }
+                    actors {
+                        users {
+                            user {
+                                urn
+                                type
+                                username
+                                properties {
+                                    displayName
+                                    fullName
+                                    firstName
+                                    lastName
+                                }
+                                info {
+                                    active
+                                    displayName
+                                    fullName
+                                    firstName
+                                    lastName
+                                }
+                                editableProperties {
+                                    displayName
+                                    pictureLink
+                                }
+                            }
+                        }
+                        groups {
+                            group {
+                                urn
+                                type
+                                name
+                                properties {
+                                    displayName
+                                }
+                                info {
+                                    displayName
+                                }
+                                editableProperties {
+                                    pictureLink
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
