@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -158,6 +159,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         }
 
         boolean anyIndexFailed = false;
+        boolean fillLeftFailed = false;
         for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
           String indexName = entry.getKey();
           Map<String, String> indexState = entry.getValue();
@@ -169,6 +171,11 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           // then so that pass does not find it already terminal or partway through.
           IncrementalReindexState.Status phase1Status =
               IncrementalReindexState.getStatus(phase1State, indexName).orElse(null);
+          if (phase1Status == IncrementalReindexState.Status.FAILED) {
+            // Skipping the replay is not the same as the migration succeeding. Phase 1, which
+            // replans a FAILED row, is not part of this non-blocking upgrade.
+            fillLeftFailed = true;
+          }
           if (fillNotReady(phase1Status)) {
             Map<String, String> cleared =
                 IncrementalReindexState.clearCatchUpStatus(catchUpState, indexName);
@@ -216,7 +223,9 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         // If rollback dual-write is not enabled, mark all completed indices as
         // DUAL_WRITE_DISABLED to prevent a later enable of the flag from writing to stale or
         // deleted old indices.
-        if (!buildIndicesConfig.isRollbackDualWriteEnabled() && !anyIndexFailed) {
+        if (!buildIndicesConfig.isRollbackDualWriteEnabled()
+            && !anyIndexFailed
+            && !fillLeftFailed) {
           for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
             String indexName = entry.getKey();
             String status = entry.getValue().get(IncrementalReindexState.STATUS);
@@ -238,7 +247,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           }
         }
 
-        if (anyIndexFailed) {
+        if (anyIndexFailed || fillLeftFailed) {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
 
@@ -384,6 +393,54 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
         IncrementalReindexState.mergeCatchUpState(
             loadCurrentCheckpointState(context), catchUpState);
     context.upgrade().setUpgradeResult(opContext, upgradeIdUrn, entityService, state, merged);
+  }
+
+  /**
+   * A FAILED fill is replanned by the next blocking Phase 1, which does not touch this upgrade
+   * result. Drop the verdict and resume cursors now, while the row is still FAILED, so the rebuilt
+   * index's catch-up starts at the beginning of its own window. Called from the fill step because a
+   * required failure ends the run before this step.
+   */
+  static void dropProgressForFailedFills(
+      OperationContext opContext,
+      EntityService<?> entityService,
+      Upgrade upgrade,
+      String upgradeVersion,
+      Map<String, String> phase1State) {
+    List<String> failed =
+        IncrementalReindexState.getAllIndexStates(phase1State).keySet().stream()
+            .filter(
+                indexName ->
+                    IncrementalReindexState.getStatus(phase1State, indexName).orElse(null)
+                        == IncrementalReindexState.Status.FAILED)
+            .toList();
+    if (failed.isEmpty()) {
+      return;
+    }
+    Urn catchUpUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+    Map<String, String> current = new HashMap<>();
+    upgrade
+        .getUpgradeResult(opContext, catchUpUrn, entityService)
+        .map(DataHubUpgradeResult::getResult)
+        .ifPresent(
+            result -> {
+              if (result != null) {
+                current.putAll(result);
+              }
+            });
+    Map<String, String> updated = current;
+    for (String indexName : failed) {
+      updated = IncrementalReindexState.clearCatchUpStatus(updated, indexName);
+    }
+    if (updated.equals(current)) {
+      return;
+    }
+    upgrade.setUpgradeResult(
+        opContext,
+        catchUpUrn,
+        entityService,
+        DataHubUpgradeState.IN_PROGRESS,
+        IncrementalReindexState.mergeCatchUpState(current, updated));
   }
 
   /**

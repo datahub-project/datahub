@@ -577,7 +577,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
     verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
     Map<String, String> persisted = lastPersistedCatchUpResult();
     assertEquals(IncrementalReindexState.getCatchUpStatus(persisted, INDEX_NAME), Optional.empty());
@@ -598,7 +598,7 @@ public class IncrementalReindexCatchUpStepTest {
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
     verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
     Map<String, String> persisted = lastPersistedCatchUpResult();
     assertEquals(IncrementalReindexState.getCatchUpStatus(persisted, INDEX_NAME), Optional.empty());

@@ -55,6 +55,7 @@ import io.ebean.annotation.TxIsolation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -660,5 +661,50 @@ public class BackfillEntityIndicesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(loader, never()).load(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testAFailedFillIsNotReportedAsSuccessAndLosesItsCatchUpCursor() throws Exception {
+    Map<String, String> state =
+        IncrementalReindexState.setPhase1State(
+            null, alias, alias, null, 1000L, 0L, null, true, Status.FAILED);
+    seedPhase1(state);
+    Map<String, String> catchUpState = new HashMap<>();
+    catchUpState.put(
+        IncrementalReindexState.key(alias, IncrementalReindexState.CATCH_UP_STATUS),
+        IncrementalReindexState.CatchUpStatus.COMPLETED.name());
+    catchUpState.put(alias + ".lastUrn", "urn:li:dataset:stale");
+    catchUpState.put("chartindex_v2.lastUrn", "urn:li:chart:kept");
+    DataHubUpgradeResult catchUpResult =
+        new DataHubUpgradeResult()
+            .setState(DataHubUpgradeState.SUCCEEDED)
+            .setResult(new StringMap(catchUpState));
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object urnArg = invocation.getArgument(1);
+              if (urnArg.toString().contains("IncrementalReindexCatchUp")) {
+                return Optional.of(catchUpResult);
+              }
+              return Optional.ofNullable(storedPhase1.get());
+            });
+
+    UpgradeStepResult result = createStep(null).executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(loader, never()).load(any(), any(), any(), any(), any());
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> persisted = ArgumentCaptor.forClass(Map.class);
+    verify(upgrade)
+        .setUpgradeResult(eq(opContext), any(), eq(entityService), any(), persisted.capture());
+    assertFalse(persisted.getValue().containsKey(alias + ".lastUrn"));
+    assertFalse(
+        persisted
+            .getValue()
+            .containsKey(
+                IncrementalReindexState.key(alias, IncrementalReindexState.CATCH_UP_STATUS)));
+    assertEquals(persisted.getValue().get("chartindex_v2.lastUrn"), "urn:li:chart:kept");
+    assertEquals(
+        IncrementalReindexState.getStatus(persistedState(), alias), Optional.of(Status.FAILED));
   }
 }
