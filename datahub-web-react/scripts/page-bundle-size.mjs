@@ -2,14 +2,14 @@
 // index.html is the login module graph. The shell, /search, and home rows walk
 // the Vite manifest and do not follow dynamicImports.
 //
-// Gzip matches eager-budget.mjs (Node zlib level 9). This script only reports;
-// it does not compare against eager-budget.json.
+// Gzip matches eager-budget.mjs (Node zlib level 9). Without --check this script
+// only reports. --check compares shell and /search to page-budget.json.
 
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
-import { gzipSize } from './eager-budget.mjs';
+import { gzipSize, toleranceBytes } from './eager-budget.mjs';
 
 // Page modules are Vite manifest `src` values (project-relative), not hashed files.
 const AUTHENTICATED_APP_SRC = 'src/app/AuthenticatedApp.tsx';
@@ -232,6 +232,48 @@ function iconFor(diff) {
     return '➡️';
 }
 
+function isFiniteNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value);
+}
+
+const PAGE_BUDGET_IDS = ['shell', 'search'];
+
+/**
+ * Same slack as the index.html eager budget: max(10 KB, 0.5%).
+ * Home is reported and not gated. A missing route fails closed.
+ *
+ * @param {{ shell: number | null, search: number | null }} measured
+ * @param {{ shell: number, search: number }} baseline
+ * @returns {string[]}
+ */
+export function evaluatePageBudget(measured, baseline) {
+    const errors = [];
+    for (const id of PAGE_BUDGET_IDS) {
+        const actual = measured[id];
+        const expected = baseline[id];
+        if (!isFiniteNumber(expected) || !isFiniteNumber(actual)) {
+            errors.push(
+                `page-budget.json ${id} must be a finite number, and the build must include that route. ` +
+                    `Without it the size comparison does not run.`,
+            );
+            continue;
+        }
+        const slack = toleranceBytes(expected);
+        const delta = actual - expected;
+        if (delta > slack) {
+            errors.push(
+                `Logged-in ${id} JS is ${actual} bytes gzip, ${delta} over the ${expected} baseline (allowed +${slack}).`,
+            );
+        } else if (-delta > slack) {
+            errors.push(
+                `Logged-in ${id} JS fell to ${actual} bytes gzip, ${-delta} under the ${expected} baseline. ` +
+                    `Update datahub-web-react/page-budget.json ${id} to ${actual} so the lower size becomes the new ceiling.`,
+            );
+        }
+    }
+    return errors;
+}
+
 export function formatBundleComment({ base, pr, baseSha }) {
     const short = (baseSha || 'unknown').slice(0, 7);
     // The title icon still tracks login. The table rows carry the logged-in diffs.
@@ -260,6 +302,8 @@ function parseArgs(argv) {
         const arg = argv[i];
         if (arg === '--verbose') {
             args.verbose = true;
+        } else if (arg === '--check') {
+            args.check = true;
         } else if (arg === '--dist' || arg === '--base-dist' || arg === '--pr-dist' || arg === '--base-sha') {
             args[arg.slice(2)] = argv[i + 1];
             i += 1;
@@ -323,6 +367,14 @@ function main() {
         );
     }
     console.log(JSON.stringify(summarize(measured), null, 2));
+    if (!args.check) return;
+    const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+    const baseline = JSON.parse(fs.readFileSync(path.join(root, 'page-budget.json'), 'utf8'));
+    const errors = evaluatePageBudget(measured, baseline);
+    if (errors.length) {
+        console.error(errors.join('\n'));
+        process.exit(1);
+    }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

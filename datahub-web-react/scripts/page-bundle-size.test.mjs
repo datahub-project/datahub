@@ -5,7 +5,13 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { gzipSize } from './eager-budget.mjs';
-import { formatBundleComment, measureDist, measureManifest, moduleScriptSrc } from './page-bundle-size.mjs';
+import {
+    evaluatePageBudget,
+    formatBundleComment,
+    measureDist,
+    measureManifest,
+    moduleScriptSrc,
+} from './page-bundle-size.mjs';
 
 const sizes = {
     'assets/index.js': 10,
@@ -172,6 +178,27 @@ test('module script is the entry when the manifest has no isEntry', () => {
     assert.equal(measured.shell, null);
     assert.equal(measured.search, null);
     assert.equal(measured.home, null);
+});
+
+test('page budget accepts shell and search within the slack', () => {
+    const errors = evaluatePageBudget({ shell: 1_000_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.deepEqual(errors, []);
+});
+
+test('page budget fails when search grows past the slack', () => {
+    const errors = evaluatePageBudget({ shell: 1_000_000, search: 1_200_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /Logged-in search JS is 1200000 bytes gzip/);
+});
+
+test('page budget fails when the shell shrinks, so the ceiling must ratchet down', () => {
+    const errors = evaluatePageBudget({ shell: 800_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.match(errors[0], /Update datahub-web-react\/page-budget.json shell to 800000/);
+});
+
+test('page budget fails closed when a gated route is missing', () => {
+    const errors = evaluatePageBudget({ shell: null, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.match(errors[0], /page-budget.json shell/);
 });
 
 test('comment table has four rows and n/a when a route is missing', () => {
