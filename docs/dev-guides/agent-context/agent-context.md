@@ -33,6 +33,25 @@ An agent that applies descriptions and compliance-related glossary terms to tabl
 
 _"Tag all columns containing email addresses with the PII glossary term across our Snowflake datasets, then show me a coverage report."_
 
+### Decision Governance Agent
+
+An agent that turns an operational recommendation into an evidence-bound
+decision record and revalidates it when its DataHub context changes.
+
+1. **Capture governed evidence** — Retrieve the exact assets, schema fields,
+   ownership, quality signals, and lineage used to produce the recommendation.
+2. **Assess downstream impact** — Trace consumers with `get_lineage` and explain
+   which workflows or owners would be affected by the proposed action.
+3. **Approve and persist** — Require human approval, then use `save_document` to
+   store the decision with its evidence and related asset URNs.
+4. **Revalidate instead of overwrite** — Retrieve fresh context when evidence
+   changes, compare it with the prior snapshot, and create a new pending
+   revision while preserving the original record.
+
+_"Should we reorder inventory for the Northeast region?" → checks the governed
+inventory and forecast assets, calculates the recommendation, records approval,
+and reopens the decision if freshness, schema, or lineage changes._
+
 ## Where Do Your Agents Run?
 
 ### AI Coding Assistants
