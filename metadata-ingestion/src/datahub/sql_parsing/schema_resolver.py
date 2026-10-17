@@ -206,6 +206,17 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
                     self._track_cache_hit()
                     return candidate_urn, schema_info
 
+        if self._prefers_urn_lower():
+            # On a case-insensitive platform the parser hands us a lowercased
+            # name, while the connector may have registered the schema under
+            # the casing it ingested (e.g. a mixed-case `database:` in the
+            # recipe). Match the registered URN so lineage points at the
+            # dataset that exists rather than a lowercased phantom.
+            registered = self._find_registered_urn_case_insensitive(urn_lower)
+            if registered is not None:
+                self._track_cache_hit()
+                return registered
+
         if self.graph:
             # Skip URNs already in cache (None entries included) to avoid repeated API calls.
             urns_to_fetch = [u for u in urns_to_try if u not in self._schema_cache]
@@ -285,6 +296,29 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
     def _prefers_urn_lower(self) -> bool:
         return self.platform not in PLATFORMS_WITH_CASE_SENSITIVE_TABLES
+
+    def _find_registered_urn_case_insensitive(
+        self, urn_lower: str
+    ) -> Optional[Tuple[str, SchemaInfo]]:
+        """A cached schema whose URN equals ``urn_lower`` ignoring case, if any.
+
+        Only the local cache is consulted (never the graph), and only after the
+        exact-case candidates missed, so this costs nothing on the common path.
+        """
+        # `urn_lower` lowercases only the dataset name; the platform and env
+        # segments keep their case, so fold both sides fully.
+        rows = self._schema_cache.sql_query(
+            f"SELECT key FROM {self._schema_cache.tablename} "
+            "WHERE NOT is_missing AND lower(key) = ? LIMIT 1",
+            (urn_lower.lower(),),
+        )
+        if not rows:
+            return None
+        registered_urn = rows[0][0]
+        schema_info = self._schema_cache.get(registered_urn)
+        if schema_info is None:
+            return None
+        return registered_urn, schema_info
 
     def has_urn(self, urn: str) -> bool:
         return self._schema_cache.get(urn) is not None

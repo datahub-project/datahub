@@ -844,6 +844,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
         view_definition: str,
         default_db: Optional[str],
         default_schema: Optional[str],
+        table_level_fallback_upstreams: Optional[List[str]] = None,
     ) -> None:
         """Override to handle ClickHouse materialized views with TO clause.
 
@@ -865,6 +866,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
+                table_level_fallback_upstreams=table_level_fallback_upstreams,
             )
             # Register CLL: SRC → TO (source tables → target table)
             self.aggregator.add_view_definition(
@@ -879,6 +881,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
                 view_definition=view_definition,
                 default_db=default_db,
                 default_schema=default_schema,
+                table_level_fallback_upstreams=table_level_fallback_upstreams,
             )
 
     def _extract_to_table_urn(

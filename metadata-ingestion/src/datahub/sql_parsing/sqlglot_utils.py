@@ -8,6 +8,8 @@ from typing import Dict, Iterable, List, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+from sqlglot.dialects.dialect import NormalizationStrategy
+from sqlglot.dialects.postgres import Postgres
 
 from datahub.configuration.env_vars import get_sql_parse_cache_size
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -16,6 +18,28 @@ from datahub.sql_parsing.sql_parsing_common import get_dialect_str as _get_diale
 assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
+
+
+class Vertica(Postgres):
+    """sqlglot dialect for Vertica, registered as ``vertica`` by sqlglot's metaclass.
+
+    sqlglot ships no Vertica dialect, so without this class every Vertica parse
+    fails with "Unknown dialect" and the SqlParsingAggregator emits no view
+    lineage for the platform. Vertica forked PostgreSQL and kept its grammar
+    (double-quoted identifiers, schema-qualified names, ANSI joins, window
+    functions, ``::`` casts), so the Postgres parser handles the bulk of view
+    definitions. Known mis-parses: Vertica-only clauses such as TIMESERIES and
+    INTERPOLATE, which the aggregator reports under ``views_parse_failures``.
+
+    A subclass rather than a ``get_dialect_str`` mapping onto ``postgres`` so
+    that ``is_dialect_instance(dialect, "vertica")`` is true only for Vertica
+    parses: Vertica identifiers are case-insensitive, quoted or not, and
+    ``DIALECTS_WITH_CASE_INSENSITIVE_COLS`` must not also match Postgres.
+    """
+
+    NORMALIZATION_STRATEGY = NormalizationStrategy.CASE_INSENSITIVE
+
+
 DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
