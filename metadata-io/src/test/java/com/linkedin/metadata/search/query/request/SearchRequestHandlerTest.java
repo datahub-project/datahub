@@ -853,28 +853,62 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
+  /**
+   * Keyword conditions on an unindexed label are left out. Indexed siblings in the same AND stay.
+   */
   @Test
-  public void testV3RejectsExactDescriptionFilter() {
-    Filter filter =
-        new Filter()
-            .setOr(
-                new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                buildCriterion("description", Condition.EQUAL, "daily revenue")))));
+  public void testV3OmitsUnindexedLabelFiltersOtherThanContain() {
+    for (Criterion criterion :
+        List.of(
+            buildCriterion("description", Condition.EQUAL, "daily revenue"),
+            buildCriterion("description", Condition.START_WITH, "daily revenue"),
+            buildCriterion("description", Condition.END_WITH, "daily revenue"),
+            buildCriterion("editedDescription", Condition.EQUAL, "daily revenue"),
+            buildCriterion("fieldDescriptions", Condition.EQUAL, "daily revenue"),
+            buildCriterion("description", Condition.GREATER_THAN, "daily revenue"))) {
+      String query = v3Filter(criterion);
+      assertFalse(query.contains("daily revenue"), criterion + " " + query);
+      assertFalse(query.contains("description.text"), criterion + " " + query);
+      assertFalse(query.contains("description.keyword"), criterion + " " + query);
+    }
 
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            SearchRequestHandler.getFilterQuery(
-                operationContext,
-                List.of("dataset"),
-                filter,
-                new HashMap<>(),
-                QueryFilterRewriteChain.EMPTY,
-                V3_READ_CONFIG.getEntityIndex(),
-                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex())));
+    String platformOnly =
+        v3Filter(buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
+    assertEquals(
+        v3Filter(
+            buildCriterion("description", Condition.EQUAL, "daily revenue"),
+            buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive")),
+        platformOnly);
+    assertEquals(
+        v3Filter(
+            buildCriterion("description", Condition.EQUAL, true, "daily revenue"),
+            buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive")),
+        platformOnly);
+  }
+
+  /** Existence of an unindexed description is the shared hasDescription boolean. */
+  @Test
+  public void testV3UnindexedLabelExistenceUsesHasValuesField() {
+    for (String field : List.of("description", "editedDescription", "fieldDescriptions")) {
+      assertHasDescriptionExistence(v3Filter(buildExistsCriterion(field)), field, false);
+      assertHasDescriptionExistence(v3Filter(buildIsNullCriterion(field)), field, true);
+    }
+  }
+
+  private static void assertHasDescriptionExistence(
+      String query, String sourceField, boolean missing) {
+    int fieldAt = query.indexOf("\"field\" : \"hasDescription\"");
+    assertTrue(fieldAt > 0, sourceField + " " + query);
+    String around = query.substring(Math.max(0, fieldAt - 120), fieldAt);
+    assertTrue(around.contains("\"exists\""), sourceField + " " + around);
+    if (missing) {
+      assertTrue(around.contains("must_not"), sourceField + " " + around);
+    } else {
+      assertFalse(around.contains("must_not"), sourceField + " " + around);
+    }
+    assertTrue(query.contains("\"_name\" : \"" + sourceField + "\""), sourceField + " " + query);
+    assertFalse(query.contains("description.text"), query);
+    assertFalse(query.contains("description.keyword"), query);
   }
 
   @Test
@@ -1002,12 +1036,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 List.of()));
   }
 
-  private String v3Filter(Criterion criterion) {
+  private String v3Filter(Criterion... criteria) {
     Filter filter =
         new Filter()
             .setOr(
                 new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+                    new ConjunctiveCriterion().setAnd(new CriterionArray(List.of(criteria)))));
     return SearchRequestHandler.getFilterQuery(
             operationContext,
             List.of("dataset"),

@@ -505,14 +505,17 @@ public class ESUtils {
             .forEach(
                 criterion -> {
                   if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
-                    andQueryBuilder.must(
+                    QueryBuilder query =
                         getQueryBuilderFromCriterion(
                             criterion,
                             isTimeseries,
                             searchableFieldTypes,
                             opContext,
                             queryFilterRewriteChain,
-                            v3FieldResolver));
+                            v3FieldResolver);
+                    if (query != null) {
+                      andQueryBuilder.must(query);
+                    }
                   }
                 });
         finalQueryBuilder.should(andQueryBuilder);
@@ -562,25 +565,22 @@ public class ESUtils {
             criterion -> {
               if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
                   || criterion.hasValues()) {
+                QueryBuilder query =
+                    getQueryBuilderFromCriterion(
+                        criterion,
+                        isTimeseries,
+                        searchableFieldTypes,
+                        opContext,
+                        queryFilterRewriteChain,
+                        v3FieldResolver);
+                if (query == null) {
+                  return;
+                }
                 if (!criterion.isNegated()) {
                   // `filter` instead of `must` (enables caching and bypasses scoring)
-                  andQueryBuilder.filter(
-                      getQueryBuilderFromCriterion(
-                          criterion,
-                          isTimeseries,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain,
-                          v3FieldResolver));
+                  andQueryBuilder.filter(query);
                 } else {
-                  andQueryBuilder.mustNot(
-                      getQueryBuilderFromCriterion(
-                          criterion,
-                          isTimeseries,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain,
-                          v3FieldResolver));
+                  andQueryBuilder.mustNot(query);
                 }
               }
             });
@@ -625,7 +625,12 @@ public class ESUtils {
         criterion, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain, null);
   }
 
-  @Nonnull
+  /**
+   * Returns null when a registered Search V3 field cannot answer the condition. An unindexed label
+   * such as {@code description} answers {@code EXISTS} and {@code IS_NULL} through its hasValues
+   * field and is left out for every other condition except {@code CONTAIN}.
+   */
+  @Nullable
   public static QueryBuilder getQueryBuilderFromCriterion(
       @Nonnull final Criterion criterion,
       boolean isTimeseries,
@@ -654,12 +659,20 @@ public class ESUtils {
     } else if (resolvedForV3) {
       Intent intent =
           RANGE_QUERY_CONDITIONS.contains(criterion.getCondition()) ? Intent.RANGE : Intent.FILTER;
-      effectiveCriterion =
-          buildCriterion(
-              v3FieldResolver.exactPath(criterion.getField(), intent),
-              criterion.getCondition(),
-              criterion.isNegated(),
-              criterion.hasValues() ? criterion.getValues() : null);
+      if (v3FieldResolver.supports(criterion.getField(), intent)) {
+        effectiveCriterion =
+            buildCriterion(
+                v3FieldResolver.exactPath(criterion.getField(), intent),
+                criterion.getCondition(),
+                criterion.isNegated(),
+                criterion.hasValues() ? criterion.getValues() : null);
+      } else {
+        Criterion rewritten = unindexedV3Criterion(v3FieldResolver, criterion);
+        if (rewritten == null) {
+          return null;
+        }
+        effectiveCriterion = rewritten;
+      }
     } else {
       effectiveCriterion = criterion;
     }
@@ -705,6 +718,31 @@ public class ESUtils {
         opContext,
         queryFilterRewriteChain,
         resolvedForV3);
+  }
+
+  /**
+   * An unindexed label is searchable text. Existence uses the label's hasValues boolean. Every
+   * other condition has no indexed value to match, so the criterion is left out of the query.
+   */
+  @Nullable
+  private static Criterion unindexedV3Criterion(
+      @Nonnull SearchFieldResolver resolver, @Nonnull Criterion criterion) {
+    if (criterion.getCondition() == Condition.EXISTS
+        || criterion.getCondition() == Condition.IS_NULL) {
+      Optional<String> hasValues = resolver.hasValuesFieldName(criterion.getField());
+      if (hasValues.isPresent()) {
+        return buildCriterion(
+            hasValues.get(),
+            criterion.getCondition(),
+            criterion.isNegated(),
+            criterion.hasValues() ? criterion.getValues() : null);
+      }
+    }
+    log.debug(
+        "Omitting Search V3 {} filter on {}: the field is not indexed for that condition",
+        criterion.getCondition(),
+        criterion.getField());
+    return null;
   }
 
   /**

@@ -44,6 +44,28 @@ public class SearchFieldResolverTest {
         IllegalArgumentException.class, () -> resolver.exactPath("description", Intent.FILTER));
     assertThrows(
         IllegalArgumentException.class, () -> resolver.exactPath("editedDescription", Intent.SORT));
+    assertEquals(resolver.hasValuesFieldName("description"), Optional.empty());
+  }
+
+  @Test
+  public void testUnindexedLabelExposesSharedHasValuesField() {
+    List<FieldMapping> description =
+        List.of(
+            FieldMapping.root(FieldMapping.Type.KEYWORD, false, false),
+            FieldMapping.subfield("text", FieldMapping.Type.TEXT),
+            FieldMapping.subfield("stemmed", FieldMapping.Type.STEMMED));
+    SearchFieldResolver resolver =
+        resolver(
+            field("description", "description", description, "hasDescription"),
+            field("editedDescription", "description", description, "hasDescription"),
+            field("fieldDescriptions", "description", description, "hasDescription"));
+
+    assertEquals(resolver.hasValuesFieldName("description"), Optional.of("hasDescription"));
+    assertEquals(resolver.hasValuesFieldName("editedDescription"), Optional.of("hasDescription"));
+    assertEquals(resolver.hasValuesFieldName("fieldDescriptions"), Optional.of("hasDescription"));
+    assertEquals(resolver.hasValuesFieldName("hasDescription"), Optional.empty());
+    assertTrue(resolver.supports("hasDescription", Intent.FILTER));
+    assertEquals(resolver.exactPath("hasDescription", Intent.FILTER), "hasDescription");
   }
 
   @Test
@@ -127,7 +149,15 @@ public class SearchFieldResolverTest {
 
   private static SearchableFieldSpec field(
       String fieldName, String searchLabel, List<FieldMapping> mappings) {
-    return field(fieldName, searchLabel, mappings, List.of(), false);
+    return field(fieldName, searchLabel, mappings, List.of(), false, null);
+  }
+
+  private static SearchableFieldSpec field(
+      String fieldName,
+      String searchLabel,
+      List<FieldMapping> mappings,
+      String hasValuesFieldName) {
+    return field(fieldName, searchLabel, mappings, List.of(), false, hasValuesFieldName);
   }
 
   private static SearchableFieldSpec field(
@@ -136,6 +166,16 @@ public class SearchFieldResolverTest {
       List<FieldMapping> mappings,
       List<String> aliases,
       boolean enableAutocomplete) {
+    return field(fieldName, searchLabel, mappings, aliases, enableAutocomplete, null);
+  }
+
+  private static SearchableFieldSpec field(
+      String fieldName,
+      String searchLabel,
+      List<FieldMapping> mappings,
+      List<String> aliases,
+      boolean enableAutocomplete,
+      String hasValuesFieldName) {
     SearchableAnnotation annotation = mock(SearchableAnnotation.class);
     when(annotation.isV3Searchable()).thenReturn(true);
     when(annotation.resolvedForV3()).thenReturn(annotation);
@@ -143,7 +183,7 @@ public class SearchFieldResolverTest {
     when(annotation.getFieldNameAliases()).thenReturn(aliases);
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.empty());
-    when(annotation.getHasValuesFieldName()).thenReturn(Optional.empty());
+    when(annotation.getHasValuesFieldName()).thenReturn(Optional.ofNullable(hasValuesFieldName));
     when(annotation.getNumValuesFieldName()).thenReturn(Optional.empty());
     when(annotation.getV3Mappings()).thenReturn(mappings);
     when(annotation.isEnableAutocomplete()).thenReturn(enableAutocomplete);

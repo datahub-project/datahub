@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Value;
 
 /**
@@ -58,6 +59,7 @@ public final class SearchFieldResolver {
                       ignored -> new MutableField(annotation.getFieldName()));
               source.addRoot(root);
               source.addSource(annotation.getFieldName());
+              annotation.getHasValuesFieldName().ifPresent(source::setHasValues);
               Optional.ofNullable(annotation.getFieldNameAliases())
                   .orElse(List.of())
                   .forEach(
@@ -108,6 +110,7 @@ public final class SearchFieldResolver {
               .forEach(
                   annotation -> {
                     field.addSource(annotation.getFieldName());
+                    annotation.getHasValuesFieldName().ifPresent(field::setHasValues);
                     byName.put(annotation.getFieldName(), field);
                     Optional.ofNullable(annotation.getFieldNameAliases())
                         .orElse(List.of())
@@ -133,6 +136,19 @@ public final class SearchFieldResolver {
   /** A shared-label hasValues field stores only true. False is the field being missing. */
   public boolean falseIsMissing(@Nonnull String fieldName) {
     return sharedHasValues.contains(parent(fieldName));
+  }
+
+  /**
+   * The boolean a label writes when a source is populated, such as {@code hasDescription} for
+   * {@code description}. Empty when the field declares none.
+   */
+  @Nonnull
+  public Optional<String> hasValuesFieldName(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null || field.getHasValuesFieldName() == null) {
+      return Optional.empty();
+    }
+    return Optional.of(field.getHasValuesFieldName());
   }
 
   public boolean contains(@Nonnull String fieldName) {
@@ -226,6 +242,7 @@ public final class SearchFieldResolver {
     @Nonnull Set<String> subfields;
     @Nonnull Set<String> sourceFields;
     @Nonnull Set<Intent> supportedIntents;
+    @Nullable String hasValuesFieldName;
 
     boolean supports(Intent intent) {
       return supportedIntents.contains(intent);
@@ -237,6 +254,7 @@ public final class SearchFieldResolver {
     private FieldMapping root;
     private final Set<String> subfields = new LinkedHashSet<>();
     private final Set<String> sources = new LinkedHashSet<>();
+    private String hasValuesFieldName;
 
     private MutableField(String path) {
       this.path = path;
@@ -258,12 +276,29 @@ public final class SearchFieldResolver {
       sources.add(source);
     }
 
+    private void setHasValues(String name) {
+      if (hasValuesFieldName != null && !hasValuesFieldName.equals(name)) {
+        throw new IllegalArgumentException(
+            "Search V3 field '"
+                + path
+                + "' declares both '"
+                + hasValuesFieldName
+                + "' and '"
+                + name
+                + "' as hasValuesFieldName");
+      }
+      hasValuesFieldName = name;
+    }
+
     private void merge(MutableField source) {
       if (source.root != null) {
         addRoot(source.root);
       }
       subfields.addAll(source.subfields);
       sources.addAll(source.sources);
+      if (source.hasValuesFieldName != null) {
+        setHasValues(source.hasValuesFieldName);
+      }
     }
 
     private Field toField() {
@@ -295,7 +330,8 @@ public final class SearchFieldResolver {
           resolvedRoot.getType() == Type.KEYWORD && resolvedRoot.isIndex(),
           Set.copyOf(subfields),
           Set.copyOf(sources),
-          Set.copyOf(intents));
+          Set.copyOf(intents),
+          hasValuesFieldName);
     }
   }
 }
