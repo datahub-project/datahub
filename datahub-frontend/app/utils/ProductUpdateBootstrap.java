@@ -36,9 +36,16 @@ public final class ProductUpdateBootstrap {
       return "";
     }
     String encoded =
-        json.toString().replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029");
+        json.toString()
+            .replace("<", "\\u003c")
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029");
     StringBuilder html = new StringBuilder();
-    html.append("<script>window.").append(WINDOW_KEY).append("=").append(encoded).append(";</script>");
+    html.append("<script>window.")
+        .append(WINDOW_KEY)
+        .append("=")
+        .append(encoded)
+        .append(";</script>");
     String image = json.path("image").asText("");
     if (isPreloadableImage(image)) {
       html.append("<link rel=\"preload\" as=\"image\" href=\"")

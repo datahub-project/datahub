@@ -128,12 +128,14 @@ public class Application extends Controller {
       return "";
     }
     long now = System.currentTimeMillis();
-    if (productUpdateFetchedAtMs != 0 && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
+    if (productUpdateFetchedAtMs != 0
+        && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
       return productUpdateSnippet;
     }
     synchronized (this) {
       now = System.currentTimeMillis();
-      if (productUpdateFetchedAtMs != 0 && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
+      if (productUpdateFetchedAtMs != 0
+          && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
         return productUpdateSnippet;
       }
       try {
@@ -142,7 +144,8 @@ public class Application extends Controller {
                 .timeout(Duration.ofSeconds(2))
                 .GET()
                 .build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response =
+            httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() >= 200 && response.statusCode() < 300) {
           productUpdateSnippet = ProductUpdateBootstrap.snippet(response.body());
         } else {
