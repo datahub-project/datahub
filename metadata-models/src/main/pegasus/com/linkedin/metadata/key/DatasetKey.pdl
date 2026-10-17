@@ -15,7 +15,10 @@ record DatasetKey {
   */
   @Searchable = {
     "fieldType": "URN",
-    "enableAutocomplete": true
+    "enableAutocomplete": true,
+    "v3": {
+      "searchLabel": "platform"
+    }
   }
   platform: Urn
 

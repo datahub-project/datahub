@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -95,11 +96,7 @@ public final class SearchFieldResolver {
     byLabel.forEach(
         (label, contributors) -> {
           List<List<FieldMapping>> mappings =
-              contributors.stream()
-                  .map(SearchableFieldSpec::getSearchableAnnotation)
-                  .map(SearchableAnnotation::resolvedForV3)
-                  .map(FieldMapping::of)
-                  .toList();
+              contributors.stream().map(V3SearchFields::labelMappings).toList();
           FieldMapping.Resolved resolved = FieldMapping.union(label, mappings);
           MutableField field = byName.computeIfAbsent(label, MutableField::new);
           field.addRoot(resolved.getRoot());
@@ -126,6 +123,29 @@ public final class SearchFieldResolver {
         byName.put(field, direct);
       }
     }
+    parsedKeywordPaths(entitySpecs)
+        .forEach(
+            (name, paths) -> {
+              MutableField field =
+                  byName.computeIfAbsent(
+                      name,
+                      key -> {
+                        MutableField created = new MutableField(key);
+                        created.addRoot(FieldMapping.root(Type.KEYWORD, false, false));
+                        created.addSubfield(FieldMapping.subfield(V3SearchFields.TEXT, Type.TEXT));
+                        created.addSubfield(
+                            FieldMapping.subfield(V3SearchFields.STEMMED, Type.STEMMED));
+                        return created;
+                      });
+              field.parsedExactPaths.addAll(paths);
+              if (V3SearchFields.isParsedUrnRoot(name, entitySpecs)) {
+                field.parsedKeywordLabel = true;
+                if (V3SearchFields.urnRootHasAnalyzers(name, entitySpecs)) {
+                  field.addSubfield(FieldMapping.subfield(V3SearchFields.TEXT, Type.TEXT));
+                  field.addSubfield(FieldMapping.subfield(V3SearchFields.STEMMED, Type.STEMMED));
+                }
+              }
+            });
 
     Map<String, Field> resolved = new LinkedHashMap<>();
     byName.forEach((name, field) -> resolved.put(name, field.toField()));
@@ -185,6 +205,13 @@ public final class SearchFieldResolver {
   @Nonnull
   public String exactPath(@Nonnull String fieldName, @Nonnull Intent intent) {
     Field field = resolve(fieldName, intent);
+    // The logical field stores the parsed name. The complete URN is the <field>_urn sibling.
+    if (field.isParsedKeywordLabel()) {
+      if (intent == Intent.EXACT || intent == Intent.FULL_TEXT) {
+        return field.getPath();
+      }
+      return V3SearchFields.fullUrnField(field.getPath());
+    }
     return field.isKeywordSubfield() && intent != Intent.SORT
         ? field.getPath() + ".keyword"
         : field.getPath();
@@ -211,34 +238,126 @@ public final class SearchFieldResolver {
     return List.copyOf(paths);
   }
 
+  /**
+   * Case-folded complete URN. A parsed root reads {@code <field>_urn.lowercase}. The document URN
+   * reads {@code urn.lowercase}, and its parsed identity reads {@code urn_name.lowercase}. Empty
+   * when the field has no case-folded URN.
+   */
+  @Nonnull
+  public String lowercaseFullUrnPath(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null) {
+      return "";
+    }
+    if (field.isParsedKeywordLabel()) {
+      return V3SearchFields.fullUrnLowercaseField(field.getPath());
+    }
+    if (MappingConstants.URN_FIELD.equals(field.getPath())
+        || MappingConstants.URN_NAME_FIELD.equals(field.getPath())) {
+      return field.getPath() + "." + V3SearchFields.LOWERCASE;
+    }
+    return "";
+  }
+
+  /**
+   * Parsed keywords exact match reads for this field. A URN root points at the logical field,
+   * including a field such as {@code owners} that has no analyzers. {@code other} points at each
+   * contributing aspect keyword.
+   */
+  @Nonnull
+  public List<String> parsedKeywordPaths(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null) {
+      return List.of();
+    }
+    return field.getParsedExactPaths();
+  }
+
+  /**
+   * Exact keywords for a full-text URN. A URN label points at the parsed root. {@code other} points
+   * at each contributing aspect keyword.
+   */
+  @Nonnull
+  private static Map<String, List<String>> parsedKeywordPaths(
+      @Nonnull Collection<EntitySpec> entitySpecs) {
+    Map<String, List<String>> paths = new LinkedHashMap<>();
+    for (EntitySpec entity : entitySpecs) {
+      if (entity.getAspectSpecs() == null) {
+        continue;
+      }
+      for (AspectSpec aspect : entity.getAspectSpecs()) {
+        for (SearchableFieldSpec spec : aspect.getSearchableFieldSpecs()) {
+          if (!V3SearchFields.contributesParsedUrn(spec)) {
+            continue;
+          }
+          String fieldName = spec.getSearchableAnnotation().resolvedForV3().getFieldName();
+          String aspectParsed =
+              MappingConstants.ASPECTS_FIELD_NAME
+                  + "."
+                  + aspect.getName()
+                  + "."
+                  + V3SearchFields.parsedUrnField(fieldName);
+          List<String> destinations = V3SearchFields.parsedNameDestinations(spec, entitySpecs);
+          if (destinations.isEmpty()) {
+            if (!V3SearchFields.contributesFullTextUrn(spec)) {
+              continue;
+            }
+            destinations = List.of(fieldName);
+          }
+          for (String destination : destinations) {
+            boolean parsedRoot = V3SearchFields.isParsedUrnRoot(destination, entitySpecs);
+            String exact = parsedRoot ? destination : aspectParsed;
+            List<String> exactPaths =
+                paths.computeIfAbsent(destination, ignored -> new ArrayList<>());
+            if (!exactPaths.contains(exact)) {
+              exactPaths.add(exact);
+            }
+          }
+        }
+      }
+    }
+    return paths;
+  }
+
   @Nonnull
   public Set<String> sourceFields(@Nonnull String fieldName) {
     return resolve(fieldName, Intent.FILTER).getSourceFields();
   }
 
   private static String parent(String fieldName) {
-    for (String suffix :
-        List.of(
-            ".keyword",
-            "." + V3SearchFields.TEXT,
-            "." + V3SearchFields.STEMMED,
-            ".ngram",
-            ".delimited",
-            ".wordGrams2")) {
-      if (fieldName.endsWith(suffix)) {
-        return fieldName.substring(0, fieldName.length() - suffix.length());
+    String current = fieldName;
+    boolean stripped = true;
+    while (stripped) {
+      stripped = false;
+      for (String suffix :
+          List.of(
+              ".keyword",
+              "." + V3SearchFields.TEXT,
+              "." + V3SearchFields.STEMMED,
+              "." + V3SearchFields.PARSED_KEYWORD,
+              "." + V3SearchFields.LOWERCASE,
+              ".ngram",
+              ".delimited",
+              ".wordGrams2")) {
+        if (current.endsWith(suffix) && current.length() > suffix.length()) {
+          current = current.substring(0, current.length() - suffix.length());
+          stripped = true;
+          break;
+        }
       }
     }
-    return fieldName;
+    return current;
   }
 
   @Value
   public static class Field {
     @Nonnull String path;
+    @Nonnull List<String> parsedExactPaths;
     @Nonnull Type rootType;
     boolean indexed;
     boolean docValues;
     boolean keywordSubfield;
+    boolean parsedKeywordLabel;
     @Nonnull Set<String> subfields;
     @Nonnull Set<String> sourceFields;
     @Nonnull Set<Intent> supportedIntents;
@@ -252,6 +371,8 @@ public final class SearchFieldResolver {
   private static final class MutableField {
     private final String path;
     private FieldMapping root;
+    private boolean parsedKeywordLabel;
+    private final List<String> parsedExactPaths = new ArrayList<>();
     private final Set<String> subfields = new LinkedHashSet<>();
     private final Set<String> sources = new LinkedHashSet<>();
     private String hasValuesFieldName;
@@ -324,10 +445,12 @@ public final class SearchFieldResolver {
       }
       return new Field(
           path,
+          List.copyOf(parsedExactPaths),
           resolvedRoot.getType(),
           resolvedRoot.isIndex(),
           resolvedRoot.isDocValues(),
           resolvedRoot.getType() == Type.KEYWORD && resolvedRoot.isIndex(),
+          parsedKeywordLabel,
           Set.copyOf(subfields),
           Set.copyOf(sources),
           Set.copyOf(intents),

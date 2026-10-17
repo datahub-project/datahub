@@ -18,6 +18,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.Customize
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
@@ -1483,7 +1485,12 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     // Non-core fields still get recall via SQS clauses.
     SearchFieldResolver v3FieldResolver = resolver(entitySpecs);
     uniqueFields.values().stream()
-        .filter(cfg -> EXACT_MATCH_CORE_FIELDS.contains(cfg.shortName()))
+        .filter(
+            cfg ->
+                EXACT_MATCH_CORE_FIELDS.contains(cfg.shortName())
+                    || cfg.fieldName().contains(V3SearchFields.PARSED_URN_SUFFIX)
+                    || cfg.fieldName().contains(StructuredPropertyUrnIdentity.FIELD_SUFFIX)
+                    || !v3FieldResolver.parsedKeywordPaths(baseName(cfg.fieldName())).isEmpty())
         .filter(
             cfg ->
                 !v3FieldResolver.contains(cfg.fieldName())
@@ -1500,7 +1507,9 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
               if (searchFieldConfig.isDelimitedSubfield()
                   && !searchFieldConfig.isWordGramSubfield()
                   && isPrefixQuery
-                  && !PREFIX_MATCH_EXCLUDED_FIELDS.contains(searchFieldConfig.fieldName())) {
+                  && !PREFIX_MATCH_EXCLUDED_FIELDS.contains(searchFieldConfig.fieldName())
+                  && (searchFieldConfig.fieldName().startsWith("name.")
+                      || searchFieldConfig.fieldName().startsWith("qualifiedName."))) {
                 disMaxQuery.add(
                     QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
                         .maxExpansions(prefixExpansions)
@@ -1544,79 +1553,85 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
               boolean canExactMatch =
                   !searchFieldConfig.isWordGramSubfield()
                       && (searchFieldConfig.isKeyword() || searchFieldConfig.hasKeywordSubfield());
-              if (canExactMatch && isExactQuery) {
-                // Use .keyword subfield for non-keyword fields (preserves case info)
-                String keywordField =
-                    v3FieldResolver.contains(searchFieldConfig.fieldName())
-                        ? v3FieldResolver.exactPath(searchFieldConfig.fieldName(), Intent.EXACT)
-                        : ESUtils.toKeywordField(
-                            null,
-                            searchFieldConfig.fieldName(),
-                            false,
-                            opContext.getAspectRetriever());
+              if (isExactQuery) {
+                List<String> keywordFields =
+                    exactKeywordFields(
+                        v3FieldResolver,
+                        searchFieldConfig,
+                        canExactMatch,
+                        opContext.getAspectRetriever());
+                for (String keywordField : keywordFields) {
+                  // A term query does not run keyword_normalizer. Fold values for fields that store
+                  // the normalized token; caseInsensitive does not ASCII-fold.
+                  final String termValue =
+                      exactTermValue(v3FieldResolver, keywordField, unquotedQuery);
+                  // Exact match case-sensitive via keyword field (highest boost).
+                  if (caseSensitivityEnabled) {
+                    disMaxQuery.add(
+                        QueryBuilders.termQuery(keywordField, termValue)
+                            .caseInsensitive(false)
+                            .boost(
+                                searchFieldConfig.boost()
+                                    * exactMatchConfiguration.getExactFactor()
+                                    * EXACT_MATCH_BOOST_MULTIPLIER)
+                            .queryName(searchFieldConfig.shortName()));
+                  }
 
-                // Exact match case-sensitive via keyword field (highest boost).
-                if (caseSensitivityEnabled) {
+                  // Exact match case-insensitive
                   disMaxQuery.add(
-                      QueryBuilders.termQuery(keywordField, unquotedQuery)
-                          .caseInsensitive(false)
+                      QueryBuilders.termQuery(keywordField, termValue)
+                          .caseInsensitive(true)
                           .boost(
                               searchFieldConfig.boost()
                                   * exactMatchConfiguration.getExactFactor()
+                                  * caseSensitivityFactor
                                   * EXACT_MATCH_BOOST_MULTIPLIER)
-                          .queryName(searchFieldConfig.shortName()));
+                          .queryName(searchFieldConfig.fieldName()));
+
+                  // IDF-independent constant-score boost for name/title exact matches.
+                  // Cross-entity searches suffer from IDF disparities: charts/dashboards with
+                  // exact name matches can score below datasets with prefix matches because
+                  // dataset documents have different term frequencies. A constant_score keeps an
+                  // exact name match above every partial match.
+                  if (EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())
+                      && keywordField.equals(keywordFields.get(0))) {
+                    disMaxQuery.add(
+                        QueryBuilders.constantScoreQuery(
+                                QueryBuilders.termQuery(keywordField, termValue)
+                                    .caseInsensitive(true))
+                            .boost(EXACT_NAME_CONSTANT_BOOST));
+                  }
                 }
+                if (!keywordFields.isEmpty()) {
+                  String keywordField = keywordFields.get(0);
 
-                // Exact match case-insensitive
-                disMaxQuery.add(
-                    QueryBuilders.termQuery(keywordField, unquotedQuery)
-                        .caseInsensitive(true)
-                        .boost(
-                            searchFieldConfig.boost()
-                                * exactMatchConfiguration.getExactFactor()
-                                * caseSensitivityFactor
-                                * EXACT_MATCH_BOOST_MULTIPLIER)
-                        .queryName(searchFieldConfig.fieldName()));
-
-                // IDF-independent constant-score boost for name/title exact matches.
-                // Cross-entity searches suffer from IDF disparities: charts/dashboards with
-                // exact name matches can score below datasets with prefix matches because
-                // dataset documents have different term frequencies. A constant_score keeps an
-                // exact name match above every partial match.
-                if (EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
-                  disMaxQuery.add(
-                      QueryBuilders.constantScoreQuery(
-                              QueryBuilders.termQuery(keywordField, unquotedQuery)
-                                  .caseInsensitive(true))
-                          .boost(EXACT_NAME_CONSTANT_BOOST));
-                }
-
-                // Synonym-expanded exact match on name/title keyword fields only.
-                // Term queries on keyword fields don't go through any analyzer, so synonym
-                // pairs (e.g., "stg"/"staging") fail to match. We expand synonyms only for
-                // name/title fields to keep the clause count under ES's max_clause_count (1024).
-                // Other keyword fields (qualifiedName, id, etc.) get synonym coverage through
-                // their analyzed (non-keyword) counterparts.
-                if (!quoted && EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
-                  Set<String> synonyms = getSynonymMap().get(unquotedQuery.toLowerCase());
-                  if (synonyms != null) {
-                    for (String synonym : synonyms) {
-                      if (!synonym.equalsIgnoreCase(unquotedQuery)
-                          && isSameName(unquotedQuery, synonym)) {
-                        disMaxQuery.add(
-                            QueryBuilders.termQuery(keywordField, synonym)
-                                .caseInsensitive(true)
-                                .boost(
-                                    searchFieldConfig.boost()
-                                        * exactMatchConfiguration.getExactFactor()
-                                        * caseSensitivityFactor
-                                        * EXACT_MATCH_BOOST_MULTIPLIER)
-                                .queryName(searchFieldConfig.fieldName()));
-                        disMaxQuery.add(
-                            QueryBuilders.constantScoreQuery(
-                                    QueryBuilders.termQuery(keywordField, synonym)
-                                        .caseInsensitive(true))
-                                .boost(EXACT_NAME_CONSTANT_BOOST));
+                  // Synonym-expanded exact match on name/title keyword fields only.
+                  // Term queries on keyword fields don't go through any analyzer, so synonym
+                  // pairs (e.g., "stg"/"staging") fail to match. We expand synonyms only for
+                  // name/title fields to keep the clause count under ES's max_clause_count (1024).
+                  // Other keyword fields (qualifiedName, id, etc.) get synonym coverage through
+                  // their analyzed (non-keyword) counterparts.
+                  if (!quoted && EXACT_NAME_BOOST_FIELDS.contains(searchFieldConfig.shortName())) {
+                    Set<String> synonyms = getSynonymMap().get(unquotedQuery.toLowerCase());
+                    if (synonyms != null) {
+                      for (String synonym : synonyms) {
+                        if (!synonym.equalsIgnoreCase(unquotedQuery)
+                            && isSameName(unquotedQuery, synonym)) {
+                          disMaxQuery.add(
+                              QueryBuilders.termQuery(keywordField, synonym)
+                                  .caseInsensitive(true)
+                                  .boost(
+                                      searchFieldConfig.boost()
+                                          * exactMatchConfiguration.getExactFactor()
+                                          * caseSensitivityFactor
+                                          * EXACT_MATCH_BOOST_MULTIPLIER)
+                                  .queryName(searchFieldConfig.fieldName()));
+                          disMaxQuery.add(
+                              QueryBuilders.constantScoreQuery(
+                                      QueryBuilders.termQuery(keywordField, synonym)
+                                          .caseInsensitive(true))
+                                  .boost(EXACT_NAME_CONSTANT_BOOST));
+                        }
                       }
                     }
                   }
@@ -1794,7 +1809,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         structuredPropertySearchCatalog.indexed(opContext, entitySpecs)) {
       if (V3SearchFields.copyDestinations(entitySpecs, property.copyTo()).stream()
           .anyMatch(searched::contains)) {
-        fields.add(property.fieldPath());
+        fields.add(property.fullTextPath());
       }
     }
     return fields;
@@ -1952,11 +1967,13 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     for (String name : fullTextFields.keySet()) {
       final Set<String> subfields = analyzerSubfields.getOrDefault(name, Set.of());
       final float boost = weight(name) * partialConfiguration.getFactor();
+      final String indexed = name;
       if (subfields.contains(TEXT)) {
-        fields.add(sharedField(name, TEXT, TEXT_SEARCH_ANALYZER, boost));
+        fields.add(sharedField(indexed, name, TEXT, TEXT_SEARCH_ANALYZER, boost));
       }
       if (subfields.contains(STEMMED)) {
-        fields.add(sharedField(name, STEMMED, STEMMED_SEARCH_ANALYZER, boost * STEMMED_FACTOR));
+        fields.add(
+            sharedField(indexed, name, STEMMED, STEMMED_SEARCH_ANALYZER, boost * STEMMED_FACTOR));
       }
     }
     final float factor = partialConfiguration.getFactor();
@@ -1965,6 +1982,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       fields.add(
           propertyField(
               property.fieldPath(),
+              property.fullTextPath(),
               TEXT,
               TEXT_SEARCH_ANALYZER,
               property.textWeight() * factor,
@@ -1972,6 +1990,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       fields.add(
           propertyField(
               property.fieldPath(),
+              property.fullTextPath(),
               STEMMED,
               STEMMED_SEARCH_ANALYZER,
               property.stemmedWeight() * factor,
@@ -2027,14 +2046,17 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   private static SearchFieldConfig propertyField(
       @Nonnull final String fieldPath,
+      @Nonnull final String fullTextPath,
       @Nonnull final String subfield,
       @Nonnull final String analyzer,
       final float boost,
       final boolean queryByDefault) {
     return SearchFieldConfig.builder()
-        .fieldName(fieldPath + "." + subfield)
+        .fieldName(fullTextPath + "." + subfield)
         // The property path, so a name-focused light query does not treat it as a name field and
-        // a field configuration can name this property without collapsing to the category
+        // a field configuration can name this property without collapsing to the category. A URN
+        // property's analyzed fields live on the identity sibling; the short name stays the
+        // property path.
         .shortName(fieldPath)
         .isDelimitedSubfield(true)
         .boost(boost)
@@ -2142,15 +2164,16 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
 
   @Nonnull
   private static SearchFieldConfig sharedField(
-      @Nonnull final String name,
+      @Nonnull final String indexedName,
+      @Nonnull final String shortName,
       @Nonnull final String subfield,
       @Nonnull final String analyzer,
       final float boost) {
     return SearchFieldConfig.builder()
-        .fieldName(path(name) + "." + subfield)
+        .fieldName(path(indexedName) + "." + subfield)
         // After the field name, which resets them: the Stage 1 query picks its name and analyzed
         // clauses by these
-        .shortName(STAGE_1_NAMES.getOrDefault(name, name))
+        .shortName(STAGE_1_NAMES.getOrDefault(shortName, shortName))
         .isDelimitedSubfield(true)
         .boost(boost)
         .analyzer(analyzer)
@@ -2249,5 +2272,70 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   private static String textField(@Nonnull final String field) {
     return path(field) + "." + TEXT;
+  }
+
+  /**
+   * Keyword fields the exact boost term-queries. A parsed URN root term-queries the logical field.
+   * {@code other} term-queries each contributing {@code __urn_name}. A structured-property text
+   * field term-queries {@code __urn_name.lowercase}.
+   */
+  @Nonnull
+  private List<String> exactKeywordFields(
+      @Nonnull final SearchFieldResolver v3FieldResolver,
+      @Nonnull final SearchFieldConfig searchFieldConfig,
+      final boolean canExactMatch,
+      @Nullable final AspectRetriever aspectRetriever) {
+    final List<String> keywordFields = new ArrayList<>();
+    final String fieldName = searchFieldConfig.fieldName();
+    if (canExactMatch) {
+      keywordFields.add(
+          v3FieldResolver.contains(fieldName)
+              ? v3FieldResolver.exactPath(fieldName, Intent.EXACT)
+              : ESUtils.toKeywordField(null, fieldName, false, aspectRetriever));
+    }
+    if (v3FieldResolver != null && fieldName.endsWith("." + TEXT)) {
+      for (String parsed : v3FieldResolver.parsedKeywordPaths(baseName(fieldName))) {
+        if (!keywordFields.contains(parsed)) {
+          keywordFields.add(parsed);
+        }
+      }
+    }
+    if (fieldName.contains(StructuredPropertyUrnIdentity.FIELD_SUFFIX)
+        && fieldName.endsWith("." + TEXT)) {
+      final String lowercase =
+          fieldName.substring(0, fieldName.length() - TEXT.length() - 1)
+              + "."
+              + V3SearchFields.LOWERCASE;
+      if (!keywordFields.contains(lowercase)) {
+        keywordFields.add(lowercase);
+      }
+    }
+    if (fieldName.contains(V3SearchFields.PARSED_URN_SUFFIX) && fieldName.endsWith("." + TEXT)) {
+      final String sibling = fieldName.substring(0, fieldName.length() - TEXT.length() - 1);
+      if (!keywordFields.contains(sibling)) {
+        keywordFields.add(sibling);
+      }
+    }
+    return keywordFields;
+  }
+
+  /**
+   * Value of an exact-match term. Normalized keywords and {@code .lowercase} store the
+   * keyword_normalizer token, so the term has to be folded first. A case-preserving keyword, such
+   * as {@code name.keyword} or a structured-property {@code __urn_name}, keeps the query text.
+   */
+  @Nonnull
+  private static String exactTermValue(
+      @Nonnull final SearchFieldResolver resolver,
+      @Nonnull final String field,
+      @Nonnull final String query) {
+    if (field.endsWith("." + V3SearchFields.LOWERCASE)
+        || (!StructuredPropertyUtils.isStructuredPropertyField(field)
+            && (field.contains(V3SearchFields.PARSED_URN_SUFFIX)
+                || (resolver.contains(field)
+                    && resolver.resolve(field, Intent.EXACT).isParsedKeywordLabel())))) {
+      return ESUtils.keywordNormalize(query);
+    }
+    return query;
   }
 }

@@ -3,9 +3,11 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -84,6 +86,7 @@ public class SearchFieldResolverTest {
     assertEquals(resolver.exactPath("name", Intent.FILTER), "name.keyword");
     assertEquals(resolver.exactPath("name", Intent.SORT), "name");
     assertEquals(resolver.exactPath("owners", Intent.FACET), "owners");
+    assertFalse(resolver.supports("owners", Intent.FULL_TEXT));
     assertEquals(resolver.exactPath("createdAt", Intent.RANGE), "createdAt");
   }
 
@@ -128,6 +131,52 @@ public class SearchFieldResolverTest {
     assertEquals(resolver.exactPath("score", Intent.SORT), "score");
     assertEquals(resolver.exactPath("count", Intent.FILTER), "count");
     assertThrows(IllegalArgumentException.class, () -> resolver.resolve("unknown", Intent.FILTER));
+  }
+
+  @Test
+  public void testFullUrnAndParsedNameUseDifferentPaths() {
+    SearchableFieldSpec platform = urnField("platform", "platform");
+    SearchFieldResolver resolver = new SearchFieldResolver(List.of(entity("datasetKey", platform)));
+
+    assertEquals(resolver.exactPath("platform", Intent.FACET), "platform_urn");
+    assertEquals(resolver.exactPath("platform", Intent.FILTER), "platform_urn");
+    assertEquals(resolver.exactPath("platform", Intent.SORT), "platform_urn");
+    assertEquals(resolver.exactPath("platform", Intent.EXACT), "platform");
+    assertEquals(resolver.parsedKeywordPaths("platform"), List.of("platform"));
+
+    SearchableFieldSpec modelPlatform = urnField("platform", "platform");
+    SearchFieldResolver shared =
+        new SearchFieldResolver(
+            List.of(entity("datasetKey", platform), entity("mlModelKey", modelPlatform)));
+    assertEquals(shared.exactPath("platform", Intent.FACET), "platform_urn");
+    assertEquals(shared.exactPath("platform", Intent.EXACT), "platform");
+    assertEquals(shared.parsedKeywordPaths("platform"), List.of("platform"));
+
+    SearchableFieldSpec parent = urnField("parent", null);
+    SearchFieldResolver parentResolver =
+        new SearchFieldResolver(List.of(entity("schemaFieldKey", parent)));
+    assertEquals(parentResolver.exactPath("parent", Intent.FILTER), "parent_urn");
+    assertEquals(parentResolver.exactPath("parent", Intent.EXACT), "parent");
+    assertEquals(parentResolver.parsedKeywordPaths("parent"), List.of("parent"));
+    assertTrue(parentResolver.supports("parent", Intent.FULL_TEXT));
+
+    SearchableFieldSpec owners =
+        field("owners", "owners", List.of(FieldMapping.root(FieldMapping.Type.URN)));
+    when(owners.getSearchableAnnotation().getFieldType())
+        .thenReturn(SearchableAnnotation.FieldType.URN);
+    when(owners.getSearchableAnnotation().isQueryByDefault()).thenReturn(false);
+    SearchFieldResolver ownerResolver =
+        new SearchFieldResolver(List.of(entity("ownership", owners)));
+    assertEquals(ownerResolver.exactPath("owners", Intent.FACET), "owners_urn");
+    assertEquals(ownerResolver.exactPath("owners", Intent.FILTER), "owners_urn");
+    assertEquals(ownerResolver.exactPath("owners", Intent.EXACT), "owners");
+    assertEquals(ownerResolver.parsedKeywordPaths("owners"), List.of("owners"));
+    assertEquals(ownerResolver.lowercaseFullUrnPath("owners"), "owners_urn.lowercase");
+    assertEquals(ownerResolver.exactPath("urn", Intent.FILTER), "urn");
+    assertEquals(ownerResolver.lowercaseFullUrnPath("urn"), "urn.lowercase");
+    assertEquals(ownerResolver.exactPath("urn_name", Intent.FILTER), "urn_name");
+    assertEquals(ownerResolver.lowercaseFullUrnPath("urn_name"), "urn_name.lowercase");
+    assertFalse(ownerResolver.supports("owners", SearchFieldResolver.Intent.FULL_TEXT));
   }
 
   private static SearchFieldResolver resolver(SearchableFieldSpec... fields) {
@@ -187,9 +236,30 @@ public class SearchFieldResolverTest {
     when(annotation.getNumValuesFieldName()).thenReturn(Optional.empty());
     when(annotation.getV3Mappings()).thenReturn(mappings);
     when(annotation.isEnableAutocomplete()).thenReturn(enableAutocomplete);
+    when(annotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.KEYWORD);
+    when(annotation.isQueryByDefault()).thenReturn(true);
 
     SearchableFieldSpec field = mock(SearchableFieldSpec.class);
     when(field.getSearchableAnnotation()).thenReturn(annotation);
     return field;
+  }
+
+  private static SearchableFieldSpec urnField(String fieldName, String searchLabel) {
+    SearchableFieldSpec field =
+        field(fieldName, searchLabel, List.of(FieldMapping.root(FieldMapping.Type.KEYWORD)));
+    SearchableAnnotation annotation = field.getSearchableAnnotation();
+    when(annotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.URN);
+    when(annotation.isQueryByDefault()).thenReturn(true);
+    return field;
+  }
+
+  private static EntitySpec entity(String aspectName, SearchableFieldSpec... fields) {
+    AspectSpec aspect = mock(AspectSpec.class);
+    when(aspect.getName()).thenReturn(aspectName);
+    when(aspect.getSearchableFieldSpecs()).thenReturn(List.of(fields));
+    EntitySpec entity = mock(EntitySpec.class);
+    when(entity.getSearchableFieldSpecs()).thenReturn(List.of(fields));
+    when(entity.getAspectSpecs()).thenReturn(List.of(aspect));
+    return entity;
   }
 }

@@ -222,6 +222,7 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.isV3Searchable(),
                 annotation.getV3SearchLabel(),
                 annotation.getV3IncludeSystemModifiedAt(),
+                annotation.getV3QueryByDefault(),
                 annotation.getV3Mappings());
       }
     }

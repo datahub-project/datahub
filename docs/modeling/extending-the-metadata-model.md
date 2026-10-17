@@ -426,7 +426,8 @@ It takes the following parameters:
 
 - **queryByDefault**: boolean (optional) - Whether we should match the field for the default search query. True by
   default for text and urn fields. On Search V3, a field queried by default that names no shared field copies into
-  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
+  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). Set
+  `"v3": { "queryByDefault": false }` to change that for Search V3 only.
 
 - **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false.
   Search V2 reads the field for typeahead. Search V3 does not serve autocomplete, so the flag has no effect on a V3 index.
@@ -462,7 +463,7 @@ It takes the following parameters:
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **v3**: object (optional) - Read only by Search V3. V2 and V2.5 ignore it. `searchLabel`, set only on this object, is the shared root field the value is copied into (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). `mappings` is the V3 root and its label subfields; when it is omitted, V3 derives them from `fieldType`. `includeSystemModifiedAt: false` turns off the V2 system-modified sidecar. `enabled: false` drops the field from V3 search (its mapping, its copy into a shared root field, and full text) and leaves V2 unchanged. Names use a keyword root, which supplies `.keyword` automatically, plus declared `text` and `stemmed` subfields on the `name` label.
+- **v3**: object (optional) - Read only by Search V3. V2 and V2.5 ignore it. `searchLabel`, set only on this object, is the shared root field the value is copied into (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). `mappings` is the V3 root and its label subfields; when it is omitted, V3 derives them from `fieldType`. A field of type `URN` or `URN_PARTIAL`, or a root mapping of type `URN`, stores the full URN on its keyword. Filters, facets, sorts, and ranges read that keyword. The parsed name is projected to `_aspects.<aspect>.<field>__urn_name`. Every URN root is two sibling keywords: `<field>` is the parsed name, and `<field>_urn` is the complete URN. `<field>_urn.lowercase` folds that complete URN with `keyword_normalizer`. `text` and `stemmed` are added to `<field>` only when that field is included in full text. `owners` keeps the parsed keyword and has neither analyzer. A URN that names a shared label copies both values onto that label. A schema field's parent has no label, so the parsed dataset name is `parent`. A schema field's parent has no label, so its parsed dataset name is copied into `other`. The document URN stays an exact keyword, with `urn.lowercase` for a case-insensitive match. The parsed identity is the root field `urn_name`, stored in its original case, with `urn_name.lowercase` for a case-insensitive match. `urn_name` is not a full-text field. `queryByDefault` on this object overrides the top-level flag for V3 only. `includeSystemModifiedAt: false` turns off the V2 system-modified sidecar. `enabled: false` drops the field from V3 search (its mapping, its copy into a shared root field, and full text) and leaves V2 unchanged. Names use a keyword root, which supplies `.keyword` automatically, plus declared `text` and `stemmed` subfields on the `name` label.
 
 - **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless.
 
@@ -607,16 +608,27 @@ The browse path v2 root keeps its path analyzer. Cross-aspect system metadata is
   (`includeSystemModifiedAt`) is Search V2 and V2.5 only;
 - otherwise, when the field is queried by default, the root field `other`, so V3 still searches every field V2 searches. An
   entity none of whose fields names `name` sends the field its `_entityName` alias names to
-  `name` instead. The urn and the fields queried by default of an entity a reference field names
-  (`@SearchableRef`) only ever copy into `other`.
+  `name` instead. A reference field (`@SearchableRef`) copies the referenced entity's default text
+  fields into `other`. Its raw URN stays exact. A URN field stores the full URN on its keyword and
+  projects the parsed name to `_aspects.<aspect>.<field>__urn_name`. Every URN root keeps the parsed
+  name on `<field>` and the complete URN on `<field>_urn`. `<field>_urn.lowercase` is the same URN
+  through `keyword_normalizer`. Full text and its exact-match boost read `<field>` only when the
+  field is included in full text. `owners` keeps the parsed keyword and has no `text` or `stemmed`.
+  A URN that names a shared label copies both values onto that label.
+  The document URN stays an exact keyword for identity filters and direct URN lookup. `urn.lowercase` is that same URN through `keyword_normalizer`, and a case-insensitive match reads it. The parsed identity is the root field `urn_name`, in its original case, and a case-insensitive match reads `urn_name.lowercase`. `urn_name` is not included in full text. A dataset URN's parsed name is the dataset name. A
+  schema-field URN's parsed name is the field path with version and type annotations removed,
+  without the parent dataset.
 
-A structured property is not a shared field. A `string`, `rich_text` or `urn` property is full-text indexed only when
+A structured property is not a shared field. A `string` or `rich_text` property is full-text indexed only when
 its definition has a `searchConfiguration`: that adds `text` and `stemmed` subfields to its root keyword field
-`structuredProperties.<field>`. `queryByDefault` decides whether an unqualified search includes the property.
+`structuredProperties.<field>`. A `urn` property with `searchConfiguration` keeps that field as the exact URN, with `.lowercase`, and
+writes the parsed name to `structuredProperties.<field>__urn_name` in its original case. A case-insensitive match reads
+`__urn_name.lowercase`. `text` and `stemmed` on that sibling are what full text reads. `copyTo` copies that name into the named shared
+fields, and `copyUrnTo` copies the complete URN. A destination named in both lists receives both values. A `urn` property without `searchConfiguration` keeps both exact keywords and their `.lowercase` subfields and has no analyzed
+subfields. `queryByDefault` decides whether an unqualified search includes the property.
 `boostScore` is the weight of `.text` (0.8 when unset) and `subfieldBoostScores.stemmed` is the weight of `.stemmed`
 (half the `.text` weight when unset). `copyTo` names shared fields (`name`, `qualifiedName`, `description`,
-`columns`, `other`) or a root field that feeds one. Each value is copied into that shared field, so a query
-on it matches the property. The property field and the stored name stay as they are. Unset copies nowhere.
+`columns`, `other`) or a root field that feeds one. `copyTo` copies the parsed name for a URN property, and `copyUrnTo` copies the complete URN. A destination named in both lists receives both values. The property field and the stored name stay as they are. Unset copies nowhere.
 `excludeFromFullTextSearch` applies to Search V2 and V2.5; Search V3 ignores it.
 Number and date properties are not analyzed, and a `copyTo` on one is ignored. A property with no `searchConfiguration`
 keeps its keyword, number or date field for filters and facets only.

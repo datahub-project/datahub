@@ -638,16 +638,41 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // A property copied into a searched shared field is not in that field's _source
     List<String> copied =
         v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs);
-    if (copied.isEmpty()) {
-      return matched;
-    }
     List<String> withCopied = new ArrayList<>(matched);
     for (String field : copied) {
       if (!withCopied.contains(field)) {
         withCopied.add(field);
       }
     }
-    return withCopied;
+    return expandStoredParsedNames(withCopied);
+  }
+
+  /**
+   * An analyzed URN label is null in {@code _source}. Fetch the aspect field that stores the parsed
+   * name instead.
+   */
+  @Nonnull
+  private List<String> expandStoredParsedNames(@Nonnull final List<String> fields) {
+    final Map<String, List<String>> stored = V3SearchFields.storedParsedNameFields(entitySpecs);
+    if (stored.isEmpty()) {
+      return fields;
+    }
+    final List<String> expanded = new ArrayList<>();
+    for (String field : fields) {
+      final List<String> sources = stored.get(field);
+      if (sources == null || sources.isEmpty()) {
+        if (!expanded.contains(field)) {
+          expanded.add(field);
+        }
+        continue;
+      }
+      for (String source : sources) {
+        if (!expanded.contains(source)) {
+          expanded.add(source);
+        }
+      }
+    }
+    return expanded;
   }
 
   @Nullable
@@ -909,9 +934,17 @@ public class SearchRequestHandler extends BaseRequestHandler {
       return hit -> List.of();
     }
     final MatchedFields matcher = new MatchedFields(input, v3MinWordLength);
+    final Map<String, String> labels = new HashMap<>();
+    V3SearchFields.storedParsedNameFields(entitySpecs)
+        .forEach(
+            (label, paths) -> {
+              for (String path : paths) {
+                labels.putIfAbsent(path, label);
+              }
+            });
     return hit -> {
       final Map<String, Object> source = hit.getSourceAsMap();
-      return source == null ? List.of() : matcher.find(source, fields);
+      return source == null ? List.of() : matcher.find(source, fields, labels);
     };
   }
 

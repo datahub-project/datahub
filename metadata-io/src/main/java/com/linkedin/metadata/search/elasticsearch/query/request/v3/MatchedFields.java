@@ -84,21 +84,34 @@ public final class MatchedFields {
   @Nonnull
   public List<MatchedField> find(
       @Nonnull final Map<String, Object> source, @Nonnull final Collection<String> fields) {
+    return find(source, fields, Map.of());
+  }
+
+  /**
+   * {@code names} reports a fetched path under another name. A nulled URN label is fetched from the
+   * aspect field that stores its parsed name.
+   */
+  @Nonnull
+  public List<MatchedField> find(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names) {
     final List<MatchedField> matchedFields = new ArrayList<>();
     if (lastQueryForms.isEmpty()) {
       return matchedFields;
     }
     for (String field : fields) {
+      final String reported = names.getOrDefault(field, field);
       final List<?> fieldValues = values(at(source, field));
       if (StructuredPropertyUtils.isStructuredPropertyField(field)) {
-        addStrongest(matchedFields, field, fieldValues);
+        addStrongest(matchedFields, reported, fieldValues);
         continue;
       }
       for (Object value : fieldValues) {
         final String text = String.valueOf(value);
         final int match = firstMatch(text);
         if (match >= 0) {
-          matchedFields.add(new MatchedField().setName(field).setValue(fragment(text, match)));
+          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
           break;
         }
       }
