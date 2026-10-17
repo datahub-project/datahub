@@ -118,6 +118,7 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
 # - https://docs.confluent.io/cloud/current/connectors/cc-postgresql-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-sink.html
 # - https://docs.confluent.io/cloud/current/connectors/cc-snowflake-source.html
+# - https://docs.confluent.io/cloud/current/connectors/cc-s3-sink/cc-s3-sink.html
 POSTGRES_CDC_SOURCE_CLOUD: Final[str] = "PostgresCdcSource"
 POSTGRES_CDC_SOURCE_V2_CLOUD: Final[str] = "PostgresCdcSourceV2"
 POSTGRES_SINK_CLOUD: Final[str] = "PostgresSink"
@@ -127,6 +128,7 @@ MYSQL_SOURCE_CLOUD: Final[str] = "MySqlSource"
 MYSQL_CDC_SOURCE_CLOUD: Final[str] = "MySqlCdcSource"
 MYSQL_CDC_SOURCE_V2_CLOUD: Final[str] = "MySqlCdcSourceV2"
 MYSQL_SINK_CLOUD: Final[str] = "MySqlSink"
+S3_SINK_CLOUD: Final[str] = "S3_SINK"
 
 # Cloud JDBC source connector classes
 CLOUD_JDBC_SOURCE_CLASSES: Final[List[str]] = [
@@ -142,6 +144,7 @@ CLOUD_SINK_CLASSES: Final[List[str]] = [
     POSTGRES_SINK_CLOUD,
     SNOWFLAKE_SINK_CLOUD,
     MYSQL_SINK_CLOUD,
+    S3_SINK_CLOUD,
 ]
 
 
