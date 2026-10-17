@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from datahub.ingestion.source.sql_queries import (
+    FileQueryLogReader,
     SqlQueriesSource,
     SqlQueriesSourceConfig,
 )
@@ -39,13 +40,11 @@ class TestS3Support:
             aws_config=aws_config_dict,
         )
 
-        # Create a minimal source instance without full initialization
-        source = SqlQueriesSource.__new__(SqlQueriesSource)
-        source.config = config
-        source.report = Mock()
-        source.report.num_entries_processed = 0
-        source.report.num_entries_failed = 0
-        source.report.warning = Mock()
+        report = Mock()
+        report.num_entries_processed = 0
+        report.num_entries_failed = 0
+        report.warning = Mock()
+        reader = FileQueryLogReader(config, report)
 
         # Mock AWS config and S3 client
         mock_aws_config = Mock()
@@ -67,7 +66,7 @@ class TestS3Support:
         mock_open.return_value = mock_file_stream
 
         # Test S3 file processing
-        queries = list(source._parse_s3_query_file(config.aws_config))
+        queries = list(reader._parse_s3_query_file(config.aws_config))
         assert len(queries) == 2
         assert queries[0].query == "SELECT * FROM table1"
         assert queries[1].query == "SELECT * FROM table2"
