@@ -20,6 +20,8 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -165,6 +167,54 @@ public class ServiceAccountService {
           e.getMessage());
       return false;
     }
+  }
+
+  /**
+   * Resolves a JWT claim value to an existing corpuser identity. Applies regex extraction using the
+   * same semantics as the frontend OIDC flow (OidcCallbackLogic.extractRegexGroup): {@code
+   * Pattern.compile(regex).matcher(claimValue).find() -> matcher.group()}.
+   *
+   * <p>After regex extraction, verifies the corpuser exists in DataHub.
+   *
+   * @param claimValue raw value from the JWT claim (e.g. email address)
+   * @param claimRegex regex to extract the username (full match, same as frontend OIDC
+   *     userNameClaimRegex)
+   * @param entityService the entity service for checking user existence
+   * @param operationContext the operation context for the request
+   * @return the resolved corpuser ID (e.g. "john@company.com")
+   * @throws IllegalArgumentException if regex doesn't match the claim value
+   * @throws IllegalStateException if the resolved corpuser doesn't exist in DataHub
+   */
+  public String resolveCorpUser(
+      @Nonnull String claimValue,
+      @Nonnull String claimRegex,
+      @Nonnull EntityService<?> entityService,
+      @Nonnull OperationContext operationContext) {
+
+    // Apply regex extraction - mirrors OidcCallbackLogic.extractRegexGroup() exactly
+    final Pattern pattern = Pattern.compile(claimRegex);
+    final Matcher matcher = pattern.matcher(claimValue);
+    if (!matcher.find()) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to extract corpuser identity from claim value '%s' using regex '%s'",
+              claimValue, claimRegex));
+    }
+    final String userId = matcher.group();
+
+    // Verify the corpuser exists
+    CorpuserUrn corpuserUrn = new CorpuserUrn(userId);
+    boolean userExists = entityService.exists(operationContext, corpuserUrn, false);
+    if (!userExists) {
+      throw new IllegalStateException(
+          String.format(
+              "Corpuser '%s' (resolved from claim '%s') does not exist in DataHub. "
+                  + "The user must be provisioned (e.g. via frontend OIDC SSO login) before using mapToCorpUser.",
+              userId, claimValue));
+    }
+
+    log.debug("Resolved OAuth token to existing corpuser: {}", userId);
+    return userId;
   }
 
   /**
