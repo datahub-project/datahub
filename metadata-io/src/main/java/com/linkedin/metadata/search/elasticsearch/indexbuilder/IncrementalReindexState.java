@@ -198,6 +198,28 @@ public final class IncrementalReindexState {
     return result;
   }
 
+  /** Drop a catch-up verdict so a later fill of the same index is replayed. */
+  public static Map<String, String> clearCatchUpStatus(
+      @Nullable Map<String, String> existing, @Nonnull String indexName) {
+    Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
+    result.remove(key(indexName, CATCH_UP_STATUS));
+    return result;
+  }
+
+  /**
+   * {@code updated} merged onto {@code loaded}. A catch-up status {@code updated} no longer carries
+   * is removed, so a cleared verdict is not copied back from the previous result. Every other key
+   * loaded still holds, including a replay's resume cursor.
+   */
+  public static Map<String, String> mergeCatchUpState(
+      @Nullable Map<String, String> loaded, @Nonnull Map<String, String> updated) {
+    Map<String, String> merged = loaded != null ? new HashMap<>(loaded) : new HashMap<>();
+    merged.putAll(updated);
+    String statusSuffix = SEPARATOR + CATCH_UP_STATUS;
+    merged.keySet().removeIf(key -> key.endsWith(statusSuffix) && !updated.containsKey(key));
+    return merged;
+  }
+
   /** Read the entity index generation for an index; rows predating tracking are V2. */
   @Nonnull
   public static EntityIndexVersion getIndexVersion(

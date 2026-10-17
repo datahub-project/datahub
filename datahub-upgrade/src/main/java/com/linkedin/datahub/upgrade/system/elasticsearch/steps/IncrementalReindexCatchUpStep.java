@@ -151,6 +151,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
         if (previousCatchUpResult.isPresent()
             && DataHubUpgradeState.SUCCEEDED.equals(previousCatchUpResult.get().getState())
+            && !fillOutstanding(phase1State)
             && IncrementalReindexState.isCatchUpCompleteForAllIndices(phase1State, catchUpState)) {
           log.info("Catch-up already completed for all indices, skipping");
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -161,16 +162,37 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           String indexName = entry.getKey();
           Map<String, String> indexState = entry.getValue();
 
+          // A fill in flight, or one that failed, is caught up once it completes and the row is
+          // COMPLETED. A verdict recorded while it was failed must not survive the replan: that
+          // status lives on this upgrade result, which the replan does not clear, and honoring it
+          // would skip the catch-up of the rebuilt index. Leave the row without a catch-up status
+          // until then so that pass does not find it already terminal.
+          IncrementalReindexState.Status phase1Status =
+              IncrementalReindexState.getStatus(phase1State, indexName).orElse(null);
+          if (fillNotReady(phase1Status)) {
+            Optional<CatchUpStatus> stale =
+                IncrementalReindexState.getCatchUpStatus(catchUpState, indexName);
+            if (stale.isPresent() && stale.get().isTerminal()) {
+              log.info(
+                  "Index {} is not ready for catch-up ({}); dropping catch-up status {}",
+                  indexName,
+                  phase1Status,
+                  stale.get());
+              catchUpState = IncrementalReindexState.clearCatchUpStatus(catchUpState, indexName);
+              persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.IN_PROGRESS);
+            } else {
+              log.info(
+                  "Index {} is not ready for catch-up ({}); its catch-up runs once the fill"
+                      + " completes",
+                  indexName,
+                  phase1Status);
+            }
+            continue;
+          }
+
           Optional<CatchUpStatus> existingCatchUpStatus =
               IncrementalReindexState.getCatchUpStatus(catchUpState, indexName);
           if (existingCatchUpStatus.isPresent() && existingCatchUpStatus.get().isTerminal()) {
-            continue;
-          }
-          // A fill in flight is caught up once it completes and the row is COMPLETED; leave it
-          // without a catch-up status until then so that pass does not find it already terminal.
-          if (IncrementalReindexState.isBackfillStatus(
-              IncrementalReindexState.getStatus(phase1State, indexName).orElse(null))) {
-            log.info("Index {} is being filled; its catch-up runs with the fill", indexName);
             continue;
           }
 
@@ -359,9 +381,26 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
   private void persistCatchUpCheckpoint(
       UpgradeContext context, Map<String, String> catchUpState, DataHubUpgradeState state) {
-    Map<String, String> merged = loadCurrentCheckpointState(context);
-    merged.putAll(catchUpState);
+    Map<String, String> merged =
+        IncrementalReindexState.mergeCatchUpState(
+            loadCurrentCheckpointState(context), catchUpState);
     context.upgrade().setUpgradeResult(opContext, upgradeIdUrn, entityService, state, merged);
+  }
+
+  /**
+   * A fill that has not finished. Catch-up waits, and does not keep a verdict from this attempt.
+   */
+  private static boolean fillNotReady(@Nullable IncrementalReindexState.Status status) {
+    return status == IncrementalReindexState.Status.FAILED
+        || IncrementalReindexState.isBackfillStatus(status);
+  }
+
+  private static boolean fillOutstanding(@Nonnull Map<String, String> phase1State) {
+    return IncrementalReindexState.getAllIndexStates(phase1State).keySet().stream()
+        .anyMatch(
+            indexName ->
+                fillNotReady(
+                    IncrementalReindexState.getStatus(phase1State, indexName).orElse(null)));
   }
 
   /**

@@ -563,6 +563,101 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
+  public void testFailedFillDropsAStoredCatchUpStatusAndDoesNotReplay() {
+    Map<String, String> phase1State = failedFill(INDEX_NAME);
+    Map<String, String> catchUpState =
+        IncrementalReindexState.setCatchUpStatus(
+            null, INDEX_NAME, IncrementalReindexState.CatchUpStatus.COMPLETED);
+    // A resume cursor written by an earlier pass must survive the status being dropped.
+    catchUpState.put(INDEX_NAME + ".lastUrn", "urn:li:dataset:kept");
+    stubUpgradeResults(phase1State, catchUpState, DataHubUpgradeState.SUCCEEDED);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(aspectDao, never()).streamAspectBatches(any(OperationContext.class), any(), any());
+    Map<String, String> persisted = lastPersistedCatchUpResult();
+    assertEquals(IncrementalReindexState.getCatchUpStatus(persisted, INDEX_NAME), Optional.empty());
+    assertEquals(persisted.get(INDEX_NAME + ".lastUrn"), "urn:li:dataset:kept");
+  }
+
+  @Test
+  public void testCatchUpRunsOnceAFailedFillHasCompleted() {
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+    stubUpgradeResults(phase1State, Map.of(), DataHubUpgradeState.IN_PROGRESS);
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), any(), any());
+  }
+
+  private static Map<String, String> failedFill(String indexName) {
+    return IncrementalReindexState.setPhase1State(
+        null,
+        indexName,
+        indexName + "_0_14_0-0_100",
+        null,
+        1000L,
+        0L,
+        null,
+        true,
+        IncrementalReindexState.Status.FAILED);
+  }
+
+  private void stubUpgradeResults(
+      Map<String, String> phase1State,
+      Map<String, String> catchUpState,
+      DataHubUpgradeState catchUpUpgradeState) {
+    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
+    when(phase1Result.getResult()).thenReturn(new StringMap(phase1State));
+    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.IN_PROGRESS);
+    DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
+    when(catchUpResult.getResult()).thenReturn(new StringMap(catchUpState));
+    when(catchUpResult.getState()).thenReturn(catchUpUpgradeState);
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object urnArg = invocation.getArgument(1);
+              if (urnArg.toString().contains("BuildIndicesIncremental")) {
+                return Optional.of(phase1Result);
+              }
+              if (urnArg.toString().contains("IncrementalReindexCatchUp")) {
+                return Optional.of(catchUpResult);
+              }
+              return Optional.empty();
+            });
+  }
+
+  private Map<String, String> lastPersistedCatchUpResult() {
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<String, String>> resultCaptor = ArgumentCaptor.forClass(Map.class);
+    verify(upgrade, atLeastOnce())
+        .setUpgradeResult(eq(opContext), any(), eq(entityService), any(), resultCaptor.capture());
+    return resultCaptor.getAllValues().get(resultCaptor.getAllValues().size() - 1);
+  }
+
+  @Test
   public void testSkipsWhenMissingReindexStartTime() {
     // Manually build state without reindexStartTime
     Map<String, String> phase1State = new HashMap<>();
