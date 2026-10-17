@@ -61,9 +61,9 @@ class DocPropagationDirective(PropagationDirective):
 
 
 class ColumnPropagationRelationships(ConfigEnum):
-    UPSTREAM = "upstream"
-    DOWNSTREAM = "downstream"
-    SIBLING = "sibling"
+    UPSTREAM = "UPSTREAM"
+    DOWNSTREAM = "DOWNSTREAM"
+    SIBLING = "SIBLING"
 
 
 class DocPropagationConfig(PropagationConfig):
