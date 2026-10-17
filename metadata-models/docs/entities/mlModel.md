@@ -335,6 +335,8 @@ The GraphQL API provides rich querying capabilities for ML Models through resolv
 
 ML Models participate in the shared incidents subsystem. Incidents can be raised on a model via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLModel` GraphQL type, and the model carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved. Since an incident can reference multiple entities, a single incident can link an upstream dataset and the affected model under one lifecycle.
 
+Active incidents also roll up into the model's health badge, which shows on the model's profile page, on its node in the lineage graph, and on search result cards. Health for ML Models is derived from incidents only, so assertions and tests do not contribute to the badge.
+
 ### Ingestion Sources
 
 Several ingestion sources automatically extract ML Model metadata:
