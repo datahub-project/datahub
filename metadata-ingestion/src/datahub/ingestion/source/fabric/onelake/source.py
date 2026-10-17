@@ -188,6 +188,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         self.aggregator = SqlParsingAggregator(
             platform=PLATFORM,
             platform_instance=config.platform_instance,
+            emit_query_platform_instance=config.emit_query_platform_instance,
             env=config.env,
             graph=ctx.graph,
             generate_lineage=True,

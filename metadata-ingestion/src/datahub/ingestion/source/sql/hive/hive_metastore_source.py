@@ -151,6 +151,7 @@ class HiveMetastoreSource(StatefulIngestionSourceBase, TestableSource):
             self._aggregator = SqlParsingAggregator(
                 platform=self.platform,
                 platform_instance=config.platform_instance,
+                emit_query_platform_instance=config.emit_query_platform_instance,
                 env=config.env,
                 graph=self.ctx.graph,
                 eager_graph_load=False,

@@ -19,6 +19,15 @@ class PlatformInstanceConfigMixin(ConfigModel):
         "See https://docs.datahub.com/docs/platform-instances/ for more details.",
     )
 
+    emit_query_platform_instance: bool = Field(
+        default=False,
+        description="Only applies to sources that emit query entities from SQL parsing. "
+        "If enabled and `platform_instance` is set, emitted query entities carry a "
+        "`dataPlatformInstance` aspect pointing at that instance, emitted before the "
+        "query's other aspects. This lets write policies scoped by platform instance "
+        "cover query entities. Query URNs are unchanged.",
+    )
+
 
 class EnvConfigMixin(ConfigModel):
     """
