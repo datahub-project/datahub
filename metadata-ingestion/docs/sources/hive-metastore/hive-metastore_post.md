@@ -101,6 +101,109 @@ If your Hive Metastore is configured with `hadoop.rpc.protection` set to `integr
 - **Kerberos ticket required**: Must have valid ticket before running (not embedded in config)
 - **HMS version compatibility**: Tested with HMS 2.x and 3.x
 
+##### Kerberos with Remote Executor
+
+When running Hive Metastore ingestion on a **DataHub Cloud Remote Executor**, `kinit` is not run
+automatically. The executor Docker image ships Kerberos client tools (`krb5`, `kinit`, `klist`,
+`cyrus-sasl-mit`), but you must supply a keytab and configure an init container to obtain a ticket
+before ingestion starts.
+
+> **Note**: The executor's `extraSidecars` field is defined in `values.yaml` but is not rendered in
+> any executor deployment template. Do not attempt sidecar-based ticket renewal — use the init
+> container approach below.
+
+**Step 1 — Create Kubernetes resources:**
+
+```bash
+# Secret for the keytab
+kubectl create secret generic executor-krb5-keytab \
+  --from-file=user.keytab=/path/to/user.keytab \
+  --namespace <executor-namespace>
+
+# ConfigMap for krb5.conf
+kubectl create configmap executor-krb5-config \
+  --from-file=krb5.conf=/etc/krb5.conf \
+  --namespace <executor-namespace>
+```
+
+**Step 2 — Helm values override:**
+
+```yaml
+extraVolumes:
+  - name: krb5-keytab
+    secret:
+      secretName: executor-krb5-keytab
+      defaultMode: 0440 # group-readable; requires the pod fsGroup to match the executor's group
+  - name: krb5-config
+    configMap:
+      name: executor-krb5-config
+  - name: krb5-ccache
+    emptyDir: {}
+
+extraInitContainers:
+  - name: kerberos-init
+    image: <your-executor-image>
+    command: ["/bin/bash", "-c"]
+    args:
+      - |
+        set -e
+        kinit -kt /etc/kerberos/keytab/user.keytab user@YOUR.REALM
+        klist # Confirm the ticket cache is populated
+    env:
+      - name: KRB5CCNAME
+        value: FILE:/tmp/krb5cc/krb5cc_default
+      - name: KRB5_CONFIG
+        value: /etc/kerberos/krb5.conf
+    volumeMounts:
+      - name: krb5-keytab
+        mountPath: /etc/kerberos/keytab
+        readOnly: true
+      - name: krb5-config
+        mountPath: /etc/kerberos/krb5.conf
+        subPath: krb5.conf
+        readOnly: true
+      - name: krb5-ccache
+        mountPath: /tmp/krb5cc
+
+extraVolumeMounts:
+  - name: krb5-ccache
+    mountPath: /tmp/krb5cc
+  - name: krb5-config
+    mountPath: /etc/kerberos/krb5.conf
+    subPath: krb5.conf
+    readOnly: true
+
+extraEnvs:
+  - name: KRB5CCNAME
+    value: FILE:/tmp/krb5cc/krb5cc_default
+  - name: KRB5_CONFIG
+    value: /etc/kerberos/krb5.conf
+```
+
+> **Note**: The `0440` keytab mode is only readable by the init container if the pod runs with a matching
+> `fsGroup`. The executor runs as a non-root user, so confirm your deployment sets
+> `podSecurityContext.fsGroup: 1000` (the executor's group); some chart paths leave `podSecurityContext`
+> empty, in which case add it to your values.
+
+**Step 3 — Ingestion recipe:**
+
+```yaml
+source:
+  type: hive-metastore
+  config:
+    connection_type: thrift
+    host_port: hms.company.com:9083
+    use_kerberos: true
+    kerberos_service_name: hive
+    kerberos_qop: auth # or auth-int / auth-conf to match hadoop.rpc.protection
+```
+
+**TGT lifetime**: Kerberos TGTs typically expire after 10 hours, which is sufficient for most
+ingestion runs. The init container runs `kinit` once and nothing renews the ticket afterwards, so an
+ingestion must finish within the ticket lifetime. For longer runs, ask your KDC administrator to
+extend the maximum ticket lifetime for the principal; a renewable ticket on its own does not help,
+because nothing in this setup calls `kinit -R`.
+
 #### Storage Lineage
 
 The Hive Metastore connector supports the same storage lineage features as the Hive connector, with enhanced performance due to direct database access.
@@ -458,3 +561,27 @@ Same as the Hive connector:
 - Check database query performance (may need indexes on metastore tables)
 - Ensure low latency network connection to metastore database
 - Consider disabling column lineage if not needed
+
+#### Kerberos Ticket Not Found (Remote Executor)
+
+**Problem**: Ingestion fails with `GSS initiate failed`, `No Kerberos credentials available`, or
+`TTransportException` when using Thrift + Kerberos on a Remote Executor.
+
+**Solutions**:
+
+- **Check init container logs**: `kubectl logs <pod> -c kerberos-init` — look for `kinit` errors
+  such as bad keytab path, wrong principal, or KDC unreachable.
+- **Verify `KRB5CCNAME`**: Both the init container and the main executor container must set
+  `KRB5CCNAME=FILE:/tmp/krb5cc/krb5cc_default` (paths must match exactly).
+- **Verify emptyDir mounts**: Confirm the `krb5-ccache` volume is mounted at the same `mountPath`
+  in both `extraInitContainers.volumeMounts` and `extraVolumeMounts`.
+- **Verify keytab secret**: Run `kubectl get secret executor-krb5-keytab -o yaml` and confirm the
+  `user.keytab` key is present.
+- **Check `fsGroup`**: If the init container logs show `Permission denied` reading the keytab,
+  confirm `podSecurityContext.fsGroup: 1000` is set in your Helm values. Without it the `0440`
+  keytab is unreadable by the non-root executor user.
+- **Run `klist`**: Add `klist` as the last command in the init container `args` — it exits non-zero
+  if the ticket cache is empty, causing the pod to fail fast rather than silently.
+- **Check `kerberos_qop`**: Ensure the `kerberos_qop` value in your recipe matches
+  `hadoop.rpc.protection` on the HMS server (see the QOP table in the Thrift with Kerberos section
+  above).

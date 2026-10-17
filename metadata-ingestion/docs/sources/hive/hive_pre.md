@@ -106,7 +106,112 @@ source:
 
 - Valid Kerberos ticket (use `kinit` before running ingestion)
 - Kerberos configuration file (`/etc/krb5.conf` or specified via `KRB5_CONFIG` environment variable)
-- The `kerberos` Python package installed (`pip install kerberos`; it builds against the system Kerberos libraries, e.g. `libkrb5-dev`)
+- The `kerberos` Python package installed (`pip install kerberos`; it builds against the system Kerberos libraries, e.g. `libkrb5-dev`). It is not included in the `hive` plugin by default - add it via `extra_pip_requirements` or install it separately.
+
+##### Kerberos with Remote Executor
+
+When running Hive ingestion on a **DataHub Cloud Remote Executor**, `kinit` is not run
+automatically. The executor Docker image ships Kerberos client tools (`krb5`, `kinit`, `klist`,
+`cyrus-sasl-mit`), but you must supply a keytab and configure an init container to obtain a ticket
+before ingestion starts.
+
+> **Note**: The executor's `extraSidecars` field is defined in `values.yaml` but is not rendered in
+> any executor deployment template. Do not attempt sidecar-based ticket renewal — use the init
+> container approach below.
+
+**Step 1 — Create Kubernetes resources:**
+
+```bash
+# Secret for the keytab
+kubectl create secret generic executor-krb5-keytab \
+  --from-file=user.keytab=/path/to/user.keytab \
+  --namespace <executor-namespace>
+
+# ConfigMap for krb5.conf
+kubectl create configmap executor-krb5-config \
+  --from-file=krb5.conf=/etc/krb5.conf \
+  --namespace <executor-namespace>
+```
+
+**Step 2 — Helm values override:**
+
+```yaml
+extraVolumes:
+  - name: krb5-keytab
+    secret:
+      secretName: executor-krb5-keytab
+      defaultMode: 0440 # group-readable; requires the pod fsGroup to match the executor's group
+  - name: krb5-config
+    configMap:
+      name: executor-krb5-config
+  - name: krb5-ccache
+    emptyDir: {}
+
+extraInitContainers:
+  - name: kerberos-init
+    image: <your-executor-image>
+    command: ["/bin/bash", "-c"]
+    args:
+      - |
+        set -e
+        kinit -kt /etc/kerberos/keytab/user.keytab user@YOUR.REALM
+        klist # Confirm the ticket cache is populated
+    env:
+      - name: KRB5CCNAME
+        value: FILE:/tmp/krb5cc/krb5cc_default
+      - name: KRB5_CONFIG
+        value: /etc/kerberos/krb5.conf
+    volumeMounts:
+      - name: krb5-keytab
+        mountPath: /etc/kerberos/keytab
+        readOnly: true
+      - name: krb5-config
+        mountPath: /etc/kerberos/krb5.conf
+        subPath: krb5.conf
+        readOnly: true
+      - name: krb5-ccache
+        mountPath: /tmp/krb5cc
+
+extraVolumeMounts:
+  - name: krb5-ccache
+    mountPath: /tmp/krb5cc
+  - name: krb5-config
+    mountPath: /etc/kerberos/krb5.conf
+    subPath: krb5.conf
+    readOnly: true
+
+extraEnvs:
+  - name: KRB5CCNAME
+    value: FILE:/tmp/krb5cc/krb5cc_default
+  - name: KRB5_CONFIG
+    value: /etc/kerberos/krb5.conf
+```
+
+> **Note**: The `0440` keytab mode is only readable by the init container if the pod runs with a matching
+> `fsGroup`. The executor runs as a non-root user, so confirm your deployment sets
+> `podSecurityContext.fsGroup: 1000` (the executor's group); some chart paths leave `podSecurityContext`
+> empty, in which case add it to your values.
+
+**Step 3 — Ingestion recipe:**
+
+```yaml
+source:
+  type: hive
+  config:
+    host_port: hive.company.com:10000
+    options:
+      connect_args:
+        auth: KERBEROS
+        kerberos_service_name: hive
+```
+
+> **Note**: Hive Kerberos authentication also needs the `kerberos` Python package, which the `hive` plugin does not include. Add `kerberos` to the ingestion source's `extra_pip_requirements`; without it the source fails with an error asking you to `pip install kerberos`. The package builds against the system Kerberos libraries (e.g. `libkrb5-dev`), so confirm your executor image provides them. Locked-down executor images do not allow installing extra packages at all; in that case use an image that already includes `kerberos`. The `hive-metastore` plugin already bundles `kerberos`.
+
+**TGT lifetime**: Kerberos TGTs typically expire after 10 hours, which is sufficient for most
+ingestion runs. The init container runs `kinit` once and nothing renews the ticket afterwards, so an
+ingestion must finish within the ticket lifetime. For longer runs, ask your KDC administrator to
+extend the maximum ticket lifetime for the principal; a renewable ticket on its own does not help,
+because nothing in this setup calls `kinit -R`.
 
 ##### TLS/SSL Connection
 
