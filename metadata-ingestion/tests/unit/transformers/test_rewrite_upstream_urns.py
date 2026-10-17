@@ -404,7 +404,7 @@ def test_only_the_first_matching_platform_rule_applies():
 
 
 @pytest.mark.parametrize("mode", ["replace", "add"])
-def test_rewrite_onto_an_existing_upstream_is_not_duplicated(mode: str):
+def test_rewrite_onto_an_existing_upstream_is_not_duplicated(mode: str) -> None:
     existing = make_dataset_urn("fabric", "workspace-id.item-id.gold.bridge_table")
     transformer = _transformer(
         mode=mode,
