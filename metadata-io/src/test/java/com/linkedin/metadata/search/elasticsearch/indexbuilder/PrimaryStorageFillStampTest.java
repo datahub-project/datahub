@@ -28,6 +28,7 @@ public class PrimaryStorageFillStampTest {
     Map<String, Object> finished =
         PrimaryStorageFillStamp.stamped(created, PrimaryStorageFillStamp.COMPLETE);
     assertFalse(PrimaryStorageFillStamp.incomplete(finished));
+    assertTrue(PrimaryStorageFillStamp.complete(finished));
     assertEquals(
         PrimaryStorageFillStamp.read(finished), Optional.of(PrimaryStorageFillStamp.COMPLETE));
     assertEquals(V3DocumentIdScheme.stampedOn(finished), Optional.of("sha256-urn"));
@@ -36,6 +37,8 @@ public class PrimaryStorageFillStampTest {
   @Test
   public void testAnIndexThatNeverRecordedAFillIsNotIncomplete() {
     assertFalse(PrimaryStorageFillStamp.incomplete(Map.of("properties", Map.of())));
+    assertFalse(PrimaryStorageFillStamp.complete(Map.of("properties", Map.of())));
     assertFalse(PrimaryStorageFillStamp.incomplete(null));
+    assertFalse(PrimaryStorageFillStamp.complete(null));
   }
 }

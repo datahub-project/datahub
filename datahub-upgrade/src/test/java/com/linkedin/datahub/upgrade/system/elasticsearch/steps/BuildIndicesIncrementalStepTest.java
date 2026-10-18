@@ -1100,6 +1100,30 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testCompletedEmptyFillIsNotRestampedIncomplete() throws Throwable {
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.currentMappings())
+        .thenReturn(
+            PrimaryStorageFillStamp.stamped(
+                docIdScheme.stampedMappings(Map.of("properties", Map.of())),
+                PrimaryStorageFillStamp.COMPLETE));
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(0L);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
+    verify(indexBuilder, never())
+        .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
+    verify(indexBuilder, never())
+        .markPrimaryStorageFillIncomplete(any(OperationContext.class), anyString());
+    verify(indexBuilder, never())
+        .buildIndexIncremental(any(OperationContext.class), any(), anyString());
+    assertTrue(IncrementalReindexState.getStatus(persistedState(), V3_INDEX_NAME).isEmpty());
+  }
+
+  @Test
   public void testAbandonedPartialFillIsRebuiltAndIsNotARollbackTarget() throws Throwable {
     // A later deploy has no Phase 1 row for the fill that wrote these documents. The index matches
     // the target, so only the incomplete stamp says the corpus is partial.

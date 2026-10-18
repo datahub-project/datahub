@@ -29,6 +29,10 @@ public final class PrimaryStorageFillStamp {
     return INCOMPLETE.equals(read(mappings).orElse(null));
   }
 
+  public static boolean complete(@Nullable Map<String, Object> mappings) {
+    return COMPLETE.equals(read(mappings).orElse(null));
+  }
+
   @Nonnull
   public static Optional<String> read(@Nullable Map<String, Object> mappings) {
     if (mappings == null || !(mappings.get(V3DocumentIdScheme.META) instanceof Map<?, ?> meta)) {

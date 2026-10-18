@@ -628,6 +628,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       } else if (docIdScheme.requiresDocumentRebuild(config.currentMappings())) {
         fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       } else if (requireIndexBuilder(config.name()).getCount(opContext, config.name()) == 0) {
+        // A finished fill of an entity type nobody has ingested. Planning it again would restamp
+        // the index incomplete, and live writes during that refill would then look like an
+        // abandoned partial corpus.
+        if (PrimaryStorageFillStamp.complete(config.currentMappings()) && matchesTarget(config)) {
+          continue;
+        }
         // Empty is the steady state of an entity type nobody has ingested. Filled where it
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
         // and the in-place apply pass below never reaches an index with a fill row.
