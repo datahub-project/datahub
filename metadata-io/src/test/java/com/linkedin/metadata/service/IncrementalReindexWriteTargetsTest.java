@@ -304,6 +304,15 @@ public class IncrementalReindexWriteTargetsTest {
   }
 
   @Test
+  public void testRollbackTargetsInSkipsAnAbandonedPartialFill() {
+    Map<String, String> state =
+        phase1(null, V3_INDEX, V3_OLD_BACKING, IncrementalReindexState.Status.COMPLETED);
+    state = IncrementalReindexState.setOldBackingIndexIncompleteFill(state, V3_INDEX);
+
+    assertEquals(IncrementalReindexWriteTargets.rollbackTargetsIn(state).keySet(), Set.of());
+  }
+
+  @Test
   public void testRollbackTargetsInSkipsAnIndexRebuiltUnderANewIdScheme() {
     Map<String, String> state =
         phase1(null, V3_INDEX, V3_OLD_BACKING, IncrementalReindexState.Status.COMPLETED);

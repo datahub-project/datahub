@@ -342,8 +342,19 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
             IncrementalReindexState.get(
                     phase1State, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
                 .orElse("its old backing index"));
+      } else if (IncrementalReindexState.isOldBackingIndexIncompleteFill(phase1State, indexName)) {
+        log.info(
+            "Index {} was rebuilt from an abandoned partial fill: live writes are not mirrored into"
+                + " {}, so a rollback to it returns to its pre-swap content",
+            indexName,
+            IncrementalReindexState.get(
+                    phase1State, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
+                .orElse("its old backing index"));
       }
     }
+    // The row about to be marked complete is version-scoped. The index has to record that the fill
+    // finished, or the next deploy sees documents under the target mappings and leaves the gap.
+    indexBuilder.markPrimaryStorageFillComplete(opContext, target);
     final long completeTime = System.currentTimeMillis();
     phase1State =
         persistPhase1(

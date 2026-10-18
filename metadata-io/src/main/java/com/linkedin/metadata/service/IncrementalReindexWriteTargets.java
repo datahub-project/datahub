@@ -173,6 +173,14 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
             oldBackingIndexName);
         continue;
       }
+      if (IncrementalReindexState.isOldBackingIndexIncompleteFill(phase1State, indexName)) {
+        log.debug(
+            "Index '{}' was rebuilt from an abandoned partial fill; '{}' receives no rollback"
+                + " writes",
+            indexName,
+            oldBackingIndexName);
+        continue;
+      }
       found.put(
           indexName,
           new RollbackTarget(

@@ -16,6 +16,7 @@ import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersi
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.PrimaryStorageFillStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -602,9 +603,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
      */
     IN_PLACE,
     /**
-     * The index exists with documents from another id scheme, or holds no documents and differs
-     * from the target mappings or settings: create a next physical index for the fill to write
-     * into; the alias moves to it once the fill completes.
+     * The index exists with documents from another id scheme, holds no documents and differs from
+     * the target mappings or settings, or holds a partial corpus from a fill that a later deploy
+     * can no longer see: create a next physical index for the fill to write into; the alias moves
+     * to it once the fill completes.
      */
     REBUILD_INTO_NEXT
   }
@@ -630,6 +632,15 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
         // and the in-place apply pass below never reaches an index with a fill row.
         fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
+      } else if (PrimaryStorageFillStamp.incomplete(config.currentMappings())) {
+        // The alias already holds documents written by a fill whose row was scoped to an earlier
+        // deploy. The index matches the target, so neither a mapping reindex nor an empty-index
+        // fill would run, and the missing documents would never be caught up. Rebuild it.
+        log.warn(
+            "Index {}: a primary-storage fill is unfinished and this deploy has no row for it;"
+                + " rebuilding into a fresh index",
+            config.name());
+        fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       }
     }
     if (!fills.isEmpty()) {
@@ -721,28 +732,34 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     final String fillTarget;
     String oldBackingIndexName = null;
     boolean oldIdSchemeStale = false;
+    boolean abandonedPartialFill = false;
     switch (fill) {
       case CREATE_ALIASED -> {
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
         indexBuilder.createAliasedIndex(opContext, config.name(), physicalIndex, config);
+        indexBuilder.markPrimaryStorageFillIncomplete(opContext, physicalIndex);
         fillTarget = config.name();
       }
       case REBUILD_INTO_NEXT -> {
         // Whether live writes may be mirrored into the index the swap leaves behind turns on its
-        // ids, not on the rebuild; the row records the answer for the consumers.
+        // ids, not on the rebuild; the row records the answer for the consumers. A partial corpus
+        // left by an abandoned fill is not a generation to roll back to either.
         oldIdSchemeStale = oldIndexIdSchemeStale(config, indexBuilder);
+        abandonedPartialFill = PrimaryStorageFillStamp.incomplete(config.currentMappings());
         Set<String> oldBackingIndices = indexBuilder.getBackingIndices(opContext, config.name());
         oldBackingIndexName =
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
         indexBuilder.createIndex(opContext, physicalIndex, config);
+        indexBuilder.markPrimaryStorageFillIncomplete(opContext, physicalIndex);
         fillTarget = physicalIndex;
       }
       case IN_PLACE -> {
         physicalIndex = config.name();
         fillTarget = config.name();
+        indexBuilder.markPrimaryStorageFillIncomplete(opContext, config.name());
       }
       default -> throw new IllegalStateException("Unhandled fill " + fill);
     }
@@ -773,6 +790,14 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     if (oldIdSchemeStale) {
       upgradeState =
           IncrementalReindexState.setOldBackingIndexIdSchemeStale(upgradeState, config.name());
+    }
+    if (abandonedPartialFill) {
+      log.info(
+          "Index {}: rebuilt from an abandoned partial fill; the index the rebuild leaves behind"
+              + " receives no rollback writes",
+          config.name());
+      upgradeState =
+          IncrementalReindexState.setOldBackingIndexIncompleteFill(upgradeState, config.name());
     }
     checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
     return upgradeState;

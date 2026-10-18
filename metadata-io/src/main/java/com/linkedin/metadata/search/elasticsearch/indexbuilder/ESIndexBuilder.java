@@ -3233,6 +3233,37 @@ public class ESIndexBuilder {
     log.info("Created index {} behind alias {}", physicalIndexName, aliasName);
   }
 
+  /**
+   * Records an unfinished primary-storage fill on {@code indexName}. The stamp lives in {@code
+   * _meta}, which a version-scoped Phase 1 row does not, so a later deploy can still see that the
+   * corpus is partial.
+   */
+  public void markPrimaryStorageFillIncomplete(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    markPrimaryStorageFill(opContext, indexName, PrimaryStorageFillStamp.INCOMPLETE);
+  }
+
+  /** Records that the primary-storage fill of {@code indexName} has finished. */
+  public void markPrimaryStorageFillComplete(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    markPrimaryStorageFill(opContext, indexName, PrimaryStorageFillStamp.COMPLETE);
+  }
+
+  private void markPrimaryStorageFill(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String state)
+      throws IOException {
+    Map<String, Object> stamped =
+        PrimaryStorageFillStamp.stamped(getCurrentMappings(opContext, indexName), state);
+    // _meta is replaced as a whole by put-mapping, so the request carries every existing entry.
+    // Properties are omitted: put-mapping merges them, and sending them would re-apply the live
+    // mapping onto itself.
+    PutMappingRequest request =
+        new PutMappingRequest(indexName)
+            .source(Map.of(V3DocumentIdScheme.META, stamped.get(V3DocumentIdScheme.META)));
+    searchClient.putIndexMapping(opContext, request, requestOptionsLong);
+    log.info("Index {}: primary-storage fill marked {}", indexName, state);
+  }
+
   public void createIndex(
       @Nonnull OperationContext opContext, String indexName, ReindexConfig state)
       throws IOException {

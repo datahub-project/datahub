@@ -566,6 +566,10 @@ public class IncrementalReindexStateTest {
         IncrementalReindexState.key(
             ENTITY_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_ID_SCHEME_STALE),
         "true");
+    failedAttempt.put(
+        IncrementalReindexState.key(
+            ENTITY_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_INCOMPLETE_FILL),
+        "true");
 
     Map<String, String> replanned =
         IncrementalReindexState.setBackfillPending(failedAttempt, ENTITY_INDEX, NEXT_INDEX, 2000L);
@@ -579,6 +583,7 @@ public class IncrementalReindexStateTest {
                 replanned, ENTITY_INDEX, IncrementalReindexState.BACKFILL_URNS_PROCESSED)
             .isEmpty());
     assertFalse(IncrementalReindexState.isOldBackingIndexIdSchemeStale(replanned, ENTITY_INDEX));
+    assertFalse(IncrementalReindexState.isOldBackingIndexIncompleteFill(replanned, ENTITY_INDEX));
   }
 
   private static Map<String, String> timeseriesPhase1State(
