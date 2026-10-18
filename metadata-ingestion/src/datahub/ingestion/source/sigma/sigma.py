@@ -3,6 +3,7 @@ import re
 from dataclasses import dataclass
 from typing import (
     Any,
+    Callable,
     Collection,
     Dict,
     FrozenSet,
@@ -400,6 +401,26 @@ class _ElementInputFields:
 
     fields: List[InputFieldClass]
     loaded_dm_inputs: Set[str]
+    # Charts a /schema-recovered column reads, which ChartInfo lists too.
+    schema_chart_inputs: Set[str]
+
+
+# (elementId, column name) -> the (chart urn, column name) pairs it reads.
+_SchemaRefs = Dict[Tuple[str, str], List[Tuple[str, str]]]
+
+
+class _LazySchemaRefs:
+    """A workbook's /schema refs, fetched on first use so a workbook whose
+    columns all resolve by name costs no extra call."""
+
+    def __init__(self, load: Callable[[], _SchemaRefs]) -> None:
+        self._load = load
+        self._refs: Optional[_SchemaRefs] = None
+
+    def upstreams(self, element_id: str, column: str) -> List[Tuple[str, str]]:
+        if self._refs is None:
+            self._refs = self._load()
+        return self._refs.get((element_id, column), [])
 
 
 @dataclass
@@ -4450,6 +4471,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
         workbook_dm_url_ids: FrozenSet[str] = frozenset(),
         chart_source_names: Optional[FrozenSet[str]] = None,
+        schema_refs: Optional[_LazySchemaRefs] = None,
     ) -> _ElementInputFields:
         """Emit exactly one InputField per chart column.
 
@@ -4473,6 +4495,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstreams_by_column: Dict[str, List[str]] = {}
         sibling_pending: Dict[str, _PendingSiblingColumn] = {}
         loaded_dm_inputs: Set[str] = set()
+        schema_chart_inputs: Set[str] = set()
         for column in element.columns:
             formula = element.column_formulas.get(column)
             refs: List[BracketRef] = []
@@ -4573,6 +4596,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elif all_param:
                     self.reporter.chart_input_fields_skipped_parameter += 1
                 else:
+                    recovered = (
+                        schema_refs.upstreams(element.elementId, column)
+                        if schema_refs is not None
+                        else []
+                    )
+                    if recovered:
+                        self.reporter.chart_input_fields_resolved += 1
+                        self.reporter.chart_input_fields_recovered_from_schema += 1
+                        self.reporter.chart_input_fields_multi_ref_extra += (
+                            len(recovered) - 1
+                        )
+                        for upstream_urn, upstream_field in recovered:
+                            schema_field_urn = builder.make_schema_field_urn(
+                                upstream_urn, upstream_field
+                            )
+                            fields.append(
+                                InputFieldClass(
+                                    schemaFieldUrn=schema_field_urn,
+                                    schemaField=self._make_string_schema_field(column),
+                                )
+                            )
+                            upstreams_by_column.setdefault(column, []).append(
+                                schema_field_urn
+                            )
+                            schema_chart_inputs.add(upstream_urn)
+                        continue
                     self.reporter.chart_input_fields_self_ref_fallback += 1
                 schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
                 fields.append(
@@ -4586,7 +4635,89 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 fields, element.columns, upstreams_by_column, sibling_pending
             ),
             loaded_dm_inputs=loaded_dm_inputs,
+            schema_chart_inputs=schema_chart_inputs,
         )
+
+    @staticmethod
+    def _schema_name_ref_paths(formula: Any) -> List[List[str]]:
+        """Every ``nameRef`` path in a /schema formula tree, however nested."""
+        found: List[List[str]] = []
+        stack: List[Any] = [formula]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                path = node.get("path")
+                if node.get("type") == "nameRef" and isinstance(path, list):
+                    found.append([str(part) for part in path])
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+        return found
+
+    def _load_workbook_schema_refs(
+        self, workbook: Workbook, elementId_to_chart_urn: Dict[str, str]
+    ) -> _SchemaRefs:
+        """Each chart column's ``[sheetId, columnId]`` refs from /schema, as the
+        upstream chart columns they name.
+
+        A sheet maps to an element only when exactly one element renders it,
+        and a ref to the column's own element is dropped: refusing beats
+        attaching lineage to the wrong chart. Warehouse, sibling and Data
+        Model refs are not read here.
+        """
+        schema = self.sigma_api.get_workbook_schema(workbook.workbookId)
+        if schema is None:
+            return {}
+        sheets = schema.get("sheets")
+        schema_elements = schema.get("elements")
+        if not isinstance(sheets, dict) or not isinstance(schema_elements, dict):
+            return {}
+        owners_by_sheet: Dict[str, List[str]] = {}
+        for element_id, meta in schema_elements.items():
+            viz = meta.get("viz") if isinstance(meta, dict) else None
+            sheet_id = viz.get("sheetId") if isinstance(viz, dict) else None
+            if sheet_id:
+                owners_by_sheet.setdefault(str(sheet_id), []).append(str(element_id))
+        sole_owner = {
+            sheet_id: owners[0]
+            for sheet_id, owners in owners_by_sheet.items()
+            if len(owners) == 1
+        }
+        # Keyed by element too: /columns lists one columnId under every
+        # element that surfaces it, so a columnId alone has no single owner.
+        name_by_column: Dict[Tuple[str, str], str] = {
+            (element.elementId, column_id): name
+            for page in workbook.pages
+            for element in page.elements
+            for name, column_id in element.column_id_by_name.items()
+        }
+
+        refs: _SchemaRefs = {}
+        for sheet_id, element_id in sole_owner.items():
+            sheet = sheets.get(sheet_id)
+            columns = sheet.get("columns") if isinstance(sheet, dict) else None
+            if not isinstance(columns, dict):
+                continue
+            for column_id, column in columns.items():
+                name = name_by_column.get((element_id, column_id))
+                if name is None or not isinstance(column, dict):
+                    continue
+                upstreams: List[Tuple[str, str]] = []
+                for path in self._schema_name_ref_paths(column.get("formula")):
+                    if len(path) != 2:
+                        continue
+                    upstream_id = sole_owner.get(path[0])
+                    if upstream_id is None or upstream_id == element_id:
+                        continue
+                    upstream_name = name_by_column.get((upstream_id, path[1]))
+                    upstream_urn = elementId_to_chart_urn.get(upstream_id)
+                    if upstream_name is None or upstream_urn is None:
+                        continue
+                    if (upstream_urn, upstream_name) not in upstreams:
+                        upstreams.append((upstream_urn, upstream_name))
+                if upstreams:
+                    refs[(element_id, name)] = upstreams
+        return refs
 
     def _inherit_sibling_upstreams(
         self,
@@ -4665,6 +4796,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_warehouse_table_index: Optional[_WorkbookWarehouseIndex],
         customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
         workbook_dm_url_ids: FrozenSet[str] = frozenset(),
+        schema_refs: Optional[_LazySchemaRefs] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -4819,8 +4951,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 chart_source_names=self._chart_source_names(
                     element, chart_urn, dataset_inputs
                 ),
+                schema_refs=schema_refs,
             )
             element_input_fields = element_inputs.fields
+            if element_inputs.schema_chart_inputs:
+                chart_input_urns = sorted(
+                    set(chart_input_urns) | element_inputs.schema_chart_inputs
+                )
 
             # After the input fields, so a Data Model element the loaded-DM
             # lookup resolved is an entity input as well as a column input.
@@ -4899,8 +5036,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             wb_warehouse_table_index = self._build_workbook_warehouse_table_index(
                 workbook
             )
+            schema_refs: Optional[_LazySchemaRefs] = _LazySchemaRefs(
+                lambda: self._load_workbook_schema_refs(
+                    workbook, elementId_to_chart_urn
+                )
+            )
         else:
             wb_warehouse_table_index = None
+            schema_refs = None
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
@@ -4935,6 +5078,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_warehouse_table_index,
                 customsql_extra_inputs or {},
                 workbook_dm_url_ids=workbook_dm_url_ids,
+                schema_refs=schema_refs,
             )
 
             yield MetadataChangeProposalWrapper(
