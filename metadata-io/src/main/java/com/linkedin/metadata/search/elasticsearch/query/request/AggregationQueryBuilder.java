@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -38,6 +39,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -104,6 +106,12 @@ public class AggregationQueryBuilder {
       facetsToAggregate.addAll(defaultFacetFields);
     }
     facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
+    if (facetsToAggregate.contains(ESUtils.ORIGIN_FIELD)
+        || facetsToAggregate.contains(ESUtils.ENV_FIELD)) {
+      Stream.of(ESUtils.ORIGIN_FIELD, ESUtils.ENV_FIELD)
+          .filter(allFacetFields::contains)
+          .forEach(facetsToAggregate::add);
+    }
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());
@@ -285,6 +293,7 @@ public class AggregationQueryBuilder {
         processMissingAggregations(entry, aggregationMetadataList);
       }
     }
+    mergeAliasedFacets(aggregationMetadataList);
     return addFiltersToAggregationMetadata(
         aggregationMetadataList, filter, opContext, aspectRetriever);
   }
@@ -673,6 +682,53 @@ public class AggregationQueryBuilder {
     }
 
     return filtersToDisplayName;
+  }
+
+  /**
+   * Both "env" and "origin" are shown as "Environment" and filters on either are expanded to both
+   * fields (see {@link ESUtils#FIELDS_TO_EXPANDED_FIELDS_LIST}), so both facets get the summed
+   * counts. "origin" is the facet the UI reads, so it is added whenever only "env" has values. No
+   * entity indexes both fields, so summing does not double count.
+   */
+  @VisibleForTesting
+  public static void mergeAliasedFacets(
+      @Nonnull List<AggregationMetadata> aggregationMetadataList) {
+    AggregationMetadata originFacet =
+        aggregationMetadataList.stream()
+            .filter(a -> ESUtils.ORIGIN_FIELD.equals(a.getName()))
+            .findFirst()
+            .orElse(null);
+    AggregationMetadata envFacet =
+        aggregationMetadataList.stream()
+            .filter(a -> ESUtils.ENV_FIELD.equals(a.getName()))
+            .findFirst()
+            .orElse(null);
+
+    if (envFacet == null) {
+      return;
+    }
+
+    final Map<String, Long> mergedCounts = new HashMap<>(envFacet.getAggregations());
+    if (originFacet == null) {
+      originFacet =
+          new AggregationMetadata()
+              .setName(ESUtils.ORIGIN_FIELD)
+              .setDisplayName(envFacet.getDisplayName(), SetMode.IGNORE_NULL);
+      aggregationMetadataList.add(originFacet);
+    } else {
+      originFacet
+          .getAggregations()
+          .forEach((value, count) -> mergedCounts.merge(value, count, Long::sum));
+    }
+    setAggregationCounts(originFacet, mergedCounts);
+    setAggregationCounts(envFacet, mergedCounts);
+  }
+
+  private static void setAggregationCounts(
+      @Nonnull AggregationMetadata facet, @Nonnull Map<String, Long> counts) {
+    facet.setAggregations(new LongMap(counts));
+    facet.setFilterValues(
+        new FilterValueArray(SearchUtil.convertToFilters(counts, Collections.emptySet())));
   }
 
   private void processMissingAggregations(
