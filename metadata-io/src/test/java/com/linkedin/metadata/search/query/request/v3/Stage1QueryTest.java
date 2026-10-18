@@ -114,7 +114,8 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .collect(Collectors.toList());
     assertFalse(wildcards.isEmpty(), wildcards.toString());
     assertTrue(
-        wildcards.stream().allMatch(w -> w.fieldName().startsWith("_search.")),
+        wildcards.stream()
+            .allMatch(w -> w.fieldName().startsWith("name.") || w.fieldName().startsWith("title.")),
         wildcards.toString());
     // A lower-cased pattern: case-insensitive wildcards fail shards on OpenSearch 3.x
     assertTrue(
@@ -215,7 +216,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(MatchQueryBuilder.class::cast)
             .anyMatch(
                 match ->
-                    match.fieldName().equals("_search.qualifiedName.text")
+                    match.fieldName().equals("qualifiedName.text")
                         && match.operator() == Operator.AND
                         && match.boost() == 50.0f),
         dotted.toString());
@@ -232,8 +233,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(SimpleQueryStringBuilder.class::cast)
             .anyMatch(
                 sqs ->
-                    sqs.defaultOperator() == Operator.AND
-                        && sqs.fields().containsKey("_search.entityName.text")),
+                    sqs.defaultOperator() == Operator.AND && sqs.fields().containsKey("name.text")),
         sentence.toString());
     assertTrue(
         sentence.stream()
@@ -241,7 +241,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(MatchQueryBuilder.class::cast)
             .anyMatch(
                 match ->
-                    match.fieldName().equals("_search.description.text")
+                    match.fieldName().equals("description.text")
                         && match.operator() == Operator.AND),
         sentence.toString());
     // Multi-word queries skip the contains wildcard
@@ -530,7 +530,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses);
     assertTrue(clauses.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
     assertTrue(clauses.stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
-    // A single word searches the name-related delimited subfields only, here the urn
+    // A single word searches the name fields and structured property values
     MultiMatchQueryBuilder multiMatch =
         clauses.stream()
             .filter(MultiMatchQueryBuilder.class::isInstance)
@@ -538,9 +538,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .findFirst()
             .orElseThrow();
     assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
-    assertEquals(
-        multiMatch.fields().keySet(),
-        Set.of("_search.entityName.text", "_search.entityName.stemmed"));
+    assertEquals(multiMatch.fields().keySet(), Set.of("name.text", "name.stemmed"));
     // Exact names still score a constant above every partial match
     assertTrue(
         clauses.stream()
@@ -566,13 +564,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(MultiMatchQueryBuilder.class::cast)
             .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
             .collect(Collectors.toSet());
-    assertEquals(
-        fields,
-        Set.of(
-            "_search.entityName.text",
-            "_search.entityName.stemmed",
-            "_search.other.text",
-            "_search.other.stemmed"));
+    assertEquals(fields, Set.of("name.text", "name.stemmed", "other.text", "other.stemmed"));
   }
 
   @Test
@@ -680,9 +672,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .filter(multiMatch -> multiMatch.operator() == Operator.AND)
             .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
             .collect(Collectors.toSet());
-    assertTrue(
-        fields.containsAll(Set.of("_search.entityName.text", "_search.qualifiedName.text")),
-        fields.toString());
+    assertTrue(fields.containsAll(Set.of("name.text", "qualifiedName.text")), fields.toString());
   }
 
   @Test
@@ -758,8 +748,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .anyMatch(
                 multiMatch ->
                     multiMatch.fields().keySet().stream()
-                        .anyMatch(
-                            field -> field.startsWith("_search.") && field.endsWith(".text"))),
+                        .anyMatch(field -> "name.text".equals(field))),
         clauses.toString());
   }
 

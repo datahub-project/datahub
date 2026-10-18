@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.hybrid;
+package com.linkedin.metadata.search.hybrid.v3;
 
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 

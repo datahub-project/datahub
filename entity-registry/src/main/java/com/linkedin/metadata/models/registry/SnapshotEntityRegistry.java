@@ -40,6 +40,7 @@ import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,6 +74,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
             .buildEntitySpecs(new Snapshot().schema()).stream()
                 .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
+    SearchableAnnotationValidator.validateSharedLabels(entitySpecs);
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
     pluginFactoryProvider = null;
@@ -85,6 +87,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
             .buildEntitySpecs(new Snapshot().schema()).stream()
                 .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
+    SearchableAnnotationValidator.validateSharedLabels(entitySpecs);
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
     this.pluginFactoryProvider = pluginFactoryProvider;
@@ -96,6 +99,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
             .buildEntitySpecs(snapshot.schema()).stream()
                 .collect(Collectors.toMap(spec -> spec.getName().toLowerCase(), spec -> spec));
     entitySpecs = new ArrayList<>(entityNameToSpec.values());
+    SearchableAnnotationValidator.validateSharedLabels(entitySpecs);
     _aspectNameToSpec = populateAspectMap(entitySpecs);
     _aspectTemplateEngine = populateTemplateEngine(_aspectNameToSpec);
   }

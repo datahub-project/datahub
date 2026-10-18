@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.hybrid;
+package com.linkedin.metadata.search.hybrid.v3;
 
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
@@ -54,6 +54,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.DocumentV3Embe
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -62,10 +63,16 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
+import com.linkedin.metadata.search.hybrid.HybridCandidateMerger;
+import com.linkedin.metadata.search.hybrid.HybridLexicalScoreNormalizer;
+import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
+import com.linkedin.metadata.search.hybrid.HybridScoreCombiner;
+import com.linkedin.metadata.search.hybrid.HybridScoreMapBuilder;
+import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
+import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;

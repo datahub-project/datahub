@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.query;
+package com.linkedin.metadata.search.query.v3;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
@@ -19,6 +19,7 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertEqualsNoOrder;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -92,6 +93,8 @@ import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
@@ -102,7 +105,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
@@ -111,7 +113,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -454,7 +455,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     new DatasetProperties()
                         .setName("customers")
                         .setDescription(CUSTOMERS_DESCRIPTION),
-                    // editedName is not query-by-default text
+                    // editedName shares the name label, so full text and a name-only
+                    // configuration both match it
                     new EditableDatasetProperties().setName("quarterly ledger"),
                     // owners is not queried by default
                     new Ownership()
@@ -1299,9 +1301,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         CUSTOMERS);
   }
 
-  /** A URN field queried by default matches a component of its value, as on V2. */
+  /** Exact-only URN labels do not enter full text, but remain filterable by their full value. */
   @Test
-  public void testSearchMatchesUrnFieldComponent() {
+  public void testExactUrnLabelDoesNotMatchComponent() {
     assertUrns(
         searchService
             .search(
@@ -1309,6 +1311,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 List.of(CHART_ENTITY_NAME),
                 "confidential",
                 null,
+                null,
+                0,
+                10)
+            .getEntities());
+    assertUrns(
+        searchService
+            .filter(
+                opContext,
+                CHART_ENTITY_NAME,
+                QueryUtils.newFilter("tags", "urn:li:tag:Confidential"),
                 null,
                 0,
                 10)
@@ -1401,7 +1413,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             List.of());
     assertTrue(explain.isMatch());
     String explanation = explain.getExplanation().toString();
-    assertTrue(explanation.contains("_search.description.text:customer"), explanation);
+    assertTrue(explanation.contains("description.text:customer"), explanation);
     assertFalse(explanation.contains("description.keyword"), explanation);
   }
 
@@ -1443,8 +1455,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     // A URN that differs in case or is cut short still matches, as on V2
     assertTopHit(ENTITY_TYPES, ORDERS.toString().replace("sales.orders", "SALES.ORDERS"), ORDERS);
     assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
-    // An entity that references the URN, here through its tags
-    assertTopHit(ENTITY_TYPES, "urn:li:tag:Confidential", ORDERS_CHART);
     // Search operators are plain text: "-archive" does not exclude the title holding it
     assertTrue(
         searchService
@@ -1759,8 +1769,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   /**
    * The fieldConfiguration search flag picks the fields a custom search configuration queries. On
-   * V3 a configured field stands for the shared field it feeds: name selects the whole entityName
-   * field.
+   * V3 a configured name selects the root name field, which the ingested name and the edited name
+   * both copy into.
    */
   @Test
   public void testFieldConfigurationSelectsSearchedFields() throws IOException {
@@ -1802,20 +1812,20 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertUrns(search.apply(fulltext, "billing"), CUSTOMERS);
     assertUrns(search.apply(nameOnly, "billing"));
     assertUrns(search.apply(nameOnly, "orders"), ORDERS);
-    // The edited name is searched by default, but it is not the name, as on V2
+    // The edited name shares the name label, so a name-only configuration matches it
     assertUrns(search.apply(fulltext, "ledger"), CUSTOMERS);
-    assertUrns(search.apply(nameOnly, "ledger"));
+    assertUrns(search.apply(nameOnly, "ledger"), CUSTOMERS);
   }
 
   @Test
   @SuppressWarnings("unchecked")
   public void testSearchWithEmptyIndex() throws IOException {
     // An index without documents answers every query with no hits, and maps no search tier
-    Map<String, Object> searchFields =
-        (Map<String, Object>)
-            ((Map<String, Object>) getMappedProperties(EMPTY_ENTITY_TYPE).get("_search"))
-                .get("properties");
-    assertTrue(searchFields.keySet().stream().noneMatch(field -> field.startsWith("tier_")));
+    Map<String, Object> emptyProperties = getMappedProperties(EMPTY_ENTITY_TYPE);
+    assertFalse(emptyProperties.containsKey("_search"));
+    assertTrue(
+        emptyProperties.keySet().stream().noneMatch(field -> field.startsWith("tier_")),
+        emptyProperties.keySet().toString());
 
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
     for (String query : List.of("orders", "\"orders\"")) {
@@ -1845,19 +1855,46 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Root fields are normalized keywords for filters, facets and sorts, without V2's analyzed
-   * subfields. Full text lives in the shared _search fields: a word and a stemmed subfield on every
-   * one.
+   * Root fields that are not shared labels are normalized keywords for filters, facets and sorts,
+   * without V2's analyzed subfields. Full text lives on the root field its label names: {@code
+   * text} and {@code stemmed} on each one, and a case-preserving {@code keyword} on indexed exact
+   * roots. System metadata is the root {@code _system} object. Search V3 does not map an
+   * autocomplete field.
    */
   @Test
   @SuppressWarnings("unchecked")
   public void testOnlySharedSearchFieldsAreAnalyzed() throws IOException {
     Map<String, Object> properties = getMappedProperties(DATASET_ENTITY_NAME);
-    for (String root : List.of("name", "description")) {
-      Map<String, Object> mapping = (Map<String, Object>) properties.get(root);
-      assertEquals(mapping.get("type"), "keyword", root);
-      assertEquals(((Map<String, Object>) mapping.get("fields")).keySet(), Set.of("keyword"), root);
-    }
+    Map<String, Object> name = (Map<String, Object>) properties.get("name");
+    assertEquals(name.get("type"), "keyword");
+    Map<String, Object> nameFields = (Map<String, Object>) name.get("fields");
+    assertEquals(nameFields.keySet(), Set.of("text", "stemmed", "keyword"));
+    assertEquals(((Map<String, Object>) nameFields.get("text")).get("analyzer"), "v3_text");
+    // The name keeps its stored casing for case-sensitive exact match
+    assertFalse(((Map<String, Object>) nameFields.get("keyword")).containsKey("normalizer"));
+
+    Map<String, Object> description = (Map<String, Object>) properties.get("description");
+    assertEquals(description.get("type"), "keyword");
+    assertEquals(description.get("index"), false);
+    assertEquals(description.get("doc_values"), false);
+    Map<String, Object> descriptionFields = (Map<String, Object>) description.get("fields");
+    assertEquals(descriptionFields.keySet(), Set.of("text", "stemmed"));
+    assertEquals(((Map<String, Object>) descriptionFields.get("text")).get("analyzer"), "v3_text");
+
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    Map<String, Object> datasetProperties =
+        (Map<String, Object>) aspectProperties.get("datasetProperties");
+    Map<String, Object> datasetAspectFields =
+        (Map<String, Object>) datasetProperties.get("properties");
+    Map<String, Object> aspectDescription =
+        (Map<String, Object>) datasetAspectFields.get("description");
+    assertEquals(aspectDescription.get("index"), false);
+    assertEquals(aspectDescription.get("doc_values"), false);
+    assertFalse(aspectDescription.containsKey("fields"));
+
+    assertNull(properties.get("autocomplete"));
+
     properties.forEach(
         (root, mapping) -> {
           Object fields = ((Map<String, Object>) mapping).get("fields");
@@ -1868,24 +1905,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .noneMatch(
                         subfield ->
                             subfield.equals("delimited")
-                                || subfield.equals("ngram")
-                                || subfield.startsWith("wordGrams")),
+                                || subfield.startsWith("wordGrams")
+                                || subfield.equals("ngram")),
                 root + " " + subfields.keySet());
           }
         });
 
-    Map<String, Object> searchFields =
-        (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
-    Map<String, Object> description =
-        (Map<String, Object>) ((Map<String, Object>) searchFields.get("description")).get("fields");
-    assertEquals(description.keySet(), Set.of("text", "stemmed"));
-    assertEquals(((Map<String, Object>) description.get("text")).get("analyzer"), "v3_text");
-    Map<String, Object> entityName =
-        (Map<String, Object>) ((Map<String, Object>) searchFields.get("entityName")).get("fields");
-    assertEquals(entityName.keySet(), Set.of("text", "stemmed", "keyword"));
-    // The name keeps its stored casing for case-sensitive exact match
-    assertFalse(((Map<String, Object>) entityName.get("keyword")).containsKey("normalizer"));
-    assertNull(searchFields.get("autocomplete"));
+    assertNull(properties.get("_search"));
+    assertNotNull(properties.get("name"));
+    assertNotNull(properties.get("description"));
   }
 
   @Test
@@ -1989,36 +2017,31 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(groups(acrossEntities), Map.of("sales", 2L, "marketing", 1L));
   }
 
-  /** Legacy browse on the browsePaths aspect returns what V2 returns for the same paths. */
+  /** Browse path v1 is not indexed on Search V3, so legacy browse returns nothing. */
   @Test
   public void testBrowse() {
     BrowseResult root = searchService.browse(opContext, DATASET_ENTITY_NAME, "", null, 0, 10);
-    assertEquals(root.getMetadata().getTotalNumEntities().longValue(), 2L);
-    assertEquals(groups(root), Map.of("prod", 2L, "shared", 1L));
+    assertEquals(root.getMetadata().getTotalNumEntities().longValue(), 0L);
+    assertEquals(groups(root), Map.of());
     assertEquals(root.getNumEntities().intValue(), 0);
 
     assertEquals(
         groups(searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod", null, 0, 10)),
-        Map.of("sales", 1L, "marketing", 1L));
+        Map.of());
 
-    // An entity is listed at the full depth of its path
     BrowseResult sales =
         searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod/sales", null, 0, 10);
     assertEquals(groups(sales), Map.of());
     assertEquals(
         sales.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()),
-        List.of(ORDERS));
+        List.of());
   }
 
   @Test
   public void testGetBrowsePaths() {
+    assertEquals(searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, ORDERS), List.of());
     assertEquals(
-        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, ORDERS),
-        List.of("/prod/sales"));
-    assertEquals(
-        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, CUSTOMERS),
-        List.of("/prod/marketing", "/shared/crm"));
-    // No browsePaths aspect
+        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, CUSTOMERS), List.of());
     assertEquals(
         searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
   }

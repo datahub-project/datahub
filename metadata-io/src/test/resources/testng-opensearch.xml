@@ -19,6 +19,7 @@
             <!-- Container-free hybrid search unit tests: the other suite, which would run them,
                  is unwired. -->
             <package name="com.linkedin.metadata.search.hybrid"/>
+            <package name="com.linkedin.metadata.search.hybrid.v3"/>
         </packages>
         <classes>
             <!-- Container-free; its package otherwise runs only in the unwired es8 suite. -->
@@ -26,7 +27,7 @@
             <class name="com.linkedin.metadata.search.elasticsearch.query.ESSearchDAOHybridTest"/>
             <!-- Container-free coverage of the entity index write path and the incremental reindex: their
                  packages are in no wired suite, so they are listed one by one. -->
-            <class name="com.linkedin.metadata.service.UpdateIndicesV3StrategyTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3StrategyTest"/>
             <class name="com.linkedin.metadata.service.CatchUpBatchRebuilderTest"/>
             <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest"/>
             <class name="com.linkedin.metadata.service.UpdateIndicesUpgradeStrategyTest"/>

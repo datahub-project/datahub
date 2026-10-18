@@ -3,6 +3,8 @@ package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +36,8 @@ final class StructuredQueryRouting {
   static Optional<QueryBuilder> build(
       @Nonnull String query,
       @Nonnull List<SearchFieldConfig> shared,
-      @Nonnull List<SearchFieldConfig> properties) {
+      @Nonnull List<SearchFieldConfig> properties,
+      @Nullable SearchFieldResolver fieldResolver) {
     if (query.isBlank() || !mightHaveExplicitField(query)) {
       return unqualified(query, shared, properties);
     }
@@ -43,7 +46,7 @@ final class StructuredQueryRouting {
       if (!node.hasExplicitField()) {
         return unqualified(query, shared, properties);
       }
-      return Optional.ofNullable(node.toQuery(shared, properties));
+      return Optional.ofNullable(node.toQuery(shared, properties, fieldResolver));
     } catch (IllegalArgumentException e) {
       // One clause still names each field once. Lenient, so a property field we could not isolate
       // does not fail a multi-index search.
@@ -186,7 +189,9 @@ final class StructuredQueryRouting {
 
     @Nullable
     abstract QueryBuilder toQuery(
-        List<SearchFieldConfig> shared, List<SearchFieldConfig> properties);
+        List<SearchFieldConfig> shared,
+        List<SearchFieldConfig> properties,
+        @Nullable SearchFieldResolver fieldResolver);
 
     @Nullable
     final QueryBuilder finish(@Nonnull List<QueryBuilder> children, boolean or) {
@@ -224,10 +229,13 @@ final class StructuredQueryRouting {
     }
 
     @Override
-    QueryBuilder toQuery(List<SearchFieldConfig> shared, List<SearchFieldConfig> properties) {
+    QueryBuilder toQuery(
+        List<SearchFieldConfig> shared,
+        List<SearchFieldConfig> properties,
+        @Nullable SearchFieldResolver fieldResolver) {
       List<QueryBuilder> built = new ArrayList<>(children.size());
       for (Node child : children) {
-        QueryBuilder query = child.toQuery(shared, properties);
+        QueryBuilder query = child.toQuery(shared, properties, fieldResolver);
         if (query != null) {
           built.add(query);
         }
@@ -249,10 +257,13 @@ final class StructuredQueryRouting {
     }
 
     @Override
-    QueryBuilder toQuery(List<SearchFieldConfig> shared, List<SearchFieldConfig> properties) {
+    QueryBuilder toQuery(
+        List<SearchFieldConfig> shared,
+        List<SearchFieldConfig> properties,
+        @Nullable SearchFieldResolver fieldResolver) {
       List<QueryBuilder> built = new ArrayList<>(children.size());
       for (Node child : children) {
-        QueryBuilder query = child.toQuery(shared, properties);
+        QueryBuilder query = child.toQuery(shared, properties, fieldResolver);
         if (query != null) {
           built.add(query);
         }
@@ -274,8 +285,11 @@ final class StructuredQueryRouting {
     }
 
     @Override
-    QueryBuilder toQuery(List<SearchFieldConfig> shared, List<SearchFieldConfig> properties) {
-      QueryBuilder inner = child.toQuery(shared, properties);
+    QueryBuilder toQuery(
+        List<SearchFieldConfig> shared,
+        List<SearchFieldConfig> properties,
+        @Nullable SearchFieldResolver fieldResolver) {
+      QueryBuilder inner = child.toQuery(shared, properties, fieldResolver);
       if (inner == null) {
         return null;
       }
@@ -298,15 +312,104 @@ final class StructuredQueryRouting {
     }
 
     @Override
-    QueryBuilder toQuery(List<SearchFieldConfig> shared, List<SearchFieldConfig> properties) {
+    QueryBuilder toQuery(
+        List<SearchFieldConfig> shared,
+        List<SearchFieldConfig> properties,
+        @Nullable SearchFieldResolver fieldResolver) {
       if (field == null) {
         return withBoost(unqualified(text, shared, properties).orElse(null), weight);
       }
       // A group such as name:(foo OR structuredProperties.bar:baz) is one query_string. Lenient
       // when it names a property, so that field is not evaluated strictly.
       boolean lenient = isPropertyField(field) || mentionsPropertyField(text);
+      if (!lenient && !isQuotedFieldValue(text)) {
+        QueryBuilder contained = containQuery(text, field, shared, fieldResolver);
+        if (contained != null) {
+          return withBoost(contained, weight);
+        }
+      }
       return withBoost(clause(text, lenient ? properties : shared, lenient, true), weight);
     }
+  }
+
+  /**
+   * An unquoted {@code /q} value uses the same {@code CONTAIN} resolution as a contains filter. A
+   * text-only label searches its analyzed subfields. A source name whose label differs, such as
+   * {@code fieldPaths}, searches the keyword path. A label written as itself, such as {@code name}
+   * or {@code tags}, stays as written. A quoted value is exact and is not rewritten.
+   */
+  @Nullable
+  private static QueryBuilder containQuery(
+      @Nonnull String text,
+      @Nonnull String field,
+      @Nonnull List<SearchFieldConfig> shared,
+      @Nullable SearchFieldResolver fieldResolver) {
+    if (fieldResolver == null
+        || !fieldResolver.contains(field)
+        || !fieldResolver.supports(field, Intent.CONTAIN)) {
+      return null;
+    }
+    SearchFieldResolver.Field resolved = fieldResolver.resolve(field, Intent.CONTAIN);
+    if (!resolved.isIndexed()) {
+      List<SearchFieldConfig> analyzed = new ArrayList<>();
+      for (String path : fieldResolver.analyzedPaths(field)) {
+        analyzed.add(configFor(shared, path));
+      }
+      return analyzed.isEmpty() ? null : textOnlyQuery(text, analyzed);
+    }
+    if (field.equals(resolved.getPath())) {
+      return null;
+    }
+    int colon = text.indexOf(':');
+    String keywordPath = fieldResolver.exactPath(field, Intent.CONTAIN);
+    return clause(keywordPath + text.substring(colon), shared, false, true);
+  }
+
+  @Nonnull
+  private static SearchFieldConfig configFor(
+      @Nonnull List<SearchFieldConfig> shared, @Nonnull String path) {
+    for (SearchFieldConfig config : shared) {
+      if (config.fieldName().equals(path)) {
+        return config;
+      }
+    }
+    return SearchFieldConfig.builder()
+        .fieldName(path)
+        .boost(SearchFieldConfig.DEFAULT_BOOST)
+        .build();
+  }
+
+  /** A quoted value ({@code description:"data warehouse"}) stays on exact intent. */
+  private static boolean isQuotedFieldValue(@Nonnull String text) {
+    int colon = text.indexOf(':');
+    if (colon < 0) {
+      return false;
+    }
+    int index = colon + 1;
+    while (index < text.length() && isWhitespace(text.charAt(index))) {
+      index++;
+    }
+    return index < text.length() && text.charAt(index) == '"';
+  }
+
+  @Nonnull
+  private static QueryBuilder textOnlyQuery(
+      @Nonnull String text, @Nonnull List<SearchFieldConfig> analyzed) {
+    int colon = text.indexOf(':');
+    String value = text.substring(colon);
+    List<QueryBuilder> clauses = new ArrayList<>();
+    for (SearchFieldConfig subfield : analyzed) {
+      QueryStringQueryBuilder query = QueryBuilders.queryStringQuery(subfield.fieldName() + value);
+      query.defaultOperator(Operator.AND);
+      query.boost(subfield.boost());
+      clauses.add(query);
+    }
+    if (clauses.size() == 1) {
+      return clauses.get(0);
+    }
+    BoolQueryBuilder bool = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    clauses.forEach(bool::should);
+    return bool;
   }
 
   /**

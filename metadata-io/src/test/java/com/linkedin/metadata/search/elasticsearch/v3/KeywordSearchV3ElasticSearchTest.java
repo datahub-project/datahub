@@ -1,7 +1,8 @@
-package com.linkedin.metadata.search.opensearch;
+package com.linkedin.metadata.search.elasticsearch.v3;
 
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchSuite;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.search.query.KeywordSearchV3TestBase;
+import com.linkedin.metadata.search.query.v3.KeywordSearchV3TestBase;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
@@ -10,11 +11,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 
 @Import({
-  OpenSearchSuite.class,
+  ElasticSearchSuite.class,
   SearchCommonTestConfiguration.class,
   SearchTestContainerConfiguration.class
 })
-public class KeywordSearchV3OpenSearchTest extends KeywordSearchV3TestBase {
+public class KeywordSearchV3ElasticSearchTest extends KeywordSearchV3TestBase {
   @Getter @Autowired private SearchClientShim<?> searchClient;
   @Getter @Autowired private ESBulkProcessor bulkProcessor;
 }

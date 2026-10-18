@@ -416,13 +416,14 @@ public class ESSearchDAO {
     CountRequest countRequest =
         new CountRequest(entityIndexName(opContext, entityName))
             .query(
-                SearchRequestHandler.getFilterQuery(
-                    opContext,
-                    List.of(entityName),
-                    filter,
-                    entitySpec.getSearchableFieldTypes(),
-                    queryFilterRewriteChain,
-                    searchConfiguration.getEntityIndex()));
+                SearchRequestHandler.getBuilder(
+                        opContext,
+                        entitySpec,
+                        searchConfiguration,
+                        customSearchConfiguration,
+                        queryFilterRewriteChain,
+                        searchServiceConfig)
+                    .getFilterQuery(opContext, filter));
 
     return opContext.withSpan(
         "docCount",

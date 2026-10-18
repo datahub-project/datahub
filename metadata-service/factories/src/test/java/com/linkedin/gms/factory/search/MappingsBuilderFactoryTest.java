@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 
 public class MappingsBuilderFactoryTest {
 
-  /** Search V3 does not support autocomplete, so its mappings have no shared autocomplete field. */
+  /** Search V3 does not support autocomplete, so its mappings have no autocomplete field. */
   @Test
   @SuppressWarnings("unchecked")
   public void testV3MappingsHaveNoAutocompleteField() {
@@ -57,11 +57,9 @@ public class MappingsBuilderFactoryTest {
             .filter(mapping -> mapping.getIndexName().endsWith("datasetindex_v3"))
             .findFirst()
             .orElseThrow();
-    Map<String, Object> search =
-        (Map<String, Object>)
-            ((Map<String, Object>) datasets.getMappings().get("properties")).get("_search");
-    Map<String, Object> searchFields = (Map<String, Object>) search.get("properties");
-    assertNotNull(searchFields.get("entityName"));
-    assertNull(searchFields.get("autocomplete"));
+    Map<String, Object> properties = (Map<String, Object>) datasets.getMappings().get("properties");
+    assertNotNull(properties.get("name"));
+    assertNull(properties.get("autocomplete"));
+    assertNull(properties.get("_search"));
   }
 }
