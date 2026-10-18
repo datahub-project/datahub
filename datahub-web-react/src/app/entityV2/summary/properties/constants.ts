@@ -53,7 +53,7 @@ export const CREATED_PROPERTY: AssetProperty = {
 
 export const LAST_INGESTED_PROPERTY: AssetProperty = {
     get name() {
-        return i18next.t('entity.profile.summary:properties.lastIngested', 'Last Synced');
+        return i18next.t('entity.profile.summary:properties.lastSynced');
     },
     type: SummaryElementType.LastIngested,
     icon: Clock,
