@@ -498,7 +498,8 @@ public class HardDeleteServiceTest {
         () ->
             service(true, dispatcher)
                 .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END));
-    verifyNoInteractions(timeseriesAspectService);
+    // Counted before the offer, but never deleted.
+    verify(timeseriesAspectService, never()).deleteAspectValues(any(), any(), any(), any());
   }
 
   // ---- deleteReferences(op, urn)
