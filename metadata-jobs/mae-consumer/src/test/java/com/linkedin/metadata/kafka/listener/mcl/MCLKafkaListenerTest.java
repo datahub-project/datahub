@@ -319,6 +319,16 @@ public class MCLKafkaListenerTest {
   }
 
   @Test
+  public void testMalformedUrnIsNotSkippedAndDoesNotThrow() throws Exception {
+    // Reading a malformed urn throws; the MCL must reach the hooks as before tolerance instead of
+    // failing the batch or the pgQueue poll it is in.
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.data().put("entityUrn", "not-a-urn");
+
+    assertFalse(MCLKafkaListener.shouldSkipMcl(event, Map.of(), systemOperationContext));
+  }
+
+  @Test
   public void testConversionFailure() throws Exception {
     // Given
     try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {

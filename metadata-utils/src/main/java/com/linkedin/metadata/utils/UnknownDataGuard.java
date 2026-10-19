@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.TemplateOutputCastException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryFit;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -148,6 +150,20 @@ public final class UnknownDataGuard {
       return true;
     }
     return admitEvent(registry, metricUtils, parsed, parsed.getEntityType(), aspectName);
+  }
+
+  /**
+   * The urn of an event, or null when its string can't be parsed. Pegasus parses urn fields when
+   * they are read, so reading a malformed one throws; callers pass null to {@link #admitEvent} and
+   * leave the malformed urn to the validation that reported it before tolerance.
+   */
+  @Nullable
+  public static Urn urnOrNull(@Nonnull final Supplier<Urn> read) {
+    try {
+      return read.get();
+    } catch (TemplateOutputCastException e) {
+      return null;
+    }
   }
 
   /**

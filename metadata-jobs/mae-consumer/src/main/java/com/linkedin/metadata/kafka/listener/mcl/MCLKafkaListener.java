@@ -127,7 +127,9 @@ public class MCLKafkaListener
             UNKNOWN_DATA,
             opContext.getEntityRegistry(),
             opContext.getMetricUtils(),
-            event.getEntityUrn(),
+            // Reading a malformed urn throws; pass null so the MCL reaches the hooks, which handle
+            // it as they did before tolerance.
+            UnknownDataGuard.urnOrNull(event::getEntityUrn),
             entityType,
             aspectName);
   }
