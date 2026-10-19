@@ -1,12 +1,15 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple, Type
 
 import pytest
+from botocore.exceptions import ClientError
 from pyiceberg.catalog import load_catalog
 from pyiceberg.catalog.noop import NoopCatalog
 from pyiceberg.exceptions import (
+    ForbiddenError,
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
+    NoSuchPropertyException,
     NoSuchTableError,
 )
 from pyiceberg.io import PY_IO_IMPL, load_file_io
@@ -19,12 +22,23 @@ from pyiceberg.types import LongType, NestedField, StringType
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
-from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
-from tests.test_helpers.iceberg_probe_helpers import (
-    ingested_dataset_names,
-    probe_included_dataset_names,
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeInternalError,
 )
+from datahub.ingestion.source.iceberg.iceberg_common import (
+    IcebergSourceConfig,
+    table_custom_properties,
+)
+from datahub.ingestion.source.iceberg.iceberg_probe import (
+    _NAMESPACE_EFFECT,
+    _NAMESPACES_EFFECT,
+    IcebergMetadataProbe,
+)
+from datahub.metadata.schema_classes import DatasetPropertiesClass
+from tests.test_helpers.iceberg_probe_parity import LISTINGS
+from tests.test_helpers.probe_parity import assert_probe_parity, pipeline_ingestion
 
 Identifier = Tuple[str, ...]
 
@@ -182,7 +196,7 @@ def test_a_nested_namespace_is_refused_because_ingestion_never_reads_it(
         _FakeCatalog({("sales",): ["orders"], ("sales", "eu"): ["orders_eu"]}),
     )
 
-    with pytest.raises(ValueError, match="top-level"):
+    with pytest.raises(ProbeArgumentError, match="'sales.eu'"):
         run_probe_method("iceberg", _config_dict(), "tables", {"namespace": "sales.eu"})
 
 
@@ -191,7 +205,7 @@ def test_an_unknown_namespace_is_a_caller_error(
 ) -> None:
     _patch_catalog(monkeypatch, _FakeCatalog({("sales",): []}))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ProbeArgumentError, match="'nope'"):
         run_probe_method("iceberg", _config_dict(), "tables", {"namespace": "nope"})
 
 
@@ -232,7 +246,7 @@ def test_columns_of_a_missing_table_is_a_caller_error(
 ) -> None:
     _patch_catalog(monkeypatch, _FakeCatalog({("sales",): ["orders"]}))
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ProbeArgumentError, match="'nope'"):
         run_probe_method(
             "iceberg",
             _config_dict(),
@@ -241,15 +255,17 @@ def test_columns_of_a_missing_table_is_a_caller_error(
         )
 
 
+@pytest.mark.parametrize("error", [NoSuchIcebergTableError, NoSuchPropertyException])
 def test_a_non_iceberg_table_is_reported_as_one(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, error: Type[Exception]
 ) -> None:
-    _patch_catalog(
-        monkeypatch,
-        _FakeCatalog({("sales",): ["legacy"]}, not_iceberg=[("sales", "legacy")]),
-    )
+    # Glue and Hive raise NoSuchPropertyException for a table without a
+    # table_type parameter; both mean ingestion skips it.
+    catalog = _FakeCatalog({("sales",): ["legacy"]})
+    _fail_load_table(monkeypatch, catalog, error("not an iceberg table"))
+    _patch_catalog(monkeypatch, catalog)
 
-    with pytest.raises(ValueError, match="not an Iceberg table"):
+    with pytest.raises(ProbeArgumentError, match="'sales.legacy'"):
         run_probe_method(
             "iceberg",
             _config_dict(),
@@ -258,34 +274,160 @@ def test_a_non_iceberg_table_is_reported_as_one(
         )
 
 
-def test_a_file_io_that_cannot_start_is_a_connection_failure(
+def _fail_load_table(
+    monkeypatch: pytest.MonkeyPatch, catalog: _FakeCatalog, error: Exception
+) -> None:
+    def load_table(identifier: Identifier) -> Table:
+        raise error
+
+    monkeypatch.setattr(catalog, "load_table", load_table)
+
+
+def test_a_file_io_that_cannot_start_is_an_environment_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Exit 3, not 2: ingestion skips the table with a warning, and the cause
-    # is a FileIO implementation missing from the environment (or named by
-    # the catalog server), not an argument the caller can fix.
+    # Exit 1, as for any missing module: retrying cannot help. The class path
+    # is what tells the operator which package is missing.
     catalog = _FakeCatalog({("sales",): ["orders"]})
 
     def _failing_load_table(identifier: Identifier) -> Table:
         # pyiceberg's own raise, not a copy of its message: it signals this
         # with a bare ValueError, so the probe (like ingestion) matches the
-        # text, and a pyiceberg rewording must fail here rather than turn
-        # exit 3 into exit 2 unnoticed.
+        # text, and a pyiceberg rewording must fail here.
         load_file_io({PY_IO_IMPL: "no_such_module.NoSuchFileIO"})
         raise AssertionError("load_file_io loaded a module that does not exist")
 
     monkeypatch.setattr(catalog, "load_table", _failing_load_table)
     _patch_catalog(monkeypatch, catalog)
 
-    with pytest.raises(ProbeConnectionError) as raised:
+    with pytest.raises(ProbeInternalError) as raised:
         run_probe_method(
             "iceberg",
             _config_dict(),
             "table_metadata",
             {"namespace": "sales", "table": "orders"},
         )
-    # The class path is what tells the operator which package is missing.
     assert "no_such_module.NoSuchFileIO" in str(raised.value)
+
+
+def test_a_py_io_impl_that_is_not_a_class_path_is_an_environment_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+
+    def _failing_load_table(identifier: Identifier) -> Table:
+        load_file_io({PY_IO_IMPL: "NoDots"})
+        raise AssertionError("load_file_io accepted a bare class name")
+
+    monkeypatch.setattr(catalog, "load_table", _failing_load_table)
+    _patch_catalog(monkeypatch, catalog)
+
+    with pytest.raises(ProbeInternalError) as raised:
+        run_probe_method(
+            "iceberg",
+            _config_dict(),
+            "columns",
+            {"namespace": "sales", "table": "orders"},
+        )
+    assert "NoDots" in str(raised.value)
+
+
+def test_a_source_value_error_on_load_is_the_sources_not_the_callers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Glue raises a plain ValueError for a table missing its Parameters:
+    # bad source data, which ingestion records as a table failure.
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+    _fail_load_table(
+        monkeypatch, catalog, ValueError("Glue table is missing Parameters property")
+    )
+    _patch_catalog(monkeypatch, catalog)
+
+    with pytest.raises(ProbeConnectionError) as raised:
+        run_probe_method(
+            "iceberg",
+            _config_dict(),
+            "columns",
+            {"namespace": "sales", "table": "orders"},
+        )
+    assert "'sales.orders'" in str(raised.value)
+    assert "Parameters" not in str(raised.value)
+
+
+def test_a_listed_table_that_cannot_be_loaded_is_the_sources_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+    _fail_load_table(monkeypatch, catalog, NoSuchTableError("gone"))
+    _patch_catalog(monkeypatch, catalog)
+
+    with pytest.raises(ProbeConnectionError, match="'sales.orders'"):
+        run_probe_method(
+            "iceberg",
+            _config_dict(),
+            "columns",
+            {"namespace": "sales", "table": "orders"},
+        )
+
+
+@pytest.mark.parametrize(
+    "command, method",
+    [
+        ("tables", "list_tables"),
+        ("namespace_properties", "load_namespace_properties"),
+    ],
+)
+def test_a_listed_namespace_that_cannot_be_read_is_the_sources_state(
+    monkeypatch: pytest.MonkeyPatch, command: str, method: str
+) -> None:
+    # Dropped since the listing, or one Glue lists but refuses to read (a
+    # database named with a dot): not the caller's mistake.
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+
+    def fail(namespace: Identifier) -> object:
+        raise NoSuchNamespaceError("sales")
+
+    monkeypatch.setattr(catalog, method, fail)
+    _patch_catalog(monkeypatch, catalog)
+
+    with pytest.raises(ProbeConnectionError) as raised:
+        run_probe_method("iceberg", _config_dict(), command, {"namespace": "sales"})
+    assert _NAMESPACE_EFFECT in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "method, effect",
+    [
+        ("list_namespaces", _NAMESPACES_EFFECT),
+        ("list_tables", _NAMESPACE_EFFECT),
+    ],
+)
+def test_a_failure_names_the_call_that_failed(
+    monkeypatch: pytest.MonkeyPatch, method: str, effect: str
+) -> None:
+    # Ingestion fails the run on the first and skips a namespace on the
+    # second, so the two must not read alike.
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+
+    def fail(*args: object) -> object:
+        raise ForbiddenError("PLANTED-server-text")
+
+    monkeypatch.setattr(catalog, method, fail)
+    _patch_catalog(monkeypatch, catalog)
+
+    with pytest.raises(ProbeConnectionError) as raised:
+        run_probe_method("iceberg", _config_dict(), "tables", {"namespace": "sales"})
+    assert effect in str(raised.value)
+    assert "PLANTED" not in str(raised.value)
+
+
+def test_a_glue_client_error_is_labelled_with_its_code() -> None:
+    error = ClientError(
+        {"Error": {"Code": "AccessDeniedException", "Message": "PLANTED"}},
+        "GetDatabases",
+    )
+    assert IcebergMetadataProbe.probe_error_code(error) == "AccessDeniedException"
+    assert IcebergMetadataProbe.probe_error_code(ValueError("x")) is None
 
 
 def test_table_metadata_never_exposes_file_io_properties(
@@ -317,8 +459,8 @@ def test_table_metadata_never_exposes_file_io_properties(
         {"namespace": "sales", "table": "orders"},
     ).result
     assert isinstance(metadata, dict)
-    assert metadata["properties"] == {"owner": "someone", "comment": "a table"}
-    assert metadata["format_version"] == 2
+    assert metadata["owner"] == "someone"
+    assert metadata["format-version"] == "2"
 
 
 _PARITY_CATALOG: Dict[Identifier, Sequence[str]] = {
@@ -332,17 +474,28 @@ _PARITY_PATTERNS: Dict[str, object] = {
 }
 
 
-def test_probe_filter_agrees_with_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.usefixtures("_isolate_secret_registry")
+def test_probe_filter_agrees_with_ingestion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
-    config_dict = _config_dict(**_PARITY_PATTERNS)
 
-    ingested = ingested_dataset_names(config_dict)
+    report = assert_probe_parity(
+        "iceberg",
+        _config_dict(**_PARITY_PATTERNS),
+        pipeline_ingestion("iceberg", tmp_path),
+        LISTINGS,
+    )
 
-    # Pinned so a broken fake cannot make both sides agree on an empty set.
-    assert ingested == {"sales.orders"}
-    assert probe_included_dataset_names(config_dict) == ingested
+    assert report.excluded_by("namespaces") == {"ops": "namespace_pattern"}
+    assert report.excluded_by("tables") == {
+        "ops.jobs": "namespace_pattern",
+        "sales.orders_tmp": "table_pattern",
+        "sales.refunds": "table_pattern",
+    }
 
 
+@pytest.mark.usefixtures("_isolate_secret_registry")
 def test_probe_filter_agrees_with_ingestion_on_a_real_catalog(
     tmp_path: Path,
 ) -> None:
@@ -366,15 +519,43 @@ def test_probe_filter_agrees_with_ingestion_on_a_real_catalog(
         for name in names:
             catalog.create_table((*namespace, name), schema)
     catalog.close()
-    config_dict: Dict[str, object] = {
-        "catalog": {"test": catalog_properties},
-        **_PARITY_PATTERNS,
-    }
 
-    ingested = ingested_dataset_names(config_dict)
+    report = assert_probe_parity(
+        "iceberg",
+        {"catalog": {"test": catalog_properties}, **_PARITY_PATTERNS},
+        pipeline_ingestion("iceberg", tmp_path),
+        LISTINGS,
+    )
 
-    assert ingested == {"sales.orders"}
-    assert probe_included_dataset_names(config_dict) == ingested
+    assert report.kinds["tables"].included == {"sales.orders"}
+    assert report.excluded_by("namespaces") == {"ops": "namespace_pattern"}
+
+
+@pytest.mark.usefixtures("_isolate_secret_registry")
+def test_table_metadata_is_the_custom_properties_ingestion_records(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+    _patch_catalog(monkeypatch, catalog)
+    emitted = pipeline_ingestion("iceberg", tmp_path)(_config_dict())
+    recorded = [
+        aspect.customProperties
+        for aspects in emitted.aspects.values()
+        for aspect in aspects
+        if isinstance(aspect, DatasetPropertiesClass)
+    ]
+
+    probed = run_probe_method(
+        "iceberg",
+        _config_dict(),
+        "table_metadata",
+        {"namespace": "sales", "table": "orders"},
+    ).result
+
+    assert recorded == [probed]
+    assert probed == table_custom_properties(
+        catalog.load_table(("sales", "orders")), "[]"
+    )
 
 
 def test_a_table_is_judged_on_its_qualified_name() -> None:
@@ -432,7 +613,7 @@ def test_a_table_without_its_namespace_is_judged_bare_and_says_so() -> None:
     )
 
     assert result.results[0].target == "orders"
-    assert any("no parent given" in w for w in result.warnings), result.warnings
+    assert len(result.warnings) == 1
 
 
 def test_a_namespace_is_top_level_so_needs_no_parent() -> None:

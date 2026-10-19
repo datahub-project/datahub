@@ -4,17 +4,23 @@ from typing import Any, Dict, Iterator, List
 
 import pytest
 import yaml
-from pyiceberg.catalog import Catalog
+from pyiceberg.catalog import Catalog, load_catalog
+from pyiceberg.schema import Schema
+from pyiceberg.types import LongType, NestedField
 
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
 from tests.test_helpers.docker_helpers import wait_for_port
-from tests.test_helpers.iceberg_probe_helpers import (
-    ingested_dataset_names,
-    probe_included_dataset_names,
-)
+from tests.test_helpers.iceberg_probe_parity import LISTINGS
+from tests.test_helpers.probe_parity import assert_probe_parity, pipeline_ingestion
 
-pytestmark = pytest.mark.integration_batch_5
+# The parity harness masks its reports against the process-global secret
+# registry, as the CLI does; isolate it from earlier tests' secrets.
+pytestmark = [
+    pytest.mark.integration_batch_5,
+    pytest.mark.usefixtures("_isolate_secret_registry"),
+]
 
 _SEEDED: Dict[str, List[str]] = {
     "nyc": ["fares", "taxis", "taxis_tmp"],
@@ -59,18 +65,24 @@ def iceberg_catalog(
         test_resources_dir / "docker-compose.yml", "iceberg"
     ) as docker_services:
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
-
-        for namespace, tables in _SEEDED.items():
-            _spark(f'spark-sql -e "CREATE NAMESPACE IF NOT EXISTS {namespace}"')
-            for table in tables:
-                _spark(
-                    f"spark-submit /home/iceberg/setup/create.py {namespace}.{table}"
-                )
-
         recipe = yaml.safe_load(
             Path(test_resources_dir / "iceberg_to_file.yml").read_text()
         )
-        yield recipe["source"]["config"]
+        config = recipe["source"]["config"]
+
+        # Only nyc.taxis needs data (a snapshot and a partition spec), so only
+        # it pays for a spark-submit; the rest are created empty from here.
+        _spark("spark-submit /home/iceberg/setup/create.py nyc.taxis")
+        catalog = load_catalog("default", **config["catalog"]["default"])
+        schema = Schema(NestedField(1, "id", LongType(), required=True))
+        for namespace, tables in _SEEDED.items():
+            if (namespace,) not in catalog.list_namespaces():
+                catalog.create_namespace(namespace)
+            for table in tables:
+                if (namespace, table) != ("nyc", "taxis"):
+                    catalog.create_table((namespace, table), schema)
+        catalog.close()
+        yield config
 
 
 def _recipe_secret_values(config_dict: Dict[str, object]) -> List[str]:
@@ -145,15 +157,26 @@ def test_every_probe_command_reads_the_live_catalog(
 
     metadata = _run("table_metadata", namespace="nyc", table="taxis")
     assert isinstance(metadata.result, dict)
-    assert metadata.result["current_snapshot_id"] is not None
-    assert "trip_date" in str(metadata.result["partition_spec"])
+    assert "snapshot-id" in metadata.result
+    assert "trip_date" in metadata.result["partition-spec"]
 
     properties = _run("namespace_properties", namespace="nyc")
     assert isinstance(properties.result, dict)
+    assert "location" in properties.result
+
+    # The REST catalog's own error mapping, which the fake catalog stands in
+    # for in the unit tests.
+    with pytest.raises(ProbeArgumentError, match="'nope'"):
+        run_probe_method(
+            source_type="iceberg",
+            config_dict=iceberg_catalog,
+            command="columns",
+            kwargs={"namespace": "nyc", "table": "nope"},
+        )
 
     # Every command opened its own catalog through get_catalog, as ingestion
     # does, and closed it on the way out.
-    assert len(opened) == 5
+    assert len(opened) == 6
     assert closed == opened
 
 
@@ -165,14 +188,20 @@ _PATTERNS: Dict[str, object] = {
 
 
 def test_probe_filter_agrees_with_ingestion_on_the_live_catalog(
-    iceberg_catalog: Dict[str, object],
+    iceberg_catalog: Dict[str, object], tmp_path: Path
 ) -> None:
-    config_dict = {**iceberg_catalog, **_PATTERNS}
-
-    ingested = ingested_dataset_names(config_dict)
+    report = assert_probe_parity(
+        "iceberg",
+        {**iceberg_catalog, **_PATTERNS},
+        pipeline_ingestion("iceberg", tmp_path),
+        LISTINGS,
+    )
 
     # nyc.fares fails table_pattern's allow, nyc.taxis_tmp its deny, and
-    # ops.jobs sits in a denied namespace. Pinned so the parity below cannot
-    # hold vacuously on an empty set.
-    assert ingested == {"nyc.taxis"}
-    assert probe_included_dataset_names(config_dict) == ingested
+    # ops.jobs sits in a denied namespace.
+    assert report.kinds["tables"].included == {"nyc.taxis"}
+    assert report.excluded_by("tables") == {
+        "nyc.fares": "table_pattern",
+        "nyc.taxis_tmp": "table_pattern",
+        "ops.jobs": "namespace_pattern",
+    }

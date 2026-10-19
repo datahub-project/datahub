@@ -1,3 +1,4 @@
+import json
 import logging
 import threading
 from dataclasses import dataclass, field
@@ -22,6 +23,7 @@ from pyiceberg.io import (
     AWS_SECRET_ACCESS_KEY,
     AWS_SESSION_TOKEN,
 )
+from pyiceberg.table import Table
 from pyiceberg.utils.properties import get_first_property_value
 from requests.adapters import HTTPAdapter
 from sortedcontainers import SortedList
@@ -54,6 +56,48 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
+
+# pyiceberg reports an unloadable py-io-impl only as a bare ValueError, so
+# ingestion and the probe both match on its text.
+FILE_IO_FAILURE = "Could not initialize FileIO"
+FILE_IO_BAD_PATH = "py-io-impl should be full path"
+
+
+def partition_spec_json(table: Table) -> str:
+    """The table's partition spec as the JSON array ingestion records (Iceberg
+    spec Appendix C, plus the source column's name and type)."""
+    schema = table.schema()
+    return json.dumps(
+        [
+            {
+                "name": partition.name,
+                "transform": str(partition.transform),
+                "source": str(schema.find_column_name(partition.source_id)),
+                "source-id": partition.source_id,
+                "source-type": str(schema.find_type(partition.source_id)),
+                "field-id": partition.field_id,
+            }
+            for partition in table.spec().fields
+        ]
+    )
+
+
+def table_custom_properties(
+    table: Table, partition_spec: Optional[str]
+) -> Dict[str, str]:
+    """The custom properties ingestion records on a table's dataset: its table
+    properties plus location, format version, partition spec and the current
+    snapshot. `partition_spec` is None when it could not be read."""
+    properties = dict(table.metadata.properties)
+    properties["location"] = table.metadata.location
+    properties["format-version"] = str(table.metadata.format_version)
+    properties["partition-spec"] = str(partition_spec)
+    snapshot = table.current_snapshot()
+    if snapshot:
+        properties["snapshot-id"] = str(snapshot.snapshot_id)
+        properties["manifest-list"] = snapshot.manifest_list
+    return properties
+
 
 DEFAULT_REST_TIMEOUT = 120
 DEFAULT_REST_RETRY_POLICY = {"total": 3, "backoff_factor": 0.1}
@@ -314,9 +358,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         return IcebergMetadataProbe
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
-        """Tables are listed only for namespaces namespace_pattern keeps
-        (iceberg.py _get_datasets iterates the namespaces _get_namespaces
-        yielded), and namespaces are top-level, with nothing above them."""
+        """A table is read only in a namespace namespace_pattern keeps;
+        namespaces are top-level."""
         return ancestors_in(
             (str(DatasetContainerSubTypes.NAMESPACE),),
             kind,
@@ -324,11 +367,8 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         )
 
     def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
-        """table_pattern is matched against ".".join(dataset_path), the full
-        identifier including its namespace (iceberg.py _process_dataset).
-        ctx.fqn is the parent path and name joined the same way, so a table
-        needs its namespace as the parent. A namespace is matched on its bare
-        name, which is ".".join(namespace) for a top-level namespace."""
+        """table_pattern matches `<namespace>.<table>`, so a table needs its
+        namespace as parent; a namespace matches on its own name."""
         if ctx.kind != DatasetSubTypes.TABLE:
             return None
         if parent_required(ctx):

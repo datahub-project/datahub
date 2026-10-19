@@ -1,36 +1,71 @@
-from typing import Dict, List, Optional
+from contextlib import contextmanager
+from typing import Dict, Iterator, List, Optional
 
+import pydantic
+import requests
+from botocore.exceptions import BotoCoreError, ClientError
 from pyiceberg.catalog import Catalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
+    RESTError,
 )
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
 
+from datahub.ingestion.agent.error_policy import name_foreign
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import echoed
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeConnectionError
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    echoed,
+    resolve_name,
+)
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeInternalError,
+)
+from datahub.ingestion.source.aws.aws_common import aws_probe_error_code
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
+from datahub.ingestion.source.iceberg.iceberg_common import (
+    FILE_IO_BAD_PATH,
+    FILE_IO_FAILURE,
+    IcebergSourceConfig,
+    partition_spec_json,
+    table_custom_properties,
+)
 
-# pyiceberg's load_file_io raises a bare ValueError with this prefix followed by
-# the py-io-impl class path; iceberg.py matches the same text to skip a table.
-_FILE_IO_FAILURE = "Could not initialize FileIO"
+# The failures a pyiceberg catalog call can raise that are the source's: REST
+# and AWS errors, transport errors, storage (OSError), and ValueErrors such as
+# Glue's "table is missing Parameters property". Anything else is a defect.
+_SOURCE_ERRORS = (
+    RESTError,
+    ClientError,
+    BotoCoreError,
+    requests.RequestException,
+    OSError,
+    ValueError,
+)
+
+# What ingestion does when each call fails (iceberg.py), so a failure here
+# says what it means for a run.
+_NAMESPACES_EFFECT = "ingestion fails the whole run on this"
+_NAMESPACE_EFFECT = "ingestion skips this namespace and every table in it"
+_TABLE_EFFECT = "ingestion skips this table"
 
 
 def _dotted(identifier: Identifier) -> str:
-    # The spelling ingestion matches patterns against: _get_namespaces and
-    # _process_dataset in iceberg.py both join the identifier tuple on ".".
+    # The spelling ingestion matches patterns against: it joins the
+    # identifier tuple on ".".
     return ".".join(identifier)
 
 
-class IcebergMetadataProbe:
+class IcebergMetadataProbe(ProbeProviderBase):
     """Metadata-only probe over a pyiceberg catalog.
 
     Reads catalog listings and table metadata files. Never scans a table,
@@ -40,6 +75,7 @@ class IcebergMetadataProbe:
 
     def __init__(self, catalog: Catalog) -> None:
         self._catalog = catalog
+        self._on_exit(catalog.close)
 
     @classmethod
     def for_config(cls, config: IcebergSourceConfig) -> "IcebergMetadataProbe":
@@ -48,17 +84,42 @@ class IcebergMetadataProbe:
         # authenticates exactly as ingestion does.
         return cls(config.get_catalog())
 
-    def __enter__(self) -> "IcebergMetadataProbe":
-        return self
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The code of a botocore ClientError (Glue catalogs pass them through
+        raw); REST errors already carry their HTTP status."""
+        return aws_probe_error_code(exc)
 
-    def __exit__(self, *exc: object) -> None:
-        self._catalog.close()
+    @contextmanager
+    def _calling(self, operation: str, effect: str) -> Iterator[None]:
+        """Name the pyiceberg call that failed and what ingestion does on it.
+        Only the label of the foreign error is shown: load_catalog and REST
+        errors can embed the catalog properties."""
+        try:
+            yield
+        except (ProbeArgumentError, ProbeConnectionError, ProbeInternalError):
+            raise
+        except pydantic.ValidationError:
+            # Already reported as a failure to read what the source sent.
+            raise
+        except NoSuchNamespaceError as exc:
+            # Every call here follows the namespace's resolution against the
+            # catalog's own listing, so this is the source's state: dropped
+            # since, or unreadable (Glue refuses a database named with a dot).
+            raise ProbeConnectionError(
+                f"{operation} failed: the catalog lists the namespace but "
+                f"could not read it {name_foreign(exc, type(self))}; {effect}"
+            ) from None
+        except _SOURCE_ERRORS as exc:
+            raise ProbeConnectionError(
+                f"{operation} failed {name_foreign(exc, type(self))}; {effect}"
+            ) from None
 
     def _top_level_namespaces(self) -> List[Identifier]:
-        # No parent argument, as in iceberg.py _get_namespaces: every pyiceberg
-        # catalog then returns top-level namespaces only, which is all
-        # ingestion ever reads.
-        return list(self._catalog.list_namespaces())
+        # No parent argument, as ingestion calls it: every pyiceberg catalog
+        # then returns top-level namespaces only, which is all ingestion reads.
+        with self._calling("listing the catalog's namespaces", _NAMESPACES_EFFECT):
+            return list(self._catalog.list_namespaces())
 
     def _resolve_namespace(self, namespace: str) -> Identifier:
         """The identifier tuple for a namespace named as ingestion spells it.
@@ -67,14 +128,18 @@ class IcebergMetadataProbe:
         can hold a single-level namespace whose name contains a dot, and
         splitting it would address a namespace that does not exist.
         """
-        for candidate in self._top_level_namespaces():
-            if _dotted(candidate) == namespace:
-                return candidate
-        raise ProbeArgumentError(
-            f"no top-level namespace '{namespace}' in this catalog. Ingestion "
-            f"reads only top-level namespaces (see the `namespaces` command), "
-            f"so a nested namespace is never ingested"
-        )
+        return resolve_name(
+            namespace,
+            self._top_level_namespaces(),
+            key=_dotted,
+            kind="top-level namespace",
+            where=(
+                "in this catalog; ingestion reads only top-level namespaces, so "
+                "a nested one is never ingested"
+            ),
+            list_command="probe run namespaces",
+            stop_at_first=True,
+        ).record
 
     @probe_method(kind=DatasetContainerSubTypes.NAMESPACE, row_limit_param="limit")
     def namespaces(self, limit: int = 500) -> List[str]:
@@ -85,38 +150,63 @@ class IcebergMetadataProbe:
         reads them. Metadata only."""
         return sorted(_dotted(ns) for ns in self._top_level_namespaces())[:limit]
 
+    def _list_tables(self, resolved: Identifier) -> List[Identifier]:
+        with self._calling(
+            f"listing the tables of namespace {echoed(_dotted(resolved))}",
+            _NAMESPACE_EFFECT,
+        ):
+            return list(self._catalog.list_tables(resolved))
+
     def _load_table(self, namespace: str, table: str) -> Table:
-        identifier = (*self._resolve_namespace(namespace), table)
-        try:
-            return self._catalog.load_table(identifier)
-        except (NoSuchIcebergTableError, NoSuchPropertyException) as exc:
-            # Checked before NoSuchTableError, its base class. Ingestion skips
-            # these with a warning (iceberg.py _try_processing_dataset).
-            raise ProbeArgumentError(
-                f"'{namespace}.{table}' is not an Iceberg table; ingestion "
-                f"skips it with a warning"
-            ) from exc
-        except NoSuchTableError as exc:
-            raise ProbeArgumentError(
-                f"no table '{table}' in namespace '{namespace}'"
-            ) from exc
-        except ValueError as exc:
-            message = str(exc)
-            if _FILE_IO_FAILURE not in message:
-                raise
-            # The same message ingestion matches on to skip the table. The
-            # py-io-impl it names comes from the catalog's merged properties
-            # (often the server's), and pyiceberg raises this only when that
-            # FileIO implementation module is missing from this environment:
-            # an environment problem, not caller input, so exit 3 rather than 2.
-            # The class path tells the operator what to install; echoed because
-            # the catalog server can supply it.
-            io_impl = message.split(_FILE_IO_FAILURE, 1)[1].lstrip(": ").strip()
-            raise ProbeConnectionError(
-                f"could not load the FileIO implementation {echoed(io_impl)} "
-                f"for '{namespace}.{table}'; install the package that provides "
-                f"it, or set py-io-impl on the catalog"
-            ) from exc
+        resolved = self._resolve_namespace(namespace)
+        # The table is resolved against the namespace's listing too, so a
+        # table the catalog lists but cannot load is told apart from a typo.
+        identifier = resolve_name(
+            table,
+            self._list_tables(resolved),
+            key=lambda listed: str(listed[-1]),
+            kind="table",
+            where=f"in namespace {echoed(namespace)}",
+            list_command="probe run tables",
+            stop_at_first=True,
+        ).record
+        qualified = echoed(_dotted(identifier))
+        with self._calling(f"loading table {qualified}", _TABLE_EFFECT):
+            try:
+                return self._catalog.load_table(identifier)
+            except (NoSuchIcebergTableError, NoSuchPropertyException):
+                # Exit 2, though the table exists: the probe can answer nothing
+                # about it, as ingestion ingests nothing from it (it skips it
+                # with a warning), so the useful next step is naming another
+                # table. Checked before NoSuchTableError, its base class; Glue
+                # and Hive raise NoSuchPropertyException for a table without a
+                # table_type parameter.
+                raise ProbeArgumentError(
+                    f"{qualified} is not an Iceberg table; ingestion skips it "
+                    f"with a warning"
+                ) from None
+            except NoSuchTableError as exc:
+                raise ProbeConnectionError(
+                    f"loading table {qualified} failed: the catalog lists it but "
+                    f"could not load it {name_foreign(exc, type(self))}; "
+                    f"{_TABLE_EFFECT}"
+                ) from None
+            except ValueError as exc:
+                message = str(exc)
+                if FILE_IO_FAILURE not in message and FILE_IO_BAD_PATH not in message:
+                    raise
+                # The py-io-impl the catalog's merged properties name (often the
+                # server's) cannot be loaded in this environment: retrying
+                # cannot help, as with any missing module (exit 1). Both of
+                # pyiceberg's messages end with the configured value, which
+                # tells the operator what to install or fix.
+                io_impl = message.rsplit(": ", 1)[-1].strip()
+                raise ProbeInternalError(
+                    f"the FileIO implementation {echoed(io_impl)} for "
+                    f"{qualified} could not be loaded; install the package that "
+                    f"provides it, or set py-io-impl on the catalog to a full "
+                    f"module.Class path; {_TABLE_EFFECT}"
+                ) from None
 
     @probe_method()
     def namespace_properties(self, namespace: str) -> Dict[str, str]:
@@ -125,10 +215,11 @@ class IcebergMetadataProbe:
         a namespace, and every table in it, if this read fails -- so an error
         here explains a namespace that ingests nothing."""
         resolved = self._resolve_namespace(namespace)
-        try:
+        with self._calling(
+            f"reading the properties of namespace {echoed(namespace)}",
+            _NAMESPACE_EFFECT,
+        ):
             properties = self._catalog.load_namespace_properties(resolved)
-        except NoSuchNamespaceError as exc:
-            raise ProbeArgumentError(f"no namespace '{namespace}'") from exc
         return {str(k): str(v) for k, v in properties.items()}
 
     @probe_method(
@@ -142,11 +233,7 @@ class IcebergMetadataProbe:
         hidden. table_pattern is matched against "<namespace>.<table>";
         `probe filter` builds that from the namespace reported as the parent.
         Metadata only."""
-        resolved = self._resolve_namespace(namespace)
-        try:
-            identifiers = self._catalog.list_tables(resolved)
-        except NoSuchNamespaceError as exc:
-            raise ProbeArgumentError(f"no namespace '{namespace}'") from exc
+        identifiers = self._list_tables(self._resolve_namespace(namespace))
         return sorted(identifier[-1] for identifier in identifiers)[:limit]
 
     @probe_method()
@@ -169,18 +256,19 @@ class IcebergMetadataProbe:
         ]
 
     @probe_method()
-    def table_metadata(self, namespace: str, table: str) -> Dict[str, object]:
-        """Table-level metadata ingestion records as custom properties: format
-        version, location, partition spec, current snapshot id and table
-        properties. Never includes FileIO or catalog properties, which can hold
-        vended storage credentials."""
+    def table_metadata(self, namespace: str, table: str) -> Dict[str, str]:
+        """The custom properties ingestion records on the table's dataset: its
+        table properties plus location, format-version, partition-spec,
+        snapshot-id and manifest-list. Never includes FileIO or catalog
+        properties, which can hold vended storage credentials."""
         loaded = self._load_table(namespace, table)
-        snapshot = loaded.current_snapshot()
-        snapshot_id: Optional[int] = snapshot.snapshot_id if snapshot else None
-        return {
-            "format_version": loaded.metadata.format_version,
-            "location": loaded.metadata.location,
-            "partition_spec": str(loaded.spec()),
-            "current_snapshot_id": snapshot_id,
-            "properties": dict(loaded.metadata.properties),
-        }
+        partition_spec: Optional[str] = None
+        try:
+            partition_spec = partition_spec_json(loaded)
+        except (ValueError, KeyError) as exc:
+            # Ingestion warns and records the partition spec as None.
+            self._warn(
+                f"the partition spec could not be read "
+                f"{name_foreign(exc, type(self))}; ingestion records it as None"
+            )
+        return table_custom_properties(loaded, partition_spec)
