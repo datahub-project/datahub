@@ -288,7 +288,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // full-text query over the shared _search fields (deliberate V3 change)
     assertTrue(query.contains("\"browsePathV2.length\""), query);
     assertFalse(query.contains("_aspects."), query);
-    assertTrue(query.contains("_search.entityName.text"), query);
+    assertTrue(query.contains("name.text"), query);
     assertFalse(query.contains("query_urn_component"), query);
   }
 
