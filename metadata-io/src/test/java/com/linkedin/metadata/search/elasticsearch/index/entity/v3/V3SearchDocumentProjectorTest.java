@@ -40,6 +40,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.search.template.SearchTemplateDialect;
+import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
@@ -526,6 +528,51 @@ public class V3SearchDocumentProjectorTest {
     assertEquals(V3SearchDocumentProjector.aspectJson(aspect), objectValue.toString());
 
     assertNull(V3SearchDocumentProjector.aspectJson(mapper.createObjectNode()));
+  }
+
+  @Test
+  public void testSearchTemplateBodyIsStoredAndNotIndexed() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec entity = registry.getEntitySpec("searchTemplate");
+    AspectSpec aspect = entity.getAspectSpec("searchTemplateProperties");
+    assertTrue(aspect.getAspectAnnotation().isAspectJson());
+    SearchTemplateProperties properties = new SearchTemplateProperties();
+    properties.setName("Fulltext");
+    properties.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    properties.setQuery("{ \"match_all\": {} }");
+    when(event.getUrn()).thenReturn(UrnUtils.getUrn("urn:li:searchTemplate:fulltext"));
+    when(event.getEntitySpec()).thenReturn(entity);
+    when(event.getAspectSpec()).thenReturn(aspect);
+    when(event.getAspectName()).thenReturn(aspect.getName());
+    when(event.getRecordTemplate()).thenReturn(properties);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(event.getSystemMetadata()).thenReturn(null);
+    when(event.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+    JsonNode stored =
+        opContext
+            .getObjectMapper()
+            .readTree(
+                projected.aspectFields().get(V3SearchDocumentProjector.ASPECT_JSON_FIELD).asText());
+    assertEquals(stored.get("query").asText(), "{ \"match_all\": {} }");
+    assertFalse(projected.rootFields().has(V3SearchDocumentProjector.ASPECT_JSON_FIELD));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectMapping =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    AspectMappingBuilder.createAspectMappings(entity, Map.of(), Map.of())
+                        .get("searchTemplateProperties"))
+                .get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> mapping =
+        (Map<String, Object>) aspectMapping.get(V3SearchDocumentProjector.ASPECT_JSON_FIELD);
+    assertEquals(mapping.get("type"), "text");
+    assertEquals(mapping.get("index"), false);
+    assertTrue(aspectMapping.containsKey("parent"));
   }
 
   private V3SearchDocumentProjector realProjector() {
