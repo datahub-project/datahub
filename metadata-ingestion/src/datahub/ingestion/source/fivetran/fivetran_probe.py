@@ -1,16 +1,17 @@
-import itertools
 import logging
-from typing import Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Callable, Dict, List, Optional, TypeVar
 
 import pydantic
 import requests
-import sqlalchemy.exc
 
+from datahub.ingestion.agent.error_policy import DEFECT_TYPES, foreign_label
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
     echoed,
+    resolve_name,
     soft_listing,
+    take,
 )
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -21,19 +22,22 @@ from datahub.ingestion.agent.verdicts import (
 from datahub.ingestion.source.fivetran.config import (
     FIVETRAN_CONNECTOR_KIND,
     FIVETRAN_DESTINATION_KIND,
-    REST_CONNECTOR_MATCH_NOTE,
     Constant,
     FivetranSourceConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import Connector, TableLineage
-from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
+from datahub.ingestion.source.fivetran.data_classes import Connector
+from datahub.ingestion.source.fivetran.fivetran_log_db_reader import (
+    FivetranLogDbReader,
+    connector_from_log_row,
+)
 from datahub.ingestion.source.fivetran.fivetran_log_rest_reader import (
+    LINEAGE_FROM_DB_LOG,
     FivetranLogRestReader,
+    connector_from_listed,
 )
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
 from datahub.ingestion.source.fivetran.response_models import (
-    FivetranConnectionSchemas,
     FivetranListedConnection,
 )
 
@@ -41,41 +45,10 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# The failures FivetranLogRestReader._fetch_lineage treats as "the log's
-# lineage tables are unreadable, use the REST schemas instead". Mirrored so the
-# probe falls back exactly where ingestion does.
-_DB_LINEAGE_FALLBACK_ERRORS = (
-    sqlalchemy.exc.SQLAlchemyError,
-    ValueError,
-    KeyError,
-    AttributeError,
-)
 
-
-def _failure_label(exc: Exception) -> str:
-    """Class name, plus the HTTP status when there is one; never the text,
-    which comes from the remote service and is not scrubbed in a warning."""
-    response = getattr(exc, "response", None)
-    status = getattr(response, "status_code", None)
-    if isinstance(status, int):
-        return f"{type(exc).__name__}, HTTP {status}"
-    return type(exc).__name__
-
-
-def _connector_from_listed(listed: FivetranListedConnection) -> Connector:
-    # Field mapping from FivetranLogRestReader._build_connector, without its
-    # lineage fetch and without connected_by, which the probe never reports.
-    return Connector(
-        connector_id=listed.id,
-        connector_name=listed.schema_,
-        connector_type=listed.service,
-        paused=listed.paused,
-        sync_frequency=listed.sync_frequency,
-        destination_id=listed.group_id,
-        user_id="",
-        lineage=[],
-        jobs=[],
-    )
+def _listed_connector(listed: FivetranListedConnection) -> Connector:
+    # No lineage fetch, and no connected_by: the probe never reports the user.
+    return connector_from_listed(listed, lineage=[], user_id="")
 
 
 class FivetranMetadataProbe(ProbeProviderBase):
@@ -98,11 +71,8 @@ class FivetranMetadataProbe(ProbeProviderBase):
         self._config = config
         self._report = FivetranSourceReport()
         self._api_client = api_client
-        # Built on first use. FivetranLogDbReader.__init__ connects (it runs
-        # SELECT @@project_id on BigQuery and builds the engine everywhere),
-        # and `probe methods` or a REST-only command must not pay for that.
-        self._db_reader: Optional[FivetranLogDbReader] = None
-        self._rest_lineage_reader: Optional[FivetranLogRestReader] = None
+        if api_client is not None:
+            self._on_exit(api_client._session.close)
         # Groups whose connections could not be listed, so a lookup that
         # misses can say the connector may be on one of them.
         self._unlisted_groups: List[str] = []
@@ -118,13 +88,6 @@ class FivetranMetadataProbe(ProbeProviderBase):
         )
         return cls(config, api_client)
 
-    def __exit__(self, *exc: object) -> None:
-        if self._api_client is not None:
-            self._api_client._session.close()
-        if self._db_reader is not None:
-            self._db_reader.engine.dispose()
-        super().__exit__(*exc)
-
     @property
     def probe_report(self) -> FivetranSourceReport:
         """The report the reused readers write into, so the warnings they
@@ -137,49 +100,49 @@ class FivetranMetadataProbe(ProbeProviderBase):
         return self._config.log_source == "rest_api"
 
     def _db(self) -> FivetranLogDbReader:
-        if self._db_reader is None:
-            log_config = self._config.fivetran_log_config
-            # validate_log_source_credentials guarantees this in log_database
-            # mode; REST-mode callers check fivetran_log_config before asking.
-            assert log_config is not None
-            try:
-                self._db_reader = FivetranLogDbReader(
-                    log_config,
-                    self._report,
-                    max_jobs_per_connector=self._config.max_jobs_per_connector,
-                    max_table_lineage_per_connector=self._config.max_table_lineage_per_connector,
-                    max_column_lineage_per_connector=self._config.max_column_lineage_per_connector,
-                )
-            except Exception as exc:
-                # The recipe validated before we got here, so a failure opening
-                # the warehouse is the source's, not the caller's. Mapped to
-                # exit 3 for the same reason run_probe_method wraps a failing
-                # for_config: Snowflake raises ConfigurationError for DNS and
-                # auth failures alike, which would otherwise read as exit 2.
-                raise ProbeConnectionError(
-                    f"could not open the Fivetran log warehouse "
-                    f"({log_config.destination_platform}): {type(exc).__name__}"
-                ) from exc
-        return self._db_reader
+        # Built on first use: FivetranLogDbReader.__init__ connects (it runs
+        # SELECT @@project_id on BigQuery and builds the engine everywhere),
+        # and `probe methods` or a REST-only command must not pay for that.
+        return self._open_once(
+            "log-db", self._open_db, close=lambda db: db.engine.dispose()
+        )
+
+    def _open_db(self) -> FivetranLogDbReader:
+        log_config = self._config.fivetran_log_config
+        # validate_log_source_credentials guarantees this in log_database
+        # mode; REST-mode callers check fivetran_log_config before asking.
+        assert log_config is not None
+        try:
+            return FivetranLogDbReader(
+                log_config,
+                self._report,
+                max_jobs_per_connector=self._config.max_jobs_per_connector,
+                max_table_lineage_per_connector=self._config.max_table_lineage_per_connector,
+                max_column_lineage_per_connector=self._config.max_column_lineage_per_connector,
+            )
+        except DEFECT_TYPES:
+            # Our code failing (config drift between this and the reader's
+            # constructor), not the warehouse: exit 1, as a defect.
+            raise
+        except Exception as exc:
+            # The recipe validated before we got here, so a failure opening
+            # the warehouse is the source's, not the caller's. Mapped to
+            # exit 3 for the same reason run_probe_method wraps a failing
+            # for_config: Snowflake raises ConfigurationError for DNS and
+            # auth failures alike, which would otherwise read as exit 2.
+            # `from None`: a driver error can quote the connection URL.
+            raise ProbeConnectionError(
+                f"could not open the Fivetran log warehouse "
+                f"({log_config.destination_platform}): {foreign_label(exc)}"
+            ) from None
 
     def _db_connectors(self, destination: Optional[str]) -> List[Connector]:
         db = self._db()
         rows = db._query(db.fivetran_log_query.get_connectors_query())
-        # Field mapping mirrors FivetranLogDbReader.get_allowed_connectors_list,
-        # minus its two pattern checks and minus connecting_user_id, which the
-        # probe never reports.
+        # get_allowed_connectors_list's mapping, minus its two pattern checks
+        # and the connecting user, which the probe never reports.
         found = [
-            Connector(
-                connector_id=row[Constant.CONNECTOR_ID],
-                connector_name=row[Constant.CONNECTOR_NAME],
-                connector_type=row[Constant.CONNECTOR_TYPE_ID],
-                paused=row[Constant.PAUSED],
-                sync_frequency=row[Constant.SYNC_FREQUENCY],
-                destination_id=row[Constant.DESTINATION_ID],
-                user_id="",
-                lineage=[],
-                jobs=[],
-            )
+            connector_from_log_row(row, user_id="")
             for row in rows
             if destination is None or row[Constant.DESTINATION_ID] == destination
         ]
@@ -187,11 +150,10 @@ class FivetranMetadataProbe(ProbeProviderBase):
         return found
 
     def _warn_null_destinations(self, connectors: List[Connector]) -> None:
-        # A NULL destination_id never reaches a `probe filter --from-run`
-        # verdict (null attributes are dropped), so say it at listing time;
-        # the warning travels with the run into the filter. Ingestion has no
-        # verdict to mirror here: get_allowed_connectors_list matches
-        # destination_patterns against the NULL and raises TypeError.
+        # Said at listing time as well as by `probe filter --from-run`
+        # (fivetran_selection.NULL_DESTINATION_ID): get_allowed_connectors_list
+        # matches destination_patterns against the NULL and raises TypeError,
+        # which stops the whole run, not just this connector.
         unplaced = sorted(
             c.connector_id for c in connectors if c.destination_id is None
         )
@@ -247,10 +209,10 @@ class FivetranMetadataProbe(ProbeProviderBase):
         with soft_listing(
             reasons.append,
             404,
-            context=f"connections listing for destination '{group_id}'",
+            context=f"connections listing for destination {echoed(group_id)}",
         ):
             return self._rest(
-                f"listing connections of destination '{group_id}'",
+                f"listing connections of destination {echoed(group_id)}",
                 lambda: list(self._api().list_connections(group_id)),
             )
         raise ProbeSoftError(reasons[0])
@@ -291,11 +253,11 @@ class FivetranMetadataProbe(ProbeProviderBase):
                 self._unlisted_groups.append(group_id)
                 self._warn(
                     f"could not list the connections of destination "
-                    f"'{group_id}' ({_failure_label(exc)}); skipped, as "
+                    f"{echoed(group_id)} ({foreign_label(exc)}); skipped, as "
                     f"ingestion skips it"
                 )
                 continue
-            found.extend(_connector_from_listed(item) for item in listed)
+            found.extend(_listed_connector(item) for item in listed)
             # Every group is one more request, so stop once the limit is met.
             if stop_after is not None and len(found) >= stop_after:
                 break
@@ -316,99 +278,45 @@ class FivetranMetadataProbe(ProbeProviderBase):
 
         By id first because ids are unique and names are not: two destinations
         can each hold a connector writing to a schema of the same name."""
-        listed = self._list_connectors(destination=None)
-        matches = [c for c in listed if c.connector_id == connector] or [
-            c for c in listed if c.connector_name == connector
-        ]
-        if not matches and self._unlisted_groups:
+
+        def missed() -> None:
             # Not ProbeArgumentError (exit 2): the name may be right and on a
             # destination this key could not read.
-            raise ProbeReadFailed(
-                f"no connector with id or name {echoed(connector)} on the destinations "
-                f"that could be read; it may be on one that could not be listed "
-                f"({', '.join(self._unlisted_groups)})"
-            )
-        if not matches:
-            raise ProbeArgumentError(
-                f"no connector with id or name {echoed(connector)}; list them with "
-                f"`probe run connectors`"
-            )
-        if len(matches) > 1:
-            ids = ", ".join(sorted(c.connector_id for c in matches))
-            raise ProbeArgumentError(
-                f"{echoed(connector)} names {len(matches)} connectors ({ids}); pass "
-                f"the connector_id instead"
-            )
-        return matches[0]
+            if self._unlisted_groups:
+                raise ProbeReadFailed(
+                    f"no connector with id or name {echoed(connector)} on the "
+                    f"destinations that could be read; it may be on one that "
+                    f"could not be listed ({', '.join(self._unlisted_groups)})"
+                )
+
+        return resolve_name(
+            connector,
+            self._list_connectors(destination=None),
+            key=lambda c: c.connector_name,
+            id_key=lambda c: c.connector_id,
+            kind="connector",
+            list_command="probe run connectors",
+            on_ambiguous="pass the connector_id instead",
+            on_miss=missed,
+        ).record
 
     def _rest_reader(self) -> FivetranLogRestReader:
-        # Its constructor sends nothing. Built for _extract_lineage_from_schemas,
-        # which carries ingestion's caps and truncation warnings.
-        if self._rest_lineage_reader is None:
-            self._rest_lineage_reader = FivetranLogRestReader(
+        """Ingestion's REST reader, wired as FivetranSource._build_log_reader
+        wires it -- the log warehouse as lineage fallback when one is
+        configured -- so the probe follows its fallback order. Its
+        constructor sends nothing."""
+        return self._open_once(
+            "rest-reader",
+            lambda: FivetranLogRestReader(
                 self._api(),
                 self._report,
                 max_table_lineage_per_connector=self._config.max_table_lineage_per_connector,
                 max_column_lineage_per_connector=self._config.max_column_lineage_per_connector,
-            )
-        return self._rest_lineage_reader
-
-    def _lineage_for(self, target: Connector) -> Tuple[List[TableLineage], str]:
-        if not self._uses_rest:
-            # The same call get_allowed_connectors_list makes, so the Google
-            # Sheets column-lineage opt-out applies as it does in ingestion.
-            self._db()._fill_connectors_lineage([target])
-            return target.lineage, "log_database"
-        if self._config.fivetran_log_config is not None:
-            try:
-                from_log = (
-                    self._db()
-                    .fetch_lineage_for_connectors([target.connector_id])
-                    .get(target.connector_id, [])
-                )
-            except _DB_LINEAGE_FALLBACK_ERRORS as exc:
-                self._warn(
-                    f"the log warehouse's lineage tables could not be read "
-                    f"({type(exc).__name__}); ingestion falls back to "
-                    f"the REST schemas endpoint here, and so did this"
-                )
-                from_log = []
-            if from_log:
-                return from_log, "log_database"
-        try:
-            schemas = self._connection_schemas(target.connector_id)
-        except (ProbeReadFailed, requests.RequestException) as exc:
-            # The failures FivetranLogRestReader._fetch_lineage recovers from
-            # (_RECOVERABLE_REST_ERRORS; ValueError arrives as ProbeReadFailed):
-            # ingestion emits the connector without lineage, so this does too.
-            self._warn(
-                f"could not read the schemas of connector "
-                f"'{target.connector_id}' ({_failure_label(exc)}); "
-                f"ingestion emits it without table or column lineage"
-            )
-            return [], "rest_schemas"
-        if schemas is None:
-            return [], "rest_schemas"
-        return (
-            self._rest_reader()._extract_lineage_from_schemas(
-                schemas, target.connector_id
+                db_lineage_reader=(
+                    self._db() if self._config.fivetran_log_config is not None else None
+                ),
             ),
-            "rest_schemas",
         )
-
-    def _connection_schemas(
-        self, connector_id: str
-    ) -> Optional[FivetranConnectionSchemas]:
-        """A connector's schema config, or None with a warning when the
-        endpoint answers 404."""
-        with soft_listing(
-            self._warn, 404, context=f"schemas for connector '{connector_id}'"
-        ):
-            return self._rest(
-                f"reading schemas of connector '{connector_id}'",
-                lambda: self._api().get_connection_schemas(connector_id),
-            )
-        return None
 
     def _connector_record(self, connector: Connector) -> Dict[str, object]:
         return {
@@ -445,8 +353,8 @@ class FivetranMetadataProbe(ProbeProviderBase):
         if self._uses_rest:
             groups = self._rest(
                 "listing Fivetran groups",
-                # islice stops list_groups paging once the limit is met.
-                lambda: list(itertools.islice(self._api().list_groups(), limit)),
+                # take stops list_groups paging once the limit is met.
+                lambda: take(self._api().list_groups(), limit),
             )
             return [
                 {**self._destination_record(group.id), "group_name": group.name}
@@ -481,8 +389,6 @@ class FivetranMetadataProbe(ProbeProviderBase):
         backend ingestion uses (log_source). Metadata only: the connecting
         user is never returned."""
         found = self._list_connectors(destination, stop_after=limit)
-        if self._uses_rest:
-            self._warn(REST_CONNECTOR_MATCH_NOTE)
         if destination is not None and not found:
             self._warn(
                 f"no connector on destination {echoed(destination)} was found; check "
@@ -505,9 +411,16 @@ class FivetranMetadataProbe(ProbeProviderBase):
         ask `probe filter` for that. In rest_api mode each table costs one
         /columns request, as it does in ingestion."""
         target = self._resolve(connector)
-        lineage, lineage_source = self._lineage_for(target)
+        if self._uses_rest:
+            fetched = self._rest_reader().fetch_lineage_with_source(target.connector_id)
+            lineage, lineage_source = fetched.lineage, fetched.source
+        else:
+            # The same call get_allowed_connectors_list makes, so the Google
+            # Sheets column-lineage opt-out applies as it does in ingestion.
+            self._db()._fill_connectors_lineage([target])
+            lineage, lineage_source = target.lineage, LINEAGE_FROM_DB_LOG
         cap = self._config.max_table_lineage_per_connector
-        if lineage_source == "log_database" and len(lineage) >= cap:
+        if lineage_source == LINEAGE_FROM_DB_LOG and len(lineage) >= cap:
             # The REST path records its own truncation warning; the log query
             # caps silently in SQL (QUALIFY ... <= max_table_lineage), so say it.
             self._warn(

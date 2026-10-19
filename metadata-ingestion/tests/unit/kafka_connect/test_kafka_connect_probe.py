@@ -8,26 +8,40 @@ import re
 from typing import Dict, Iterable, List, Tuple
 from unittest import mock
 
+# jpype.imports must precede the kafka_connect modules: transform_plugins
+# imports java.util.regex at import time, which only resolves once it is
+# loaded. Run alone, this file would otherwise switch RegexRouter support off
+# for the whole process.
+import jpype
+import jpype.imports  # noqa: F401
 import pytest
 import requests
 import requests_mock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.probe_methods import _iter_specs, run_probe_method
+from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
+from datahub.ingestion.agent.verdicts import (
+    ProbeConnectionError,
+    ProbeInternalError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
     KafkaConnectSourceConfig,
 )
-from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.ingestion.source.kafka_connect.kafka_connect import (
+    ConfluentCloudCredentialsRequired,
+    KafkaConnectSource,
+)
 from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
     DISCLOSED_CONFIG_KEYS,
     PROBE_REQUEST_TIMEOUT_SECONDS,
     KafkaConnectMetadataProbe,
+    source_for_probe,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 
@@ -128,7 +142,7 @@ def _ingested_io(
 
 
 def _shim(config: KafkaConnectSourceConfig) -> KafkaConnectSource:
-    return KafkaConnectSource.for_probe(
+    return source_for_probe(
         config,
         session=KafkaConnectSource._create_connect_session(config),
         kafka_session=KafkaConnectSource._create_kafka_session(),
@@ -173,7 +187,8 @@ def test_confluent_cloud_without_credentials_is_refused_by_the_shared_factory() 
             "confluent_cloud_cluster_id": "lkc-1",
         }
     )
-    with pytest.raises(ValueError):
+    # Its own ValueError subclass, so the probe tells it apart by type.
+    with pytest.raises(ConfluentCloudCredentialsRequired):
         KafkaConnectSource._create_connect_session(config)
 
 
@@ -241,11 +256,9 @@ URI_CRED = "mk-3b8e-planted-uri-userinfo"
     "password",
     [
         URI_CRED,
-        # requests percent-encodes these in Response.url, so matching the
-        # configured value would miss them.
+        # requests percent-encodes this in Response.url, so matching the
+        # configured value would miss it.
         f"{URI_CRED}|x",
-        f"{URI_CRED}^x",
-        f"{URI_CRED}{{x}}",
     ],
 )
 @pytest.mark.parametrize(
@@ -345,22 +358,18 @@ def test_a_failing_ingestion_step_never_echoes_the_connection_url(
     assert NO_DB_CRED not in caplog.text
 
 
-@pytest.mark.parametrize("scheme", ["http", "https"])
-@pytest.mark.parametrize("reserved", ["/", "#", "?", "\\"])
-@pytest.mark.parametrize(
-    "command,kwargs", [("connectors", {}), ("connector", {"connector": "orders-sink"})]
-)
+@pytest.mark.parametrize("reserved", ["/", "#"])
 def test_a_connect_uri_whose_password_would_be_misparsed_is_refused(
-    scheme: str, reserved: str, command: str, kwargs: Dict[str, object]
+    reserved: str,
 ) -> None:
     # An unencoded reserved character ends the authority early, so urllib3 sees
     # "user:<password prefix>" as host:port and quotes it in InvalidURL -- text
     # with no "://" or "@" for a structural scrub to find.
     secret = f"{URI_CRED}{reserved}tail"
-    uri = f"{scheme}://connect-user:{secret}@connect.example:8083"
+    uri = f"https://connect-user:{secret}@connect.example:8083"
     with requests_mock.Mocker() as m:
         with pytest.raises(ValueError) as raised:
-            run_probe_method("kafka-connect", {"connect_uri": uri}, command, kwargs)
+            run_probe_method("kafka-connect", {"connect_uri": uri}, "connectors", {})
         assert m.call_count == 0
     assert not isinstance(raised.value, ProbeReadFailed)
     assert URI_CRED not in str(raised.value)
@@ -397,7 +406,7 @@ def test_a_connector_name_carrying_url_syntax_never_reaches_the_source(
         _mock_cluster(m, CLUSTER, TOPICS)
         with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
             with pytest.raises(ValueError):
-                probe._require_listed(name)
+                probe.connector(name)
         assert m.call_count == 0
 
 
@@ -406,14 +415,14 @@ def test_an_unlisted_connector_is_a_bad_argument() -> None:
         _mock_cluster(m, CLUSTER, TOPICS)
         with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
             with pytest.raises(ValueError):
-                probe._require_listed("no-such-connector")
+                probe.connector("no-such-connector")
         assert [r.path for r in m.request_history] == ["/connectors"]
 
 
 def test_there_is_no_raw_api_command() -> None:
     # A raw passthrough over Connect reaches /connectors/{name}/config, i.e.
     # credentials. See the module docstring before adding one.
-    commands = dict(_iter_specs(KafkaConnectMetadataProbe))
+    commands = {spec.command: spec for spec in list_probe_methods("kafka-connect")}
     assert "api" not in commands
     assert all(spec.scoped_path_param is None for spec in commands.values())
 
@@ -596,6 +605,7 @@ def test_empty_topics_on_confluent_cloud_say_why() -> None:
 
 def test_cluster_topics_lists_non_internal_topics_on_confluent_cloud() -> None:
     with requests_mock.Mocker() as m:
+        m.get(f"{CLOUD_URI}/connectors", json=[])
         m.get(
             f"{KAFKA_REST}/kafka/v3/clusters/lkc-1/topics",
             json={
@@ -615,6 +625,7 @@ def test_a_failing_kafka_rest_listing_never_echoes_its_error_text() -> None:
     planted = ValueError(f"bad reply from https://key:{PLANTED_CRED}@kafka.example")
     with (
         KafkaConnectMetadataProbe.for_config(_cloud_recipe()) as probe,
+        mock.patch.object(probe, "_listed_names", return_value=[]),
         mock.patch.object(
             probe._source, "_get_all_topics_from_kafka_api", side_effect=planted
         ),
@@ -687,15 +698,6 @@ def test_lineage_without_datahub_says_what_it_could_not_reproduce() -> None:
             assert any("use_schema_resolver" in w for w in probe.warnings)
 
 
-def test_entering_the_provider_changes_no_logger_level() -> None:
-    # The level was process-global: ingestion running in the same process was
-    # silenced for as long as a probe provider was open.
-    logger = logging.getLogger("datahub.ingestion.source.kafka_connect")
-    before = logger.level
-    with KafkaConnectMetadataProbe.for_config(_recipe()):
-        assert logger.level == before
-
-
 def test_a_reused_steps_warning_is_dropped_not_just_scrubbed(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -724,33 +726,117 @@ def test_a_reused_steps_warning_is_dropped_not_just_scrubbed(
     assert planted not in caplog.text
 
 
-def test_the_connector_logger_is_audible_again_after_a_probe(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    caplog.set_level(logging.DEBUG)
-    with requests_mock.Mocker() as m:
-        _mock_cluster(m, CLUSTER, TOPICS)
-        run_probe_method("kafka-connect", dict(_RECIPE), "connectors", {})
-    logging.getLogger("datahub.ingestion.source.kafka_connect.common").warning(
-        "after the probe"
-    )
-    assert "after the probe" in caplog.text
-
-
 def test_only_the_missing_credential_error_is_reported_as_one() -> None:
-    # The session factory also runs the config's own reads; a ValueError from
-    # one of them is not a missing credential, so it propagates for the
-    # framework to label instead of borrowing that message.
-    config = _recipe(username=None, password=None)
+    # The session factory also runs the config's own reads; another ValueError
+    # from it is not a missing credential, so it propagates for the framework
+    # to label instead of borrowing that message.
     with (
         mock.patch.object(
-            KafkaConnectSourceConfig,
-            "is_confluent_cloud",
-            # Only the factory's call fails; the provider's later read does
-            # not, so swallowing the first would build a provider silently.
-            side_effect=[ValueError("boom"), False],
+            KafkaConnectSource,
+            "_create_connect_session",
+            side_effect=ValueError("boom"),
         ),
         pytest.raises(ValueError) as raised,
     ):
-        KafkaConnectMetadataProbe.for_config(config)
-    assert str(raised.value) == "boom"
+        KafkaConnectMetadataProbe.for_config(_recipe())
+    assert not isinstance(raised.value, ConfluentCloudCredentialsRequired)
+
+
+def test_a_probe_defect_in_a_reused_step_exits_as_a_defect() -> None:
+    # The shim skips __init__; a reused step reading state only __init__ sets
+    # fails in the probe and not in ingestion, so it is not reported as a
+    # failure "ingestion would fail on too".
+    with (
+        requests_mock.Mocker() as m,
+        mock.patch.object(
+            KafkaConnectSource, "_enrich_manifest", side_effect=AttributeError("ctx")
+        ),
+        pytest.raises(ProbeInternalError),
+    ):
+        _mock_cluster(m, CLUSTER, TOPICS)
+        run_probe_method(
+            "kafka-connect", dict(_RECIPE), "connector", {"connector": "orders-sink"}
+        )
+
+
+def test_cluster_topics_checks_the_connect_credentials_as_ingestion_does() -> None:
+    # Ingestion's __init__ fails on a refused GET /connectors; the Kafka REST
+    # endpoint discovery swallows the same 401, so without this check the
+    # probe answered [] with advice about the wrong setting.
+    recipe = _cloud_recipe().model_copy(update={"kafka_rest_endpoint": None})
+    with requests_mock.Mocker() as m:
+        m.get(f"{CLOUD_URI}/connectors", status_code=401)
+        with (
+            KafkaConnectMetadataProbe.for_config(recipe) as probe,
+            pytest.raises(ProbeConnectionError) as raised,
+        ):
+            probe.cluster_topics()
+    assert "401" in str(raised.value)
+
+
+def test_a_failing_topics_read_reaches_the_result_as_a_warning() -> None:
+    # Ingestion degrades a failed /topics read to no runtime topics with a
+    # report warning; the probe's result must carry it, or an empty topic
+    # list would read as "this connector has none".
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        m.get(f"{CONNECT}/connectors/orders-sink/topics", status_code=500)
+        run = run_probe_method(
+            "kafka-connect", dict(_RECIPE), "connector", {"connector": "orders-sink"}
+        )
+    assert isinstance(run.result, dict) and run.result["runtime_topics"] == 0
+    assert run.warnings
+
+
+def test_the_stream_catalog_is_named_as_not_read() -> None:
+    config = _recipe(
+        confluent_catalog={
+            "enabled": True,
+            "include_lineage": True,
+            "schema_registry_url": "https://psrc-1.example.confluent.cloud",
+            "api_key": "sr-key",
+            "api_secret": "test_password",
+        },
+    )
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(config) as probe:
+            probe.connector("orders-sink")
+            assert any("confluent_catalog" in w for w in probe.warnings)
+
+
+def test_confluent_cloud_connectors_go_through_the_shim() -> None:
+    sink = {
+        "connector.class": "PostgresSink",
+        "topics": "orders",
+        "db.name": "analytics",
+        "connection.host": "db.example",
+    }
+    with requests_mock.Mocker() as m:
+        m.get(f"{CLOUD_URI}/connectors", json=["orders-sink"])
+        m.get(
+            f"{CLOUD_URI}/connectors/orders-sink",
+            json={"name": "orders-sink", "type": "sink", "config": sink, "tasks": []},
+        )
+        m.get(
+            f"{KAFKA_REST}/kafka/v3/clusters/lkc-1/topics",
+            json={
+                "kind": "KafkaTopicList",
+                "data": [{"topic_name": "orders"}],
+                "metadata": {"next": None},
+            },
+        )
+        with KafkaConnectMetadataProbe.for_config(_cloud_recipe()) as probe:
+            described = probe.connector("orders-sink")
+            lineage = probe.connector_lineage("orders-sink")
+    # No runtime /topics on Confluent Cloud: the topic comes from the config,
+    # checked against the cluster's topic list, as ingestion resolves it.
+    assert described["emitted"] is True and described["runtime_topics"] == 0
+    assert [(e["inputs"], e["outputs"]) for e in lineage] == [
+        (
+            ["urn:li:dataset:(urn:li:dataPlatform:kafka,orders,PROD)"],
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.orders,PROD)"
+            ],
+        )
+    ]

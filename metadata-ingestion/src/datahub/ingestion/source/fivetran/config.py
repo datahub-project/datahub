@@ -27,7 +27,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran_selection import (
+    NULL_DESTINATION_ID,
+    UNKNOWN,
     ConnectorFacts,
+    MaybeConnectorId,
+    MaybeDestinationId,
     connector_verdict,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -528,26 +532,46 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         if ctx.kind != FIVETRAN_CONNECTOR_KIND or ctx.structural is not None:
             return None
         rest = self.log_source == "rest_api"
-        connector_id = ctx.attributes.get("connector_id")
+        attributes = ctx.attributes
+        connector_id: MaybeConnectorId = attributes.get("connector_id", UNKNOWN)
         if (
             rest
-            and connector_id is None
+            and connector_id is UNKNOWN
             and not self.connector_patterns.allowed(ctx.target)
         ):
             ctx.warn(REST_CONNECTOR_MATCH_NOTE)
-        # With --parent the framework judges the destination itself.
-        destination_id = (
-            None if ctx.parent_path else ctx.attributes.get("destination_id")
-        )
-        if destination_id is None and not ctx.parent_path:
+        destination_id: MaybeDestinationId
+        if ctx.parent_path:
+            # The framework judges the --parent destination itself.
+            destination_id = UNKNOWN
+        elif "destination_id" in attributes:
+            destination_id = attributes["destination_id"]
+        elif not rest and connector_id is not UNKNOWN:
+            # A listed log row always carries connector_id; a saved run drops
+            # a NULL destination_id, so here it was NULL.
+            destination_id = None
+        else:
+            destination_id = UNKNOWN
             self._warn_destination_not_applied(ctx)
-        return connector_verdict(
-            self, ConnectorFacts(ctx.target, connector_id, destination_id), rest=rest
+        verdict = connector_verdict(
+            self,
+            ConnectorFacts(
+                name=ctx.target,
+                connector_id=connector_id,
+                destination_id=destination_id,
+            ),
+            rest=rest,
         )
+        if verdict.excluded_by == NULL_DESTINATION_ID:
+            ctx.warn(
+                "this connector has no destination_id in the log; ingestion "
+                "matches destination_patterns against it and stops the run "
+                "with an error unless connector_patterns drops it first"
+            )
+        return verdict
 
     def _warn_destination_not_applied(self, ctx: VerdictContext) -> None:
-        patterns = self.destination_patterns
-        if patterns.deny or patterns.allow != [".*"]:
+        if not self.destination_patterns.is_allow_all():
             ctx.warn(
                 "destination_patterns is set, but no destination was given for "
                 "these connectors, so it was not applied: ingestion drops every "

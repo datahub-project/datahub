@@ -140,6 +140,8 @@ Listings include connectors your patterns would drop, so `probe filter` can expl
 
 In `rest_api` mode, ingestion keeps a connector when `connector_patterns` allows **either** its connector ID **or** its name. Save the listing with `probe run connectors --report-to out.json` and judge it with `probe filter --kind Connector --from-run out.json`, which passes each connector's `connector_id` alongside its name. With names alone the verdict covers the name only, and says so.
 
+In `log_database` mode, a connector whose log row has no `destination_id` is judged excluded as `null_destination_id`: ingestion stops the run on it unless `connector_patterns` drops it first.
+
 The probe returns metadata only: IDs, names, flags, table and column names, and run status. It never returns user emails or sync message text. It offers no raw SQL or REST passthrough, because the Fivetran log tables are ordinary warehouse tables that hold user emails and run messages, not a catalog.
 
 ### Limitations

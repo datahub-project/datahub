@@ -4,7 +4,7 @@ would drop instead of hiding it, and never returns user identity."""
 import datetime
 import logging
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator
+from typing import Any, Dict, Iterator, List
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -12,6 +12,7 @@ import pytest
 import requests
 
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -29,6 +30,13 @@ from tests.unit.fivetran.fivetran_probe_fixtures import db_recipe, mocked_log_db
 def engine() -> Iterator[MagicMock]:
     with mocked_log_db() as create_engine:
         yield create_engine
+
+
+def _warnings_of(probe: FivetranMetadataProbe) -> List[str]:
+    """The probe's own warnings plus the ones the reused readers recorded on
+    its report, rendered as run_probe_method renders them."""
+    reported = [f"{e.title}: {e.message}" for e in probe.probe_report.warnings]
+    return [*probe.warnings, *reported]
 
 
 def _probe(recipe: Dict[str, object]) -> FivetranMetadataProbe:
@@ -321,6 +329,7 @@ def test_hybrid_mode_prefers_the_log_and_falls_back_to_rest_schemas(
         pytest.param(_response(status=403), id="forbidden"),
         pytest.param(_response(status=503), id="unavailable"),
         pytest.param(_response({"code": "Error", "message": "nope"}), id="bad-reply"),
+        pytest.param(_response(status=404), id="missing"),
     ],
 )
 def test_rest_only_lineage_degrades_where_ingestion_does(failing: MagicMock) -> None:
@@ -333,7 +342,8 @@ def test_rest_only_lineage_degrades_where_ingestion_does(failing: MagicMock) -> 
     }
     with _rest_api(routes), _probe({"api_config": _API}) as probe:
         assert probe.connector_tables("conn_a1") == []
-        assert any("conn_a1" in w and "without" in w for w in probe.warnings)
+        # Ingestion's own reader recorded it, on the report the probe exposes.
+        assert any("connection schemas" in w for w in _warnings_of(probe))
 
 
 def test_a_connector_on_an_unreadable_destination_is_not_reported_missing() -> None:
@@ -361,17 +371,6 @@ def test_connector_tables_show_no_columns_when_the_recipe_emits_none(
     assert tables[0]["column_count"] == 0
     assert tables[0]["columns"] == []
     assert any("include_column_lineage" in w for w in warnings)
-
-
-def test_rest_only_lineage_degrades_on_a_missing_schemas_endpoint() -> None:
-    routes = {
-        "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
-        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
-        "/connections/conn_a1/schemas": _response(status=404),
-    }
-    with _rest_api(routes), _probe({"api_config": _API}) as probe:
-        assert probe.connector_tables("conn_a1") == []
-        assert any("conn_a1" in w and "404" in w for w in probe.warnings)
 
 
 def test_sync_history_reports_run_status_without_message_text(
@@ -515,8 +514,8 @@ def test_a_failed_schemas_read_warning_carries_no_reply_text() -> None:
     }
     with _rest_api(routes), _probe({"api_config": _API}) as probe:
         probe.connector_tables("conn_a1")
-        warnings = list(probe.warnings)
-    assert any("conn_a1" in w for w in warnings)
+        warnings = _warnings_of(probe)
+    assert any("connection schemas" in w for w in warnings)
     assert _PLANTED not in " ".join(warnings)
 
 
@@ -549,8 +548,8 @@ def test_a_failed_log_warehouse_lineage_read_warning_carries_no_driver_text(
         ),
     ):
         probe.connector_tables("conn_a1")
-        warnings = list(probe.warnings)
-    assert any("lineage tables" in w for w in warnings)
+        warnings = _warnings_of(probe)
+    assert any("DB log lineage" in w for w in warnings)
     assert _PLANTED not in " ".join(warnings)
 
 
@@ -565,6 +564,8 @@ def test_a_failing_log_warehouse_open_names_the_class_not_the_text() -> None:
         probe.connectors()
     assert _PLANTED not in str(raised.value)
     assert "ValueError" in str(raised.value)
+    # `from None`: a driver error can quote the connection URL.
+    assert raised.value.__cause__ is None
 
 
 def test_a_connector_the_caller_misnamed_is_refused_with_its_name(
@@ -589,22 +590,24 @@ def test_a_destination_the_caller_named_that_is_gone_is_bad_input() -> None:
         )
 
 
+_UNPLACED = {
+    "connection_id": "conn_orphan",
+    "connecting_user_id": "user_x",
+    "connector_type_id": "postgres",
+    "connection_name": "orphan_pg",
+    "paused": False,
+    "sync_frequency": 1440,
+    "destination_id": None,
+}
+
+
 def test_a_connector_with_no_destination_is_reported_not_a_crash(
     engine: MagicMock,
 ) -> None:
-    unplaced = {
-        "connection_id": "conn_orphan",
-        "connecting_user_id": "user_x",
-        "connector_type_id": "postgres",
-        "connection_name": "orphan_pg",
-        "paused": False,
-        "sync_frequency": 1440,
-        "destination_id": None,
-    }
     with (
         mock.patch(
             "tests.unit.fivetran.fivetran_probe_fixtures._CONNECTOR_ROWS",
-            [*fixtures._CONNECTOR_ROWS, unplaced],
+            [*fixtures._CONNECTOR_ROWS, _UNPLACED],
         ),
         _probe(db_recipe()) as probe,
     ):
@@ -612,6 +615,55 @@ def test_a_connector_with_no_destination_is_reported_not_a_crash(
         records = probe.connectors()
     assert names == ["dest_a", "dest_b"]
     assert "orphan_pg" in [r["name"] for r in records]
-    # Ingestion raises on this connector, and a --from-run filter drops the
-    # null destination_id, so the warning is the only place it shows.
+    # Ingestion raises on this connector; the listing says so up front.
     assert any("conn_orphan" in w for w in probe.warnings)
+
+
+@pytest.mark.parametrize(
+    "patterns, excluded_by",
+    [
+        # Kept by name, so ingestion reaches the NULL and stops there.
+        ({}, "null_destination_id"),
+        # Dropped by name first, as the DB reader checks the name first.
+        ({"connector_patterns": {"deny": ["^orphan_pg$"]}}, "connector_patterns"),
+    ],
+)
+def test_a_saved_run_judges_a_null_destination_as_ingestion_meets_it(
+    engine: MagicMock, patterns: Dict[str, object], excluded_by: str
+) -> None:
+    # A saved run drops the NULL destination_id; the connector_id beside it
+    # marks a listed record, so the absence is read as NULL, not as unknown.
+    with mock.patch(
+        "tests.unit.fivetran.fivetran_probe_fixtures._CONNECTOR_ROWS",
+        [_UNPLACED],
+    ):
+        run = run_probe_method("fivetran", db_recipe(), "connectors", {})
+    listing = listing_from_run(run.to_dict())
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=db_recipe(**patterns),
+        kind=str(listing.kind),
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    assert [(v.name, v.excluded_by) for v in result.results] == [
+        ("orphan_pg", excluded_by)
+    ]
+
+
+def test_a_defect_opening_the_log_warehouse_is_not_a_connection_failure() -> None:
+    # Our code failing (config drift between the probe and the reader's
+    # constructor) exits 1 as a defect, not 3 as "could not open".
+    with (
+        _probe(db_recipe()) as probe,
+        mock.patch.object(FivetranLogDbReader, "__init__", side_effect=TypeError()),
+        pytest.raises(TypeError),
+    ):
+        probe.connectors()
+
+
+def test_a_case_only_miss_names_the_listed_spelling(engine: MagicMock) -> None:
+    with _probe(db_recipe()) as probe, pytest.raises(ProbeArgumentError) as raised:
+        probe.connector_tables("SALES_PG")
+    assert "sales_pg" in str(raised.value)

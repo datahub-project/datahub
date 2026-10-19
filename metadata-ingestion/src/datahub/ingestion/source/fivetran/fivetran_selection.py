@@ -6,13 +6,18 @@ restates the rule.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from enum import Enum
+from typing import Literal, Optional, Protocol, Union
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.verdicts import Verdict
 
 CONNECTOR_PATTERNS = "connector_patterns"
 DESTINATION_PATTERNS = "destination_patterns"
+# Not a recipe field: a connector whose log row has a NULL destination_id.
+# The DB reader matches destination_patterns against the NULL and stops the
+# run with a TypeError, so the connector is never emitted.
+NULL_DESTINATION_ID = "null_destination_id"
 
 
 class ConnectorFilterConfig(Protocol):
@@ -23,23 +28,37 @@ class ConnectorFilterConfig(Protocol):
     def destination_patterns(self) -> AllowDenyPattern: ...
 
 
-@dataclass(frozen=True)
+class _Unknown(Enum):
+    UNKNOWN = "unknown"
+
+
+# A fact `probe filter` was not given (a connector named bare): the rule it
+# decides is skipped. Not None, because a NULL destination_id is a value the
+# log holds, and ingestion acts on it.
+UNKNOWN: Literal[_Unknown.UNKNOWN] = _Unknown.UNKNOWN
+MaybeConnectorId = Union[str, _Unknown]
+# None is a NULL destination_id in the log (DB mode only).
+MaybeDestinationId = Union[Optional[str], _Unknown]
+
+
+@dataclass(frozen=True, kw_only=True)
 class ConnectorFilters:
     """The two patterns, as the readers receive them (LogReader passes the
-    patterns, not the config)."""
+    patterns, not the config). Keyword-only: both are AllowDenyPatterns, so a
+    swapped pair would still type-check."""
 
     connector_patterns: AllowDenyPattern
     destination_patterns: AllowDenyPattern
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ConnectorFacts:
     # The connector name: the string DB mode matches, and half of REST's rule.
     name: str
-    # None: not known (a connector named bare to `probe filter`); that half of
-    # the rule is skipped. Ingestion always knows both.
-    connector_id: Optional[str] = None
-    destination_id: Optional[str] = None
+    # UNKNOWN for a connector named bare to `probe filter`; that half of the
+    # rule is skipped. Ingestion always knows both.
+    connector_id: MaybeConnectorId = UNKNOWN
+    destination_id: MaybeDestinationId = UNKNOWN
 
 
 def destination_verdict(config: ConnectorFilterConfig, destination_id: str) -> Verdict:
@@ -58,10 +77,10 @@ def connector_pattern_verdict(
         return Verdict.include()
     if (
         rest
-        and facts.connector_id is not None
+        and facts.connector_id is not UNKNOWN
         and config.connector_patterns.allowed(facts.connector_id)
     ):
-        return Verdict(True, None, matched_target=facts.connector_id)
+        return Verdict(included=True, matched_target=facts.connector_id)
     return Verdict.exclude(CONNECTOR_PATTERNS)
 
 
@@ -73,11 +92,15 @@ def connector_verdict(
     destination. The REST reader skips a denied destination before it lists
     that destination's connectors."""
     by_connector = connector_pattern_verdict(config, facts, rest=rest)
-    by_destination = (
-        None
-        if facts.destination_id is None
-        else destination_verdict(config, facts.destination_id)
-    )
+    by_destination: Optional[Verdict]
+    if facts.destination_id is UNKNOWN:
+        by_destination = None
+    elif facts.destination_id is None:
+        # Reached only once connector_patterns keeps the connector: the DB
+        # reader checks the name first, so a denied one never gets this far.
+        by_destination = Verdict.exclude(NULL_DESTINATION_ID)
+    else:
+        by_destination = destination_verdict(config, facts.destination_id)
     ordered = (by_destination, by_connector) if rest else (by_connector, by_destination)
     for verdict in ordered:
         if verdict is not None and not verdict.included:

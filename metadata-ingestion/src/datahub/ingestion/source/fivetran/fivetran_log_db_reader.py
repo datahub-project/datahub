@@ -40,6 +40,23 @@ from datahub.ingestion.source.unity.connection import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def connector_from_log_row(row: Dict[str, Any], *, user_id: str) -> Connector:
+    """A connector-list row as a Connector, lineage and jobs filled later.
+    Shared with the probe, which passes no user_id because it never reports
+    the connecting user."""
+    return Connector(
+        connector_id=row[Constant.CONNECTOR_ID],
+        connector_name=row[Constant.CONNECTOR_NAME],
+        connector_type=row[Constant.CONNECTOR_TYPE_ID],
+        paused=row[Constant.PAUSED],
+        sync_frequency=row[Constant.SYNC_FREQUENCY],
+        destination_id=row[Constant.DESTINATION_ID],
+        user_id=user_id,
+        lineage=[],
+        jobs=[],
+    )
+
+
 class FivetranLogDbReader:
     """Database-based reader of the Fivetran Platform Connector log.
 
@@ -485,7 +502,10 @@ class FivetranLogDbReader:
         syncs_interval: int,
     ) -> List[Connector]:
         connectors: List[Connector] = []
-        filters = ConnectorFilters(connector_patterns, destination_patterns)
+        filters = ConnectorFilters(
+            connector_patterns=connector_patterns,
+            destination_patterns=destination_patterns,
+        )
         with self._report.metadata_extraction_perf.connectors_metadata_extraction_sec:
             logger.info("Fetching connector list")
             connector_list = self._query(self.fivetran_log_query.get_connectors_query())
@@ -499,7 +519,9 @@ class FivetranLogDbReader:
                 # NULL destination_id fails here as it always has instead of
                 # skipping the rule as an unknown fact.
                 if not connector_pattern_verdict(
-                    filters, ConnectorFacts(connector_name, connector_id), rest=False
+                    filters,
+                    ConnectorFacts(name=connector_name, connector_id=connector_id),
+                    rest=False,
                 ).included:
                     self._report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
@@ -512,16 +534,8 @@ class FivetranLogDbReader:
                     )
                     continue
                 connectors.append(
-                    Connector(
-                        connector_id=connector_id,
-                        connector_name=connector_name,
-                        connector_type=connector[Constant.CONNECTOR_TYPE_ID],
-                        paused=connector[Constant.PAUSED],
-                        sync_frequency=connector[Constant.SYNC_FREQUENCY],
-                        destination_id=destination_id,
-                        user_id=connector[Constant.CONNECTING_USER_ID],
-                        lineage=[],  # filled later
-                        jobs=[],  # filled later
+                    connector_from_log_row(
+                        connector, user_id=connector[Constant.CONNECTING_USER_ID]
                     )
                 )
 

@@ -17,11 +17,13 @@ import requests
 from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.error_policy import DEFECT_TYPES
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
+    ProbeInternalError,
     ProbeReadFailed,
 )
 from datahub.ingestion.api.source import (
@@ -42,6 +44,7 @@ from datahub.ingestion.source.kafka_connect.connector_registry import (
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import (
     CONFLUENT_CLOUD_CREDENTIALS_REQUIRED,
+    ConfluentCloudCredentialsRequired,
     KafkaConnectSource,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
@@ -244,9 +247,45 @@ class _TimeoutSession(requests.Session):
         return super().request(*args, **kwargs)
 
 
+def source_for_probe(
+    config: KafkaConnectSourceConfig,
+    session: requests.Session,
+    kafka_session: requests.Session,
+) -> KafkaConnectSource:
+    """An uninitialized KafkaConnectSource carrying only the state the
+    per-connector steps read: _parse_connector_manifest, _enrich_manifest
+    (and through it _get_connector_topics, _get_connector_tasks,
+    extract_connector_lineages, _get_all_topics_from_kafka_api),
+    construct_flow_workunit and construct_job_workunits.
+
+    Built via __new__, as glue_source_for_probe is, because __init__ does two
+    things a probe must not: a test GET /connectors, and a hard failure on
+    Confluent Cloud without a DataHub graph. Skipping it does not avoid the
+    JVM: transform_plugins starts it at import time, and the probe imports it
+    through common.py.
+
+    Deliberately None: _schema_resolver_provider (the probe has no DataHub
+    graph) and _catalog (the probe does not read the Stream Catalog). The
+    probe warns about both where they would change the answer. Not primed,
+    because nothing reused reads them: _topic_cache, _topic_retriever,
+    _consumer_group_analyzer, ctx. If a reused step starts reading one, the
+    probe fails as a defect (exit 1), not as a source failure."""
+    shim = KafkaConnectSource.__new__(KafkaConnectSource)
+    shim.config = config
+    shim.report = KafkaConnectSourceReport()
+    shim.session = session
+    shim.kafka_session = kafka_session
+    shim._is_confluent_cloud = config.is_confluent_cloud()
+    shim._schema_resolver_provider = None
+    shim._catalog = None
+    shim._all_kafka_topics_cache = None
+    shim._all_kafka_topics_resolved = False
+    return shim
+
+
 class KafkaConnectMetadataProbe(ProbeProviderBase):
     """Reads through an uninitialized KafkaConnectSource (see
-    KafkaConnectSource.for_probe), so each command runs ingestion's own
+    source_for_probe), so each command runs ingestion's own
     per-connector steps -- minus connector_patterns, which `probe filter` judges.
     """
 
@@ -264,6 +303,10 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
         # Replaced rather than reused so the reused steps' report entries are
         # never logged; see _UnloggedStructuredLogs.
         self._source.report = _ProbeReport()
+        # Not source.close(): that runs StatefulIngestionSourceBase.close() on
+        # a shim that never ran its __init__.
+        self._on_exit(source.session.close)
+        self._on_exit(source.kafka_session.close)
         # Judged here, without a request, but raised from the first command:
         # an error while the provider is built is reported as "could not open
         # source" (exit 3), and these are the caller's to fix (exit 2).
@@ -283,34 +326,22 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
             session = KafkaConnectSource._create_connect_session(
                 config, session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
             )
-        except ValueError as exc:
-            # Confluent Cloud without Connect credentials is a recipe error, so
-            # it is deferred like a bad connect_uri. Any other ValueError
-            # (the config's own reads run in here too) propagates, for the
-            # framework to label.
-            if str(exc) != CONFLUENT_CLOUD_CREDENTIALS_REQUIRED:
-                raise
+        except ConfluentCloudCredentialsRequired:
+            # A recipe error, so it is deferred like a bad connect_uri. Any
+            # other ValueError (the config's own reads run in here too)
+            # propagates, for the framework to label.
             recipe_problem = CONFLUENT_CLOUD_CREDENTIALS_REQUIRED
             session = _TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
         kafka_session = KafkaConnectSource._create_kafka_session(
             session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
         )
         return cls(
-            KafkaConnectSource.for_probe(
-                config, session=session, kafka_session=kafka_session
-            ),
+            source_for_probe(config, session=session, kafka_session=kafka_session),
             recipe_problem=recipe_problem,
         )
 
-    def __exit__(self, *exc: object) -> None:
-        # Not self._source.close(): that runs StatefulIngestionSourceBase.close()
-        # on a shim that never ran its __init__.
-        self._source.session.close()
-        self._source.kafka_session.close()
-        super().__exit__(*exc)
-
     @property
-    def probe_report(self) -> object:
+    def probe_report(self) -> KafkaConnectSourceReport:
         """Ingestion's report. The reused steps record every degraded read on it
         (runtime topics, tasks, Kafka REST), so exposing it is what keeps an
         empty result from reading as 'nothing here'."""
@@ -358,9 +389,18 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
         whole connection.url, query-string password included. That value comes
         off the cluster, not the recipe, so nothing downstream would mask it.
         Only the exception type is kept, and `from None` keeps the original off
-        __cause__, where a traceback would print it."""
+        __cause__, where a traceback would print it.
+
+        A defect type (AttributeError, TypeError, ...) is the probe's own
+        failure -- the shim lacking state real ingestion has -- so it exits 1,
+        not as a failure ingestion would share."""
         try:
             yield
+        except DEFECT_TYPES as exc:
+            raise ProbeInternalError(
+                f"{what_failed} ({type(exc).__name__}); this is a defect in the "
+                f"probe, not something ingestion would hit"
+            ) from None
         except Exception as exc:
             raise ProbeReadFailed(
                 f"{what_failed} ({type(exc).__name__}); ingestion would fail on it too"
@@ -411,7 +451,7 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
         self._warn_unreproduced()
         source = self._source
         url = f"{source.config.connect_uri}/connectors/{connector}"
-        with self._connect_request(f"GET /connectors/{connector}"):
+        with self._connect_request(f"GET /connectors/{echoed(connector)}"):
             response = source.session.get(url)
             if response.status_code == 404:
                 raise ProbeArgumentError(
@@ -536,7 +576,10 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
                 "ingestion reads each connector's runtime topics instead -- use "
                 "connector_topics"
             )
-        self._refuse_recipe_problem()
+        # Ingestion's startup GET /connectors, so refused Connect credentials
+        # fail here as they fail ingestion's __init__, instead of hiding in
+        # the Kafka REST endpoint discovery, which swallows a 401.
+        self._listed_names()
         with self._error_text_withheld("ingestion's Kafka REST topic listing failed"):
             topics = self._source._get_all_topics_from_kafka_api()
         # None means unavailable, and the reason is already on the report.

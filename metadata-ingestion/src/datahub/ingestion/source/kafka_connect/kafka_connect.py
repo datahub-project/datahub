@@ -8,7 +8,7 @@ import jpype
 import jpype.imports
 import requests
 from requests.adapters import HTTPAdapter
-from typing_extensions import LiteralString, Self
+from typing_extensions import LiteralString
 from urllib3.util import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -82,6 +82,12 @@ CONFLUENT_CLOUD_CREDENTIALS_REQUIRED = (
     "Confluent Cloud detected but no Connect API credentials provided. "
     "Confluent Cloud requires authentication credentials for API access."
 )
+
+
+class ConfluentCloudCredentialsRequired(ValueError):
+    """Confluent Cloud without Connect credentials: a recipe error. A
+    ValueError, as ingestion has always raised it; its own type so the probe
+    can tell it apart without comparing message text."""
 
 
 class CatalogLineageOutcome(Enum):
@@ -185,42 +191,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
 
         if not jpype.isJVMStarted():
             jpype.startJVM()
-
-    @classmethod
-    def for_probe(
-        cls,
-        config: KafkaConnectSourceConfig,
-        session: requests.Session,
-        kafka_session: requests.Session,
-    ) -> Self:
-        """An uninitialized KafkaConnectSource carrying only the state the
-        per-connector steps read: _parse_connector_manifest, _enrich_manifest
-        (and through it _get_connector_topics, _get_connector_tasks,
-        extract_connector_lineages, _get_all_topics_from_kafka_api),
-        construct_flow_workunit and construct_job_workunits.
-
-        Built via __new__, as ModeSource.for_probe is, because __init__ does
-        two things a probe must not: a test GET /connectors, and a hard failure
-        on Confluent Cloud without a DataHub graph. Skipping it does not avoid
-        the JVM: transform_plugins starts it at import time, and the probe
-        imports it through common.py.
-
-        Deliberately None: _schema_resolver_provider (the probe has no DataHub
-        graph) and _catalog (the probe does not read the Stream Catalog). The
-        probe warns about both where they would change the answer. Not primed,
-        because nothing reused reads them: _topic_cache, _topic_retriever,
-        _consumer_group_analyzer, ctx."""
-        shim = cls.__new__(cls)
-        shim.config = config
-        shim.report = KafkaConnectSourceReport()
-        shim.session = session
-        shim.kafka_session = kafka_session
-        shim._is_confluent_cloud = config.is_confluent_cloud()
-        shim._schema_resolver_provider = None
-        shim._catalog = None
-        shim._all_kafka_topics_cache = None
-        shim._all_kafka_topics_resolved = False
-        return shim
 
     def _create_catalog(self) -> Optional[ConnectorCatalog]:
         if not self.config.confluent_catalog.enabled:
@@ -586,7 +556,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             # requests handles the Basic encoding.
             session.auth = (connect_username, connect_password)
         elif config.is_confluent_cloud():
-            raise ValueError(CONFLUENT_CLOUD_CREDENTIALS_REQUIRED)
+            raise ConfluentCloudCredentialsRequired(
+                CONFLUENT_CLOUD_CREDENTIALS_REQUIRED
+            )
         return session
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:

@@ -6,11 +6,12 @@ from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional, cast
 
 import pytest
+from azure.core.credentials import AccessToken
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.mgmt.datafactory import models as adf
 
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.probe_methods import _iter_specs
+from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
@@ -22,9 +23,7 @@ from datahub.ingestion.source.azure_data_factory.adf_config import (
 )
 from datahub.ingestion.source.azure_data_factory.adf_probe import (
     AzureDataFactoryMetadataProbe,
-)
-from datahub.ingestion.source.azure_data_factory.adf_source import (
-    AzureDataFactorySource,
+    source_for_probe,
 )
 from datahub.ingestion.source.common.subtypes import FlowContainerSubTypes
 
@@ -127,8 +126,14 @@ class _FakeClient:
 
 
 class _FakeCredential:
+    """Satisfies azure.core's TokenCredential protocol; no token is ever
+    requested, since the client is faked too."""
+
     def __init__(self) -> None:
         self.closed = False
+
+    def get_token(self, *scopes: str, **kwargs: Any) -> AccessToken:
+        raise AssertionError("the fake client never asks for a token")
 
     def close(self) -> None:
         self.closed = True
@@ -141,7 +146,7 @@ def _config(**overrides: Any) -> AzureDataFactoryConfig:
 def _probe(
     client: _FakeClient, credential: Optional[_FakeCredential] = None, **overrides: Any
 ) -> AzureDataFactoryMetadataProbe:
-    source = AzureDataFactorySource.for_probe(
+    source = source_for_probe(
         _config(**overrides), cast(AzureDataFactoryClient, client)
     )
     return AzureDataFactoryMetadataProbe(source, credential or _FakeCredential())
@@ -314,6 +319,17 @@ def test_an_unknown_factory_is_a_bad_argument() -> None:
         _probe(_FakeClient()).pipelines("no-such-factory")
 
 
+def test_a_factory_name_in_two_resource_groups_is_refused_with_both() -> None:
+    # Ingestion would read both; the probe addresses a factory by name, so it
+    # must not silently pick one.
+    client = _FakeClient(
+        [_factory("shared", rg="rg-one"), _factory("shared", rg="rg-two")]
+    )
+    with pytest.raises(ProbeArgumentError) as raised:
+        _probe(client).pipelines("shared")
+    assert "rg-one" in str(raised.value) and "rg-two" in str(raised.value)
+
+
 def test_a_factory_outside_resource_group_is_a_bad_argument_that_names_the_narrowing() -> (
     None
 ):
@@ -324,7 +340,7 @@ def test_a_factory_outside_resource_group_is_a_bad_argument_that_names_the_narro
 
 
 def test_pipelines_report_their_factory_as_the_parent() -> None:
-    specs = dict(_iter_specs(AzureDataFactoryMetadataProbe))
+    specs = {s.command: s for s in list_probe_methods("azure-data-factory")}
     assert specs["pipelines"].parent_params == ("factory",)
     assert specs["pipelines"].kind == ADF_PIPELINE_KIND
 
@@ -420,7 +436,9 @@ def test_an_unknown_pipeline_is_a_bad_argument() -> None:
 
 
 def test_activities_report_factory_and_pipeline_as_parents() -> None:
-    spec = dict(_iter_specs(AzureDataFactoryMetadataProbe))["activities"]
+    spec = {s.command: s for s in list_probe_methods("azure-data-factory")}[
+        "activities"
+    ]
     assert spec.parent_params == ("factory", "pipeline")
     assert spec.kind == ADF_ACTIVITY_KIND
 
@@ -545,17 +563,8 @@ def test_datasets_resolve_to_the_urn_ingestion_emits() -> None:
     [record] = probe.datasets("my-factory")
     assert record["platform"] == "mssql"
     assert record["unresolved_reason"] is None
-    # Resolved by the ingestion function on an identically primed source, so the
-    # probe cannot drift from what a run emits.
-    source = AzureDataFactorySource.for_probe(
-        _config(platform_instance_map={"sql_ls": "prod_mssql"}),
-        cast(AzureDataFactoryClient, _FakeClient()),
-    )
-    source._datasets_cache["my-rg/my-factory"] = {"orders_ds": table}
-    source._linked_services_cache["my-rg/my-factory"] = {"sql_ls": _sql_ls()}
-    assert record["urn"] == str(
-        source._resolve_dataset_urn("orders_ds", "my-rg/my-factory")
-    )
+    # That the URN is the one a run emits is test_adf_probe_parity's job,
+    # against get_workunits_internal(); here, that the instance map applies.
     assert "prod_mssql" in str(record["urn"])
 
 

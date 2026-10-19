@@ -1,13 +1,16 @@
 from typing import Callable, Dict, Iterable, List, Optional, TypeVar
 
+from azure.core.credentials import TokenCredential
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
-from azure.mgmt.datafactory.models import Activity, PipelineResource
+from azure.mgmt.datafactory.models import Activity, Factory, PipelineResource
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
     echoed,
+    resolve_name,
     soft_listing,
+    take,
 )
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
@@ -80,10 +83,31 @@ def _unresolved_reason(
     if not listed:
         return "this factory's linked services could not be listed"
     if not found:
-        return f"linked service '{ls_name}' not found in this factory"
+        return f"linked service {echoed(ls_name)} not found in this factory"
     if not ls_type:
-        return f"linked service '{ls_name}' has no type"
-    return f"linked service type '{ls_type}' has no DataHub platform mapping"
+        return f"linked service {echoed(ls_name)} has no type"
+    return f"linked service type {echoed(ls_type)} has no DataHub platform mapping"
+
+
+def source_for_probe(
+    config: AzureDataFactoryConfig, client: AzureDataFactoryClient
+) -> AzureDataFactorySource:
+    """An uninitialized source for the probe, which needs a few of the
+    source's helpers but must not run __init__ (stateful ingestion, telemetry).
+
+    Primes only what _extract_resource_group, _extract_table_name and
+    _resolve_dataset_urn read. If one of those starts reading a new attribute,
+    prime it here too, or the probe fails with AttributeError (reported as a
+    defect, exit 1); the parity test against get_workunits_internal is what
+    notices.
+    """
+    source = AzureDataFactorySource.__new__(AzureDataFactorySource)
+    source.config = config
+    source.report = AzureDataFactorySourceReport()
+    source.client = client
+    source._datasets_cache = {}
+    source._linked_services_cache = {}
+    return source
 
 
 class AzureDataFactoryMetadataProbe(ProbeProviderBase):
@@ -100,11 +124,19 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
     `probe filter` to explain rather than hidden.
     """
 
-    def __init__(self, source: AzureDataFactorySource, credential: object) -> None:
+    def __init__(
+        self, source: AzureDataFactorySource, credential: TokenCredential
+    ) -> None:
         self._source = source
         self._config: AzureDataFactoryConfig = source.config
         self._client: AzureDataFactoryClient = source.client
-        self._credential = credential
+        # Run last-in first-out: the client, then the credential. Ingestion
+        # never closes the credential; a probe is a short-lived process, and
+        # closing it releases the token client's transport.
+        close_credential = getattr(credential, "close", None)
+        if callable(close_credential):
+            self._on_exit(close_credential)
+        self._on_exit(self._client.close)
 
     @classmethod
     def for_config(
@@ -117,7 +149,7 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         client = AzureDataFactoryClient(
             credential=credential, subscription_id=config.subscription_id
         )
-        return cls(AzureDataFactorySource.for_probe(config, client), credential)
+        return cls(source_for_probe(config, client), credential)
 
     @staticmethod
     def probe_error_code(exc: BaseException) -> Optional[str]:
@@ -128,17 +160,6 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
             return None
         code = exc.error.code
         return code if isinstance(code, str) else None
-
-    def __exit__(self, *exc: object) -> None:
-        try:
-            self._client.close()
-        finally:
-            # Ingestion never closes the credential; a probe is a short-lived
-            # process, and closing it releases the token client's transport.
-            close = getattr(self._credential, "close", None)
-            if callable(close):
-                close()
-            super().__exit__(*exc)
 
     @property
     def probe_report(self) -> AzureDataFactorySourceReport:
@@ -156,21 +177,28 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         parameters are withheld because their values can be secrets."""
         # Not soft: a failure here means nothing could be read, which is exit 3.
         rg = self._config.resource_group
-        out: List[Dict[str, object]] = []
         nameless = 0
-        for factory in self._client.get_factories(resource_group=rg):
-            if not factory.name or not factory.id:
-                nameless += 1
-                continue
-            out.append(
-                {
-                    "name": factory.name,
-                    "resource_group": self._source._extract_resource_group(factory.id),
-                    "location": factory.location,
-                }
-            )
-            if len(out) >= limit:
-                break
+
+        def addressable(factory: Factory) -> bool:
+            nonlocal nameless
+            if factory.name and factory.id:
+                return True
+            nameless += 1
+            return False
+
+        listed = take(
+            self._client.get_factories(resource_group=rg), limit, keep=addressable
+        )
+        out: List[Dict[str, object]] = [
+            {
+                "name": factory.name,
+                "resource_group": self._source._extract_resource_group(
+                    factory.id or ""
+                ),
+                "location": factory.location,
+            }
+            for factory in listed
+        ]
         if nameless:
             self._warn(
                 f"{nameless} factor{'y' if nameless == 1 else 'ies'} had no name "
@@ -178,7 +206,7 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
             )
         if rg:
             self._warn(
-                f"resource_group is set to '{rg}', so only that resource group "
+                f"resource_group is set to {echoed(rg)}, so only that resource group "
                 f"was listed; factories elsewhere in the subscription are absent "
                 f"rather than reported excluded, and ingestion will not see them"
             )
@@ -191,29 +219,26 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         recipe cannot see is out of scope here too rather than silently reached.
         """
         rg = self._config.resource_group
-        matches = [
-            f
-            for f in self._client.get_factories(resource_group=rg)
-            if f.name == factory and f.id
-        ]
-        if not matches:
-            where = (
-                f"resource group {echoed(rg)} (the recipe's resource_group)"
-                if rg
-                else f"subscription {echoed(self._config.subscription_id)}"
-            )
-            raise ProbeArgumentError(
-                f"no data factory named {echoed(factory)} in {where}"
-            )
-        groups = sorted(
-            {self._source._extract_resource_group(f.id or "") for f in matches}
+        where = (
+            f"in resource group {echoed(rg)} (the recipe's resource_group)"
+            if rg
+            else f"in subscription {echoed(self._config.subscription_id)}"
         )
-        if len(groups) > 1:
-            raise ProbeArgumentError(
-                f"data factory name {echoed(factory)} is in several resource groups "
-                f"({', '.join(groups)}); set resource_group in the recipe"
-            )
-        return groups[0]
+        found = resolve_name(
+            factory,
+            (
+                f
+                for f in self._client.get_factories(resource_group=rg)
+                if f.name and f.id
+            ),
+            key=lambda f: f.name or "",
+            kind="data factory",
+            where=where,
+            list_command="probe run factories",
+            distinguish=lambda f: self._source._extract_resource_group(f.id or ""),
+            on_ambiguous="set resource_group in the recipe",
+        ).record
+        return self._source._extract_resource_group(found.id or "")
 
     def _try_listing(
         self,
@@ -237,15 +262,16 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
     ) -> List[_T]:
         """Items with a name, up to `limit`. Nameless items are skipped as
         ingestion skips them, and counted so the gap is visible."""
-        out: List[_T] = []
         nameless = 0
-        for item in items:
-            if not getattr(item, "name", None):
-                nameless += 1
-                continue
-            out.append(item)
-            if limit is not None and len(out) >= limit:
-                break
+
+        def named(item: _T) -> bool:
+            nonlocal nameless
+            if getattr(item, "name", None):
+                return True
+            nameless += 1
+            return False
+
+        out = take(items, limit, keep=named)
         if nameless:
             self._warn(
                 f"{context}: {nameless} item(s) had no name and were skipped, "
@@ -277,7 +303,7 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         services or data flows, and this command reads none of those."""
         rg = self._resource_group_of(factory)
         pipelines = self._listing(
-            f"pipelines listing for factory '{factory}'",
+            f"pipelines listing for factory {echoed(factory)}",
             lambda: self._client.get_pipelines(rg, factory),
             limit,
         )
@@ -353,7 +379,7 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         stores credentials there."""
         rg = self._resource_group_of(factory)
         services = self._try_listing(
-            f"linked services listing for factory '{factory}'",
+            f"linked services listing for factory {echoed(factory)}",
             lambda: self._client.get_linked_services(rg, factory),
             limit,
         )
@@ -400,7 +426,7 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
         rg = self._resource_group_of(factory)
         key = f"{rg}/{factory}"
         datasets = self._try_listing(
-            f"datasets listing for factory '{factory}'",
+            f"datasets listing for factory {echoed(factory)}",
             lambda: self._client.get_datasets(rg, factory),
             limit,
         )
@@ -408,7 +434,7 @@ class AzureDataFactoryMetadataProbe(ProbeProviderBase):
             return []
         # Every linked service, not `limit` of them: any dataset may reference any.
         listed_services = self._try_listing(
-            f"linked services listing for factory '{factory}'",
+            f"linked services listing for factory {echoed(factory)}",
             lambda: self._client.get_linked_services(rg, factory),
             None,
         )

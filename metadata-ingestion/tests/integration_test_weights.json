@@ -1380,6 +1380,14 @@
     "duration": "0.107s"
   },
   {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_probe_commands_answer_from_the_live_cluster_without_disclosing_secrets",
+    "duration": "15.000s"
+  },
+  {
+    "testId": "tests.integration.kafka_connect.test_kafka_connect::test_probe_filter_verdicts_match_the_dataflows_ingestion_emits",
+    "duration": "30.000s"
+  },
+  {
     "testId": "tests.integration.kinesis.test_kinesis::test_kinesis_ingestion_golden_file",
     "duration": "10.352s"
   },

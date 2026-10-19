@@ -1,12 +1,10 @@
 """Fivetran's `probe filter` verdicts, checked against what ingestion emits."""
 
-import dataclasses
 from pathlib import Path
 from typing import Dict, Set
 
 import pytest
 
-from datahub.ingestion.source.fivetran.config import REST_CONNECTOR_MATCH_NOTE
 from datahub.metadata.urns import DataFlowUrn
 from tests.test_helpers.probe_parity import (
     EmittedIndex,
@@ -45,15 +43,6 @@ _LISTINGS = [
         fan_out=FanOut("destinations", "destination"),
     ),
 ]
-# In REST mode every `connectors` listing warns REST_CONNECTOR_MATCH_NOTE
-# (fivetran_probe.py, `connectors`: `if self._uses_rest: self._warn(...)`).
-# It is a note on the rule, not a degraded fetch, so the REST cases accept
-# it by name; the DB cases must not, or the entry would fail as stale.
-_REST_LISTINGS = [
-    dataclasses.replace(listing, accept_warnings=(REST_CONNECTOR_MATCH_NOTE,))
-    for listing in _LISTINGS
-]
-
 _DENY_HR = {"connector_patterns": {"deny": ["^hr_pg$"]}}
 _DENY_DEST_B = {"destination_patterns": {"deny": ["^dest_b$"]}}
 # conn_a1 is sales_pg's id: REST keeps it through the id, DB (name only) drops it.
@@ -82,12 +71,12 @@ def test_rest_mode_agrees_with_ingestion(
             "fivetran",
             {"api_config": API_CONFIG, **filters},
             pipeline_ingestion("fivetran", tmp_path),
-            _REST_LISTINGS,
+            _LISTINGS,
         )
-    # The listing carried every fact, so no half-judged warning from
-    # probe filter, and the run's only warning was the accepted note.
+    # The listing carried every fact, connector_id included, so the run and
+    # probe filter give no warning: nothing went unjudged.
     assert report.kinds["connectors"].warnings == ()
-    assert report.kinds["connectors"].accepted_warnings == (REST_CONNECTOR_MATCH_NOTE,)
+    assert report.kinds["connectors"].accepted_warnings == ()
 
 
 def test_each_reader_reports_its_own_first_exclusion(tmp_path: Path) -> None:
@@ -104,7 +93,7 @@ def test_each_reader_reports_its_own_first_exclusion(tmp_path: Path) -> None:
             "fivetran",
             {"api_config": API_CONFIG, **both},
             pipeline_ingestion("fivetran", tmp_path),
-            _REST_LISTINGS[:1],
+            _LISTINGS[:1],
         )
     assert db.excluded_by("connectors") == {"conn_b1": "connector_patterns"}
     assert rest.excluded_by("connectors") == {"conn_b1": "destination_patterns"}
