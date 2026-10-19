@@ -1961,15 +1961,21 @@ def test_structured_properties_emitted_without_graph(tmp_path: pathlib.Path) -> 
     def_indexes = [
         i
         for i, wu in enumerate(workunits)
-        if isinstance(getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass)
+        if isinstance(
+            getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass
+        )
     ]
     assert len(def_indexes) == 10
     assert not any(workunits[i].is_primary_source for i in def_indexes)
     # Definitions lead the stream, ahead of every contract workunit.
     assert def_indexes == list(range(10))
     patches = _sp_patch_wus(workunits)
-    dataset = [wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:dataset:")]
-    fields = [wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:schemaField:")]
+    dataset = [
+        wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:dataset:")
+    ]
+    fields = [
+        wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:schemaField:")
+    ]
     assert dataset and all(wu.is_primary_source for wu in dataset)
     assert fields and not any(wu.is_primary_source for wu in fields)
     assert len({wu.id for wu in patches}) == len(patches)  # unique workunit ids

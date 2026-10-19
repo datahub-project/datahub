@@ -52,7 +52,9 @@ SPECS: Tuple[_PropertySpec, ...] = (
         _FIELD,
         ("column", "measure", "dimension"),
     ),
-    _PropertySpec("odcs.transformLogic", "ODCS Transform Logic", "string", False, _FIELD),
+    _PropertySpec(
+        "odcs.transformLogic", "ODCS Transform Logic", "string", False, _FIELD
+    ),
     _PropertySpec(
         "odcs.synonyms",
         "ODCS Synonyms",
@@ -176,7 +178,9 @@ def field_property_values(prop: ODCSProperty) -> PropertyValues:
     _put(result, "odcs.semanticType", _clean_strings([prop.semanticType]))
     _put(result, "odcs.transformLogic", _clean_strings([prop.transformLogic]))
     _put(result, "odcs.synonyms", _clean_strings(_synonym_terms(prop.synonyms)))
-    enum_values = [e.get("value") if isinstance(e, dict) else e for e in prop.enum or []]
+    enum_values = [
+        e.get("value") if isinstance(e, dict) else e for e in prop.enum or []
+    ]
     _put(result, "odcs.enumValues", _clean_strings(enum_values))
 
     options = prop.logicalTypeOptions

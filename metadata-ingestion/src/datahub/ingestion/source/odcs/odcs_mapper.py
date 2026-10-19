@@ -701,7 +701,6 @@ def _field_aspect_mcps(
     return mcps
 
 
-
 def odcs_to_structured_property_mcps(
     schema_entry: ODCSSchemaObject,
     logical_urn: str,

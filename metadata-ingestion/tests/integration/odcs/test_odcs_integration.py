@@ -418,3 +418,36 @@ def test_odcs_v32_unresolved_variable_stays_unbound(
     assert not [m for m in mces if m.get("aspectName") == "logicalParent"]
     assert not [m for m in mces if "${" in m.get("entityUrn", "")]
     assert _aspects(mces, "datasetProperties")  # logical dataset still emitted
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_odcs_v32_structured_properties(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/odcs"
+    output_path = _run_pipeline(
+        tmp_path=tmp_path,
+        test_resources_dir=test_resources_dir,
+        fixture="odcs_v32.odcs.yaml",
+        output_name="odcs_v32_structured_properties_mces.json",
+        extra_config={"emit_structured_properties": True},
+    )
+    mces = _read_mces(output_path)
+    definitions = _aspects(mces, "propertyDefinition")
+    assert len(definitions) == 10
+    patched = {
+        m["entityUrn"]
+        for m in mces
+        if m.get("aspectName") == "structuredProperties"
+        and m.get("changeType") == "PATCH"
+    }
+    readings = _V32_LOGICAL.format("readings")
+    assert readings in patched  # dataset synonyms
+    assert f"urn:li:schemaField:({readings},col_status)" in patched
+    assert f"urn:li:schemaField:({readings},col_embedding)" in patched
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir
+        / "odcs_v32_structured_properties_mces_golden.json",
+    )

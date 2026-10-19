@@ -115,7 +115,9 @@ def test_vector_options_ignored_unless_vector_and_dict() -> None:
         == {}
     )
     assert (
-        field_property_values(_prop(logicalType="vector", logicalTypeOptions="oops")).values
+        field_property_values(
+            _prop(logicalType="vector", logicalTypeOptions="oops")
+        ).values
         == {}
     )
 
