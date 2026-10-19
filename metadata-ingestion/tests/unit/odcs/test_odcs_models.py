@@ -5,6 +5,7 @@ from typing import Any, Dict, Set, Type
 import pytest
 from pydantic import BaseModel
 
+from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
@@ -161,4 +162,48 @@ def test_team_members_accepts_both_spec_shapes() -> None:
             {"id": "c1", "team": {"name": "empty-team"}}
         ).team_members
         == []
+    )
+
+
+def test_v32_descriptive_attributes_parse_leniently() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "apiVersion": "v3.2.0",
+            "schema": [
+                {
+                    "name": "t",
+                    "synonyms": [{"synonym": "orders"}, "purchases"],
+                    "properties": [
+                        {
+                            "name": "col_a",
+                            "logicalType": "vector",
+                            "semanticType": "measure",
+                            "transformLogic": "SUM(col_a)",
+                            "logicalTypeOptions": {"dimensions": 3},
+                            "enum": [{"value": "x"}, 2, None],
+                        },
+                        # malformed shapes must not fail the whole contract
+                        {"name": "col_b", "logicalTypeOptions": "oops"},
+                    ],
+                }
+            ],
+        }
+    )
+    assert contract.schema_ is not None
+    schema = contract.schema_[0]
+    assert schema.synonyms is not None and len(schema.synonyms) == 2
+    assert schema.properties is not None
+    prop = schema.properties[0]
+    assert prop.semanticType == "measure"
+    assert prop.transformLogic == "SUM(col_a)"
+    assert prop.logicalTypeOptions == {"dimensions": 3}
+    assert prop.enum == [{"value": "x"}, 2, None]
+    assert schema.properties[1].logicalTypeOptions == "oops"
+
+
+def test_emit_structured_properties_defaults_off() -> None:
+    assert (
+        ODCSSourceConfig.model_validate({"path": "/tmp/x"}).emit_structured_properties
+        is False
     )

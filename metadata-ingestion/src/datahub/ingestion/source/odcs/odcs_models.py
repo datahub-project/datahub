@@ -29,24 +29,19 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
         "dataGranularityDescription",
         "id",
         "relationships",
-        "synonyms",
     )
 )
 
 KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
         "businessName",
-        "enum",
         "examples",
         "id",
         "items",
-        "logicalTypeOptions",
         "map",
         "physicalName",
         "relationships",
-        "semanticType",
         "transformDescription",
-        "transformLogic",
         "transformSourceObjects",
     )
 )
@@ -156,6 +151,13 @@ class ODCSProperty(ODCSBaseModel):
     deprecated: Optional[bool] = None
     # Spec shape is a list of objects; bare strings are accepted leniently.
     synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
+    # v3.2 descriptive attributes, mapped to `odcs.*` structured properties when
+    # emit_structured_properties is on. Untyped (JsonValue) so one malformed
+    # value cannot fail the whole contract's model validation.
+    semanticType: Optional[str] = None
+    transformLogic: Optional[str] = None
+    logicalTypeOptions: Optional[JsonValue] = None
+    enum: Optional[List[JsonValue]] = None
 
 
 class ODCSSchemaObject(ODCSBaseModel):
@@ -170,6 +172,7 @@ class ODCSSchemaObject(ODCSBaseModel):
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
+    synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
 
 
 class ODCSQualityArguments(ODCSBaseModel):
