@@ -4,6 +4,7 @@ import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -49,6 +50,10 @@ import org.springframework.stereotype.Component;
 @Conditional(BatchMetadataChangeProposalProcessorCondition.class)
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
+
+  /** MCPs whose urn can't be parsed, failed one by one; tag outcome: failure_topic or dropped. */
+  static final String MALFORMED_URN_METRIC = "mcp.batch.malformed_urn";
+
   private static final UnknownDataGuard UNKNOWN_DATA =
       UnknownDataGuard.forSite(
           BatchMetadataChangeProposalsProcessor.class, "MCP (sent to the failure topic)");
@@ -225,38 +230,47 @@ public class BatchMetadataChangeProposalsProcessor {
             "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
         continue;
       }
-      // After a rollback, the topic can still hold MCPs a newer build wrote for entities or aspects
-      // this build does not know. Batch validation rejects the whole batch for one such MCP, which
-      // would send every valid MCP in it to the failure topic too, so fail these individually.
-      // Checked only when tolerant: reading the urn of a malformed MCP throws, which must keep
-      // failing its batch as before.
-      if (handling().isTolerant()
-          && !handling()
-              .admitEvent(
-                  UNKNOWN_DATA,
-                  sliceContext.getEntityRegistry(),
-                  sliceContext.getMetricUtils(),
-                  mcp.getEntityUrn(),
-                  mcp.hasEntityType() ? mcp.getEntityType() : null,
-                  mcp.hasAspectName() ? mcp.getAspectName() : null)) {
-        try {
-          kafkaProducer.produceFailedMetadataChangeProposal(
+      // Batch validation rejects the whole batch for one invalid MCP, which sends every valid MCP
+      // in it to the failure topic too. When tolerant, fail these individually instead:
+      // - after a rollback, MCPs a newer build wrote for entities or aspects this build does not
+      //   know;
+      // - an MCP whose urn can't be parsed. Reading it throws, and out of this loop that would
+      //   discard the whole poll without sending anything to the failure topic.
+      // Strict handling keeps the batch behavior from before tolerance.
+      if (handling().isTolerant()) {
+        final Urn urn = UnknownDataGuard.urnOrNull(mcp::getEntityUrn);
+        if (urn == null && mcp.data().get("entityUrn") != null) {
+          final boolean sent =
+              sendToFailureTopic(
+                  sliceContext,
+                  mcp,
+                  new IllegalArgumentException(
+                      String.format("Malformed entity urn '%s'", mcp.data().get("entityUrn"))));
+          sliceContext
+              .getMetricUtils()
+              .ifPresent(
+                  m ->
+                      m.incrementMicrometer(
+                          MALFORMED_URN_METRIC, 1, "outcome", sent ? "failure_topic" : "dropped"));
+          continue;
+        }
+        if (!handling()
+            .admitEvent(
+                UNKNOWN_DATA,
+                sliceContext.getEntityRegistry(),
+                sliceContext.getMetricUtils(),
+                urn,
+                mcp.hasEntityType() ? mcp.getEntityType() : null,
+                mcp.hasAspectName() ? mcp.getAspectName() : null)) {
+          sendToFailureTopic(
               sliceContext,
-              List.of(mcp),
+              mcp,
               new IllegalArgumentException(
                   String.format(
                       "Unknown entity type or aspect '%s/%s' — not in current registry.",
                       mcp.getEntityType(), mcp.getAspectName())));
-        } catch (RuntimeException e) {
-          // The MCP can't be applied by this build either way; don't let the failure topic abandon
-          // the valid MCPs already collected in this poll.
-          log.error(
-              "Failed to send MCP for unknown entity/aspect '{}/{}' to the failure topic",
-              mcp.getEntityType(),
-              mcp.getAspectName(),
-              e);
+          continue;
         }
-        continue;
       }
       long mcpSize = calculateMCPSize(mcp);
 
@@ -293,6 +307,26 @@ public class BatchMetadataChangeProposalsProcessor {
           currentBatch.size(),
           totalProcessed,
           consumerRecords.size());
+    }
+  }
+
+  /**
+   * Sends one MCP this build can't apply to the failure topic, without failing the rest of the
+   * poll. Returns whether it was sent.
+   */
+  private boolean sendToFailureTopic(
+      @Nonnull final OperationContext sliceContext,
+      @Nonnull final MetadataChangeProposal mcp,
+      @Nonnull final Exception reason) {
+    try {
+      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, List.of(mcp), reason);
+      return true;
+    } catch (RuntimeException e) {
+      // The MCP can't be applied by this build either way; don't let the failure topic abandon
+      // the valid MCPs already collected in this poll. The failure topic is keyed by the parsed
+      // urn, so an MCP whose urn can't be parsed always ends here.
+      log.error("Failed to send MCP to the failure topic: {}", reason.getMessage(), e);
+      return false;
     }
   }
 
