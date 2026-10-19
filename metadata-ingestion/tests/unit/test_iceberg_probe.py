@@ -256,7 +256,7 @@ def test_columns_of_a_missing_table_is_a_caller_error(
 
 
 @pytest.mark.parametrize("error", [NoSuchIcebergTableError, NoSuchPropertyException])
-def test_a_non_iceberg_table_is_reported_as_one(
+def test_a_non_iceberg_table_is_an_empty_answer_with_a_warning(
     monkeypatch: pytest.MonkeyPatch, error: Type[Exception]
 ) -> None:
     # Glue and Hive raise NoSuchPropertyException for a table without a
@@ -265,13 +265,17 @@ def test_a_non_iceberg_table_is_reported_as_one(
     _fail_load_table(monkeypatch, catalog, error("not an iceberg table"))
     _patch_catalog(monkeypatch, catalog)
 
-    with pytest.raises(ProbeArgumentError, match="'sales.legacy'"):
-        run_probe_method(
+    # It exists, so this is the source's, not a wrong argument: an empty
+    # answer with a warning naming it, not an error.
+    for command, empty in (("columns", []), ("table_metadata", {})):
+        result = run_probe_method(
             "iceberg",
             _config_dict(),
-            "columns",
+            command,
             {"namespace": "sales", "table": "legacy"},
         )
+        assert result.result == empty
+        assert any("'sales.legacy'" in w for w in result.warnings)
 
 
 def _fail_load_table(

@@ -157,7 +157,9 @@ class IcebergMetadataProbe(ProbeProviderBase):
         ):
             return list(self._catalog.list_tables(resolved))
 
-    def _load_table(self, namespace: str, table: str) -> Table:
+    def _load_table(self, namespace: str, table: str) -> Optional[Table]:
+        """The loaded table, or None (with a warning) for one that exists but
+        is not an Iceberg table."""
         resolved = self._resolve_namespace(namespace)
         # The table is resolved against the namespace's listing too, so a
         # table the catalog lists but cannot load is told apart from a typo.
@@ -175,16 +177,17 @@ class IcebergMetadataProbe(ProbeProviderBase):
             try:
                 return self._catalog.load_table(identifier)
             except (NoSuchIcebergTableError, NoSuchPropertyException):
-                # Exit 2, though the table exists: the probe can answer nothing
-                # about it, as ingestion ingests nothing from it (it skips it
-                # with a warning), so the useful next step is naming another
-                # table. Checked before NoSuchTableError, its base class; Glue
-                # and Hive raise NoSuchPropertyException for a table without a
-                # table_type parameter.
-                raise ProbeArgumentError(
-                    f"{qualified} is not an Iceberg table; ingestion skips it "
-                    f"with a warning"
-                ) from None
+                # The table exists, so this is a property of the source, not a
+                # wrong argument: an empty answer with a warning, as ingestion
+                # skips it with one (and as other probes answer an object of the
+                # wrong kind). Checked before NoSuchTableError, its base class;
+                # Glue and Hive raise NoSuchPropertyException for a table
+                # without a table_type parameter.
+                self._warn(
+                    f"{qualified} is not an Iceberg table, so ingestion skips it "
+                    f"with a warning and nothing is reported for it"
+                )
+                return None
             except NoSuchTableError as exc:
                 raise ProbeConnectionError(
                     f"loading table {qualified} failed: the catalog lists it but "
@@ -244,6 +247,8 @@ class IcebergMetadataProbe(ProbeProviderBase):
         call ingestion makes, so a storage permission problem shows up here as
         it would during ingestion. Never reads data files."""
         loaded = self._load_table(namespace, table)
+        if loaded is None:
+            return []
         return [
             {
                 "id": field.field_id,
@@ -262,6 +267,8 @@ class IcebergMetadataProbe(ProbeProviderBase):
         snapshot-id and manifest-list. Never includes FileIO or catalog
         properties, which can hold vended storage credentials."""
         loaded = self._load_table(namespace, table)
+        if loaded is None:
+            return {}
         partition_spec: Optional[str] = None
         try:
             partition_spec = partition_spec_json(loaded)
