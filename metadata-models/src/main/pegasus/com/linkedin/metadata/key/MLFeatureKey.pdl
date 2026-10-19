@@ -22,10 +22,16 @@ record MLFeatureKey {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 8.0,
+    "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 }

@@ -781,8 +781,10 @@ public class ReindexConfig {
 
     /**
      * Fields present in both current and target structured-property mappings whose {@code copy_to}
-     * targets differ. Absent {@code copy_to} is an empty set. A string and a one-element list of
-     * the same field name match.
+     * targets differ, or whose {@code text} and {@code stemmed} subfields differ in presence.
+     * Absent {@code copy_to} is an empty set. A string and a one-element list of the same field
+     * name match. Only those two subfield names are compared, so a {@code .keyword} subfield does
+     * not by itself force a reindex.
      */
     private static Set<String> structuredPropertyCopyToMismatches(
         Map<String, Object> current, Map<String, Object> target) {
@@ -795,14 +797,38 @@ public class ReindexConfig {
         if (!targetFields.containsKey(field)) {
           continue;
         }
+        Object targetField = targetFields.get(field);
         Set<String> currentCopyTo = extractCopyTo(currentEntry.getValue());
-        Set<String> targetCopyTo = extractCopyTo(targetFields.get(field));
-        if (!currentCopyTo.equals(targetCopyTo)) {
+        Set<String> targetCopyTo = extractCopyTo(targetField);
+        Set<String> currentAnalyzed = analyzedSubfields(currentEntry.getValue());
+        Set<String> targetAnalyzed = analyzedSubfields(targetField);
+        if (!currentCopyTo.equals(targetCopyTo) || !currentAnalyzed.equals(targetAnalyzed)) {
           mismatches.add(
-              String.format("%s (current=%s, target=%s)", field, currentCopyTo, targetCopyTo));
+              String.format(
+                  "%s (current copy_to=%s analyzed=%s, target copy_to=%s analyzed=%s)",
+                  field, currentCopyTo, currentAnalyzed, targetCopyTo, targetAnalyzed));
         }
       }
       return mismatches;
+    }
+
+    /** {@code text} and {@code stemmed} keys present under a field's {@code fields} map. */
+    private static Set<String> analyzedSubfields(Object mapping) {
+      if (!(mapping instanceof Map<?, ?> fieldMapping)) {
+        return Set.of();
+      }
+      Object fields = fieldMapping.get("fields");
+      if (!(fields instanceof Map<?, ?> fieldsMap)) {
+        return Set.of();
+      }
+      Set<String> present = new TreeSet<>();
+      if (fieldsMap.containsKey("text")) {
+        present.add("text");
+      }
+      if (fieldsMap.containsKey("stemmed")) {
+        present.add("stemmed");
+      }
+      return present;
     }
 
     /**

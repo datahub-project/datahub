@@ -6,6 +6,7 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { DocumentationTab, EntityProfile, SidebarQueryOperationsSection } from '@app/entityV2/shared/profileChunks';
@@ -74,6 +75,7 @@ export class QueryEntity implements Entity<Query> {
                 tabs={[
                     {
                         name: i18next.t('entity.types:tab.documentation'),
+                        path: EntityTabPath.DOCUMENTATION,
                         component: DocumentationTab,
                         icon: File,
                     },

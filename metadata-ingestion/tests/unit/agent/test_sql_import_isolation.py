@@ -62,6 +62,8 @@ def _framework_modules_loaded_by(
         "datahub.ingestion.source.sql.postgres.source",
         "datahub.ingestion.source.sql.mysql",
         "datahub.ingestion.source.snowflake.snowflake_config",
+        "datahub.ingestion.source.looker.looker_config",
+        "datahub.ingestion.source.looker.looker_source",
         "datahub.ingestion.source.unity.config",
         "datahub.ingestion.source.unity.source",
         # BI sources: their configs hold probe hooks, and their selection
