@@ -184,6 +184,24 @@ class TestResolveGcpProjects:
         )
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
+    def test_resolve_with_labels_excludes_delete_requested(self, mock_client_class):
+        """Test deleted projects with labels are skipped."""
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+
+        mock_client.search_projects.return_value = [
+            _project("active-proj-1", display_name="Active 1"),
+            _project("deleted-proj-1", state=Project.State.DELETE_REQUESTED),
+        ]
+
+        config = GcpProjectFilterConfig(project_labels=["env:prod"])
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
+
+        assert [p.id for p in projects] == ["active-proj-1"]
+        assert not report.warnings
+
+    @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
     def test_resolve_all_projects(self, mock_client_class):
         """Test resolution searching all projects.
 
@@ -211,6 +229,28 @@ class TestResolveGcpProjects:
             and any("proj-1" in ctx for ctx in entry.context)
             for entry in report.infos
         )
+
+    @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
+    def test_resolve_all_projects_excludes_delete_requested(self, mock_client_class):
+        """Test deleted projects found by discovery are skipped.
+
+        Resource Manager returns a deleted project for 30 days with
+        state=DELETE_REQUESTED, but other APIs will return 403 error.
+        """
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+
+        mock_client.search_projects.return_value = [
+            _project("active-proj-1", display_name="Active 1"),
+            _project("deleted-proj-1", state=Project.State.DELETE_REQUESTED),
+        ]
+
+        config = GcpProjectFilterConfig()
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
+
+        assert [p.id for p in projects] == ["active-proj-1"]
+        assert not report.warnings
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
     def test_auth_failure_in_search(self, mock_client_class):
