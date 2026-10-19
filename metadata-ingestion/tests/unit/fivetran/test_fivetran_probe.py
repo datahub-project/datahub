@@ -506,7 +506,10 @@ def test_a_skipped_destination_warning_keeps_the_http_status() -> None:
     assert any("dest_b" in w and "403" in w for w in warnings)
 
 
-def test_a_failed_schemas_read_warning_carries_no_reply_text() -> None:
+def test_a_failed_schemas_read_warning_carries_no_reply_text(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
     routes = {
         "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
         "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
@@ -517,6 +520,8 @@ def test_a_failed_schemas_read_warning_carries_no_reply_text() -> None:
         warnings = _warnings_of(probe)
     assert any("connection schemas" in w for w in warnings)
     assert _PLANTED not in " ".join(warnings)
+    # The reader's report.warning() would log the exception text with it.
+    assert _PLANTED not in caplog.text
 
 
 def test_an_unusable_reply_failure_carries_no_reply_text() -> None:
@@ -530,8 +535,9 @@ def test_an_unusable_reply_failure_carries_no_reply_text() -> None:
 
 
 def test_a_failed_log_warehouse_lineage_read_warning_carries_no_driver_text(
-    engine: MagicMock,
+    engine: MagicMock, caplog: pytest.LogCaptureFixture
 ) -> None:
+    caplog.set_level(logging.DEBUG)
     routes = {
         "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
         "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
@@ -551,6 +557,7 @@ def test_a_failed_log_warehouse_lineage_read_warning_carries_no_driver_text(
         warnings = _warnings_of(probe)
     assert any("DB log lineage" in w for w in warnings)
     assert _PLANTED not in " ".join(warnings)
+    assert _PLANTED not in caplog.text
 
 
 def test_a_failing_log_warehouse_open_names_the_class_not_the_text() -> None:

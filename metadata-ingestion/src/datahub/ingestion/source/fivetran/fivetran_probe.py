@@ -1,5 +1,6 @@
 import logging
-from typing import Callable, Dict, List, Optional, TypeVar
+from dataclasses import dataclass, field
+from typing import Callable, ClassVar, Dict, List, Optional, Tuple, TypeVar
 
 import pydantic
 import requests
@@ -8,6 +9,7 @@ from datahub.ingestion.agent.error_policy import DEFECT_TYPES, foreign_label
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
+    UnloggedStructuredLogs,
     echoed,
     resolve_name,
     soft_listing,
@@ -19,6 +21,7 @@ from datahub.ingestion.agent.verdicts import (
     ProbeReadFailed,
     ProbeSoftError,
 )
+from datahub.ingestion.api.source import StructuredLogs
 from datahub.ingestion.source.fivetran.config import (
     FIVETRAN_CONNECTOR_KIND,
     FIVETRAN_DESTINATION_KIND,
@@ -46,6 +49,20 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+# The package every reused reader logs under.
+_FIVETRAN_LOGGER = "datahub.ingestion.source.fivetran"
+
+
+@dataclass
+class _ProbeReport(FivetranSourceReport):
+    """The report the reused readers write into, recorded but never logged:
+    their warnings carry the exception, whose text can quote a warehouse
+    driver error or a Fivetran reply body, and report_log would write it to
+    the console. The probe result shows `title: message` only."""
+
+    _structured_logs: StructuredLogs = field(default_factory=UnloggedStructuredLogs)
+
+
 def _listed_connector(listed: FivetranListedConnection) -> Connector:
     # No lineage fetch, and no connected_by: the probe never reports the user.
     return connector_from_listed(listed, lineage=[], user_id="")
@@ -65,11 +82,17 @@ class FivetranMetadataProbe(ProbeProviderBase):
     it would make a denied connector vanish instead of being reported.
     """
 
+    # Dropped, not scrubbed, while a probe runs (agent.log_guard): the reused
+    # readers log query and reply details at debug level, and a value read
+    # off the warehouse or the API has no recipe secret to mask. Every
+    # degraded read still reaches the result through probe_report.
+    silenced_loggers: ClassVar[Tuple[str, ...]] = (_FIVETRAN_LOGGER,)
+
     def __init__(
         self, config: FivetranSourceConfig, api_client: Optional[FivetranAPIClient]
     ) -> None:
         self._config = config
-        self._report = FivetranSourceReport()
+        self._report = _ProbeReport()
         self._api_client = api_client
         if api_client is not None:
             self._on_exit(api_client._session.close)

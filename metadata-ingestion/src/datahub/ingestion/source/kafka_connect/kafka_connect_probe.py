@@ -14,12 +14,15 @@ from typing import Any, ClassVar, Dict, FrozenSet, Iterator, List, Optional, Tup
 from urllib.parse import urlsplit
 
 import requests
-from typing_extensions import LiteralString
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.error_policy import DEFECT_TYPES
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed
+from datahub.ingestion.agent.provider_helpers import (
+    ProbeProviderBase,
+    UnloggedStructuredLogs,
+    echoed,
+)
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
@@ -27,8 +30,6 @@ from datahub.ingestion.agent.verdicts import (
     ProbeReadFailed,
 )
 from datahub.ingestion.api.source import (
-    StructuredLogCategory,
-    StructuredLogLevel,
     StructuredLogs,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -195,43 +196,12 @@ class _Resolved:
     emitted: bool
 
 
-class _UnloggedStructuredLogs(StructuredLogs):
-    """Report entries that are recorded but never written to the Python logger.
-
-    Ingestion's report.warning() logs `message => context` to the console, and
-    the reused steps put raw connector config into contexts -- the JDBC sink
-    puts the whole connection.url there when it cannot parse the platform. The
-    CLI's log masking only knows the recipe's secrets, not values read off the
-    Connect cluster, so on a probe that line would reach stderr as-is. The probe
-    result renders entries as `title: message` only, so nothing is lost by not
-    logging them."""
-
-    def report_log(
-        self,
-        level: StructuredLogLevel,
-        message: LiteralString,
-        title: Optional[LiteralString] = None,
-        context: Optional[str] = None,
-        exc: Optional[BaseException] = None,
-        log: bool = False,
-        stacklevel: int = 1,
-        log_category: Optional[StructuredLogCategory] = None,
-    ) -> None:
-        super().report_log(
-            level,
-            message,
-            title=title,
-            context=context,
-            exc=exc,
-            log=False,
-            stacklevel=stacklevel,
-            log_category=log_category,
-        )
-
-
 @dataclass
 class _ProbeReport(KafkaConnectSourceReport):
-    _structured_logs: StructuredLogs = field(default_factory=_UnloggedStructuredLogs)
+    # The reused steps put raw connector config into contexts -- the JDBC sink
+    # puts the whole connection.url there when it cannot parse the platform --
+    # and that is a value read off the cluster, not a recipe secret.
+    _structured_logs: StructuredLogs = field(default_factory=UnloggedStructuredLogs)
 
 
 class _TimeoutSession(requests.Session):
@@ -301,7 +271,7 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
     ) -> None:
         self._source = source
         # Replaced rather than reused so the reused steps' report entries are
-        # never logged; see _UnloggedStructuredLogs.
+        # never logged; see UnloggedStructuredLogs.
         self._source.report = _ProbeReport()
         # Not source.close(): that runs StatefulIngestionSourceBase.close() on
         # a shim that never ran its __init__.
