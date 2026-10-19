@@ -46,8 +46,10 @@ const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edg
         `}
 
     /* Hovered nodes render above their neighbors, so overlays like the expand/contract
-       controls are not hidden behind other nodes. Overrides React Flow's inline z-index. */
-    .react-flow__node-lineage-entity:hover {
+       controls are not hidden behind other nodes. Overrides React Flow's inline z-index.
+       Includes transformation nodes, which have these controls when they are the home node. */
+    .react-flow__node-lineage-entity:hover,
+    .react-flow__node-lineage-transformation:hover {
         z-index: 1000 !important;
     }
 
