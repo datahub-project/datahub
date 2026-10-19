@@ -12,6 +12,28 @@ import org.testng.annotations.Test;
 public class MatchedFieldsTest {
 
   @Test
+  public void testCopiedPropertyReportsTheStrongestArrayValue() {
+    Map<String, Object> nested =
+        Map.of(
+            "structuredProperties", Map.of("businessName", List.of("Orders", "Customer Orders")));
+    List<MatchedField> matched =
+        new MatchedFields("customer orders", 0)
+            .find(nested, List.of("structuredProperties.businessName", "name"));
+
+    assertEquals(names(matched), List.of("structuredProperties.businessName"));
+    assertEquals(matched.get(0).getValue(), "Customer Orders");
+
+    Map<String, Object> flat =
+        Map.of("structuredProperties.businessName", List.of("Customer Orders Daily", "Orders"));
+    assertEquals(
+        new MatchedFields("orders", 0)
+            .find(flat, List.of("structuredProperties.businessName"))
+            .get(0)
+            .getValue(),
+        "Orders");
+  }
+
+  @Test
   public void testReportsTheFirstMatchingValuePerFieldInFieldOrder() {
     Map<String, Object> source =
         Map.of(

@@ -22,6 +22,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -70,7 +71,7 @@ public class UpdateIndicesServiceTest {
             mock(V2MappingsBuilder.class),
             null);
 
-    UpdateIndicesV3Strategy v3Strategy =
+    UpdateIndicesStrategy v3Strategy =
         new UpdateIndicesV3Strategy(
             EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
             entitySearchService,

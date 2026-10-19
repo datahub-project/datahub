@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.DATAHUB_STOP_WORDS_LIST;
 
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.search.MatchedField;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -52,6 +53,7 @@ public final class MatchedFields {
   private static final String STEM_OVERRIDE_RULES = "elasticsearch/stem_override.txt";
   private static final Map<String, String> STEM_OVERRIDES = stemOverrides();
 
+  private final String query;
   private final int minWordLength;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
@@ -63,6 +65,7 @@ public final class MatchedFields {
    *     filter drops them
    */
   public MatchedFields(@Nonnull final String query, final int minWordLength) {
+    this.query = query;
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
     final Matcher matcher = WORD.matcher(query);
@@ -86,7 +89,12 @@ public final class MatchedFields {
       return matchedFields;
     }
     for (String field : fields) {
-      for (Object value : values(source.get(field))) {
+      final List<?> fieldValues = values(at(source, field));
+      if (StructuredPropertyUtils.isStructuredPropertyField(field)) {
+        addStrongest(matchedFields, field, fieldValues);
+        continue;
+      }
+      for (Object value : fieldValues) {
         final String text = String.valueOf(value);
         final int match = firstMatch(text);
         if (match >= 0) {
@@ -96,6 +104,63 @@ public final class MatchedFields {
       }
     }
     return matchedFields;
+  }
+
+  /**
+   * The array value that matches most closely. {@code copy_to} indexes every value, and the stored
+   * destination field does not hold them, so the evidence is chosen here.
+   */
+  private void addStrongest(
+      @Nonnull final List<MatchedField> matchedFields,
+      @Nonnull final String field,
+      @Nonnull final List<?> fieldValues) {
+    String bestText = null;
+    int bestMatch = -1;
+    int bestRank = Integer.MAX_VALUE;
+    for (Object value : fieldValues) {
+      final String text = String.valueOf(value);
+      final int match = firstMatch(text);
+      if (match < 0) {
+        continue;
+      }
+      final int rank = matchRank(text, match);
+      if (rank < bestRank) {
+        bestRank = rank;
+        bestMatch = match;
+        bestText = text;
+      }
+    }
+    if (bestText != null) {
+      matchedFields.add(new MatchedField().setName(field).setValue(fragment(bestText, bestMatch)));
+    }
+  }
+
+  /** Exact, then a value that starts with the query, then the earliest word match. */
+  private int matchRank(@Nonnull final String text, final int match) {
+    final String trimmed = query.trim();
+    if (text.equalsIgnoreCase(trimmed)) {
+      return 0;
+    }
+    if (!trimmed.isEmpty() && text.regionMatches(true, 0, trimmed, 0, trimmed.length())) {
+      return 1;
+    }
+    return 2 + match;
+  }
+
+  /** A dotted field is either a flat key or a path through nested objects. */
+  @Nullable
+  private static Object at(@Nonnull final Map<String, Object> source, @Nonnull final String field) {
+    if (source.containsKey(field)) {
+      return source.get(field);
+    }
+    Object current = source;
+    for (String part : field.split("\\.", -1)) {
+      if (!(current instanceof Map<?, ?> map) || !map.containsKey(part)) {
+        return null;
+      }
+      current = map.get(part);
+    }
+    return current;
   }
 
   /** Whether the query has a word a field could match. */

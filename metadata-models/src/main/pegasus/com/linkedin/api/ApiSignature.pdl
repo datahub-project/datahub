@@ -11,7 +11,8 @@ import com.linkedin.schema.SchemaField
  * catalog identity (name, ownership, docs) on apiProperties untouched.
  */
 @Aspect = {
-  "name": "apiSignature"
+  "name": "apiSignature",
+  "schemaVersion": 2
 }
 record ApiSignature {
   /**

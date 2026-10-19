@@ -19,6 +19,7 @@
             <!-- Container-free hybrid search unit tests: the other suite, which would run them,
                  is unwired. -->
             <package name="com.linkedin.metadata.search.hybrid"/>
+            <package name="com.linkedin.metadata.search.hybrid.v3"/>
         </packages>
         <classes>
             <!-- Container-free; its package otherwise runs only in the unwired es8 suite. -->
