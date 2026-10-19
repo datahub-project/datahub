@@ -365,6 +365,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     dwc_lineage_unresolved: int = 0
     dwc_lineage_skipped_no_space: int = 0
     dwc_lineage_suffix_corrected: int = 0
+    dwc_lineage_graph_errors: int = 0
     dwc_column_lineage_resolved: int = 0
     dwc_column_lineage_unresolved: int = 0
 
@@ -1359,10 +1360,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         # SAC appends a numeric suffix (e.g. ...STATEMENT2) to disambiguate repeated links
-        # to the same Datasphere object; the real object has no such suffix, and DWC live
-        # models expose no externalId to recover it. Trim it against the graph so the edge
-        # lands on the real dataset rather than a dangling urn; falls back to the as-is urn
-        # when there's no graph or no match.
+        # to the same Datasphere object; the real object has no such suffix and DWC live
+        # models expose no externalId to recover it, so correct it against the graph.
         upstream_urn = self._datasphere_upstream_urn(connection, object_name)
         corrected_urn = self._correct_datasphere_suffix(
             connection, object_name, upstream_urn
@@ -1424,9 +1423,26 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         if graph is None:
             return None
         if urn not in self._datasphere_schema_cache:
-            self._datasphere_schema_cache[urn] = graph.get_aspect(
-                urn, SchemaMetadataClass
-            )
+            try:
+                self._datasphere_schema_cache[urn] = graph.get_aspect(
+                    urn, SchemaMetadataClass
+                )
+            except Exception as e:
+                # get_aspect raises on any non-200/404; degrade to "not ingested" so a
+                # transient GMS error falls back to the as-is urn / table-level lineage
+                # instead of aborting the run.
+                self._datasphere_schema_cache[urn] = None
+                self.report.dwc_lineage_graph_errors += 1
+                self.report.warning(
+                    title="SAP Datasphere upstream lookup failed",
+                    message=(
+                        "Could not fetch the upstream SAP Datasphere dataset's schema "
+                        "from DataHub; treating it as not ingested and keeping the "
+                        "as-is upstream urn (table-level lineage only)."
+                    ),
+                    context=urn,
+                    exc=e,
+                )
         return self._datasphere_schema_cache[urn]
 
     def _resolve_datasphere_column_lineage(

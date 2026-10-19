@@ -603,6 +603,47 @@ def test_resolve_datasphere_upstream_keeps_as_is_when_nothing_in_graph(requests_
     assert source.report.dwc_lineage_suffix_corrected == 0
 
 
+def test_resolve_datasphere_upstream_trims_multi_digit_suffix(requests_mock):
+    # SALES_MART12 must peel two digits: SALES_MART1 is absent, SALES_MART exists.
+    base_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart,PROD)"
+    )
+    graph = MagicMock()
+    graph.get_aspect.side_effect = lambda urn, aspect_type: (
+        _datasphere_upstream_schema() if urn == base_urn else None
+    )
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART12"))
+
+    assert urn == base_urn
+    assert source.report.dwc_lineage_suffix_corrected == 1
+
+
+def test_resolve_datasphere_upstream_keeps_as_is_on_graph_error(requests_mock):
+    # A transient GMS error must degrade to the as-is urn, not abort the run.
+    graph = MagicMock()
+    graph.get_aspect.side_effect = Exception("boom")
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart2,PROD)"
+    )
+    assert source.report.dwc_lineage_suffix_corrected == 0
+    assert source.report.dwc_lineage_graph_errors >= 1
+
+
 def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
     # Drives a DWC model through the full workunit emission (not just the resolver) so the
     # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
