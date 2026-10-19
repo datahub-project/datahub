@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 from datetime import datetime
@@ -29,6 +30,16 @@ from tests.integration.mssql.tls import prepare_mssql_tls
 from tests.test_helpers.docker_helpers import wait_for_port
 
 MSSQL_PORT = 1433
+
+
+def _pytds_tls_options() -> Dict[str, Dict[str, object]]:
+    # The fixture server forces encryption, and pytds stays plaintext unless a
+    # CA file is set (prepare_mssql_tls exports it before the server starts).
+    return {
+        "connect_args": {"cafile": os.environ["MSSQL_CAFILE"], "validate_host": True}
+    }
+
+
 # Wide naive-UTC window so executions from the test run always fall inside it.
 _HISTORY_WINDOW = QueryHistoryWindow(
     start_time=datetime(2000, 1, 1), end_time=datetime(2100, 1, 1)
@@ -1321,6 +1332,7 @@ def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
             "database": "lineage_test",
             "include_query_lineage": True,
             "max_queries_to_extract": 1000,
+            "options": _pytds_tls_options(),
         }
     )
     source = SQLServerSource(config, PipelineContext(run_id="select-query-entity"))
@@ -1476,6 +1488,7 @@ def _run_query_log(
             "include_query_lineage": True,
             "query_history_source": query_history_source,
             "email_domain": "example.com",
+            "options": _pytds_tls_options(),
             **overrides,
         }
     )
