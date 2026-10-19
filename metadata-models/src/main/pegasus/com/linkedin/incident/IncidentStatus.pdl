@@ -11,7 +11,7 @@ record IncidentStatus {
   */
   @Searchable = {
     "addToFilters": true,
-    "filterNameOverride": "Status"
+    "filterNameOverride": "Status",
   }
   state: enum IncidentState {
     /**

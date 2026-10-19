@@ -4,7 +4,8 @@ namespace com.linkedin.metadata.key
  * Key for a Tag
  */
 @Aspect = {
-  "name": "tagKey"
+  "name": "tagKey",
+  "schemaVersion": 2
 }
 record TagKey {
   /**
@@ -14,7 +15,8 @@ record TagKey {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldName": "id"
+    "fieldName": "id",
+    "searchLabel": "name"
   }
   name: string
 }

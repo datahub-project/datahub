@@ -15,7 +15,8 @@ namespace com.linkedin.common
  * embedding pipeline.
  */
 @Aspect = {
-  "name": "semanticText"
+  "name": "semanticText",
+  "schemaVersion": 2
 }
 record SemanticText {
 

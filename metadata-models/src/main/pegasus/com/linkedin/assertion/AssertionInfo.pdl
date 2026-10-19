@@ -87,6 +87,7 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     */
     @Searchable = {
       "fieldName": "assertionDescription",
+      "searchLabel": "description",
       "fieldType": "TEXT",
       "hasValuesFieldName": "hasDescription",
       "sanitizeRichText": true,
