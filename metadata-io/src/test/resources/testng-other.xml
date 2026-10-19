@@ -39,6 +39,39 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <!-- These switch the process-wide UnknownDataHandlings strategy, which would leak into
+                 classes running alongside them here (parallel="classes"). They run in
+                 testng-opensearch.xml, one class at a time. -->
+            <class name="com.linkedin.metadata.aspect.consistency.check.InvalidEnumCheckTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.EntityServiceImplTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.EntityUtilsTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.search.SearchServiceUnknownEntityTypeTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.search.indexbuilder.ReindexConfigTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.search.embedding.LocalEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.CohereEmbeddingProviderTest"/>
