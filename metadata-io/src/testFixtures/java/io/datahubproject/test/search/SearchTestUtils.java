@@ -30,6 +30,7 @@ import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.search.StructuredPropertyQueryConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
@@ -118,6 +119,14 @@ public class SearchTestUtils {
                   .exactMatch(testExactMatchConfiguration())
                   .wordGram(testWordGramConfiguration())
                   .partial(testPartialConfiguration())
+                  .structuredProperties(
+                      StructuredPropertyQueryConfiguration.builder()
+                          .cacheTtlSeconds(300)
+                          .defaultTextWeight(0.8f)
+                          .stemmedFactor(0.5f)
+                          .pageSize(500)
+                          .maxProperties(1000)
+                          .build())
                   .graph(
                       GraphQueryConfiguration.builder()
                           .batchSize(1000)

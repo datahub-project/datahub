@@ -5,11 +5,13 @@ import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 
@@ -22,7 +24,14 @@ public class V3AggregationQueryBuilder extends AggregationQueryBuilder {
   public V3AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
-    super(configs, entitySearchAnnotations);
+    this(configs, entitySearchAnnotations, null);
+  }
+
+  public V3AggregationQueryBuilder(
+      @Nonnull final SearchConfiguration configs,
+      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
+      @Nullable SearchFieldResolver v3FieldResolver) {
+    super(configs, entitySearchAnnotations, v3FieldResolver);
   }
 
   @Override

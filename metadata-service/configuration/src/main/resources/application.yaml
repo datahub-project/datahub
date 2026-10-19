@@ -1202,6 +1202,15 @@ elasticsearch:
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
+    # Search V3 catalog of structured properties included in full-text search.
+    structuredProperties:
+      # Same duration as cache.client.entityClient.entityAspectTTLSeconds.structuredProperty.propertyDefinition.
+      cacheTtlSeconds: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_CACHE_TTL_SECONDS:300}
+      defaultTextWeight: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_DEFAULT_TEXT_WEIGHT:0.8}
+      stemmedFactor: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_STEMMED_FACTOR:0.5}
+      pageSize: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_PAGE_SIZE:500}
+      # How many definitions the catalog keeps. Follows the search-document object key limit.
+      maxProperties: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_MAX:${elasticsearch.index.maxObjectKeys}}
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}

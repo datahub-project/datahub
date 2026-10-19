@@ -20,6 +20,7 @@ public class SearchConfiguration {
   private GraphQueryConfiguration graph;
   private WordGramConfiguration wordGram;
   private SearchValidationConfiguration validation;
+  private StructuredPropertyQueryConfiguration structuredProperties;
 
   /**
    * Configurable entity-type lists (value/add/remove). Production defaults live in {@code

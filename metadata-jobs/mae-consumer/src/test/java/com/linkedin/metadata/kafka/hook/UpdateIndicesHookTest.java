@@ -45,6 +45,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -53,7 +54,6 @@ import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
-import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -980,7 +980,7 @@ public class UpdateIndicesHookTest {
     }
 
     if (v3Enabled) {
-      UpdateIndicesV3Strategy v3Strategy =
+      UpdateIndicesStrategy v3Strategy =
           new UpdateIndicesV3Strategy(
               EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
               mockEntitySearchService,

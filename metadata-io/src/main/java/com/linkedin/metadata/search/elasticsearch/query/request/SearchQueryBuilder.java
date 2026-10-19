@@ -7,7 +7,6 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.Customize
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -154,30 +153,17 @@ public class SearchQueryBuilder {
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
       getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
-      getPrefixAndExactMatchQuery(
-              opContext,
-              opContext.getEntityRegistry(),
-              customQueryConfig,
-              entitySpecs,
-              sanitizedQuery,
-              opContext.getAspectRetriever())
+      getPrefixAndExactMatchQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
-      getStructuredQuery(
-              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
+      getStructuredQuery(opContext, customQueryConfig, entitySpecs, withoutQueryPrefix)
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
-        getPrefixAndExactMatchQuery(
-                opContext,
-                opContext.getEntityRegistry(),
-                customQueryConfig,
-                entitySpecs,
-                withoutQueryPrefix,
-                opContext.getAspectRetriever())
+        getPrefixAndExactMatchQuery(opContext, customQueryConfig, entitySpecs, withoutQueryPrefix)
             .ifPresent(finalQuery::should);
       }
     }
@@ -215,14 +201,15 @@ public class SearchQueryBuilder {
 
   /**
    * Gets searchable fields from all entities in the input collection. De-duplicates fields across
-   * entities.
+   * entities. V2 and V2.5 list these fields from the entity specs. Search V3 also uses {@code
+   * opContext} to list structured properties.
    *
    * @param entitySpecs: Entity specs to extract searchable fields from
    * @return A set of SearchFieldConfigs containing the searchable fields from the input entities.
    */
   @VisibleForTesting
   public Set<SearchFieldConfig> getStandardFields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
+      @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     // Always present
     final float urnBoost =
@@ -239,7 +226,7 @@ public class SearchQueryBuilder {
             true));
 
     entitySpecs.stream()
-        .map(spec -> getFieldsFromEntitySpec(entityRegistry, spec))
+        .map(spec -> getFieldsFromEntitySpec(opContext.getEntityRegistry(), spec))
         .flatMap(Set::stream)
         .collect(Collectors.groupingBy(SearchFieldConfig::fieldName))
         .forEach(
@@ -370,7 +357,7 @@ public class SearchQueryBuilder {
 
   /** The fields one entity searches, with the urn. */
   protected Set<SearchFieldConfig> getStandardFields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext, @Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
     // Always present
@@ -387,7 +374,7 @@ public class SearchQueryBuilder {
             SearchableAnnotation.FieldType.URN,
             true));
 
-    fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
+    fields.addAll(getFieldsFromEntitySpec(opContext.getEntityRegistry(), entitySpec));
 
     return fields;
   }
@@ -410,7 +397,6 @@ public class SearchQueryBuilder {
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
     Optional<QueryBuilder> result = Optional.empty();
-    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
 
     final boolean executeSimpleQuery;
     if (customQueryConfig != null) {
@@ -425,7 +411,7 @@ public class SearchQueryBuilder {
       // Get base fields
       Set<SearchFieldConfig> baseFields =
           entitySpecs.stream()
-              .map(spec -> getStandardFields(entityRegistry, spec))
+              .map(spec -> getStandardFields(operationContext, spec))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
 
@@ -484,11 +470,9 @@ public class SearchQueryBuilder {
 
   private Optional<QueryBuilder> getPrefixAndExactMatchQuery(
       @Nonnull OperationContext opContext,
-      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
-      String query,
-      @Nullable AspectRetriever aspectRetriever) {
+      String query) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -499,7 +483,7 @@ public class SearchQueryBuilder {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
-    getStandardFields(entityRegistry, entitySpecs)
+    getStandardFields(opContext, entitySpecs)
         .forEach(
             searchFieldConfig -> {
               boolean caseSensitivityEnabled =
@@ -528,7 +512,10 @@ public class SearchQueryBuilder {
                   finalQuery.should(
                       QueryBuilders.termQuery(
                               ESUtils.toKeywordField(
-                                  opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
+                                  opContext,
+                                  searchFieldConfig.fieldName(),
+                                  false,
+                                  opContext.getAspectRetriever()),
                               unquotedQuery)
                           .caseInsensitive(false)
                           .boost(
@@ -540,7 +527,10 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.termQuery(
                             ESUtils.toKeywordField(
-                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext,
+                                searchFieldConfig.fieldName(),
+                                false,
+                                opContext.getAspectRetriever()),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
@@ -554,7 +544,10 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
                             ESUtils.toKeywordField(
-                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext,
+                                searchFieldConfig.fieldName(),
+                                false,
+                                opContext.getAspectRetriever()),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()
@@ -569,7 +562,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getStructuredQuery(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
@@ -585,7 +578,7 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entityRegistry, entitySpecs)
+      getStandardFields(opContext, entitySpecs)
           .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       result = Optional.of(queryBuilder);
     }
