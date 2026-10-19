@@ -1142,6 +1142,35 @@ def test_list_local_tables_403_fails_and_yields_nothing(requests_mock):
     ), f"Expected a membership failure; got: {failures}"
 
 
+def test_list_local_tables_server_error_records_failure(requests_mock):
+    """A non-403 HTTP error mid-walk must record report.failure, not re-raise. Otherwise
+    _safe_list_objects downgrades it to a warning and stale-entity removal can soft-delete
+    objects the incomplete listing never enumerated."""
+    cfg = _make_config()
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/localtables",
+        status_code=500,
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    assert list(client.list_local_tables("S1")) == []
+    assert report.failures, "Expected a report.failure for a 500 mid-walk"
+
+
+def test_list_local_tables_connection_error_records_failure(requests_mock):
+    """A transport error (ConnectionError/Timeout) mid-walk must also record a failure
+    rather than propagate to be downgraded to a warning."""
+    cfg = _make_config()
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/localtables",
+        exc=requests.exceptions.ConnectionError,
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    assert list(client.list_local_tables("S1")) == []
+    assert report.failures, "Expected a report.failure for a transport error mid-walk"
+
+
 def test_list_local_tables_still_works(requests_mock):
     """Regression: a single-page listing is walked to completion and ends cleanly on
     the first empty page (no failure)."""

@@ -4033,10 +4033,11 @@ def test_discover_unexposed_views_routes_per_object_when_managed_disabled(
     assert source.report.non_consumption_views_emitted == 1
 
 
-def test_discover_unexposed_views_listing_failure_warns_and_continues(
+def test_discover_unexposed_views_listing_failure_is_reported_and_continues(
     requests_mock,
 ):
-    """A failed design-time listing warns and leaves the catalog emit intact."""
+    """A failed design-time listing records a failure (suppressing stale-entity removal)
+    and leaves the catalog emit intact."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -4057,9 +4058,16 @@ def test_discover_unexposed_views_listing_failure_warns_and_continues(
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list views in space" in titles
-    assert "Failed to list analyticmodels in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing" and "views" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for views; got: {failures}"
+    assert any(
+        title == "Incomplete SAP Datasphere object listing"
+        and "analyticmodels" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for analyticmodels; got: {failures}"
     assert source.report.non_consumption_views_emitted == 0
     # The space container still emits; the failure stays scoped to discovery.
     assert any(isinstance(aspect_of(wu), ContainerPropertiesClass) for wu in workunits)
@@ -6202,8 +6210,8 @@ def test_flow_non_object_body_is_reported_and_does_not_abort_remaining_flows(
 
 
 def test_flow_list_request_exception_is_reported_and_degrades(requests_mock):
-    """A transport error listing a flow type must be downgraded to a warning and
-    let ingestion continue, not crash the run."""
+    """A transport error listing a flow type must be recorded as a failure (so
+    stale-entity removal is suppressed) and let ingestion continue, not crash the run."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -6220,12 +6228,16 @@ def test_flow_list_request_exception_is_reported_and_degrades(requests_mock):
     source = SapDatasphereSource(PipelineContext(run_id="flow-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list flows in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing" and "dataflows" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for dataflows; got: {failures}"
 
 
 def test_remote_table_list_request_exception_is_reported_and_degrades(requests_mock):
-    """A transport error listing Remote Tables must be downgraded to a warning."""
+    """A transport error listing Remote Tables must be recorded as a failure, so stale-
+    entity removal is suppressed rather than soft-deleting the unlisted tables."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -6242,8 +6254,12 @@ def test_remote_table_list_request_exception_is_reported_and_degrades(requests_m
     source = SapDatasphereSource(PipelineContext(run_id="rt-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list Remote Tables in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing"
+        and "remotetables" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for remotetables; got: {failures}"
 
 
 def test_remote_table_managed_connection_unresolvable_skips_space(requests_mock):
@@ -6347,8 +6363,9 @@ def test_list_spaces_transport_error_is_reported_and_emits_no_entities(requests_
 
 
 def test_local_table_list_request_exception_is_reported_and_degrades(requests_mock):
-    """A transport error listing Local Tables must be downgraded to a warning and
-    let ingestion continue (mirrors the flow / remote-table degradation)."""
+    """A transport error listing Local Tables must be recorded as a failure (so stale-
+    entity removal is suppressed) and let ingestion continue (mirrors flows / remote
+    tables)."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -6365,8 +6382,11 @@ def test_local_table_list_request_exception_is_reported_and_degrades(requests_mo
     source = SapDatasphereSource(PipelineContext(run_id="lt-list-fail"), cfg)
     list(source.get_workunits())
 
-    titles = [w.title or "" for w in source.report.warnings]
-    assert "Failed to list Local Tables in space" in titles
+    failures = [(f.title or "", f.message) for f in source.report.failures]
+    assert any(
+        title == "Incomplete SAP Datasphere object listing" and "localtables" in message
+        for title, message in failures
+    ), f"Expected an incomplete-listing failure for localtables; got: {failures}"
 
 
 def test_local_table_managed_connection_unresolvable_skips_space(requests_mock):

@@ -477,11 +477,22 @@ class SapDatasphereClient:
                     },
                     operation="dwaas_list",
                 )
-            except requests.HTTPError as e:
-                if e.response is not None and e.response.status_code == 403:
+            except requests.RequestException as e:
+                status = e.response.status_code if e.response is not None else None
+                if status == 403:
                     self._fail_not_a_member(space, object_type)
                     return
-                raise
+                # Any other transport/HTTP error mid-walk leaves the listing
+                # incomplete. Record a failure rather than re-raising, which
+                # _safe_list_objects would downgrade to a warning and let
+                # stale-entity removal soft-delete objects we never listed.
+                detail = (
+                    f"the server returned HTTP {status}"
+                    if status is not None
+                    else f"the request failed ({type(e).__name__})"
+                )
+                self._fail_dwaas_list(space, object_type, detail)
+                return
             try:
                 data = resp.json()
             except ValueError:
