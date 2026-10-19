@@ -34,7 +34,9 @@ import lombok.extern.slf4j.Slf4j;
  * written under another document-id scheme, as its stamp or a sample of its ids showed, has no
  * rollback target: the running hasher's ids would store a second copy of each entity next to the
  * old one, so its old backing index keeps its pre-swap content and a rollback to it returns to
- * that.
+ * that. Nor does an index rebuilt from the partial corpus an earlier deploy's migration left: that
+ * index was never a generation to roll back to, and mirroring writes into it would not fill its
+ * gap.
  *
  * <p><b>Fill targets.</b> A fill that rebuilds an index writes a next physical index while the
  * alias keeps serving the old one, and catch-up re-derives its window from primary storage, where a
@@ -173,9 +175,9 @@ public class IncrementalReindexWriteTargets implements AutoCloseable {
             oldBackingIndexName);
         continue;
       }
-      if (IncrementalReindexState.isOldBackingIndexIncompleteFill(phase1State, indexName)) {
+      if (IncrementalReindexState.isOldBackingIndexIncompleteMigration(phase1State, indexName)) {
         log.debug(
-            "Index '{}' was rebuilt from an abandoned partial fill; '{}' receives no rollback"
+            "Index '{}' was rebuilt from an abandoned migration; '{}' receives no rollback"
                 + " writes",
             indexName,
             oldBackingIndexName);

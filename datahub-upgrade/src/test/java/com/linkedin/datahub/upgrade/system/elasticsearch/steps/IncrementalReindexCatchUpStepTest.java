@@ -7,7 +7,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -16,6 +18,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.UrnUtils;
@@ -54,6 +57,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -653,19 +657,31 @@ public class IncrementalReindexCatchUpStepTest {
 
   @Test
   public void testCatchUpRunsOnceAFailedFillHasCompleted() {
-    Map<String, String> phase1State =
+    // First run: the fill is FAILED, and the earlier attempt left a verdict and a resume cursor.
+    Map<String, String> staleCatchUp =
+        IncrementalReindexState.setCatchUpStatus(
+            null, INDEX_NAME, IncrementalReindexState.CatchUpStatus.COMPLETED);
+    staleCatchUp.put(INDEX_NAME + ".lastUrn", "urn:li:dataset:stale");
+    stubUpgradeResults(failedFill(INDEX_NAME), staleCatchUp, DataHubUpgradeState.SUCCEEDED);
+
+    assertEquals(step.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+    Map<String, String> afterFailure = lastPersistedCatchUpResult();
+
+    // Second run: Phase 1 planned the index again and it completed. The replay covers the whole
+    // window from the start; the dropped cursor is not resumed, and the verdict is recorded afresh.
+    Map<String, String> completed =
         IncrementalReindexState.setPhase1State(
             null,
             INDEX_NAME,
-            "datasetindex_v2_0_14_0-0_100",
+            "datasetindex_v2_0_14_0-0_200",
             null,
             1000L,
             0L,
             null,
             true,
             IncrementalReindexState.Status.COMPLETED);
-    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
-    stubUpgradeResults(phase1State, Map.of(), DataHubUpgradeState.IN_PROGRESS);
+    completed = IncrementalReindexState.setDualWriteStartTime(completed, INDEX_NAME, 2000L);
+    stubUpgradeResults(completed, afterFailure, DataHubUpgradeState.IN_PROGRESS);
     when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
         .thenAnswer(
             inv ->
@@ -679,7 +695,15 @@ public class IncrementalReindexCatchUpStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), any(), any());
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
+    assertNull(argsCaptor.getValue().lastUrn, "the dropped cursor is not resumed");
+    assertEquals(
+        argsCaptor.getValue().gePitEpochMs, 1000L, "the window is replayed from its start");
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(lastPersistedCatchUpResult(), INDEX_NAME),
+        Optional.of(IncrementalReindexState.CatchUpStatus.COMPLETED));
   }
 
   private static Map<String, String> failedFill(String indexName) {
@@ -705,8 +729,8 @@ public class IncrementalReindexCatchUpStepTest {
     DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
     when(catchUpResult.getResult()).thenReturn(new StringMap(catchUpState));
     when(catchUpResult.getState()).thenReturn(catchUpUpgradeState);
-    when(upgrade.getUpgradeResult(any(), any(), any()))
-        .thenAnswer(
+    // doAnswer so a second call in the same test does not invoke the earlier answer with matchers.
+    doAnswer(
             invocation -> {
               Object urnArg = invocation.getArgument(1);
               if (urnArg.toString().contains("BuildIndicesIncremental")) {
@@ -716,7 +740,9 @@ public class IncrementalReindexCatchUpStepTest {
                 return Optional.of(catchUpResult);
               }
               return Optional.empty();
-            });
+            })
+        .when(upgrade)
+        .getUpgradeResult(any(), any(), any());
   }
 
   private Map<String, String> lastPersistedCatchUpResult() {
@@ -861,11 +887,12 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
-  public void testV3IndexReplaysEveryEntityTypeFromTheFillStart() {
+  public void testV3IndexReplaysEveryEntityTypeFromTheFillStart() throws Exception {
     String alias = v3Alias();
     List<String> entityNames = v3EntityNames();
     // reindexStartTime differs from backfillStartTime here only to show which one opens the window.
     setupPhase1Result(completedV3Row(alias, 1000L, 5000L));
+    stubIndexBuilderFor(alias);
     mockEmptyAspectStream();
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
@@ -887,7 +914,7 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
-  public void testV3ReindexRowUsesTheReindexWindow() {
+  public void testV3ReindexRowUsesTheReindexWindow() throws Exception {
     String alias = v3Alias();
     Map<String, String> phase1State = completedV3Row(alias, null, 1000L);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, alias, 2000L);
@@ -905,16 +932,19 @@ public class IncrementalReindexCatchUpStepTest {
       assertEquals(args.gePitEpochMs, 1000L);
       assertEquals(args.lePitEpochMs, 2000L);
     }
+    // A _reindex row's index carries no migration mark.
+    verify(indexBuilder, never()).markMigrationComplete(any(OperationContext.class), anyString());
   }
 
   @Test
-  public void testV3ResumeCursorIsKeyedByEntityType() {
+  public void testV3ResumeCursorIsKeyedByEntityType() throws Exception {
     String alias = v3Alias();
     List<String> entityNames = v3EntityNames();
     String entityType = entityNames.get(0);
     String resumeUrn = "urn:li:" + entityType + ":resume";
     DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
     when(phase1Result.getResult()).thenReturn(new StringMap(completedV3Row(alias, 1000L, 1000L)));
+    stubIndexBuilderFor(alias);
     when(phase1Result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
     DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
     when(catchUpResult.getResult())
@@ -1322,6 +1352,58 @@ public class IncrementalReindexCatchUpStepTest {
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testACompletedCatchUpMarksTheIndexMigrated() throws Exception {
+    String alias = v3Alias();
+    setupPhase1Result(completedV3Row(alias, 1000L, 1000L));
+    mockEmptyAspectStream();
+    stubIndexBuilderFor(alias);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).markMigrationComplete(opContext, alias);
+  }
+
+  @Test
+  public void testAFailedCatchUpLeavesTheIndexMarkedUnmigrated() throws Exception {
+    String alias = v3Alias();
+    setupPhase1Result(completedV3Row(alias, 1000L, 1000L));
+    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(), any()))
+        .thenThrow(new RuntimeException("stream failed"));
+    stubIndexBuilderFor(alias);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(indexBuilder, never()).markMigrationComplete(any(OperationContext.class), anyString());
+  }
+
+  @Test
+  public void testAMigrationMarkThatCannotBeWrittenFailsTheIndex() throws Exception {
+    String alias = v3Alias();
+    setupPhase1Result(completedV3Row(alias, 1000L, 1000L));
+    mockEmptyAspectStream();
+    stubIndexBuilderFor(alias);
+    doThrow(new IOException("put mapping refused"))
+        .when(indexBuilder)
+        .markMigrationComplete(opContext, alias);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(lastPersistedCatchUpResult(), alias),
+        Optional.of(IncrementalReindexState.CatchUpStatus.FAILED));
+  }
+
+  private void stubIndexBuilderFor(String indexName) throws Exception {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.name()).thenReturn(indexName);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
   }
 
   private String v3Alias() {

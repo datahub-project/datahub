@@ -16,7 +16,7 @@ import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersi
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.PrimaryStorageFillStamp;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -121,7 +121,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         List<ReindexConfig> allConfigs =
             getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties);
         Set<String> filledIndices = updateIndicesService.indicesFilledFromPrimaryStorage(opContext);
-        Map<String, Fill> fills = decideFills(allConfigs, filledIndices);
+        // Load any previously persisted state for resumption
+        Map<String, String> upgradeState = loadPreviousState(context);
+        Map<String, Fill> fills = decideFills(allConfigs, filledIndices, upgradeState);
         if (!fills.isEmpty() && !entityIndexFillAvailable) {
           // A fill row with no filler is a silent stall: the alias points at an empty or stale
           // index, catch-up skips it, and it never completes. Refuse before creating anything.
@@ -165,19 +167,13 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           log.info("No indices require incremental reindex");
         }
 
-        // Load any previously persisted state for resumption
-        Map<String, String> upgradeState = loadPreviousState(context);
-
         for (ReindexConfig config : configsNeedingReindex) {
           Optional<IncrementalReindexState.Status> existingStatus =
               IncrementalReindexState.getStatus(upgradeState, config.name());
 
           // Skip indices that already completed or were swapped in a previous run, and indices
           // whose fill the non-blocking phase owns: the fill resumes from its own checkpoint.
-          if (existingStatus.isPresent()
-              && (existingStatus.get() == IncrementalReindexState.Status.COMPLETED
-                  || existingStatus.get() == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
-                  || IncrementalReindexState.isBackfillStatus(existingStatus.get()))) {
+          if (ownedByThisDeploy(upgradeState, config.name())) {
             log.info(
                 "Index {} already {} in previous run, skipping",
                 config.name(),
@@ -612,11 +608,27 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   }
 
   /**
+   * Whether this deploy's state already accounts for {@code indexName}: the row is finished, or a
+   * fill the non-blocking phase owns is in flight. Such a row is never planned again; a FAILED row
+   * is, and an index with no row at all is judged from what the index itself shows.
+   */
+  private static boolean ownedByThisDeploy(Map<String, String> upgradeState, String indexName) {
+    return IncrementalReindexState.getStatus(upgradeState, indexName)
+        .map(
+            status ->
+                status == IncrementalReindexState.Status.COMPLETED
+                    || status == IncrementalReindexState.Status.DUAL_WRITE_DISABLED
+                    || IncrementalReindexState.isBackfillStatus(status))
+        .orElse(false);
+  }
+
+  /**
    * Decided before any index is touched. An existing index that needs a rebuild is classified from
    * its live mapping, which must happen before a stamped mapping could be applied to it (see {@link
    * V3DocumentIdScheme}).
    */
-  private Map<String, Fill> decideFills(List<ReindexConfig> allConfigs, Set<String> filledIndices)
+  private Map<String, Fill> decideFills(
+      List<ReindexConfig> allConfigs, Set<String> filledIndices, Map<String, String> upgradeState)
       throws IOException {
     Map<String, Fill> fills = new HashMap<>();
     for (ReindexConfig config : allConfigs) {
@@ -628,23 +640,30 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       } else if (docIdScheme.requiresDocumentRebuild(config.currentMappings())) {
         fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       } else if (requireIndexBuilder(config.name()).getCount(opContext, config.name()) == 0) {
-        // A finished fill of an entity type nobody has ingested. Planning it again would restamp
-        // the index incomplete, and live writes during that refill would then look like an
+        // A finished migration of an entity type nobody has ingested. Planning it again would
+        // mark the index incomplete, and live writes during that refill would then look like an
         // abandoned partial corpus.
-        if (PrimaryStorageFillStamp.complete(config.currentMappings()) && matchesTarget(config)) {
+        if (IndexMigrationStamp.complete(config.currentMappings()) && matchesTarget(config)) {
           continue;
         }
         // Empty is the steady state of an entity type nobody has ingested. Filled where it
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
         // and the in-place apply pass below never reaches an index with a fill row.
         fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
-      } else if (PrimaryStorageFillStamp.incomplete(config.currentMappings())) {
-        // The alias already holds documents written by a fill whose row was scoped to an earlier
-        // deploy. The index matches the target, so neither a mapping reindex nor an empty-index
-        // fill would run, and the missing documents would never be caught up. Rebuild it.
+      } else if (IndexMigrationStamp.incomplete(config.currentMappings())) {
+        // The alias holds documents written by a migration whose rows belong to an earlier deploy,
+        // and either its fill or the catch-up that follows it never finished. The index matches
+        // the target, so neither a mapping reindex nor an empty-index fill would run, and what is
+        // missing would never be filled or replayed. Rebuild it. A row of this deploy means this
+        // run is a repeat and the row says where that migration stands; it is not planned again.
+        if (ownedByThisDeploy(upgradeState, config.name())) {
+          log.info(
+              "Index {}: migration still in progress under this deploy's own row", config.name());
+          continue;
+        }
         log.warn(
-            "Index {}: a primary-storage fill is unfinished and this deploy has no row for it;"
-                + " rebuilding into a fresh index",
+            "Index {}: an earlier deploy left its migration unfinished; rebuilding into a fresh"
+                + " index",
             config.name());
         fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       }
@@ -738,34 +757,34 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     final String fillTarget;
     String oldBackingIndexName = null;
     boolean oldIdSchemeStale = false;
-    boolean abandonedPartialFill = false;
+    boolean abandonedMigration = false;
     switch (fill) {
       case CREATE_ALIASED -> {
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
         indexBuilder.createAliasedIndex(opContext, config.name(), physicalIndex, config);
-        indexBuilder.markPrimaryStorageFillIncomplete(opContext, physicalIndex);
+        indexBuilder.markMigrationIncomplete(opContext, physicalIndex);
         fillTarget = config.name();
       }
       case REBUILD_INTO_NEXT -> {
         // Whether live writes may be mirrored into the index the swap leaves behind turns on its
         // ids, not on the rebuild; the row records the answer for the consumers. A partial corpus
-        // left by an abandoned fill is not a generation to roll back to either.
+        // left by an abandoned migration is not a generation to roll back to either.
         oldIdSchemeStale = oldIndexIdSchemeStale(config, indexBuilder);
-        abandonedPartialFill = PrimaryStorageFillStamp.incomplete(config.currentMappings());
+        abandonedMigration = IndexMigrationStamp.incomplete(config.currentMappings());
         Set<String> oldBackingIndices = indexBuilder.getBackingIndices(opContext, config.name());
         oldBackingIndexName =
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
         indexBuilder.createIndex(opContext, physicalIndex, config);
-        indexBuilder.markPrimaryStorageFillIncomplete(opContext, physicalIndex);
+        indexBuilder.markMigrationIncomplete(opContext, physicalIndex);
         fillTarget = physicalIndex;
       }
       case IN_PLACE -> {
         physicalIndex = config.name();
         fillTarget = config.name();
-        indexBuilder.markPrimaryStorageFillIncomplete(opContext, config.name());
+        indexBuilder.markMigrationIncomplete(opContext, config.name());
       }
       default -> throw new IllegalStateException("Unhandled fill " + fill);
     }
@@ -797,13 +816,14 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       upgradeState =
           IncrementalReindexState.setOldBackingIndexIdSchemeStale(upgradeState, config.name());
     }
-    if (abandonedPartialFill) {
+    if (abandonedMigration) {
       log.info(
-          "Index {}: rebuilt from an abandoned partial fill; the index the rebuild leaves behind"
+          "Index {}: rebuilt from an abandoned migration; the index the rebuild leaves behind"
               + " receives no rollback writes",
           config.name());
       upgradeState =
-          IncrementalReindexState.setOldBackingIndexIncompleteFill(upgradeState, config.name());
+          IncrementalReindexState.setOldBackingIndexIncompleteMigration(
+              upgradeState, config.name());
     }
     checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
     return upgradeState;

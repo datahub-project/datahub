@@ -47,11 +47,12 @@ public final class IncrementalReindexState {
   public static final String OLD_BACKING_INDEX_ID_SCHEME_STALE = "oldBackingIndexIdSchemeStale";
 
   /**
-   * Set when the index was rebuilt because a previous fill left a partial corpus. The old backing
-   * index is not a generation to roll back to: mirroring new writes into it would not fill the gap,
-   * so live writes stay out of it and a rollback returns to its pre-swap content.
+   * Set when the index was rebuilt because an earlier deploy's migration of it never finished. The
+   * old backing index is not a generation to roll back to: mirroring new writes into it would not
+   * fill the gap, so live writes stay out of it and a rollback returns to its pre-swap content.
    */
-  public static final String OLD_BACKING_INDEX_INCOMPLETE_FILL = "oldBackingIndexIncompleteFill";
+  public static final String OLD_BACKING_INDEX_INCOMPLETE_MIGRATION =
+      "oldBackingIndexIncompleteMigration";
 
   /** Epoch millis when the ES _reindex task was submitted (T0). */
   public static final String REINDEX_START_TIME = "reindexStartTime";
@@ -125,7 +126,7 @@ public final class IncrementalReindexState {
           NEXT_INDEX_NAME,
           OLD_BACKING_INDEX_NAME,
           OLD_BACKING_INDEX_ID_SCHEME_STALE,
-          OLD_BACKING_INDEX_INCOMPLETE_FILL,
+          OLD_BACKING_INDEX_INCOMPLETE_MIGRATION,
           REINDEX_START_TIME,
           REINDEX_COMPLETE_TIME,
           STATUS,
@@ -304,19 +305,19 @@ public final class IncrementalReindexState {
         && Boolean.parseBoolean(state.get(key(indexName, OLD_BACKING_INDEX_ID_SCHEME_STALE)));
   }
 
-  /** Marks {@code indexName}'s old backing index as a partial fill, not a rollback generation. */
-  public static Map<String, String> setOldBackingIndexIncompleteFill(
+  /** Marks {@code indexName}'s old backing index as an abandoned migration, not a rollback. */
+  public static Map<String, String> setOldBackingIndexIncompleteMigration(
       @Nonnull Map<String, String> existing, @Nonnull String indexName) {
     Map<String, String> result = new HashMap<>(existing);
-    result.put(key(indexName, OLD_BACKING_INDEX_INCOMPLETE_FILL), Boolean.TRUE.toString());
+    result.put(key(indexName, OLD_BACKING_INDEX_INCOMPLETE_MIGRATION), Boolean.TRUE.toString());
     return result;
   }
 
-  /** Whether {@code indexName}'s old backing index is an abandoned partial fill; see the key. */
-  public static boolean isOldBackingIndexIncompleteFill(
+  /** Whether {@code indexName}'s old backing index is an abandoned migration; see the key. */
+  public static boolean isOldBackingIndexIncompleteMigration(
       @Nullable Map<String, String> state, @Nonnull String indexName) {
     return state != null
-        && Boolean.parseBoolean(state.get(key(indexName, OLD_BACKING_INDEX_INCOMPLETE_FILL)));
+        && Boolean.parseBoolean(state.get(key(indexName, OLD_BACKING_INDEX_INCOMPLETE_MIGRATION)));
   }
 
   /** Records the physical index the alias of {@code indexName} can be swapped back to. */
@@ -373,7 +374,7 @@ public final class IncrementalReindexState {
           BACKFILL_GENERATION,
           BACKFILL_COMPLETE_TIME,
           OLD_BACKING_INDEX_ID_SCHEME_STALE,
-          OLD_BACKING_INDEX_INCOMPLETE_FILL);
+          OLD_BACKING_INDEX_INCOMPLETE_MIGRATION);
 
   /** Pin the baseline generation every document of this fill is written with. */
   public static Map<String, String> setBackfillGeneration(

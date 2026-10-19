@@ -37,6 +37,57 @@ public class IncrementalReindexStateTest {
   }
 
   @Test
+  public void testClearCatchUpStatusDropsResumeCursors() {
+    Map<String, String> state =
+        IncrementalReindexState.setCatchUpStatus(
+            null, ENTITY_INDEX, IncrementalReindexState.CatchUpStatus.COMPLETED);
+    state.put(ENTITY_INDEX + ".lastUrn", "urn:li:dataset:stale");
+    state.put(ENTITY_INDEX + ".dataset.lastUrn", "urn:li:dataset:stale-type");
+    state.put("chartindex_v2.lastUrn", "urn:li:chart:kept");
+
+    Map<String, String> cleared = IncrementalReindexState.clearCatchUpStatus(state, ENTITY_INDEX);
+
+    assertEquals(IncrementalReindexState.getCatchUpStatus(cleared, ENTITY_INDEX), Optional.empty());
+    assertFalse(cleared.containsKey(ENTITY_INDEX + ".lastUrn"));
+    assertFalse(cleared.containsKey(ENTITY_INDEX + ".dataset.lastUrn"));
+    assertEquals(cleared.get("chartindex_v2.lastUrn"), "urn:li:chart:kept");
+  }
+
+  @Test
+  public void testMergeCatchUpStateDropsAClearedVerdictAndItsCursors() {
+    Map<String, String> loaded =
+        IncrementalReindexState.setCatchUpStatus(
+            null, ENTITY_INDEX, IncrementalReindexState.CatchUpStatus.COMPLETED);
+    loaded.put(ENTITY_INDEX + ".lastUrn", "urn:li:dataset:stale");
+    loaded.put(ENTITY_INDEX + ".dataset.lastUrn", "urn:li:dataset:stale-type");
+    Map<String, String> updated = new HashMap<>();
+    updated.put("chartindex_v2.lastUrn", "urn:li:chart:kept");
+
+    Map<String, String> merged = IncrementalReindexState.mergeCatchUpState(loaded, updated);
+
+    assertEquals(IncrementalReindexState.getCatchUpStatus(merged, ENTITY_INDEX), Optional.empty());
+    assertFalse(merged.containsKey(ENTITY_INDEX + ".lastUrn"));
+    assertFalse(merged.containsKey(ENTITY_INDEX + ".dataset.lastUrn"));
+    assertEquals(merged.get("chartindex_v2.lastUrn"), "urn:li:chart:kept");
+  }
+
+  @Test
+  public void testMergeCatchUpStateKeepsCursorsWhenTheStatusRemains() {
+    Map<String, String> loaded = new HashMap<>();
+    loaded.put(ENTITY_INDEX + ".lastUrn", "urn:li:dataset:kept");
+    Map<String, String> updated =
+        IncrementalReindexState.setCatchUpStatus(
+            null, ENTITY_INDEX, IncrementalReindexState.CatchUpStatus.COMPLETED);
+
+    Map<String, String> merged = IncrementalReindexState.mergeCatchUpState(loaded, updated);
+
+    assertEquals(merged.get(ENTITY_INDEX + ".lastUrn"), "urn:li:dataset:kept");
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(merged, ENTITY_INDEX),
+        Optional.of(IncrementalReindexState.CatchUpStatus.COMPLETED));
+  }
+
+  @Test
   public void testCatchUpStatusTerminal() {
     assertTrue(IncrementalReindexState.CatchUpStatus.COMPLETED.isTerminal());
     assertTrue(IncrementalReindexState.CatchUpStatus.SKIPPED.isTerminal());
@@ -568,7 +619,7 @@ public class IncrementalReindexStateTest {
         "true");
     failedAttempt.put(
         IncrementalReindexState.key(
-            ENTITY_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_INCOMPLETE_FILL),
+            ENTITY_INDEX, IncrementalReindexState.OLD_BACKING_INDEX_INCOMPLETE_MIGRATION),
         "true");
 
     Map<String, String> replanned =
@@ -583,7 +634,8 @@ public class IncrementalReindexStateTest {
                 replanned, ENTITY_INDEX, IncrementalReindexState.BACKFILL_URNS_PROCESSED)
             .isEmpty());
     assertFalse(IncrementalReindexState.isOldBackingIndexIdSchemeStale(replanned, ENTITY_INDEX));
-    assertFalse(IncrementalReindexState.isOldBackingIndexIncompleteFill(replanned, ENTITY_INDEX));
+    assertFalse(
+        IncrementalReindexState.isOldBackingIndexIncompleteMigration(replanned, ENTITY_INDEX));
   }
 
   private static Map<String, String> timeseriesPhase1State(

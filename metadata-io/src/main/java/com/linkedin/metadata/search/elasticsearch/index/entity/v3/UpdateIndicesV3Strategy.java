@@ -726,12 +726,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               : keepBatchRootValues(combinedDocument, projection.projected()));
     }
 
-    removeAspects(combinedDocument, removedAspects);
+    Set<String> timeseriesRootFields = timeseriesRootFields(entitySpec, indexedFields);
+    removeAspects(combinedDocument, removedAspects, timeseriesRootFields);
     liftSemanticEmbeddingsToRoot(opContext, urn, entityType, events, combinedDocument);
 
     applyDocumentContributors(opContext, urn, combinedDocument);
     if (isCatchUpBatch(events)) {
-      clearStaleCatchUpFields(combinedDocument, entitySpec, events, indexedFields);
+      clearStaleCatchUpFields(combinedDocument, events, indexedFields, timeseriesRootFields);
     }
     return combinedDocument;
   }
@@ -739,13 +740,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Nulls what the document holds for aspects primary storage no longer has, as a catch-up replay
    * found them in the index: the entry under {@code _aspects} and the root fields the aspect
-   * projected, except a root field an aspect of this batch still sets, which keeps its value, and
-   * the fields the strategy itself owns. Structured properties are dotted root keys, so losing that
-   * aspect nulls those keys and leaves the parent key alone. The merge the document is written with
-   * then clears them.
+   * projected, except a root field an aspect of this batch still sets, which keeps its value, a
+   * root field a timeseries aspect in the index still holds, and the fields the strategy itself
+   * owns. Structured properties are dotted root keys, so losing that aspect nulls those keys and
+   * leaves the parent key alone. The merge the document is written with then clears them.
    */
   private static void removeAspects(
-      @Nonnull ObjectNode document, @Nonnull Map<String, Set<String>> removedAspects) {
+      @Nonnull ObjectNode document,
+      @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Set<String> timeseriesRootFields) {
     if (removedAspects.isEmpty()) {
       return;
     }
@@ -762,7 +765,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           }
           aspects.putNull(aspectName);
           for (String field : fields) {
-            if (rootFieldKept(document, field, Set.of())) {
+            if (rootFieldKept(document, field, timeseriesRootFields)) {
               continue;
             }
             nullIfAbsent(document, field);
@@ -782,19 +785,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    */
   private static void clearStaleCatchUpFields(
       @Nonnull ObjectNode document,
-      @Nonnull EntitySpec entitySpec,
       @Nonnull List<MCLItem> events,
-      @Nonnull Map<String, Set<String>> indexedFields) {
+      @Nonnull Map<String, Set<String>> indexedFields,
+      @Nonnull Set<String> timeseriesRootFields) {
     if (indexedFields.isEmpty()) {
       return;
     }
-    Set<String> timeseriesRootFields = new HashSet<>();
-    indexedFields.forEach(
-        (aspectName, fields) -> {
-          if (isTimeseriesAspect(entitySpec, aspectName)) {
-            timeseriesRootFields.addAll(fields);
-          }
-        });
     nullMissingStructuredPropertyKeys(
         document,
         indexedFields.getOrDefault(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME, Set.of()));
@@ -891,6 +887,24 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       node = object.get(part);
     }
     return true;
+  }
+
+  /**
+   * Root fields the timeseries aspects the index reports still hold. A catch-up replay rebuilds
+   * versioned aspects only, so neither a removed aspect nor a restate that no longer sets one of
+   * these fields may null it.
+   */
+  @Nonnull
+  private static Set<String> timeseriesRootFields(
+      @Nonnull EntitySpec entitySpec, @Nonnull Map<String, Set<String>> indexedFields) {
+    Set<String> fields = new HashSet<>();
+    indexedFields.forEach(
+        (aspectName, aspectFields) -> {
+          if (isTimeseriesAspect(entitySpec, aspectName)) {
+            fields.addAll(aspectFields);
+          }
+        });
+    return fields;
   }
 
   private static boolean isTimeseriesAspect(

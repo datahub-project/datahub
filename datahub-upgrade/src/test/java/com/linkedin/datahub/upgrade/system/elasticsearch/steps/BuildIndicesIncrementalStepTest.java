@@ -35,7 +35,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.PollReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.PrimaryStorageFillStamp;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -934,7 +934,7 @@ public class BuildIndicesIncrementalStepTest {
             any(OperationContext.class), eq(V3_INDEX_NAME), physical.capture(), eq(v3Config));
     assertTrue(physical.getValue().startsWith(V3_INDEX_NAME + "_"));
     verify(indexBuilder)
-        .markPrimaryStorageFillIncomplete(any(OperationContext.class), eq(physical.getValue()));
+        .markMigrationIncomplete(any(OperationContext.class), eq(physical.getValue()));
     verify(indexBuilder, never()).buildIndex(any(OperationContext.class), any());
     verify(indexBuilder, never())
         .buildIndexIncremental(any(OperationContext.class), any(), anyString());
@@ -1087,8 +1087,7 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
     verify(indexBuilder, never())
         .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
-    verify(indexBuilder)
-        .markPrimaryStorageFillIncomplete(any(OperationContext.class), eq(V3_INDEX_NAME));
+    verify(indexBuilder).markMigrationIncomplete(any(OperationContext.class), eq(V3_INDEX_NAME));
     Map<String, String> state = persistedState();
     assertEquals(
         IncrementalReindexState.getStatus(state, V3_INDEX_NAME),
@@ -1100,13 +1099,13 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
-  public void testCompletedEmptyFillIsNotRestampedIncomplete() throws Throwable {
+  public void testACompletedEmptyMigrationIsNotMarkedIncompleteAgain() throws Throwable {
     ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
     when(v3Config.currentMappings())
         .thenReturn(
-            PrimaryStorageFillStamp.stamped(
+            IndexMigrationStamp.stamped(
                 docIdScheme.stampedMappings(Map.of("properties", Map.of())),
-                PrimaryStorageFillStamp.COMPLETE));
+                IndexMigrationStamp.COMPLETE));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
     when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(0L);
 
@@ -1116,23 +1115,22 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder, never()).createIndex(any(OperationContext.class), anyString(), any());
     verify(indexBuilder, never())
         .createAliasedIndex(any(OperationContext.class), anyString(), anyString(), any());
-    verify(indexBuilder, never())
-        .markPrimaryStorageFillIncomplete(any(OperationContext.class), anyString());
+    verify(indexBuilder, never()).markMigrationIncomplete(any(OperationContext.class), anyString());
     verify(indexBuilder, never())
         .buildIndexIncremental(any(OperationContext.class), any(), anyString());
     assertTrue(IncrementalReindexState.getStatus(persistedState(), V3_INDEX_NAME).isEmpty());
   }
 
   @Test
-  public void testAbandonedPartialFillIsRebuiltAndIsNotARollbackTarget() throws Throwable {
+  public void testAnAbandonedMigrationIsRebuiltAndIsNotARollbackTarget() throws Throwable {
     // A later deploy has no Phase 1 row for the fill that wrote these documents. The index matches
     // the target, so only the incomplete stamp says the corpus is partial.
     ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
     when(v3Config.currentMappings())
         .thenReturn(
-            PrimaryStorageFillStamp.stamped(
+            IndexMigrationStamp.stamped(
                 docIdScheme.stampedMappings(Map.of("properties", Map.of())),
-                PrimaryStorageFillStamp.INCOMPLETE));
+                IndexMigrationStamp.INCOMPLETE));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
     when(indexBuilder.getCount(any(OperationContext.class), eq(V3_INDEX_NAME))).thenReturn(42L);
     when(indexBuilder.getBackingIndices(any(OperationContext.class), eq(V3_INDEX_NAME)))
@@ -1144,8 +1142,7 @@ public class BuildIndicesIncrementalStepTest {
     ArgumentCaptor<String> next = ArgumentCaptor.forClass(String.class);
     verify(indexBuilder).createIndex(any(OperationContext.class), next.capture(), eq(v3Config));
     assertTrue(next.getValue().startsWith(V3_INDEX_NAME + "_"));
-    verify(indexBuilder)
-        .markPrimaryStorageFillIncomplete(any(OperationContext.class), eq(next.getValue()));
+    verify(indexBuilder).markMigrationIncomplete(any(OperationContext.class), eq(next.getValue()));
     verify(indexBuilder, never())
         .buildIndexIncremental(any(OperationContext.class), any(), anyString());
     Map<String, String> state = persistedState();
@@ -1156,7 +1153,7 @@ public class BuildIndicesIncrementalStepTest {
         IncrementalReindexState.get(
             state, V3_INDEX_NAME, IncrementalReindexState.BACKFILL_TARGET_INDEX),
         Optional.of(next.getValue()));
-    assertTrue(IncrementalReindexState.isOldBackingIndexIncompleteFill(state, V3_INDEX_NAME));
+    assertTrue(IncrementalReindexState.isOldBackingIndexIncompleteMigration(state, V3_INDEX_NAME));
     assertFalse(IncrementalReindexState.isOldBackingIndexIdSchemeStale(state, V3_INDEX_NAME));
   }
 

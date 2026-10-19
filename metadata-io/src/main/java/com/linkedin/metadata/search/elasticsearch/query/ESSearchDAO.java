@@ -352,10 +352,12 @@ public class ESSearchDAO {
   /**
    * For each of {@code documentIds} present in {@code indexName}, the aspects its document holds,
    * as aspect name to the field names the document holds for it: the entries under {@code
-   * _aspects}, and the structured properties aspect, which lives at the root only, with that root
-   * field. One request for the whole set, and names only: the engine reads each document's source
-   * map in a script field and sends no document body back. A document that is not in the index has
-   * no entry.
+   * _aspects}, each field inside an object field joined to its parent with {@link
+   * #NESTED_FIELD_SEPARATOR}, the structured properties aspect as the dotted root keys it owns, and
+   * a leftover {@code _aspects.structuredProperties} entry under {@link
+   * #STALE_ASPECTS_STRUCTURED_PROPERTIES}. One request for the whole set, and names only: the
+   * engine reads each document's source map in a script field and sends no document body back. A
+   * document that is not in the index has no entry.
    */
   @Nonnull
   public Map<String, Map<String, Set<String>>> aspectFieldNamesByDocumentId(

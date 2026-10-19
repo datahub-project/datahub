@@ -36,7 +36,7 @@
             <class name="com.linkedin.metadata.search.indexbuilder.ESIndexBuilderTest"/>
             <class name="com.linkedin.metadata.search.indexbuilder.ReindexConfigTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexStateTest"/>
-            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.PrimaryStorageFillStampTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStampTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdSchemeTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilderTest"/>
         </classes>

@@ -3234,26 +3234,27 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Records an unfinished primary-storage fill on {@code indexName}. The stamp lives in {@code
-   * _meta}, which a version-scoped Phase 1 row does not, so a later deploy can still see that the
-   * corpus is partial.
+   * Marks the migration of {@code indexName} as unfinished: its fill from primary storage, or the
+   * catch-up that replays the fill window, has not completed. The mark lives in {@code _meta},
+   * which a version-scoped upgrade row does not, so a later deploy can still see that the index is
+   * not a complete copy of primary storage.
    */
-  public void markPrimaryStorageFillIncomplete(
+  public void markMigrationIncomplete(
       @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
-    markPrimaryStorageFill(opContext, indexName, PrimaryStorageFillStamp.INCOMPLETE);
+    markMigration(opContext, indexName, IndexMigrationStamp.INCOMPLETE);
   }
 
-  /** Records that the primary-storage fill of {@code indexName} has finished. */
-  public void markPrimaryStorageFillComplete(
-      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
-    markPrimaryStorageFill(opContext, indexName, PrimaryStorageFillStamp.COMPLETE);
+  /** Marks the migration of {@code indexName} as finished: filled and caught up. */
+  public void markMigrationComplete(@Nonnull OperationContext opContext, @Nonnull String indexName)
+      throws IOException {
+    markMigration(opContext, indexName, IndexMigrationStamp.COMPLETE);
   }
 
-  private void markPrimaryStorageFill(
+  private void markMigration(
       @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String state)
       throws IOException {
     Map<String, Object> stamped =
-        PrimaryStorageFillStamp.stamped(getCurrentMappings(opContext, indexName), state);
+        IndexMigrationStamp.stamped(getCurrentMappings(opContext, indexName), state);
     // _meta is replaced as a whole by put-mapping, so the request carries every existing entry.
     // Properties are omitted: put-mapping merges them, and sending them would re-apply the live
     // mapping onto itself.
@@ -3261,7 +3262,7 @@ public class ESIndexBuilder {
         new PutMappingRequest(indexName)
             .source(Map.of(V3DocumentIdScheme.META, stamped.get(V3DocumentIdScheme.META)));
     searchClient.putIndexMapping(opContext, request, requestOptionsLong);
-    log.info("Index {}: primary-storage fill marked {}", indexName, state);
+    log.info("Index {}: migration marked {}", indexName, state);
   }
 
   public void createIndex(

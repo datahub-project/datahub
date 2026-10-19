@@ -80,7 +80,10 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>Finishing marks the row COMPLETED, the state a swapped {@code _reindex} row reaches in Phase
  * 1, so rollback dual-write and cleanup treat both alike, and records {@code backfillCompleteTime}.
- * Catch-up then replays the window since {@code backfillStartTime} and records its own status.
+ * Catch-up then replays the window since {@code backfillStartTime} and records its own status. The
+ * migration mark Phase 1 set on the index stays {@code incomplete} here: catch-up sets it {@code
+ * complete} once the window is replayed, so a deploy that interrupts either half finds an index it
+ * must rebuild rather than one that looks finished.
  */
 @Slf4j
 public class BackfillEntityIndicesStep implements UpgradeStep {
@@ -342,9 +345,10 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
             IncrementalReindexState.get(
                     phase1State, indexName, IncrementalReindexState.OLD_BACKING_INDEX_NAME)
                 .orElse("its old backing index"));
-      } else if (IncrementalReindexState.isOldBackingIndexIncompleteFill(phase1State, indexName)) {
+      } else if (IncrementalReindexState.isOldBackingIndexIncompleteMigration(
+          phase1State, indexName)) {
         log.info(
-            "Index {} was rebuilt from an abandoned partial fill: live writes are not mirrored into"
+            "Index {} was rebuilt from an abandoned migration: live writes are not mirrored into"
                 + " {}, so a rollback to it returns to its pre-swap content",
             indexName,
             IncrementalReindexState.get(
@@ -352,9 +356,6 @@ public class BackfillEntityIndicesStep implements UpgradeStep {
                 .orElse("its old backing index"));
       }
     }
-    // The row about to be marked complete is version-scoped. The index has to record that the fill
-    // finished, or the next deploy sees documents under the target mappings and leaves the gap.
-    indexBuilder.markPrimaryStorageFillComplete(opContext, target);
     final long completeTime = System.currentTimeMillis();
     phase1State =
         persistPhase1(

@@ -324,7 +324,8 @@ public class BackfillEntityIndicesStepTest {
     verify(indexBuilder, times(2))
         .resumedReindexMatchesTarget(eq(opContext), any(ReindexConfig.class), eq(next));
     verify(indexBuilder).swapAlias(opContext, alias, next);
-    verify(indexBuilder).markPrimaryStorageFillComplete(opContext, next);
+    // The mark stays incomplete until catch-up has replayed the window; catch-up sets it.
+    verify(indexBuilder, never()).markMigrationComplete(any(OperationContext.class), anyString());
     verify(indexBuilder, never()).getCount(any(OperationContext.class), anyString());
     verify(indexBuilder, never())
         .validateAndSwapAlias(any(OperationContext.class), anyString(), anyString(), anyLong());

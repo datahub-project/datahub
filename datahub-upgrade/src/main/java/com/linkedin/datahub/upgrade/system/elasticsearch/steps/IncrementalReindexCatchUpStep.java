@@ -38,6 +38,7 @@ import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -203,6 +204,9 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
 
           try {
             CatchUpStatus outcome = catchUpIndex(context, indexName, indexState);
+            if (outcome.isTerminal() && isFilledFromPrimaryStorage(indexState)) {
+              markMigrationComplete(indexName);
+            }
             catchUpState =
                 IncrementalReindexState.setCatchUpStatus(catchUpState, indexName, outcome);
             persistCatchUpCheckpoint(context, catchUpState, DataHubUpgradeState.IN_PROGRESS);
@@ -696,6 +700,26 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
             SearchComponent.SYSTEM_METADATA,
             ElasticSearchSystemMetadataService.INDEX_NAME);
     return indexName.equals(graphIndexName) || indexName.equals(systemMetadataIndexName);
+  }
+
+  /** Whether the row's index was filled from primary storage, and so carries a migration mark. */
+  private static boolean isFilledFromPrimaryStorage(Map<String, String> indexState) {
+    return indexState.containsKey(IncrementalReindexState.BACKFILL_START_TIME);
+  }
+
+  /**
+   * Marks the index as migrated: filled and caught up. The fill leaves the mark incomplete, because
+   * this upgrade's rows belong to this version alone and a later deploy's Phase 1 reads the index,
+   * not them: an index whose catch-up never finished is rebuilt there. A mark that cannot be
+   * written fails the index, so a re-run replays what is left of the window and marks it again.
+   */
+  private void markMigrationComplete(String indexName) throws IOException {
+    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(indexName);
+    if (builderAndConfig == null) {
+      throw new IllegalStateException(
+          "No index builder found for " + indexName + "; its migration stays marked incomplete");
+    }
+    builderAndConfig.getFirst().markMigrationComplete(opContext, indexName);
   }
 
   @Nullable

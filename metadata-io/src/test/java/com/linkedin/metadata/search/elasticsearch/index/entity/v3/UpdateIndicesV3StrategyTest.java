@@ -2016,6 +2016,29 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testCatchUpReplayKeepsARootFieldATimeseriesAspectHoldsWhenAnAspectIsDropped()
+      throws Exception {
+    // The index holds rowCount from datasetProfile, a timeseries aspect the replay never rebuilds,
+    // and a removed versioned aspect projected the same root field name. Dropping the versioned
+    // aspect nulls what only it held, not a field the timeseries aspect still owns.
+    JsonNode written =
+        catchUpDocument(
+            storedDataset("stored"),
+            Map.of(DATASET_PROPERTIES_ASPECT_NAME, Map.of("name", "stored")),
+            Map.of(
+                DATASET_PROPERTIES_ASPECT_NAME,
+                Set.of("name"),
+                "globalTags",
+                Set.of("tags", "rowCount"),
+                "datasetProfile",
+                Set.of("rowCount")));
+
+    assertTrue(written.get("_aspects").get("globalTags").isNull());
+    assertTrue(written.get("tags").isNull(), "a field only the dropped aspect held is nulled");
+    assertFalse(written.has("rowCount"), "a field the timeseries aspect still holds is kept");
+  }
+
+  @Test
   public void testCatchUpReplayNullsAFieldARestatedAspectDropped() throws Exception {
     JsonNode written =
         catchUpDocument(
@@ -2443,6 +2466,10 @@ public class UpdateIndicesV3StrategyTest {
     EntitySpec dataset = replayContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME);
     when(mockEntitySpec.getAspectSpecs()).thenReturn(dataset.getAspectSpecs());
     when(mockEntitySpec.getKeyAspectName()).thenReturn(dataset.getKeyAspectName());
+    when(mockEntitySpec.hasAspect(anyString()))
+        .thenAnswer(invocation -> dataset.hasAspect(invocation.getArgument(0)));
+    when(mockEntitySpec.getAspectSpec(anyString()))
+        .thenAnswer(invocation -> dataset.getAspectSpec(invocation.getArgument(0)));
   }
 
   private void stubTransformByAspect(Map<String, Map<String, String>> fieldsByAspect)
