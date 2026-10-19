@@ -5,8 +5,10 @@ from unittest.mock import MagicMock
 from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.source.fabric.common.models import (
     FABRIC_WORKSPACE_PLATFORM,
+    FabricWorkspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.onelake.client import IncompleteCatalogListing
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
     FabricOneLakeSource,
@@ -14,6 +16,10 @@ from datahub.ingestion.source.fabric.onelake.source import (
     LakehouseSchemaKey,
     WarehouseKey,
     WarehouseSchemaKey,
+)
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
 )
 
 
@@ -154,3 +160,115 @@ def test_norm_respects_convert_urns_to_lowercase() -> None:
     src.config.convert_urns_to_lowercase = False
     assert FabricOneLakeSource._norm(src, "Sales") == "Sales"
     assert FabricOneLakeSource._norm(src, "CUSTOMERS") == "CUSTOMERS"
+
+
+def test_failed_table_listing_warns_without_failing_the_run() -> None:
+    src = MagicMock()
+    src.client.list_lakehouse_tables.side_effect = IncompleteCatalogListing("truncated")
+
+    emitted = list(
+        FabricOneLakeSource._process_item_tables(
+            src,
+            FabricWorkspace(id="ws-1", name="workspace"),
+            "lh-1",
+            "Lakehouse",
+            LakehouseKey(
+                platform=PLATFORM,
+                env="PROD",
+                workspace_id="ws-1",
+                lakehouse_id="lh-1",
+            ),
+            item_display_name="Lakehouse",
+            schema_map={},
+            emitted_schemas=set(),
+            profile_targets=[],
+            shortcuts={},
+        )
+    )
+
+    assert emitted == []
+    src.report.warning.assert_called_once()
+    src.report.failure.assert_not_called()
+    src._preserve_item_urns_from_last_checkpoint.assert_called_once_with(
+        "ws-1", "lh-1", "Lakehouse"
+    )
+
+
+def _checkpoint_handler(
+    urns: list[str],
+) -> tuple[MagicMock, GenericCheckpointState]:
+    state_provider = MagicMock()
+    state_provider.is_stateful_ingestion_configured.return_value = True
+    state_provider._usecase_handlers = {}
+
+    def register(handler: StaleEntityRemovalHandler) -> None:
+        state_provider._usecase_handlers[handler.job_id] = handler
+
+    state_provider.register_stateful_ingestion_usecase_handler.side_effect = register
+
+    config = MagicMock()
+    config.stateful_ingestion.remove_stale_metadata = True
+    config.stateful_ingestion.ignore_new_state = False
+    config.stateful_ingestion.ignore_old_state = False
+
+    current_state = GenericCheckpointState()
+    current_checkpoint = MagicMock()
+    current_checkpoint.state = current_state
+    state_provider.get_current_checkpoint.return_value = current_checkpoint
+
+    last_checkpoint = MagicMock()
+    last_checkpoint.state = GenericCheckpointState(urns=urns)
+    state_provider.get_last_checkpoint.return_value = last_checkpoint
+
+    StaleEntityRemovalHandler(
+        state_provider=state_provider,
+        report=MagicMock(),
+        config=config,
+        state_type_class=GenericCheckpointState,
+        pipeline_name="fabric-onelake",
+        run_id="run",
+        platform=PLATFORM,
+    )
+    return state_provider, current_state
+
+
+def test_failed_listing_keeps_only_that_items_previous_urns() -> None:
+    kept = (
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.lh-1.dbo.orders,PROD)"
+    )
+    other_item = (
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.lh-2.dbo.orders,PROD)"
+    )
+    other_platform = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,ws-1.lh-1.dbo.orders,PROD)"
+    )
+    state_provider, current_state = _checkpoint_handler(
+        [kept, other_item, other_platform, "urn:li:container:already-there"]
+    )
+
+    src = MagicMock()
+    src.state_provider = state_provider
+    src.config.platform_instance = None
+    src.config.extract_schemas = True
+    src.config.env = "PROD"
+    src._stale_entity_removal_handler = lambda: (
+        FabricOneLakeSource._stale_entity_removal_handler(src)
+    )
+    src._make_schema_key = lambda workspace_id, item_id, item_type, schema_name: (
+        FabricOneLakeSource._make_schema_key(
+            src, workspace_id, item_id, item_type, schema_name
+        )
+    )
+
+    FabricOneLakeSource._preserve_item_urns_from_last_checkpoint(
+        src, "ws-1", "lh-1", "Lakehouse"
+    )
+
+    schema_urn = LakehouseSchemaKey(
+        platform=PLATFORM,
+        env="PROD",
+        workspace_id="ws-1",
+        lakehouse_id="lh-1",
+        schema_name="dbo",
+    ).as_urn()
+    assert current_state.urns == [kept, schema_urn]

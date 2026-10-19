@@ -20,6 +20,11 @@ if TYPE_CHECKING:
         SchemaExtractionClient,
     )
 
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataset_urn_with_platform_instance,
+    make_tag_urn,
+)
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -64,15 +69,36 @@ from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
     FabricOneLakeSourceReport,
 )
+from datahub.ingestion.source.fabric.onelake.shortcuts import (
+    ORIGIN_ITEM_ID_PROPERTY,
+    ORIGIN_ITEM_NAME_PROPERTY,
+    ORIGIN_NAME_PROPERTY,
+    ORIGIN_PATH_PROPERTY,
+    ORIGIN_WORKSPACE_ID_PROPERTY,
+    ORIGIN_WORKSPACE_NAME_PROPERTY,
+    SHORTCUT_TAG,
+    LakehouseTableShortcut,
+    matching_column_pairs,
+    parse_table_shortcut,
+)
 from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.container import Container
-from datahub.sdk.dataset import Dataset
+from datahub.sdk.dataset import Dataset, parse_cll_mapping
 from datahub.sdk.entity import Entity
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
@@ -149,8 +175,15 @@ class WarehouseSchemaKey(WarehouseKey):
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Optionally enabled via `shortcuts.include_lineage`. A OneLake table shortcut "
+    "target is emitted as an upstream of the shortcut table.",
+)
+@capability(
     SourceCapability.LINEAGE_FINE,
-    "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+    "View definitions are parsed when `extract_views` is enabled. When "
+    "`shortcuts.include_lineage` is enabled and the origin table was ingested, "
+    "shortcut columns are mapped onto the origin columns with the same name.",
 )
 @capability(
     SourceCapability.USAGE_STATS,
@@ -214,6 +247,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             is_allowed_table=self._is_usage_table_allowed,
         )
         self._ingested_dataset_names: set[str] = set()
+        # dataset name (lowered) -> (name used in the URN, schema field paths)
+        self._ingested_columns: dict[str, tuple[str, list[str]]] = {}
+        # Shortcut datasets whose origin may be ingested later in the run.
+        # Emitted after every workspace so column lineage can see that origin.
+        self._deferred_shortcut_datasets: list[tuple[Dataset, list[str], str]] = []
+        # Shortcut targets only carry GUIDs; display names are resolved once
+        # per workspace/item and reused across all shortcuts in the run.
+        self._workspace_display_names: dict[str, Optional[str]] = {}
+        self._item_display_names: dict[tuple[str, str], Optional[str]] = {}
         self.report.sql_aggregator = self.aggregator.report
 
         # Stateful skip-handler for the usage time window. None when stateful
@@ -332,6 +374,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 exc=e,
             )
 
+        # Shortcut datasets wait until every table has been seen, so an origin
+        # ingested later in the run can contribute column lineage.
+        yield from self._emit_deferred_shortcut_datasets()
+
         # Drain the aggregator. Emits view lineage and (when usage is enabled)
         # datasetUsageStatistics / operation aspects. Deferred to the end so
         # cross-item view→table references resolve.
@@ -449,6 +495,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         emitted_schemas: set[str] = set()
 
         profile_targets: list[FabricProfileTarget] = []
+        shortcuts = self._load_lakehouse_shortcuts(workspace.id, lakehouse.id)
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -459,6 +506,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             schema_map=schema_map,
             emitted_schemas=emitted_schemas,
             profile_targets=profile_targets,
+            shortcuts=shortcuts,
         )
 
         # Process views (requires SQL endpoint)
@@ -630,6 +678,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
         profile_targets: list[FabricProfileTarget],
+        shortcuts: Optional[dict[tuple[str, str], LakehouseTableShortcut]] = None,
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -706,6 +755,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                                 ),
                             )
                         )
+                    shortcut = None
+                    # None means shortcut detection was not run. {} means it ran
+                    # and this lakehouse has no table shortcuts.
+                    if shortcuts is not None:
+                        shortcut = shortcuts.get(
+                            (schema_name.lower(), table.name.lower())
+                        )
+                    # A shortcut with table-level lineage is not yielded here. It is
+                    # stashed and emitted after every workspace has been scanned.
                     yield from self._create_table_dataset(
                         workspace,
                         item_id,
@@ -713,15 +771,92 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                         table,
                         parent_container_key,
                         columns,
+                        shortcut=shortcut,
                     )
 
         except Exception as e:
+            # warning(), not failure(). A source failure makes stale entity
+            # removal skip soft-deletes for every workspace. Carry this item's
+            # previous URNs forward so only this item is left unchanged.
             self.report.warning(
                 title="Failed to Process Tables",
-                message="Unable to retrieve tables from item.",
+                message=(
+                    "Unable to retrieve tables from item. Tables previously "
+                    "ingested for this item are left in place."
+                ),
                 context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
                 log=False,
+            )
+            self._preserve_item_urns_from_last_checkpoint(
+                workspace.id, item_id, item_type
+            )
+
+    def _stale_entity_removal_handler(self) -> Optional[StaleEntityRemovalHandler]:
+        handlers = getattr(self.state_provider, "_usecase_handlers", {})
+        for handler in handlers.values():
+            if isinstance(handler, StaleEntityRemovalHandler):
+                return handler
+        return None
+
+    def _preserve_item_urns_from_last_checkpoint(
+        self,
+        workspace_id: str,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+    ) -> None:
+        """Copy this item's datasets and schema containers from the last run.
+
+        Stale entity removal then still soft-deletes other items. A source
+        failure would have skipped removal for the whole run.
+        """
+        handler = self._stale_entity_removal_handler()
+        if handler is None or not handler.is_checkpointing_enabled():
+            return
+        last_checkpoint = handler.state_provider.get_last_checkpoint(
+            handler.job_id, handler.state_type_class
+        )
+        if last_checkpoint is None or not last_checkpoint.state:
+            return
+
+        prefix = f"{workspace_id}.{item_id}."
+        if self.config.platform_instance:
+            prefix = f"{self.config.platform_instance}.{prefix}"
+        prefix_key = prefix.casefold()
+        platform_urn = make_data_platform_urn(PLATFORM)
+
+        schemas: set[str] = set()
+        preserved = 0
+        for urn in last_checkpoint.state.urns:
+            if not urn.startswith("urn:li:dataset:"):
+                continue
+            dataset_urn = DatasetUrn.from_string(urn)
+            if str(dataset_urn.platform) != platform_urn:
+                continue
+            if not dataset_urn.name.casefold().startswith(prefix_key):
+                continue
+            handler.add_entity_to_state("dataset", urn)
+            preserved += 1
+            schema_name, separator, _table_name = dataset_urn.name[
+                len(prefix) :
+            ].partition(".")
+            if separator and schema_name:
+                schemas.add(schema_name)
+
+        if self.config.extract_schemas:
+            for schema_name in schemas:
+                handler.add_entity_to_state(
+                    "container",
+                    self._make_schema_key(
+                        workspace_id, item_id, item_type, schema_name
+                    ).as_urn(),
+                )
+                preserved += 1
+
+        if preserved:
+            logger.info(
+                f"Kept {preserved} previously ingested entity URN(s) for "
+                f"{item_type} {item_id} because its table listing did not finish."
             )
 
     def _get_columns(
@@ -765,6 +900,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         table: FabricTable,
         parent_container_key: ContainerKey,
         columns: list[FabricColumn],
+        shortcut: Optional[LakehouseTableShortcut] = None,
     ) -> Iterable[Dataset]:
         """Create a table dataset with schema metadata."""
         table_name = make_table_name(
@@ -792,6 +928,17 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             logger.debug(
                 f"No schema metadata available for table {schema_name}.{table.name}"
             )
+        field_paths = [field[0] for field in schema_fields] if schema_fields else []
+        self._ingested_columns[table_name.lower()] = (table_name, field_paths)
+
+        tags = None
+        custom_properties = None
+        upstreams = None
+        if shortcut is not None:
+            tags = [make_tag_urn(SHORTCUT_TAG)]
+            custom_properties = self._shortcut_properties(shortcut)
+            upstreams = self._shortcut_upstream(shortcut)
+            self.report.shortcuts_found += 1
 
         dataset = Dataset(
             platform=PLATFORM,
@@ -803,9 +950,188 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             parent_container=parent_container_key,
             schema=schema_fields,
             subtype=DatasetSubTypes.TABLE,
+            tags=tags,
+            custom_properties=custom_properties,
+            upstreams=upstreams,
         )
 
+        upstream_name = (
+            self._shortcut_upstream_dataset_name(shortcut) if shortcut else None
+        )
+        if upstreams is not None and upstream_name is not None:
+            # Hold the dataset until the origin table may have been ingested.
+            self._deferred_shortcut_datasets.append(
+                (dataset, field_paths, upstream_name)
+            )
+            return
+
         yield dataset
+
+    def _load_lakehouse_shortcuts(
+        self, workspace_id: str, lakehouse_id: str
+    ) -> Optional[dict[tuple[str, str], LakehouseTableShortcut]]:
+        """Map `(schema, table)` to shortcut metadata for one lakehouse.
+
+        Returns None when shortcut detection is disabled, so callers can tell
+        that apart from a lakehouse that was checked and has no table shortcuts
+        (an empty dict). A listing failure also returns an empty dict: tables
+        are ingested without shortcut tags.
+        """
+        if not self.config.shortcuts.enabled:
+            return None
+        try:
+            payloads = list(self.client.list_shortcuts(workspace_id, lakehouse_id))
+        except Exception as e:
+            self.report.warning(
+                title="Failed to List Shortcuts",
+                message=(
+                    "Unable to list OneLake shortcuts for this lakehouse. "
+                    "Tables will be ingested without shortcut tags."
+                ),
+                context=f"lakehouse_id={lakehouse_id}",
+                exc=e,
+                log=False,
+            )
+            return {}
+
+        shortcuts: dict[tuple[str, str], LakehouseTableShortcut] = {}
+        for payload in payloads:
+            parsed = parse_table_shortcut(payload)
+            if parsed is None:
+                continue
+            shortcuts[parsed.lookup_key()] = parsed
+        logger.info(
+            f"Found {len(shortcuts)} table shortcut(s) in lakehouse {lakehouse_id}"
+        )
+        return shortcuts
+
+    def _shortcut_properties(self, shortcut: LakehouseTableShortcut) -> dict[str, str]:
+        props: dict[str, str] = {}
+        if shortcut.origin_name:
+            props[ORIGIN_NAME_PROPERTY] = shortcut.origin_name
+        if shortcut.origin_path:
+            props[ORIGIN_PATH_PROPERTY] = shortcut.origin_path
+
+        workspace_id = shortcut.upstream_workspace_id
+        item_id = shortcut.upstream_item_id
+        if workspace_id:
+            props[ORIGIN_WORKSPACE_ID_PROPERTY] = workspace_id
+            workspace_name = self._resolve_workspace_display_name(workspace_id)
+            if workspace_name:
+                props[ORIGIN_WORKSPACE_NAME_PROPERTY] = workspace_name
+        if workspace_id and item_id:
+            props[ORIGIN_ITEM_ID_PROPERTY] = item_id
+            item_name = self._resolve_item_display_name(workspace_id, item_id)
+            if item_name:
+                props[ORIGIN_ITEM_NAME_PROPERTY] = item_name
+        return props
+
+    def _resolve_workspace_display_name(self, workspace_id: str) -> Optional[str]:
+        if workspace_id not in self._workspace_display_names:
+            self._workspace_display_names[workspace_id] = (
+                self.client.get_workspace_display_name(workspace_id)
+            )
+        return self._workspace_display_names[workspace_id]
+
+    def _resolve_item_display_name(
+        self, workspace_id: str, item_id: str
+    ) -> Optional[str]:
+        key = (workspace_id, item_id)
+        if key not in self._item_display_names:
+            self._item_display_names[key] = self.client.get_item_display_name(
+                workspace_id, item_id
+            )
+        return self._item_display_names[key]
+
+    def _shortcut_upstream_dataset_name(
+        self, shortcut: LakehouseTableShortcut
+    ) -> Optional[str]:
+        if (
+            not shortcut.upstream_workspace_id
+            or not shortcut.upstream_item_id
+            or not shortcut.upstream_schema_name
+            or not shortcut.upstream_table_name
+        ):
+            return None
+        return make_table_name(
+            shortcut.upstream_workspace_id,
+            shortcut.upstream_item_id,
+            self._norm(shortcut.upstream_schema_name),
+            self._norm(shortcut.upstream_table_name),
+        )
+
+    def _shortcut_upstream(
+        self, shortcut: LakehouseTableShortcut
+    ) -> Optional[UpstreamLineageClass]:
+        if not self.config.shortcuts.include_lineage:
+            return None
+        dataset_name = self._shortcut_upstream_dataset_name(shortcut)
+        if dataset_name is None:
+            return None
+        return self._copy_lineage(dataset_name, column_pairs=None)
+
+    def _copy_lineage(
+        self,
+        upstream_dataset_name: str,
+        column_pairs: Optional[list[tuple[str, str]]],
+        downstream_urn: Optional[str] = None,
+    ) -> UpstreamLineageClass:
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            PLATFORM,
+            upstream_dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        fine_grained = None
+        if column_pairs and downstream_urn is not None:
+            fine_grained = parse_cll_mapping(
+                upstream=dataset_urn,
+                downstream=downstream_urn,
+                cll_mapping={
+                    downstream_field: [upstream_field]
+                    for downstream_field, upstream_field in column_pairs
+                },
+            )
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=dataset_urn,
+                    type=DatasetLineageTypeClass.COPY,
+                )
+            ],
+            fineGrainedLineages=fine_grained,
+        )
+
+    def _emit_deferred_shortcut_datasets(self) -> Iterable[Dataset]:
+        """Yield shortcut datasets once their origin table may have been ingested.
+
+        Column lineage is added only when this run ingested the origin and both
+        tables have schema. Table-level lineage is kept either way.
+        """
+        column_lineage_count = 0
+        for (
+            dataset,
+            downstream_fields,
+            upstream_name,
+        ) in self._deferred_shortcut_datasets:
+            ingested = self._ingested_columns.get(upstream_name.lower())
+            if ingested is not None:
+                canonical_name, upstream_fields = ingested
+                pairs = matching_column_pairs(downstream_fields, upstream_fields)
+                dataset.set_upstreams(
+                    self._copy_lineage(
+                        canonical_name,
+                        pairs or None,
+                        downstream_urn=str(dataset.urn),
+                    )
+                )
+                if pairs:
+                    column_lineage_count += 1
+            yield dataset
+        if column_lineage_count:
+            logger.info(
+                f"Added column lineage for {column_lineage_count} shortcut table(s)"
+            )
 
     def _create_schema_client(
         self,

@@ -25,6 +25,12 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricWarehouse,
 )
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
+)
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
@@ -745,6 +751,356 @@ def test_fabric_onelake_schema_pattern_filters_schemas() -> None:
             ]
             assert not schema_containers, (
                 "staging schema container should not be emitted when denied by schema_pattern"
+            )
+
+    finally:
+        Path(output_file).unlink(missing_ok=True)
+
+
+def _shortcut_schema_client(
+    workspace: FabricWorkspace,
+    item_id: str,
+    item_type: str,
+    item_display_name: str,
+) -> MagicMock:
+    columns = {
+        "lh-origin": {
+            ("sales", "orders"): [
+                FabricColumn(name="OrderId", data_type="varchar", is_nullable=False),
+                FabricColumn(name="Amount", data_type="decimal", is_nullable=True),
+            ]
+        },
+        "lh-src": {
+            ("dbo", "customers"): [
+                FabricColumn(name="orderid", data_type="varchar", is_nullable=False),
+                FabricColumn(name="amount", data_type="decimal", is_nullable=True),
+                FabricColumn(name="note", data_type="varchar", is_nullable=True),
+            ],
+            ("dbo", "events"): [
+                FabricColumn(name="id", data_type="varchar", is_nullable=False),
+            ],
+        },
+    }
+    schema_client = MagicMock()
+    schema_client.get_all_table_columns.return_value = columns.get(item_id, {})
+    return schema_client
+
+
+def _shortcut_tables(workspace_id: str, lakehouse_id: str) -> list[FabricTable]:
+    if lakehouse_id == "lh-origin":
+        return [
+            FabricTable(
+                name="orders",
+                schema_name="sales",
+                item_id="lh-origin",
+                workspace_id="ws-123",
+            )
+        ]
+    if lakehouse_id == "lh-src":
+        return [
+            FabricTable(
+                name="customers",
+                schema_name="dbo",
+                item_id="lh-src",
+                workspace_id="ws-123",
+            ),
+            FabricTable(
+                name="events",
+                schema_name="dbo",
+                item_id="lh-src",
+                workspace_id="ws-123",
+            ),
+        ]
+    return []
+
+
+def _shortcut_payloads(workspace_id: str, lakehouse_id: str) -> list[dict]:
+    if lakehouse_id != "lh-src":
+        return []
+    return [
+        {
+            "path": "Tables/dbo",
+            "name": "customers",
+            "target": {
+                "type": "OneLake",
+                "oneLake": {
+                    "workspaceId": "ws-123",
+                    "itemId": "lh-origin",
+                    "path": "Tables/sales/orders",
+                },
+            },
+        },
+        {
+            "path": "Tables/dbo",
+            "name": "events",
+            "target": {
+                "type": "AdlsGen2",
+                "adlsGen2": {
+                    "location": "https://account.dfs.core.windows.net",
+                    "subpath": "container/raw/events",
+                },
+            },
+        },
+    ]
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fabric_onelake_lakehouse_shortcuts(pytestconfig: pytest.Config) -> None:
+    """OneLake shortcut lineage and an ADLS shortcut that stays a tag only."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        output_file = tmp.name
+
+    try:
+        with (
+            patch.object(
+                OneLakeClient,
+                "list_workspaces",
+                return_value=[FabricWorkspace(id="ws-123", name="Test Workspace")],
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouses",
+                return_value=[
+                    FabricLakehouse(
+                        id="lh-origin",
+                        name="Origin Lakehouse",
+                        workspace_id="ws-123",
+                        type="Lakehouse",
+                    ),
+                    FabricLakehouse(
+                        id="lh-src",
+                        name="Shortcut Lakehouse",
+                        workspace_id="ws-123",
+                        type="Lakehouse",
+                    ),
+                ],
+            ),
+            patch.object(OneLakeClient, "list_warehouses", return_value=[]),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouse_tables",
+                side_effect=_shortcut_tables,
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_shortcuts",
+                side_effect=_shortcut_payloads,
+            ),
+            patch.object(
+                OneLakeClient,
+                "get_workspace_display_name",
+                return_value="Test Workspace",
+            ),
+            patch.object(
+                OneLakeClient,
+                "get_item_display_name",
+                return_value="Origin Lakehouse",
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_create_schema_client",
+                side_effect=_shortcut_schema_client,
+            ),
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "fabric-onelake",
+                        "config": {
+                            "credential": {
+                                "authentication_method": "service_principal",
+                                "client_id": "test-client",
+                                "client_secret": "test-secret",
+                                "tenant_id": "test-tenant",
+                            },
+                            "extract_views": False,
+                            "usage": {"include_usage_statistics": False},
+                            "shortcuts": {"include_lineage": True},
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": output_file},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            golden_path = (
+                Path(__file__).parent
+                / "golden"
+                / "test_fabric_onelake_lakehouse_shortcuts_golden.json"
+            )
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=output_file,
+                golden_path=str(golden_path),
+            )
+
+    finally:
+        Path(output_file).unlink(missing_ok=True)
+
+
+def _sql_server_profile() -> DatasetProfileClass:
+    """Profile shape emitted by the SQL Server profiler for a full table."""
+    return DatasetProfileClass(
+        timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
+        rowCount=5,
+        columnCount=2,
+        partitionSpec=PartitionSpecClass(
+            type=PartitionTypeClass.FULL_TABLE,
+            partition="FULL_TABLE_SNAPSHOT",
+        ),
+        fieldProfiles=[
+            DatasetFieldProfileClass(
+                fieldPath="id",
+                uniqueCount=5,
+                uniqueProportion=1.0,
+                nullCount=0,
+                nullProportion=0.0,
+                min="1",
+                max="5",
+                mean="3.0",
+                median="3.0",
+                stdev="1.5811388300841898",
+                sampleValues=["1", "2", "3", "4", "5"],
+            ),
+            DatasetFieldProfileClass(
+                fieldPath="name",
+                uniqueCount=5,
+                uniqueProportion=1.0,
+                nullCount=0,
+                nullProportion=0.0,
+                sampleValues=["a", "b", "c", "d", "e"],
+            ),
+        ],
+    )
+
+
+class _SqlServerProfiler:
+    """Stand-in for SQLAlchemyProfiler. Fabric selects it with platform mssql."""
+
+    def __init__(
+        self,
+        conn: object,
+        report: object,
+        config: object,
+        platform: str,
+        env: str = "PROD",
+        field_path_transform: object = None,
+    ) -> None:
+        self.platform = platform
+        self.env = env
+
+    def generate_profiles(
+        self,
+        requests: list,
+        max_workers: int,
+        platform: str | None = None,
+        profiler_args: object = None,
+    ):
+        assert self.platform == "mssql"
+        assert platform == "mssql"
+        yield requests[0], _sql_server_profile()
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_fabric_onelake_lakehouse_profiling(pytestconfig: pytest.Config) -> None:
+    """A profiled lakehouse table gets the SQL Server profiler's datasetProfile."""
+    schema_client = MagicMock()
+    schema_client.get_all_table_columns.return_value = {
+        ("dbo", "orders"): [
+            FabricColumn(name="id", data_type="int", is_nullable=False),
+            FabricColumn(name="name", data_type="varchar", is_nullable=True),
+        ]
+    }
+    schema_client.get_engine.return_value = MagicMock()
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+        output_file = tmp.name
+
+    try:
+        with (
+            patch.object(
+                OneLakeClient,
+                "list_workspaces",
+                return_value=[FabricWorkspace(id="ws-123", name="Test Workspace")],
+            ),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouses",
+                return_value=[
+                    FabricLakehouse(
+                        id="lh-456",
+                        name="Test Lakehouse",
+                        workspace_id="ws-123",
+                        type="Lakehouse",
+                    )
+                ],
+            ),
+            patch.object(OneLakeClient, "list_warehouses", return_value=[]),
+            patch.object(OneLakeClient, "list_shortcuts", return_value=[]),
+            patch.object(
+                OneLakeClient,
+                "list_lakehouse_tables",
+                return_value=[
+                    FabricTable(
+                        name="orders",
+                        schema_name="dbo",
+                        item_id="lh-456",
+                        workspace_id="ws-123",
+                    )
+                ],
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_create_schema_client",
+                return_value=schema_client,
+            ),
+            patch(
+                "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.SQLAlchemyProfiler",
+                _SqlServerProfiler,
+            ),
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "fabric-onelake",
+                        "config": {
+                            "credential": {
+                                "authentication_method": "service_principal",
+                                "client_id": "test-client",
+                                "client_secret": "test-secret",
+                                "tenant_id": "test-tenant",
+                            },
+                            "extract_views": False,
+                            "usage": {"include_usage_statistics": False},
+                            "profiling": {"enabled": True},
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": output_file},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            golden_path = (
+                Path(__file__).parent
+                / "golden"
+                / "test_fabric_onelake_lakehouse_profiling_golden.json"
+            )
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=output_file,
+                golden_path=str(golden_path),
             )
 
     finally:
