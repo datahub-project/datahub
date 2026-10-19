@@ -18,6 +18,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     flattenable_query,
+    gate_query,
     single_row_query,
 )
 
@@ -62,6 +63,7 @@ class ProfilingConnection:
         table: Any,
         expr: ColumnElement[Any],
         literal_is_aggregate: bool = False,
+        gate: bool = False,
     ) -> Any:
         """Execute one aggregate over a whole table.
 
@@ -92,7 +94,10 @@ class ProfilingConnection:
             )
             return self._conn.execute(query)
 
-        return self._conn.execute(flattenable_query(single_row_query(query)))
+        tagged = flattenable_query(single_row_query(query))
+        if gate:
+            tagged = gate_query(tagged)
+        return self._conn.execute(tagged)
 
     def execute_single_row(self, query: Any) -> Any:
         """Execute a query you built yourself that returns exactly one row.
@@ -403,7 +408,9 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        count_result: Any = conn.execute_aggregate(table, sa.func.count()).scalar()
+        count_result: Any = conn.execute_aggregate(
+            table, sa.func.count(), gate=True
+        ).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0

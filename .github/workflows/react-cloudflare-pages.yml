@@ -50,7 +50,7 @@ jobs:
       contents: read
       deployments: write
       pull-requests: write
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: setup
     if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
     steps:
@@ -136,7 +136,8 @@ jobs:
       # Runs LAST because it is destructive: it checks out the base commit's src/ and rebuilds
       # dist/ in place (without -Psourcemap) to measure the base bundle size. It must run after
       # Publish so Cloudflare deploys the real PR build WITH sourcemaps — otherwise the maps
-      # Meticulous needs are overwritten before deploy. continue-on-error keeps a measurement
+      # Meticulous needs are overwritten before deploy. Copies both dist/ trees aside
+      # for the boot-only Lighthouse A/B step. continue-on-error keeps a measurement
       # failure from blocking the deploy.
       - name: Report initial JS bundle size
         if: ${{ needs.setup.outputs.frontend_change == 'true' && github.event_name == 'pull_request' }}
@@ -146,46 +147,131 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Measure PR bundle (dist already built by Gradle above)
-          PR_BYTES=$(cd datahub-web-react && yarn --silent size --json 2>/dev/null \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['size'])")
+          ROOT="$GITHUB_WORKSPACE"
+          cd datahub-web-react
+          # Publish needed sourcemaps, but the comparison must use equivalent production
+          # builds. Rebuild the PR without -Psourcemap before measuring or copying it.
+          CI=false NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' \
+            npx vite build --mode production 2>/dev/null
+
+          mkdir -p "$ROOT/e2e-test/perf/vitals/builds/pr" "$ROOT/e2e-test/perf/vitals/builds/base"
+          rm -rf "$ROOT/e2e-test/perf/vitals/builds/pr/dist"
+          cp -a dist "$ROOT/e2e-test/perf/vitals/builds/pr/dist"
 
           # Checkout base commit's src/ only — keeps PR's node_modules, vite.config, package.json
+          cd "$ROOT"
           git fetch origin "$BASE_SHA" --depth=1 2>/dev/null
           git checkout "$BASE_SHA" -- datahub-web-react/src
 
           # Build base (skip codegen — generated types are close enough for size measurement)
           cd datahub-web-react
-          CI=false NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' \
+          CI=false NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' \
             npx vite build --mode production 2>/dev/null
 
-          # Measure base bundle
-          BASE_BYTES=$(yarn --silent size --json 2>/dev/null \
-            | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['size'])")
+          rm -rf "$ROOT/e2e-test/perf/vitals/builds/base/dist"
+          cp -a dist "$ROOT/e2e-test/perf/vitals/builds/base/dist"
 
-          # Format sizes and diff
-          fmt_bytes() { awk "BEGIN {b=$1; if(b>=1048576) printf \"%.2f MB\",b/1048576; else printf \"%.0f KB\",b/1024}"; }
-          PR_DISPLAY=$(fmt_bytes "$PR_BYTES")
-          BASE_DISPLAY=$(fmt_bytes "$BASE_BYTES")
-          DIFF_BYTES=$((PR_BYTES - BASE_BYTES))
-          DIFF_ABS=$(( DIFF_BYTES < 0 ? -DIFF_BYTES : DIFF_BYTES ))
-          if [ "$DIFF_BYTES" -ge 0 ]; then SIGN_STR="+"; else SIGN_STR="-"; fi
-          DIFF_KB=$(awk "BEGIN {printf \"%.0f\", $DIFF_ABS/1024}")
-          PCT=$(awk "BEGIN {printf \"%.1f\", ($DIFF_ABS/$BASE_BYTES)*100}")
-          if [ "$DIFF_BYTES" -gt 2048 ]; then ICON="🔺"
-          elif [ "$DIFF_BYTES" -lt -2048 ]; then ICON="🟢"
-          else ICON="➡️"; fi
-          DIFF_STR="${SIGN_STR}${DIFF_KB} KB (${SIGN_STR}${PCT}%)"
-          BASE_SHORT="${BASE_SHA:0:7}"
+          # Login is index.html. Logged-in pages add the AuthenticatedApp shell
+          # and the lazy route chunks. Sizes come from each dist's Vite manifest.
+          BODY=$(node "$ROOT/datahub-web-react/scripts/page-bundle-size.mjs" \
+            --base-dist "$ROOT/e2e-test/perf/vitals/builds/base/dist" \
+            --pr-dist "$ROOT/e2e-test/perf/vitals/builds/pr/dist" \
+            --base-sha "$BASE_SHA")
+          echo "$BODY"
 
-          BODY="## Initial JS bundle size ${ICON}
-          | | Gzipped |
-          |---|---|
-          | Base (\`${BASE_SHORT}\`) | ${BASE_DISPLAY} |
-          | This PR | ${PR_DISPLAY} |
-          | **Diff** | **${DIFF_STR}** |
-
-          > Gzip of the \`<script>\` and modulepreload JS in \`dist/index.html\`. Codecov reports total bundle including lazy chunks — these intentionally differ."
-
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY" --edit-last \
-            || gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          SIZE_BODY=$(mktemp)
+          printf '%s\n\n%s\n' '<!-- initial-js-bundle-size -->' "$BODY" > "$SIZE_BODY"
+          python3 "$ROOT/.github/scripts/upsert_pr_comment.py" \
+            '<!-- initial-js-bundle-size -->' "$SIZE_BODY" "$PR_NUMBER" "$GITHUB_REPOSITORY"
+      - name: Set up Node for web-vitals
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) }}
+        continue-on-error: true
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Cache Puppeteer Chrome
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) }}
+        continue-on-error: true
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('e2e-test/perf/vitals/package-lock.json') }}
+          restore-keys: puppeteer-${{ runner.os }}-
+      - name: Report boot web vitals
+        # No GMS. Pull requests compare the two dist/ copies from the size step.
+        # Pushes to master measure only the head tree. Does not replace the gzip comment.
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PUPPETEER_CACHE_DIR: ${{ github.workspace }}/.cache/puppeteer
+          # Must match this job's runs-on label. runs-on cannot read env, and
+          # RUNNER_NAME changes every job, so the class is written here explicitly.
+          LAB_RUNNER: ubuntu-22.04
+        run: |
+          ROOT="$GITHUB_WORKSPACE"
+          export PUPPETEER_CACHE_DIR="${PUPPETEER_CACHE_DIR:-$HOME/.cache/puppeteer}"
+          cd "$ROOT/e2e-test/perf/vitals"
+          npm ci
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            # Publish already uploaded the sourcemap dist. Measure the same
+            # map-free production build the PR job copies, for this commit only.
+            cd "$ROOT/datahub-web-react"
+            CI=false NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' \
+              npx vite build --mode production 2>/dev/null
+            mkdir -p "$ROOT/e2e-test/perf/vitals/builds/head"
+            rm -rf "$ROOT/e2e-test/perf/vitals/builds/head/dist"
+            cp -a dist "$ROOT/e2e-test/perf/vitals/builds/head/dist"
+            cd "$ROOT/e2e-test/perf/vitals"
+            mkdir -p results
+            # One line: a multiline python -c inside this block scalar is either
+            # invalid YAML or indented Python, depending on the spaces.
+            python3 -c 'import json, os; sha = os.environ["HEAD_SHA"]; short = sha[:7]; cfg = {"backendUrl": "stub", "auth": {"mode": "anonymous"}, "builds": {"A": {"label": f"master@{short}", "dist": "builds/head/dist", "port": 8181, "commit": sha}}, "routes": [{"name": "boot", "path": "/login"}], "runsPerBuild": 3, "warmupRunsPerBuild": 1, "formFactor": "desktop", "viewport": {"width": 1350, "height": 940}, "throttling": {"method": "simulate", "cpuSlowdownMultiplier": 1, "rttMs": 40, "throughputKbps": 10240, "requestLatencyMs": 150, "downloadThroughputKbps": 10240, "uploadThroughputKbps": 10240}}; open("results/ci-main.config.json", "w").write(json.dumps(cfg, indent=2) + "\n")'
+            set +e
+            node lh-ab.mjs --config results/ci-main.config.json --no-auth \
+              --out results/ci-boot.json --md-out results/ci-boot.md
+            LH_RC=$?
+            set -e
+            if [ -f results/ci-boot.json ]; then
+              python3 -c 'import json, os; path = "results/ci-boot.json"; report = json.load(open(path)); report["release"] = "master@" + os.environ["HEAD_SHA"][:7]; open(path, "w").write(json.dumps(report, indent=2) + "\n")'
+            fi
+            exit "$LH_RC"
+          fi
+          PR_DIST="$ROOT/e2e-test/perf/vitals/builds/pr/dist/index.html"
+          BASE_DIST="$ROOT/e2e-test/perf/vitals/builds/base/dist/index.html"
+          if [ ! -f "$PR_DIST" ] || [ ! -f "$BASE_DIST" ]; then
+            echo "Skipping boot vitals: missing dist copies (size step did not produce both builds)"
+            exit 0
+          fi
+          node stamp-ci-config.mjs
+          set +e
+          node lh-ab.mjs --config config.ci.run.json --no-auth \
+            --out results/ci-boot.json --md-out results/ci-boot.md
+          LH_RC=$?
+          set -e
+          if [ ! -f results/ci-boot.md ]; then
+            echo "web-vitals runner produced no markdown (exit ${LH_RC})" > results/ci-boot.md
+          fi
+          {
+            echo '<!-- web-vitals-boot-ab -->'
+            echo '## Boot web vitals (no backend)'
+            echo
+            echo 'Unauthenticated /login against the two dist/ trees from this job. No GMS — this is eager JS, not search/dataset payload. Lantern, desktop, 1x CPU. Does not forecast fleet p75; do not gate on LCP.'
+            echo
+            cat results/ci-boot.md
+          } > results/ci-boot-comment.md
+          python3 "$ROOT/.github/scripts/upsert_pr_comment.py" \
+            '<!-- web-vitals-boot-ab -->' results/ci-boot-comment.md "$PR_NUMBER" "$GITHUB_REPOSITORY"
+          exit "$LH_RC"
+      - name: Upload boot web vitals
+        if: ${{ needs.setup.outputs.frontend_change == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) }}
+        continue-on-error: true
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ${{ github.event_name == 'push' && 'vitals-boot-master' || format('vitals-boot-pr-{0}', github.event.pull_request.number) }}
+          path: e2e-test/perf/vitals/results/ci-boot.json
+          retention-days: 30
+          if-no-files-found: ignore
