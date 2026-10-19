@@ -777,13 +777,23 @@ public class LineageServiceTest {
     dataJobProposal.setAspectName(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
     dataJobProposal.setAspect(GenericRecordUtils.serializeAspect(expectedDataJobInputOutput));
     dataJobProposal.setChangeType(ChangeType.UPSERT);
-    Mockito.verify(_mockClient, Mockito.times(1))
-        .ingestProposal(any(OperationContext.class), eq(dataJobProposal), eq(false));
+    final MetadataChangeProposal repositoryProposal = new MetadataChangeProposal();
+    repositoryProposal.setEntityUrn(datajobUrn1);
+    repositoryProposal.setEntityType(Constants.DATA_JOB_ENTITY_NAME);
+    repositoryProposal.setAspectName(Constants.REPOSITORY_LINEAGE_ASPECT_NAME);
+    repositoryProposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1))));
+    repositoryProposal.setChangeType(ChangeType.UPSERT);
 
-    verifyRepositoryLineageProposal(
-        datajobUrn1,
-        Constants.DATA_JOB_ENTITY_NAME,
-        createRepositoryLineage(datajobUrn1, Collections.singletonList(repositoryUrn1)));
+    // Both aspects go out in one batch so a failure on either leaves nothing half-written.
+    Mockito.verify(_mockClient, Mockito.times(1))
+        .batchIngestProposals(
+            any(OperationContext.class),
+            eq(List.of(dataJobProposal, repositoryProposal)),
+            eq(false));
+    Mockito.verify(_mockClient, Mockito.never())
+        .ingestProposal(any(OperationContext.class), any(MetadataChangeProposal.class), eq(false));
   }
 
   // Existing repositoryLineage has repo1 and repo2; removing repo1 should leave only repo2.

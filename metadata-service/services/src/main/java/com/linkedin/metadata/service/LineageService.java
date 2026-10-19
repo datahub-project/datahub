@@ -31,6 +31,7 @@ import com.linkedin.repository.RepositoryLineage;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -688,25 +689,27 @@ public class LineageService {
 
     final List<Urn> remainingToAdd = filterOutRepositoryUrns(upstreamUrnsToAdd);
     final List<Urn> remainingToRemove = filterOutRepositoryUrns(upstreamUrnsToRemove);
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
     if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
       try {
-        MetadataChangeProposal changeProposal =
+        proposals.add(
             buildDataJobUpstreamLineageProposal(
-                opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
-        _entityClient.ingestProposal(opContext, changeProposal, false);
+                opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor));
       } catch (Exception e) {
         throw new RuntimeException(
             String.format("Failed to update dataJob lineage for urn %s", downstreamUrn), e);
       }
     }
 
-    updateRepositoryLineageIfPresent(
-        opContext,
-        Constants.DATA_JOB_ENTITY_NAME,
-        downstreamUrn,
-        upstreamUrnsToAdd,
-        upstreamUrnsToRemove,
-        actor);
+    buildRepositoryLineageProposalIfPresent(
+            opContext,
+            Constants.DATA_JOB_ENTITY_NAME,
+            downstreamUrn,
+            upstreamUrnsToAdd,
+            upstreamUrnsToRemove,
+            actor)
+        .ifPresent(proposals::add);
+    ingestLineageProposals(opContext, downstreamUrn, proposals);
   }
 
   private static void requireRepositoryUrns(@Nonnull final List<Urn> urns) {
@@ -738,21 +741,26 @@ public class LineageService {
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
-    updateRepositoryLineageIfPresent(
-        opContext,
-        Constants.DATA_FLOW_ENTITY_NAME,
-        downstreamUrn,
-        upstreamUrnsToAdd,
-        upstreamUrnsToRemove,
-        actor);
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
+    buildRepositoryLineageProposalIfPresent(
+            opContext,
+            Constants.DATA_FLOW_ENTITY_NAME,
+            downstreamUrn,
+            upstreamUrnsToAdd,
+            upstreamUrnsToRemove,
+            actor)
+        .ifPresent(proposals::add);
+    ingestLineageProposals(opContext, downstreamUrn, proposals);
   }
 
   /**
-   * Writes the repositoryLineage aspect for {@code entityUrn} (a dataJob or dataFlow) if either
-   * upstream list contains at least one repository-typed urn -- avoids an unnecessary write on the
-   * overwhelmingly common case where no repository is involved at all.
+   * Builds the repositoryLineage proposal for {@code downstreamUrn} (a dataJob or dataFlow) when
+   * either upstream list contains at least one repository-typed urn. Empty otherwise, so the
+   * overwhelmingly common case where no repository is involved never reads or writes the aspect.
+   * The caller ingests it, together with any dataJobInputOutput proposal from the same edit, in a
+   * single batch.
    */
-  private void updateRepositoryLineageIfPresent(
+  private Optional<MetadataChangeProposal> buildRepositoryLineageProposalIfPresent(
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final Urn downstreamUrn,
@@ -769,22 +777,45 @@ public class LineageService {
             .filter(urn -> urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME))
             .collect(Collectors.toList());
     if (repositoryUrnsToAdd.isEmpty() && repositoryUrnsToRemove.isEmpty()) {
-      return;
+      return Optional.empty();
     }
 
     try {
-      MetadataChangeProposal changeProposal =
+      return Optional.of(
           buildRepositoryLineageProposal(
               opContext,
               entityName,
               downstreamUrn,
               repositoryUrnsToAdd,
               repositoryUrnsToRemove,
-              actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+              actor));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update repository lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Ingests the proposals produced by one upstream edit. A mixed edit touches two aspects on the
+   * same urn (dataJobInputOutput and repositoryLineage); sending them as one batch keeps the write
+   * atomic, so a failure on the second aspect cannot leave the first one committed.
+   */
+  private void ingestLineageProposals(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<MetadataChangeProposal> proposals) {
+    if (proposals.isEmpty()) {
+      return;
+    }
+    try {
+      if (proposals.size() == 1) {
+        _entityClient.ingestProposal(opContext, proposals.get(0), false);
+      } else {
+        _entityClient.batchIngestProposals(opContext, proposals, false);
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update lineage for urn %s", downstreamUrn), e);
     }
   }
 
