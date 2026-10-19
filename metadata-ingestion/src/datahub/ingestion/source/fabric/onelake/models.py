@@ -22,7 +22,10 @@ class FabricItem:
     type: Literal["Lakehouse", "Warehouse"]  # Item type
     workspace_id: str
     description: Optional[str] = None
-    # TODO: Add support for shortcuts when available in API
+    # userPrincipalName from the item default identity, when it is a user.
+    owner_user_principal_name: Optional[str] = None
+    # sensitivityLabel.id. The name and description come from Microsoft Graph.
+    sensitivity_label_id: Optional[str] = None
 
 
 @dataclass

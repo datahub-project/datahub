@@ -30,6 +30,10 @@ from datahub.ingestion.source.fabric.common.models import (
     ItemJobStatus,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.common.sensitivity import (
+    SENSITIVITY_LABEL_CAPABILITY,
+    SensitivityLabelEmitter,
+)
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_activity_job_id,
     make_activity_job_urn,
@@ -41,6 +45,7 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.common.utils import (
     build_workspace_container,
     make_workspace_key,
+    owners_from_user_principal_name,
     parse_iso_datetime,
 )
 from datahub.ingestion.source.fabric.data_factory.client import (
@@ -70,7 +75,7 @@ from datahub.metadata.schema_classes import (
     DataProcessTypeClass,
     EdgeClass,
 )
-from datahub.metadata.urns import DataFlowUrn, DataJobUrn
+from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity
@@ -158,6 +163,16 @@ def _parse_iso_to_millis(iso_str: str) -> int:
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
+    SourceCapability.OWNERSHIP,
+    "Optionally enabled via `extract_owners`. Item default identity "
+    "userPrincipalName, when the identity is a user. An item with no "
+    "default identity uses creatorPrincipal from the admin item API. "
+    "`extract_owners.ownership_type` sets the DataHub ownership type. "
+    "Children inherit it when `extract_owners.cascade_ownership` is true.",
+)
+@capability(SourceCapability.TAGS, SENSITIVITY_LABEL_CAPABILITY)
+@capability(SourceCapability.GLOSSARY_TERMS, SENSITIVITY_LABEL_CAPABILITY)
+@capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default via Copy and InvokePipeline activities",
 )
@@ -183,6 +198,14 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             auth_helper,
             timeout=config.api_timeout,
             report=self.client_report,
+            include_owners=config.extract_owners.enabled,
+            include_sensitivity_labels=config.extract_sensitivity_label.enabled,
+        )
+        self._labels = SensitivityLabelEmitter(
+            enabled=config.extract_sensitivity_label.enabled,
+            output=config.extract_sensitivity_label.output,
+            auth_helper=auth_helper,
+            timeout=config.api_timeout,
         )
         self.report.client_report = self.client_report
 
@@ -363,6 +386,30 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             f"/pipelines/{pipeline_id}/{run_id}"
         )
 
+    def _owners(
+        self,
+        user_principal_name: Optional[str],
+        *,
+        parent_user_principal_name: Optional[str] = None,
+    ) -> Optional[list[tuple[CorpUserUrn, str]]]:
+        """Owners for this entity, falling back to the parent when cascading."""
+        if not self.config.extract_owners.enabled:
+            return None
+        return owners_from_user_principal_name(
+            user_principal_name,
+            parent_user_principal_name=parent_user_principal_name,
+            ownership_type=self.config.extract_owners.ownership_type,
+            cascade=self.config.extract_owners.cascade_ownership,
+        )
+
+    def _attach_sensitivity(
+        self, entity: Entity, label_id: Optional[str]
+    ) -> Iterable[Entity]:
+        labels = getattr(self, "_labels", None)
+        if labels is None:
+            return []
+        return labels.attach(entity, label_id)
+
     def _emit_pipelines(
         self,
         workspace: FabricWorkspace,
@@ -397,7 +444,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     "workspace_id": workspace.id,
                 },
                 parent_container=workspace_key,
+                owners=self._owners(item.owner_user_principal_name),
             )
+            yield from self._attach_sensitivity(dataflow, item.sensitivity_label_id)
             yield dataflow
 
             yield from self._emit_pipeline_activities(
@@ -526,6 +575,10 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     ]
                     if has_io
                     else None,
+                    owners=self._owners(
+                        None,
+                        parent_user_principal_name=pipeline_item.owner_user_principal_name,
+                    ),
                 )
                 datajob._set_container(workspace_key)
 

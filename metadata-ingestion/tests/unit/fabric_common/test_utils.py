@@ -1,7 +1,15 @@
 """Unit tests for shared Fabric connector utilities."""
 
-from datahub.ingestion.source.fabric.common.models import FabricWorkspace
-from datahub.ingestion.source.fabric.common.utils import build_workspace_container
+from datahub.ingestion.source.fabric.common.models import (
+    FabricWorkspace,
+    default_identity_user_principal_name,
+    item_owner_user_principal_name,
+)
+from datahub.ingestion.source.fabric.common.utils import (
+    build_workspace_container,
+    owners_from_user_principal_name,
+)
+from datahub.metadata.urns import CorpUserUrn
 
 
 def test_workspace_container_includes_external_url() -> None:
@@ -24,4 +32,72 @@ def test_workspace_container_includes_external_url() -> None:
     assert (
         container.external_url
         == f"https://app.fabric.microsoft.com/groups/{workspace.id}/list"
+    )
+
+
+def test_default_identity_user_principal_name() -> None:
+    item = {
+        "defaultIdentity": {
+            "id": "obj-1",
+            "displayName": "Jane Doe",
+            "type": "User",
+            "userDetails": {"userPrincipalName": "jane.doe@contoso.com"},
+        }
+    }
+
+    assert default_identity_user_principal_name(item) == "jane.doe@contoso.com"
+    assert default_identity_user_principal_name({}) is None
+    assert (
+        default_identity_user_principal_name(
+            {"defaultIdentity": {"type": "ServicePrincipal"}}
+        )
+        is None
+    )
+    assert (
+        item_owner_user_principal_name(
+            {
+                "creatorPrincipal": {
+                    "type": "User",
+                    "userDetails": {"userPrincipalName": "owner@contoso.com"},
+                }
+            }
+        )
+        == "owner@contoso.com"
+    )
+    assert (
+        item_owner_user_principal_name(
+            {
+                "defaultIdentity": {
+                    "userDetails": {"userPrincipalName": "identity@contoso.com"}
+                },
+                "creatorPrincipal": {
+                    "userDetails": {"userPrincipalName": "owner@contoso.com"}
+                },
+            }
+        )
+        == "identity@contoso.com"
+    )
+    assert owners_from_user_principal_name("jane.doe@contoso.com") == [
+        (CorpUserUrn("jane.doe@contoso.com"), "TECHNICAL_OWNER")
+    ]
+    assert owners_from_user_principal_name(None) is None
+    assert owners_from_user_principal_name(
+        None,
+        parent_user_principal_name="jane.doe@contoso.com",
+        ownership_type="BUSINESS_OWNER",
+        cascade=True,
+    ) == [(CorpUserUrn("jane.doe@contoso.com"), "BUSINESS_OWNER")]
+    assert owners_from_user_principal_name(
+        "child@contoso.com",
+        parent_user_principal_name="jane.doe@contoso.com",
+        ownership_type="DATA_STEWARD",
+        cascade=True,
+    ) == [(CorpUserUrn("child@contoso.com"), "DATA_STEWARD")]
+    assert (
+        owners_from_user_principal_name(
+            None,
+            parent_user_principal_name="jane.doe@contoso.com",
+            cascade=False,
+        )
+        is None
     )

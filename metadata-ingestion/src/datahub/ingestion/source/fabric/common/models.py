@@ -9,7 +9,7 @@ References:
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Mapping, Optional
 
 from pydantic import model_validator
 
@@ -79,6 +79,77 @@ class FabricItem:
     type: str  # e.g. "DataPipeline", "CopyJob", "Dataflow", "Lakehouse", "Warehouse"
     workspace_id: str
     description: Optional[str] = None
+    # userPrincipalName from defaultIdentity, when the item has a user identity.
+    owner_user_principal_name: Optional[str] = None
+    # sensitivityLabel.id. The name and description come from Microsoft Graph.
+    sensitivity_label_id: Optional[str] = None
+
+
+def _user_principal_name_from_principal(principal: object) -> Optional[str]:
+    """Return userDetails.userPrincipalName when the principal is a user."""
+    if not isinstance(principal, dict):
+        return None
+    user_details = principal.get("userDetails") or {}
+    if not isinstance(user_details, dict):
+        return None
+    user_principal_name = user_details.get("userPrincipalName")
+    if isinstance(user_principal_name, str) and user_principal_name:
+        return user_principal_name
+    return None
+
+
+def default_identity_user_principal_name(item: Mapping[str, object]) -> Optional[str]:
+    """Return the item default identity's userPrincipalName, if present.
+
+    Service principals and items without a default identity have no UPN.
+    """
+    return _user_principal_name_from_principal(item.get("defaultIdentity"))
+
+
+def item_owner_user_principal_name(item: Mapping[str, object]) -> Optional[str]:
+    """Return a user principal name for an item owner.
+
+    Lakehouses expose the owner as ``defaultIdentity``. Warehouses and
+    notebooks often have no default identity; their owner is
+    ``creatorPrincipal`` on the admin item API.
+    """
+    for key in ("defaultIdentity", "creatorPrincipal", "owner"):
+        user_principal_name = _user_principal_name_from_principal(item.get(key))
+        if user_principal_name:
+            return user_principal_name
+    return None
+
+
+def sensitivity_label_id(item: Mapping[str, object]) -> Optional[str]:
+    """Return ``sensitivityLabel.id`` when the item payload includes one.
+
+    Fabric returns only the label GUID. The name and description are resolved
+    separately from Microsoft Graph.
+    """
+    label = item.get("sensitivityLabel") or {}
+    if not isinstance(label, dict):
+        return None
+    label_id = label.get("id")
+    if isinstance(label_id, str) and label_id:
+        return label_id
+    return None
+
+
+@dataclass
+class FabricItemAnnotations:
+    """Owner and sensitivity label read from an item payload."""
+
+    owner_user_principal_name: Optional[str] = None
+    sensitivity_label_id: Optional[str] = None
+
+
+def item_has_principal(item: Mapping[str, object]) -> bool:
+    """True when the payload already names an identity, including a service principal."""
+    for key in ("defaultIdentity", "creatorPrincipal", "owner"):
+        principal = item.get(key)
+        if isinstance(principal, dict) and principal:
+            return True
+    return False
 
 
 class ItemJobStatus(StrEnum):

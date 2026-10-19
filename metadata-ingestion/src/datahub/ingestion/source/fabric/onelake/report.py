@@ -7,6 +7,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
+from datahub.ingestion.source.sql.sql_report import DetailedProfilerReportMixin
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombinerReport,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -31,7 +35,9 @@ class FabricOneLakeClientReport(FabricClientReport):
 
 
 @dataclass
-class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
+class FabricOneLakeSourceReport(
+    DetailedProfilerReportMixin, StaleEntityRemovalSourceReport
+):
     """Ingestion report for Fabric OneLake source.
 
     Tracks metrics specific to OneLake ingestion including counts of
@@ -44,7 +50,10 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     warehouses_scanned: int = 0
     schemas_scanned: int = 0
     tables_scanned: int = 0
+    shortcuts_found: int = 0
     views_scanned: int = 0
+    notebooks_scanned: int = 0
+    entities_profiled: int = 0
 
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
@@ -53,6 +62,9 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     filtered_schemas: LossyList[str] = field(default_factory=LossyList)
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
+    filtered_notebooks: LossyList[str] = field(default_factory=LossyList)
+    # Tables and columns skipped by profile_pattern or profiler limits.
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     # Views whose definition was unavailable (e.g. caller lacks
     # `VIEW DEFINITION` permission); their lineage cannot be parsed.
@@ -70,6 +82,7 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
 
     # SQL parsing aggregator report (lineage / view parsing metrics)
     sql_aggregator: Optional["SqlAggregatorReport"] = None
+    query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
 
     num_usage_queries_fetched: int = 0
     num_usage_queries_skipped: TopKDict[str, int] = field(default_factory=TopKDict)
@@ -134,9 +147,28 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
         """Record a filtered view."""
         self.filtered_views.append(view_name)
 
+    def report_notebook_scanned(self) -> None:
+        """Increment notebooks scanned counter."""
+        self.notebooks_scanned += 1
+
+    def report_notebook_filtered(self, notebook_path: str) -> None:
+        """Record a notebook excluded by notebook_pattern."""
+        self.filtered_notebooks.append(notebook_path)
+
     def report_view_missing_definition(self, view_name: str) -> None:
         """Record a view whose SQL definition was unavailable for lineage parsing."""
         self.views_missing_definition.append(view_name)
+
+    def report_entity_profiled(self, name: str) -> None:
+        self.entities_profiled += 1
+
+    def report_dropped(self, ent_name: str) -> None:
+        self.filtered.append(ent_name)
+
+    def report_from_query_combiner(
+        self, query_combiner_report: SQLAlchemyQueryCombinerReport
+    ) -> None:
+        self.query_combiner = query_combiner_report
 
     def report_api_call(self) -> None:
         """Track an API call."""

@@ -61,6 +61,37 @@ class TestFabricAuthHelper:
             assert mock_credential.get_token.call_count == 1
 
     @patch("time.time")
+    def test_token_cache_is_per_scope(self, mock_time: MagicMock) -> None:
+        """A Graph token must not replace the cached Fabric token."""
+        mock_time.return_value = 1000.0
+
+        config = AzureCredentialConfig(
+            authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
+            client_id="test-client",
+            client_secret="test-secret",
+            tenant_id="test-tenant",
+        )
+        helper = FabricAuthHelper(config)
+
+        fabric_token = MagicMock()
+        fabric_token.token = "fabric-token"
+        fabric_token.expires_on = 2000.0
+        graph_token = MagicMock()
+        graph_token.token = "graph-token"
+        graph_token.expires_on = 2000.0
+
+        mock_credential = MagicMock()
+        mock_credential.get_token.side_effect = [fabric_token, graph_token]
+        with patch.object(helper, "get_credential", return_value=mock_credential):
+            assert helper.get_bearer_token() == "fabric-token"
+            assert (
+                helper.get_bearer_token("https://graph.microsoft.com/.default")
+                == "graph-token"
+            )
+            assert helper.get_bearer_token() == "fabric-token"
+            assert mock_credential.get_token.call_count == 2
+
+    @patch("time.time")
     def test_token_refresh_on_expiry(self, mock_time: MagicMock) -> None:
         """Token should be refreshed when expired."""
         mock_time.return_value = 1000.0

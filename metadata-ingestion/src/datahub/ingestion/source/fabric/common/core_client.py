@@ -29,8 +29,16 @@ class FabricCoreClient(BaseFabricClient):
         auth_helper: FabricAuthHelper,
         timeout: int = 30,
         report: Optional[FabricClientReport] = None,
+        include_owners: bool = True,
+        include_sensitivity_labels: bool = False,
     ):
-        super().__init__(auth_helper, timeout, report)
+        super().__init__(
+            auth_helper,
+            timeout,
+            report,
+            include_owners=include_owners,
+            include_sensitivity_labels=include_sensitivity_labels,
+        )
 
     def get_base_endpoint(self) -> str:
         return "workspaces"
@@ -80,12 +88,18 @@ class FabricCoreClient(BaseFabricClient):
             f"workspaces/{workspace_id}/items", params=params
         ):
             try:
+                item_id = item_data["id"]
+                annotations = self.get_item_annotations(
+                    workspace_id, item_id, listed=item_data
+                )
                 yield FabricItem(
-                    id=item_data["id"],
+                    id=item_id,
                     name=item_data.get("displayName", ""),
                     type=item_data.get("type", item_type or ""),
                     workspace_id=workspace_id,
                     description=item_data.get("description"),
+                    owner_user_principal_name=annotations.owner_user_principal_name,
+                    sensitivity_label_id=annotations.sensitivity_label_id,
                 )
             except KeyError as e:
                 self.report.report_parse_failure(
