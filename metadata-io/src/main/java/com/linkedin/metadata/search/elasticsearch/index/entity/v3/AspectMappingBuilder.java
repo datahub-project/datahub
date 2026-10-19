@@ -3,7 +3,9 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
+import static com.linkedin.metadata.search.utils.ESUtils.INDEX;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.TEXT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
@@ -79,6 +81,15 @@ public class AspectMappingBuilder {
                 // Add system metadata to each aspect using the projector's serialized field name.
                 aspectFields.put(
                     V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
+              }
+              if (aspectSpec.getAspectAnnotation() != null
+                  && aspectSpec.getAspectAnnotation().isAspectJson()) {
+                // A string so doc_as_upsert replaces the aspect JSON. An object would merge, and
+                // a cleared field would stay in _source.
+                Map<String, Object> stored = new HashMap<>();
+                stored.put(TYPE, TEXT_FIELD_TYPE);
+                stored.put(INDEX, false);
+                aspectFields.put(V3SearchDocumentProjector.ASPECT_JSON_FIELD, stored);
               }
 
               if (!aspectFields.isEmpty()) {
