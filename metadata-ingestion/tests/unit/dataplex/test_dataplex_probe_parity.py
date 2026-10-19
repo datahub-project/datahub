@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterator, List, Set
 from unittest import mock
 
 import pytest
+from google.auth.credentials import AnonymousCredentials
 from google.cloud import dataplex_v1
 
 from datahub.metadata.urns import DatasetUrn
@@ -23,6 +24,17 @@ from tests.test_helpers.probe_parity import (
 # the CLI does; a secret an earlier test registered could otherwise redact a
 # fixture identifier.
 pytestmark = pytest.mark.usefixtures("_isolate_secret_registry")
+
+
+@pytest.fixture(autouse=True)
+def _no_application_default_credentials() -> Iterator[None]:
+    # Ingestion and the probe both fall back to Application Default Credentials;
+    # CI has none, and the fake catalog needs none.
+    with mock.patch(
+        "google.auth.default", return_value=(AnonymousCredentials(), PROJECT)
+    ):
+        yield
+
 
 PROJECT = "proj-a"
 LOCATION = f"projects/{PROJECT}/locations/us"
