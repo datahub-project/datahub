@@ -791,7 +791,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.platform),
-                instance=self.config.platform_instance,
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance is not None
+                else None,
             ),
         )
 
