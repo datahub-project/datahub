@@ -4,10 +4,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor as MarkdownEditor } from '@components/components/Editor';
+
 import { QueryBuilderState } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import { useMonacoTheme } from '@app/theme/useMonacoTheme';
-import { Editor as MarkdownEditor } from '@src/alchemy-components';
 
 const EditorWrapper = styled.div`
     border: 1px solid ${(props) => props.theme.colors.border};

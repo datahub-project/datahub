@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -18,6 +17,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
@@ -47,7 +48,6 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
-import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -59,28 +59,25 @@ public class AggregationQueryBuilder {
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
-  private final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
+  protected final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
 
-  /** Search V3 documents store their entity type; V2 derives it from the index name. */
-  private final boolean v3KeywordReadEnabled;
+  @Nullable private final SearchFieldResolver v3FieldResolver;
 
   private Map<String, String> filtersToDisplayName;
 
-  /** V2 facets only; production passes the V3 read decision through the other constructor. */
-  @VisibleForTesting
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
-    this(configs, entitySearchAnnotations, false);
+    this(configs, entitySearchAnnotations, null);
   }
 
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
-      final boolean v3KeywordReadEnabled) {
+      @Nullable SearchFieldResolver v3FieldResolver) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
-    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
+    this.v3FieldResolver = v3FieldResolver;
 
     List<SearchableAnnotation> annotations =
         this.entitySearchAnnotations.values().stream()
@@ -201,33 +198,20 @@ public class AggregationQueryBuilder {
     return lastAggBuilder;
   }
 
-  /** V3 documents store their entity type; V2 derives it from the index name. */
-  private String entityTypeField() {
-    return v3KeywordReadEnabled ? INDEX_VIRTUAL_FIELD : ES_INDEX_FIELD;
+  /** V2 derives the entity type from the index name. Search V3 overrides this. */
+  protected String entityTypeField() {
+    return ES_INDEX_FIELD;
   }
 
-  private TermsAggregationBuilder entityTypeAggregation(
+  protected TermsAggregationBuilder entityTypeAggregation(
       @Nonnull OperationContext opContext, @Nonnull String name, int maxTermBuckets) {
-    TermsAggregationBuilder aggBuilder =
-        AggregationBuilders.terms(name)
-            .field(
-                getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
-            .size(maxTermBuckets)
-            .minDocCount(0);
-    if (v3KeywordReadEnabled) {
-      // A V3 index can hold several entity types. Report only the requested ones, including those
-      // without hits, like the per-index buckets on V2.
-      aggBuilder.includeExclude(
-          new IncludeExclude(
-              entitySearchAnnotations.keySet().stream()
-                  .map(EntitySpec::getName)
-                  .toArray(String[]::new),
-              null));
-    }
-    return aggBuilder;
+    return AggregationBuilders.terms(name)
+        .field(getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
+        .size(maxTermBuckets)
+        .minDocCount(0);
   }
 
-  private String getAggregationField(
+  protected String getAggregationField(
       @Nullable final Object opContext,
       final String facet,
       @Nullable AspectRetriever aspectRetriever) {
@@ -235,7 +219,11 @@ public class AggregationQueryBuilder {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
+    if (v3FieldResolver != null && v3FieldResolver.contains(facet)) {
+      return v3FieldResolver.exactPath(facet, Intent.FACET);
+    }
+    // Structured properties and V2 keyword fields share one resolver (SP type → parent vs
+    // .keyword).
     return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
   }
 

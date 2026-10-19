@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.combineFilters;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSortCriteria;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
 
 import com.linkedin.common.urn.Urn;
@@ -19,6 +20,7 @@ import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -106,11 +108,30 @@ public class SearchDocumentsResolver
             final List<SortCriterion> sortCriteria = getSortCriteria(input.getSortInput());
             final SortCriterion sortCriterion = sortCriteria.isEmpty() ? null : sortCriteria.get(0);
 
+            // Mirror AggregateAcrossEntitiesResolver: optional facets + searchFlags (maxAggValues).
+            // Flags are applied inside DocumentService so GraphQL unit tests that mock the
+            // service never need a fully active OperationContext for withSearchFlags.
+            final List<String> facets =
+                input.getFacets() != null && !input.getFacets().isEmpty()
+                    ? input.getFacets()
+                    : null;
+            final SearchFlags searchFlags =
+                input.getSearchFlags() != null
+                    ? mapInputFlags(context, input.getSearchFlags())
+                    : null;
+
             final SearchResult gmsResult;
             try {
               gmsResult =
                   _documentService.searchDocuments(
-                      context.getOperationContext(), query, filter, sortCriterion, start, count);
+                      context.getOperationContext(),
+                      query,
+                      filter,
+                      sortCriterion,
+                      start,
+                      count,
+                      facets,
+                      searchFlags);
             } catch (Exception e) {
               throw new RuntimeException("Failed to search documents", e);
             }
@@ -195,6 +216,13 @@ public class SearchDocumentsResolver
 
     if (input.getDomains() != null && !input.getDomains().isEmpty()) {
       criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
+    }
+
+    if (input.getHasDomain() != null) {
+      criteria.add(
+          Boolean.TRUE.equals(input.getHasDomain())
+              ? CriterionUtils.buildExistsCriterion("domains")
+              : CriterionUtils.buildNotExistsCriterion("domains"));
     }
 
     if (input.getRelatedAssets() != null && !input.getRelatedAssets().isEmpty()) {

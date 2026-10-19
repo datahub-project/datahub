@@ -95,10 +95,15 @@ def drive_file(
 
 
 class _Request:
-    def __init__(self, fn: Callable[[], Any]) -> None:
+    def __init__(
+        self, fn: Callable[[], Any], svc: Optional["FakeDriveService"] = None
+    ) -> None:
         self._fn = fn
+        self._svc = svc
 
     def execute(self, num_retries: int = 0) -> Any:
+        if self._svc is not None and self._svc.token_error is not None:
+            raise self._svc.token_error
         return self._fn()
 
 
@@ -116,8 +121,13 @@ class FakeDriveService:
     exports: Dict[Tuple[str, str], ExportValue] = field(default_factory=dict)
     shared_drives: Dict[str, str] = field(default_factory=dict)
     list_errors: Dict[str, HttpError] = field(default_factory=dict)
+    get_errors: Dict[str, HttpError] = field(default_factory=dict)
     page_size: int = 2
     calls: List[Tuple[str, str]] = field(default_factory=list)
+    about_email: Optional[str] = "ingest@example.com"
+    # Raised by every request, as google-auth raises a failed token fetch.
+    token_error: Optional[Exception] = None
+    closed: bool = False
 
     def add(self, raw: Dict[str, Any]) -> Dict[str, Any]:
         self.files_by_id[raw["id"]] = raw
@@ -133,6 +143,9 @@ class FakeDriveService:
 
     def about(self) -> "_FakeAbout":
         return _FakeAbout(self)
+
+    def close(self) -> None:
+        self.closed = True
 
     def calls_for(self, method: str) -> List[str]:
         return [target for name, target in self.calls if name == method]
@@ -178,16 +191,18 @@ class _FakeFiles:
                 response["nextPageToken"] = str(end)
             return response
 
-        return _Request(run)
+        return _Request(run, self._svc)
 
     def get(self, fileId: str, fields: str, **_: Any) -> _Request:
         def run() -> Dict[str, Any]:
             self._svc.calls.append(("files.get", fileId))
+            if fileId in self._svc.get_errors:
+                raise self._svc.get_errors[fileId]
             if fileId not in self._svc.files_by_id:
                 raise http_error(404, "notFound")
             return mask_fields(self._svc.files_by_id[fileId], fields)
 
-        return _Request(run)
+        return _Request(run, self._svc)
 
     def export(self, fileId: str, mimeType: str) -> _Request:
         def run() -> bytes:
@@ -199,7 +214,7 @@ class _FakeFiles:
                 raise value
             return value
 
-        return _Request(run)
+        return _Request(run, self._svc)
 
 
 class _FakeDrives:
@@ -217,7 +232,27 @@ class _FakeDrives:
                 "createdTime": "2025-12-01T00:00:00.000Z",
             }
 
-        return _Request(run)
+        return _Request(run, self._svc)
+
+    def list(
+        self, fields: str, pageSize: int, pageToken: Optional[str] = None
+    ) -> _Request:
+        def run() -> Dict[str, Any]:
+            self._svc.calls.append(("drives.list", pageToken or ""))
+            drive_ids = list(self._svc.shared_drives)
+            start = int(pageToken or 0)
+            end = start + min(pageSize, self._svc.page_size)
+            response: Dict[str, Any] = {
+                "drives": [
+                    {"id": d, "name": self._svc.shared_drives[d]}
+                    for d in drive_ids[start:end]
+                ]
+            }
+            if end < len(drive_ids):
+                response["nextPageToken"] = str(end)
+            return response
+
+        return _Request(run, self._svc)
 
 
 class _FakeAbout:
@@ -225,7 +260,9 @@ class _FakeAbout:
         self._svc = svc
 
     def get(self, **_: Any) -> _Request:
-        return _Request(lambda: {"user": {"emailAddress": "ingest@example.com"}})
+        return _Request(
+            lambda: {"user": {"emailAddress": self._svc.about_email}}, self._svc
+        )
 
 
 # Synthetic fixture tree (mirrors the live test folder's structure):

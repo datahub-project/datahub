@@ -6,7 +6,6 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -51,6 +50,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionSourceTypeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
@@ -69,6 +69,7 @@ from datahub.testing.doctest import assert_doctest
 from datahub.utilities.mapping import Constants, OperationProcessor
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
+    make_freshness_info,
 )
 
 
@@ -2114,8 +2115,8 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customAssertion.type == "dbt Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
     assert mcp.aspect.source is not None
-    assert mcp.aspect.source.created is not None
-    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+    assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert mcp.aspect.source.created is None
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
@@ -2174,8 +2175,8 @@ def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
     assert mcp.aspect.customAssertion.nativeType == "not_null_id"
     assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
     assert mcp.aspect.source is not None
-    assert mcp.aspect.source.created is not None
-    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+    assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert mcp.aspect.source.created is None
 
 
 @pytest.mark.parametrize(
@@ -2373,8 +2374,8 @@ def test_make_assertion_from_freshness_warn_only() -> None:
     assert "error_after_count" not in mcp.aspect.customProperties
     assert "error_after_period" not in mcp.aspect.customProperties
     assert mcp.aspect.source is not None
-    assert mcp.aspect.source.created is not None
-    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+    assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
+    assert mcp.aspect.source.created is None
     mcp.aspect.to_obj()
 
 
@@ -2875,19 +2876,43 @@ def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
         node_type="source",
         owner="source_owner",
     )
-    source_node.freshness_info = DBTFreshnessInfo(
-        invocation_id="test-123",
-        status="pass",
-        max_loaded_at=datetime(2026, 1, 13, 10, 0, 0, tzinfo=timezone.utc),
-        snapshotted_at=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
-        max_loaded_at_time_ago_in_s=7200.0,
-        warn_after=DBTFreshnessCriteria(count=12, period="hour"),
-        error_after=None,
-    )
+    source_node.freshness_info = make_freshness_info()
 
     mcps = list(source.create_freshness_assertion_mcps([source_node]))
 
     assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
+
+
+def test_create_freshness_assertion_mcps_asserts_on_target_platform_instance():
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **create_base_dbt_config(),
+        platform_instance="dbt-instance",
+        target_platform_instance="warehouse-instance",
+    )
+    source = DBTCoreSource(config, ctx)
+    source_node = _make_dbt_node(
+        "source.project.raw.users",
+        node_type="source",
+        database="my_db",
+        schema="raw",
+    )
+    source_node.freshness_info = make_freshness_info()
+
+    mcps = list(source.create_freshness_assertion_mcps([source_node]))
+
+    expected = mce_builder.make_dataset_urn_with_platform_instance(
+        platform="postgres",
+        name="my_db.raw.users",
+        platform_instance="warehouse-instance",
+        env="PROD",
+    )
+    infos = [m.aspect for m in mcps if isinstance(m.aspect, AssertionInfoClass)]
+    events = [m.aspect for m in mcps if isinstance(m.aspect, AssertionRunEventClass)]
+    assert len(infos) == 1 and len(events) == 1
+    assert infos[0].customAssertion is not None
+    assert infos[0].customAssertion.entity == expected
+    assert events[0].asserteeUrn == expected
 
 
 def test_load_run_results_skips_generate():

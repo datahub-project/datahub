@@ -3,12 +3,11 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreview } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreview';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-
-const DOCUMENTATION_TAB_NAME = 'Documentation';
 
 const modalStyle = {
     top: '5%',
@@ -57,13 +56,18 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
             >
                 {(editMode && (
                     <DescriptionEditor
-                        onComplete={() => routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { modal: true } })}
+                        onComplete={() =>
+                            routeToTab({ tabName: EntityTabPath.DOCUMENTATION, tabParams: { modal: true } })
+                        }
                     />
                 )) || (
                     <DescriptionPreview
                         description={description}
                         onEdit={() =>
-                            routeToTab({ tabName: DOCUMENTATION_TAB_NAME, tabParams: { editing: true, modal: true } })
+                            routeToTab({
+                                tabName: EntityTabPath.DOCUMENTATION,
+                                tabParams: { editing: true, modal: true },
+                            })
                         }
                     />
                 )}

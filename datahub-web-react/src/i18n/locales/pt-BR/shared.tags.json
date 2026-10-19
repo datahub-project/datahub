@@ -20,6 +20,7 @@
     "descriptionUpdated": "Descrição atualizada",
     "expandTerm": "Expandir {{label}}",
     "managedTagTooltip": "Esta tag é gerenciada em outra plataforma",
+    "managedTermTooltip": "Este termo é gerenciado em outra plataforma",
     "modal.addTagsTitle": "Adicionar Tags",
     "modal.addTermsTitle": "Adicionar Termos do Glossário",
     "modal.addTitle": "Adicionar {{entity}}s",
