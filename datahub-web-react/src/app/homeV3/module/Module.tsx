@@ -13,6 +13,7 @@ import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanti
 import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
 import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
 import SubDataProductsModule from '@app/entityV2/summary/modules/subDataProducts/SubDataProductsModule';
+import LargeModule from '@app/homeV3/module/components/LargeModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -27,20 +28,28 @@ import PlatformsModule from '@app/homeV3/modules/platforms/PlatformsModule';
 
 import { DataHubPageModuleType } from '@types';
 
-// These three pull Monaco, React Flow, or the syntax highlighter. Home and asset
-// summary render every module type from this file, so a static import would download
-// those libraries before first paint even when the module is not on the page.
+// Home and asset summary render every module type from this file, so these load on demand:
+// LineageModule pulls React Flow, MetricSqlModule the syntax highlighter, and ColumnsModule the
+// schema table. The loading frame keeps the module's height, and render errors go to
+// ModuleErrorBoundary so its retry works.
+const largeModuleChunkOptions = {
+    fallback: (props: ModuleProps) => <LargeModule {...props} loading />,
+    propagateRenderErrors: true,
+};
 const LineageModule = lazyProfileComponent(
     'LineageModule',
     () => import('@app/entityV2/summary/modules/lineage/LineageModule'),
+    largeModuleChunkOptions,
 );
 const ColumnsModule = lazyProfileComponent(
     'ColumnsModule',
     () => import('@app/entityV2/summary/modules/schemaTable/ColumnsModule'),
+    largeModuleChunkOptions,
 );
 const MetricSqlModule = lazyProfileComponent(
     'MetricSqlModule',
     () => import('@app/entityV2/summary/modules/sql/MetricSqlModule'),
+    largeModuleChunkOptions,
 );
 
 function Module(props: ModuleProps) {
