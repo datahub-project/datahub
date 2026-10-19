@@ -104,8 +104,6 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
         input.getCount(),
         input.getScrollId(),
         input.getKeepAlive(),
-        List.of(),
-        List.of(),
         this.getClass().getSimpleName());
   }
 
