@@ -11,6 +11,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.HashSet;
 import java.util.Optional;
@@ -41,17 +43,22 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityLineageResultResolver
     implements DataFetcher<CompletableFuture<EntityLineageResult>> {
 
+  private static final String RELATIONSHIPS_FIELD = "relationships";
+
   private final SiblingGraphService _siblingGraphService;
   private final RestrictedService _restrictedService;
   private final AuthorizationConfiguration _authorizationConfiguration;
+  private final FeatureFlags _featureFlags;
 
   public EntityLineageResultResolver(
       final SiblingGraphService siblingGraphService,
       final RestrictedService restrictedService,
-      final AuthorizationConfiguration authorizationConfiguration) {
+      final AuthorizationConfiguration authorizationConfiguration,
+      final FeatureFlags featureFlags) {
     _siblingGraphService = siblingGraphService;
     _restrictedService = restrictedService;
     _authorizationConfiguration = authorizationConfiguration;
+    _featureFlags = featureFlags;
   }
 
   @Override
@@ -75,27 +82,53 @@ public class EntityLineageResultResolver
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
 
+    // Search cards and sidebars ask only for totals. Counting without fetching edges is flat in
+    // sibling group size, where the walk fetches every sibling's edges.
+    final boolean countOnly =
+        _featureFlags != null
+            && _featureFlags.isLineageCountOnlyEnabled()
+            && environment.getSelectionSet() != null
+            && !environment.getSelectionSet().contains(RELATIONSHIPS_FIELD);
+
     final Urn finalUrn = urn;
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            final OperationContext lineageOpContext =
+                context
+                    .getOperationContext()
+                    .withSearchFlags(
+                        searchFlags -> searchFlags.setIncludeSoftDeleted(includeGhostEntities))
+                    .withLineageFlags(
+                        flags ->
+                            flags
+                                .setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
+                                .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL));
+            final boolean resolvedSeparateSiblings =
+                separateSiblings != null ? input.getSeparateSiblings() : false;
+
+            if (countOnly) {
+              return mapEntityRelationships(
+                  context,
+                  _siblingGraphService.getLineageCount(
+                      lineageOpContext,
+                      finalUrn,
+                      resolvedDirection,
+                      count != null ? count : 100,
+                      resolvedSeparateSiblings,
+                      includeGhostEntities),
+                  Set.of());
+            }
+
             com.linkedin.metadata.graph.EntityLineageResult entityLineageResult =
                 _siblingGraphService.getLineage(
-                    context
-                        .getOperationContext()
-                        .withSearchFlags(
-                            searchFlags -> searchFlags.setIncludeSoftDeleted(includeGhostEntities))
-                        .withLineageFlags(
-                            flags ->
-                                flags
-                                    .setStartTimeMillis(startTimeMillis, SetMode.REMOVE_IF_NULL)
-                                    .setEndTimeMillis(endTimeMillis, SetMode.REMOVE_IF_NULL)),
+                    lineageOpContext,
                     finalUrn,
                     resolvedDirection,
                     start != null ? start : 0,
                     count != null ? count : 100,
                     1,
-                    separateSiblings != null ? input.getSeparateSiblings() : false,
+                    resolvedSeparateSiblings,
                     input.getIncludeGhostEntities(),
                     new HashSet<>());
 

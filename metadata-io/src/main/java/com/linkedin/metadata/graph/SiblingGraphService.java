@@ -13,6 +13,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -166,6 +167,89 @@ public class SiblingGraphService {
         : 0);
   }
 
+  /**
+   * Counts an entity's one-hop lineage the way {@link #getLineage} reports it, without fetching
+   * edges. {@code total} is the number of distinct neighbours of the entity and, unless {@code
+   * separateSiblings}, of its siblings. {@code filtered} reproduces what a page of {@code count}
+   * relationships would have dropped (non-primary siblings of other results, then ghosts), so
+   * {@code total - filtered} matches the number a caller derives from the full result.
+   * Relationships are left empty.
+   */
+  @Nonnull
+  public EntityLineageResult getLineageCount(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull LineageDirection direction,
+      @Nullable Integer count,
+      boolean separateSiblings,
+      boolean includeGhostEntities) {
+    final int sampleSize = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), count);
+
+    final Set<Urn> group = new LinkedHashSet<>();
+    group.add(entityUrn);
+    if (!separateSiblings) {
+      Siblings siblings =
+          (Siblings) _entityService.getLatestAspect(opContext, entityUrn, SIBLINGS_ASPECT_NAME);
+      if (siblings != null && siblings.hasSiblings()) {
+        group.addAll(siblings.getSiblings());
+      }
+    }
+
+    final LineageCountResult counted =
+        _graphService.getLineageCount(
+            opContext,
+            group,
+            LineageGraphFilters.forEntityType(
+                _graphService.getLineageRegistry(), entityUrn.getEntityType(), direction),
+            sampleSize);
+
+    final Set<Urn> sample = new LinkedHashSet<>(counted.getSample());
+    int filtered = 0;
+    if (!separateSiblings && !sample.isEmpty()) {
+      Set<Urn> collapsed = nonPrimarySiblingsWithinResults(opContext, sample);
+      filtered += collapsed.size();
+      sample.removeAll(collapsed);
+    }
+    if (!includeGhostEntities && !sample.isEmpty()) {
+      filtered += sample.size() - _entityService.exists(opContext, sample, false).size();
+    }
+
+    return new EntityLineageResult()
+        .setStart(0)
+        .setCount(sampleSize)
+        .setTotal(counted.getTotal())
+        .setFiltered(filtered)
+        .setRelationships(new LineageRelationshipArray());
+  }
+
+  /**
+   * Among {@code resultUrns}, the non-primary siblings that have a sibling in the same set. A
+   * combined result shows a sibling pair once, as its primary, so these are dropped.
+   */
+  private Set<Urn> nonPrimarySiblingsWithinResults(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> resultUrns) {
+    final Map<Urn, List<RecordTemplate>> siblingAspects =
+        _entityService.getLatestAspects(
+            opContext, resultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+    return resultUrns.stream()
+        .filter(
+            urn -> {
+              Optional<RecordTemplate> optionalSiblingsAspect =
+                  siblingAspects.getOrDefault(urn, List.of()).stream()
+                      .filter(aspect -> aspect instanceof Siblings)
+                      .findAny();
+              if (optionalSiblingsAspect.isEmpty()) {
+                return false;
+              }
+              final Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
+              if (siblingsAspect.isPrimary() || !siblingsAspect.hasSiblings()) {
+                return false;
+              }
+              return siblingsAspect.getSiblings().stream().anyMatch(resultUrns::contains);
+            })
+        .collect(Collectors.toSet());
+  }
+
   // takes a lineage result and removes any nodes that are siblings of some other node already in
   // the result
   private EntityLineageResult filterLineageResultFromSiblings(
@@ -218,41 +302,16 @@ public class SiblingGraphService {
                     : ImmutableList.<LineageRelationship>of().stream())
             .collect(Collectors.toList());
 
-    // 4) fetch the siblings of each lineage result
+    // 4) fetch the siblings of each lineage result and, 5) if you are not primary & your sibling
+    // is in the results, filter yourself out of the return set
     final Set<Urn> combinedResultUrns =
         combinedResults.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
+    final Set<Urn> collapsedUrns = nonPrimarySiblingsWithinResults(opContext, combinedResultUrns);
 
-    final Map<Urn, List<RecordTemplate>> siblingAspects =
-        _entityService.getLatestAspects(
-            opContext, combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
-
-    // 5) if you are not primary & your sibling is in the results, filter yourself out of the return
-    // set
     Map<Boolean, List<LineageRelationship>> partitionedFilteredSiblings =
         combinedResults.stream()
             .collect(
-                Collectors.partitioningBy(
-                    result -> {
-                      Optional<RecordTemplate> optionalSiblingsAspect =
-                          siblingAspects.get(result.getEntity()).stream()
-                              .filter(aspect -> aspect instanceof Siblings)
-                              .findAny();
-
-                      if (optionalSiblingsAspect.isEmpty()) {
-                        return true;
-                      }
-
-                      final Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
-
-                      if (siblingsAspect.isPrimary()) {
-                        return true;
-                      }
-
-                      // if you are not primary and your sibling exists in the result set, filter
-                      // yourself out
-                      return siblingsAspect.getSiblings().stream()
-                          .noneMatch(combinedResultUrns::contains);
-                    }));
+                Collectors.partitioningBy(result -> !collapsedUrns.contains(result.getEntity())));
 
     numFiltered += partitionedFilteredSiblings.get(Boolean.FALSE).size();
     uniqueFilteredRelationships = partitionedFilteredSiblings.get(Boolean.TRUE);

@@ -22,6 +22,7 @@ import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageTimeoutException;
@@ -42,11 +43,13 @@ import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,6 +80,11 @@ import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.Cardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
 import org.opensearch.search.sort.SortBuilders;
@@ -737,6 +745,28 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       @Nonnull String entityType,
       @Nonnull Set<Urn> urns,
       @Nonnull LineageGraphFilters lineageGraphFilters) {
+    Map<RelationshipDirection, BoolQueryBuilder> clauses =
+        buildDirectionalLineageClauses(opContext, entityType, urns, lineageGraphFilters);
+    if (clauses.isEmpty()) {
+      return Optional.empty();
+    }
+    BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
+    clauses.values().forEach(mainQuery::should);
+    // Require that at least one of the "should" clauses matches
+    mainQuery.minimumShouldMatch(1);
+    return Optional.of(mainQuery);
+  }
+
+  /**
+   * One query clause per edge direction for hopping from {@code urns}: OUTGOING matches edges whose
+   * source is one of the urns, INCOMING edges whose destination is. Empty when the entity type has
+   * no registered lineage edges in this direction.
+   */
+  private Map<RelationshipDirection, BoolQueryBuilder> buildDirectionalLineageClauses(
+      OperationContext opContext,
+      @Nonnull String entityType,
+      @Nonnull Set<Urn> urns,
+      @Nonnull LineageGraphFilters lineageGraphFilters) {
 
     if (urns.stream().anyMatch(urn -> !entityType.equals(urn.getEntityType()))) {
       throw new IllegalArgumentException("Urns must be of the same entity type.");
@@ -746,7 +776,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         lineageGraphFilters.getEdgeInfo(opContext.getLineageRegistry(), entityType);
 
     if (urns.isEmpty() || edgeInfo.isEmpty()) {
-      return Optional.empty();
+      return Collections.emptyMap();
     } else {
       Set<String> entityUrns = urns.stream().map(Urn::toString).collect(Collectors.toSet());
 
@@ -770,7 +800,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       // One clause per direction: the URN list appears once per direction instead of once per
       // relationship type. It is by far the largest part of the request, so repeating it made
       // every page several times larger to build, send and parse.
-      BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
+      Map<RelationshipDirection, BoolQueryBuilder> clauses =
+          new EnumMap<>(RelationshipDirection.class);
       typesByDirection.forEach(
           (direction, typesByRelationship) -> {
             final String urnField;
@@ -796,17 +827,150 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                             .filter(QueryBuilders.termsQuery(opposingTypeField, entityTypes))));
             relationshipQuery.minimumShouldMatch(1);
 
-            mainQuery.should(
+            clauses.put(
+                direction,
                 QueryBuilders.boolQuery()
                     .filter(QueryBuilders.termsQuery(urnField, entityUrns))
                     .filter(relationshipQuery));
           });
 
-      // Require that at least one of the "should" clauses matches
-      mainQuery.minimumShouldMatch(1);
-
-      return Optional.of(mainQuery);
+      return clauses;
     }
+  }
+
+  private static final String COUNT_AGG_PREFIX = "lineageCount_";
+  private static final String DISTINCT_AGG = "distinct";
+  private static final String VIA_AGG = "via";
+  private static final String SAMPLE_AGG = "sample";
+  // Cardinality is exact below this many distinct values; counts on a card never get near it.
+  private static final long LINEAGE_COUNT_PRECISION = 10_000L;
+
+  /**
+   * Counts distinct one-hop neighbours of {@code entityUrns} without fetching edges: one request
+   * with a cardinality aggregation per edge direction, plus a terms aggregation that samples up to
+   * {@code sampleSize} neighbours for the caller to post-process. Neighbours inside {@code
+   * entityUrns} (a sibling group's own members) are excluded in the query. Via entities on the
+   * matched edges are counted the way the walk reports them. An entity reachable through both an
+   * outgoing and an incoming edge type is counted once per direction; the registered lineage edges
+   * do not produce that case.
+   */
+  @WithSpan
+  public LineageCountResult getLineageCount(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    SearchSourceBuilder source =
+        buildLineageCountSource(opContext, entityUrns, lineageGraphFilters, sampleSize);
+    if (source == null) {
+      return LineageCountResult.empty();
+    }
+    SearchRequest request = new SearchRequest(graphIndexName(opContext)).source(source);
+    return parseLineageCount(executeSearch(opContext, request));
+  }
+
+  /** The count request, or null when none of the urns' entity types has lineage edges. */
+  @VisibleForTesting
+  @Nullable
+  SearchSourceBuilder buildLineageCountSource(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    Map<String, Set<Urn>> urnsPerEntityType =
+        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+    Map<RelationshipDirection, BoolQueryBuilder> perDirection =
+        new EnumMap<>(RelationshipDirection.class);
+    urnsPerEntityType.forEach(
+        (entityType, urns) ->
+            buildDirectionalLineageClauses(opContext, entityType, urns, lineageGraphFilters)
+                .forEach(
+                    (direction, clause) ->
+                        perDirection
+                            .computeIfAbsent(
+                                direction, d -> QueryBuilders.boolQuery().minimumShouldMatch(1))
+                            .should(clause)));
+    if (perDirection.isEmpty()) {
+      return null;
+    }
+
+    Set<String> groupUrns = entityUrns.stream().map(Urn::toString).collect(Collectors.toSet());
+    BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    SearchSourceBuilder source = new SearchSourceBuilder().size(0).query(query);
+
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+    if (lineageFlags != null
+        && lineageFlags.getStartTimeMillis() != null
+        && lineageFlags.getEndTimeMillis() != null) {
+      query.filter(
+          GraphFilterUtils.getEdgeTimeFilterQuery(
+              lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis()));
+    }
+
+    perDirection.forEach(
+        (direction, directionClause) -> {
+          String neighbourField =
+              direction == RelationshipDirection.OUTGOING
+                  ? GraphQueryConstants.DESTINATION_URN
+                  : GraphQueryConstants.SOURCE_URN;
+          BoolQueryBuilder clause =
+              QueryBuilders.boolQuery()
+                  .filter(directionClause)
+                  .mustNot(QueryBuilders.termsQuery(neighbourField, groupUrns));
+          query.should(clause);
+          source.aggregation(
+              AggregationBuilders.filter(COUNT_AGG_PREFIX + direction.name(), clause)
+                  .subAggregation(
+                      AggregationBuilders.cardinality(DISTINCT_AGG)
+                          .field(neighbourField)
+                          .precisionThreshold(LINEAGE_COUNT_PRECISION))
+                  .subAggregation(
+                      AggregationBuilders.cardinality(VIA_AGG)
+                          .field(EDGE_FIELD_VIA)
+                          .precisionThreshold(LINEAGE_COUNT_PRECISION))
+                  .subAggregation(
+                      AggregationBuilders.terms(SAMPLE_AGG)
+                          .field(neighbourField)
+                          .size(Math.max(1, sampleSize))));
+        });
+    return source;
+  }
+
+  @VisibleForTesting
+  LineageCountResult parseLineageCount(@Nonnull SearchResponse response) {
+    if (response.getAggregations() == null) {
+      return LineageCountResult.empty();
+    }
+    long total = 0;
+    Set<Urn> sample = new LinkedHashSet<>();
+    for (Aggregation aggregation : response.getAggregations()) {
+      if (!aggregation.getName().startsWith(COUNT_AGG_PREFIX)
+          || !(aggregation instanceof org.opensearch.search.aggregations.bucket.filter.Filter)) {
+        continue;
+      }
+      Aggregations sub =
+          ((org.opensearch.search.aggregations.bucket.filter.Filter) aggregation).getAggregations();
+      Cardinality distinct = sub.get(DISTINCT_AGG);
+      if (distinct != null) {
+        total += distinct.getValue();
+      }
+      Cardinality via = sub.get(VIA_AGG);
+      if (via != null) {
+        total += via.getValue();
+      }
+      Terms terms = sub.get(SAMPLE_AGG);
+      if (terms != null) {
+        for (Terms.Bucket bucket : terms.getBuckets()) {
+          try {
+            sample.add(Urn.createFromString(bucket.getKeyAsString()));
+          } catch (URISyntaxException e) {
+            log.warn("Skipping unparseable lineage neighbour urn {}", bucket.getKeyAsString());
+          }
+        }
+      }
+    }
+    return new LineageCountResult(
+        (int) Math.min(total, Integer.MAX_VALUE), new ArrayList<>(sample));
   }
 
   /**

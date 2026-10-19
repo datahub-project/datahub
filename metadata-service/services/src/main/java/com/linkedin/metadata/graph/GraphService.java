@@ -11,9 +11,11 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -166,6 +168,31 @@ public interface GraphService {
       int offset,
       @Nullable Integer count,
       int maxHops);
+
+  /**
+   * Counts the entities one hop away from any of {@code entityUrns} in the direction of {@code
+   * graphFilters}, excluding the urns themselves. Passing a sibling group counts it as one entity:
+   * a neighbour shared by several members is counted once. Implementations with a cheaper count
+   * than walking the edges override this; the default walks each urn one hop and merges.
+   *
+   * @param sampleSize how many of the counted neighbours to return for post-processing
+   */
+  @Nonnull
+  default LineageCountResult getLineageCount(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters graphFilters,
+      int sampleSize) {
+    Set<Urn> neighbours = new LinkedHashSet<>();
+    for (Urn urn : entityUrns) {
+      getLineage(opContext, urn, graphFilters, 0, null, 1)
+          .getRelationships()
+          .forEach(relationship -> neighbours.add(relationship.getEntity()));
+    }
+    neighbours.removeAll(entityUrns);
+    return new LineageCountResult(
+        neighbours.size(), neighbours.stream().limit(sampleSize).collect(Collectors.toList()));
+  }
 
   /**
    * Returns lineage information for impact analysis with configurable limits and timeout.

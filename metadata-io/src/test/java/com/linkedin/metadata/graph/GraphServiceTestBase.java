@@ -613,6 +613,44 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
+  public void testGetLineageCount() throws Exception {
+    GraphService service = getLineagePopulatedGraphService();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            service.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    // Same neighbours the walk reports for dataset1: dataset2, dataJobOne, dataJobTwo.
+    LineageCountResult single =
+        service.getLineageCount(operationContext, Set.of(dataset1Urn), downstream, 10);
+    assertEquals(single.getTotal(), 3);
+    assertEquals(
+        new HashSet<>(single.getSample()), Set.of(dataset2Urn, dataJobOneUrn, dataJobTwoUrn));
+
+    // A group counts as one entity: shared neighbours once, members never.
+    LineageCountResult group =
+        service.getLineageCount(operationContext, Set.of(dataset1Urn, dataset2Urn), downstream, 10);
+    assertEquals(group.getTotal(), 4);
+    assertEquals(
+        new HashSet<>(group.getSample()),
+        Set.of(dataset3Urn, dataset4Urn, dataJobOneUrn, dataJobTwoUrn));
+
+    // The sample is capped; the total is not.
+    LineageCountResult capped =
+        service.getLineageCount(operationContext, Set.of(dataset1Urn, dataset2Urn), downstream, 2);
+    assertEquals(capped.getTotal(), 4);
+    assertEquals(capped.getSample().size(), 2);
+    assertFalse(capped.getSample().contains(dataset1Urn));
+
+    LineageGraphFilters upstream =
+        LineageGraphFilters.forEntityType(
+            service.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.UPSTREAM);
+    assertEquals(
+        service.getLineageCount(operationContext, Set.of(dataset1Urn), upstream, 10).getTotal(), 0);
+    assertEquals(
+        service.getLineageCount(operationContext, Set.of(dataset3Urn), upstream, 10).getTotal(), 2);
+  }
+
+  @Test
   public void testPopulatedGraphServiceGetLineage() throws Exception {
     GraphService service = getLineagePopulatedGraphService();
 
