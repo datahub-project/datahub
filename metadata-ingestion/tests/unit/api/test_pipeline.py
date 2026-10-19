@@ -5,7 +5,7 @@ import tempfile
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
-from typing import Iterable, List, Optional, cast
+from typing import Any, Iterable, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,8 +13,9 @@ import time_machine
 from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.committable import CommitPolicy, Committable
-from datahub.ingestion.api.common import RecordEnvelope
+from datahub.ingestion.api.common import EndOfStream, RecordEnvelope
 from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
 from datahub.ingestion.api.source import Source, SourceReport
@@ -33,6 +34,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+    MetadataChangeProposalClass,
     StatusClass,
 )
 from datahub.utilities.server_config_util import RestServiceConfig
@@ -549,6 +551,113 @@ class TestPipeline:
         assert len(sink_report.received_records) == 1
         assert expected_mce == sink_report.received_records[0].record
 
+    def test_run_stamps_records_created_by_transformers(self):
+        pipeline = Pipeline.create(
+            {
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
+                "transformers": [
+                    {"type": "tests.unit.api.test_pipeline.EmitStatusAtEndOfStream"}
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "stamp-test",
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        by_id = _records_by_workunit_id(pipeline)
+        assert set(by_id) == {
+            "workunit-1",
+            "eos-wrapper",
+            "eos-raw-mcp",
+            "eos-attributed",
+        }
+        # The source record was attributed already (the fixture carries its own
+        # run id) and is left alone.
+        assert by_id["workunit-1"].systemMetadata.runId == "pipeline_test"
+        # Records the transformer created never passed through a source, so
+        # only the pipeline can attribute them to the run.
+        for workunit_id in ("eos-wrapper", "eos-raw-mcp"):
+            minted = by_id[workunit_id]
+            assert minted.systemMetadata is not None
+            assert minted.systemMetadata.runId == "stamp-test"
+            assert minted.systemMetadata.lastObserved
+        assert isinstance(by_id["eos-raw-mcp"], MetadataChangeProposalClass)
+        # A record the transformer attributed itself keeps every value.
+        attributed = by_id["eos-attributed"].systemMetadata
+        assert attributed.runId == "upstream-run"
+        assert attributed.lastObserved == 123
+        assert attributed.properties == {"k": "v"}
+
+    def test_run_sets_pipeline_name_on_records_created_by_transformers(self):
+        pipeline = Pipeline.create(
+            {
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
+                "transformers": [
+                    {"type": "tests.unit.api.test_pipeline.EmitStatusAtEndOfStream"}
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "stamp-test",
+                "pipeline_name": "nightly",
+                "flags": {"set_system_metadata_pipeline_name": True},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        by_id = _records_by_workunit_id(pipeline)
+        assert by_id["eos-wrapper"].systemMetadata.pipelineName == "nightly"
+        assert by_id["workunit-1"].systemMetadata.pipelineName is None
+
+    def test_run_respects_set_system_metadata_flag_for_transformer_output(self):
+        pipeline = Pipeline.create(
+            {
+                "source": {"type": "tests.unit.api.test_pipeline.FakeSource"},
+                "transformers": [
+                    {"type": "tests.unit.api.test_pipeline.EmitStatusAtEndOfStream"}
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "stamp-test",
+                "flags": {"set_system_metadata": False},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        by_id = _records_by_workunit_id(pipeline)
+        assert by_id["eos-wrapper"].systemMetadata is None
+        assert by_id["eos-raw-mcp"].systemMetadata is None
+
+    def test_run_copies_shared_system_metadata_before_stamping(self):
+        # Base transformers hand the source record's systemMetadata object to
+        # the records they mint. Stamping must not write into that shared
+        # object, which may already sit in the sink's queue.
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "tests.unit.api.test_pipeline.FakeSourceUnattributed"
+                },
+                "transformers": [
+                    {"type": "tests.unit.api.test_pipeline.ShareSourceSystemMetadata"}
+                ],
+                "sink": {"type": "tests.test_helpers.sink_helpers.RecordingSink"},
+                "run_id": "stamp-test",
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        by_id = _records_by_workunit_id(pipeline)
+        source_record, minted = by_id["workunit-1"], by_id["eos-shared"]
+        assert source_record.systemMetadata.runId == "stamp-test"
+        assert minted.systemMetadata.runId == "stamp-test"
+        assert source_record.systemMetadata is not minted.systemMetadata
+        # The copied values survive; the object the source handed out is untouched.
+        assert minted.systemMetadata.lastObserved == 5
+        original = FakeSourceUnattributed.original_system_metadata
+        assert original is not None
+        assert original.runId == SystemMetadata().runId
+
     @time_machine.travel(FROZEN_TIME, tick=False)
     def test_run_including_registered_transformation(self):
         # This is not testing functionality, but just the transformer registration system.
@@ -813,6 +922,81 @@ class AddStatusRemovedTransformer(Transformer):
             yield record_envelope
 
 
+def _records_by_workunit_id(pipeline: Pipeline) -> dict:
+    sink_report = cast(RecordingSinkReport, pipeline.sink.get_report())
+    return {
+        envelope.metadata["workunit_id"]: envelope.record
+        for envelope in sink_report.received_records
+    }
+
+
+def _status_mcp(**kwargs: Any) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=get_initial_mce().proposedSnapshot.urn,
+        aspect=get_status_removed_aspect(),
+        **kwargs,
+    )
+
+
+class EmitStatusAtEndOfStream(Transformer):
+    """Mints records at end of stream, as lineage/ownership transformers do."""
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Transformer":
+        return cls()
+
+    def transform(
+        self, record_envelopes: Iterable[RecordEnvelope]
+    ) -> Iterable[RecordEnvelope]:
+        for record_envelope in record_envelopes:
+            if isinstance(record_envelope.record, EndOfStream):
+                yield RecordEnvelope(
+                    record=_status_mcp(), metadata={"workunit_id": "eos-wrapper"}
+                )
+                yield RecordEnvelope(
+                    record=_status_mcp().make_mcp(),
+                    metadata={"workunit_id": "eos-raw-mcp"},
+                )
+                yield RecordEnvelope(
+                    record=_status_mcp(
+                        systemMetadata=SystemMetadata(
+                            runId="upstream-run",
+                            lastObserved=123,
+                            properties={"k": "v"},
+                        )
+                    ),
+                    metadata={"workunit_id": "eos-attributed"},
+                )
+            yield record_envelope
+
+
+class ShareSourceSystemMetadata(Transformer):
+    """Mints a record that reuses the source record's systemMetadata object."""
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Transformer":
+        return cls()
+
+    def __init__(self) -> None:
+        # The pipeline calls transform() once per workunit and once more for
+        # end of stream, so the captured object must outlive one call.
+        self.shared: Optional[SystemMetadata] = None
+
+    def transform(
+        self, record_envelopes: Iterable[RecordEnvelope]
+    ) -> Iterable[RecordEnvelope]:
+        for record_envelope in record_envelopes:
+            if isinstance(record_envelope.record, MetadataChangeEventClass):
+                self.shared = record_envelope.record.systemMetadata
+            if isinstance(record_envelope.record, EndOfStream):
+                assert self.shared is not None
+                yield RecordEnvelope(
+                    record=_status_mcp(systemMetadata=self.shared),
+                    metadata={"workunit_id": "eos-shared"},
+                )
+            yield record_envelope
+
+
 @platform_name("fake")
 class FakeSource(Source):
     def __init__(self, ctx: PipelineContext):
@@ -835,6 +1019,20 @@ class FakeSource(Source):
 
     def close(self):
         pass
+
+
+@platform_name("fake")
+class FakeSourceUnattributed(FakeSource):
+    """A source whose records carry systemMetadata but no run id."""
+
+    original_system_metadata: Optional[SystemMetadata] = None
+
+    def __init__(self, ctx: PipelineContext):
+        super().__init__(ctx)
+        mce = get_initial_mce()
+        mce.systemMetadata = SystemMetadata(lastObserved=5)
+        FakeSourceUnattributed.original_system_metadata = mce.systemMetadata
+        self.work_units = [MetadataWorkUnit(id="workunit-1", mce=mce)]
 
 
 @platform_name("fake")

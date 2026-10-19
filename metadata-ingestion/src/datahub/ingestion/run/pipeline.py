@@ -35,6 +35,7 @@ from datahub.configuration.env_vars import (
     get_kafka_sink_queue_max_kbytes,
     get_kafka_sink_queue_max_messages,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.global_context import set_graph_context
@@ -42,6 +43,7 @@ from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.sink import Sink, SinkReport
 from datahub.ingestion.api.source import Extractor, Source
+from datahub.ingestion.api.source_helpers import AutoSystemMetadata
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -58,6 +60,10 @@ from datahub.ingestion.sink.datahub_rest import (
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+)
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
 from datahub.telemetry.telemetry import telemetry_instance
@@ -487,6 +493,7 @@ class Pipeline:
         return self.config.source.type
 
     def _configure_transforms(self) -> None:
+        self._system_metadata_stamper = AutoSystemMetadata(self.ctx)
         self.transformers = []
         if self.config.transformers is not None:
             for transformer in self.config.transformers:
@@ -791,7 +798,31 @@ class Pipeline:
         for transformer in self.transformers:
             records = transformer.transform(records)
 
-        return records
+        return self._stamp_unattributed(records)
+
+    def _stamp_unattributed(
+        self, records: Iterable[RecordEnvelope]
+    ) -> Iterable[RecordEnvelope]:
+        # The source stamps systemMetadata on its own workunits
+        # (AutoSystemMetadata in Source.get_workunits), but transformers run
+        # after that, so a record a transformer creates (e.g. at end of
+        # stream) reached the sink with no runId and was left out of run
+        # attribution and `datahub delete --run-id`. Records that already
+        # carry a run id are not touched.
+        if not self.ctx.flags.set_system_metadata:
+            yield from records
+            return
+        for envelope in records:
+            if isinstance(
+                envelope.record,
+                (
+                    MetadataChangeEventClass,
+                    MetadataChangeProposalClass,
+                    MetadataChangeProposalWrapper,
+                ),
+            ):
+                self._system_metadata_stamper.stamp_if_unattributed(envelope.record)
+            yield envelope
 
     def process_commits(self) -> None:
         """
