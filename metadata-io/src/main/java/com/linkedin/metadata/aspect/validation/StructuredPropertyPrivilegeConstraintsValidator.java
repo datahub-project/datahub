@@ -15,7 +15,6 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
@@ -112,21 +111,9 @@ public class StructuredPropertyPrivilegeConstraintsValidator
           currentProps == null ? Collections.emptySet() : valuesByProperty(currentProps).keySet();
     } else {
       StructuredProperties newProps;
-      if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-        ProposedItem proposedItem = (ProposedItem) item;
-        PatchItemImpl patchItem =
-            PatchItemImpl.builder()
-                .build(
-                    proposedItem.getMetadataChangeProposal(),
-                    proposedItem.getAuditStamp(),
-                    aspectRetriever.getEntityRegistry());
-        newProps =
-            patchItem
-                .applyPatch(currentProps, aspectRetriever)
-                .getAspect(StructuredProperties.class);
-      } else {
-        newProps = item.getAspect(StructuredProperties.class);
-      }
+      newProps =
+          PatchItemImpl.resolveProposedAspect(
+              item, currentProps, aspectRetriever, StructuredProperties.class);
 
       if (newProps == null) {
         return Collections.emptyList();

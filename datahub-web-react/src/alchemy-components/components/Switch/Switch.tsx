@@ -1,4 +1,3 @@
-import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +11,7 @@ import {
     SwitchContainer,
 } from '@components/components/Switch/components';
 import { SwitchProps } from '@components/components/Switch/types';
+import { Tooltip } from '@components/components/Tooltip';
 
 export const switchDefaults: SwitchProps = {
     label: 'Label',

@@ -2,7 +2,7 @@
 #
 # Download test artifacts from recent successful CI runs.
 #
-# This script uses the GitHub CLI (gh) to fetch workflow runs and download
+# This script uses resolve_workflow_runs.sh to fetch workflow runs and downloads
 # test result artifacts, organizing them by run ID for later processing.
 
 set -euxo pipefail
@@ -17,14 +17,6 @@ REPOSITORY=""
 ARTIFACT_PREFIX="Test Results (smoke tests)"
 ALLOW_FAILED=false
 NO_FAIL_ON_EMPTY=false
-# Filtered workflow-run queries (branch=, status=, …) time out past a few thousand
-# matches and can return a created-desc page whose newest run is months old.
-# Always bound the search with created>=. Start at MIN_LOOKBACK_DAYS and widen
-# to MAX_LOOKBACK_DAYS when that window has fewer than RUN_COUNT qualifying runs.
-# MAX matches report-test-results retention (7 days); older runs have no artifacts.
-# https://github.blog/changelog/2026-09-25-changes-to-query-results-in-the-github-actions-api-and-ui/
-MIN_LOOKBACK_DAYS=3
-MAX_LOOKBACK_DAYS=7
 
 # Parse arguments
 usage() {
@@ -163,89 +155,22 @@ echo
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Build the run-selection jq filter. With --allow-failed we also harvest
-# completed-but-failed runs (e.g. a single flaky batch failing the whole run);
-# cancelled and in-progress runs are never selected.
-if [[ "$ALLOW_FAILED" == "true" ]]; then
-    RUN_FILTER='select((.conclusion=="success" or .conclusion=="failure") and .head_branch=="master")'
-else
-    RUN_FILTER='select(.conclusion=="success" and .head_branch=="master")'
-fi
-
-# Fetch recent successful workflow runs from master branch.
-#
-# List with created>= so the filtered workflow-runs search stays inside a window
-# small enough to return the actual newest runs. Sort here; do not trust page
-# order from an unbounded branch query.
+# Run selection (created>= window, local sort) lives in resolve_workflow_runs.sh.
 echo "Fetching recent workflow runs from master branch..."
-
-# gh api with retry on transient failures (5xx, timeouts). Returns non-zero
-# only if every attempt fails.
-gh_api_retry() {
-    local max_attempts=3 attempt=1 delay=5 rc=0
-    while [ "$attempt" -le "$max_attempts" ]; do
-        if gh api "$@"; then
-            return 0
-        fi
-        rc=$?
-        if [ "$attempt" -lt "$max_attempts" ]; then
-            echo "gh api call failed (exit $rc); retrying in ${delay}s..." >&2
-            sleep "$delay"
-            delay=$((delay * 2))
-        fi
-        attempt=$((attempt + 1))
-    done
-    return "$rc"
-}
-
-# GNU date (`-d`) on the runner, BSD date (`-v`) for local macOS dev.
-utc_days_ago() {
-    date -u -d "$1 days ago" +%Y-%m-%d 2>/dev/null \
-        || date -u -v-"$1"d +%Y-%m-%d
-}
-
-# Print a JSON array of the newest RUN_COUNT qualifying runs created on or after
-# SINCE_DATE. `gh api --paginate` streams one JSON object per page; `jq -s`
-# slurps them. The created>= filter stays in the URL (not `-f`): gh's field flag
-# URL-encodes `>` and GitHub 404s on the encoded form.
-fetch_qualifying_runs_since() {
-    local since_date="$1"
-    local page_file
-    page_file=$(mktemp)
-    if ! gh_api_retry --paginate \
-        "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?branch=master&per_page=100&created=>=${since_date}" \
-        > "$page_file"; then
-        rm -f "$page_file"
-        return 1
-    fi
-    if ! jq -se --argjson n "$RUN_COUNT" \
-        '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
-         | sort_by(.created) | reverse | .[0:$n]' \
-        "$page_file"; then
-        rm -f "$page_file"
-        return 1
-    fi
-    rm -f "$page_file"
-}
-
-SINCE_DATE=$(utc_days_ago "$MIN_LOOKBACK_DAYS")
-echo "Selecting up to $RUN_COUNT runs created since $SINCE_DATE..."
-if ! RUNS_JSON=$(fetch_qualifying_runs_since "$SINCE_DATE"); then
-    echo "Error: Failed to fetch workflow runs from GitHub API" >&2
-    exit 1
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+resolve_args=(
+    --workflow "$WORKFLOW_NAME"
+    --repository "$REPOSITORY"
+    --branch master
+    --run-count "$RUN_COUNT"
+)
+if [[ "$ALLOW_FAILED" == "true" ]]; then
+    resolve_args+=(--allow-failed)
 fi
-QUALIFYING_COUNT=$(printf '%s' "$RUNS_JSON" | jq 'length')
-
-if [ "$QUALIFYING_COUNT" -lt "$RUN_COUNT" ]; then
-    WIDER_DATE=$(utc_days_ago "$MAX_LOOKBACK_DAYS")
-    echo "Only $QUALIFYING_COUNT qualifying run(s) since $SINCE_DATE; widening to $WIDER_DATE..."
-    if WIDER_JSON=$(fetch_qualifying_runs_since "$WIDER_DATE"); then
-        RUNS_JSON="$WIDER_JSON"
-        SINCE_DATE="$WIDER_DATE"
-    else
-        echo "Warning: lookback to $WIDER_DATE failed; keeping runs since $SINCE_DATE." >&2
-    fi
+if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+    resolve_args+=(--no-fail-on-empty)
 fi
+RUNS_JSON=$("$SCRIPT_DIR/resolve_workflow_runs.sh" "${resolve_args[@]}")
 
 RUN_IDS=$(printf '%s' "$RUNS_JSON" | jq -r '.[].id')
 
@@ -254,7 +179,7 @@ if [[ -z "$RUN_IDS" ]]; then
         echo "NO_DATA=true"
         exit 0
     fi
-    echo "Error: No qualifying workflow runs on master since $SINCE_DATE"
+    echo "Error: No qualifying workflow runs on master"
     exit 1
 fi
 

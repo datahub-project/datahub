@@ -86,8 +86,10 @@ _EXECUTESQL_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _PREPARE_PATTERN = re.compile(
-    # Optional handle declaration the driver prepends.
-    r"^\s*(?:declare\s+@\w+\s+int\s+(?:set\s+@\w+\s*=\s*-?\d+\s+)?)?"
+    # Handle and cursor declarations the driver prepends, e.g.
+    # "declare @p1 int set @p1=NULL declare @p2 int set @p2=180150003 ...".
+    r"^\s*(?:(?:declare\s+@\w+\s+\w+(?:\s*,\s*@\w+\s+\w+)*"
+    r"|set\s+@\w+\s*=\s*(?:-?\d+|NULL))\s*;?\s*)*"
     + _RPC_PROCEDURE.format(
         name="(?:sp_prepexec|sp_prepare|sp_cursorprepexec|sp_cursorprepare)"
     )
@@ -448,6 +450,7 @@ class MSSQLLineageExtractor:
                 window=self._window(),
                 limit=raw_limit,
                 exclude_patterns=self.config.query_exclude_patterns,
+                statements_truncated=is_azure_sql_database,
             )
         else:
             query, params = MSSQLQuery.get_query_history_from_extended_events(
@@ -517,7 +520,8 @@ class MSSQLLineageExtractor:
                     timer.elapsed_seconds(),
                 )
 
-                self.report.num_queries_extracted = self.queries_extracted
+                # One extractor runs per database; the report covers all of them.
+                self.report.num_queries_extracted += len(queries)
                 return queries
 
             except (DatabaseError, OperationalError, ProgrammingError) as e:
@@ -673,7 +677,7 @@ class MSSQLLineageExtractor:
             for observed_query in self._build_observed_queries(query_entry)
         ]
         observations.sort(key=lambda pair: pair[1].timestamp or _UNDATED)
-        self.report.num_queries_without_window_executions = sum(
+        self.report.num_queries_without_window_executions += sum(
             1 for query_entry in queries if not query_entry.executions
         )
 
@@ -728,5 +732,5 @@ class MSSQLLineageExtractor:
             timer.elapsed_seconds(),
         )
 
-        self.report.num_queries_parsed = self.queries_parsed
-        self.report.num_queries_parse_failures = self.queries_failed
+        self.report.num_queries_parsed += self.queries_parsed
+        self.report.num_queries_parse_failures += self.queries_failed

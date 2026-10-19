@@ -98,6 +98,13 @@ def _log_row(
             "exec sp_prepexec @p1 output,NULL,N'SELECT name FROM t WHERE x = ''a'''",
             "SELECT name FROM t WHERE x = 'a'",
         ),
+        (
+            # JDBC cursor prepare: several handle declarations, some NULL.
+            "declare @p1 int set @p1=NULL declare @p2 int set @p2=0 "
+            "declare @p5 int set @p5=4 exec sp_cursorprepexec @p1 output,"
+            "@p2 output,N'@P0 int',N'SELECT id FROM t WHERE x = @P0',@p5 output,1",
+            "SELECT id FROM t WHERE x = @P0",
+        ),
         ("SELECT 1 FROM t", None),
         ("exec sp_unprepare 1", None),
         # Dynamic SQL from a variable: there is no inner literal to take.
@@ -170,7 +177,40 @@ def test_extended_events_database_filter(database_scoped: bool) -> None:
         exclude_patterns=None,
         database_scoped=database_scoped,
     )
-    assert ("database_name IS NULL" in str(query)) == database_scoped
+    expected = (
+        "(database_name IS NULL OR database_name = DB_NAME())"
+        if database_scoped
+        else "(database_name = DB_NAME() OR database_id = DB_ID())"
+    )
+    assert expected in str(query)
+
+
+@pytest.mark.parametrize("database_scoped", [True, False])
+def test_extended_events_discovery_requires_database_action_when_server_scoped(
+    database_scoped: bool,
+) -> None:
+    """Rows from a server-scoped session without database_name/database_id are
+    all dropped later, so discovery must not pick such a session."""
+    sql = str(MSSQLQuery.discover_extended_events_files(database_scoped))
+    assert ("'database_name', 'database_id'" in sql) == (not database_scoped)
+
+
+@pytest.mark.parametrize("statements_truncated", [True, False])
+def test_audit_log_reassembles_split_statements(statements_truncated: bool) -> None:
+    """SQL Server splits statements over 4000 characters across records that
+    share a sequence_group_id; they must be joined in sequence order. Only
+    Azure truncates instead, so only there is a 4000-character record dropped."""
+    query, _ = MSSQLQuery.get_query_history_from_audit_log(
+        path="/audit/x*.sqlaudit",
+        window=_WINDOW,
+        limit=10,
+        exclude_patterns=None,
+        statements_truncated=statements_truncated,
+    )
+    sql = " ".join(str(query).split())
+    assert "WITHIN GROUP (ORDER BY sequence_number)" in sql
+    assert "GROUP BY session_id, sequence_group_id, event_time" in sql
+    assert ("MAX(LEN(statement)) >= 4000" in sql) == statements_truncated
 
 
 def test_audit_log_rows_regroup_parameter_values_and_carry_users() -> None:

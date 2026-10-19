@@ -1874,6 +1874,8 @@ def test_mssql_select_query_emitted_as_query_entity(
         ("mydb.INFORMATION_SCHEMA.COLUMNS", True),
         ("msdb.dbo.sysjobs", True),
         ("mydb.dbo.fn_listextendedproperty", True),
+        # A user object elsewhere that happens to share a system TVF name.
+        ("mydb.audit.fn_dblog", False),
     ],
 )
 def test_is_mssql_system_object(name: str, expected: bool) -> None:
@@ -1892,6 +1894,7 @@ def test_query_history_respects_schema_pattern(create_engine_mock):
             **_base_config(),
             "include_query_lineage": True,
             "schema_pattern": {"allow": ["^reporting$"]},
+            "include_query_usage_statistics": True,
             "start_time": "2026-01-01T00:00:00Z",
             "end_time": "2026-01-02T00:00:00Z",
         }
@@ -1918,6 +1921,7 @@ def test_query_history_respects_schema_pattern(create_engine_mock):
             ("1", "SELECT id FROM reporting.orders"),
             ("2", "SELECT id FROM raw.orders"),
             ("3", "INSERT INTO raw.orders_copy SELECT id FROM reporting.orders"),
+            ("4", "INSERT INTO reporting.orders_daily SELECT id FROM raw.orders"),
         )
     ]
     with patch.object(extractor, "extract_query_history", return_value=entries):
@@ -1932,8 +1936,29 @@ def test_query_history_respects_schema_pattern(create_engine_mock):
         if aspect is not None
     ]
     assert any("reporting.orders" in s and "INSERT" not in s for s in statements)
-    assert not any("FROM raw.orders" in s for s in statements)
+    assert not any("FROM raw.orders" in s and "INSERT" not in s for s in statements)
     lineage_targets = {
         wu.get_urn() for wu in workunits if wu.get_aspect_of_type(UpstreamLineageClass)
     }
     assert DatasetUrn("mssql", "testdb.raw.orders_copy").urn() not in lineage_targets
+    # Lineage onto an in-scope table is kept, including its out-of-scope source.
+    assert DatasetUrn("mssql", "testdb.reporting.orders_daily").urn() in lineage_targets
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_query_history_scope_trusts_ingested_tables(create_engine_mock):
+    """An ingested table is in scope even when a narrower view_pattern would
+    reject its name; only names DataHub didn't ingest must pass both patterns."""
+    config = SQLServerConfig.model_validate(
+        {
+            **_base_config(),
+            "include_query_lineage": True,
+            "view_pattern": {"allow": [".*_vw$"]},
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+    source.discovered_datasets.add("TestDB.dbo.Orders")
+
+    assert source._is_allowed_query_history_table("testdb.dbo.orders")
+    assert source._is_allowed_query_history_table("testdb.dbo.orders_vw")
+    assert not source._is_allowed_query_history_table("testdb.dbo.customers")

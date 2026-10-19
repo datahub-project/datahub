@@ -109,10 +109,19 @@ MSSQL_SYSTEM_TABLE_VALUED_FUNCTIONS = frozenset(
 _SYSTEM_DATABASES_LOWER = frozenset(name.lower() for name in MSSQL_SYSTEM_DATABASES)
 
 
+# System TVFs live in `sys`, but callers usually invoke them unqualified, which
+# the SQL parser resolves to the default `dbo` schema. Only those two schemas are
+# treated as system for TVF names, so a user object elsewhere with such a name
+# keeps its lineage.
+_SYSTEM_TVF_SCHEMAS = frozenset({"sys", "dbo"})
+
+
 def is_mssql_system_object(name: str) -> bool:
     """True for a `db.schema.object` name that refers to a SQL Server system object."""
     parts = name.lower().split(".")
-    if parts[-1] in MSSQL_SYSTEM_TABLE_VALUED_FUNCTIONS:
+    if parts[-1] in MSSQL_SYSTEM_TABLE_VALUED_FUNCTIONS and (
+        len(parts) < 2 or parts[-2] in _SYSTEM_TVF_SCHEMAS
+    ):
         return True
     if len(parts) >= 2 and parts[-2] in MSSQL_SYSTEM_SCHEMAS:
         return True
@@ -121,6 +130,36 @@ def is_mssql_system_object(name: str) -> bool:
 
 class MSSQLQuery:
     """SQL queries for extracting query history from MS SQL Server."""
+
+    # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
+    # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
+    TABLE_DESCRIPTIONS = """
+            SELECT
+              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
+              T.NAME AS table_name,
+              EP.VALUE AS table_description
+            FROM sys.tables AS T
+            INNER JOIN sys.extended_properties AS EP
+              ON EP.MAJOR_ID = T.[OBJECT_ID]
+              AND EP.MINOR_ID = 0
+              AND EP.NAME = 'MS_Description'
+              AND EP.CLASS = 1
+            """
+
+    @staticmethod
+    def table_description(conn: Connection, schema: str, table: str) -> Optional[str]:
+        """One table's MS_Description, in the database `conn` is on.
+
+        Bound parameters, not interpolation: the names come from a caller.
+        """
+        row = conn.execute(
+            text(
+                f"SELECT d.table_description FROM ({MSSQLQuery.TABLE_DESCRIPTIONS}) AS d "
+                "WHERE d.schema_name = :schema AND d.table_name = :table"
+            ),
+            {"schema": schema, "table": table},
+        ).fetchone()
+        return None if row is None or row[0] is None else str(row[0])
 
     @staticmethod
     def _build_exclude_clause(
@@ -236,13 +275,16 @@ class MSSQLQuery:
     ) -> Tuple[TextClause, QueryParams]:
         """Extract query history from Query Store (SQL Server 2016+).
 
-        Returns one row per (query, usage bucket) with the executions from
-        runtime stats intervals that start inside the window, so counts are
-        per bucket rather than a lifetime total and reruns over the same
-        window report the same numbers. Queries that ran in the window rank
-        ahead of older ones for the TOP limit. A selected query with no
-        in-window executions yields one row with NULL execution columns so
-        its lineage is still kept.
+        Returns one row per (query, usage bucket). Each runtime-stats row (one
+        per plan, interval and execution type) is counted in the bucket of its
+        last_execution_time, and only when that time is inside the window, so
+        the returned timestamp always lies in its own bucket and reruns over
+        the same window report the same numbers. Counts are exact at the
+        granularity of Query Store's runtime-stats interval (60 minutes by
+        default): an interval's executions all go to its last execution's
+        bucket. Queries that ran in the window rank ahead of older ones for the
+        TOP limit. A selected query with no in-window executions yields one
+        row with NULL execution columns so its lineage is still kept.
         """
         query_template = """
             WITH top_queries AS (
@@ -258,8 +300,6 @@ class MSSQLQuery:
                     ON q.query_id = p.query_id
                 INNER JOIN sys.query_store_runtime_stats AS rs
                     ON p.plan_id = rs.plan_id
-                INNER JOIN sys.query_store_runtime_stats_interval AS rsi
-                    ON rs.runtime_stats_interval_id = rsi.runtime_stats_interval_id
                 WHERE
                     rs.count_executions >= :min_calls
                     {exclude_clause}
@@ -269,7 +309,8 @@ class MSSQLQuery:
                 HAVING SUM(rs.count_executions) >= :min_calls
                 ORDER BY
                     MAX(CASE
-                        WHEN rsi.start_time >= :start_time AND rsi.start_time < :end_time
+                        WHEN rs.last_execution_time >= :start_time
+                            AND rs.last_execution_time < :end_time
                         THEN 1 ELSE 0
                     END) DESC,
                     SUM(rs.avg_duration * rs.count_executions) DESC,
@@ -293,15 +334,13 @@ class MSSQLQuery:
                 FROM sys.query_store_plan AS p
                 INNER JOIN sys.query_store_runtime_stats AS rs
                     ON p.plan_id = rs.plan_id
-                INNER JOIN sys.query_store_runtime_stats_interval AS rsi
-                    ON rs.runtime_stats_interval_id = rsi.runtime_stats_interval_id
                 WHERE
                     p.query_id = tq.query_id
-                    AND rsi.start_time >= :start_time
-                    AND rsi.start_time < :end_time
+                    AND rs.last_execution_time >= :start_time
+                    AND rs.last_execution_time < :end_time
                 GROUP BY DATEADD(
                     {bucket_unit},
-                    DATEDIFF({bucket_unit}, 0, CONVERT(DATETIME2, rsi.start_time, 1)),
+                    DATEDIFF({bucket_unit}, 0, CONVERT(DATETIME2, rs.last_execution_time, 1)),
                     0
                 )
             ) AS we
@@ -339,7 +378,10 @@ class MSSQLQuery:
         the workload. Stats are per statement while sql_handle is per batch,
         so the id and text are scoped to the statement's offset in the batch.
         last_execution_time is server-local and shifted to UTC with the
-        server's current offset.
+        server's current offset. Times from before a daylight-saving change
+        can be off by an hour; T-SQL before SQL Server 2022 has no portable
+        way to look up the historical offset, and the DMV fallback's counts
+        are approximate anyway.
         """
         query_template = """
             SELECT TOP(:limit)
@@ -477,10 +519,7 @@ class MSSQLQuery:
             FROM ranked
             WHERE statement_rank <= :limit
             ORDER BY statement_rank, last_event_time
-        """.replace(
-        "{_RPC_WRAPPER_FILTER}",
-        "(statement LIKE '%sp[_]executesql%' OR statement LIKE '%sp[_]prepexec%' OR statement LIKE '%sp[_]prepare%' OR statement LIKE '%sp[_]cursorprepexec%' OR statement LIKE '%sp[_]cursorprepare%')",
-    )
+        """
 
     @staticmethod
     def _get_log_query_history(
@@ -508,6 +547,7 @@ class MSSQLQuery:
         window: QueryHistoryWindow,
         limit: int,
         exclude_patterns: Optional[List[str]],
+        statements_truncated: bool,
     ) -> Tuple[TextClause, QueryParams]:
         """Query history with users from a SQL Server Audit / Azure SQL Auditing log.
 
@@ -520,6 +560,15 @@ class MSSQLQuery:
         to the database user for contained users.
         """
         action_ids = ", ".join(f"'{a}'" for a in AUDIT_BATCH_COMPLETED_ACTION_IDS)
+        # Only Azure SQL Auditing truncates; SQL Server splits long statements
+        # across records (reassembled below), so a single 4000-character record
+        # there is a complete statement.
+        is_truncated_expr = (
+            f"CASE WHEN COUNT(*) = 1 AND MAX(LEN(statement)) >= {AUDIT_STATEMENT_MAX_CHARS} "
+            "THEN 1 ELSE 0 END"
+            if statements_truncated
+            else "0"
+        )
         log_rows_cte = f"""
             WITH audit_records AS (
                 SELECT
@@ -549,11 +598,7 @@ class MSSQLQuery:
                     STRING_AGG(CAST(statement AS NVARCHAR(MAX)), N'')
                         WITHIN GROUP (ORDER BY sequence_number) AS statement,
                     MAX(CASE WHEN action_id = 'RCM' THEN 1 ELSE 0 END) AS is_rpc,
-                    CASE
-                        WHEN COUNT(*) = 1
-                            AND MAX(LEN(statement)) >= {AUDIT_STATEMENT_MAX_CHARS}
-                        THEN 1 ELSE 0
-                    END AS is_truncated
+                    {is_truncated_expr} AS is_truncated
                 FROM audit_records
                 GROUP BY session_id, sequence_group_id, event_time
             ),"""
@@ -687,6 +732,18 @@ class MSSQLQuery:
         capture completed batches or RPCs with the login. Azure SQL Database
         sessions are database-scoped and use the dm_xe_database_* views."""
         prefix = "sys.dm_xe_database_" if database_scoped else "sys.dm_xe_"
+        # A server-scoped session sees every database, so its rows are only
+        # usable when it records which database each event ran in.
+        database_action_filter = (
+            ""
+            if database_scoped
+            else f"""AND EXISTS (
+                    SELECT 1 FROM {prefix}session_event_actions AS da
+                    WHERE da.event_session_address = s.address
+                        AND da.event_name = e.event_name
+                        AND da.action_name IN ('database_name', 'database_id')
+                )"""
+        )
         events = ", ".join(f"'{e}'" for e in XE_COMPLETED_EVENTS)
         return text(f"""
             SELECT DISTINCT
@@ -705,6 +762,7 @@ class MSSQLQuery:
                 t.target_name = 'event_file'
                 AND e.event_name IN ({events})
                 AND a.action_name IN ('server_principal_name', 'username')
+                {database_action_filter}
             ORDER BY s.name
         """)
 

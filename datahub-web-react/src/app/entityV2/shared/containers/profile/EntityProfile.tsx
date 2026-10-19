@@ -17,13 +17,13 @@ import {
 } from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entityV2/shared/containers/profile/header/EntityTabs';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
 import {
     defaultTabDisplayConfig,
-    getEntityPath,
     getOnboardingStepIdsForEntityType,
     useFinalSidebarTabs,
     useRoutedTab,
@@ -275,6 +275,7 @@ export const EntityProfile = <T, U>({
     const autoRenderTabs: EntityTab[] =
         entityData?.autoRenderAspects?.map((aspect) => ({
             name: aspect.renderSpec?.displayName || aspect.aspectName,
+            path: aspect.renderSpec?.key || aspect.renderSpec?.displayName || aspect.aspectName,
             component: () => (
                 <DynamicTab
                     renderSpec={aspect.renderSpec}

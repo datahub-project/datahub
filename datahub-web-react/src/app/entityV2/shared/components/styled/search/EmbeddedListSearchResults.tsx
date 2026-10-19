@@ -1,5 +1,5 @@
-import { Loader, Pagination, Text } from '@components';
-import LanguageIcon from '@mui/icons-material/Language';
+import { Icon, Loader, Pagination, Text } from '@components';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -137,11 +137,6 @@ const Count = styled.div<{ selected: boolean }>`
     font-size: 11px;
 `;
 
-const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
-    font-size: 18px !important;
-    color: ${(props) => (props.selected ? props.theme.colors.iconBrand : props.theme.colors.icon)};
-`;
-
 const ViewLabel = styled.span`
     font-weight: 700;
     color: ${(props) => props.theme.colors.textSecondary};
@@ -240,7 +235,7 @@ export const EmbeddedListSearchResults = ({
                         <ViewsContainer>
                             <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
-                                <LanguageIconStyle selected={!selectedViewUrn} />
+                                <Icon icon={Globe} size="xl" color={!selectedViewUrn ? 'iconBrand' : 'icon'} />
                                 <span>{tc('all')}</span>
                                 {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
                             </Pill>

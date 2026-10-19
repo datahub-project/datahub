@@ -13,8 +13,11 @@ import {
 } from '@app/lineageV3/common';
 import { computeSingleColumnHighlights, getEntityRef } from '@app/lineageV3/useColumnHighlighting';
 import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 const UPSTREAM = 'urn:li:dataset:upstream';
 const DOWNSTREAM = 'urn:li:dataset:downstream';
@@ -91,6 +94,7 @@ function run(nodeIdsByUrn: Map<string, string[]>, overrides: Overrides = {}) {
             nodeIdsByUrn,
             rootUrn: DP_A,
             rootType: EntityType.DataProduct,
+            entityRegistry,
             showFilterNodes: overrides.showFilterNodes ?? false,
         },
         'red',

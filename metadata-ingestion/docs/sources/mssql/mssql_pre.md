@@ -175,6 +175,7 @@ The audit must capture `BATCH_COMPLETED_GROUP`. That group is part of the defaul
   -- Reading the audit (SQL Server 2022+; CONTROL SERVER on earlier versions)
   GRANT VIEW SERVER SECURITY AUDIT TO [datahub_login];
   -- Discovering the audit file when query_history_path is not set
+  -- (SQL Server 2022+; VIEW SERVER STATE on earlier versions)
   GRANT VIEW SERVER SECURITY STATE TO [datahub_login];
   ```
 
@@ -182,20 +183,36 @@ The audit must capture `BATCH_COMPLETED_GROUP`. That group is part of the defaul
 
 ##### Option B: Extended Events (`extended_events`)
 
-Create a session with an `event_file` target that captures completed batches and RPCs with the login:
+Create a session with an `event_file` target that captures completed batches and RPCs with the login and database.
+
+**SQL Server and Managed Instance** (server-scoped session):
 
 ```sql
-CREATE EVENT SESSION DataHubQueries ON SERVER   -- ON DATABASE in Azure SQL Database
+CREATE EVENT SESSION DataHubQueries ON SERVER
 ADD EVENT sqlserver.sql_batch_completed(
     ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
 ADD EVENT sqlserver.rpc_completed(
     ACTION(sqlserver.server_principal_name, sqlserver.database_name))
-ADD TARGET package0.event_file(SET filename = N'D:\XE\DataHubQueries.xel')  -- a blob URL in Azure
+ADD TARGET package0.event_file(SET filename = N'D:\XE\DataHubQueries.xel')
 WITH (STARTUP_STATE = ON);
 ALTER EVENT SESSION DataHubQueries ON SERVER STATE = START;
--- SQL Server 2022+: VIEW SERVER PERFORMANCE STATE (VIEW SERVER STATE on earlier versions)
--- Azure SQL Database: VIEW DATABASE PERFORMANCE STATE
+-- SQL Server 2022+ (VIEW SERVER STATE on earlier versions)
 GRANT VIEW SERVER PERFORMANCE STATE TO [datahub_login];
 ```
 
-When `query_history_path` is not set, the connector uses the first running session that has an `event_file` target and captures `sql_batch_completed` or `rpc_completed`, including database-scoped sessions in Azure SQL Database.
+**Azure SQL Database** (sessions are database-scoped, and the target is a blob in a container the database has a credential for):
+
+```sql
+CREATE EVENT SESSION DataHubQueries ON DATABASE
+ADD EVENT sqlserver.sql_batch_completed(
+    ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
+ADD EVENT sqlserver.rpc_completed(
+    ACTION(sqlserver.server_principal_name, sqlserver.database_name))
+ADD TARGET package0.event_file(
+    SET filename = N'https://<account>.blob.core.windows.net/<container>/DataHubQueries.xel')
+WITH (STARTUP_STATE = ON);
+ALTER EVENT SESSION DataHubQueries ON DATABASE STATE = START;
+GRANT VIEW DATABASE PERFORMANCE STATE TO [datahub_user];
+```
+
+When `query_history_path` is not set, the connector uses the first running session that has an `event_file` target and captures `sql_batch_completed` or `rpc_completed` with the login. A server-scoped session must also collect `database_name` or `database_id`; database-scoped sessions in Azure SQL Database don't need it.

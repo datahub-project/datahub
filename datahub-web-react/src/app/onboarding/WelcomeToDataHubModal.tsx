@@ -16,6 +16,10 @@ import {
     VideoSlide,
 } from '@src/app/onboarding/WelcomeToDataHubModal.components';
 
+import aiDocumentationPoster from '@images/FTE-ai-documentation-poster.webp';
+import impactPoster from '@images/FTE-impact-poster.webp';
+import lineagePoster from '@images/FTE-lineage-poster.webp';
+import searchPoster from '@images/FTE-search-poster.webp';
 import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.png';
 
 const SLIDE_DURATION_MS = 10000;
@@ -34,7 +38,6 @@ export const WelcomeToDataHubModal = () => {
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
-    const [videosReady, setVideosReady] = useState<{ [key in keyof VideoSources]?: boolean }>({});
     const hasTrackedView = useRef(false);
     const carouselRef = useRef<any>(null);
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
@@ -94,11 +97,6 @@ export const WelcomeToDataHubModal = () => {
             }
         }
     }, [isDocumentationSlideEnabled, shouldShow, videoSources]);
-
-    // Handle when video elements are fully loaded
-    const handleVideoLoad = (videoKey: keyof VideoSources) => {
-        setVideosReady((prev) => ({ ...prev, [videoKey]: true }));
-    };
 
     // Keyboard navigation: Left/Right cycle slides, Escape closes the modal.
     // Bound at document level because focus inside the modal sits on a non-carousel
@@ -259,8 +257,7 @@ export const WelcomeToDataHubModal = () => {
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.search}
-                            isReady={videosReady.search || false}
-                            onVideoLoad={() => handleVideoLoad('search')}
+                            posterSrc={searchPoster}
                             width={MODAL_IMAGE_WIDTH}
                         />
                     </VideoContainer>
@@ -271,8 +268,7 @@ export const WelcomeToDataHubModal = () => {
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.lineage}
-                            isReady={videosReady.lineage || false}
-                            onVideoLoad={() => handleVideoLoad('lineage')}
+                            posterSrc={lineagePoster}
                             width={MODAL_IMAGE_WIDTH}
                         />
                     </VideoContainer>
@@ -283,8 +279,7 @@ export const WelcomeToDataHubModal = () => {
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.impact}
-                            isReady={videosReady.impact || false}
-                            onVideoLoad={() => handleVideoLoad('impact')}
+                            posterSrc={impactPoster}
                             width={MODAL_IMAGE_WIDTH}
                         />
                     </VideoContainer>
@@ -296,8 +291,7 @@ export const WelcomeToDataHubModal = () => {
                         <VideoContainer>
                             <VideoSlide
                                 videoSrc={videoSources?.aiDocs}
-                                isReady={videosReady.aiDocs || false}
-                                onVideoLoad={() => handleVideoLoad('aiDocs')}
+                                posterSrc={aiDocumentationPoster}
                                 width={MODAL_IMAGE_WIDTH}
                             />
                         </VideoContainer>

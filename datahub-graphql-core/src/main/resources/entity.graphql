@@ -1406,6 +1406,11 @@ enum EntityType {
   APPLICATION
 
   """
+  An API — a named callable with a typed input and output schema (MCP tool, REST endpoint, gRPC method, function, etc.)
+  """
+  API
+
+  """
   A Knowledge Article
   """
   DOCUMENT
@@ -2214,6 +2219,10 @@ enum IconLibrary {
   Icons from the Material UI icon library
   """
   MATERIAL
+  """
+  Icons from the Phosphor icon library
+  """
+  PHOSPHOR
 }
 
 type FineGrainedLineage {
@@ -3454,6 +3463,11 @@ type ContainerProperties {
   Fully-qualified name of the Container
   """
   qualifiedName: String
+
+  """
+  When the Container was created in the source platform
+  """
+  created: AuditStamp
 }
 
 """
@@ -13622,6 +13636,11 @@ type QueryEntity implements Entity {
   Platform from which the Query was detected
   """
   platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges @noAspects
 }
 
 """

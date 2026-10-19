@@ -1,5 +1,5 @@
 import { Pagination } from '@components';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
@@ -8,14 +8,20 @@ import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
+import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
-import { SearchEntityWithLineage, getSearchResultLineage } from '@app/searchV2/SearchResults.utils';
+import {
+    SearchEntityWithLineage,
+    applySearchResultLineageCounts,
+    getSearchResultLineage,
+} from '@app/searchV2/SearchResults.utils';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
 import BrowseSidebar from '@app/searchV2/sidebar';
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
 import { SidebarProvider } from '@app/searchV2/sidebar/SidebarContext';
 import SearchQuerySuggester from '@app/searchV2/suggestions/SearchQuerySugggester';
 import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
+import { useSearchResultLineageCounts } from '@app/searchV2/useSearchResultLineageCounts';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
 import { ErrorSection } from '@app/shared/error/ErrorSection';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
@@ -185,10 +191,19 @@ export const SearchResults = ({
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
+    const {
+        countsByUrn,
+        loading: searchResultLineageLoading,
+        error: searchResultLineageError,
+    } = useSearchResultLineageCounts(searchResultUrns);
+    const searchResultsWithLineage = useMemo(
+        () => applySearchResultLineageCounts(combinedSiblingSearchResults, countsByUrn),
+        [combinedSiblingSearchResults, countsByUrn],
+    );
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const highlightedSearchEntity =
-        highlightedIndex !== null && combinedSiblingSearchResults?.length > highlightedIndex
-            ? (combinedSiblingSearchResults[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
+        highlightedIndex !== null && searchResultsWithLineage.length > highlightedIndex
+            ? (searchResultsWithLineage[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
             : undefined;
 
     const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
@@ -227,97 +242,100 @@ export const SearchResults = ({
                         {(error && <ErrorSection />) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
-                                <SearchResultsScrollContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-                                    <SearchResultsContainer>
-                                        <SearchResultListContainer
-                                            v2Styles={showSearchFiltersV2}
-                                            $isShowNavBarRedesign={isShowNavBarRedesign}
-                                        >
-                                            {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
+                                <SearchResultLineageStatusProvider failed={!!searchResultLineageError}>
+                                    <SearchResultsScrollContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+                                        <SearchResultsContainer>
+                                            <SearchResultListContainer
+                                                v2Styles={showSearchFiltersV2}
+                                                $isShowNavBarRedesign={isShowNavBarRedesign}
+                                            >
+                                                {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
 
-                                            {isSelectMode && (
-                                                <StyledTabToolbar>
-                                                    <SearchSelectBar
-                                                        isSelectAll={
-                                                            selectedEntities.length > 0 &&
-                                                            isListSubset(searchResultUrns, selectedEntityUrns)
-                                                        }
-                                                        totalResults={totalResults}
-                                                        selectedEntities={selectedEntities}
-                                                        setSelectedEntities={setSelectedEntities}
-                                                        onChangeSelectAll={onChangeSelectAll}
-                                                        onCancel={() => setIsSelectMode(false)}
-                                                        refetch={refetch}
-                                                        areAllEntitiesSelected={areAllEntitiesSelected}
-                                                        setAreAllEntitiesSelected={setAreAllEntitiesSelected}
-                                                    />
-                                                </StyledTabToolbar>
-                                            )}
-                                            <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
-                                                <LeftControlsContainer>
-                                                    <Trans
-                                                        t={t}
-                                                        i18nKey="results.showingCount"
-                                                        values={{
-                                                            start:
-                                                                lastResultIndex > 0
-                                                                    ? (page - 1) * numResultsPerPage + 1
-                                                                    : 0,
-                                                            end: lastResultIndex,
-                                                            total:
-                                                                totalResults >= 10000
-                                                                    ? `${formatNumberWithoutAbbreviation(10000)}+`
-                                                                    : formatNumberWithoutAbbreviation(totalResults),
-                                                        }}
-                                                        components={{ bold: <b /> }}
-                                                    />
-                                                </LeftControlsContainer>
-                                            </PaginationInfoContainer>
-                                            <SearchResultList
-                                                setHighlightedIndex={setHighlightedIndex}
+                                                {isSelectMode && (
+                                                    <StyledTabToolbar>
+                                                        <SearchSelectBar
+                                                            isSelectAll={
+                                                                selectedEntities.length > 0 &&
+                                                                isListSubset(searchResultUrns, selectedEntityUrns)
+                                                            }
+                                                            totalResults={totalResults}
+                                                            selectedEntities={selectedEntities}
+                                                            setSelectedEntities={setSelectedEntities}
+                                                            onChangeSelectAll={onChangeSelectAll}
+                                                            onCancel={() => setIsSelectMode(false)}
+                                                            refetch={refetch}
+                                                            areAllEntitiesSelected={areAllEntitiesSelected}
+                                                            setAreAllEntitiesSelected={setAreAllEntitiesSelected}
+                                                        />
+                                                    </StyledTabToolbar>
+                                                )}
+                                                <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
+                                                    <LeftControlsContainer>
+                                                        <Trans
+                                                            t={t}
+                                                            i18nKey="results.showingCount"
+                                                            values={{
+                                                                start:
+                                                                    lastResultIndex > 0
+                                                                        ? (page - 1) * numResultsPerPage + 1
+                                                                        : 0,
+                                                                end: lastResultIndex,
+                                                                total:
+                                                                    totalResults >= 10000
+                                                                        ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                                                        : formatNumberWithoutAbbreviation(totalResults),
+                                                            }}
+                                                            components={{ bold: <b /> }}
+                                                        />
+                                                    </LeftControlsContainer>
+                                                </PaginationInfoContainer>
+                                                <SearchResultList
+                                                    setHighlightedIndex={setHighlightedIndex}
+                                                    highlightedIndex={highlightedIndex}
+                                                    loading={loading}
+                                                    query={query}
+                                                    searchResults={searchResultsWithLineage}
+                                                    totalResultCount={totalResults}
+                                                    isSelectMode={isSelectMode}
+                                                    selectedEntities={selectedEntities}
+                                                    setSelectedEntities={setSelectedEntities}
+                                                    suggestions={suggestions}
+                                                    pageNumber={page}
+                                                    previewType={previewType}
+                                                    onCardClick={onCardClick}
+                                                    setAreAllEntitiesSelected={setAreAllEntitiesSelected}
+                                                />
+                                                {totalResults > 0 && (
+                                                    <PaginationControlContainer id="search-pagination">
+                                                        <Pagination
+                                                            currentPage={page}
+                                                            itemsPerPage={numResultsPerPage}
+                                                            total={totalResults}
+                                                            showLessItems
+                                                            onPageChange={handlePageChange}
+                                                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                                            pageSizeOptions={['10', '20', '30']}
+                                                        />
+                                                    </PaginationControlContainer>
+                                                )}
+                                            </SearchResultListContainer>
+                                            <SearchEntitySidebarContainer
+                                                height={resultsHeight}
                                                 highlightedIndex={highlightedIndex}
-                                                loading={loading}
-                                                query={query}
-                                                searchResults={combinedSiblingSearchResults}
-                                                totalResultCount={totalResults}
-                                                isSelectMode={isSelectMode}
-                                                selectedEntities={selectedEntities}
-                                                setSelectedEntities={setSelectedEntities}
-                                                suggestions={suggestions}
-                                                pageNumber={page}
-                                                previewType={previewType}
-                                                onCardClick={onCardClick}
-                                                setAreAllEntitiesSelected={setAreAllEntitiesSelected}
+                                                selectedEntity={
+                                                    highlightedSearchEntity
+                                                        ? {
+                                                              urn: highlightedSearchEntity.urn,
+                                                              type: highlightedSearchEntity.type,
+                                                          }
+                                                        : null
+                                                }
+                                                searchResultLineage={getSearchResultLineage(highlightedSearchEntity)}
+                                                searchResultLineageLoading={searchResultLineageLoading}
                                             />
-                                            {totalResults > 0 && (
-                                                <PaginationControlContainer id="search-pagination">
-                                                    <Pagination
-                                                        currentPage={page}
-                                                        itemsPerPage={numResultsPerPage}
-                                                        total={totalResults}
-                                                        showLessItems
-                                                        onPageChange={handlePageChange}
-                                                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                                        pageSizeOptions={['10', '20', '30']}
-                                                    />
-                                                </PaginationControlContainer>
-                                            )}
-                                        </SearchResultListContainer>
-                                        <SearchEntitySidebarContainer
-                                            height={resultsHeight}
-                                            highlightedIndex={highlightedIndex}
-                                            selectedEntity={
-                                                highlightedSearchEntity
-                                                    ? {
-                                                          urn: highlightedSearchEntity.urn,
-                                                          type: highlightedSearchEntity.type,
-                                                      }
-                                                    : null
-                                            }
-                                            searchResultLineage={getSearchResultLineage(highlightedSearchEntity)}
-                                        />
-                                    </SearchResultsContainer>
-                                </SearchResultsScrollContainer>
+                                        </SearchResultsContainer>
+                                    </SearchResultsScrollContainer>
+                                </SearchResultLineageStatusProvider>
                             ))}
                     </ResultContainer>
                 </SearchBody>

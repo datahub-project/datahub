@@ -42,6 +42,9 @@ public class DeleteItemImpl implements ChangeMCP {
   @Nonnull private final AspectSpec aspectSpec;
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
+  @Setter private boolean semanticNoOp;
+  @Setter private int semanticNoOpStrategyMask;
+  @Setter private long semanticNoOpProposedVersion;
 
   @Nonnull
   @Override
@@ -108,7 +111,10 @@ public class DeleteItemImpl implements ChangeMCP {
           this.auditStamp,
           this.entitySpec,
           this.aspectSpec,
-          this.previousSystemAspect);
+          this.previousSystemAspect,
+          this.semanticNoOp,
+          this.semanticNoOpStrategyMask,
+          this.semanticNoOpProposedVersion);
     }
   }
 
