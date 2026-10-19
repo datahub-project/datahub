@@ -140,6 +140,20 @@ class BigQueryProfilingConfig(ProfilingConfig):
         "already bounds runaway probes by time.",
     )
 
+    copy_partition_field_profiles_to_full_table_profile: bool = Field(
+        default=False,
+        description="When profiling a partition, also emit a full-table profile "
+        "(`partitionSpec.partition` of `FULL_TABLE_SNAPSHOT`, the profile the dataset "
+        "Stats tab shows first) whose column stats are copied from that partition "
+        "profile. Off by default. The copied column stats still describe only the "
+        "profiled partition, but the UI labels them as full-table stats. `rowCount` on "
+        "the full-table profile stays the table total. Sampled partitions and partition "
+        "profiles without column stats are not copied; the report lists them. Each "
+        "profiling run shows twice in profiling history. Turning this off later does not "
+        "remove copies already emitted: the latest copy keeps taking precedence over "
+        "partition profiles until a newer full-table profile replaces it.",
+    )
+
     @field_validator("fallback_partition_values", mode="before")
     @classmethod
     def reject_bool_fallback_values(cls, v: object) -> object:
