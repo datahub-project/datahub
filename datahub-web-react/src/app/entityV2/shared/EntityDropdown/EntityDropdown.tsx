@@ -47,8 +47,8 @@ import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/version
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/lazyIncidentDetailDrawer';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
-import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
