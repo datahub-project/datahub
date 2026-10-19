@@ -227,6 +227,41 @@ failure_log:
     filename: ./path/to/failure.json
 ```
 
+The run report is written with the same token as the metadata. Recording a run writes the ingestion source
+`urn:li:dataHubIngestionSource:cli-<id>` and one execution request per run. Creating that ingestion source requires
+the **Manage Metadata Ingestion** privilege. If DataHub refuses these writes with HTTP 401 or 403, `datahub ingest`
+logs a warning and carries on: the metadata is still ingested, and neither the exit code nor `--strict-warnings` is
+affected. The run just doesn't appear in the UI.
+
+To show the runs of a token without **Manage Metadata Ingestion**, an admin creates the ingestion source once, then
+grants the token's user:
+
+- **Execute Entity** on that ingestion source. Without it DataHub refuses the run's execution request and the run is not
+  listed.
+- **Edit Entity** on entities of type `dataHubExecutionRequest`, so the run is listed and its final status is saved.
+  This lets the token write any run record, not only its own. **Create Entity** alone lists the run without its status.
+- Optionally **Edit Entity** on the ingestion source. Without it the run still appears, and each run logs one extra
+  warning.
+
+`<id>` is derived from the recipe, so it is the same on every run. It is the MD5 hash of a JSON object that holds the
+source `type`, plus the recipe's `pipeline_name` and the source's `platform_instance` when the recipe sets them.
+Compute it with the function the CLI uses:
+
+```python
+from datahub.emitter.mce_builder import datahub_guid
+
+# Leave out pipeline_name or platform_instance if the recipe doesn't set them.
+key = {"type": "mysql", "pipeline_name": "team_a__mysql", "platform_instance": "team_a"}
+print("urn:li:dataHubIngestionSource:cli-" + datahub_guid(key))
+```
+
+Then create the source with an admin token. The next run overwrites these fields with the real recipe details.
+
+```shell
+echo '{"name": "[CLI] mysql (team_a) [team_a__mysql]", "type": "mysql", "config": {"recipe": "", "executorId": "__datahub_cli_"}}' > source-info.json
+datahub put --urn "urn:li:dataHubIngestionSource:cli-<id>" -a dataHubIngestionSourceInfo -d source-info.json
+```
+
 #### ingest --record (Beta)
 
 :::note Beta Feature
