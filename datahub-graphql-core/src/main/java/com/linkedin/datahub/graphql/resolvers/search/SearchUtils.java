@@ -285,8 +285,6 @@ public class SearchUtils {
       Integer inputCount,
       String scrollId,
       String inputKeepAlive,
-      List<SortCriterion> sortCriteria,
-      List<String> facets,
       String className) {
 
     final List<String> entityNames =
@@ -351,9 +349,8 @@ public class SearchUtils {
                     finalFilters,
                     scrollId,
                     keepAlive,
-                    sortCriteria,
-                    count,
-                    facets);
+                    null,
+                    count);
             return UrnScrollResultsMapper.map(inputContext, scrollResult);
           } catch (Exception e) {
             log.warn(
