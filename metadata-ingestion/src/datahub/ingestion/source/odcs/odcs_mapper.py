@@ -704,15 +704,15 @@ def _field_aspect_mcps(
 def odcs_to_structured_property_mcps(
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
-    skip: AbstractSet[str] = frozenset(),
+    unavailable: AbstractSet[str] = frozenset(),
 ) -> Tuple[List[Tuple[MetadataChangeProposalClass, bool]], List[str]]:
     """`odcs.*` structured-property patches for a logical dataset and its fields.
 
     Returns `(mcp, is_primary_source)` pairs and rejected-value labels. Every
     field gets a patch (remove-only when it has no values) so values deleted from
     the contract are cleared. Field patches are non-primary so schemaField URNs
-    never enter the stale-removal checkpoint. Properties in `skip` have no
-    confirmed definition and are left out.
+    never enter the stale-removal checkpoint. Properties in `unavailable` have
+    no usable definition and are only removed.
     """
     # ponytail: one patch per field per run; fine at contract scale, batch if
     # contracts with thousands of columns appear.
@@ -734,7 +734,7 @@ def odcs_to_structured_property_mcps(
         rejected.extend(f"{label or schema_entry.name}: {r}" for r in result.rejected)
         is_primary = entity_type == DATASET_ENTITY_TYPE
         for mcp in structured_property_patch_mcps(
-            urn, entity_type, result.values, skip
+            urn, entity_type, result.values, unavailable
         ):
             mcps.append((mcp, is_primary))
     return mcps, rejected

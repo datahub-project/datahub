@@ -192,7 +192,7 @@ def test_v32_descriptive_attributes_parse_leniently() -> None:
     )
     assert contract.schema_ is not None
     schema = contract.schema_[0]
-    assert schema.synonyms is not None and len(schema.synonyms) == 2
+    assert isinstance(schema.synonyms, list) and len(schema.synonyms) == 2
     assert schema.properties is not None
     prop = schema.properties[0]
     assert prop.semanticType == "measure"
@@ -207,3 +207,19 @@ def test_emit_structured_properties_defaults_off() -> None:
         ODCSSourceConfig.model_validate({"path": "/tmp/x"}).emit_structured_properties
         is False
     )
+
+
+def test_v32_descriptive_attributes_never_fail_the_contract() -> None:
+    # These keys are only mapped behind emit_structured_properties; off-spec
+    # shapes must not reject a contract that ingested before they were parsed.
+    schema = ODCSSchemaObject.model_validate(
+        {
+            "name": "t",
+            "synonyms": "orders",
+            "properties": [
+                {"name": "col_a", "semanticType": 1, "transformLogic": {"sql": "x"}}
+            ],
+        }
+    )
+    assert schema.properties is not None
+    assert schema.properties[0].transformLogic == {"sql": "x"}

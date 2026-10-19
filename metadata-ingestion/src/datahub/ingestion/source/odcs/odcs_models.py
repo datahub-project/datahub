@@ -154,8 +154,8 @@ class ODCSProperty(ODCSBaseModel):
     # v3.2 descriptive attributes, mapped to `odcs.*` structured properties when
     # emit_structured_properties is on. Untyped (JsonValue) so one malformed
     # value cannot fail the whole contract's model validation.
-    semanticType: Optional[str] = None
-    transformLogic: Optional[str] = None
+    semanticType: Optional[JsonValue] = None
+    transformLogic: Optional[JsonValue] = None
     logicalTypeOptions: Optional[JsonValue] = None
     enum: Optional[List[JsonValue]] = None
 
@@ -172,7 +172,9 @@ class ODCSSchemaObject(ODCSBaseModel):
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
-    synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
+    # Untyped like the v3.2 property attributes: mapped only behind
+    # emit_structured_properties, so an off-spec shape must not fail the contract.
+    synonyms: Optional[JsonValue] = None
 
 
 class ODCSQualityArguments(ODCSBaseModel):

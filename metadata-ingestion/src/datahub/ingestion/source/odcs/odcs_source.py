@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     LogicalParentClass,
     OwnershipClass,
     StatusClass,
+    StructuredPropertyDefinitionClass,
 )
 from datahub.metadata.urns import DataProductUrn
 from datahub.utilities.lossy_collections import LossyList
@@ -1035,40 +1036,61 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
 
     def _structured_property_definition_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """Ensure every `odcs.*` definition exists before any value is written.
+        """Ensure every `odcs.*` definition is usable before any value is written.
 
-        GMS rejects a value whose definition is not persisted, so with a graph each
-        missing definition is created synchronously here, ahead of all contracts.
-        A definition that cannot be confirmed has its values skipped for the run.
+        GMS rejects a whole patch whose result holds a value for a missing,
+        soft-deleted or mismatching definition, so with a graph each missing
+        definition is created synchronously here, ahead of all contracts. A
+        definition that cannot be confirmed usable has its values removed, never
+        set, for the run.
         """
         graph = self.ctx.graph
-        if graph is None:
-            self.report.warning(
-                title="ODCS structured property definitions not verified",
-                message="No DataHub connection, so the definitions are emitted ahead "
-                "of the values but cannot be checked. Sinks that do not preserve "
-                "order (e.g. Kafka) may reject values; configure `datahub_api`.",
-            )
+        if graph is None or self.ctx.dry_run_mode:
+            if graph is None:
+                self.report.warning(
+                    title="ODCS structured property definitions not verified",
+                    message="No DataHub connection, so the definitions are emitted "
+                    "ahead of the values but cannot be checked. Sinks that do not "
+                    "preserve order (e.g. Kafka) may reject values; configure "
+                    "`datahub_api`.",
+                )
             for mcp in structured_property_definition_mcps():
                 yield mcp.as_workunit(is_primary_source=False)
             return
         for mcp in structured_property_definition_mcps():
             urn = str(mcp.entityUrn)
+            wanted = mcp.aspect
+            if not isinstance(wanted, StructuredPropertyDefinitionClass):
+                continue
             try:
-                if graph.exists(urn):
-                    # Keep admin edits (display name, filter/badge settings).
+                existing = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
+                if existing is None:
+                    graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
                     continue
-                graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
-            except Exception as e:
-                self._unavailable_structured_properties.add(
-                    urn.removeprefix("urn:li:structuredProperty:")
+                status = graph.get_aspect(urn, StatusClass)
+                problem = (
+                    "it is soft-deleted"
+                    if status is not None and status.removed
+                    else _definition_mismatch(existing, wanted)
                 )
+            except Exception as e:
+                self._unavailable_structured_properties.add(wanted.qualifiedName)
                 self.report.warning(
                     title="Could not create ODCS structured property definition",
-                    message="Values for this property are skipped this run; the "
+                    message="Values for this property are not written this run; the "
                     "rest of the run is unaffected.",
                     context=urn,
                     exc=e,
+                )
+                continue
+            if problem:
+                # Existing definitions are never overwritten (admin edits win).
+                self._unavailable_structured_properties.add(wanted.qualifiedName)
+                self.report.warning(
+                    title="ODCS structured property definition is not usable",
+                    message="Its values are removed, not written, until the "
+                    "definition matches what this source emits.",
+                    context=f"{urn}: {problem}",
                 )
 
     def _structured_property_workunits(
@@ -1627,3 +1649,25 @@ class ODCSSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> ODCSSourceReport:
         return self.report
+
+
+def _definition_mismatch(
+    existing: StructuredPropertyDefinitionClass,
+    wanted: StructuredPropertyDefinitionClass,
+) -> Optional[str]:
+    """Why GMS would reject our values against `existing`, or None if it accepts them."""
+    if existing.valueType != wanted.valueType:
+        return f"value type is {existing.valueType}"
+    if existing.cardinality != wanted.cardinality:
+        return f"cardinality is {existing.cardinality}"
+    missing_types = set(wanted.entityTypes) - set(existing.entityTypes)
+    if missing_types:
+        return f"entity types lack {sorted(missing_types)}"
+    if existing.allowedValues:
+        allowed = {v.value for v in existing.allowedValues}
+        missing = [
+            v.value for v in wanted.allowedValues or [] if v.value not in allowed
+        ]
+        if not wanted.allowedValues or missing:
+            return f"allowed values lack {missing or 'free text'}"
+    return None

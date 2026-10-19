@@ -1,7 +1,7 @@
 """ODCS v3.2 descriptive attributes as `odcs.*` structured properties (opt-in)."""
 
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, Iterable, List, Optional, Tuple, Union
+from typing import AbstractSet, Dict, Iterable, List, Tuple, Union
 
 from pydantic import JsonValue
 
@@ -162,9 +162,19 @@ def _put(result: PropertyValues, name: str, values: List[str]) -> None:
 
 
 def _synonym_terms(
-    synonyms: Optional[List[Union[str, ODCSSynonym]]],
+    synonyms: Union[None, JsonValue, List[Union[str, ODCSSynonym]]],
 ) -> List[JsonValue]:
-    return [s if isinstance(s, str) else s.synonym for s in synonyms or []]
+    if not isinstance(synonyms, list):
+        return []
+    terms: List[JsonValue] = []
+    for s in synonyms:
+        if isinstance(s, ODCSSynonym):
+            terms.append(s.synonym)
+        elif isinstance(s, dict):
+            terms.append(s.get("synonym"))
+        else:
+            terms.append(s)
+    return terms
 
 
 def dataset_property_values(schema_entry: ODCSSchemaObject) -> PropertyValues:
@@ -218,20 +228,21 @@ def structured_property_patch_mcps(
     urn: str,
     entity_type: str,
     values: Dict[str, List[PropertyValue]],
-    skip: AbstractSet[str] = frozenset(),
+    unavailable: AbstractSet[str] = frozenset(),
 ) -> List[MetadataChangeProposalClass]:
     """Set each applicable `odcs.*` property present in `values`, remove the rest.
 
     The `odcs.*` namespace is owned by this source, so values follow the contract;
     removing a property the entity does not have is a no-op in GMS. Properties
-    outside the namespace are never touched. Properties in `skip` (no confirmed
-    definition) are left out entirely: GMS rejects the whole patch otherwise.
+    outside the namespace are never touched. Properties in `unavailable` (no
+    usable definition) are only removed: GMS rejects the whole patch if its result
+    holds a value for a missing or soft-deleted definition.
     """
     patch = _StructuredPropertiesPatch(urn)
     for spec in SPECS:
-        if entity_type not in spec.entity_types or spec.qualified_name in skip:
+        if entity_type not in spec.entity_types:
             continue
-        if spec.qualified_name in values:
+        if spec.qualified_name in values and spec.qualified_name not in unavailable:
             patch.set_structured_property(
                 spec.qualified_name, values[spec.qualified_name]
             )

@@ -193,9 +193,11 @@ in place.
 
   DataHub rejects values for a structured property that has no definition, so before any
   contract is ingested the source checks each definition and creates the missing ones
-  (existing ones are left as they are). A definition that cannot be checked or created is
-  reported, and its values are skipped for that run. Without a DataHub connection (for example
-  a file sink) the definitions are emitted ahead of the values but cannot be checked.
+  (existing ones are left as they are). A definition that cannot be checked or created, is
+  soft-deleted, or no longer matches the table above (type, cardinality, entity types or
+  allowed values) is reported; its values are removed, not written, for that run. Without a
+  DataHub connection (for example a file sink) or in a dry run, the definitions are emitted
+  ahead of the values but cannot be checked.
   Values follow the contract: a value removed from the contract is removed from DataHub;
   other structured properties are never touched. Values outside a definition's allowed values
   are dropped and reported. Synonym `locale`/`source`/`status` and enum labels are not

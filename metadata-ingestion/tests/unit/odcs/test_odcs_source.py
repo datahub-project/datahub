@@ -16,6 +16,9 @@ from datahub.ingestion.source.odcs import odcs_source
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import odcs_data_contract_urn
 from datahub.ingestion.source.odcs.odcs_source import ODCSSource
+from datahub.ingestion.source.odcs.odcs_structured_properties import (
+    structured_property_definition_mcps,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     auto_stale_entity_removal,
 )
@@ -32,6 +35,7 @@ from datahub.metadata.schema_classes import (
     EdgeClass,
     LogicalParentClass,
     OwnershipClass,
+    PropertyValueClass,
     StatusClass,
     StructuredPropertyDefinitionClass,
 )
@@ -1983,50 +1987,131 @@ def test_structured_properties_emitted_without_graph(tmp_path: pathlib.Path) -> 
     assert any("not verified" in str(w.title) for w in src.report.warnings)
 
 
+def _sp_graph(
+    existing: Optional[Dict[str, StructuredPropertyDefinitionClass]] = None,
+    removed: Tuple[str, ...] = (),
+    fail_create: Tuple[str, ...] = (),
+) -> MagicMock:
+    """Fake graph holding `odcs.*` definitions keyed by qualified name."""
+    existing = existing or {}
+    graph = MagicMock()
+
+    def get_aspect(urn: str, aspect_cls: Any) -> Any:
+        name = urn.removeprefix("urn:li:structuredProperty:")
+        if aspect_cls is StructuredPropertyDefinitionClass:
+            return existing.get(name)
+        if aspect_cls is StatusClass:
+            return StatusClass(removed=name in removed)
+        return None
+
+    def emit(mcp: Any, **kwargs: Any) -> None:
+        if mcp.entityUrn.removeprefix("urn:li:structuredProperty:") in fail_create:
+            raise RuntimeError("403")
+
+    graph.get_aspect.side_effect = get_aspect
+    graph.emit_mcp.side_effect = emit
+    return graph
+
+
+def _our_definition(name: str) -> StructuredPropertyDefinitionClass:
+    for mcp in structured_property_definition_mcps():
+        assert isinstance(mcp.aspect, StructuredPropertyDefinitionClass)
+        if mcp.aspect.qualifiedName == name:
+            return mcp.aspect
+    raise KeyError(name)
+
+
+def _set_paths(workunits: List[Any]) -> str:
+    return " ".join(
+        op["path"]
+        for wu in _sp_patch_wus(workunits)
+        for op in json.loads(wu.metadata.aspect.value)["patch"]
+        if op["op"] == "add"
+    )
+
+
 def test_structured_property_definitions_created_via_graph(
     tmp_path: pathlib.Path,
 ) -> None:
-    graph = MagicMock()
-    graph.exists.side_effect = lambda urn: urn.endswith("odcs.synonyms")
+    graph = _sp_graph(existing={"odcs.synonyms": _our_definition("odcs.synonyms")})
     workunits, src = _sp_workunits(
         tmp_path, graph=graph, emit_structured_properties=True
     )
     assert not _aspects_of(workunits, StructuredPropertyDefinitionClass)
     created = [c.args[0].entityUrn for c in graph.emit_mcp.call_args_list]
     assert len(created) == 9 and not any(u.endswith("odcs.synonyms") for u in created)
-    assert "odcs.semanticType" in _sp_patch_text(workunits)
-    assert not any("not verified" in str(w.title) for w in src.report.warnings)
+    assert "odcs.semanticType" in _set_paths(workunits)
+    assert "odcs.synonyms" in _set_paths(workunits)
+    titles = " ".join(str(w.title) for w in src.report.warnings)
+    assert "not verified" not in titles and "not usable" not in titles
+    assert "Could not create" not in titles
 
 
-def test_values_skipped_when_definition_cannot_be_created(
+def test_values_not_set_when_definition_cannot_be_created(
     tmp_path: pathlib.Path,
 ) -> None:
-    graph = MagicMock()
-    graph.exists.return_value = False
-
-    def emit(mcp: Any, **kwargs: Any) -> None:
-        if mcp.entityUrn.endswith("odcs.semanticType"):
-            raise RuntimeError("403")
-
-    graph.emit_mcp.side_effect = emit
+    graph = _sp_graph(fail_create=("odcs.semanticType",))
     workunits, src = _sp_workunits(
         tmp_path, graph=graph, emit_structured_properties=True
     )
     # A value for a missing definition would fail the whole entity's patch.
-    patch_text = _sp_patch_text(workunits)
-    assert "odcs.semanticType" not in patch_text
-    assert "odcs.synonyms" in patch_text  # other properties still written
+    assert "odcs.semanticType" not in _set_paths(workunits)
+    assert "odcs.synonyms" in _set_paths(workunits)  # other properties still set
     assert any(
         "structured property definition" in str(w.title) for w in src.report.warnings
     )
 
 
-def test_values_skipped_when_definition_check_fails(tmp_path: pathlib.Path) -> None:
+def test_values_not_set_when_definition_check_fails(tmp_path: pathlib.Path) -> None:
     graph = MagicMock()
-    graph.exists.side_effect = RuntimeError("GMS down")
+    graph.get_aspect.side_effect = RuntimeError("GMS down")
     workunits, src = _sp_workunits(
         tmp_path, graph=graph, emit_structured_properties=True
     )
     assert not graph.emit_mcp.called
-    assert not _sp_patch_wus(workunits)
+    assert _set_paths(workunits) == ""
     assert src.report.warnings
+
+
+def test_soft_deleted_definition_is_cleared_not_set(tmp_path: pathlib.Path) -> None:
+    graph = _sp_graph(
+        existing={"odcs.semanticType": _our_definition("odcs.semanticType")},
+        removed=("odcs.semanticType",),
+    )
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    # GMS rejects any patch whose result still holds a soft-deleted property's
+    # value, so it is removed (never set) while other properties are written.
+    assert "odcs.semanticType" not in _set_paths(workunits)
+    assert "odcs.semanticType" in _sp_patch_text(workunits)
+    assert "odcs.synonyms" in _set_paths(workunits)
+    assert any("odcs.semanticType" in str(w.context) for w in src.report.warnings)
+
+
+def test_incompatible_existing_definition_is_not_set(tmp_path: pathlib.Path) -> None:
+    narrower = _our_definition("odcs.semanticType")
+    narrower.allowedValues = [PropertyValueClass(value="column")]
+    graph = _sp_graph(existing={"odcs.semanticType": narrower})
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    assert not any(
+        c.args[0].entityUrn.endswith("odcs.semanticType")
+        for c in graph.emit_mcp.call_args_list
+    )
+    assert "odcs.semanticType" not in _set_paths(workunits)
+    assert any("odcs.semanticType" in str(w.context) for w in src.report.warnings)
+
+
+def test_dry_run_does_not_write_definitions(tmp_path: pathlib.Path) -> None:
+    graph = _sp_graph()
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SP_CONTRACT, encoding="utf-8")
+    src = _make_source(
+        tmp_path, graph=graph, path=str(contract_file), emit_structured_properties=True
+    )
+    src.ctx.dry_run_mode = True
+    workunits = list(src.get_workunits_internal())
+    assert not graph.emit_mcp.called
+    assert len(_aspects_of(workunits, StructuredPropertyDefinitionClass)) == 10

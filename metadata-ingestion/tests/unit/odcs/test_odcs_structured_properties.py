@@ -160,16 +160,23 @@ def test_dataset_patch_touches_only_dataset_properties() -> None:
     assert "odcs.synonyms" in ops[0]["path"]
 
 
-def test_patch_skips_properties_without_a_definition() -> None:
-    # A value (or removal) for an undefined property fails the whole patch.
+def test_patch_only_removes_properties_without_a_usable_definition() -> None:
+    # Setting a value whose definition is missing or soft-deleted fails the whole
+    # patch; removing it is always accepted and clears a leftover value.
     ops = _ops(
         structured_property_patch_mcps(
             _FIELD_URN,
             SCHEMA_FIELD_ENTITY_TYPE,
             {"odcs.semanticType": ["measure"]},
-            skip={"odcs.semanticType", "odcs.synonyms"},
+            unavailable={"odcs.semanticType"},
         )
     )
-    assert not any("odcs.semanticType" in o["path"] for o in ops)
-    assert not any("odcs.synonyms" in o["path"] for o in ops)
-    assert len(ops) == 8
+    assert [o["op"] for o in ops] == ["remove"] * 10
+
+
+def test_off_spec_attribute_shapes_yield_no_values() -> None:
+    result = field_property_values(_prop(semanticType=1, transformLogic={"a": 1}))
+    assert result.values == {}
+    assert result.rejected == ["odcs.semanticType=1"]
+    schema = ODCSSchemaObject.model_validate({"name": "t", "synonyms": "orders"})
+    assert dataset_property_values(schema).values == {}
