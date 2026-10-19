@@ -2381,7 +2381,10 @@ public class GmsGraphQLEngine {
                 "actor",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
+                    (env) -> {
+                      ResolvedAuditStamp stamp = (ResolvedAuditStamp) env.getSource();
+                      return stamp.getActor() != null ? stamp.getActor().getUrn() : null;
+                    })));
   }
 
   /**
