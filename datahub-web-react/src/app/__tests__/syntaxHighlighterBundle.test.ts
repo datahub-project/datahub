@@ -87,7 +87,17 @@ function isHeavySyntaxImport(spec: string): boolean {
     return spec === 'react-syntax-highlighter' || spec === 'refractor' || spec === 'sql-formatter';
 }
 
-const PAGE_LIBRARY_PACKAGES = ['@monaco-editor/react', 'reactflow', '@uiw/react-md-editor', 'react-syntax-highlighter'];
+const PAGE_LIBRARY_PACKAGES = ['@monaco-editor/react', 'reactflow', 'react-syntax-highlighter'];
+
+const LAZY_SUMMARY_MODULES = [
+    '@app/entityV2/summary/modules/lineage/LineageModule',
+    '@app/entityV2/summary/modules/schemaTable/ColumnsModule',
+    '@app/entityV2/summary/modules/sql/MetricSqlModule',
+];
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function isPageLibraryImport(spec: string): boolean {
     return PAGE_LIBRARY_PACKAGES.some((name) => spec === name || spec.startsWith(`${name}/`));
@@ -154,12 +164,15 @@ describe('syntax highlighter chunks', () => {
         );
         const moduleSwitch = readFileSync(join(srcRoot, 'app/homeV3/module/Module.tsx'), 'utf8');
 
-        expect(builder).toMatch(/from\s+['"]@monaco-editor\/react['"]/);
-        expect(graph).toMatch(/from\s+['"]reactflow['"]/);
-        expect(queryCard).toMatch(/CodeBlock/);
-        expect(moduleSwitch).toMatch(/import\('@app\/entityV2\/summary\/modules\/lineage\/LineageModule'\)/);
-        expect(moduleSwitch).toMatch(/import\('@app\/entityV2\/summary\/modules\/schemaTable\/ColumnsModule'\)/);
-        expect(moduleSwitch).not.toMatch(/from\s+['"]@app\/entityV2\/summary\/modules\/lineage\/LineageModule['"]/);
+        expect(staticImportSpecs(builder)).toContain('@monaco-editor/react');
+        expect(staticImportSpecs(graph)).toContain('reactflow');
+        expect(staticImportSpecs(queryCard)).toContain('@components/components/CodeBlock');
+
+        const moduleSwitchImports = staticImportSpecs(moduleSwitch);
+        LAZY_SUMMARY_MODULES.forEach((modulePath) => {
+            expect(moduleSwitch).toMatch(new RegExp(`import\\(\\s*['"]${escapeRegExp(modulePath)}['"]\\s*\\)`));
+            expect(moduleSwitchImports).not.toContain(modulePath);
+        });
     });
 
     it('loads the full grammar catalog from the lazy editor', () => {
