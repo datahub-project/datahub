@@ -1,15 +1,15 @@
-import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
 import { ENTITY_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { AndFilterInput, EntityType, FacetFilterInput } from '@types';
 
 /**
  * Returns or filters for getting related entities at depth 1, potentially filtering out transformations.
- * Transformations are defined as (type = dataset ^ platform = dbt) v (type = datajob).
+ * Transformations are defined as (type = dataset ^ platform is a transformation platform) v (type = datajob).
  * We can transform this into the correct format via logical equivalence:
- * (depth = 1) ^ ~((type = dataset ^ platform = dbt) v (type = datajob))
- * = (depth = 1) ^ ((type != dataset v platform != dbt) ^ (type != datajob)) // De Morgan's Law
- * = (depth = 1 ^ type != dataset ^ type != datajob) v (depth = 1 ^ platform != dbt ^ type != datajob) // Distributive Law
+ * (depth = 1) ^ ~((type = dataset ^ platform in T) v (type = datajob))
+ * = (depth = 1) ^ ((type != dataset v platform not in T) ^ (type != datajob)) // De Morgan's Law
+ * = (depth = 1 ^ type != dataset ^ type != datajob) v (depth = 1 ^ platform not in T ^ type != datajob) // Distributive Law
  */
 export default function computeOrFilters(
     defaultFilters: FacetFilterInput[],
@@ -54,7 +54,7 @@ export default function computeOrFilters(
                     values: [EntityType.DataJob],
                     negated: true,
                 },
-                { field: PLATFORM_FILTER_NAME, values: [DBT_URN], negated: true },
+                { field: PLATFORM_FILTER_NAME, values: TRANSFORMATION_PLATFORM_URNS, negated: true },
             ],
         },
     ];
