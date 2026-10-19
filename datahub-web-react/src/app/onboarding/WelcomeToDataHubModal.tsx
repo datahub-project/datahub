@@ -7,14 +7,15 @@ import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/shared/localStorageUtils';
 import {
-    LoadingContainer,
     SlideContainer,
     SlideDescription,
     SlideTitle,
     StyledDocsLink,
+    TourSlides,
     VideoContainer,
     VideoSlide,
 } from '@src/app/onboarding/WelcomeToDataHubModal.components';
+import { videoKeyForSlide, videoSrcForSlide } from '@src/app/onboarding/WelcomeToDataHubModal.utils';
 
 import aiDocumentationPoster from '@images/FTE-ai-documentation-poster.webp';
 import impactPoster from '@images/FTE-impact-poster.webp';
@@ -32,12 +33,25 @@ interface VideoSources {
     aiDocs?: string;
 }
 
+function loadTourVideo(videoKey: keyof VideoSources): Promise<string> {
+    const loaders: Record<keyof VideoSources, () => Promise<{ default: string }>> = {
+        search: () => import('@images/FTE-search.mp4'),
+        lineage: () => import('@images/FTE-lineage.mp4'),
+        impact: () => import('@images/FTE-impact.mp4'),
+        aiDocs: () => import('@images/FTE-ai-documentation.mp4'),
+    };
+    return loaders[videoKey]().then((module) => module.default);
+}
+
 export const WelcomeToDataHubModal = () => {
     const { t } = useTranslation('onboarding');
-    const { t: tf } = useTranslation('common.feedback');
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
-    const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
+    const [videoSources, setVideoSources] = useState<VideoSources>({
+        search: '',
+        lineage: '',
+        impact: '',
+    });
     const hasTrackedView = useRef(false);
     const carouselRef = useRef<any>(null);
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
@@ -65,38 +79,28 @@ export const WelcomeToDataHubModal = () => {
         }
     }, [isModalTourOpen]);
 
-    // Show modal immediately, load videos individually as they complete
+    // Download only the slide that is showing. The other slides stay in the tour
+    // and pick up their MP4 when the carousel reaches them.
     useEffect(() => {
-        if (shouldShow && !videoSources) {
-            // Show modal immediately with empty video sources
-            const emptyVideoSources: VideoSources = {
-                search: '',
-                lineage: '',
-                impact: '',
-                aiDocs: undefined,
-            };
-            setVideoSources(emptyVideoSources);
+        if (!shouldShow) return undefined;
 
-            // Load all videos in parallel, update each as it completes
-            const loadVideo = async (videoKey: keyof VideoSources, importPromise: Promise<{ default: string }>) => {
-                try {
-                    const module = await importPromise;
-                    setVideoSources((prev) => (prev ? { ...prev, [videoKey]: module.default } : prev));
-                } catch (error) {
-                    console.error(`Failed to load ${videoKey} video:`, error);
-                }
-            };
+        const videoKey = videoKeyForSlide(currentSlide, isDocumentationSlideEnabled);
+        if (!videoKey) return undefined;
 
-            // Start loading all videos simultaneously
-            loadVideo('search', import('@images/FTE-search.mp4'));
-            loadVideo('lineage', import('@images/FTE-lineage.mp4'));
-            loadVideo('impact', import('@images/FTE-impact.mp4'));
+        let cancelled = false;
+        loadTourVideo(videoKey)
+            .then((src) => {
+                if (cancelled) return;
+                setVideoSources((prev) => (prev[videoKey] === src ? prev : { ...prev, [videoKey]: src }));
+            })
+            .catch((error) => {
+                console.error(`Failed to load ${videoKey} video:`, error);
+            });
 
-            if (isDocumentationSlideEnabled) {
-                loadVideo('aiDocs', import('@images/FTE-ai-documentation.mp4'));
-            }
-        }
-    }, [isDocumentationSlideEnabled, shouldShow, videoSources]);
+        return () => {
+            cancelled = true;
+        };
+    }, [currentSlide, isDocumentationSlideEnabled, shouldShow]);
 
     // Keyboard navigation: Left/Right cycle slides, Escape closes the modal.
     // Bound at document level because focus inside the modal sits on a non-carousel
@@ -175,32 +179,6 @@ export const WelcomeToDataHubModal = () => {
 
     if (!shouldShow) return null;
 
-    // Show loading state while videos are being loaded
-    if (!videoSources) {
-        return (
-            <Modal
-                title={t('welcome.modalTitle')}
-                width={MODAL_WIDTH}
-                onCancel={() => closeTour('close_button')}
-                keyboard={false}
-                buttons={[
-                    {
-                        text: t('welcome.getStarted'),
-                        variant: 'filled',
-                        onClick: () => closeTour('get_started_button'),
-                    },
-                ]}
-            >
-                <SlideContainer>
-                    <SlideTitle>&nbsp;</SlideTitle>
-                    <VideoContainer>
-                        <LoadingContainer width={MODAL_IMAGE_WIDTH}>{tf('loading')}</LoadingContainer>
-                    </VideoContainer>
-                </SlideContainer>
-            </Modal>
-        );
-    }
-
     function trackExternalLinkClick(url: string): void {
         analytics.event({
             type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent,
@@ -217,96 +195,98 @@ export const WelcomeToDataHubModal = () => {
             buttons={[]}
             zIndex={ANT_NOTIFICATION_Z_INDEX + 2} // 2 higher because home settings button is 1 higher
         >
-            <Carousel
-                ref={carouselRef}
-                autoplay
-                autoplaySpeed={SLIDE_DURATION_MS}
-                afterChange={handleSlideChange}
-                arrows={false}
-                animateDot
-                leftComponent={
-                    currentSlide === TOTAL_CAROUSEL_SLIDES - 1 ? (
-                        <StyledDocsLink
-                            href={DATAHUB_DOCS_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => {
-                                trackExternalLinkClick(DATAHUB_DOCS_URL);
-                            }}
-                        >
-                            {t('welcome.docsLink')}
-                        </StyledDocsLink>
-                    ) : undefined
-                }
-                rightComponent={
-                    currentSlide === TOTAL_CAROUSEL_SLIDES - 1 ? (
-                        <Button
-                            className="primary-button"
-                            variant="filled"
-                            onClick={() => closeTour('get_started_button')}
-                        >
-                            {t('welcome.getStarted')}
-                        </Button>
-                    ) : undefined
-                }
-                infinite={false}
-            >
-                <SlideContainer>
-                    <SlideTitle>{t('welcome.slideFindTitle')}</SlideTitle>
-                    <SlideDescription>{t('welcome.slideFindDescription')}</SlideDescription>
-                    <VideoContainer>
-                        <VideoSlide
-                            videoSrc={videoSources?.search}
-                            posterSrc={searchPoster}
-                            width={MODAL_IMAGE_WIDTH}
-                        />
-                    </VideoContainer>
-                </SlideContainer>
-                <SlideContainer>
-                    <SlideTitle>{t('welcome.slideLineageTitle')}</SlideTitle>
-                    <SlideDescription>{t('welcome.slideLineageDescription')}</SlideDescription>
-                    <VideoContainer>
-                        <VideoSlide
-                            videoSrc={videoSources?.lineage}
-                            posterSrc={lineagePoster}
-                            width={MODAL_IMAGE_WIDTH}
-                        />
-                    </VideoContainer>
-                </SlideContainer>
-                <SlideContainer>
-                    <SlideTitle>{t('welcome.slideImpactTitle')}</SlideTitle>
-                    <SlideDescription>{t('welcome.slideImpactDescription')}</SlideDescription>
-                    <VideoContainer>
-                        <VideoSlide
-                            videoSrc={videoSources?.impact}
-                            posterSrc={impactPoster}
-                            width={MODAL_IMAGE_WIDTH}
-                        />
-                    </VideoContainer>
-                </SlideContainer>
-                {videoSources.aiDocs && (
+            <TourSlides>
+                <Carousel
+                    ref={carouselRef}
+                    autoplay
+                    autoplaySpeed={SLIDE_DURATION_MS}
+                    afterChange={handleSlideChange}
+                    arrows={false}
+                    animateDot
+                    leftComponent={
+                        currentSlide === TOTAL_CAROUSEL_SLIDES - 1 ? (
+                            <StyledDocsLink
+                                href={DATAHUB_DOCS_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => {
+                                    trackExternalLinkClick(DATAHUB_DOCS_URL);
+                                }}
+                            >
+                                {t('welcome.docsLink')}
+                            </StyledDocsLink>
+                        ) : undefined
+                    }
+                    rightComponent={
+                        currentSlide === TOTAL_CAROUSEL_SLIDES - 1 ? (
+                            <Button
+                                className="primary-button"
+                                variant="filled"
+                                onClick={() => closeTour('get_started_button')}
+                            >
+                                {t('welcome.getStarted')}
+                            </Button>
+                        ) : undefined
+                    }
+                    infinite={false}
+                >
                     <SlideContainer>
-                        <SlideTitle>{t('welcome.slideDocsTitle')}</SlideTitle>
-                        <SlideDescription>{t('welcome.slideDocsDescription')}</SlideDescription>
+                        <SlideTitle>{t('welcome.slideFindTitle')}</SlideTitle>
+                        <SlideDescription>{t('welcome.slideFindDescription')}</SlideDescription>
                         <VideoContainer>
                             <VideoSlide
-                                videoSrc={videoSources?.aiDocs}
-                                posterSrc={aiDocumentationPoster}
+                                videoSrc={videoSrcForSlide(currentSlide, 0, videoSources.search)}
+                                posterSrc={searchPoster}
                                 width={MODAL_IMAGE_WIDTH}
                             />
                         </VideoContainer>
                     </SlideContainer>
-                )}
-                <SlideContainer>
-                    <SlideTitle>{t('welcome.slideReadyTitle')}</SlideTitle>
-                    <SlideDescription>{t('welcome.slideReadyDescription')}</SlideDescription>
-                    <LoadedImage
-                        src={welcomeModalHomeScreenshot}
-                        alt={t('welcome.modalTitle')}
-                        width={MODAL_IMAGE_WIDTH}
-                    />
-                </SlideContainer>
-            </Carousel>
+                    <SlideContainer>
+                        <SlideTitle>{t('welcome.slideLineageTitle')}</SlideTitle>
+                        <SlideDescription>{t('welcome.slideLineageDescription')}</SlideDescription>
+                        <VideoContainer>
+                            <VideoSlide
+                                videoSrc={videoSrcForSlide(currentSlide, 1, videoSources.lineage)}
+                                posterSrc={lineagePoster}
+                                width={MODAL_IMAGE_WIDTH}
+                            />
+                        </VideoContainer>
+                    </SlideContainer>
+                    <SlideContainer>
+                        <SlideTitle>{t('welcome.slideImpactTitle')}</SlideTitle>
+                        <SlideDescription>{t('welcome.slideImpactDescription')}</SlideDescription>
+                        <VideoContainer>
+                            <VideoSlide
+                                videoSrc={videoSrcForSlide(currentSlide, 2, videoSources.impact)}
+                                posterSrc={impactPoster}
+                                width={MODAL_IMAGE_WIDTH}
+                            />
+                        </VideoContainer>
+                    </SlideContainer>
+                    {isDocumentationSlideEnabled && (
+                        <SlideContainer>
+                            <SlideTitle>{t('welcome.slideDocsTitle')}</SlideTitle>
+                            <SlideDescription>{t('welcome.slideDocsDescription')}</SlideDescription>
+                            <VideoContainer>
+                                <VideoSlide
+                                    videoSrc={videoSrcForSlide(currentSlide, 3, videoSources.aiDocs)}
+                                    posterSrc={aiDocumentationPoster}
+                                    width={MODAL_IMAGE_WIDTH}
+                                />
+                            </VideoContainer>
+                        </SlideContainer>
+                    )}
+                    <SlideContainer>
+                        <SlideTitle>{t('welcome.slideReadyTitle')}</SlideTitle>
+                        <SlideDescription>{t('welcome.slideReadyDescription')}</SlideDescription>
+                        <LoadedImage
+                            src={welcomeModalHomeScreenshot}
+                            alt={t('welcome.modalTitle')}
+                            width={MODAL_IMAGE_WIDTH}
+                        />
+                    </SlideContainer>
+                </Carousel>
+            </TourSlides>
         </Modal>
     );
 };

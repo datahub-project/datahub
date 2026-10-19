@@ -43,6 +43,23 @@ export const VideoContainer = styled.div`
     padding-top: 16px;
 `;
 
+/**
+ * Holds the tour carousel at the height slick settles on.
+ *
+ * Before slick finishes measuring, every slide is in normal flow, including the
+ * 3376×2000 closing screenshot. The centered modal is then ~3200px tall, the
+ * visible video sits below the viewport, and it jumps in when the track
+ * collapses to one row. That jump is the first-visit CLS (the video enters the
+ * viewport mid zoom). Cap the list at the settled height — the closing slide,
+ * 539px at a 620px image — so the modal opens already centered.
+ */
+export const TourSlides = styled.div`
+    .slick-list {
+        max-height: 539px !important;
+        overflow: hidden !important;
+    }
+`;
+
 const LoadingContainerBase = styled.div<{ width: string }>`
     width: ${(props) => props.width};
     height: 350px; /* Match video aspect ratio for 620px width */
@@ -83,8 +100,12 @@ export const StyledDocsLink = styled.a`
     }
 `;
 
-const StyledVideo = styled.video<{ width: string }>`
-    width: ${(props) => props.width};
+const StyledVideo = styled.video<{ $width: string }>`
+    display: block;
+    width: ${(props) => props.$width};
+    /* Lock the box before metadata arrives. A bare <video> is 300×150 until the
+       MP4 loads, and that jump is what pushed first-visit CLS over 0.1. */
+    height: calc(${(props) => props.$width} * 720 / 1208);
     aspect-ratio: 1208 / 720;
     object-fit: contain;
 `;
@@ -97,6 +118,7 @@ interface VideoSlideProps {
 
 // src on the video element restarts resource selection when the MP4 URL arrives.
 // A <source> child inserted after the first pass does not, so autoplay never starts.
+// $width stays off the DOM: the width attribute would otherwise be the string "620px".
 export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, posterSrc, width }) => (
-    <StyledVideo width={width} poster={posterSrc} src={videoSrc || undefined} autoPlay loop muted playsInline />
+    <StyledVideo $width={width} poster={posterSrc} src={videoSrc || undefined} autoPlay loop muted playsInline />
 );

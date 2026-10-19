@@ -18,6 +18,7 @@ describe('VideoSlide', () => {
 
         expect(video).toHaveAttribute('poster', '/poster.webp');
         expect(video).not.toHaveAttribute('src');
+        expect(video).not.toHaveAttribute('width');
 
         rerender(
             <MockedProvider>
