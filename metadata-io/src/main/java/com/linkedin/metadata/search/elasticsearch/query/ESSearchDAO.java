@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -44,8 +46,9 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequ
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
-import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryIntent;
-import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryUnderstanding;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryIntent;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -75,6 +78,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -179,6 +183,13 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
+
+  /**
+   * Search V3 has no autocomplete query. Warn once per process so a search bar that stays empty is
+   * visible without a log line on every keystroke.
+   */
+  private final AtomicBoolean loggedAutocompleteUnsupported = new AtomicBoolean();
+
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
@@ -259,13 +270,14 @@ public class ESSearchDAO {
     CountRequest countRequest =
         new CountRequest(entityIndexName(opContext, entityName))
             .query(
-                SearchRequestHandler.getFilterQuery(
-                    opContext,
-                    List.of(entityName),
-                    filter,
-                    entitySpec.getSearchableFieldTypes(),
-                    queryFilterRewriteChain,
-                    searchConfiguration.getEntityIndex()));
+                SearchRequestHandler.getBuilder(
+                        opContext,
+                        entitySpec,
+                        searchConfiguration,
+                        customSearchConfiguration,
+                        queryFilterRewriteChain,
+                        searchServiceConfig)
+                    .getFilterQuery(opContext, filter));
 
     return opContext.withSpan(
         "docCount",
@@ -1090,6 +1102,20 @@ public class ESSearchDAO {
       @Nullable String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
+    if (EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(ESSearchDAO.class, "autocompleteUnsupported", 1));
+      if (loggedAutocompleteUnsupported.compareAndSet(false, true)) {
+        log.warn("Search V3 keyword reads do not support autocomplete; returning no suggestions.");
+      }
+      return new AutoCompleteResult()
+          .setQuery(query)
+          .setSuggestions(new StringArray())
+          .setEntities(new AutoCompleteEntityArray());
+    }
     try {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
           buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
@@ -1524,7 +1550,7 @@ public class ESSearchDAO {
                 BoolQueryBuilder query =
                     QueryBuilders.boolQuery()
                         .filter(QueryBuilders.termQuery(URN_FIELD, entry.getKey().toString()));
-                EntitySearchIndexResolver.applyEntityTypeFilter(
+                EntityFilter.applyEntityTypeFilter(
                     query,
                     List.of(entry.getValue().getName()),
                     searchConfiguration.getEntityIndex());
@@ -1665,7 +1691,7 @@ public class ESSearchDAO {
       @Nonnull IndexConvention indexConvention) {
     return rewriteEntityTypeToIndex()
         ? transformFilterForEntities(opContext, filter, indexConvention)
-        : ESUtils.toV3EntityFilter(opContext, filter);
+        : EntityFilter.toEntityFilter(opContext, filter);
   }
 
   @Nonnull

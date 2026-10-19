@@ -12,7 +12,7 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
-import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/lazyIncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityRegistry } from '@app/useEntityRegistry';

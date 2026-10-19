@@ -4,11 +4,10 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.DOC_VALUES;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.PARTIAL_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
@@ -20,9 +19,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -34,35 +33,35 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
- * The shared search fields of a Search V3 entity index. Full-text search and autocomplete read a
- * few {@code _search.<name>} fields instead of every searchable field:
+ * The shared search fields of a Search V3 entity index. Full-text search reads root fields named by
+ * {@code searchLabel}, not a {@code _search} object:
  *
  * <ul>
  *   <li>a searchable field copies into the shared field its {@code searchLabel} or {@code
- *       entityFieldName} names, for example {@code entityName} or {@code qualifiedName}. A field
- *       without either copies into the shared field {@link #DECLARED_FIELDS} lists for its search
- *       field name: one {@code description} for entity descriptions, and {@code columns} for the
- *       text of schema fields;
- *   <li>a string field queried by default that names none copies into {@code _search.other}, so V3
- *       still searches every field V2 searches. An entity whose fields name no {@code entityName}
- *       sends the field its {@code _entityName} alias names to {@code entityName} instead. The urn
- *       and fields of an entity a reference field names ({@code @SearchableRef}) only ever copy
- *       into {@code _search.other}, and matched fields do not report them;
- *   <li>a string field with {@code enableAutocomplete} also copies into {@code
- *       _search.autocomplete}, the only field with an ngram subfield;
- *   <li>a structured property's {@code string}, {@code rich_text} and {@code urn} values copy into
- *       {@code _search.structuredProperties} from the property's own field (see {@link
- *       StructuredPropertyMappingBuilder}), unless its definition opts out. No searchable field
- *       feeds it, so every index maps it and every search reads it.
+ *       entityFieldName} names. A label is the semantic bucket, and tags applied from any aspect
+ *       are {@code tags}. Names are {@code name} on Search V3;
+ *   <li>a string field queried by default that names none copies into the root field {@code other},
+ *       so V3 still searches every field V2 searches. An entity whose fields name no {@code name}
+ *       sends the field its {@code _entityName} alias names to {@code name} instead. The urn and
+ *       fields of an entity a reference field names ({@code @SearchableRef}) only ever copy into
+ *       {@code other}, and matched fields do not report them.
  * </ul>
  *
+ * <p>Structured properties are not a shared field. A {@code string}, {@code rich_text} or {@code
+ * urn} property whose definition has {@code searchConfiguration} carries {@code text} and {@code
+ * stemmed} subfields on its root keyword field (see {@link StructuredPropertyMappingBuilder}).
+ * Search reads those subfields. {@code queryByDefault} decides whether an unqualified query
+ * includes them. {@code copyTo} also copies each value into the named shared fields, so a query on
+ * those fields matches the property. The stored document is unchanged.
+ *
  * <p>These shared fields are the only full-text fields. Root fields and the {@code _aspects} copies
- * stay keywords and typed values for filters, facets and sorts, except the root browse paths, which
- * keep their path analyzers. A shared field is a full-text field when at least one string field
- * queried by default feeds it in the index; otherwise it stays a plain keyword, as the dates and
- * other labels do.
+ * stay keywords and typed values for filters, facets and sorts, except the browse path v2 root,
+ * which keeps its path analyzer. Browse path v1 is not indexed on Search V3. A shared field is a
+ * full-text field when at least one string field queried by default feeds it in the index;
+ * otherwise it stays a plain keyword, as the dates and other labels do.
  *
  * <p>Several root fields feeding one shared field are a union: every value is searchable, rebuilt
  * from the whole document on each write. When two aspects write the same root field, the value that
@@ -71,22 +70,18 @@ import javax.annotation.Nonnull;
  */
 public final class V3SearchFields {
 
-  public static final String ENTITY_NAME = "entityName";
+  public static final String ENTITY_NAME = "name";
   public static final String QUALIFIED_NAME = "qualifiedName";
   public static final String DESCRIPTION = "description";
   public static final String COLUMNS = "columns";
   public static final String OTHER = "other";
   public static final String STRUCTURED_PROPERTIES = "structuredProperties";
-  public static final String AUTOCOMPLETE = "autocomplete";
 
   /** Word subfield of every full-text shared field. */
-  public static final String TEXT = "text";
+  public static final String TEXT = FieldMapping.TEXT;
 
   /** Stemmed subfield of every full-text shared field. */
-  public static final String STEMMED = "stemmed";
-
-  /** Search-as-you-type subfield of {@code _search.autocomplete}. */
-  public static final String NGRAM = "ngram";
+  public static final String STEMMED = FieldMapping.STEMMED;
 
   public static final String TEXT_ANALYZER = "v3_text";
   public static final String TEXT_SEARCH_ANALYZER = "v3_text_search";
@@ -98,47 +93,64 @@ public final class V3SearchFields {
 
   private static final String ENTITY_NAME_ALIAS = "_entityName";
 
-  // The shared field of searchable fields that carry no searchLabel, by search field name. A
-  // searchLabel on the field takes precedence. Declared here rather than as labels in the models,
-  // whose aspects would each need a new schema version for a search-only change
-  static final Map<String, String> DECLARED_FIELDS =
-      Map.ofEntries(
-          Map.entry("description", DESCRIPTION),
-          Map.entry("editedDescription", DESCRIPTION),
-          Map.entry("definition", DESCRIPTION),
-          Map.entry("assertionDescription", DESCRIPTION),
-          Map.entry("fieldPaths", COLUMNS),
-          Map.entry("fieldLabels", COLUMNS),
-          Map.entry("fieldDescriptions", COLUMNS),
-          Map.entry("editedFieldDescriptions", COLUMNS),
-          Map.entry("fieldTags", COLUMNS),
-          Map.entry("editedFieldTags", COLUMNS),
-          Map.entry("fieldGlossaryTerms", COLUMNS),
-          Map.entry("editedFieldGlossaryTerms", COLUMNS));
+  /**
+   * Root fields that hold one value per schema field. Matched fields never fetch them: a wide table
+   * would be returned whole with every hit. Their search labels still decide which shared field is
+   * searched.
+   */
+  public static final Set<String> COLUMN_ARRAY_FIELDS =
+      Set.of(
+          "fieldPaths",
+          "fieldLabels",
+          "fieldDescriptions",
+          "editedFieldDescriptions",
+          "fieldTags",
+          "editedFieldTags",
+          "fieldGlossaryTerms",
+          "editedFieldGlossaryTerms");
 
   // The fields of other that matched fields report: those that name or tag the entity. The rest of
   // other, such as a document's text, custom properties or lists of urns, has no size bound
   static final Set<String> MATCHED_OTHER_FIELDS =
       Set.of("name", "editedName", "displayName", "fullName", "title", "tags", "glossaryTerms");
 
-  // Shared fields that name the entity keep an indexed keyword for exact match and sorting
+  // Shared fields that name the entity. Query weights use {@link #WEIGHTS}; the mapping shape comes
+  // from the label's resolved root, not from this set.
   private static final Set<String> IDENTITY_FIELDS = Set.of(ENTITY_NAME, QUALIFIED_NAME);
 
-  // Shared fields only full-text search reads, which hold just their analyzed subfields. A label a
-  // model names keeps its indexed keyword for the sorts, filters and score functions it serves
-  private static final Set<String> TEXT_ONLY_FIELDS =
-      Set.of(DESCRIPTION, COLUMNS, STRUCTURED_PROPERTIES, OTHER);
+  // Built-in destinations with no PDL field. Their keyword root is not an exact field; full text
+  // reads the analyzed subfields. Model labels do not use this set. Structured properties are not
+  // a shared field.
+  private static final Set<String> SEARCH_ONLY_BUILTINS = Set.of(OTHER);
 
   // Indexed shared keywords skip longer values, whose UTF-8 bytes could exceed the engine's term
   // limit: copy_to copies a value the source field skipped
   private static final int KEYWORD_IGNORE_ABOVE =
       ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH);
 
+  /**
+   * The {@code hasValuesFieldName} declared by a field that copies into {@code label}. Every source
+   * of the label writes that boolean. Absent when the label declares none.
+   */
+  @Nonnull
+  public static Optional<String> hasValuesFieldName(
+      @Nonnull EntitySpec entitySpec, @Nonnull String label) {
+    return entitySpec.getAspectSpecs().stream()
+        .flatMap(aspect -> aspect.getSearchableFieldSpecs().stream())
+        .map(SearchableFieldSpec::getSearchableAnnotation)
+        .map(SearchableAnnotation::resolvedForV3)
+        .filter(SearchableAnnotation::isV3Searchable)
+        .filter(annotation -> label.equals(annotation.getSearchLabel().orElse(null)))
+        .map(SearchableAnnotation::getHasValuesFieldName)
+        .flatMap(Optional::stream)
+        .findFirst();
+  }
+
   // Relative weight of a match in each full-text shared field; a field not listed weighs 1. These
-  // replace the per-field @Searchable boostScore on V3. Structured property values weigh what
-  // DataHub Cloud's query gives the field it copies them into
+  // replace the per-field @Searchable boostScore on V3. A structured property weighs what its own
+  // searchConfiguration says.
   private static final Map<String, Float> WEIGHTS =
-      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, STRUCTURED_PROPERTIES, 0.8f, OTHER, 0.5f);
+      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, OTHER, 0.5f);
 
   private static final Set<FieldType> STRING_FIELD_TYPES =
       Set.of(
@@ -151,10 +163,10 @@ public final class V3SearchFields {
 
   private V3SearchFields() {}
 
-  /** The {@code _search} path of a shared field. */
+  /** Where a shared field is indexed and queried. Labels are root fields. */
   @Nonnull
   public static String path(@Nonnull final String name) {
-    return MappingConstants.SEARCH_FIELD_NAME + "." + name;
+    return name;
   }
 
   public static boolean isIdentity(@Nonnull final String name) {
@@ -186,16 +198,13 @@ public final class V3SearchFields {
           .map(fieldSpec -> entityNameFallbacks.contains(fieldSpec) ? ENTITY_NAME : OTHER)
           .forEach(destinations::add);
     }
-    if (sourceFieldSpecs.stream().anyMatch(V3SearchFields::isAutocompleted)) {
-      destinations.add(AUTOCOMPLETE);
-    }
     return destinations;
   }
 
   /**
-   * For entities none of whose fields name {@code entityName}, the fields their {@code _entityName}
-   * alias names. They feed {@code entityName} instead of {@code other}, so every entity's name is
-   * in the same shared field.
+   * For entities none of whose fields name {@code name}, the fields their {@code _entityName} alias
+   * names. They feed {@code name} instead of {@code other}, so every entity's name is in the same
+   * shared field.
    */
   @Nonnull
   public static Set<SearchableFieldSpec> entityNameFallbacks(
@@ -215,10 +224,10 @@ public final class V3SearchFields {
 
   /**
    * The shared fields full-text search reads for these entities, each with the root fields that
-   * feed it, in the order the entities and their aspects declare them. A shared field is listed
-   * when at least one string field queried by default feeds it; {@code structuredProperties} always
-   * is, with no root field, since a property can be added to any entity, and {@code other} is,
-   * since every document's urn copies into it.
+   * feed it, in the order the entities and their aspects declare them. A label is listed when a
+   * contributor declares a {@code text} subfield and a string field queried by default feeds it.
+   * {@code other} is listed, since every document's urn copies into it. Structured properties are
+   * not listed: search reads the root field of each opted-in property.
    */
   @Nonnull
   public static Map<String, List<String>> fullTextFields(
@@ -230,18 +239,15 @@ public final class V3SearchFields {
         .forEach(
             (rootField, fieldSpecs) -> {
               final boolean queriedByDefault =
-                  fieldSpecs.stream().anyMatch(V3SearchFields::isQueriedByDefault);
+                  declaresText(fieldSpecs)
+                      && fieldSpecs.stream().anyMatch(V3SearchFields::isQueriedByDefault);
               for (String destination : destinations(fieldSpecs, fallbacks)) {
-                if (AUTOCOMPLETE.equals(destination)) {
-                  continue;
-                }
                 sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
                 if (queriedByDefault) {
                   queried.add(destination);
                 }
               }
             });
-    queried.add(STRUCTURED_PROPERTIES);
     // The catch-all goes last, so a hit's matched fields list the specific fields first
     queried.remove(OTHER);
     queried.add(OTHER);
@@ -269,7 +275,7 @@ public final class V3SearchFields {
                 OTHER.equals(field.getKey())
                     ? field.getValue().stream().filter(MATCHED_OTHER_FIELDS::contains)
                     : field.getValue().stream())
-        .filter(source -> !COLUMNS.equals(DECLARED_FIELDS.get(source)))
+        .filter(source -> !COLUMN_ARRAY_FIELDS.contains(source))
         .distinct()
         .collect(Collectors.toList());
   }
@@ -309,6 +315,43 @@ public final class V3SearchFields {
     return List.copyOf(groups);
   }
 
+  /**
+   * Shared fields a structured property's {@code copyTo} writes into for these entities. An entry
+   * names a shared field ({@code entityName}) or a root field that feeds one ({@code name}). A name
+   * that is neither is skipped. Only a field full-text search reads is kept.
+   */
+  @Nonnull
+  public static List<String> copyDestinations(
+      @Nonnull final Collection<EntitySpec> entitySpecs,
+      @Nullable final Collection<String> configured) {
+    if (configured == null || configured.isEmpty()) {
+      return List.of();
+    }
+    final Set<String> fullText = fullTextFields(entitySpecs).keySet();
+    final Map<String, List<SearchableFieldSpec>> roots = rootSourceFieldSpecs(entitySpecs);
+    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
+    final Set<String> destinations = new LinkedHashSet<>();
+    for (String entry : configured) {
+      if (entry == null || entry.isBlank()) {
+        continue;
+      }
+      final String name =
+          entry.startsWith("_search.") ? entry.substring("_search.".length()) : entry;
+      if (fullText.contains(name)) {
+        destinations.add(name);
+        continue;
+      }
+      final List<SearchableFieldSpec> sources = roots.get(name);
+      if (sources == null) {
+        continue;
+      }
+      destinations(sources, fallbacks).stream()
+          .filter(fullText::contains)
+          .forEach(destinations::add);
+    }
+    return List.copyOf(destinations);
+  }
+
   /** Whether a root field of these entities copies into the shared field {@code name}. */
   public static boolean isFed(
       @Nonnull final Collection<EntitySpec> entitySpecs, @Nonnull final String name) {
@@ -318,85 +361,40 @@ public final class V3SearchFields {
   }
 
   /**
-   * Whether the target mapping has an analyzed shared field, one with a {@code text} or {@code
-   * ngram} subfield, that the current mapping lacks. Full-text search and autocomplete read those
-   * subfields, so an index without them quietly matches nothing; the mapping diff cannot show it,
-   * since it leaves out the dynamic {@code _search} object.
+   * Whether the target mapping has an analyzed shared field, one with a {@code text} subfield, that
+   * the current mapping lacks. Full-text search reads that subfield, so an index without it quietly
+   * matches nothing.
    */
   public static boolean lacksSharedSearchFields(
       @Nonnull final Map<String, Object> currentMappings,
       @Nonnull final Map<String, Object> targetMappings) {
-    final Map<?, ?> current = searchFields(currentMappings);
-    return searchFields(targetMappings).entrySet().stream()
+    final Map<?, ?> current = rootProperties(currentMappings);
+    return rootProperties(targetMappings).entrySet().stream()
         .anyMatch(
             field -> isAnalyzed(field.getValue()) && !isAnalyzed(current.get(field.getKey())));
   }
 
   @Nonnull
-  private static Map<?, ?> searchFields(@Nonnull final Map<String, Object> mappings) {
-    return mappings.get("properties") instanceof Map<?, ?> properties
-            && properties.get(MappingConstants.SEARCH_FIELD_NAME) instanceof Map<?, ?> search
-            && search.get("properties") instanceof Map<?, ?> fields
-        ? fields
-        : Map.of();
+  private static Map<?, ?> rootProperties(@Nonnull final Map<String, Object> mappings) {
+    return mappings.get("properties") instanceof Map<?, ?> properties ? properties : Map.of();
   }
 
   private static boolean isAnalyzed(final Object mapping) {
     return mapping instanceof Map<?, ?> fieldMapping
         && fieldMapping.get(FIELDS) instanceof Map<?, ?> subfields
-        && (subfields.containsKey(TEXT) || subfields.containsKey(NGRAM));
+        && subfields.containsKey(TEXT);
   }
 
   /**
-   * The root fields that feed {@code _search.autocomplete}: first those copied into {@code
-   * entityName}, then the rest, each group in declaration order.
+   * The mapping of a built-in shared field. {@code other} and {@code structuredProperties} are a
+   * search-only keyword plus {@code text} and {@code stemmed}. Model labels are composed from
+   * {@code v3.mappings} and do not use this method.
    */
   @Nonnull
-  public static List<String> autocompleteFields(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
-    final Map<Boolean, Set<String>> byName = new HashMap<>();
-    entitySpecs.stream()
-        .flatMap(V3SearchFields::sourceFieldSpecs)
-        .filter(V3SearchFields::isAutocompleted)
-        .forEach(
-            fieldSpec ->
-                byName
-                    .computeIfAbsent(
-                        destinations(List.of(fieldSpec), fallbacks).contains(ENTITY_NAME),
-                        k -> new LinkedHashSet<>())
-                    .add(fieldSpec.getSearchableAnnotation().getFieldName()));
-    return Stream.concat(
-            byName.getOrDefault(true, Set.of()).stream(),
-            byName.getOrDefault(false, Set.of()).stream())
-        .distinct()
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * The mapping of a shared field. A full-text field gets {@code text} and {@code stemmed}
-   * subfields; a field that names the entity also keeps an indexed normalized keyword for exact
-   * match, sorting and name suggestions, with a {@code keyword} subfield that keeps the casing for
-   * case-sensitive exact match, and the others only hold their subfields, unless a model names them
-   * as a label. {@code autocomplete} is a normalized keyword with a search-as-you-type {@code
-   * ngram} subfield, in the engine's shape.
-   */
-  @Nonnull
-  public static Map<String, Object> mapping(
-      @Nonnull final String name,
-      final boolean fullText,
-      @Nonnull final Map<String, String> partialNgramConfig) {
+  public static Map<String, Object> mapping(@Nonnull final String name, final boolean fullText) {
     final Map<String, Object> mapping = new HashMap<>();
     mapping.put(TYPE, KEYWORD_FIELD_TYPE);
-    if (AUTOCOMPLETE.equals(name)) {
-      final Map<String, Object> ngram = new HashMap<>(partialNgramConfig);
-      ngram.put(ANALYZER, PARTIAL_ANALYZER);
-      mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
-      mapping.put(IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE);
-      mapping.put(DOC_VALUES, false);
-      mapping.put(FIELDS, Map.of(NGRAM, ngram));
-      return mapping;
-    }
-    if (!fullText || !TEXT_ONLY_FIELDS.contains(name)) {
+    if (!fullText || !SEARCH_ONLY_BUILTINS.contains(name)) {
       mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
       mapping.put(IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE);
     } else {
@@ -409,11 +407,66 @@ public final class V3SearchFields {
     final Map<String, Object> subfields = new HashMap<>();
     subfields.put(TEXT, textMapping(TEXT_ANALYZER, TEXT_SEARCH_ANALYZER));
     subfields.put(STEMMED, textMapping(STEMMED_ANALYZER, STEMMED_SEARCH_ANALYZER));
-    if (isIdentity(name)) {
+    if (!SEARCH_ONLY_BUILTINS.contains(name)) {
       subfields.put(KEYWORD, Map.of(TYPE, KEYWORD_FIELD_TYPE, IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE));
     }
     mapping.put(FIELDS, subfields);
     return mapping;
+  }
+
+  /**
+   * {@code text} and {@code stemmed} subfields for a keyword field full-text search reads, using
+   * the V3 analyzers. The caller copies any existing subfields first: {@link FieldTypeMapper}'s
+   * string mapping is an immutable map.
+   */
+  @Nonnull
+  public static Map<String, Object> analyzedSubfields() {
+    return Map.of(
+        TEXT, textMapping(TEXT_ANALYZER, TEXT_SEARCH_ANALYZER),
+        STEMMED, textMapping(STEMMED_ANALYZER, STEMMED_SEARCH_ANALYZER));
+  }
+
+  /**
+   * Analyzer subfields declared for each shared field. Full-text search reads {@code text} and
+   * {@code stemmed} only when the resolved label declares them. {@code other} always declares both.
+   */
+  @Nonnull
+  public static Map<String, Set<String>> analyzerSubfields(
+      @Nonnull final Collection<EntitySpec> entitySpecs) {
+    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
+    final Map<String, Set<String>> subfields = new LinkedHashMap<>();
+    rootSourceFieldSpecs(entitySpecs)
+        .forEach(
+            (rootField, fieldSpecs) -> {
+              final Set<String> declared = declaredSubfields(fieldSpecs);
+              if (declared.isEmpty()) {
+                return;
+              }
+              for (String destination : destinations(fieldSpecs, fallbacks)) {
+                subfields
+                    .computeIfAbsent(destination, key -> new LinkedHashSet<>())
+                    .addAll(declared);
+              }
+            });
+    subfields.put(OTHER, Set.of(TEXT, STEMMED));
+    return subfields;
+  }
+
+  private static boolean declaresText(@Nonnull final Collection<SearchableFieldSpec> fieldSpecs) {
+    return declaredSubfields(fieldSpecs).contains(TEXT);
+  }
+
+  @Nonnull
+  private static Set<String> declaredSubfields(
+      @Nonnull final Collection<SearchableFieldSpec> fieldSpecs) {
+    return fieldSpecs.stream()
+        .map(SearchableFieldSpec::getSearchableAnnotation)
+        .filter(SearchableAnnotation::isV3Searchable)
+        .map(SearchableAnnotation::resolvedForV3)
+        .flatMap(annotation -> annotation.getV3Mappings().stream())
+        .filter(mapping -> !mapping.isRoot())
+        .map(mapping -> mapping.getSubfield())
+        .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   private static Map<String, Object> textMapping(
@@ -423,25 +476,21 @@ public final class V3SearchFields {
 
   private static Set<String> labels(@Nonnull final SearchableFieldSpec fieldSpec) {
     final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-    final Set<String> labels =
-        Stream.of(annotation.getSearchLabel(), annotation.getEntityFieldName())
-            .flatMap(Optional::stream)
-            .filter(label -> !label.isEmpty())
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-    if (labels.isEmpty() && DECLARED_FIELDS.containsKey(annotation.getFieldName())) {
-      labels.add(DECLARED_FIELDS.get(annotation.getFieldName()));
+    if (!annotation.isV3Searchable()) {
+      return Set.of();
     }
-    return labels;
+    final SearchableAnnotation resolved = annotation.resolvedForV3();
+    return Stream.of(resolved.getSearchLabel(), resolved.getEntityFieldName())
+        .flatMap(Optional::stream)
+        .filter(label -> !label.isEmpty())
+        .collect(Collectors.toCollection(LinkedHashSet::new));
   }
 
   private static boolean isQueriedByDefault(@Nonnull final SearchableFieldSpec fieldSpec) {
-    final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-    return annotation.isQueryByDefault() && isStringFieldType(annotation.getFieldType());
-  }
-
-  private static boolean isAutocompleted(@Nonnull final SearchableFieldSpec fieldSpec) {
-    final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-    return annotation.isEnableAutocomplete() && isStringFieldType(annotation.getFieldType());
+    final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    return annotation.isV3Searchable()
+        && annotation.isQueryByDefault()
+        && isStringFieldType(annotation.getFieldType());
   }
 
   /**
@@ -455,6 +504,8 @@ public final class V3SearchFields {
         .map(AspectSpec::getSearchableFieldSpecs)
         .flatMap(List::stream)
         .filter(
-            spec -> !OBJECT_FIELD_TYPES.contains(spec.getSearchableAnnotation().getFieldType()));
+            spec ->
+                spec.getSearchableAnnotation().isV3Searchable()
+                    && !OBJECT_FIELD_TYPES.contains(spec.getSearchableAnnotation().getFieldType()));
   }
 }

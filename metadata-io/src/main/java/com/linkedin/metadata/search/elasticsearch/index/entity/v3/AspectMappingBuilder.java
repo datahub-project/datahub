@@ -1,11 +1,15 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +57,7 @@ public class AspectMappingBuilder {
                         aspectFields.putAll(
                             MultiEntityMappingsBuilder.getAspectMappingsForField(
                                 searchableFieldSpec, aspectName));
+                        copySharedHasValues(entitySpec, searchableFieldSpec, aspectFields);
                       });
 
               // Add system metadata to each aspect using the projector's serialized field name.
@@ -65,6 +70,31 @@ public class AspectMappingBuilder {
             });
 
     return aspectsMappings;
+  }
+
+  /**
+   * The aspect boolean copies onto the shared root name. Only a true is written, so the root field
+   * never holds both true and false.
+   */
+  private static void copySharedHasValues(
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull SearchableFieldSpec fieldSpec,
+      @Nonnull Map<String, Object> aspectFields) {
+    final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    if (!resolved.isV3Searchable()) {
+      return;
+    }
+    resolved
+        .getSearchLabel()
+        .filter(label -> !label.isEmpty())
+        .flatMap(label -> V3SearchFields.hasValuesFieldName(entitySpec, label))
+        .ifPresent(
+            booleanName -> {
+              Map<String, Object> mapping = new HashMap<>();
+              mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
+              mapping.put(COPY_TO, List.of(booleanName));
+              aspectFields.put(booleanName, mapping);
+            });
   }
 
   /**
@@ -82,19 +112,19 @@ public class AspectMappingBuilder {
     // lastObserved field
     Map<String, Object> lastObserved = new HashMap<>();
     lastObserved.put(TYPE, "date");
-    lastObserved.put("copy_to", List.of("_search._system_lastObserved"));
+    lastObserved.put("copy_to", List.of("_system.lastObserved"));
     properties.put("lastObserved", lastObserved);
 
     // runId field
     Map<String, Object> runId = new HashMap<>();
     runId.put(TYPE, "keyword");
-    runId.put("copy_to", List.of("_search._system_runId"));
+    runId.put("copy_to", List.of("_system.runId"));
     properties.put("runId", runId);
 
     // lastRunId field
     Map<String, Object> lastRunId = new HashMap<>();
     lastRunId.put(TYPE, "keyword");
-    lastRunId.put("copy_to", List.of("_search._system_lastRunId"));
+    lastRunId.put("copy_to", List.of("_system.lastRunId"));
     properties.put("lastRunId", lastRunId);
 
     // aspectCreated field
@@ -104,12 +134,12 @@ public class AspectMappingBuilder {
 
     Map<String, Object> aspectCreatedTime = new HashMap<>();
     aspectCreatedTime.put(TYPE, "date");
-    aspectCreatedTime.put("copy_to", List.of("_search._system_aspectCreated_time"));
+    aspectCreatedTime.put("copy_to", List.of("_system.created.time"));
     aspectCreatedProperties.put("time", aspectCreatedTime);
 
     Map<String, Object> aspectCreatedActor = new HashMap<>();
     aspectCreatedActor.put(TYPE, "keyword");
-    aspectCreatedActor.put("copy_to", List.of("_search._system_aspectCreated_actor"));
+    aspectCreatedActor.put("copy_to", List.of("_system.created.actor"));
     aspectCreatedProperties.put("actor", aspectCreatedActor);
 
     Map<String, Object> aspectCreatedImpersonator = new HashMap<>();
@@ -126,12 +156,12 @@ public class AspectMappingBuilder {
 
     Map<String, Object> aspectModifiedTime = new HashMap<>();
     aspectModifiedTime.put(TYPE, "date");
-    aspectModifiedTime.put("copy_to", List.of("_search._system_aspectModified_time"));
+    aspectModifiedTime.put("copy_to", List.of("_system.modified.time"));
     aspectModifiedProperties.put("time", aspectModifiedTime);
 
     Map<String, Object> aspectModifiedActor = new HashMap<>();
     aspectModifiedActor.put(TYPE, "keyword");
-    aspectModifiedActor.put("copy_to", List.of("_search._system_aspectModified_actor"));
+    aspectModifiedActor.put("copy_to", List.of("_system.modified.actor"));
     aspectModifiedProperties.put("actor", aspectModifiedActor);
 
     Map<String, Object> aspectModifiedImpersonator = new HashMap<>();

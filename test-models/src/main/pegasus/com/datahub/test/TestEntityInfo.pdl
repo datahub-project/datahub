@@ -16,7 +16,10 @@ record TestEntityInfo includes CustomProperties {
     "fieldType": "TEXT",
     "addToFilters": true,
     "fieldNameAliases": [ "_entityName" ],
-    "includeQueryEmptyAggregation": true
+    "includeQueryEmptyAggregation": true,
+    "v3": {
+      "searchLabel": "name"
+    }
   }
   textField: optional string
 

@@ -49,6 +49,8 @@ public class AspectMappingBuilderTest {
     when(mockAnnotation1.getFieldName()).thenReturn("testField");
     when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
     when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.isV3Searchable()).thenReturn(true);
+    when(mockAnnotation1.resolvedForV3()).thenReturn(mockAnnotation1);
   }
 
   @Test
@@ -174,6 +176,8 @@ public class AspectMappingBuilderTest {
     SearchableAnnotation annotation = mock(SearchableAnnotation.class);
     when(annotation.getFieldName()).thenReturn(fieldName);
     when(annotation.getFieldType()).thenReturn(fieldType);
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
     return fieldSpec;

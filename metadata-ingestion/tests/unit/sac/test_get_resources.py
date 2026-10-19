@@ -42,19 +42,30 @@ def _resource_entity(
 def _get_resources(
     requests_mock: Mocker,
     resources: List[Tuple[str, Optional[str]]],
+    *,
+    resources_payload: Optional[Dict[str, object]] = None,
+    model_expansion_status: Optional[int] = None,
     **config_overrides: object,
 ) -> Tuple[SACSource, List[Resource]]:
     requests_mock.post(_TOKEN_URL, json={"access_token": "token", "expires_in": 3599})
     requests_mock.get(
         f"{_TENANT_URL}/api/v1/Resources",
-        json={"d": {"results": [_resource_entity(rid, ap) for rid, ap in resources]}},
+        json=resources_payload
+        if resources_payload is not None
+        else {"d": {"results": [_resource_entity(rid, ap) for rid, ap in resources]}},
     )
     for resource_id, _ in resources:
         escaped = resource_id.replace("'", "''")
-        requests_mock.get(
-            f"{_TENANT_URL}/api/v1/Resources('{escaped}')/resourceModels",
-            json={"d": {"results": []}},
-        )
+        if model_expansion_status is not None:
+            requests_mock.get(
+                f"{_TENANT_URL}/api/v1/Resources('{escaped}')/resourceModels",
+                status_code=model_expansion_status,
+            )
+        else:
+            requests_mock.get(
+                f"{_TENANT_URL}/api/v1/Resources('{escaped}')/resourceModels",
+                json={"d": {"results": []}},
+            )
     requests_mock.get(f"{_TENANT_URL}/api/v1/dataimport/models", json={"models": []})
 
     config = SACSourceConfig(
@@ -154,6 +165,36 @@ def test_non_list_ancestor_path_warns_and_drops_browse_path(requests_mock):
     assert [w.title for w in source.report.warnings] == [
         "Unexpected SAC ancestor path shape"
     ]
+
+
+def test_model_expansion_failure_warns_and_emits_resource_without_models(requests_mock):
+    # A per-resource resourceModels failure must not abort the run: the story is still
+    # emitted (with no models) and the failure is surfaced as a warning.
+    source, resources = _get_resources(
+        requests_mock,
+        [(_STORY_RESOURCE_ID, '["Public","Folder 1"]')],
+        model_expansion_status=500,
+    )
+
+    assert len(resources) == 1
+    assert resources[0].resource_id == _STORY_RESOURCE_ID
+    assert resources[0].resource_models == frozenset()
+    assert "Could not read models for a resource" in [
+        w.title for w in source.report.warnings
+    ]
+
+
+def test_v2_list_body_without_results_wrapper_is_parsed(requests_mock):
+    # Some SAC v2 responses return the entity list directly under "d" rather than nested
+    # under "d"/"results"; both envelope shapes must be parsed.
+    _, resources = _get_resources(
+        requests_mock,
+        [(_STORY_RESOURCE_ID, '["Public","Folder 1"]')],
+        resources_payload={"d": [_resource_entity(_STORY_RESOURCE_ID, '["Public"]')]},
+    )
+
+    assert [resource.resource_id for resource in resources] == [_STORY_RESOURCE_ID]
+    assert resources[0].ancestor_path == "Public"
 
 
 @pytest.mark.parametrize("value", ["", "   "])

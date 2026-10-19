@@ -1329,6 +1329,43 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testStructuredPropertyAnalyzedSubfieldMismatchRequiresReindex() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("myStringProp", ImmutableMap.of("type", "keyword")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of(
+                "myStringProp",
+                ImmutableMap.of(
+                    "type",
+                    "keyword",
+                    "fields",
+                    ImmutableMap.of(
+                        "text",
+                        ImmutableMap.of("type", "text"),
+                        "stemmed",
+                        ImmutableMap.of("type", "text"),
+                        "keyword",
+                        ImmutableMap.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertyCopyToMismatchReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyCopyToMismatch());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
   void testStructuredPropertyCopyToMismatchIsNotPureAddition() {
     Map<String, Object> currentMappings =
         createMappingsWithDynamicStructuredProperties(
