@@ -847,8 +847,8 @@ public class ReindexConfig {
     /**
      * Adds the field mapping at {@code path}, descending from {@code _versioned} through the name
      * and version objects to the type-named field. Elasticsearch nests those objects under {@code
-     * properties}; an object without {@code properties} or a scalar {@code type} is descended
-     * directly. A field mapping (one with a scalar {@code type}) is where the walk stops.
+     * properties}; an object with neither {@code properties} nor a {@code type} is descended
+     * directly. A field mapping (one with a {@code type}) is where the walk stops.
      */
     @SuppressWarnings("unchecked")
     private static void collectStructuredPropertyFields(
@@ -856,20 +856,17 @@ public class ReindexConfig {
       if (!(mapping instanceof Map<?, ?> fieldMapping)) {
         return;
       }
-      Map<String, Object> children = null;
+      Map<String, Object> children;
       if (fieldMapping.get(PROPERTIES) instanceof Map<?, ?> nested) {
         children = (Map<String, Object>) nested;
-      } else if (!(fieldMapping.get(TYPE) instanceof String)
-          && !fieldMapping.isEmpty()
-          && fieldMapping.values().stream().allMatch(value -> value instanceof Map)) {
+      } else if (fieldMapping.get(TYPE) == null) {
         children = (Map<String, Object>) fieldMapping;
-      }
-      if (children == null) {
-        fields.put(path, mapping);
       } else {
-        children.forEach(
-            (key, value) -> collectStructuredPropertyFields(path + "." + key, value, fields));
+        fields.put(path, mapping);
+        return;
       }
+      children.forEach(
+          (key, value) -> collectStructuredPropertyFields(path + "." + key, value, fields));
     }
 
     private static Set<String> extractCopyTo(@Nullable Object mapping) {
