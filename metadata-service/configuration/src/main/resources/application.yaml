@@ -1180,6 +1180,8 @@ elasticsearch:
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
     reconcileInPlaceMappingUpdates: ${ELASTICSEARCH_BUILD_INDICES_RECONCILE_IN_PLACE_MAPPING_UPDATES:false} # opt-in incremental rebuild when first applying live mapping parameter updates
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
+    maxBackfillHours: ${ELASTICSEARCH_BUILD_INDICES_MAX_BACKFILL_HOURS:0} # wall-clock budget per run of the non-blocking entity index fill; <= 0 - no budget; a run that reaches it ends successfully with the fill still in progress and the next non-blocking run resumes from the checkpoint
+    backfillBatchSize: ${ELASTICSEARCH_BUILD_INDICES_BACKFILL_BATCH_SIZE:5000} # aspect rows per SQL page and write batch during the non-blocking entity index fill; each page is one bounded query plus one bulk drain and holds whole entities, so it must exceed the largest entity type's aspect count
     catchUpSqlPageSize: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_SQL_PAGE_SIZE:50} # SQL page size for incremental reindex catch-up MCL emission
     catchUpFlushInterval: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_INTERVAL:500} # rows between producer flush and checkpoint during catch-up
     catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables

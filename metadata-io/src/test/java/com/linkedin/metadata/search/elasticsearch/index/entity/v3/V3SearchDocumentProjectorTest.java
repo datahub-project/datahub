@@ -19,6 +19,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -112,6 +114,36 @@ public class V3SearchDocumentProjectorTest {
     assertTrue(aspectNode.get("description").isNull());
     assertEquals(aspectNode.get("_systemMetadata").get("runId").asText(), "run-1");
     assertFalse(aspectNode.has("_systemmetadata"));
+  }
+
+  @Test
+  public void testBackfillRestateOfTheKeyAspectRecordsTheCreationTime() throws Exception {
+    // A backfill restates stored rows; its key aspect carries the row's creation time, which the
+    // document records as it does on the upsert that created the entity. A live restate does not.
+    ObjectNode keyDocument = JsonNodeFactory.instance.objectNode();
+    keyDocument.put("urn", urn.toString());
+    when(event.getAspectName()).thenReturn("datasetKey");
+    when(aspectSpec.getName()).thenReturn("datasetKey");
+    when(event.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenAnswer(invocation -> Optional.of(keyDocument.deepCopy()));
+    when(event.getMetadataChangeLog())
+        .thenReturn(
+            new MetadataChangeLog()
+                .setHeaders(
+                    new StringMap(
+                        Map.of(BackfillHeaders.MODE_HEADER_NAME, BackfillHeaders.MODE_BASELINE))));
+
+    V3SearchDocumentProjector.ProjectedAspect backfilled =
+        projector.projectAspect(opContext, event).orElseThrow();
+    assertEquals(backfilled.rootFields().get("systemCreated").asLong(), 123L);
+
+    when(event.getMetadataChangeLog()).thenReturn(new MetadataChangeLog());
+    V3SearchDocumentProjector.ProjectedAspect live =
+        projector.projectAspect(opContext, event).orElseThrow();
+    assertFalse(live.rootFields().has("systemCreated"));
   }
 
   @Test
