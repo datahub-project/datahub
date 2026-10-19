@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 from datetime import datetime
@@ -1319,6 +1320,14 @@ def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
             "database": "lineage_test",
             "include_query_lineage": True,
             "max_queries_to_extract": 1000,
+            # The fixture server forces encryption, and pytds stays plaintext
+            # unless a CA file is set (prepare_mssql_tls exports it).
+            "options": {
+                "connect_args": {
+                    "cafile": os.environ["MSSQL_CAFILE"],
+                    "validate_host": True,
+                }
+            },
         }
     )
     source = SQLServerSource(config, PipelineContext(run_id="select-query-entity"))
