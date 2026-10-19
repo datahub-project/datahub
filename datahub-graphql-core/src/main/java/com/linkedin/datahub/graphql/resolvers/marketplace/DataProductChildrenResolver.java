@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -59,7 +60,7 @@ public class DataProductChildrenResolver implements DataFetcher<CompletableFutur
         _viewService,
         ImmutableList.of(EntityType.DATA_PRODUCT),
         input.getQuery(),
-        SearchUtils.combineFilters(inputFilter, baseFilter),
+        FilterUtils.combineFilters(inputFilter, baseFilter),
         input.getViewUrn(),
         input.getSearchFlags(),
         input.getCount(),

@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.combineFilters;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSortCriteria;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.metadata.utils.elasticsearch.FilterUtils.combineFilters;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
