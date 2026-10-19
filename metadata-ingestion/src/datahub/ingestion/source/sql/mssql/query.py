@@ -63,10 +63,19 @@ MSSQL_SYSTEM_TABLE_VALUED_FUNCTIONS = frozenset(
 _SYSTEM_DATABASES_LOWER = frozenset(name.lower() for name in MSSQL_SYSTEM_DATABASES)
 
 
+# System TVFs live in `sys`, but callers usually invoke them unqualified, which
+# the SQL parser resolves to the default `dbo` schema. Only those two schemas are
+# treated as system for TVF names, so a user object elsewhere with such a name
+# keeps its lineage.
+_SYSTEM_TVF_SCHEMAS = frozenset({"sys", "dbo"})
+
+
 def is_mssql_system_object(name: str) -> bool:
     """True for a `db.schema.object` name that refers to a SQL Server system object."""
     parts = name.lower().split(".")
-    if parts[-1] in MSSQL_SYSTEM_TABLE_VALUED_FUNCTIONS:
+    if parts[-1] in MSSQL_SYSTEM_TABLE_VALUED_FUNCTIONS and (
+        len(parts) < 2 or parts[-2] in _SYSTEM_TVF_SCHEMAS
+    ):
         return True
     if len(parts) >= 2 and parts[-2] in MSSQL_SYSTEM_SCHEMAS:
         return True
@@ -220,13 +229,16 @@ class MSSQLQuery:
     ) -> Tuple[TextClause, QueryParams]:
         """Extract query history from Query Store (SQL Server 2016+).
 
-        Returns one row per (query, usage bucket) with the executions from
-        runtime stats intervals that start inside the window, so counts are
-        per bucket rather than a lifetime total and reruns over the same
-        window report the same numbers. Queries that ran in the window rank
-        ahead of older ones for the TOP limit. A selected query with no
-        in-window executions yields one row with NULL execution columns so
-        its lineage is still kept.
+        Returns one row per (query, usage bucket). Each runtime-stats row (one
+        per plan, interval and execution type) is counted in the bucket of its
+        last_execution_time, and only when that time is inside the window, so
+        the returned timestamp always lies in its own bucket and reruns over
+        the same window report the same numbers. Counts are exact at the
+        granularity of Query Store's runtime-stats interval (60 minutes by
+        default): an interval's executions all go to its last execution's
+        bucket. Queries that ran in the window rank ahead of older ones for the
+        TOP limit. A selected query with no in-window executions yields one
+        row with NULL execution columns so its lineage is still kept.
         """
         query_template = """
             WITH top_queries AS (
@@ -242,8 +254,6 @@ class MSSQLQuery:
                     ON q.query_id = p.query_id
                 INNER JOIN sys.query_store_runtime_stats AS rs
                     ON p.plan_id = rs.plan_id
-                INNER JOIN sys.query_store_runtime_stats_interval AS rsi
-                    ON rs.runtime_stats_interval_id = rsi.runtime_stats_interval_id
                 WHERE
                     rs.count_executions >= :min_calls
                     {exclude_clause}
@@ -253,7 +263,8 @@ class MSSQLQuery:
                 HAVING SUM(rs.count_executions) >= :min_calls
                 ORDER BY
                     MAX(CASE
-                        WHEN rsi.start_time >= :start_time AND rsi.start_time < :end_time
+                        WHEN rs.last_execution_time >= :start_time
+                            AND rs.last_execution_time < :end_time
                         THEN 1 ELSE 0
                     END) DESC,
                     SUM(rs.avg_duration * rs.count_executions) DESC,
@@ -276,15 +287,13 @@ class MSSQLQuery:
                 FROM sys.query_store_plan AS p
                 INNER JOIN sys.query_store_runtime_stats AS rs
                     ON p.plan_id = rs.plan_id
-                INNER JOIN sys.query_store_runtime_stats_interval AS rsi
-                    ON rs.runtime_stats_interval_id = rsi.runtime_stats_interval_id
                 WHERE
                     p.query_id = tq.query_id
-                    AND rsi.start_time >= :start_time
-                    AND rsi.start_time < :end_time
+                    AND rs.last_execution_time >= :start_time
+                    AND rs.last_execution_time < :end_time
                 GROUP BY DATEADD(
                     {bucket_unit},
-                    DATEDIFF({bucket_unit}, 0, CONVERT(DATETIME2, rsi.start_time, 1)),
+                    DATEDIFF({bucket_unit}, 0, CONVERT(DATETIME2, rs.last_execution_time, 1)),
                     0
                 )
             ) AS we
@@ -322,7 +331,10 @@ class MSSQLQuery:
         the workload. Stats are per statement while sql_handle is per batch,
         so the id and text are scoped to the statement's offset in the batch.
         last_execution_time is server-local and shifted to UTC with the
-        server's current offset.
+        server's current offset. Times from before a daylight-saving change
+        can be off by an hour; T-SQL before SQL Server 2022 has no portable
+        way to look up the historical offset, and the DMV fallback's counts
+        are approximate anyway.
         """
         query_template = """
             SELECT TOP(:limit)

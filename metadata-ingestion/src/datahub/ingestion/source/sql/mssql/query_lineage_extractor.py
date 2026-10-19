@@ -303,7 +303,8 @@ class MSSQLLineageExtractor:
                     timer.elapsed_seconds(),
                 )
 
-                self.report.num_queries_extracted = self.queries_extracted
+                # One extractor runs per database; the report covers all of them.
+                self.report.num_queries_extracted += len(queries)
                 return queries
 
             except (DatabaseError, OperationalError, ProgrammingError) as e:
@@ -408,7 +409,7 @@ class MSSQLLineageExtractor:
             for observed_query in self._build_observed_queries(query_entry)
         ]
         observations.sort(key=lambda pair: pair[1].timestamp or _UNDATED)
-        self.report.num_queries_without_window_executions = sum(
+        self.report.num_queries_without_window_executions += sum(
             1 for query_entry in queries if not query_entry.executions
         )
 
@@ -463,5 +464,5 @@ class MSSQLLineageExtractor:
             timer.elapsed_seconds(),
         )
 
-        self.report.num_queries_parsed = self.queries_parsed
-        self.report.num_queries_parse_failures = self.queries_failed
+        self.report.num_queries_parsed += self.queries_parsed
+        self.report.num_queries_parse_failures += self.queries_failed

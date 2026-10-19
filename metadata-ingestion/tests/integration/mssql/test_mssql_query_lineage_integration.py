@@ -1307,6 +1307,8 @@ def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
     for _ in range(3):
         conn.execute(text(select_sql))
     conn.execute(text("SELECT name FROM sys.objects WHERE object_id = 1"))
+    # Query Store buffers runtime stats in memory; flush so they are readable.
+    conn.execute(text("EXEC sys.sp_query_store_flush_db"))
     time.sleep(2)
 
     config = SQLServerConfig.model_validate(

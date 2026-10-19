@@ -1872,6 +1872,8 @@ def test_mssql_select_query_emitted_as_query_entity(
         ("mydb.INFORMATION_SCHEMA.COLUMNS", True),
         ("msdb.dbo.sysjobs", True),
         ("mydb.dbo.fn_listextendedproperty", True),
+        # A user object elsewhere that happens to share a system TVF name.
+        ("mydb.audit.fn_dblog", False),
     ],
 )
 def test_is_mssql_system_object(name: str, expected: bool) -> None:

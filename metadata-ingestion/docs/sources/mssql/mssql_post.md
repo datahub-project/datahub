@@ -70,15 +70,15 @@ sink:
 
 ##### Configuration Options
 
-| Option                           | Type         | Default  | Description                                                                                 |
-| -------------------------------- | ------------ | -------- | ------------------------------------------------------------------------------------------- |
-| `include_query_lineage`          | boolean      | `false`  | Enable query-based lineage extraction                                                       |
-| `max_queries_to_extract`         | integer      | `1000`   | Maximum queries to analyze (range: 1-10000)                                                 |
-| `min_query_calls`                | integer      | `1`      | Minimum execution count to include query                                                    |
-| `query_exclude_patterns`         | list[string] | `[]`     | SQL LIKE patterns to exclude queries (max 100 patterns)                                     |
-| `include_query_usage_statistics` | boolean      | `true`   | Emit Query entities for all queries executed in the window, with per-query execution counts |
-| `include_usage_statistics`       | boolean      | `false`  | Extract usage statistics (requires `include_query_lineage: true`)                           |
-| `start_time` / `end_time`        | datetime     | last day | Window used for execution counts; queries outside it still contribute lineage               |
+| Option                           | Type         | Default  | Description                                                                                                                          |
+| -------------------------------- | ------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `include_query_lineage`          | boolean      | `false`  | Enable query-based lineage extraction                                                                                                |
+| `max_queries_to_extract`         | integer      | `1000`   | Maximum queries to analyze (range: 1-10000)                                                                                          |
+| `min_query_calls`                | integer      | `1`      | Minimum execution count to include query                                                                                             |
+| `query_exclude_patterns`         | list[string] | `[]`     | SQL LIKE patterns to exclude queries (max 100 patterns)                                                                              |
+| `include_query_usage_statistics` | boolean      | `true`   | Emit Query entities for all queries executed in the window, with per-query execution counts (requires `include_query_lineage: true`) |
+| `include_usage_statistics`       | boolean      | `false`  | Extract usage statistics (requires `include_query_lineage: true`)                                                                    |
+| `start_time` / `end_time`        | datetime     | last day | Window used for execution counts; queries outside it still contribute lineage                                                        |
 
 ##### Query Extraction Methods
 
@@ -87,7 +87,7 @@ DataHub automatically selects the best available method:
 1. **Query Store (Preferred)** - SQL Server 2016+
 
    - Provides comprehensive query history
-   - Exact execution counts per usage bucket (`bucket_duration`) within `start_time`/`end_time`; queries that ran in the window are prioritized for `max_queries_to_extract`
+   - Execution counts per usage bucket (`bucket_duration`) within `start_time`/`end_time`, at the granularity of Query Store's runtime-stats interval (60 minutes by default): each interval's executions are counted at its last execution time. Queries that ran in the window are prioritized for `max_queries_to_extract`
    - Better performance and reliability
    - Requires Query Store to be enabled
 
