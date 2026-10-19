@@ -105,6 +105,10 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # actually comes from the underlying Oracle sqlalchemy dialect.
     # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
     "oracle",
+    # Vertica identifiers are case-insensitive, quoted or not. Vertica gets its
+    # own sqlglot dialect (a Postgres subclass in sqlglot_utils), so this entry
+    # matches Vertica parses only and leaves Postgres untouched.
+    "vertica",
     # NOTE: SAP HANA and Informix also fold unquoted identifiers to uppercase
     # and are therefore semantically case-insensitive, but we deliberately do
     # *not* add "hana" or "informix" here. ``is_dialect_instance`` resolves
