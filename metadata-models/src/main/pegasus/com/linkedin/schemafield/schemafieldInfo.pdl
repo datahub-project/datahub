@@ -9,8 +9,16 @@ import com.linkedin.common.Urn
 record SchemaFieldInfo {
     @Searchable = {
         "fieldType": "KEYWORD",
+        "boostScore": 10.0,
         "fieldNameAliases": [ "_entityName" ],
-        "searchLabel": "entityName"
+        "v3": {
+          "searchLabel": "name",
+          "mappings": [
+            { "type": "KEYWORD" },
+            { "subfield": "text", "type": "TEXT" },
+            { "subfield": "stemmed", "type": "STEMMED" }
+          ]
+        }
     }
     name: optional string
 

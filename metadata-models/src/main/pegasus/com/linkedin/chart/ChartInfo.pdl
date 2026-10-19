@@ -12,7 +12,8 @@ import com.linkedin.common.Edge
  * Information about a chart
  */
 @Aspect = {
-  "name": "chartInfo"
+  "name": "chartInfo",
+  "schemaVersion": 2
 }
 record ChartInfo includes CustomProperties, ExternalReference {
 
@@ -24,7 +25,14 @@ record ChartInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   title: string
 
@@ -32,6 +40,15 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Detailed description about the chart
    */
   @Searchable = {
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: string
 
@@ -39,9 +56,25 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Captures information about who created/last modified/deleted this chart and when
    */
   @Searchable = {
+    "/created/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
+    },
     "/lastModified/time": {
       "fieldName": "lastModifiedAt",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: ChangeAuditStamps

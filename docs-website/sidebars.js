@@ -352,7 +352,7 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Knowledge Catalog Metadata Sync",
+              label: "Google Cloud Knowledge Catalog (Dataplex) Metadata Sync",
               type: "doc",
               id: "docs/automations/knowledge-catalog-metadata-sync",
               className: "saasOnly",
