@@ -5,7 +5,15 @@ import { NodeProps, ReactFlowProvider } from 'reactflow';
 
 import LineageTransformationNode from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
-import { FetchStatus, LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
+import {
+    FetchStatus,
+    LINEAGE_FILTER_TYPE,
+    LineageDisplayContext,
+    LineageEntity,
+    LineageFilter,
+    LineageNodesContext,
+    createLineageFilterNodeId,
+} from '@app/lineageV3/common';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -126,7 +134,13 @@ function buildNodeProps(nodeData: LineageEntity): NodeProps<LineageEntity> {
     };
 }
 
-function RenderWithLineageContexts({ nodeData }: { nodeData: LineageEntity }) {
+function RenderWithLineageContexts({
+    nodeData,
+    lineageFilters = new Map(),
+}: {
+    nodeData: LineageEntity;
+    lineageFilters?: Map<string, LineageFilter>;
+}) {
     const defaultNodesContext = useContext(LineageNodesContext);
     const defaultDisplayContext = useContext(LineageDisplayContext);
     const defaultVisualizationContext = useContext(LineageVisualizationContext);
@@ -146,6 +160,7 @@ function RenderWithLineageContexts({ nodeData }: { nodeData: LineageEntity }) {
                     value={{
                         ...defaultDisplayContext,
                         shownUrns: [nodeData.urn],
+                        lineageFilters,
                         displayedMenuNode,
                         setDisplayedMenuNode,
                     }}
@@ -167,13 +182,14 @@ function renderNode(args: {
     urn: string;
     type: EntityType;
     entity?: Pick<FetchedEntityV2, 'name' | 'icon' | 'canEditLineage' | 'exists'>;
+    lineageFilters?: Map<string, LineageFilter>;
 }) {
     const nodeData = buildNodeData(args);
 
     return render(
         <MockedProvider>
             <TestPageContainer>
-                <RenderWithLineageContexts nodeData={nodeData} />
+                <RenderWithLineageContexts nodeData={nodeData} lineageFilters={args.lineageFilters} />
             </TestPageContainer>
         </MockedProvider>,
     );
@@ -217,6 +233,46 @@ describe('LineageTransformationNode', () => {
         // Node contents use the logo; popover LineageCard still requests a typeIcon fallback.
         expect(mockGetIcon).not.toHaveBeenCalledWith(EntityType.DataJob, 18);
         expect(document.querySelector('.ant-skeleton-avatar')).toBeNull();
+    });
+
+    describe('pagination control', () => {
+        // A dbt model as the home node, whose 11 dbt sources each lead to a warehouse table
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:dbt,db.schema.model,PROD)';
+        const leaves = Array.from(
+            { length: 11 },
+            (_, i) => `urn:li:dataset:(urn:li:dataPlatform:snowflake,t${i},PROD)`,
+        );
+        const sources = Array.from({ length: 11 }, (_, i) => `urn:li:dataset:(urn:li:dataPlatform:dbt,s${i},PROD)`);
+        const id = createLineageFilterNodeId(urn, LineageDirection.Upstream);
+        const filter: LineageFilter = {
+            id,
+            type: LINEAGE_FILTER_TYPE,
+            parent: urn,
+            direction: LineageDirection.Upstream,
+            limit: 4,
+            isExpanded: { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false },
+            contents: leaves,
+            allChildren: new Set([...leaves, ...sources]),
+            shown: new Set([...leaves.slice(0, 4), ...sources.slice(0, 4)]),
+        };
+
+        it('shows how many paginated children are shown', () => {
+            renderNode({
+                urn,
+                type: EntityType.Dataset,
+                entity: { name: 'model' },
+                lineageFilters: new Map([[id, filter]]),
+            });
+
+            expect(screen.getByTestId(`children-shown-${urn}-${LineageDirection.Upstream}`)).toHaveTextContent('4/11');
+            expect(screen.queryByTestId(`children-shown-${urn}-${LineageDirection.Downstream}`)).toBeNull();
+        });
+
+        it('is not shown without pagination state', () => {
+            renderNode({ urn, type: EntityType.Dataset, entity: { name: 'model' } });
+
+            expect(screen.queryByTestId(`children-shown-${urn}-${LineageDirection.Upstream}`)).toBeNull();
+        });
     });
 
     describe('hover card menu', () => {

@@ -72,7 +72,7 @@ export default function LineageDisplay({
         flowNodes.forEach((node) => setDefault(map, node.data.urn || node.id, []).push(node.id));
         return map;
     }, [flowNodes]);
-    const refetchUrn = useBulkEntityLineage(shownUrns);
+    const refetchUrn = useBulkEntityLineage(shownUrns, lineageFilters);
     useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);

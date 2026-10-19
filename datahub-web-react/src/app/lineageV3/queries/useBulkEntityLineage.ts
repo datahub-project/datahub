@@ -5,6 +5,7 @@ import {
     FetchStatus,
     LineageEdge,
     LineageEntity,
+    LineageFilter,
     LineageNodesContext,
     NodeContext,
     addToAdjacencyList,
@@ -14,7 +15,10 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
-import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
+import {
+    getNodeForBulkResult,
+    getUnfetchedTransformationalLeaves,
+} from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
 import usePrevious from '@app/shared/usePrevious';
@@ -26,7 +30,15 @@ import { EntityType, LineageDirection } from '@types';
 
 const BATCH_SIZE = 10;
 
-export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
+/**
+ * Fetches entity data, and with it lineage edges, for shown nodes, then for transformational
+ * leaves paginated out of view, so they do not inflate pagination counts (see
+ * `getUnfetchedTransformationalLeaves`).
+ */
+export default function useBulkEntityLineage(
+    shownUrns: string[],
+    lineageFilters: Map<string, LineageFilter> = new Map(),
+): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
     const entityRegistry = useEntityRegistryV2();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
@@ -116,6 +128,14 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                     return !node?.entity;
                 })
                 .slice(0, BATCH_SIZE);
+            if (!newUrnsToFetch.length) {
+                newUrnsToFetch = getUnfetchedTransformationalLeaves(
+                    lineageFilters,
+                    nodes,
+                    rootType,
+                    memoizedShownUrns,
+                ).slice(0, BATCH_SIZE);
+            }
             if (
                 !newUrnsToFetch.length &&
                 rootType === EntityType.SchemaField &&
@@ -135,6 +155,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         nodes,
         dataVersion,
         memoizedShownUrns,
+        lineageFilters,
         showGhostEntities,
         rootType,
         ignoreSchemaFieldStatus,
