@@ -343,6 +343,7 @@ It takes the following parameters:
   this [doc](metadata-model.md#timeseries-aspects) for details.
 - **autoRender**: boolean (optional) - defaults to false. When set to true, the aspect will automatically be displayed
   on entity pages in a tab using a default renderer. **_This is currently only supported for Charts, Dashboards, DataFlows, DataJobs, Datasets, Domains, and GlossaryTerms_**.
+- **aspectJson**: boolean (optional) - defaults to false. Search V3 only. When true, the entity document stores this aspect's JSON, the same JSON stored in SQL, at `_aspects.<aspectName>._aspectJson` and does not index it. Enabling it on an aspect that already has data requires a Search V3 reindex, and the stored JSON increases the size of `_source`.
 - **renderSpec**: RenderSpec (optional) - config for autoRender aspects that controls how they are displayed. **_This is currently only supported for Charts, Dashboards, DataFlows, DataJobs, Datasets, Domains, and GlossaryTerms_**. Contains three fields:
   - **displayType**: One of `tabular`, `properties`. Tabular should be used for a list of data elements, properties for a single data bag.
   - **displayName**: How the aspect should be referred to in the UI. Determines the name of the tab on the entity page.

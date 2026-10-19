@@ -1,17 +1,21 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -31,6 +35,7 @@ import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -386,6 +391,141 @@ public class V3SearchDocumentProjectorTest {
 
     assertFalse(projected.aspectFields().has("hasDescription"));
     assertTrue(projected.rootFields().get("hasDescription").isNull());
+  }
+
+  @Test
+  public void testAspectJsonIsStoredAndNotIndexed() throws Exception {
+    EditableDatasetProperties properties = new EditableDatasetProperties();
+    properties.setDescription("Order events");
+    when(aspectSpec.getAspectAnnotation())
+        .thenReturn(new AspectAnnotation("datasetProperties", false, false, null, 1L, true));
+    when(event.getRecordTemplate()).thenReturn(properties);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(event.getChangeType()).thenReturn(ChangeType.UPSERT);
+    ObjectNode currentDocument = JsonNodeFactory.instance.objectNode();
+    currentDocument.put("urn", urn.toString());
+    currentDocument.put("description", "Order events");
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(properties), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(currentDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    JsonNode stored =
+        opContext
+            .getObjectMapper()
+            .readTree(
+                projected.aspectFields().get(V3SearchDocumentProjector.ASPECT_JSON_FIELD).asText());
+    assertEquals(stored.get("description").asText(), "Order events");
+    assertFalse(projected.rootFields().has(V3SearchDocumentProjector.ASPECT_JSON_FIELD));
+    assertAspectJsonNotIndexed();
+  }
+
+  @Test
+  public void testAspectJsonDropsAClearedField() throws Exception {
+    when(aspectSpec.getAspectAnnotation())
+        .thenReturn(new AspectAnnotation("datasetProperties", false, false, null, 1L, true));
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    when(event.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(event.getRecordTemplate()).thenReturn(new EditableDatasetProperties());
+    ObjectNode currentDocument = JsonNodeFactory.instance.objectNode();
+    currentDocument.put("urn", urn.toString());
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext),
+            eq(urn),
+            any(EditableDatasetProperties.class),
+            eq(aspectSpec),
+            eq(false),
+            eq(auditStamp)))
+        .thenReturn(Optional.of(currentDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    JsonNode stored =
+        opContext
+            .getObjectMapper()
+            .readTree(
+                projected.aspectFields().get(V3SearchDocumentProjector.ASPECT_JSON_FIELD).asText());
+    assertFalse(stored.has("description"));
+  }
+
+  @Test
+  public void testAspectJsonDeleteClearsStoredAspect() throws Exception {
+    when(aspectSpec.getAspectAnnotation())
+        .thenReturn(new AspectAnnotation("datasetProperties", false, false, null, 1L, true));
+    when(event.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(event.getRecordTemplate()).thenReturn(null);
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode deleteDocument = JsonNodeFactory.instance.objectNode();
+    deleteDocument.put("urn", urn.toString());
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), isNull(), eq(aspectSpec), eq(true), eq(auditStamp)))
+        .thenReturn(Optional.of(deleteDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projected.aspectFields().get(V3SearchDocumentProjector.ASPECT_JSON_FIELD).isNull());
+    assertFalse(projected.rootFields().has(V3SearchDocumentProjector.ASPECT_JSON_FIELD));
+  }
+
+  @Test
+  public void testAspectJsonStaysUnsetWhenAspectDoesNotOptIn() throws Exception {
+    when(aspectSpec.getAspectAnnotation())
+        .thenReturn(new AspectAnnotation("datasetProperties", false, false, null, 1L, false));
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    ObjectNode currentDocument = JsonNodeFactory.instance.objectNode();
+    currentDocument.put("urn", urn.toString());
+    currentDocument.put("name", "orders");
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(currentDocument));
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event).orElseThrow();
+
+    assertFalse(projected.aspectFields().has(V3SearchDocumentProjector.ASPECT_JSON_FIELD));
+    assertFalse(projected.rootFields().has(V3SearchDocumentProjector.ASPECT_JSON_FIELD));
+  }
+
+  private void assertAspectJsonNotIndexed() {
+    AspectSpec storedAspect = mock(AspectSpec.class);
+    when(storedAspect.getName()).thenReturn("datasetProperties");
+    when(storedAspect.getAspectAnnotation())
+        .thenReturn(new AspectAnnotation("datasetProperties", false, false, null, 1L, true));
+    when(storedAspect.getSearchableFieldSpecs()).thenReturn(List.of());
+    EntitySpec storedEntity = mock(EntitySpec.class);
+    when(storedEntity.getAspectSpecs()).thenReturn(List.of(storedAspect));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectMapping =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    AspectMappingBuilder.createAspectMappings(storedEntity, Map.of(), Map.of())
+                        .get("datasetProperties"))
+                .get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> stored =
+        (Map<String, Object>) aspectMapping.get(V3SearchDocumentProjector.ASPECT_JSON_FIELD);
+    assertEquals(stored.get("type"), "text");
+    assertEquals(stored.get("index"), false);
+  }
+
+  @Test
+  public void testAspectJsonReadsStringAndObject() {
+    ObjectMapper mapper = opContext.getObjectMapper();
+    ObjectNode aspect = mapper.createObjectNode();
+    aspect.put(V3SearchDocumentProjector.ASPECT_JSON_FIELD, "{\"description\":\"orders\"}");
+    assertEquals(V3SearchDocumentProjector.aspectJson(aspect), "{\"description\":\"orders\"}");
+
+    ObjectNode objectValue = mapper.createObjectNode();
+    objectValue.put("description", "orders");
+    aspect.set(V3SearchDocumentProjector.ASPECT_JSON_FIELD, objectValue);
+    assertEquals(V3SearchDocumentProjector.aspectJson(aspect), objectValue.toString());
+
+    assertNull(V3SearchDocumentProjector.aspectJson(mapper.createObjectNode()));
   }
 
   private V3SearchDocumentProjector realProjector() {
