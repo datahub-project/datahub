@@ -1,4 +1,5 @@
 import base64
+import copy
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
@@ -18,6 +19,7 @@ from datahub.api.entities.external.lake_formation_external_entites import (
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
@@ -480,6 +482,34 @@ def test_resource_link_owner_upstreams_handles_malformed_target():
     assert source.report.num_resource_link_missing_target == 1
 
 
+def test_database_resource_link_without_owner_catalog_reports_missing_target() -> None:
+    # Neither TargetDatabase nor the table carries the owning CatalogId. The owner can't be
+    # identified, so the table must be reported as a missing target rather than attempting a
+    # cross-account glue:GetTable with CatalogId=None (which would surface as a misleading
+    # permissions warning).
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["TargetDatabase"] = {
+        "DatabaseName": "test-database"
+    }
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    del tables_response["TableList"][0]["CatalogId"]
+    del tables_response["TableList"][0]["StorageDescriptor"]
+
+    source, _, wus = _ingest_database_resource_link(
+        {}, tables_response, databases_response
+    )
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert _upstream_urns(wus, link_urn) == []
+    assert source.report.num_resource_link_missing_target == 1
+    titles = [w.title for w in source.report.warnings]
+    assert "Resource link missing target identifiers" in titles
+    assert "Failed to read resource-link owner schema from Glue" not in titles
+
+
 def test_resource_link_upstream_merged_with_storage_lineage():
     # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
     # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
@@ -555,6 +585,9 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
 
     assert upstreams == []
     assert source.report.num_resource_link_self_referential == 1
+    assert "Resource link owner catalog not mapped" in [
+        w.title for w in source.report.warnings
+    ]
 
 
 CONSUMER_LINK_URN = (
@@ -1294,14 +1327,21 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     assert source.report.num_resource_link_schema_from_glue == 1
 
 
-@pytest.mark.parametrize(
-    "ignore_resource_links, all_databases_and_tables_result",
-    [
-        (True, ([], [])),
-        (False, ([resource_link_database], target_database_tables)),
-    ],
-)
-def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
+def _expected_database_link_tables() -> List[Dict[str, Any]]:
+    expected = copy.deepcopy(target_database_tables)
+    for table in expected:
+        table["TargetTable"] = {
+            "CatalogId": "432143214321",
+            "DatabaseName": "test-database",
+            "Name": table["Name"],
+        }
+        table["DatabaseName"] = "resource-link-test-database"
+        table["CatalogId"] = "123412341234"
+    return expected
+
+
+@pytest.mark.parametrize("ignore_resource_links", [True, False])
+def test_ignore_resource_links(ignore_resource_links: bool) -> None:
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -1310,19 +1350,29 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         ),
     )
 
+    # Stubber hands back the response objects themselves and get_tables_from_database
+    # rewrites tables in place, so pass copies to keep the shared stubs pristine.
     with Stubber(source.glue_client) as glue_stubber:
         glue_stubber.add_response(
             "get_databases",
-            get_databases_response_with_resource_link,
+            copy.deepcopy(get_databases_response_with_resource_link),
             {},
         )
         glue_stubber.add_response(
             "get_tables",
-            get_tables_response_for_target_database,
+            copy.deepcopy(get_tables_response_for_target_database),
             {"DatabaseName": "resource-link-test-database"},
         )
 
-        assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+        databases, tables = source.get_all_databases_and_tables()
+
+    if ignore_resource_links:
+        assert (databases, tables) == ([], [])
+    else:
+        assert databases == [resource_link_database]
+        assert tables == _expected_database_link_tables()
+    # An ignored resource link is never listed, so it is not reported as dropped.
+    assert list(source.report.databases.dropped_entities) == []
 
 
 @pytest.mark.parametrize(
@@ -1372,6 +1422,340 @@ def test_ignore_resource_links_filters_table_level_links(
 
     assert databases == [mixed_database]
     assert tables == expected_tables
+
+
+def _ingest_database_resource_link(
+    catalog_to_platform_instance: Dict[str, Dict[str, str]],
+    tables_response: Optional[Dict[str, Any]] = None,
+    databases_response: Optional[Dict[str, Any]] = None,
+    graph: Optional[DataHubGraph] = None,
+    owner_get_table_response: Optional[Dict[str, Any]] = None,
+) -> Tuple[GlueSource, List[Dict[str, Any]], List[MetadataWorkUnit]]:
+    # resource-link-test-database (catalog 123412341234) is a database-level link to
+    # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
+    # DatabaseName and no TargetTable. owner_get_table_response, when given, is served only
+    # for a cross-account get_table on that owner table.
+    databases: Dict[str, Any] = copy.deepcopy(
+        databases_response or get_databases_response_with_resource_link
+    )
+    link_database_name = databases["DatabaseList"][0]["Name"]
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance=catalog_to_platform_instance,
+        ),
+    )
+    source.ctx.graph = graph
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", databases, {})
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(tables_response or get_tables_response_for_target_database),
+            {"DatabaseName": link_database_name},
+        )
+        if owner_get_table_response is not None:
+            glue_stubber.add_response(
+                "get_table",
+                owner_get_table_response,
+                {
+                    "CatalogId": "432143214321",
+                    "DatabaseName": "test-database",
+                    "Name": "transactions",
+                },
+            )
+        _, tables = source.get_all_databases_and_tables()
+        # Generate inside the Stubber so any Glue call made while building workunits (e.g. a
+        # cross-account get_table for a schemaless link) hits the stub, never real AWS.
+        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+        glue_stubber.assert_no_pending_responses()
+    return source, tables, wus
+
+
+def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
+    return [
+        upstream.dataset
+        for wu in wus
+        if wu.get_urn() == dataset_urn
+        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
+        if aspect is not None
+        for upstream in aspect.upstreams
+    ]
+
+
+def test_database_resource_link_tables_rekeyed_to_link() -> None:
+    source, tables, _ = _ingest_database_resource_link({})
+
+    assert len(tables) == 1
+    assert tables[0]["DatabaseName"] == "resource-link-test-database"
+    assert tables[0]["CatalogId"] == "123412341234"
+    assert tables[0]["TargetTable"] == {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    }
+    assert source.report.num_resource_link_database_tables == 1
+
+
+def test_database_resource_link_emits_owner_lineage_with_catalog_mapping() -> None:
+    source, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}}
+    )
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    # The link keeps the ingesting catalog's instance rather than the owner's mapped instance,
+    # so it can never collide with the owner's own dataset.
+    assert {
+        wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
+    } == {link_urn}
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+
+    properties = [
+        aspect
+        for wu in wus
+        for aspect in [wu.get_aspect_of_type(models.DatasetPropertiesClass)]
+        if aspect is not None
+    ]
+    assert [p.qualifiedName for p in properties] == [
+        "arn:aws:glue:us-east-1:123412341234:table/resource-link-test-database/transactions"
+    ]
+    assert source.report.num_resource_link_self_referential == 0
+
+
+def test_database_resource_link_without_catalog_mapping_keeps_link_urn() -> None:
+    _, _, wus = _ingest_database_resource_link({})
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert link_urn in {wu.get_urn() for wu in wus}
+    # Without a mapping the owner falls back to the source's own instance, matching the existing
+    # table-level link behaviour.
+    assert _upstream_urns(wus, link_urn) == [
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.test-database.transactions,PROD)"
+    ]
+
+
+def test_database_resource_link_same_name_unmapped_owner_warns_once() -> None:
+    # Common setup: the link database has the owner's name. Without the owner in
+    # catalog_to_platform_instance every table resolves to its own URN, so no lineage is emitted;
+    # the run report must say so, as one grouped entry rather than one per table.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["Name"] = "test-database"
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    second_table = copy.deepcopy(tables_response["TableList"][0])
+    second_table["Name"] = "orders"
+    tables_response["TableList"].append(second_table)
+
+    source, _, wus = _ingest_database_resource_link(
+        {}, tables_response, databases_response
+    )
+
+    for name in ("transactions", "orders"):
+        link_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:glue,"
+            f"consumer_inst.test-database.{name},PROD)"
+        )
+        assert _upstream_urns(wus, link_urn) == []
+    assert source.report.num_resource_link_self_referential == 2
+
+    unmapped = [
+        w
+        for w in source.report.warnings
+        if w.title == "Resource link owner catalog not mapped"
+    ]
+    assert len(unmapped) == 1
+    assert len(unmapped[0].context) == 2
+
+
+def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner() -> (
+    None
+):
+    # The link database has the owner's name and the owner is mapped. The link must keep the
+    # ingesting catalog's instance so its URN cannot collide with the owner's dataset.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["Name"] = "test-database"
+
+    source, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        databases_response=databases_response,
+    )
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.test-database.transactions,PROD)"
+    )
+    assert {
+        wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
+    } == {link_urn}
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+    assert source.report.num_resource_link_self_referential == 0
+
+
+@pytest.mark.parametrize("missing_key", ["CatalogId", "DatabaseName"])
+def test_database_resource_link_target_falls_back_to_owner_table_identity(
+    missing_key: str,
+) -> None:
+    # When TargetDatabase omits a field, the owner's value comes from the table as Glue returned
+    # it. It must be read before the table is re-keyed to the link, or the owner would resolve
+    # to the link itself.
+    databases_response: Dict[str, Any] = copy.deepcopy(
+        get_databases_response_with_resource_link
+    )
+    del databases_response["DatabaseList"][0]["TargetDatabase"][missing_key]
+
+    source, tables, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        databases_response=databases_response,
+    )
+
+    assert tables[0]["TargetTable"] == {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    }
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+    assert source.report.num_resource_link_self_referential == 0
+
+
+DB_LINK_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:glue,"
+    "consumer_inst.resource-link-test-database.transactions,PROD)"
+)
+
+
+def _schemaless_database_link_tables() -> Dict[str, Any]:
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    del tables_response["TableList"][0]["StorageDescriptor"]
+    return tables_response
+
+
+def _link_schema(
+    wus: List[MetadataWorkUnit], dataset_urn: str
+) -> Optional[models.SchemaMetadataClass]:
+    schemas = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == dataset_urn
+        for aspect in [wu.get_aspect_of_type(models.SchemaMetadataClass)]
+        if aspect is not None
+    ]
+    assert len(schemas) <= 1
+    return schemas[0] if schemas else None
+
+
+@pytest.mark.parametrize("owner_in_datahub", [True, False])
+def test_database_resource_link_schema_resolved_from_owner(
+    owner_in_datahub: bool,
+) -> None:
+    # A schemaless link copies the owner's schema: from DataHub (looked up by the owner's URN,
+    # no Glue call) when the owner is already ingested, otherwise from a cross-account
+    # get_table. That stub only matches the owner's catalog and database name, so the Glue
+    # case fails if the synthesized TargetTable carried the link's database name instead.
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+
+    source, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        tables_response=_schemaless_database_link_tables(),
+        graph=graph if owner_in_datahub else None,
+        owner_get_table_response=None
+        if owner_in_datahub
+        else {
+            "Table": {
+                "Name": "transactions",
+                "DatabaseName": "test-database",
+                "StorageDescriptor": {
+                    "Columns": [
+                        {"Name": "txn_id", "Type": "bigint"},
+                        {"Name": "amount", "Type": "double"},
+                    ]
+                },
+            }
+        },
+    )
+
+    schema = _link_schema(wus, DB_LINK_URN)
+    assert schema is not None
+    assert schema.schemaName == "resource-link-test-database.transactions"
+    fields = {f.fieldPath.split(".")[-1] for f in schema.fields}
+    if owner_in_datahub:
+        assert fields == {"txn_id"}
+        graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
+        assert source.report.num_resource_link_schema_from_datahub == 1
+    else:
+        assert fields == {"txn_id", "amount"}
+        assert source.report.num_resource_link_schema_from_glue == 1
+
+
+def test_database_resource_link_table_placed_in_link_database_container() -> None:
+    # Through the full pipeline, the link table must sit in the container emitted for the local
+    # link database, not in one keyed by the owner's database name.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            copy.deepcopy(get_databases_response_with_resource_link),
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(get_tables_response_for_target_database),
+            {"DatabaseName": "resource-link-test-database"},
+        )
+        wus = list(source.get_workunits())
+        glue_stubber.assert_no_pending_responses()
+
+    link_container_urn = source.gen_database_key("resource-link-test-database").as_urn()
+    assert link_container_urn in {
+        wu.get_urn()
+        for wu in wus
+        if wu.get_aspect_of_type(models.ContainerPropertiesClass) is not None
+    }
+    containers = [
+        aspect.container
+        for wu in wus
+        if wu.get_urn() == DB_LINK_URN
+        for aspect in [wu.get_aspect_of_type(models.ContainerClass)]
+        if aspect is not None
+    ]
+    assert containers == [link_container_urn]
+
+
+def test_database_resource_link_preserves_existing_target_table() -> None:
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    explicit_target = {
+        "CatalogId": "999999999999",
+        "DatabaseName": "other-database",
+        "Name": "other-table",
+    }
+    tables_response["TableList"][0]["TargetTable"] = explicit_target
+
+    _, tables, _ = _ingest_database_resource_link({}, tables_response)
+
+    assert tables[0]["TargetTable"] == explicit_target
 
 
 def test_platform_must_be_valid():

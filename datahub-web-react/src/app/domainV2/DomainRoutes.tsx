@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Route, Switch } from 'react-router-dom';
 
 import { DomainsContext, UpdatedDomain } from '@app/domainV2/DomainsContext';
-import ManageDomainsPageV2 from '@app/domainV2/nestedDomains/ManageDomainsPageV2';
 import ManageDomainsSidebar from '@app/domainV2/nestedDomains/ManageDomainsSidebar';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntityPage } from '@app/entityV2/EntityPage';
+import { SuspenseBlock } from '@app/shared/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import {
     HierarchicalBrowseContentWrapper,
@@ -17,6 +17,9 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
+
+const EntityPage = lazyNamed(() => import('@app/entityV2/EntityPage'), 'EntityPage');
+const ManageDomainsPageV2 = lazyDefault(() => import('@app/domainV2/nestedDomains/ManageDomainsPageV2'));
 
 export default function DomainRoutes() {
     const entityRegistry = useEntityRegistry();
@@ -44,22 +47,24 @@ export default function DomainRoutes() {
             <HierarchicalBrowseContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ManageDomainsSidebar />
                 <HierarchicalBrowseMainContent>
-                    <Switch>
-                        <EntitySidebarContext.Provider
-                            value={{
-                                width: entitySidebarWidth,
-                                isClosed: isSidebarClosed,
-                                setSidebarClosed: setIsSidebarClosed,
-                            }}
-                        >
-                            <Route
-                                key={entityRegistry.getPathName(EntityType.Domain)}
-                                path={`/${entityRegistry.getPathName(EntityType.Domain)}/:urn`}
-                                render={() => <EntityPage entityType={EntityType.Domain} />}
-                            />
-                            <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
-                        </EntitySidebarContext.Provider>
-                    </Switch>
+                    <Suspense fallback={<SuspenseBlock />}>
+                        <Switch>
+                            <EntitySidebarContext.Provider
+                                value={{
+                                    width: entitySidebarWidth,
+                                    isClosed: isSidebarClosed,
+                                    setSidebarClosed: setIsSidebarClosed,
+                                }}
+                            >
+                                <Route
+                                    key={entityRegistry.getPathName(EntityType.Domain)}
+                                    path={`/${entityRegistry.getPathName(EntityType.Domain)}/:urn`}
+                                    render={() => <EntityPage entityType={EntityType.Domain} />}
+                                />
+                                <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
+                            </EntitySidebarContext.Provider>
+                        </Switch>
+                    </Suspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </DomainsContext.Provider>

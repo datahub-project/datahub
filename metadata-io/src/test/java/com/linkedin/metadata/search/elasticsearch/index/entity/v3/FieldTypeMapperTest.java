@@ -12,6 +12,7 @@ import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -226,6 +227,65 @@ public class FieldTypeMapperTest {
     Map<String, Object> reversed =
         FieldTypeMapper.getRichestCompatibleMapping(List.of(urnSpec, textSpec));
     assertEquals(forward, reversed);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testAspectStringsFollowExactRootWithoutAnalyzers() {
+    Map<String, Object> aspect =
+        FieldTypeMapper.getAspectMappingsForFieldType(
+            FieldType.TEXT, mock(SearchableFieldSpec.class));
+    assertEquals(aspect.get("type"), "keyword");
+    assertEquals(aspect.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    Map<String, Object> fields = (Map<String, Object>) aspect.get("fields");
+    assertEquals(fields.keySet(), Set.of("keyword"));
+
+    Map<String, Object> unindexed =
+        FieldTypeMapper.mappingForRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD, false, false), null);
+    assertEquals(unindexed.get("index"), false);
+    assertFalse(unindexed.containsKey("fields"));
+    assertFalse(String.valueOf(unindexed).contains("text"));
+
+    Map<String, Object> unindexedAspect =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD, false, false),
+            mock(SearchableFieldSpec.class));
+    assertEquals(unindexedAspect, unindexed);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testLabelSubfieldsAreAlternatesOfTheKeywordRoot() {
+    FieldMapping.Resolved resolved =
+        FieldMapping.union(
+            "name",
+            List.of(
+                FieldMapping.fallback(FieldType.WORD_GRAM, true),
+                List.of(
+                    FieldMapping.root(FieldMapping.Type.KEYWORD),
+                    FieldMapping.subfield("text", FieldMapping.Type.TEXT),
+                    FieldMapping.subfield("stemmed", FieldMapping.Type.STEMMED),
+                    FieldMapping.subfield("ngram", FieldMapping.Type.TEXT_PARTIAL))));
+    Map<String, Object> label =
+        FieldTypeMapper.composeLabelMapping(resolved, null, Map.of("type", "search_as_you_type"));
+    assertEquals(label.get("type"), "keyword");
+    assertEquals(label.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    Map<String, Object> fields = (Map<String, Object>) label.get("fields");
+    assertEquals(fields.keySet(), Set.of("keyword", "text", "stemmed", "ngram"));
+    assertEquals(((Map<String, Object>) fields.get("text")).get("type"), "text");
+    assertFalse(
+        fields.get("text") instanceof Map
+            && ((Map<?, ?>) fields.get("text")).containsKey("doc_values"));
+  }
+
+  @Test
+  public void testUnlabeledTextFallbackHasNoAnalyzerSubfields() {
+    List<FieldMapping> mappings = FieldMapping.fallback(FieldType.TEXT, false);
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.get(0).isRoot());
+    assertEquals(mappings.get(0).getType(), FieldMapping.Type.KEYWORD);
+    assertTrue(mappings.get(0).isIndex());
   }
 
   private static SearchableFieldSpec fieldSpec(FieldType fieldType, String path) {

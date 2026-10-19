@@ -9,6 +9,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
 import {
@@ -188,7 +189,7 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                                 icon={{ icon: TreeStructure }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
+                                    const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/${EntityTabPath.LINEAGE}`;
                                     if (isCompact) {
                                         window.open(lineagePath, '_blank');
                                     } else {

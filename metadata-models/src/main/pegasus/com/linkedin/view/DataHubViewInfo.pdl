@@ -16,7 +16,16 @@ record DataHubViewInfo {
    * The name of the View
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "boostScore": 10.0,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -48,26 +57,35 @@ record DataHubViewInfo {
 
   /**
    * Audit stamp capturing the time and actor who created the View.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "createdAt"
+       "fieldName": "createdAt",
+       "v3": { "enabled": false }
     },
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "createdBy"
+      "fieldName": "createdBy",
+      "v3": { "enabled": false }
     }
   }
   created: AuditStamp
 
   /**
    * Audit stamp capturing the time and actor who last modified the View.
+   * Search V3 does not index this time. The write is systemMetadata.aspectModified,
+   * copied to _system.modified.time.
    */
+  @deprecated = "Use systemMetadata.aspectModified instead."
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "lastModifiedAt"
+       "fieldName": "lastModifiedAt",
+       "v3": { "enabled": false }
     }
   }
   lastModified: AuditStamp

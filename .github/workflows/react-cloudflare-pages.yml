@@ -185,7 +185,7 @@ jobs:
           | This PR | ${PR_DISPLAY} |
           | **Diff** | **${DIFF_STR}** |
 
-          > Eager entry chunks (\`dist/assets/index-*.js\`) only. Codecov reports total bundle including lazy chunks — these intentionally differ."
+          > Gzip of the \`<script>\` and modulepreload JS in \`dist/index.html\`. Codecov reports total bundle including lazy chunks — these intentionally differ."
 
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY" --edit-last \
             || gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$BODY"
