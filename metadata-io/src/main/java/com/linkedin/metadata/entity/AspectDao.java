@@ -473,6 +473,9 @@ public interface AspectDao {
   @Nonnull
   Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
+  /** Rows the urn has in primary storage, every aspect and every version; -1 when not supported. */
+  int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn);
+
   /**
    * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
    * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
