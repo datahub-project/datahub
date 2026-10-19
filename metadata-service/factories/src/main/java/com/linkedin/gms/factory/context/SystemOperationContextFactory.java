@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.ENTITY_TYPE_INFO_ASPECT_NAME;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -28,6 +29,7 @@ import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import com.linkedin.metadata.utils.NextVersionEntityTypes;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import io.datahubproject.metadata.context.OperationContext;
@@ -42,6 +44,7 @@ import io.datahubproject.metadata.context.usage.instrumentation.SessionContextEn
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -352,21 +355,34 @@ public class SystemOperationContextFactory {
   static void configureUnknownDataHandling(
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final OperationContext systemOperationContext) {
+    configureUnknownDataHandling(
+        configurationProvider,
+        entityTypeUrn ->
+            systemOperationContext
+                    .getAspectRetriever()
+                    .getLatestAspectObject(
+                        systemOperationContext, entityTypeUrn, ENTITY_TYPE_INFO_ASPECT_NAME)
+                != null);
+  }
+
+  /**
+   * As above, for a process that runs the unknown-data paths without this factory's system
+   * operation context (e.g. a pod writing through {@code EntityService} in process). {@code
+   * entityTypeRowExists} tells whether a newer version registered an entity type.
+   */
+  @Nonnull
+  public static UnknownDataHandling configureUnknownDataHandling(
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Nonnull final Predicate<Urn> entityTypeRowExists) {
     final boolean tolerant =
         configurationProvider.getFeatureFlags().isUnknownDataToleranceEnabled();
-    UnknownDataHandlings.use(
+    final UnknownDataHandling handling =
         tolerant
             ? TolerantHandling.forNextVersionEntityTypes(
-                new NextVersionEntityTypes(
-                    entityTypeUrn ->
-                        systemOperationContext
-                                .getAspectRetriever()
-                                .getLatestAspectObject(
-                                    systemOperationContext,
-                                    entityTypeUrn,
-                                    ENTITY_TYPE_INFO_ASPECT_NAME)
-                            != null))
-            : StrictHandling.INSTANCE);
+                new NextVersionEntityTypes(entityTypeRowExists))
+            : StrictHandling.INSTANCE;
+    UnknownDataHandlings.use(handling);
     log.info("Unknown data tolerance {}", tolerant ? "enabled" : "disabled");
+    return handling;
   }
 }

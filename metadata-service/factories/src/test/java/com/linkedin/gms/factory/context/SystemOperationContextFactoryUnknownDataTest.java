@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.context;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
@@ -9,6 +10,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -32,6 +34,21 @@ public class SystemOperationContextFactoryUnknownDataTest {
 
     SystemOperationContextFactory.configureUnknownDataHandling(provider(true), opContext);
     assertTrue(UnknownDataHandlings.handling() instanceof TolerantHandling);
+  }
+
+  @Test
+  public void testProcessWithoutThisContextFollowsTheFlagToo() {
+    // Entity types a newer version registered are looked up by the caller.
+    UnknownDataHandling handling =
+        SystemOperationContextFactory.configureUnknownDataHandling(
+            provider(true), urn -> urn.getId().equals("datahub.zduRegisteredType"));
+    assertSame(UnknownDataHandlings.handling(), handling);
+    assertTrue(handling.isUnknown(opContext.getEntityRegistry(), "zduRegisteredType", null));
+    assertFalse(handling.isUnknown(opContext.getEntityRegistry(), "zduTypo", null));
+
+    assertSame(
+        SystemOperationContextFactory.configureUnknownDataHandling(provider(false), urn -> true),
+        StrictHandling.INSTANCE);
   }
 
   private static ConfigurationProvider provider(final boolean tolerant) {
