@@ -58,6 +58,22 @@ class Container(
     def get_urn_type(cls) -> Type[ContainerUrn]:
         return ContainerUrn
 
+    def _set_instance_and_extra_aspects(
+        self, container_key: ContainerKey, extra_aspects: ExtraAspectsType
+    ) -> None:
+        # The instance is set before any other aspect, extra aspects included, so
+        # as_mcps() emits it first: the container is then created with its instance
+        # stored, and policies scoped by platform instance apply to its later writes.
+        if not isinstance(container_key, ContainerKey):
+            self._set_extra_aspects(extra_aspects)
+            return
+        self._set_platform_instance(container_key.platform, container_key.instance)
+        self._set_status_after_platform_instance()
+        self._set_extra_aspects(extra_aspects)
+        # Re-applied so the key's instance still wins over an extra
+        # dataPlatformInstance; the aspect keeps its first position.
+        self._set_platform_instance(container_key.platform, container_key.instance)
+
     def __init__(
         self,
         /,
@@ -91,15 +107,14 @@ class Container(
         else:
             urn = ContainerUrn.from_string(container_key.as_urn())
         super().__init__(urn)
-        self._set_extra_aspects(extra_aspects)
+        self._set_instance_and_extra_aspects(container_key, extra_aspects)
 
-        # This needs to come first to ensure that the display name is registered.
+        # This needs to come before the other containerProperties setters to ensure
+        # that the display name is registered.
         self._ensure_container_props(name=display_name)
 
         # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
         if isinstance(container_key, ContainerKey):
-            self._set_platform_instance(container_key.platform, container_key.instance)
-
             self.set_custom_properties(
                 {
                     **container_key.property_dict(),

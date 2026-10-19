@@ -1550,6 +1550,16 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
         dataset_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
+        # Sent first so the table is created with its instance stored and policies
+        # scoped by platform instance apply to its later writes.
+        dpi_aspect = get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+        )
+        if dpi_aspect:
+            yield dpi_aspect
+
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=status
@@ -1576,14 +1586,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
         )
-        dpi_aspect = get_dataplatform_instance_aspect(
-            dataset_urn=dataset_urn,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-        )
-        if dpi_aspect:
-            yield dpi_aspect
-
         subTypes = SubTypes(typeNames=[table.get_subtype()])
 
         yield MetadataChangeProposalWrapper(
