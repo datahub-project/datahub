@@ -2315,11 +2315,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             cap = self.config.max_dynamic_lineage_pairs_per_activity
             sibling_pairs = sorted_pairs[:cap]
             overflow_pairs = sorted_pairs[cap:]
+            static_pair_key = (static_inputs, static_outputs)
 
+            skipped_static_pair: Optional[
+                tuple[
+                    tuple[tuple[str, ...], tuple[str, ...]],
+                    set[tuple[tuple[str, ...], str]],
+                ]
+            ] = None
             for pair_key, column_mappings in sibling_pairs:
-                if pair_key == (static_inputs, static_outputs):
+                if pair_key == static_pair_key:
                     # Already covered by the parent job's own static
-                    # lineage - no need for a duplicate entity.
+                    # lineage - no need for a duplicate entity, unless
+                    # overflow below replaces the parent's whole
+                    # dataJobInputOutput aspect, which would otherwise
+                    # erase it along with everything else not re-included.
+                    skipped_static_pair = (pair_key, column_mappings)
                     continue
                 yield from self._emit_pair_sibling_datajob(
                     factory,
@@ -2349,11 +2360,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     ),
                     log=False,
                 )
+                fallback_pairs = dict(overflow_pairs)
+                if skipped_static_pair is not None:
+                    fallback_pairs[skipped_static_pair[0]] = skipped_static_pair[1]
                 yield from self._emit_unioned_dynamic_lineage(
                     activity,
                     job_urn,
                     factory_key,
-                    dict(overflow_pairs),
+                    fallback_pairs,
                     static_inputs,
                     static_outputs,
                 )

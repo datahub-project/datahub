@@ -2083,6 +2083,188 @@ def test_adf_source_dynamic_lineage_pair_matching_static_skips_duplicate_sibling
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+def test_adf_source_pair_matching_static_survives_cap_overflow(tmp_path):
+    """Regression test: a pair that matches the activity's own static
+    lineage is skipped as a sibling on the assumption the parent job's
+    own dataJobInputOutput aspect already covers it. But if that same
+    activity ALSO has cap overflow, the overflow fallback replaces the
+    parent's whole dataJobInputOutput aspect with the union of just the
+    overflow pairs - which would silently erase the skipped pair's
+    lineage entirely (it's neither a sibling nor still represented on
+    the parent) unless the skipped pair is folded into that overflow
+    union. Four distinct pairs, cap=2, sorted so the static-matching
+    pair falls within the capped (sibling) slice rather than directly
+    into the overflow slice - the scenario that previously lost it.
+    """
+    output_file = tmp_path / "adf_static_match_survives_overflow_events.json"
+
+    factory_name = "static-match-overflow-test-factory"
+    resource_group = "static-match-overflow-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="CopyStaticMatchOverflow",
+        activity_type="Copy",
+        inputs=[{"referenceName": "StaticSourceDataset", "type": "DatasetReference"}],
+        outputs=[{"referenceName": "StaticSinkDataset", "type": "DatasetReference"}],
+    )
+    pipeline_def = create_mock_pipeline(
+        name="StaticMatchOverflowPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    source_dataset = create_mock_dataset(
+        name="StaticSourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "orders_table"},
+    )
+    sink_dataset = create_mock_dataset(
+        name="StaticSinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "staging_orders"},
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-static-match-overflow",
+            pipeline_name="StaticMatchOverflowPipeline",
+        ),
+    ]
+    activity_runs = {
+        "run-static-match-overflow": [
+            create_mock_activity_run(
+                activity_run_id=f"act-static-match-overflow-{i}",
+                activity_name="CopyStaticMatchOverflow",
+                activity_type="Copy",
+                pipeline_run_id="run-static-match-overflow",
+                pipeline_name="StaticMatchOverflowPipeline",
+            )
+            for i in range(4)
+        ]
+    }
+    # "customers_table" and "orders_table" sort before "vendors_table"
+    # and "widgets_table", so with cap=2 the static-matching pair
+    # ("orders_table" -> "staging_orders", identical to the activity's
+    # own static dataset references) lands in the capped sibling slice
+    # rather than directly in the overflow slice - the exact ordering
+    # that previously lost its lineage.
+    runs = [
+        ("customers_table", "staging_customers"),
+        ("orders_table", "staging_orders"),
+        ("vendors_table", "staging_vendors"),
+        ("widgets_table", "staging_widgets"),
+    ]
+    for i, (source_table, sink_table) in enumerate(runs):
+        activity_runs["run-static-match-overflow"][i]["input"] = {
+            "source": {"query": f"SELECT * FROM {source_table}"},
+            "sink": {"preCopyScript": f"truncate table {sink_table}"},
+        }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [source_dataset, sink_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="SqlSourceLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureSqlDatabase",
+            )
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-static-match-overflow",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                            "max_dynamic_lineage_pairs_per_activity": 2,
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    parent_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e.get("entityUrn", "").endswith(",CopyStaticMatchOverflow)")
+    ]
+    sibling_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and re.search(
+            r",CopyStaticMatchOverflow__[0-9a-f]{12}\)", e.get("entityUrn", "")
+        )
+    ]
+
+    # Exactly one sibling - the "customers_table" pair. "orders_table"
+    # matches static so it isn't a sibling; "vendors_table" and
+    # "widgets_table" overflowed past the cap.
+    assert len(sibling_lineage_aspects) == 1
+    assert (
+        "customers_table"
+        in sibling_lineage_aspects[0]["aspect"]["json"]["inputDatasets"][0]
+    )
+
+    # The parent's static (creation-time) aspect, plus one augmentation
+    # MCP unioning the overflow - which must include "orders_table" even
+    # though it was skipped as a sibling, or its lineage is lost entirely.
+    assert len(parent_lineage_aspects) == 2
+    overflow_aspect = parent_lineage_aspects[-1]["aspect"]["json"]
+    all_sources = overflow_aspect["inputDatasets"]
+    all_sinks = overflow_aspect["outputDatasets"]
+    assert any("orders_table" in urn for urn in all_sources)
+    assert any("staging_orders" in urn for urn in all_sinks)
+    assert any("vendors_table" in urn for urn in all_sources)
+    assert any("widgets_table" in urn for urn in all_sources)
+    assert not any("customers_table" in urn for urn in all_sources)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
 def test_adf_source_databricks_catalog_unset_by_default(tmp_path):
     """Regression test: ADF exposes no catalog anywhere for Databricks
     datasets or linked services, and there's no way to tell a legacy
