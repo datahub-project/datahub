@@ -65,6 +65,60 @@ def test_interrupt_restores_a_preexisting_timer():
         signal.signal(signal.SIGALRM, previous_handler)
 
 
+def test_interrupt_does_not_postpone_a_preexisting_timer():
+    if (
+        not hasattr(signal, "setitimer")
+        or threading.current_thread() is not threading.main_thread()
+    ):
+        pytest.skip("ITIMER_REAL is only available on the main thread")
+
+    def _handler(signum: int, frame: object) -> None:
+        return None
+
+    previous_handler = signal.signal(signal.SIGALRM, _handler)
+    signal.setitimer(signal.ITIMER_REAL, 30)
+    try:
+        with cooperative_timeout(5), interrupt_on_cooperative_deadline():
+            time.sleep(0.5)
+        delay, _ = signal.getitimer(signal.ITIMER_REAL)
+        # The host's alarm keeps counting down while the block runs. Restoring
+        # its original 30s would postpone it on every call.
+        assert 0 < delay <= 29.6
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+
+
+class _HostTimeout(Exception):
+    pass
+
+
+def test_preexisting_timer_due_first_still_fires():
+    if (
+        not hasattr(signal, "setitimer")
+        or threading.current_thread() is not threading.main_thread()
+    ):
+        pytest.skip("ITIMER_REAL is only available on the main thread")
+
+    def _host_handler(signum: int, frame: object) -> None:
+        raise _HostTimeout()
+
+    previous_handler = signal.signal(signal.SIGALRM, _host_handler)
+    signal.setitimer(signal.ITIMER_REAL, 0.2)
+    started = time.perf_counter()
+    try:
+        with (
+            pytest.raises(_HostTimeout),
+            cooperative_timeout(5),
+            interrupt_on_cooperative_deadline(),
+        ):
+            time.sleep(3)
+        assert time.perf_counter() - started < 1
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
+
+
 def test_interrupt_without_deadline_does_not_fire():
     started = time.perf_counter()
     with interrupt_on_cooperative_deadline():

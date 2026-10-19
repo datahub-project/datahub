@@ -80,6 +80,11 @@ def interrupt_on_cooperative_deadline() -> Iterator[None]:
     ``SIGALRM`` interrupts that call. It is delivered to the main thread only, and
     it does not exist on Windows, so anywhere else this is a no-op and the
     cooperative checks remain the only limit.
+
+    A host may already have an alarm armed, for example Airflow's task
+    ``execution_timeout``. That alarm is never delayed: if it is due before the
+    cooperative deadline it is left alone and this is a no-op, and otherwise it
+    is re-armed on exit with only the time it had left.
     """
     deadline = _cooperation_deadline.get(None)
     if (
@@ -95,15 +100,20 @@ def interrupt_on_cooperative_deadline() -> Iterator[None]:
     if remaining <= 0:
         raise CooperativeTimeoutError("CooperativeTimeout deadline exceeded")
 
+    previous_delay, previous_interval = signal.getitimer(signal.ITIMER_REAL)
+    if 0 < previous_delay <= remaining:
+        # The existing alarm fires first. Taking it over would postpone it.
+        yield
+        return
+
     def _handler(signum: int, frame: object) -> None:
         raise CooperativeTimeoutError("CooperativeTimeout deadline exceeded")
 
     previous = signal.signal(signal.SIGALRM, _handler)
-    # setitimer replaces any timer already armed by the caller. Keep the
-    # remaining delay so cleanup can put that timer back.
-    previous_timer = signal.getitimer(signal.ITIMER_REAL)
-    signal.setitimer(signal.ITIMER_REAL, remaining)
+    armed_at = time.perf_counter()
     try:
+        # Armed inside try so an alarm that fires immediately still runs cleanup.
+        signal.setitimer(signal.ITIMER_REAL, remaining)
         yield
     finally:
         # Ignore first so a signal already queued is discarded instead of
@@ -111,5 +121,13 @@ def interrupt_on_cooperative_deadline() -> Iterator[None]:
         signal.signal(signal.SIGALRM, signal.SIG_IGN)
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous)
-        if previous_timer[0] > 0 or previous_timer[1] > 0:
-            signal.setitimer(signal.ITIMER_REAL, previous_timer[0], previous_timer[1])
+        if previous_delay > 0:
+            # Subtract the time spent here, or every call would push the host's
+            # alarm back and it might never fire. setitimer(0) would disarm it,
+            # so a delay that is already due is armed as soon as possible.
+            elapsed = time.perf_counter() - armed_at
+            signal.setitimer(
+                signal.ITIMER_REAL,
+                max(previous_delay - elapsed, 1e-6),
+                previous_interval,
+            )
