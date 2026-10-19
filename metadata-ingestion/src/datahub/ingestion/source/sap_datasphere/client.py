@@ -554,7 +554,8 @@ class SapDatasphereClient:
             f"Received HTTP 403 listing {object_type} in space {space!r}. The "
             f"ingestion principal is not a member of this space, so its objects "
             f"cannot be listed. Add the ingestion user/client as a member of the "
-            f"space in SAP Datasphere to ingest it."
+            f"space in SAP Datasphere to ingest it, or exclude the space with "
+            f"`space_pattern` if it is not meant to be ingested."
         )
         logger.warning(msg)
         if self._report is not None:
