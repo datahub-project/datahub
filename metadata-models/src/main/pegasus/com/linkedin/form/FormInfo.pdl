@@ -14,7 +14,16 @@ record FormInfo {
    * Display name of the form
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "boostScore": 10.0,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 

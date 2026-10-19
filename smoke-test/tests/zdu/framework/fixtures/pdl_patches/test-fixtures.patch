@@ -409,7 +409,7 @@ index 19dc015e98..353d6cfb31 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
 @@ -1010,9 +1010,15 @@
-           "searchTier" : 2
+           "queryByDefault" : true
          }
        }
 +    }, {
@@ -430,7 +430,7 @@ index de1c7a3a93..94fa0ca4d3 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
 @@ -993,9 +993,15 @@
-           "searchTier" : 2
+           "queryByDefault" : true
          }
        }
 +    }, {
@@ -451,7 +451,7 @@ index d045f26df8..503b454617 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
 @@ -728,9 +728,15 @@
-           "searchTier" : 2
+           "queryByDefault" : true
          }
        }
 +    }, {
@@ -472,7 +472,7 @@ index 8a9f4f7c45..c52ee478df 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
 @@ -728,9 +728,15 @@
-           "searchTier" : 2
+           "queryByDefault" : true
          }
        }
 +    }, {
@@ -493,7 +493,7 @@ index 72125d0d21..b561c5224d 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
 @@ -993,9 +993,15 @@
-           "searchTier" : 2
+           "queryByDefault" : true
          }
        }
 +    }, {
@@ -551,14 +551,13 @@ index 3ce4df0795..493eb2896f 100644
  }
  record DashboardInfo includes CustomProperties, ExternalReference {
  
-@@ -35,7 +36,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
+@@ -35,6 +36,6 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     * Detailed description about the dashboard
     */
    @Searchable = {
 -    "fieldType": "TEXT",
 +    "fieldType": "TEXT_PARTIAL",
      "hasValuesFieldName": "hasDescription",
-     "searchTier": 2,
      "sanitizeRichText": true
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl b/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
 index 9d2aa6a5c2..2bca5e1263 100644

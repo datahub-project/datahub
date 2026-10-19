@@ -26,7 +26,12 @@ record GlobalTags {
       "addToFilters": true,
       "hasValuesFieldName": "hasTags",
       "filterNameOverride": "Tagged With",
-      "searchTier": 2
+      "v3": {
+        "searchLabel": "tags",
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     }
   }
   tags: array[TagAssociation]
