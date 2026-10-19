@@ -2693,6 +2693,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.countAspect(opContext, args);
   }
 
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    return aspectDao.countUrnRows(opContext, urn.toString());
+  }
+
   @Nonnull
   @Override
   public List<RestoreIndicesResult> restoreIndices(

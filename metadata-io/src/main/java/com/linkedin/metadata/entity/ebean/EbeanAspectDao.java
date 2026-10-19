@@ -1497,6 +1497,19 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return txnFactory.runInScope(opContext, () -> buildExpressionList(args, true).findCount());
   }
 
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn) {
+    return txnFactory.runInScope(
+        opContext,
+        () ->
+            server
+                .find(EbeanAspectV2.class)
+                .select(EbeanAspectV2.KEY_ID)
+                .where()
+                .eq(EbeanAspectV2.URN_COLUMN, urn)
+                .findCount());
+  }
+
   @Nullable
   @Override
   public <R> R streamAspectBatches(
