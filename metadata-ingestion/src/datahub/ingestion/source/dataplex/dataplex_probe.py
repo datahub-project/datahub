@@ -5,11 +5,13 @@ are matched against -- full resource names for entry groups and entries, FQNs
 for fqn_pattern, bare aspect-type ids for aspect_type_pattern -- and lists
 denied objects too, so `probe filter` can explain them. Metadata only: no
 aspect data, descriptions or glossary content leaves this module.
+
+GCP failures are labelled by the framework (class and HTTP status only, via
+probe_error_code); GCP error text names the service account, the permission
+and the resource, and is never shown.
 """
 
-import itertools
 from contextlib import AbstractContextManager, contextmanager
-from functools import cached_property
 from typing import (
     Callable,
     Dict,
@@ -19,7 +21,6 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
-    Union,
 )
 
 from google.api_core import exceptions
@@ -27,18 +28,12 @@ from google.auth.exceptions import GoogleAuthError
 from google.cloud import dataplex_v1, resourcemanager_v3
 from google.oauth2 import service_account
 
+from datahub.ingestion.agent.error_policy import name_foreign
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed
-from datahub.ingestion.agent.verdicts import (
-    ProbeArgumentError,
-    ProbeConnectionError,
-    ProbeReadFailed,
-)
-from datahub.ingestion.source.common.gcp_project_filter import (
-    GcpProject,
-    _iter_all_projects,
-    _iter_projects_by_labels,
-)
+from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed, take
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
+from datahub.ingestion.source.common.gcp_errors import gcp_error_code
+from datahub.ingestion.source.common.gcp_project_filter import iter_candidate_projects
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DATAPLEX_ASPECT_TYPE_KIND,
     DATAPLEX_ENTRY_FQN_KIND,
@@ -65,7 +60,9 @@ from datahub.ingestion.source.dataplex.dataplex_properties import (
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 
 T = TypeVar("T")
-_Client = Union[dataplex_v1.CatalogServiceClient, resourcemanager_v3.ProjectsClient]
+Credentials = Optional[service_account.Credentials]
+CatalogFactory = Callable[[Credentials], dataplex_v1.CatalogServiceClient]
+ProjectsFactory = Callable[[Credentials], resourcemanager_v3.ProjectsClient]
 
 # A location whose Dataplex API is disabled or forbidden answers one of these.
 # Ingestion warns and moves on to the next location (process_entries), and a
@@ -80,38 +77,28 @@ _EXPLICIT_PROJECTS_NOTE = (
 )
 
 
-def _status(exc: exceptions.GoogleAPIError) -> str:
-    # RetryError is a GoogleAPIError without a status of its own.
-    status = getattr(exc, "code", None)
-    code = f"HTTP {status}" if status is not None else "no HTTP status"
-    return f"{code} ({type(exc).__name__})"
-
-
 @contextmanager
-def _scrubbed(method: str, not_found: Optional[str] = None) -> Iterator[None]:
-    """Re-raise a GCP failure as its status and RPC method only.
-
-    SECURITY: GCP error text is server-composed and routinely names the
-    calling service account, the permission and the resource; auth errors can
-    carry token-endpoint responses. None of it is needed to act on the
-    failure, so none of it is kept -- `from None` drops the chained original
-    too, so a traceback cannot resurrect it.
-
-    `not_found` turns a NotFound into a bad-argument error: the resource was
-    named by the caller, so the fix is the name, not the connection.
-    """
+def _named_by_caller(message: str) -> Iterator[None]:
+    """A NotFound on a resource the caller named is the caller's to fix
+    (exit 2). Every other failure propagates for the framework to label."""
     try:
         yield
-    # GoogleAPIError, not GoogleAPICallError: RetryError subclasses only the
-    # former and embeds the last server error in its text.
-    except exceptions.GoogleAPIError as exc:
-        if not_found is not None and isinstance(exc, exceptions.NotFound):
-            raise ProbeArgumentError(not_found) from None
-        raise ProbeConnectionError(f"GCP {method} failed: {_status(exc)}") from None
-    except GoogleAuthError as exc:
-        raise ProbeConnectionError(
-            f"GCP {method} could not authenticate ({type(exc).__name__})"
-        ) from None
+    except exceptions.NotFound:
+        raise ProbeArgumentError(message) from None
+
+
+def _new_catalog_client(credentials: Credentials) -> dataplex_v1.CatalogServiceClient:
+    return dataplex_v1.CatalogServiceClient(credentials=credentials)
+
+
+def _new_projects_client(credentials: Credentials) -> resourcemanager_v3.ProjectsClient:
+    return resourcemanager_v3.ProjectsClient(credentials=credentials)
+
+
+def _close(client: object) -> None:
+    transport = getattr(client, "transport", None)
+    if transport is not None:
+        transport.close()
 
 
 class DataplexMetadataProbe(ProbeProviderBase):
@@ -125,17 +112,15 @@ class DataplexMetadataProbe(ProbeProviderBase):
     def __init__(
         self,
         config: DataplexConfig,
-        credentials: Optional[service_account.Credentials],
+        credentials: Credentials,
         *,
-        catalog_client: Optional[dataplex_v1.CatalogServiceClient] = None,
-        projects_client: Optional[resourcemanager_v3.ProjectsClient] = None,
+        catalog_factory: CatalogFactory = _new_catalog_client,
+        projects_factory: ProjectsFactory = _new_projects_client,
     ) -> None:
         self._config = config
         self._credentials = credentials
-        self._catalog_client = catalog_client
-        self._projects_client = projects_client
-        # Clients this provider built itself, and so must close.
-        self._opened: List[_Client] = []
+        self._catalog_factory = catalog_factory
+        self._projects_factory = projects_factory
 
     @classmethod
     def for_config(cls, config: DataplexConfig) -> "DataplexMetadataProbe":
@@ -143,7 +128,7 @@ class DataplexMetadataProbe(ProbeProviderBase):
         # Building service-account credentials from info makes no request.
         try:
             credentials = build_service_account_credentials(config)
-        except Exception as exc:
+        except (ValueError, OSError, GoogleAuthError) as exc:
             # SECURITY: the parser's message can quote the key material or the
             # key id it choked on. The type is enough to act on.
             raise ProbeArgumentError(
@@ -153,37 +138,33 @@ class DataplexMetadataProbe(ProbeProviderBase):
             ) from None
         return cls(config, credentials)
 
-    def __exit__(self, *exc: object) -> None:
-        for client in self._opened:
-            client.transport.close()
-        super().__exit__(*exc)
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The HTTP status a google-api-core error carries ("HTTP 403")."""
+        return gcp_error_code(exc)
 
-    @cached_property
     def _catalog(self) -> dataplex_v1.CatalogServiceClient:
-        if self._catalog_client is not None:
-            return self._catalog_client
-        client = dataplex_v1.CatalogServiceClient(credentials=self._credentials)
-        self._opened.append(client)
-        return client
+        return self._open_once(
+            "catalog", lambda: self._catalog_factory(self._credentials), close=_close
+        )
 
-    @cached_property
     def _projects(self) -> resourcemanager_v3.ProjectsClient:
-        if self._projects_client is not None:
-            return self._projects_client
-        client = resourcemanager_v3.ProjectsClient(credentials=self._credentials)
-        self._opened.append(client)
-        return client
+        return self._open_once(
+            "projects", lambda: self._projects_factory(self._credentials), close=_close
+        )
 
-    @cached_property
     def _entries_processor(self) -> DataplexEntriesProcessor:
         # A processor, not a Source: it only holds the client and reports, so
         # building one opens nothing. Used for its fetchers, never its filters.
-        return DataplexEntriesProcessor(
-            config=self._config,
-            catalog_client=self._catalog,
-            report=DataplexEntriesReport(),
-            source_report=DataplexReport(),
-            ctx=DataplexContext(config=self._config, credentials=self._credentials),
+        return self._open_once(
+            "entries-processor",
+            lambda: DataplexEntriesProcessor(
+                config=self._config,
+                catalog_client=self._catalog(),
+                report=DataplexEntriesReport(),
+                source_report=DataplexReport(),
+                ctx=DataplexContext(config=self._config, credentials=self._credentials),
+            ),
         )
 
     def _sweep_locations(
@@ -215,11 +196,14 @@ class DataplexMetadataProbe(ProbeProviderBase):
             except _LOCATION_SOFT_ERRORS as exc:
                 failed.append(exc)
                 self._warn(
-                    f"{what} for project '{project}' in location '{loc}' could "
-                    f"not be read ({_status(exc)}); skipped, as ingestion skips it"
+                    f"{what} for project {echoed(project)} in location "
+                    f"{echoed(loc)} could not be read "
+                    f"{name_foreign(exc, type(self))}; skipped, as ingestion skips it"
                 )
         if failed and len(failed) == len(locations):
-            statuses = ", ".join(sorted({_status(exc) for exc in failed}))
+            statuses = ", ".join(
+                sorted({name_foreign(exc, type(self)) for exc in failed})
+            )
             raise ProbeReadFailed(
                 f"{what} for project {echoed(project)} could not be read in any "
                 f"of entries_locations ({statuses}); a NotFound means the "
@@ -236,26 +220,15 @@ class DataplexMetadataProbe(ProbeProviderBase):
         narrows it), including ones project_id_pattern excludes."""
         if self._config.project_ids:
             self._warn(_EXPLICIT_PROJECTS_NOTE)
-            return [
-                {"name": pid, "display_name": pid}
-                for pid in self._config.project_ids[:limit]
-            ]
-        # Ingestion's own fetchers, called the way resolve_gcp_projects calls
-        # them but without its is_project_allowed filter: a denied project is
-        # reported, not hidden.
-        labels = self._config.project_labels
-        with _scrubbed("search_projects"):
-            # Lazy, so the pager stops at the limit instead of walking every
-            # project the credential can see.
-            found: Iterator[GcpProject] = (
-                _iter_projects_by_labels(frozenset(labels), self._projects)
-                if labels
-                else _iter_all_projects(self._projects)
-            )
-            return [
-                {"name": p.id, "display_name": p.name}
-                for p in itertools.islice(found, limit)
-            ]
+        # The candidates resolve_gcp_projects chooses from, without its
+        # project_id_pattern filter: a denied project is reported, not hidden.
+        # Lazy, so the pager stops at the limit. Resource Manager is not
+        # called when project_ids is set.
+        projects = None if self._config.project_ids else self._projects()
+        return [
+            {"name": p.id, "display_name": p.name}
+            for p in take(iter_candidate_projects(self._config, projects), limit)
+        ]
 
     @probe_method(
         kind=DATAPLEX_ENTRY_GROUP_KIND,
@@ -277,14 +250,13 @@ class DataplexMetadataProbe(ProbeProviderBase):
         located = self._sweep_locations(
             project,
             location,
-            lambda loc: self._entries_processor.list_entry_groups(project, loc),
+            lambda loc: self._entries_processor().list_entry_groups(project, loc),
             "entry groups",
         )
-        where = f"location '{location}'" if location else "any entries_locations"
-        with _scrubbed(
-            "list_entry_groups",
-            not_found=f"Dataplex found no project '{project}' in {where}; pass "
-            f"the project id as the recipe names it",
+        where = f"location {echoed(location)}" if location else "any entries_locations"
+        with _named_by_caller(
+            f"Dataplex found no project {echoed(project)} in {where}; pass the "
+            f"project id as the recipe names it"
         ):
             return [
                 {
@@ -292,22 +264,20 @@ class DataplexMetadataProbe(ProbeProviderBase):
                     "location": loc,
                     "display_name": group.display_name,
                 }
-                for loc, group in itertools.islice(located, limit)
+                for loc, group in take(located, limit)
             ]
 
-    def _list_entries(self, entry_group: str) -> Iterator[dataplex_v1.Entry]:
-        # The call _list_entry_stubs makes, without its filter: that method
-        # drops denied and FQN-less entries, which is ingestion's policy, and a
+    def _list_entries(self, entry_group: str) -> Iterable[dataplex_v1.Entry]:
+        # Ingestion's own listing request, unfiltered: _list_entry_stubs drops
+        # denied and FQN-less entries, which is ingestion's policy, and a
         # probe must report both.
-        request = dataplex_v1.ListEntriesRequest(parent=entry_group)
-        yield from self._catalog.list_entries(request=request)
+        return self._entries_processor().list_entries(entry_group)
 
     @staticmethod
-    def _entries_scrubbed(entry_group: str) -> AbstractContextManager[None]:
-        return _scrubbed(
-            "list_entries",
-            not_found=f"no entry group named '{entry_group}'; list them with "
-            f"`entry_groups` and pass a name exactly as it is returned",
+    def _entry_group_named(entry_group: str) -> AbstractContextManager[None]:
+        return _named_by_caller(
+            f"no entry group named {echoed(entry_group)}; list them with "
+            f"`entry_groups` and pass a name exactly as it is returned"
         )
 
     @probe_method(
@@ -328,8 +298,8 @@ class DataplexMetadataProbe(ProbeProviderBase):
         An entry with an empty FQN or an unsupported type is never ingested,
         whatever the patterns say. Metadata only: no aspect data."""
         records: List[Dict[str, object]] = []
-        with self._entries_scrubbed(entry_group):
-            for entry in itertools.islice(self._list_entries(entry_group), limit):
+        with self._entry_group_named(entry_group):
+            for entry in take(self._list_entries(entry_group), limit):
                 short = extract_entry_type_short_name(entry.entry_type)
                 records.append(
                     {
@@ -368,8 +338,8 @@ class DataplexMetadataProbe(ProbeProviderBase):
             for entry in self._list_entries(entry_group)
             if entry.fully_qualified_name
         )
-        with self._entries_scrubbed(entry_group):
-            return list(itertools.islice(fqns, limit))
+        with self._entry_group_named(entry_group):
+            return take(fqns, limit)
 
     @probe_method(kind=DATAPLEX_ASPECT_TYPE_KIND)
     def entry_aspect_types(self, entry: str) -> List[str]:
@@ -379,17 +349,9 @@ class DataplexMetadataProbe(ProbeProviderBase):
         custom properties only; the entry itself is still ingested. Pass the
         entry's full resource name as `entries` returns it. Names only -- aspect
         data is never returned."""
-        with _scrubbed(
-            "get_entry",
-            not_found=f"no entry named '{entry}'; list them with `entries` and "
-            f"pass a name exactly as it is returned",
+        with _named_by_caller(
+            f"no entry named {echoed(entry)}; list them with `entries` and pass "
+            f"a name exactly as it is returned"
         ):
-            # The request ingestion's _fetch_entry_detail sends, so the aspect
-            # keys are the ones ingestion sees -- but not that method, which
-            # logs the whole entry, aspect data included, at DEBUG.
-            detail = self._catalog.get_entry(
-                request=dataplex_v1.GetEntryRequest(
-                    name=entry, view=dataplex_v1.EntryView.ALL
-                )
-            )
+            detail = self._entries_processor().get_entry(entry)
         return sorted({aspect_type_short_name(key) for key in detail.aspects})

@@ -347,3 +347,103 @@ def test_export_mode_entry_from_run_warns_that_project_labels_were_not_checked()
         ],
     )
     assert any("project_labels" in w for w in result.warnings)
+
+
+def _judge_attrs(
+    config_dict: Dict[str, object],
+    kind: str,
+    names: Sequence[str],
+    attributes: Sequence[Dict[str, str]],
+    parents: Sequence[str] = (),
+) -> FilterCheckResult:
+    return check_filters(
+        source_type="dataplex",
+        config_dict=config_dict,
+        kind=kind,
+        parent_path=list(parents),
+        names=list(names),
+        attributes=list(attributes),
+    )
+
+
+def test_read_export_mode_includes_a_group_in_an_unlisted_project() -> None:
+    # read_export reads whatever export it is pointed at, and never scopes a
+    # group by project, so project_ids must not exclude it via its parent.
+    config: Dict[str, object] = {**READ_EXPORT_MODE, "project_ids": ["catalog-proj"]}
+    group = "projects/tenant-proj/locations/us/entryGroups/sales"
+    result = _judge(config, DATAPLEX_ENTRY_GROUP_KIND, [group], parents=["tenant-proj"])
+    assert [(r.included, r.excluded_by) for r in result.results] == [(True, None)]
+
+
+def test_export_mode_finds_the_project_in_a_lone_group_parent() -> None:
+    # The innermost container alone is a natural --parent; its resource name
+    # holds the project.
+    config: Dict[str, object] = {**EXPORT_MODE, "project_ids": ["proj-a"]}
+    kept = _judge(config, DATAPLEX_ENTRY_KIND, [ENTRY_ORDERS], parents=[GROUP_SALES])
+    assert kept.results[0].included
+    dropped = _judge(config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=[GROUP_B])
+    assert [(r.included, r.excluded_by) for r in dropped.results] == [
+        (False, "project_ids")
+    ]
+
+
+def test_export_mode_reads_the_project_from_the_entry_name_without_a_parent() -> None:
+    config: Dict[str, object] = {**EXPORT_MODE, "project_ids": ["proj-a"]}
+    result = _judge(config, DATAPLEX_ENTRY_KIND, [ENTRY_B])
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, "project_ids")
+    ]
+
+
+def test_export_mode_warns_when_no_project_can_be_found() -> None:
+    config: Dict[str, object] = {**EXPORT_MODE, "project_ids": ["proj-a"]}
+    result = _judge(config, DATAPLEX_ENTRY_FQN_KIND, ["bigquery:proj-b.sales.orders"])
+    assert result.results[0].included
+    assert result.warnings
+
+
+def test_export_mode_does_not_judge_a_project_number_against_project_ids() -> None:
+    config: Dict[str, object] = {**EXPORT_MODE, "project_ids": ["proj-a"]}
+    numbered = "projects/123456/locations/us/entryGroups/sales/entries/orders"
+    result = _judge(config, DATAPLEX_ENTRY_KIND, [numbered])
+    assert result.results[0].included
+    assert result.warnings
+
+
+def test_entry_kind_also_applies_fqn_pattern_from_a_listed_record() -> None:
+    # Ingestion keeps an entry only if both patterns allow it.
+    config: Dict[str, object] = {
+        "project_ids": ["proj-a"],
+        "filter_config": {"entries": {"fqn_pattern": {"deny": ["bigquery:.*"]}}},
+    }
+    names = [ENTRY_ORDERS, f"{GROUP_SALES}/entries/raw", f"{GROUP_SALES}/entries/x"]
+    result = _judge_attrs(
+        config,
+        DATAPLEX_ENTRY_KIND,
+        names,
+        attributes=[
+            {"fully_qualified_name": "bigquery:proj-a.sales.orders"},
+            {"fully_qualified_name": "custom:raw"},
+            {"fully_qualified_name": ""},
+        ],
+        parents=["proj-a", GROUP_SALES],
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, "filter_config.entries.fqn_pattern"),
+        (True, None),
+        (False, "missing_fully_qualified_name"),
+    ]
+    processor = _processor(config)
+    assert not processor._entry_fqn_allowed("bigquery:proj-a.sales.orders")
+
+
+def test_entry_kind_without_the_fqn_warns_that_fqn_pattern_was_not_judged() -> None:
+    config: Dict[str, object] = {
+        "project_ids": ["proj-a"],
+        "filter_config": {"entries": {"fqn_pattern": {"deny": ["bigquery:.*"]}}},
+    }
+    result = _judge(
+        config, DATAPLEX_ENTRY_KIND, [ENTRY_ORDERS], parents=["proj-a", GROUP_SALES]
+    )
+    assert result.results[0].included
+    assert any("fqn_pattern" in w for w in result.warnings)

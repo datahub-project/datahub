@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
-# HTTP errors are logged with their status and operation, never the response
-# body: an error body can echo request details, and these logs reach stderr of
-# both ingestion and `datahub recipe probe`.
+# The HTTP errors this module logs carry their status and operation, not the
+# response body: an error body can echo request details. BaseFabricClient.get
+# still logs the body on the same path (a shared fix is pending), so the probe
+# silences that logger.
 
 
 def _parse_table_name(full_name: str) -> tuple[str, str]:
@@ -383,8 +384,9 @@ class OneLakeClient(BaseFabricClient):
                         on_degraded(
                             f"OneLake table API returned HTTP "
                             f"{e.response.status_code} for schemas-enabled lakehouse "
-                            f"{lakehouse_id}; its tables could not be listed. The "
-                            f"identity needs Lakehouse.Read.All (or ReadWrite.All)."
+                            f"{lakehouse_id}, so its table list may be partial or "
+                            f"empty. The identity needs Lakehouse.Read.All (or "
+                            f"ReadWrite.All)."
                         )
                     # Return empty iterator instead of raising
                     return
@@ -531,8 +533,13 @@ class OneLakeClient(BaseFabricClient):
                         f"some warehouse types (e.g. staging) expose no tables via API"
                     )
                 return
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
+            status = e.response.status_code if e.response is not None else None
+            logger.error(
+                f"HTTP error {status} listing tables for warehouse {warehouse_id}"
+            )
             raise
         except Exception as e:
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
+            logger.error(
+                f"Failed to list tables for warehouse {warehouse_id} ({type(e).__name__})"
+            )
             raise

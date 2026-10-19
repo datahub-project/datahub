@@ -6,12 +6,12 @@ same auth, retry policy and timeout as ingestion. Commands take display names
 reads in DataHub carry GUIDs.
 """
 
-from contextlib import contextmanager
-from typing import Callable, Dict, Iterable, Iterator, List, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 
 import requests
 from azure.core.exceptions import ClientAuthenticationError
 
+from datahub.ingestion.agent.error_policy import DEFECT_TYPES
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
@@ -33,6 +33,7 @@ from datahub.ingestion.source.fabric.onelake.filter_names import (
 )
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricItem,
+    FabricItemType,
     FabricTable,
     FabricView,
 )
@@ -44,7 +45,7 @@ from datahub.ingestion.source.fabric.onelake.schema_client import (
 )
 
 SchemaClientFactory = Callable[[FabricWorkspace, FabricItem], SchemaExtractionClient]
-_ITEM_TYPES = ("Lakehouse", "Warehouse")
+_ITEM_TYPES: Tuple[FabricItemType, ...] = ("Lakehouse", "Warehouse")
 
 
 class FabricReadError(ProbeReadFailed):
@@ -53,8 +54,9 @@ class FabricReadError(ProbeReadFailed):
     A trusted type, so its text is shown: that text is built by `_scrubbed`
     from the operation, the HTTP status and the exception's class only, and
     must stay that way. Not a ValueError: the caller's arguments were fine.
-    The same message is recorded in `failures`, which run_probe_method reports
-    after it.
+    Raised, never also recorded in `failures`, which would print it twice.
+    Plain listings do not use it: their failures reach the framework, which
+    names them by class and HTTP status.
     """
 
 
@@ -90,6 +92,10 @@ def _close_if_closable(client: SchemaExtractionClient) -> None:
 
 
 class FabricOneLakeMetadataProbe(ProbeProviderBase):
+    # BaseFabricClient logs an HTTP error's response body at ERROR; an error
+    # body can echo request details, so it stays off the probe's output.
+    silenced_loggers = ("datahub.ingestion.source.fabric.common.base_client",)
+
     def __init__(
         self,
         client: OneLakeClient,
@@ -120,23 +126,6 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
             config,
         )
 
-    @contextmanager
-    def _reading(self, operation: str) -> Iterator[None]:
-        """Record a failed Fabric read and re-raise it scrubbed.
-
-        Wraps only calls into the client, never this module's own argument
-        checks, so a ValueError raised here is the source's (a malformed JSON
-        body is a ValueError too), not the caller's.
-        """
-        try:
-            yield
-        except Exception as exc:
-            message = _scrubbed(operation, exc)
-            self.failures.append(message)
-            # `from None`: the original's text is exactly what is being kept
-            # out of the output, and a printed chain would put it back.
-            raise FabricReadError(message) from None
-
     @probe_method(
         kind=GenericContainerSubTypes.FABRIC_WORKSPACE, row_limit_param="limit"
     )
@@ -144,12 +133,10 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         """Workspaces this credential can see, including ones workspace_pattern
         would exclude -- a denied workspace is reported, not hidden. `name` is
         what workspace_pattern matches; `id` is the GUID in emitted URNs."""
-        with self._reading("listing workspaces"):
-            out = [
-                {"name": ws.name, "id": ws.id}
-                for ws in take(self._client.list_workspaces(), limit)
-            ]
-        return out
+        return [
+            {"name": ws.name, "id": ws.id}
+            for ws in take(self._client.list_workspaces(), limit)
+        ]
 
     @probe_method(
         kind=DatasetContainerSubTypes.FABRIC_LAKEHOUSE,
@@ -160,15 +147,9 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         """Lakehouses in one workspace (display name or GUID), judged by
         lakehouse_pattern on `name`; `id` is the GUID in emitted URNs. Warns
         when extract_lakehouses is off, since ingestion then emits none."""
-        if not self._config.extract_lakehouses:
-            self._warn(
-                "extract_lakehouses is false: ingestion emits no lakehouses or "
-                "their tables"
-            )
-        ws = self._workspace(workspace)
-        with self._reading(f"listing lakehouses in workspace '{ws.name}'"):
-            items = list(self._client.list_lakehouses(ws.id))
-        return [{"name": i.name, "id": i.id} for i in items][:limit]
+        return self._items(
+            workspace, "Lakehouse", self._config.extract_lakehouses, limit
+        )
 
     @probe_method(
         kind=DatasetContainerSubTypes.FABRIC_WAREHOUSE,
@@ -179,15 +160,29 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         """Warehouses in one workspace (display name or GUID), judged by
         warehouse_pattern on `name`; `id` is the GUID in emitted URNs. Warns
         when extract_warehouses is off, since ingestion then emits none."""
-        if not self._config.extract_warehouses:
+        return self._items(
+            workspace, "Warehouse", self._config.extract_warehouses, limit
+        )
+
+    def _items(
+        self, workspace: str, item_type: FabricItemType, extracted: bool, limit: int
+    ) -> List[Dict[str, str]]:
+        if not extracted:
             self._warn(
-                "extract_warehouses is false: ingestion emits no warehouses or "
-                "their tables"
+                f"extract_{item_type.lower()}s is false: ingestion emits no "
+                f"{item_type.lower()}s or their tables"
             )
         ws = self._workspace(workspace)
-        with self._reading(f"listing warehouses in workspace '{ws.name}'"):
-            items = list(self._client.list_warehouses(ws.id))
-        return [{"name": i.name, "id": i.id} for i in items][:limit]
+        return [
+            {"name": i.name, "id": i.id}
+            for i in take(self._listers()[item_type](ws.id), limit)
+        ]
+
+    def _listers(self) -> Dict[FabricItemType, Callable[[str], Iterable[FabricItem]]]:
+        return {
+            "Lakehouse": self._client.list_lakehouses,
+            "Warehouse": self._client.list_warehouses,
+        }
 
     @probe_method(
         kind=DatasetContainerSubTypes.FABRIC_SCHEMA,
@@ -238,30 +233,34 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         """Tables in one schema of a lakehouse or warehouse, including ones
         table_pattern would exclude. Tables of a schemas-disabled lakehouse are
         under schema 'dbo'. table_pattern matches '<schema>.<table>', and the
-        result's parent_path lets `probe filter` build that. Empty with a
-        warning means the listing could not be read, not that there are no
-        tables."""
+        result's parent_path lets `probe filter` build that. A lakehouse table
+        listing that is refused fails the command (exit 3), with whatever was
+        listed before the refusal."""
         ws = self._workspace(workspace)
         fabric_item = self._item(ws, item, item_type)
-        return [
-            t.name
-            for t in self._item_tables(ws, fabric_item)
-            if effective_schema_name(t.schema_name) == schema
-        ][:limit]
+        return take(
+            (
+                t.name
+                for t in self._item_tables(ws, fabric_item)
+                if effective_schema_name(t.schema_name) == schema
+            ),
+            limit,
+        )
 
     def _item_tables(self, ws: FabricWorkspace, item: FabricItem) -> List[FabricTable]:
-        with self._reading(f"listing tables of {item.type} '{item.name}'"):
-            if item.type == "Lakehouse":
-                return list(
-                    self._client.list_lakehouse_tables(
-                        ws.id, item.id, on_degraded=self._warn
-                    )
-                )
+        if item.type == "Lakehouse":
+            # A refused lakehouse table listing is this command's answer gone
+            # missing, not an empty lakehouse: a failure, so the command exits
+            # 3 with what was listed before it.
             return list(
-                self._client.list_warehouse_tables(
-                    ws.id, item.id, on_degraded=self._warn
+                self._client.list_lakehouse_tables(
+                    ws.id, item.id, on_degraded=self.failures.append
                 )
             )
+        # A warehouse 404 does mean ingestion sees no tables there: a warning.
+        return list(
+            self._client.list_warehouse_tables(ws.id, item.id, on_degraded=self._warn)
+        )
 
     def _view_schemas(self, ws: FabricWorkspace, item: FabricItem) -> Set[str]:
         # Degrades rather than fails: `schemas` has already answered from the
@@ -272,6 +271,8 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
             views = self._open_schema_client(ws, item).get_all_views(
                 workspace_id=ws.id, item_id=item.id
             )
+        except DEFECT_TYPES:
+            raise
         except Exception as exc:
             self._warn(
                 f"{_scrubbed(operation, exc)}; schemas that hold only views are "
@@ -303,25 +304,33 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         self, ws: FabricWorkspace, item: FabricItem
     ) -> SchemaExtractionClient:
         self._require_sql_endpoint()
+        # The lookup that raises: a failed read of the item reaches the
+        # framework as what it is, instead of the factory's "no endpoint",
+        # which turns every error, a 403 included, into None.
+        if self._endpoint_host(ws, item) is None:
+            raise FabricReadError(
+                f"{item.type} '{item.name}' has no SQL Analytics Endpoint (not "
+                f"provisioned); ingestion skips its columns, views and usage"
+            )
         try:
             return self._open_schema_client(ws, item)
-        except ValueError:
-            # create_schema_extraction_client raises ValueError for exactly one
-            # thing: get_sql_analytics_endpoint_url found no endpoint (it turns
-            # every error, a 403 included, into None). Alone that would read as
-            # a bad argument at exit 2; it is a read failure.
-            message = (
-                f"SQL Analytics Endpoint for {item.type} '{item.name}' could not "
-                f"be opened: it is not provisioned, or this credential cannot "
-                f"read the item; ingestion skips its columns, views and usage"
-            )
+        except DEFECT_TYPES:
+            raise
         except Exception as exc:
-            message = _scrubbed(
-                f"opening the SQL Analytics Endpoint for {item.type} '{item.name}'",
-                exc,
-            )
-        self.failures.append(message)
-        raise FabricReadError(message) from None
+            raise FabricReadError(
+                _scrubbed(
+                    f"opening the SQL Analytics Endpoint for {item.type} '{item.name}'",
+                    exc,
+                )
+            ) from None
+
+    def _endpoint_host(self, ws: FabricWorkspace, item: FabricItem) -> Optional[str]:
+        return self._open_once(
+            ("endpoint-host", ws.id, item.id),
+            lambda: SqlAnalyticsEndpointClient.fetch_sql_analytics_endpoint_url(
+                self._client, ws.id, item.id, item.type
+            ),
+        )
 
     def _default_schema_client(
         self, ws: FabricWorkspace, item: FabricItem
@@ -371,11 +380,9 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
         ][:limit]
 
     def _item_views(self, ws: FabricWorkspace, item: FabricItem) -> List[FabricView]:
-        schema_client = self._schema_client(ws, item)
-        with self._reading(
-            f"reading INFORMATION_SCHEMA.VIEWS of {item.type} '{item.name}'"
-        ):
-            return schema_client.get_all_views(workspace_id=ws.id, item_id=item.id)
+        return self._schema_client(ws, item).get_all_views(
+            workspace_id=ws.id, item_id=item.id
+        )
 
     @probe_method()
     def columns(
@@ -396,14 +403,9 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
             )
         ws = self._workspace(workspace, in_parent_path=False)
         fabric_item = self._item(ws, item, item_type, in_parent_path=False)
-        schema_client = self._schema_client(ws, fabric_item)
-        with self._reading(
-            f"reading INFORMATION_SCHEMA.COLUMNS of {fabric_item.type} "
-            f"'{fabric_item.name}'"
-        ):
-            by_table = schema_client.get_all_table_columns(
-                workspace_id=ws.id, item_id=fabric_item.id
-            )
+        by_table = self._schema_client(ws, fabric_item).get_all_table_columns(
+            workspace_id=ws.id, item_id=fabric_item.id
+        )
         found = by_table.get((schema, table))
         if found is None:
             # Every table and view has columns, so no entry means no object.
@@ -461,16 +463,9 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
             )
         ws = self._workspace(workspace, in_parent_path=False)
         fabric_item = self._item(ws, item, item_type, in_parent_path=False)
-        # The non-swallowing variant of the lookup ingestion makes: ingestion
-        # turns a failed read into None too, but a probe reporting "no
-        # endpoint" for "could not look" is the confusion it exists to prevent.
-        with self._reading(
-            f"reading {fabric_item.type} '{fabric_item.name}' for its SQL "
-            f"Analytics Endpoint"
-        ):
-            host = SqlAnalyticsEndpointClient.fetch_sql_analytics_endpoint_url(
-                self._client, ws.id, fabric_item.id, fabric_item.type
-            )
+        # The lookup that raises: ingestion turns a failed read into None too,
+        # but "no endpoint" for "could not look" is what a probe must not say.
+        host = self._endpoint_host(ws, fabric_item)
         if host is None:
             self._warn(
                 f"{fabric_item.type} '{fabric_item.name}' has no SQL Analytics "
@@ -497,10 +492,7 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
     def _workspace(
         self, workspace: str, *, in_parent_path: bool = True
     ) -> FabricWorkspace:
-        with self._reading("listing workspaces"):
-            listed = list(self._client.list_workspaces())
-        # Resolved outside _reading, so a refusal stays the caller's error
-        # (exit 2) and is not recorded as a failure.
+        listed = list(self._client.list_workspaces())
         resolved = resolve_name(
             workspace,
             listed,
@@ -530,26 +522,29 @@ class FabricOneLakeMetadataProbe(ProbeProviderBase):
                 f"--item-type must be one of {', '.join(_ITEM_TYPES)}, got "
                 f"'{item_type}'"
             )
-        listers: Dict[str, Callable[[str], Iterable[FabricItem]]] = {
-            "Lakehouse": self._client.list_lakehouses,
-            "Warehouse": self._client.list_warehouses,
-        }
+        listers = self._listers()
         listed: List[FabricItem] = []
         # Each type is listed on its own: a 403 on lakehouses must not hide a
         # warehouse the caller can read. A failure only fails the call when
         # nothing was found, since then the item may be in the unread listing.
         failed: List[str] = []
-        for type_name in (item_type,) if item_type else _ITEM_TYPES:
+        types: Tuple[FabricItemType, ...] = (
+            tuple(t for t in _ITEM_TYPES if t == item_type)
+            if item_type
+            else _ITEM_TYPES
+        )
+        for type_name in types:
             operation = f"listing {type_name.lower()}s in workspace '{ws.name}'"
             try:
                 listed += list(listers[type_name](ws.id))
+            except DEFECT_TYPES:
+                raise
             except Exception as exc:
                 failed.append(_scrubbed(operation, exc))
 
         def unread() -> None:
             # The item may be in the listing that could not be read.
             if failed:
-                self.failures.extend(failed)
                 raise FabricReadError("; ".join(failed))
 
         resolved = resolve_name(

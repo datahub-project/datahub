@@ -1,7 +1,7 @@
 """Fabric OneLake probe: verdicts that match what ingestion filters on, and
 listings that say when they could not look."""
 
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple, cast
+from typing import Dict, List, Optional, Set, Tuple, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,7 +11,12 @@ from azure.core.exceptions import ClientAuthenticationError
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeConnectionError,
+    ProbeInternalError,
+    ProbeReadFailed,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -24,10 +29,7 @@ from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceCo
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricItem,
-    FabricLakehouse,
-    FabricTable,
     FabricView,
-    FabricWarehouse,
 )
 from datahub.ingestion.source.fabric.onelake.onelake_probe import (
     FabricOneLakeMetadataProbe,
@@ -41,23 +43,17 @@ from datahub.ingestion.source.fabric.onelake.source import (
     LakehouseKey,
 )
 from datahub.sdk.dataset import Dataset
+from tests.unit.fabric_onelake.onelake_fakes import (
+    ENDPOINT_HOST,
+    LH_ID,
+    PROVISIONED,
+    WS,
+    FakeOneLakeClient,
+    tables,
+)
 
 SOURCE = "fabric-onelake"
-WS = FabricWorkspace(id="00000000-0000-0000-0000-00000000000a", name="sales-ws")
-LH_ID = "00000000-0000-0000-0000-00000000000b"
-
-
-def _tables() -> List[FabricTable]:
-    # "" is a schemas-disabled lakehouse table; ingestion files it under dbo.
-    return [
-        FabricTable(name="orders", schema_name="", item_id=LH_ID, workspace_id=WS.id),
-        FabricTable(
-            name="refunds", schema_name="finance", item_id=LH_ID, workspace_id=WS.id
-        ),
-        FabricTable(
-            name="tmp_load", schema_name="staging", item_id=LH_ID, workspace_id=WS.id
-        ),
-    ]
+_SECRET = "secret-ish"
 
 
 def _ingested(config_dict: Dict[str, object]) -> Set[str]:
@@ -65,7 +61,7 @@ def _ingested(config_dict: Dict[str, object]) -> Set[str]:
         config_dict, PipelineContext(run_id="probe-equivalence")
     )
     source.client = MagicMock()
-    source.client.list_lakehouse_tables.return_value = _tables()
+    source.client.list_lakehouse_tables.return_value = tables()
     emitted = list(
         source._process_item_tables(
             workspace=WS,
@@ -89,7 +85,7 @@ def _ingested(config_dict: Dict[str, object]) -> Set[str]:
 
 def _probed(config_dict: Dict[str, object]) -> Set[str]:
     included: Set[str] = set()
-    for table in _tables():
+    for table in tables():
         schema = table.schema_name or "dbo"
         result = check_filters(
             source_type=SOURCE,
@@ -199,106 +195,23 @@ def test_containers_are_matched_bare_without_asking_for_a_parent(kind: str) -> N
     assert result.warnings == []
 
 
-WH_ID = "00000000-0000-0000-0000-00000000000c"
-
-
-class _FakeClient:
-    """Answers only what the probe calls, and records the calls so resolution
-    cost is visible."""
-
-    def __init__(self) -> None:
-        self.calls: List[str] = []
-        self.closed = False
-        self.auth_helper = MagicMock()
-        self.lakehouse_tables: List[FabricTable] = _tables()
-        self.degrade_message: str = ""
-        self.workspaces_error: Optional[Exception] = None
-        self.lakehouses_error: Optional[Exception] = None
-        # The item GET the SQL endpoint lookup makes: a response body, or an
-        # error to raise.
-        self.item_body: Dict[str, object] = {}
-        self.item_error: Optional[Exception] = None
-
-    def list_workspaces(self) -> Iterator[FabricWorkspace]:
-        self.calls.append("workspaces")
-        if self.workspaces_error is not None:
-            raise self.workspaces_error
-        yield WS
-        yield FabricWorkspace(id="00000000-0000-0000-0000-0000000000ff", name="hr-ws")
-
-    def list_lakehouses(self, workspace_id: str) -> Iterator[FabricLakehouse]:
-        self.calls.append("lakehouses")
-        if self.lakehouses_error is not None:
-            raise self.lakehouses_error
-        yield FabricLakehouse(
-            id=LH_ID, name="lh_main", type="Lakehouse", workspace_id=workspace_id
-        )
-        yield FabricLakehouse(
-            id="lh-dup", name="shared_name", type="Lakehouse", workspace_id=workspace_id
-        )
-
-    def list_warehouses(self, workspace_id: str) -> Iterator[FabricWarehouse]:
-        self.calls.append("warehouses")
-        yield FabricWarehouse(
-            id=WH_ID, name="wh_main", type="Warehouse", workspace_id=workspace_id
-        )
-        yield FabricWarehouse(
-            id="wh-dup", name="shared_name", type="Warehouse", workspace_id=workspace_id
-        )
-
-    def list_lakehouse_tables(
-        self,
-        workspace_id: str,
-        lakehouse_id: str,
-        *,
-        on_degraded: Optional[Callable[[str], None]] = None,
-    ) -> Iterator[FabricTable]:
-        self.calls.append("lakehouse_tables")
-        if self.degrade_message and on_degraded is not None:
-            on_degraded(self.degrade_message)
-            return iter([])
-        return iter(self.lakehouse_tables)
-
-    def list_warehouse_tables(
-        self,
-        workspace_id: str,
-        warehouse_id: str,
-        *,
-        on_degraded: Optional[Callable[[str], None]] = None,
-    ) -> Iterator[FabricTable]:
-        self.calls.append("warehouse_tables")
-        return iter(
-            [
-                FabricTable(
-                    name="facts",
-                    schema_name="dbo",
-                    item_id=warehouse_id,
-                    workspace_id=workspace_id,
-                )
-            ]
-        )
-
-    def get(self, endpoint: str) -> MagicMock:
-        self.calls.append(f"get {endpoint}")
-        if self.item_error is not None:
-            raise self.item_error
-        response = MagicMock()
-        response.json.return_value = self.item_body
-        return response
-
-    def close(self) -> None:
-        self.closed = True
-
-
 def _http_error(status: int) -> requests.HTTPError:
+    # Raised as requests raises it, so the message carries the URL (and with
+    # it the planted secret), as a real refusal's does.
     response = requests.Response()
     response.status_code = status
-    response.url = "https://api.fabric.microsoft.com/v1/placeholder?token=secret-ish"
-    return requests.HTTPError(f"{status} for url ...", response=response)
+    response.reason = "Forbidden"
+    response.url = f"https://api.fabric.microsoft.com/v1/placeholder?token={_SECRET}"
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        assert _SECRET in str(exc)
+        return exc
+    raise AssertionError("raise_for_status did not raise")
 
 
-def _probe(**config: object) -> Tuple[FabricOneLakeMetadataProbe, _FakeClient]:
-    client = _FakeClient()
+def _probe(**config: object) -> Tuple[FabricOneLakeMetadataProbe, FakeOneLakeClient]:
+    client = FakeOneLakeClient()
     return (
         FabricOneLakeMetadataProbe(
             # A structural fake of the parts of OneLakeClient the probe calls.
@@ -351,36 +264,33 @@ def test_an_unknown_item_type_is_the_callers_error() -> None:
         probe._item(ws, "lh_main", "Notebook")
 
 
-def test_a_refused_rest_read_is_recorded_without_the_response_text() -> None:
-    probe, client = _probe()
-    response = requests.Response()
-    response.status_code = 403
-    response.url = "https://api.fabric.microsoft.com/v1/workspaces?token=secret-ish"
-    client.workspaces_error = requests.HTTPError("403 for url ...", response=response)
-
-    with pytest.raises(FabricReadError) as excinfo:
-        probe.workspaces()
-
-    # Recorded, so run_probe_method reports a read failure (exit 3), and
-    # scrubbed to status + operation: the URL and body never reach the output.
-    assert probe.failures == ["listing workspaces failed: HTTP 403"]
-    assert "secret-ish" not in str(excinfo.value)
-    assert not isinstance(excinfo.value, ValueError)
+def test_a_refused_rest_read_fails_without_the_url_or_response_text() -> None:
+    client = FakeOneLakeClient()
+    client.workspaces_error = _http_error(403)
+    with pytest.raises(ProbeConnectionError) as excinfo:
+        _run({}, "workspaces", {}, client=client)
+    # Labelled by the framework: the class and the status, never the text.
+    assert "HTTPError" in str(excinfo.value) and "403" in str(excinfo.value)
+    assert _SECRET not in str(excinfo.value)
 
 
-def test_a_credential_failure_says_so_without_the_sdk_text() -> None:
-    probe, client = _probe()
+def test_a_credential_failure_is_named_without_the_sdk_text() -> None:
+    client = FakeOneLakeClient()
     client.workspaces_error = ClientAuthenticationError(
-        "authority https://login.example/placeholder-tenant rejected secret-ish"
+        f"authority https://login.example/placeholder-tenant rejected {_SECRET}"
     )
+    with pytest.raises(ProbeConnectionError) as excinfo:
+        _run({}, "workspaces", {}, client=client)
+    assert "ClientAuthenticationError" in str(excinfo.value)
+    assert _SECRET not in str(excinfo.value)
+    assert "placeholder-tenant" not in str(excinfo.value)
 
-    with pytest.raises(FabricReadError):
-        probe.workspaces()
 
-    assert len(probe.failures) == 1
-    assert "credential" in probe.failures[0]
-    assert "secret-ish" not in probe.failures[0]
-    assert "placeholder-tenant" not in probe.failures[0]
+def test_a_defect_in_the_probe_is_a_defect_not_a_read_failure() -> None:
+    client = FakeOneLakeClient()
+    client.lakehouses_error = KeyError("value")
+    with pytest.raises(ProbeInternalError):
+        _run({}, "tables", {**_ORDERS, "item": "wh_main"}, client=client)
 
 
 def test_a_failed_lakehouse_listing_still_resolves_a_warehouse() -> None:
@@ -402,43 +312,40 @@ def test_an_item_not_found_because_a_listing_failed_is_a_read_failure() -> None:
     probe, client = _probe()
     client.lakehouses_error = _http_error(403)
 
-    with pytest.raises(FabricReadError):
+    with pytest.raises(FabricReadError) as excinfo:
         probe.tables(workspace="sales-ws", item="lh_main", schema="dbo")
-    assert probe.failures == [
-        "listing lakehouses in workspace 'sales-ws' failed: HTTP 403"
-    ]
+    # Raised, not also recorded, so the message is printed once.
+    assert probe.failures == []
+    assert "lakehouses" in str(excinfo.value) and "403" in str(excinfo.value)
+    assert _SECRET not in str(excinfo.value)
 
 
 def test_sql_endpoint_reports_a_failed_item_read_as_a_failure() -> None:
-    probe, client = _probe(sql_endpoint={"enabled": True})
+    client = FakeOneLakeClient()
     client.item_error = _http_error(403)
+    with pytest.raises(ProbeConnectionError) as excinfo:
+        _run(
+            {"sql_endpoint": {"enabled": True}},
+            "sql_endpoint",
+            {"workspace": "sales-ws", "item": "lh_main"},
+            client=client,
+        )
+    assert "403" in str(excinfo.value)
+    assert _SECRET not in str(excinfo.value)
 
-    with pytest.raises(FabricReadError) as excinfo:
-        probe.sql_endpoint(workspace="sales-ws", item="lh_main")
-    assert len(probe.failures) == 1
-    assert "HTTP 403" in probe.failures[0]
-    assert "secret-ish" not in str(excinfo.value)
 
-
-def test_sql_endpoint_is_null_only_when_the_item_has_none() -> None:
+@pytest.mark.parametrize(
+    "body, host",
+    [({"properties": {}}, None), (PROVISIONED, ENDPOINT_HOST)],
+)
+def test_sql_endpoint_is_null_only_when_the_item_has_none(
+    body: Dict[str, object], host: Optional[str]
+) -> None:
     probe, client = _probe(sql_endpoint={"enabled": True})
-    client.item_body = {"properties": {}}
-    assert probe.sql_endpoint(workspace="sales-ws", item="lh_main")["host"] is None
+    client.item_body = body
+    assert probe.sql_endpoint(workspace="sales-ws", item="lh_main")["host"] == host
     assert probe.failures == []
-    assert any("not provisioned" in w for w in probe.warnings)
-
-    client.item_body = {
-        "properties": {
-            "sqlEndpointProperties": {
-                "provisioningStatus": "Success",
-                "connectionString": "placeholder.datawarehouse.fabric.microsoft.com",
-            }
-        }
-    }
-    assert (
-        probe.sql_endpoint(workspace="sales-ws", item="lh_main")["host"]
-        == "placeholder.datawarehouse.fabric.microsoft.com"
-    )
+    assert bool(probe.warnings) is (host is None)
 
 
 def test_exit_closes_the_client() -> None:
@@ -467,11 +374,15 @@ def test_schemas_are_derived_from_tables_as_ingestion_does() -> None:
     ]
 
 
-def test_an_unreadable_table_listing_is_empty_with_a_warning() -> None:
-    probe, client = _probe()
+def test_a_refused_lakehouse_table_listing_is_a_failure_not_an_empty_list() -> None:
+    # The table listing is the answer here; a refusal must not read as "no
+    # tables" with exit 0. A recorded failure makes the CLI exit 3, with what
+    # was listed before the refusal.
+    client = FakeOneLakeClient()
     client.degrade_message = "OneLake table API returned HTTP 403"
-    assert probe.tables(workspace="sales-ws", item="lh_main", schema="dbo") == []
-    assert probe.warnings == ["OneLake table API returned HTTP 403"]
+    run = _run({}, "tables", {**_ORDERS, "item_type": "Lakehouse"}, client=client)
+    assert run.failures and "403" in run.failures[0]
+    assert run.warnings == []
 
 
 def test_a_tables_command_resolves_the_workspace_once() -> None:
@@ -535,7 +446,7 @@ def _sql_probe(
         return cast(SchemaExtractionClient, schema_client)
 
     probe = FabricOneLakeMetadataProbe(
-        cast(OneLakeClient, _FakeClient()),
+        cast(OneLakeClient, FakeOneLakeClient()),
         FabricOneLakeSourceConfig.model_validate(config),
         schema_client_factory=_factory,
     )
@@ -577,29 +488,36 @@ def test_an_unreadable_view_definition_is_null_with_a_warning() -> None:
     assert any("VIEW DEFINITION" in w for w in probe.warnings)
 
 
-def test_an_unresolvable_endpoint_is_a_read_failure_not_a_bad_argument() -> None:
-    def _no_endpoint(ws: FabricWorkspace, item: FabricItem) -> SchemaExtractionClient:
-        raise ValueError("SQL Analytics Endpoint URL is required for Lakehouse x")
-
-    probe = FabricOneLakeMetadataProbe(
-        cast(OneLakeClient, _FakeClient()),
-        FabricOneLakeSourceConfig.model_validate({}),
-        schema_client_factory=_no_endpoint,
-    )
-    with pytest.raises(FabricReadError):
-        probe.views(workspace="sales-ws", item="lh_main", schema="dbo")
-    # Recorded, so run_probe_method raises ProbeReadFailed (exit 3), not exit 2.
-    assert len(probe.failures) == 1 and "lh_main" in probe.failures[0]
-    assert "not provisioned" in probe.failures[0]
+def test_an_item_without_an_endpoint_is_a_read_failure_not_a_bad_argument() -> None:
+    client = FakeOneLakeClient()
+    client.item_body = {"properties": {}}
+    with pytest.raises(ProbeReadFailed) as excinfo:
+        _run({}, "views", {**_ORDERS, "schema": "reporting"}, client=client)
+    assert "lh_main" in str(excinfo.value)
 
 
-def test_a_failed_catalog_query_is_recorded_without_the_driver_text() -> None:
-    probe, schema_client = _sql_probe()
-    schema_client.views_error = RuntimeError("driver said: Server=host;secret-ish")
-    with pytest.raises(FabricReadError) as excinfo:
-        probe.views(workspace="sales-ws", item="lh_main", schema="reporting")
-    assert probe.failures and "secret-ish" not in probe.failures[0]
-    assert "secret-ish" not in str(excinfo.value)
+def test_views_report_a_refused_item_read_instead_of_no_endpoint() -> None:
+    # The factory's own lookup turns a 403 into "no endpoint"; the probe asks
+    # with the lookup that raises.
+    client = FakeOneLakeClient()
+    client.item_error = _http_error(403)
+    with pytest.raises(ProbeConnectionError) as excinfo:
+        _run({}, "views", {**_ORDERS, "schema": "reporting"}, client=client)
+    assert "403" in str(excinfo.value)
+
+
+def test_a_failed_catalog_query_fails_without_the_driver_text() -> None:
+    schema_client = _FakeSchemaClient()
+    schema_client.views_error = RuntimeError(f"driver said: Server=host;{_SECRET}")
+    with pytest.raises(ProbeConnectionError) as excinfo:
+        _run(
+            {},
+            "views",
+            {**_ORDERS, "schema": "reporting"},
+            schema_client=schema_client,
+        )
+    assert "RuntimeError" in str(excinfo.value)
+    assert _SECRET not in str(excinfo.value)
 
 
 def test_schemas_degrade_to_tables_only_when_views_cannot_be_read() -> None:
@@ -654,16 +572,14 @@ def test_a_workspace_given_by_id_warns_that_the_parent_path_carries_the_id() -> 
     probe, _ = _probe()
     probe.lakehouses(workspace=WS.id)
     assert len(probe.warnings) == 1
-    assert "resolved by id to workspace 'sales-ws'" in probe.warnings[0]
-    assert "--workspace 'sales-ws'" in probe.warnings[0]
+    assert "sales-ws" in probe.warnings[0] and "--workspace" in probe.warnings[0]
 
 
 def test_an_item_given_by_id_warns_too() -> None:
     probe, _ = _probe()
     probe.tables(workspace="sales-ws", item=LH_ID, schema="dbo")
     assert len(probe.warnings) == 1
-    assert "resolved by id to Lakehouse 'lh_main'" in probe.warnings[0]
-    assert "--item 'lh_main'" in probe.warnings[0]
+    assert "lh_main" in probe.warnings[0] and "--item" in probe.warnings[0]
 
 
 def test_display_names_resolve_without_a_warning() -> None:
@@ -678,7 +594,7 @@ def test_a_run_by_display_name_judges_as_ingestion_does_from_run() -> None:
         "workspace_pattern": {"allow": ["^sales-.*"]},
         "table_pattern": {"deny": ["^staging\\..*"]},
     }
-    client = _FakeClient()
+    client = FakeOneLakeClient()
 
     def _for_config(
         cls: object, cfg: FabricOneLakeSourceConfig
@@ -717,7 +633,7 @@ def test_exit_closes_the_rest_session_even_if_a_sql_client_close_fails() -> None
     probe, schema_client = _sql_probe()
     probe.views(workspace="sales-ws", item="lh_main", schema="reporting")
     schema_client.close_error = RuntimeError("engine dispose failed")
-    rest = cast(_FakeClient, probe._client)
+    rest = cast(FakeOneLakeClient, probe._client)
     with pytest.raises(RuntimeError):
         probe.__exit__(None, None, None)
     assert rest.closed
@@ -734,12 +650,13 @@ def _run(
     config: Dict[str, object],
     command: str,
     kwargs: Dict[str, object],
-    client: Optional[_FakeClient] = None,
+    client: Optional[FakeOneLakeClient] = None,
+    schema_client: Optional["_FakeSchemaClient"] = None,
 ) -> ProbeMethodResult:
-    fake = client or _FakeClient()
+    fake = client or FakeOneLakeClient()
 
     def _factory(ws: FabricWorkspace, item: FabricItem) -> SchemaExtractionClient:
-        return cast(SchemaExtractionClient, _FakeSchemaClient())
+        return cast(SchemaExtractionClient, schema_client or _FakeSchemaClient())
 
     def _for_config(
         cls: object, cfg: FabricOneLakeSourceConfig
@@ -779,13 +696,11 @@ def test_a_refusal_reaches_the_caller_with_its_message(
         _run(config, command, kwargs)
 
 
-def test_a_failed_read_reaches_the_caller_as_a_read_failure() -> None:
-    client = _FakeClient()
-    client.workspaces_error = _http_error(403)
+def test_a_refused_lakehouse_listing_is_said_once() -> None:
+    # Raised, not also recorded: the framework would print a recorded failure
+    # after the raised one.
+    client = FakeOneLakeClient()
+    client.lakehouses_error = _http_error(403)
     with pytest.raises(ProbeReadFailed) as excinfo:
-        _run({}, "workspaces", {}, client=client)
-    # The connector's own scrubbed words, then what it recorded.
-    assert str(excinfo.value) == (
-        "listing workspaces failed: HTTP 403; the connector recorded: "
-        "listing workspaces failed: HTTP 403"
-    )
+        _run({}, "tables", {**_ORDERS, "item_type": "Lakehouse"}, client=client)
+    assert str(excinfo.value).count("403") == 1

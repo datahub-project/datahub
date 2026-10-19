@@ -4,7 +4,7 @@ framework's real ones."""
 
 import json
 import logging
-from typing import Dict, Iterator, List, Optional
+from typing import Callable, Dict, Iterator, List, Optional
 from unittest.mock import Mock
 
 import pytest
@@ -17,9 +17,6 @@ from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeConnectionError,
     ProbeReadFailed,
-)
-from datahub.ingestion.source.common.gcp_project_filter import (
-    _search_projects_by_labels,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DATAPLEX_ASPECT_TYPE_KIND,
@@ -79,10 +76,23 @@ def _run(
     def build(
         cls: type[DataplexMetadataProbe], cfg: DataplexConfig
     ) -> DataplexMetadataProbe:
-        return cls(cfg, None, catalog_client=catalog, projects_client=projects)
+        return cls(
+            cfg,
+            None,
+            catalog_factory=_factory(catalog),
+            projects_factory=_factory(projects),
+        )
 
     monkeypatch.setattr(DataplexMetadataProbe, "for_config", classmethod(build))
     return run_probe_method("dataplex", config or BASE, command, kwargs)
+
+
+def _factory(client: Optional[Mock]) -> Callable[[object], Mock]:
+    def build(credentials: object) -> Mock:
+        assert client is not None, "this command was not expected to open a client"
+        return client
+
+    return build
 
 
 def _records(result: ProbeMethodResult) -> List[Dict[str, object]]:
@@ -100,9 +110,17 @@ def _strings(result: ProbeMethodResult) -> List[str]:
 
 
 def test_for_config_opens_no_client() -> None:
-    probe = DataplexMetadataProbe.for_config(DataplexConfig.model_validate(BASE))
-    assert "_catalog" not in probe.__dict__
-    assert "_projects" not in probe.__dict__
+    catalog, projects = Mock(), Mock()
+    probe = DataplexMetadataProbe(
+        DataplexConfig.model_validate(BASE),
+        None,
+        catalog_factory=catalog,
+        projects_factory=projects,
+    )
+    with probe:
+        pass
+    catalog.assert_not_called()
+    projects.assert_not_called()
 
 
 def test_a_malformed_credential_is_reported_without_its_contents() -> None:
@@ -197,36 +215,12 @@ def test_discovery_stops_reading_projects_at_the_limit(
     assert len(pulled) <= 3
 
 
-def test_label_discovery_sends_the_query_ingestion_sends(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ingestion_client = Mock(spec=resourcemanager_v3.ProjectsClient)
-    ingestion_client.search_projects.return_value = iter([])
-    _search_projects_by_labels(frozenset({"env:prod"}), ingestion_client)
-
-    probe_client = Mock(spec=resourcemanager_v3.ProjectsClient)
-    probe_client.search_projects.return_value = iter([])
-    _run(
-        monkeypatch,
-        "projects",
-        {},
-        config={"project_labels": ["env:prod"]},
-        projects=probe_client,
-    )
-
-    assert (
-        probe_client.search_projects.call_args
-        == ingestion_client.search_projects.call_args
-    )
-
-
 def test_a_failed_project_search_is_scrubbed(monkeypatch: pytest.MonkeyPatch) -> None:
     projects = Mock(spec=resourcemanager_v3.ProjectsClient)
     projects.search_projects.side_effect = exceptions.PermissionDenied(SERVER_DETAIL)
     config: Dict[str, object] = {"project_id_pattern": {"allow": ["^prod-"]}}
     with pytest.raises(ProbeConnectionError) as info:
         _run(monkeypatch, "projects", {}, config=config, projects=projects)
-    assert "search_projects" in str(info.value)
     assert "403" in str(info.value)
     assert SERVER_DETAIL not in str(info.value)
 
@@ -320,18 +314,26 @@ def test_a_named_location_that_is_forbidden_raises(
     assert info.value.__cause__ is None
 
 
-def test_the_provider_closes_only_the_clients_it_opened() -> None:
-    injected = Mock(spec=dataplex_v1.CatalogServiceClient)
+def test_every_opened_client_is_closed_even_when_one_close_fails() -> None:
+    catalog = Mock(spec=dataplex_v1.CatalogServiceClient)
+    catalog.transport.close.side_effect = RuntimeError("close failed")
+    projects = Mock(spec=resourcemanager_v3.ProjectsClient)
+    projects.search_projects.return_value = iter([])
+    catalog.list_entry_groups.return_value = []
     probe = DataplexMetadataProbe(
-        DataplexConfig.model_validate(BASE), None, catalog_client=injected
+        DataplexConfig.model_validate(
+            {"project_labels": ["env:prod"], "entries_locations": ["us"]}
+        ),
+        None,
+        catalog_factory=_factory(catalog),
+        projects_factory=_factory(projects),
     )
-    created = Mock(spec=resourcemanager_v3.ProjectsClient)
-    probe.__dict__["_projects"] = created
-    probe._opened.append(created)
-    assert probe._catalog is injected
-    probe.__exit__(None, None, None)
-    created.transport.close.assert_called_once()
-    injected.transport.close.assert_not_called()
+    with pytest.raises(RuntimeError):
+        with probe:
+            probe.projects(limit=1)
+            probe.entry_groups(project="proj-a")
+    projects.transport.close.assert_called_once()
+    catalog.transport.close.assert_called_once()
 
 
 GROUP = "projects/proj-a/locations/us/entryGroups/sales"
@@ -493,7 +495,6 @@ def test_a_forbidden_entry_group_is_scrubbed(monkeypatch: pytest.MonkeyPatch) ->
             {"project": "proj-a", "entry_group": GROUP},
             catalog=client,
         )
-    assert "list_entries" in str(info.value)
     assert SERVER_DETAIL not in str(info.value)
 
 
@@ -567,7 +568,7 @@ def test_a_retry_error_is_scrubbed(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     with pytest.raises(ProbeConnectionError) as info:
         _run(monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client)
-    assert "get_entry" in str(info.value)
+    assert "RetryError" in str(info.value)
     assert SERVER_DETAIL not in str(info.value)
     assert info.value.__cause__ is None
 

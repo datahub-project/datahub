@@ -128,30 +128,34 @@ class ProjectFilterProtocol(Protocol):
     project_id_pattern: AllowDenyPattern
 
 
-def is_project_allowed(filter_config: ProjectFilterProtocol, project_id: str) -> bool:
-    """
-    Check if a GCP project is allowed based on filter configuration.
+PROJECT_IDS = "project_ids"
+PROJECT_ID_PATTERN = "project_id_pattern"
 
-    This function works with any config that has project_ids and project_id_pattern fields,
-    including GcpProjectFilterConfig and BigQueryFilterConfig.
 
-    Args:
-        filter_config: Configuration containing project_ids list or project_id_pattern
-        project_id: The GCP project ID to check
+def project_rejected_by(
+    filter_config: ProjectFilterProtocol, project_id: str
+) -> Optional[str]:
+    """The field that excludes a GCP project, or None when it is allowed.
 
-    Returns:
-        True if the project is allowed, False otherwise
-
-    Logic:
-        - If project_ids is specified, checks if project_id is in the list
-        - Otherwise, checks if project_id matches the project_id_pattern
+    An explicit project_ids list replaces project_id_pattern outright; only
+    without one does the pattern decide. The one statement of that
+    precedence, for ingestion (is_project_allowed) and `probe filter`.
     """
     if filter_config.project_ids:
-        return project_id in filter_config.project_ids
-    return filter_config.project_id_pattern.allowed(project_id)
+        return None if project_id in filter_config.project_ids else PROJECT_IDS
+    if filter_config.project_id_pattern.allowed(project_id):
+        return None
+    return PROJECT_ID_PATTERN
 
 
-def _iter_projects(
+def is_project_allowed(filter_config: ProjectFilterProtocol, project_id: str) -> bool:
+    """Whether a GCP project passes project_ids, else project_id_pattern
+    (project_rejected_by). Works with any config carrying both fields,
+    GcpProjectFilterConfig and BigQueryFilterConfig included."""
+    return project_rejected_by(filter_config, project_id) is None
+
+
+def iter_projects(
     projects_client: ProjectsClient, query: Optional[str] = None
 ) -> Iterator[GcpProject]:
     """Projects from Resource Manager `search_projects`, one page at a time, so
@@ -170,46 +174,39 @@ def _iter_projects(
             )
 
 
-def _iter_projects_by_labels(
+def iter_projects_by_labels(
     labels: FrozenSet[str], projects_client: Optional[ProjectsClient] = None
 ) -> Iterator[GcpProject]:
     if projects_client is None:
         projects_client = ProjectsClient()
     labels_query = " OR ".join([f"labels.{label}" for label in labels])
-    return _iter_projects(projects_client, labels_query)
+    return iter_projects(projects_client, labels_query)
 
 
-def _iter_all_projects(
+def iter_all_projects(
     projects_client: Optional[ProjectsClient] = None,
 ) -> Iterator[GcpProject]:
     if projects_client is None:
         projects_client = ProjectsClient()
-    return _iter_projects(projects_client)
+    return iter_projects(projects_client)
 
 
-def _search_projects_by_labels(
-    labels: FrozenSet[str], projects_client: Optional[ProjectsClient] = None
-) -> List[GcpProject]:
-    """
-    Search for GCP projects matching any of the provided labels.
-
-    Note: GCP API errors are caught by the calling function (resolve_gcp_projects)
-    which wraps all project resolution logic in a try-except block.
-    """
-    return list(_iter_projects_by_labels(labels, projects_client))
-
-
-def _search_all_projects(
+def iter_candidate_projects(
+    filter_config: GcpProjectFilterConfig,
     projects_client: Optional[ProjectsClient] = None,
-) -> List[GcpProject]:
-    """
-    Return all GCP projects visible to the caller.
-
-    Uses Cloud Resource Manager `search_projects`, which (unlike `list_projects`)
-    does not require a `parent` argument and only requires `resourcemanager.projects.get`
-    on each candidate project — no folder/org-level grant is needed.
-    """
-    return list(_iter_all_projects(projects_client))
+) -> Iterator[GcpProject]:
+    """The projects resolve_gcp_projects chooses from, before
+    project_id_pattern: exactly project_ids when set (Resource Manager is not
+    called), else the projects carrying any of project_labels, else every
+    project the credential can see. Lazy, so a caller wanting the first few
+    stops the pager early."""
+    if filter_config.project_ids:
+        return iter(GcpProject(id=pid, name=pid) for pid in filter_config.project_ids)
+    if filter_config.project_labels:
+        return iter_projects_by_labels(
+            frozenset(filter_config.project_labels), projects_client
+        )
+    return iter_all_projects(projects_client)
 
 
 def resolve_gcp_projects(
@@ -238,9 +235,7 @@ def resolve_gcp_projects(
             return resolved
 
         if filter_config.project_labels:
-            labeled = _search_projects_by_labels(
-                frozenset(filter_config.project_labels), projects_client
-            )
+            labeled = list(iter_candidate_projects(filter_config, projects_client))
             allowed = [p for p in labeled if is_project_allowed(filter_config, p.id)]
             if not allowed:
                 report.warning(
@@ -254,7 +249,7 @@ def resolve_gcp_projects(
             )
             return allowed
 
-        all_projects = _search_all_projects(projects_client)
+        all_projects = list(iter_candidate_projects(filter_config, projects_client))
         allowed = [p for p in all_projects if is_project_allowed(filter_config, p.id)]
         if not allowed:
             report.failure(
