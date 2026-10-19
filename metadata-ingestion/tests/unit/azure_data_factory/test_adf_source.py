@@ -2133,6 +2133,25 @@ class TestMatchSinkColumnCasing:
             match_sink_column_casing("Ship_Date", sink_columns_by_lower) == "Ship_Date"
         )
 
+    def test_ambiguous_casing_collision_is_left_unresolved(self) -> None:
+        """Regression test: a sink schema with two distinct columns
+        differing only by case is ambiguous - there's no way to know
+        which one a given source column should resolve to - so the
+        lookup must not guess by arbitrarily picking whichever column
+        happened to be seen last. Both the exact match and the
+        differently-cased one are left out of the map, so a lookup falls
+        back to the source's own casing, same as an unresolved column."""
+        sink_columns_by_lower = build_lowercase_column_map(
+            DatasetSchemaInfo(columns=["Region", "region", "order_id"])
+        )
+        assert "region" not in sink_columns_by_lower
+        assert match_sink_column_casing("Region", sink_columns_by_lower) == "Region"
+        assert match_sink_column_casing("REGION", sink_columns_by_lower) == "REGION"
+        # Unambiguous columns in the same schema are unaffected.
+        assert match_sink_column_casing("Order_ID", sink_columns_by_lower) == (
+            "order_id"
+        )
+
 
 class TestSourceDatasetSchemaExtraction:
     """Tests for dataset schema extraction logic.
