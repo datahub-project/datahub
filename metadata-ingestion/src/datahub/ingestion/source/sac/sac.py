@@ -308,8 +308,11 @@ class SACSourceConfig(
             "dataset. The Datasphere object's technical name is derived from the SAC "
             "model name; the Datasphere space is not exposed by SAC and must be supplied "
             "via `connection_mapping.<connection_id>.datasphere_space`. The upstream urn "
-            "is built deterministically (`<space>.<model_name>`) with no DataHub graph "
-            "lookup. Models on connections without a configured `datasphere_space` are "
+            "is built as `<space>.<model_name>`. SAC disambiguates repeated links to the "
+            "same Datasphere object with a trailing numeric suffix that the real object "
+            "does not carry; when a `datahub_api`/graph connection is available this is "
+            "corrected by matching the suffix-trimmed name against an ingested Datasphere "
+            "dataset. Models on connections without a configured `datasphere_space` are "
             "skipped with a warning."
         ),
     )
@@ -361,6 +364,8 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
     dwc_lineage_resolved: int = 0
     dwc_lineage_unresolved: int = 0
     dwc_lineage_skipped_no_space: int = 0
+    dwc_lineage_suffix_corrected: int = 0
+    dwc_lineage_graph_errors: int = 0
     dwc_column_lineage_resolved: int = 0
     dwc_column_lineage_unresolved: int = 0
 
@@ -399,6 +404,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         self.ingested_dataset_entities = set()
         self.ingested_upstream_dataset_keys = set()
+        # One graph fetch per upstream urn, shared by suffix-correction and column lineage.
+        self._datasphere_schema_cache: Dict[str, Optional[SchemaMetadataClass]] = {}
+        # Urns whose schema lookup errored (as opposed to a clean "no aspect"). A cached
+        # None is ambiguous between the two, so suffix correction must not peel off one.
+        self._datasphere_schema_errors: Set[str] = set()
 
         self.session = SACSource.get_sac_connection(self.config)
 
@@ -1356,17 +1366,97 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
+        # SAC appends a numeric suffix (e.g. ...STATEMENT2) to disambiguate repeated links
+        # to the same Datasphere object; the real object has no such suffix and DWC live
+        # models expose no externalId to recover it, so correct it against the graph.
+        upstream_urn = self._datasphere_upstream_urn(connection, object_name)
+        corrected_urn = self._correct_datasphere_suffix(
+            connection, object_name, upstream_urn
+        )
+        return corrected_urn or upstream_urn
+
+    def _datasphere_upstream_urn(
+        self, connection: ConnectionMappingConfig, object_name: str
+    ) -> str:
         # Match the Datasphere connector's urn casing so the upstream stitches.
         dataset_name = f"{connection.datasphere_space}.{object_name}"
         if connection.convert_urns_to_lowercase:
             dataset_name = dataset_name.lower()
-
         return make_dataset_urn_with_platform_instance(
             platform=_DATASPHERE_PLATFORM,
             name=dataset_name,
             platform_instance=connection.platform_instance,
             env=connection.env,
         )
+
+    def _correct_datasphere_suffix(
+        self, connection: ConnectionMappingConfig, object_name: str, as_is_urn: str
+    ) -> Optional[str]:
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        # Schema presence, not graph.exists: a real dataset has a schema, a bare datasetKey
+        # stub does not, so a wrong suffixed stub doesn't block correction.
+        if self._datasphere_dataset_ingested(as_is_urn):
+            return None
+        # Only correct on a confirmed miss. If the as-is lookup itself errored we cannot
+        # tell whether the dataset exists, so keep the as-is urn rather than risk peeling
+        # the suffix and rewriting lineage onto a sibling off a transient failure.
+        if as_is_urn in self._datasphere_schema_errors:
+            return None
+        candidate = object_name
+        while candidate and candidate[-1].isdigit():
+            candidate = candidate[:-1]
+            if not candidate:
+                break
+            candidate_urn = self._datasphere_upstream_urn(connection, candidate)
+            if candidate_urn != as_is_urn and self._datasphere_dataset_ingested(
+                candidate_urn
+            ):
+                self.report.dwc_lineage_suffix_corrected += 1
+                self.report.info(
+                    title="Corrected SAP Datasphere upstream name suffix",
+                    message=(
+                        "The SAC model name carried a numeric disambiguation suffix that "
+                        "matched no ingested SAP Datasphere dataset; linked the suffix-"
+                        "trimmed name instead."
+                    ),
+                    context=f"{object_name} -> {candidate}",
+                    log=False,
+                )
+                return candidate_urn
+        return None
+
+    def _datasphere_dataset_ingested(self, urn: str) -> bool:
+        return self._datasphere_upstream_schema(urn) is not None
+
+    def _datasphere_upstream_schema(self, urn: str) -> Optional[SchemaMetadataClass]:
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+        if urn not in self._datasphere_schema_cache:
+            try:
+                self._datasphere_schema_cache[urn] = graph.get_aspect(
+                    urn, SchemaMetadataClass
+                )
+            except Exception as e:
+                # get_aspect raises on any non-200/404; degrade to "not ingested" so a
+                # transient GMS error falls back to the as-is urn / table-level lineage
+                # instead of aborting the run.
+                self._datasphere_schema_cache[urn] = None
+                self._datasphere_schema_errors.add(urn)
+                self.report.dwc_lineage_graph_errors += 1
+                self.report.warning(
+                    title="SAP Datasphere upstream lookup failed",
+                    message=(
+                        "Could not fetch the upstream SAP Datasphere dataset's schema "
+                        "from DataHub; treating it as not ingested and keeping the "
+                        "as-is upstream urn (table-level lineage only)."
+                    ),
+                    context=urn,
+                    exc=e,
+                )
+        return self._datasphere_schema_cache[urn]
 
     def _resolve_datasphere_column_lineage(
         self, dataset_urn: str, upstream_urn: str
@@ -1394,7 +1484,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             )
             return [], None
 
-        upstream_schema = graph.get_aspect(upstream_urn, SchemaMetadataClass)
+        upstream_schema = self._datasphere_upstream_schema(upstream_urn)
         if upstream_schema is None or not upstream_schema.fields:
             self.report.dwc_column_lineage_unresolved += 1
             self.report.warning(
