@@ -406,6 +406,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         self.ingested_upstream_dataset_keys = set()
         # One graph fetch per upstream urn, shared by suffix-correction and column lineage.
         self._datasphere_schema_cache: Dict[str, Optional[SchemaMetadataClass]] = {}
+        # Urns whose schema lookup errored (as opposed to a clean "no aspect"). A cached
+        # None is ambiguous between the two, so suffix correction must not peel off one.
+        self._datasphere_schema_errors: Set[str] = set()
 
         self.session = SACSource.get_sac_connection(self.config)
 
@@ -1392,6 +1395,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         # stub does not, so a wrong suffixed stub doesn't block correction.
         if self._datasphere_dataset_ingested(as_is_urn):
             return None
+        # Only correct on a confirmed miss. If the as-is lookup itself errored we cannot
+        # tell whether the dataset exists, so keep the as-is urn rather than risk peeling
+        # the suffix and rewriting lineage onto a sibling off a transient failure.
+        if as_is_urn in self._datasphere_schema_errors:
+            return None
         candidate = object_name
         while candidate and candidate[-1].isdigit():
             candidate = candidate[:-1]
@@ -1432,6 +1440,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 # transient GMS error falls back to the as-is urn / table-level lineage
                 # instead of aborting the run.
                 self._datasphere_schema_cache[urn] = None
+                self._datasphere_schema_errors.add(urn)
                 self.report.dwc_lineage_graph_errors += 1
                 self.report.warning(
                     title="SAP Datasphere upstream lookup failed",

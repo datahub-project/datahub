@@ -644,6 +644,38 @@ def test_resolve_datasphere_upstream_keeps_as_is_on_graph_error(requests_mock):
     assert source.report.dwc_lineage_graph_errors >= 1
 
 
+def test_resolve_datasphere_upstream_does_not_correct_when_as_is_lookup_errors(
+    requests_mock,
+):
+    # The as-is dataset exists, but only its lookup fails. A failed lookup must not be
+    # mistaken for "not ingested" and trigger a rewrite onto the suffix-trimmed sibling.
+    as_is_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart2,PROD)"
+    )
+    base_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart,PROD)"
+    )
+
+    def get_aspect(urn, aspect_type):
+        if urn == as_is_urn:
+            raise Exception("boom")
+        return _datasphere_upstream_schema() if urn == base_urn else None
+
+    graph = MagicMock()
+    graph.get_aspect.side_effect = get_aspect
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert urn == as_is_urn
+    assert source.report.dwc_lineage_suffix_corrected == 0
+    assert source.report.dwc_lineage_graph_errors >= 1
+
+
 def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
     # Drives a DWC model through the full workunit emission (not just the resolver) so the
     # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
