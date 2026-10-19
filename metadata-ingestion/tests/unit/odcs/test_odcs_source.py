@@ -3,7 +3,7 @@
 import json
 import pathlib
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
     LogicalParentClass,
     OwnershipClass,
     StatusClass,
+    StructuredPropertyDefinitionClass,
 )
 
 
@@ -1918,3 +1919,108 @@ def test_git_info_clones_and_walks_checkout(
     assert src.report.git_checkout == str(checkout)
     assert src.report.contracts_parsed == 1
     assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
+_SP_CONTRACT = (
+    "apiVersion: v3.2.0\nkind: DataContract\nid: x\nversion: 1.0.0\nstatus: active\n"
+    "schema:\n  - name: t\n    synonyms:\n      - synonym: orders\n    properties:\n"
+    "      - name: col_a\n        semanticType: measure\n"
+    "      - name: col_b\n        semanticType: kpi\n"
+)
+
+
+def _sp_workunits(
+    tmp_path: pathlib.Path, **config: Any
+) -> Tuple[List[Any], ODCSSource]:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SP_CONTRACT, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file), **config)
+    return list(src.get_workunits_internal()), src
+
+
+def _sp_patch_wus(workunits: List[Any]) -> List[Any]:
+    return [
+        wu
+        for wu in workunits
+        if getattr(wu.metadata, "aspectName", None) == "structuredProperties"
+    ]
+
+
+def _sp_patch_text(workunits: List[Any]) -> str:
+    return " ".join(str(wu.metadata.aspect.value) for wu in _sp_patch_wus(workunits))
+
+
+def test_structured_properties_off_by_default(tmp_path: pathlib.Path) -> None:
+    workunits, _ = _sp_workunits(tmp_path)
+    assert not _sp_patch_wus(workunits)
+    assert not _aspects_of(workunits, StructuredPropertyDefinitionClass)
+
+
+def test_structured_properties_emitted_without_graph(tmp_path: pathlib.Path) -> None:
+    workunits, src = _sp_workunits(tmp_path, emit_structured_properties=True)
+    def_indexes = [
+        i
+        for i, wu in enumerate(workunits)
+        if isinstance(getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass)
+    ]
+    assert len(def_indexes) == 10
+    assert not any(workunits[i].is_primary_source for i in def_indexes)
+    # Definitions lead the stream, ahead of every contract workunit.
+    assert def_indexes == list(range(10))
+    patches = _sp_patch_wus(workunits)
+    dataset = [wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:dataset:")]
+    fields = [wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:schemaField:")]
+    assert dataset and all(wu.is_primary_source for wu in dataset)
+    assert fields and not any(wu.is_primary_source for wu in fields)
+    assert len({wu.id for wu in patches}) == len(patches)  # unique workunit ids
+    assert any("odcs.semanticType=kpi" in str(w.context) for w in src.report.warnings)
+    assert any("not verified" in str(w.title) for w in src.report.warnings)
+
+
+def test_structured_property_definitions_created_via_graph(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: urn.endswith("odcs.synonyms")
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    assert not _aspects_of(workunits, StructuredPropertyDefinitionClass)
+    created = [c.args[0].entityUrn for c in graph.emit_mcp.call_args_list]
+    assert len(created) == 9 and not any(u.endswith("odcs.synonyms") for u in created)
+    assert "odcs.semanticType" in _sp_patch_text(workunits)
+    assert not any("not verified" in str(w.title) for w in src.report.warnings)
+
+
+def test_values_skipped_when_definition_cannot_be_created(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = False
+
+    def emit(mcp: Any, **kwargs: Any) -> None:
+        if mcp.entityUrn.endswith("odcs.semanticType"):
+            raise RuntimeError("403")
+
+    graph.emit_mcp.side_effect = emit
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    # A value for a missing definition would fail the whole entity's patch.
+    patch_text = _sp_patch_text(workunits)
+    assert "odcs.semanticType" not in patch_text
+    assert "odcs.synonyms" in patch_text  # other properties still written
+    assert any(
+        "structured property definition" in str(w.title) for w in src.report.warnings
+    )
+
+
+def test_values_skipped_when_definition_check_fails(tmp_path: pathlib.Path) -> None:
+    graph = MagicMock()
+    graph.exists.side_effect = RuntimeError("GMS down")
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    assert not graph.emit_mcp.called
+    assert not _sp_patch_wus(workunits)
+    assert src.report.warnings

@@ -1,6 +1,16 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
+from typing import (
+    AbstractSet,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeGuard,
+    Union,
+)
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
@@ -75,6 +85,14 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
+)
+from datahub.ingestion.source.odcs.odcs_structured_properties import (
+    DATASET_ENTITY_TYPE,
+    SCHEMA_FIELD_ENTITY_TYPE,
+    PropertyValues,
+    dataset_property_values,
+    field_property_values,
+    structured_property_patch_mcps,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -681,6 +699,46 @@ def _field_aspect_mcps(
                 )
             )
     return mcps
+
+
+
+def odcs_to_structured_property_mcps(
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+    skip: AbstractSet[str] = frozenset(),
+) -> Tuple[List[Tuple[MetadataChangeProposalClass, bool]], List[str]]:
+    """`odcs.*` structured-property patches for a logical dataset and its fields.
+
+    Returns `(mcp, is_primary_source)` pairs and rejected-value labels. Every
+    field gets a patch (remove-only when it has no values) so values deleted from
+    the contract are cleared. Field patches are non-primary so schemaField URNs
+    never enter the stale-removal checkpoint. Properties in `skip` have no
+    confirmed definition and are left out.
+    """
+    # ponytail: one patch per field per run; fine at contract scale, batch if
+    # contracts with thousands of columns appear.
+    targets: List[Tuple[str, str, PropertyValues, str]] = [
+        (logical_urn, DATASET_ENTITY_TYPE, dataset_property_values(schema_entry), "")
+    ]
+    for field_path, prop in _walk_properties(schema_entry.properties):
+        targets.append(
+            (
+                make_schema_field_urn(logical_urn, field_path),
+                SCHEMA_FIELD_ENTITY_TYPE,
+                field_property_values(prop),
+                field_path,
+            )
+        )
+    mcps: List[Tuple[MetadataChangeProposalClass, bool]] = []
+    rejected: List[str] = []
+    for urn, entity_type, result, label in targets:
+        rejected.extend(f"{label or schema_entry.name}: {r}" for r in result.rejected)
+        is_primary = entity_type == DATASET_ENTITY_TYPE
+        for mcp in structured_property_patch_mcps(
+            urn, entity_type, result.values, skip
+        ):
+            mcps.append((mcp, is_primary))
+    return mcps, rejected
 
 
 def odcs_to_logical_dataset_mcps(

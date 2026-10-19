@@ -15,6 +15,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -49,6 +50,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    odcs_to_structured_property_mcps,
     unmapped_owner_roles,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -68,6 +70,9 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSServer,
     ODCSTeam,
     ODCSTeamMember,
+)
+from datahub.ingestion.source.odcs.odcs_structured_properties import (
+    structured_property_definition_mcps,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -285,6 +290,9 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Logical `odcs` dataset URNs emitted this run, to detect collisions when
         # two contracts resolve to the same {contract_id}.{schema_name}.
         self._seen_logical_urns: Set[str] = set()
+        # `odcs.*` structured properties whose definition could not be confirmed;
+        # their values are never written (GMS would reject the whole patch).
+        self._unavailable_structured_properties: Set[str] = set()
         # Physical URNs already claimed by a logicalParent link this run:
         # logicalParent is single-valued, so a second contract binding the same
         # physical dataset silently overwrites the first (last-writer-wins).
@@ -1021,6 +1029,67 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
             )
+        if self.config.emit_structured_properties:
+            yield from self._structured_property_workunits(
+                schema_entry, logical_urn, source_uri
+            )
+
+    def _structured_property_definition_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Ensure every `odcs.*` definition exists before any value is written.
+
+        GMS rejects a value whose definition is not persisted, so with a graph each
+        missing definition is created synchronously here, ahead of all contracts.
+        A definition that cannot be confirmed has its values skipped for the run.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            self.report.warning(
+                title="ODCS structured property definitions not verified",
+                message="No DataHub connection, so the definitions are emitted ahead "
+                "of the values but cannot be checked. Sinks that do not preserve "
+                "order (e.g. Kafka) may reject values; configure `datahub_api`.",
+            )
+            for mcp in structured_property_definition_mcps():
+                yield mcp.as_workunit(is_primary_source=False)
+            return
+        for mcp in structured_property_definition_mcps():
+            urn = str(mcp.entityUrn)
+            try:
+                if graph.exists(urn):
+                    # Keep admin edits (display name, filter/badge settings).
+                    continue
+                graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+            except Exception as e:
+                self._unavailable_structured_properties.add(
+                    urn.removeprefix("urn:li:structuredProperty:")
+                )
+                self.report.warning(
+                    title="Could not create ODCS structured property definition",
+                    message="Values for this property are skipped this run; the "
+                    "rest of the run is unaffected.",
+                    context=urn,
+                    exc=e,
+                )
+
+    def _structured_property_workunits(
+        self, schema_entry: ODCSSchemaObject, logical_urn: str, source_uri: str
+    ) -> Iterable[MetadataWorkUnit]:
+        mcps, rejected = odcs_to_structured_property_mcps(
+            schema_entry, logical_urn, self._unavailable_structured_properties
+        )
+        for index, (mcp, is_primary) in enumerate(mcps):
+            yield MetadataWorkUnit(
+                id=f"{MetadataWorkUnit.generate_workunit_id(mcp)}-{index}",
+                mcp_raw=mcp,
+                is_primary_source=is_primary,
+            )
+        if rejected:
+            self.report.warning(
+                title="ODCS values outside the structured property definition",
+                message="Dropped these values; other values on the same entities "
+                "were still written.",
+                context=f"{source_uri}: {'; '.join(rejected[:20])}",
+            )
 
     def _emit_assertions(
         self,
@@ -1490,6 +1559,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         self.report.data_product_output_ports_emitted += len(membership.asset_urns)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.emit_structured_properties:
+            yield from self._structured_property_definition_workunits()
         with contextlib.ExitStack() as stack:
             checkout_dir: Optional[pathlib.Path] = None
             if self.config.git_info is not None:
