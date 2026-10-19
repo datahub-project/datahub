@@ -84,6 +84,27 @@ export function isProductUpdateHiddenByDismiss(
     return sessionDismissedId === updateId || checkProductUpdateDismissed(updateId);
 }
 
+export type ProductAnnouncementQueryStatus = 'pending' | 'error' | 'empty' | 'ready';
+
+/**
+ * GraphQL corrects the HTML copy once it has answered. A confirmed empty result means the
+ * announcement is off, so the injected snippet must not keep the toast up. A query that is still
+ * loading, or that failed, leaves the snippet in place.
+ */
+export function resolveLatestProductUpdate<B, S>(
+    bootstrap: B | null,
+    status: ProductAnnouncementQueryStatus,
+    serverUpdate: S | null,
+): B | S | null {
+    if (status === 'empty') {
+        return null;
+    }
+    if (status === 'ready') {
+        return serverUpdate;
+    }
+    return bootstrap;
+}
+
 /** Prefer the hosted image URL so a JSON change can ship without a frontend build. */
 export function resolveProductUpdateImage(payloadImage: string | null | undefined, isCloud: boolean): string {
     if (payloadImage && payloadImage !== 'null') {

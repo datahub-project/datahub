@@ -43,6 +43,7 @@ import play.mvc.Security;
 import utils.ConfigUtil;
 import utils.ProductUpdateBootstrap;
 import utils.ProductUpdateHttp;
+import utils.ProductUpdateSnippetCache;
 
 public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
@@ -80,9 +81,10 @@ public class Application extends Controller {
   private final String productUpdatesJsonUrl;
   // The hosted file is already cached for 6 hours in GMS. This keeps the HTML path from calling
   // out on every document request. A failed fetch leaves the previous snippet (or none) in place.
+  // Only one request performs that fetch. Others keep serving the previous snippet.
   private static final long PRODUCT_UPDATE_CACHE_TTL_MS = Duration.ofHours(6).toMillis();
-  private volatile String productUpdateSnippet = "";
-  private volatile long productUpdateFetchedAtMs = 0;
+  private final ProductUpdateSnippetCache productUpdateSnippetCache =
+      new ProductUpdateSnippetCache(this::fetchProductUpdateSnippet, PRODUCT_UPDATE_CACHE_TTL_MS);
 
   @Inject
   public Application(
@@ -120,44 +122,35 @@ public class Application extends Controller {
 
   /**
    * Returns the inlined product-update snippet, refreshing the hosted JSON at most every 6 hours.
-   * The first request waits briefly so the document can include the toast. Later requests reuse the
-   * cache and do not block on the network.
+   * One request performs the refresh. Concurrent document requests reuse the previous snippet
+   * instead of waiting on that call.
    */
   @Nonnull
   private String currentProductUpdateSnippet() {
     if (productUpdatesJsonUrl == null || productUpdatesJsonUrl.isBlank()) {
       return "";
     }
-    long now = System.currentTimeMillis();
-    if (productUpdateFetchedAtMs != 0
-        && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
-      return productUpdateSnippet;
-    }
-    synchronized (this) {
-      now = System.currentTimeMillis();
-      if (productUpdateFetchedAtMs != 0
-          && now - productUpdateFetchedAtMs < PRODUCT_UPDATE_CACHE_TTL_MS) {
-        return productUpdateSnippet;
+    return productUpdateSnippetCache.current();
+  }
+
+  @Nullable
+  private String fetchProductUpdateSnippet() {
+    try {
+      HttpResponse<String> response = ProductUpdateHttp.get(productUpdatesJsonUrl);
+      if (response.statusCode() >= 200 && response.statusCode() < 300) {
+        return ProductUpdateBootstrap.snippet(response.body());
       }
-      try {
-        HttpResponse<String> response = ProductUpdateHttp.get(productUpdatesJsonUrl);
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-          productUpdateSnippet = ProductUpdateBootstrap.snippet(response.body());
-        } else {
-          logger.warn(
-              "Product update JSON {} returned HTTP {}. Leaving the previous inline snippet in place.",
-              productUpdatesJsonUrl,
-              response.statusCode());
-        }
-      } catch (Exception e) {
-        logger.warn(
-            "Failed to fetch product update JSON from {}: {}. Leaving the previous inline snippet in place.",
-            productUpdatesJsonUrl,
-            e.getMessage());
-      }
-      productUpdateFetchedAtMs = System.currentTimeMillis();
-      return productUpdateSnippet;
+      logger.warn(
+          "Product update JSON {} returned HTTP {}. Leaving the previous inline snippet in place.",
+          productUpdatesJsonUrl,
+          response.statusCode());
+    } catch (Exception e) {
+      logger.warn(
+          "Failed to fetch product update JSON from {}: {}. Leaving the previous inline snippet in place.",
+          productUpdatesJsonUrl,
+          e.getMessage());
     }
+    return null;
   }
 
   /**

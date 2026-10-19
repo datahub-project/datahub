@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -56,13 +57,15 @@ public class ProductUpdateReleaseSyncTest {
 
   private static final Path UI_LOCALES_DIR = Path.of("datahub-web-react/src/i18n/locales");
 
-  /** Vite copies {@code datahub-web-react/src/images/*} to this directory. */
-  private static final String LOCAL_IMAGE_ROOT = "assets/platforms/";
-
   /**
-   * The toast imports its image from here instead of using the payload URL. The payload arrives
-   * after GraphQL, so a remote image becomes the home LCP.
+   * A GitHub raw URL whose file is in this repo. Older frontends use {@code ProductUpdate.image} as
+   * an {@code img} src, so the published JSON must stay an absolute URL. The same filename is
+   * imported by the frontend as the fallback when a payload has no image.
    */
+  private static final Pattern BUNDLED_IMAGE =
+      Pattern.compile(
+          "https://raw\\.githubusercontent\\.com/datahub-project/datahub/[^/]+/datahub-web-react/src/images/([^/]+)");
+
   private static final Path BUNDLED_IMAGE_MODULE =
       Path.of("datahub-web-react/src/app/shared/product/update/ProductUpdates.utils.ts");
 
@@ -171,19 +174,18 @@ public class ProductUpdateReleaseSyncTest {
   public void testProductUpdateImageExists(@Nonnull ProductUpdateFlavor flavor) throws IOException {
     JsonNode json = readProductUpdate(flavor);
     String image = json.path("image").asText("");
-    String relative = image.startsWith("/") ? image.substring(1) : image;
     Assert.assertTrue(
-        relative.startsWith(LOCAL_IMAGE_ROOT),
+        image.startsWith("https://"),
         flavor.jsonPath()
-            + " image must be "
-            + LOCAL_IMAGE_ROOT
-            + "<file> shipped in this build, got: "
+            + " image must be an absolute https URL. A relative path breaks already-shipped"
+            + " frontends that use ProductUpdate.image as an img src. Got: "
             + image);
-    String filename = relative.substring(LOCAL_IMAGE_ROOT.length());
-    Assert.assertFalse(
-        filename.isEmpty() || filename.contains("/") || filename.contains(".."),
-        flavor.jsonPath() + " image filename must be a single path segment, got: " + filename);
+    Matcher bundled = BUNDLED_IMAGE.matcher(image);
+    if (!bundled.matches()) {
+      return;
+    }
 
+    String filename = bundled.group(1);
     Path imagePath = repoRoot.resolve("datahub-web-react/src/images").resolve(filename);
     Assert.assertTrue(
         Files.isRegularFile(imagePath),

@@ -6,7 +6,7 @@
   "header": null,
   "title": "DataHub Cloud October Updates",
   "description": "Context, Evals, and Metrics that work in production",
-  "image": "assets/platforms/in-product-release-oct2026.png",
+  "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-oct2026.png",
   "ctaText": "Explore DataHub Cloud 2.3",
   "ctaLink": "https://datahub.com/blog/datahub-cloud-2-3",
   "secondaryCtaText": null,

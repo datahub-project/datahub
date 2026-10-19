@@ -29,6 +29,7 @@ import {
     getProductUpdateVersion,
     isProductUpdateHiddenByDismiss,
     readProductUpdateBootstrap,
+    resolveLatestProductUpdate,
     resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 import {
@@ -68,8 +69,9 @@ export default function ProductUpdates() {
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const appConfig = useAppConfig();
     const [bootstrap] = useState(readProductUpdateBootstrap);
-    const serverUpdate = useGetLatestProductAnnouncementData();
-    const latestUpdate = serverUpdate ?? bootstrap;
+    const announcement = useGetLatestProductAnnouncementData();
+    const serverUpdate = announcement.status === 'ready' ? announcement.update : null;
+    const latestUpdate = resolveLatestProductUpdate(bootstrap, announcement.status, serverUpdate);
     const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 

@@ -6,6 +6,7 @@ import {
     getProductUpdateVersion,
     isProductUpdateHiddenByDismiss,
     readProductUpdateBootstrap,
+    resolveLatestProductUpdate,
     resolveProductUpdateImage,
 } from '@app/shared/product/update/ProductUpdates.utils';
 
@@ -51,6 +52,16 @@ describe('ProductUpdates utilities', () => {
         );
         expect(resolveProductUpdateImage(undefined, true)).toContain('in-product-release-oct2026.png');
         expect(resolveProductUpdateImage('null', false)).toContain('sample-product-update-image.png');
+    });
+
+    it('drops the injected toast once GraphQL confirms there is no announcement', () => {
+        const bootstrap = { id: 'v2.3', enabled: true, title: 'From HTML' };
+        const serverUpdate = { id: 'v2.4', enabled: true, title: 'From GraphQL' };
+
+        expect(resolveLatestProductUpdate(bootstrap, 'pending', null)).toEqual(bootstrap);
+        expect(resolveLatestProductUpdate(bootstrap, 'error', null)).toEqual(bootstrap);
+        expect(resolveLatestProductUpdate(bootstrap, 'empty', null)).toBeNull();
+        expect(resolveLatestProductUpdate(bootstrap, 'ready', serverUpdate)).toEqual(serverUpdate);
     });
 
     it('hides only the announcement id that was dismissed', () => {

@@ -33,12 +33,16 @@ export function useGetLatestProductAnnouncementData() {
         fetchPolicy: 'cache-first',
     });
 
-    // Return null if loading, error, or no data
-    if (loading || error || !data?.latestProductUpdate) {
-        return null;
+    if (loading) {
+        return { status: 'pending' as const, update: null };
     }
-
-    return data.latestProductUpdate;
+    if (error) {
+        return { status: 'error' as const, update: null };
+    }
+    if (!data?.latestProductUpdate) {
+        return { status: 'empty' as const, update: null };
+    }
+    return { status: 'ready' as const, update: data.latestProductUpdate };
 }
 
 export type ProductAnnouncementResult = {
