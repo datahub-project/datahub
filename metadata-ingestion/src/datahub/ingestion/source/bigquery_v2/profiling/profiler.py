@@ -35,45 +35,50 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Timeseries workunit ids are urn + aspect + timestampMillis, and do not include
-# the partition. The full-table copy needs its own timestamp or it collides with
-# the partition profile and one of them is dropped.
+_FULL_TABLE_SNAPSHOT_PARTITION = "FULL_TABLE_SNAPSHOT"
+# The SQLAlchemy profiler marks a sampled partition by appending this to its id
+# and keeps the PARTITION type, e.g. "20261010 SAMPLE".
+_SAMPLED_PARTITION_SUFFIX = " SAMPLE"
+
+# Timeseries workunit ids are urn + aspect + timestampMillis and do not include
+# the partition. A distinct timestamp keeps the copy's id apart from the
+# partition profile's.
 _FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS = 1
 
+_COPY_SKIPPED_NO_FIELD_PROFILES = "partition profile has no column stats"
+_COPY_SKIPPED_SAMPLED_PARTITION = "partition was sampled"
 
-def full_table_profile_copying_partition_field_profiles(
-    profile: DatasetProfileClass,
-) -> Optional[DatasetProfileClass]:
-    """Full-table profile carrying this partition profile's column stats.
 
-    Returns None when `profile` is not a partition profile, or it has no
-    fieldProfiles to copy. Column stats on the result still describe the
-    profiled partition; rowCount, columnCount, and size are the table totals
-    already stored on the partition profile.
-    """
+def _is_partition_profile(profile: DatasetProfileClass) -> bool:
+    # Full-table and query-scoped (sample, limit/offset) profiles use other types.
     spec = profile.partitionSpec
-    if spec is None or not profile.fieldProfiles:
-        return None
-    if spec.type == PartitionTypeClass.FULL_TABLE:
-        return None
-    partition = spec.partition or ""
-    if partition.startswith("FULL_TABLE_SNAPSHOT") or partition.startswith("SAMPLE"):
-        return None
-    # Limit/offset and other query-scoped profiles are not partition profiles.
-    if spec.type not in (PartitionTypeClass.PARTITION, None):
-        return None
+    return spec is not None and spec.type == PartitionTypeClass.PARTITION
 
-    full_table = DatasetProfileClass(
-        timestampMillis=profile.timestampMillis
-        + _FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS,
-        rowCount=profile.rowCount,
-        columnCount=profile.columnCount,
-        sizeInBytes=profile.sizeInBytes,
-        fieldProfiles=copy.deepcopy(profile.fieldProfiles),
-        partitionSpec=PartitionSpecClass(
-            type=PartitionTypeClass.FULL_TABLE,
-            partition="FULL_TABLE_SNAPSHOT",
-        ),
+
+def _partition_copy_skip_reason(profile: DatasetProfileClass) -> Optional[str]:
+    """Why a partition profile's column stats cannot be copied, or None if they can."""
+    if not profile.fieldProfiles:
+        return _COPY_SKIPPED_NO_FIELD_PROFILES
+    assert profile.partitionSpec is not None
+    # A full-table label would hide that these stats come from a sample.
+    if profile.partitionSpec.partition.endswith(_SAMPLED_PARTITION_SUFFIX):
+        return _COPY_SKIPPED_SAMPLED_PARTITION
+    return None
+
+
+def _full_table_profile_from_partition(
+    profile: DatasetProfileClass,
+) -> DatasetProfileClass:
+    """Copy of a partition profile, labelled as the full-table profile.
+
+    Column stats still describe the profiled partition. rowCount, columnCount,
+    and size are already the table totals on the partition profile.
+    """
+    full_table = copy.deepcopy(profile)
+    full_table.timestampMillis += _FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS
+    full_table.partitionSpec = PartitionSpecClass(
+        type=PartitionTypeClass.FULL_TABLE,
+        partition=_FULL_TABLE_SNAPSHOT_PARTITION,
     )
     return full_table
 
@@ -263,32 +268,32 @@ WHERE
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        copy_field_profiles = (
-            self.config.profiling.copy_partition_field_profiles_to_full_table_profile
-        )
-        for workunit in super().generate_profile_workunits(
+        workunits = super().generate_profile_workunits(
             requests,
             max_workers=max_workers,
             db_name=db_name,
             platform=platform,
             profiler_args=profiler_args,
-        ):
+        )
+        if not self.config.profiling.copy_partition_field_profiles_to_full_table_profile:
+            yield from workunits
+            return
+
+        for workunit in workunits:
             yield workunit
-            if not copy_field_profiles:
+            profile = workunit.get_aspect_of_type(DatasetProfileClass)
+            if profile is None or not _is_partition_profile(profile):
                 continue
-            metadata = workunit.metadata
-            if not isinstance(metadata, MetadataChangeProposalWrapper):
-                continue
-            profile = metadata.aspect
-            if not isinstance(profile, DatasetProfileClass):
-                continue
-            copied = full_table_profile_copying_partition_field_profiles(profile)
-            if copied is None:
+            urn = workunit.get_urn()
+            skip_reason = _partition_copy_skip_reason(profile)
+            if skip_reason is not None:
+                self.report.full_table_profile_copy_skipped[urn] = skip_reason
                 continue
             yield MetadataChangeProposalWrapper(
-                entityUrn=metadata.entityUrn,
-                aspect=copied,
+                entityUrn=urn,
+                aspect=_full_table_profile_from_partition(profile),
             ).as_workunit()
+            self.report.num_full_table_profiles_copied_from_partition += 1
 
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]

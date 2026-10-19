@@ -168,6 +168,10 @@ class BigQueryV2Report(
     profiling_skipped_partition_profiling_disabled: LossyList[str] = field(
         default_factory=LossyList
     )
+    # profiling.copy_partition_field_profiles_to_full_table_profile: copies
+    # emitted, and partition profiles not copied (dataset urn -> reason).
+    num_full_table_profiles_copied_from_partition: int = 0
+    full_table_profile_copy_skipped: Dict[str, str] = field(default_factory=TopKDict)
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
     num_usage_workunits_emitted: int = 0
