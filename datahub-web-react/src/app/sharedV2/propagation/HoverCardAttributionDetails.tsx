@@ -12,6 +12,7 @@ import {
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { parsePropagationContext } from '@app/sharedV2/propagation/utils';
 import { usePropagationContextEntities } from '@app/sharedV2/tags/usePropagationContextEntities';
@@ -19,6 +20,14 @@ import { usePropagationContextEntities } from '@app/sharedV2/tags/usePropagation
 const DetailsWrapper = styled.div<{ $addMargin?: boolean }>`
     ${({ $addMargin }) => $addMargin && 'margin-top: 8px;'}
 `;
+
+// Matches the 8px between-section gap of `EntityHoverCard` so Ingested/Source read as hover card sections.
+const IngestedWrapper = styled(DetailsWrapper)`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
 interface Props {
     propagationDetails?: AttributionDetails;
     addMargin?: boolean;
@@ -42,26 +51,16 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
     if (!isPropagated && external) {
         const origin = formatAttributionOrigin(getAttributionOrigin(sourceDetailEntries));
         return (
-            <DetailsWrapper $addMargin={addMargin}>
-                <Text color="gray" weight="bold" colorLevel={600} size="sm">
-                    {t('ingested')}
-                </Text>
-                {time && (
-                    <Text color="gray" colorLevel={600}>
-                        {capitalizeFirstLetterOnly(toRelativeTimeString(time))}
-                    </Text>
-                )}
+            <IngestedWrapper $addMargin={addMargin}>
+                <HoverCardSection title={t('ingested')}>
+                    {time && <Text>{capitalizeFirstLetterOnly(toRelativeTimeString(time))}</Text>}
+                </HoverCardSection>
                 {origin && (
-                    <div>
-                        <Text color="gray" weight="bold" colorLevel={1700} size="sm">
-                            {t('sourceLabel')}
-                        </Text>
-                        <Text color="gray" colorLevel={600}>
-                            {origin}
-                        </Text>
-                    </div>
+                    <HoverCardSection title={t('sourceLabel')}>
+                        <Text>{origin}</Text>
+                    </HoverCardSection>
                 )}
-            </DetailsWrapper>
+            </IngestedWrapper>
         );
     }
 
