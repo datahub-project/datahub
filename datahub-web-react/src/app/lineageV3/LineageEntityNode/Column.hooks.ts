@@ -1,8 +1,8 @@
 import { useCallback, useContext, useRef } from 'react';
 
-import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, generateIgnoreAsHops, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
 import { ColumnAsset } from '@app/lineageV3/types';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
@@ -14,14 +14,19 @@ const PARENT_FILTER_NAME = 'parent';
 
 /**
  * Filters that keep a column's related column count comparable to the columns the graph draws:
- * only direct relations. Ignores columns on dbt datasets since they are either (i)
+ * only direct relations. Ignores columns on transformation-platform datasets since they are either (i)
  * considered "pass-through" like datajobs or (ii) part of a sibling entity.
  */
 export function buildRelatedColumnFilters(): AndFilterInput[] {
     const and: FacetFilterInput[] = [
         { field: DEGREE_FILTER_NAME, values: ['1'] },
         // Matched inside the parent urn, as the platform is not indexed for schema fields
-        { field: PARENT_FILTER_NAME, values: [DBT_URN], condition: FilterOperator.Contain, negated: true },
+        {
+            field: PARENT_FILTER_NAME,
+            values: TRANSFORMATION_PLATFORM_URNS,
+            condition: FilterOperator.Contain,
+            negated: true,
+        },
     ];
     return [{ and }];
 }

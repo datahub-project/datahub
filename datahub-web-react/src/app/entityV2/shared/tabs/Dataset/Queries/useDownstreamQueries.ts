@@ -4,9 +4,9 @@ import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { MAX_QUERIES_COUNT } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import { filterQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
-import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LINEAGE_FILTER_PAGINATION, isQuery } from '@app/lineageV3/common';
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
@@ -40,7 +40,7 @@ export default function useDownstreamQueries(filterText: string, canViewQueries:
                     ignoreAsHops: [
                         {
                             entityType: EntityType.Dataset,
-                            platforms: [DBT_URN],
+                            platforms: TRANSFORMATION_PLATFORM_URNS,
                         },
                         { entityType: EntityType.DataJob },
                     ],

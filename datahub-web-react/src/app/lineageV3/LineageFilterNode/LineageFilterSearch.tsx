@@ -8,10 +8,10 @@ import { usePrevious } from 'react-js-cron/dist/cjs/utils';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
-import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import computeOrFilters from '@app/lineageV3/LineageFilterNode/computeOrFilters';
 import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import { TRANSFORMATION_PLATFORM_URNS } from '@app/lineageV3/transformationPlatforms';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 
 import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
@@ -84,7 +84,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches, z
                     ignoreAsHops: [
                         {
                             entityType: EntityType.Dataset,
-                            platforms: [DBT_URN],
+                            platforms: TRANSFORMATION_PLATFORM_URNS,
                         },
                         { entityType: EntityType.DataJob },
                     ],
