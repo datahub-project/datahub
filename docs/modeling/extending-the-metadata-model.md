@@ -368,13 +368,13 @@ If you are adding @Searchable to a field that already has data, you'll want to r
 
 It takes the following parameters:
 
-- **fieldType**: string - The settings for how each field is indexed is defined by the field type. In general this defines how the field is indexed in the Elasticsearch document. **Note**: With the new search tier system, `fieldType` primarily determines the field's storage format and individual query capabilities. Fulltext search capabilities are now primarily handled by the common `_search.tier_{tier}` fields that consolidate fields from multiple aspects based on their tier assignments.
+- **fieldType**: string - The settings for how each field is indexed is defined by the field type. In general this defines how the field is indexed in the Elasticsearch document. The field type also decides the subfields a field is indexed with (for example `.delimited`, `.ngram` and `.keyword`), which the default full-text search, autocomplete and exact match queries read.
 
   **Available field types:**
 
-  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering. **Default length limit**: 100 characters (tier fields), 255 characters (regular fields).
+  1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering. The whole value is indexed as one term, so it has to stay under Lucene's 32,766-byte term limit.
 
-  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables. **Default length limit**: 100 characters (tier fields), 255 characters (regular fields).
+  2. _TEXT_ - Text fields delimited by spaces/slashes/periods. Default field type for string variables. Exact matches (the keyword forms) skip values over 32,766 characters; the analyzed subfields still index them.
 
   3. _BOOLEAN_ - Boolean fields used for filtering.
 
@@ -403,8 +403,7 @@ It takes the following parameters:
 
 **⚠️ Important Length Limitations:**
 
-- **Tier Fields**: Fields with `searchTier` are automatically limited to **100 characters** to optimize search performance
-- **Regular Fields**: Fields without `searchTier` are limited to **255 characters** for Elasticsearch compatibility
+- **Regular Fields**: Keyword forms skip values over **32,766 characters** (`ignore_above: 32766`). Lucene's term limit is 32,766 UTF-8 bytes, so a shorter value with many multi-byte characters still fails the document write. On Search V3, the copies under `_aspects` skip strings over 8,191 characters and URNs over 255
 - **Object Fields**: Maximum **1000 object keys** and **4096 characters per value** to prevent mapping explosion
 - **Array Fields**: Maximum **1000 array elements** and **4096 characters per value**
 - **Field Names**: Maximum **255 characters** for Elasticsearch field name compatibility
@@ -416,20 +415,21 @@ It takes the following parameters:
   - `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`: Override default 1000 element limit for arrays
   - `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`: Override default 1000 key limit for objects
 - **Special Fields**: Some system fields have different limits:
-  - **URN fields**: Automatically set to **512 characters** (`ignore_above: 512`)
-  - **Tier fields**: Hard-coded to **100 characters** for performance optimization
+  - **The `urn` field**: Automatically set to **512 characters** (`ignore_above: 512`)
 
-**Note**: The `ignore_above` settings are automatically applied by the system. While some limits can be configured via environment variables, the tier field limits (100 characters) and regular field limits (255 characters) are hard-coded and cannot be overridden through annotations or configuration.
+**Note**: The `ignore_above` settings are automatically applied by the system. While some limits can be configured via environment variables, the regular field limit is hard-coded and cannot be overridden through annotations or configuration.
 
 **Important**: The ability to have longer keyword fields is limited to system-level configurations and special field types. Regular user-defined fields will always be subject to the default limits for performance and compatibility reasons.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
 
-- **queryByDefault**: boolean (optional) - **⚠️ DEPRECATED**: Whether we should match the field for the default search query. True by
-  default for text and urn fields. **Use `searchTier` instead for better search organization and performance.**
+- **queryByDefault**: boolean (optional) - Whether we should match the field for the default search query. True by
+  default for text and urn fields. On Search V3, a field queried by default that names no shared field copies into
+  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
 
-- **enableAutocomplete**: boolean (optional) - **⚠️ DEPRECATED**: Whether we should use the field for autocomplete. Defaults to false. **Use `searchTier: 1` based on the fact that an autocomplete field would be very important for search relevance.**
+- **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false.
+  Search V2 reads the field for typeahead. Search V3 does not serve autocomplete, so the flag has no effect on a V3 index.
 
 - **addToFilters**: boolean (optional) - Whether or not to add field to filters. Defaults to false
 
@@ -440,10 +440,14 @@ It takes the following parameters:
 - **hasValuesFilterNameOverride**: string (optional) - Display name for the "has values" filter in the UI
 
 - **boostScore**: double (optional) - **⚠️ DEPRECATED**: Boost multiplier to the match score. Matches on fields with higher boost score
-  ranks higher. **Use `searchLabel` instead for more sophisticated ranking control.**
+  ranks higher.
 
 - **hasValuesFieldName**: string (optional) - If set, add an index field of the given name that checks whether the field
-  exists
+  exists. On Search V3, every field that copies into the same `searchLabel` writes that boolean, and every source of the
+  label declares this same name. The
+  boolean is stored under the aspect only when the source is populated, and `copy_to` collects those
+  trues onto the shared name. It is not stored as `false`: a false filter matches documents where
+  the field is missing. A field with no `searchLabel` still stores `true` and `false`.
 
 - **numValuesFieldName**: string (optional) - If set, add an index field of the given name that checks the number of
   elements
@@ -452,30 +456,21 @@ It takes the following parameters:
 
 - **fieldNameAliases**: array[string] (optional) - Aliases for this field that can be used for sorting and other operations. These aliases are created with the aspect name prefix (e.g., `metadata.aliasName`) and provide alternative names for accessing the same field data. Useful for creating multiple access paths to the same field.
 
-- **includeSystemModifiedAt**: boolean (optional) - **⚠️ DEPRECATED**: Whether to include a system-modified timestamp field for this searchable field. **This will be handled programmatically for all aspects in future versions.**
+- **includeSystemModifiedAt**: boolean (optional) - **⚠️ DEPRECATED**: Whether to include a system-modified timestamp field for this searchable field. Search V2 and V2.5 still index that sidecar. Search V3 records the same write time on every aspect as `systemMetadata.aspectModified` and does not search the sidecar. Set `"v3": { "includeSystemModifiedAt": false }` so V3 leaves it out while V2 keeps the top-level keys.
 
-- **systemModifiedAtFieldName**: string (optional) - **⚠️ DEPRECATED**: Custom name for the system-modified timestamp field. **This will be handled programmatically for all aspects in future versions.**
+- **systemModifiedAtFieldName**: string (optional) - **⚠️ DEPRECATED**: Custom name for the system-modified timestamp field on Search V2 and V2.5. Search V3 does not map it.
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **searchTier**: integer (optional) - Search tier for the field (integer value >= 1). Creates a copy*to field that copies the field value to `\_search.tier*{tier}`. Fields with searchTier are automatically set to `index: false`unless`searchIndexed` is true. **Note**: searchTier can only be used with KEYWORD or TEXT field types.
+- **v3**: object (optional) - Read only by Search V3. V2 and V2.5 ignore it. `searchLabel`, set only on this object, is the shared root field the value is copied into (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). `mappings` is the V3 root and its label subfields; when it is omitted, V3 derives them from `fieldType`. `includeSystemModifiedAt: false` turns off the V2 system-modified sidecar. `enabled: false` drops the field from V3 search (its mapping, its copy into a shared root field, and full text) and leaves V2 unchanged. Names use a keyword root, which supplies `.keyword` automatically, plus declared `text` and `stemmed` subfields on the `name` label.
 
-- **searchLabel**: string (optional) - Unified label for search operations. Creates a copy\*to field that copies the field value to `\_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. Fields with searchLabel are automatically set to `index: false`.
+- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless.
 
-- **searchIndexed**: boolean (optional) - When combined with `searchTier`, determines whether the field is indexed outside of `_search` for direct access. The field will be indexed using its actual field type (KEYWORD or TEXT), not forced to KEYWORD. **Note**: searchIndexed can only be true when searchTier is specified and can only be used with KEYWORD or TEXT field types. Defaults to false.
-
-- **entityFieldName**: string (optional) - If set, this field will be copied to `_search.{entityFieldName}` and the root alias will point there. This allows multiple aspects to consolidate into a single entity-level field.
+- **entityFieldName**: string (optional) - If set, this field is copied into the root field `{entityFieldName}` on Search V3, so several aspects can fill one entity-level field. `_entityName` aliases the root field `name` when a field of the entity feeds that shared field. On Search V2 and V2.5 it is copied into `_search.{entityFieldName}`.
 
 - **eagerGlobalOrdinals**: boolean (optional) - Whether to set `eager_global_ordinals` to true for this field. This improves aggregation performance for frequently aggregated keyword fields by pre-building ordinals at index time. **Note**: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types. Defaults to false.
 
-**⚠️ Note on deprecated parameters:** Some parameters like `queryByDefault`, `enableAutocomplete`, `boostScore`, and `weightsPerFieldValue` are still functional when using search version 2 but will be replaced by newer features in future versions. Consider using the new tier-based and label-based annotations for more advanced search functionality.
-
-**Migration from deprecated parameters:**
-
-- **`queryByDefault`** → Use `searchTier: 1` through `searchTier: 4` to include fields in default search queries
-- **`enableAutocomplete`** → Use `searchTier: 1`
-- **`boostScore`** → Use `searchLabel` for more sophisticated ranking control
-- **`weightsPerFieldValue`** → Use `searchLabel` for value-based scoring control
+**⚠️ Note on deprecated parameters:** On Search V3, `boostScore` only weighs a match of a field's whole value, such as an exact name: full-text search matches words in the shared root fields, and each shared field has one weight, shared by all the fields that feed it. `weightsPerFieldValue` applies on Search V2 and V3. Both will be replaced by newer features in future versions. `searchLabel` is not a replacement for either: it does not weight matches.
 
 ##### Example
 
@@ -488,7 +483,6 @@ record DashboardInfo {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "searchTier": 1,
     "entityFieldName": "name"
   }
   title: string
@@ -496,7 +490,7 @@ record DashboardInfo {
 }
 ```
 
-This annotation is saying that we want to index the title field in Elasticsearch. `searchTier: 1` ensures this field is included in default search queries with high relevancy. `entityFieldName: "name"` consolidates this field into the entity-level `_search.name` field, allowing other aspects to contribute to the same consolidated field.
+This annotation is saying that we want to index the title field in Elasticsearch. `entityFieldName: "name"` consolidates this field into the root field `name`, allowing other aspects to contribute to the same consolidated field.
 
 **Advanced Example with New Features:**
 
@@ -507,7 +501,7 @@ record DashboardInfo {
    */
   @Searchable = {
     "fieldType": "COUNT",
-    "searchLabel": "priority",
+    "v3": { "searchLabel": "priority" },
     "addToFilters": true
   }
   priority: int
@@ -530,7 +524,7 @@ record DashboardInfo {
     "fieldType": "URN",
     "addToFilters": true,
     "eagerGlobalOrdinals": true,
-    "searchLabel": "owner"
+    "v3": { "searchLabel": "owner" }
   }
   owner: string
 }
@@ -538,9 +532,9 @@ record DashboardInfo {
 
 This example demonstrates several new features:
 
-- **Priority field**: `fieldType: "COUNT"` with `searchLabel: "priority"` creates a numeric field that copies to `_search.priority` for proper numeric sorting operations, and `addToFilters: true` makes it available as a filter
+- **Priority field**: `fieldType: "COUNT"` with `v3.searchLabel: "priority"` creates a numeric field that copies to the root field `priority` for numeric sorting, and `addToFilters: true` makes it available as a filter
 - **Status field**: `addToFilters: true` makes it available as a filter, `filterNameOverride` provides a custom display name "Dashboard Status", and `eagerGlobalOrdinals: true` optimizes aggregation performance for this frequently filtered field
-- **Owner field**: `fieldType: "URN"` with `eagerGlobalOrdinals: true` optimizes aggregation performance for owner-based filtering, and `searchLabel: "owner"` copies the field to `_search.owner` for ranking operations
+- **Owner field**: `fieldType: "URN"` with `eagerGlobalOrdinals: true` optimizes aggregation performance for owner-based filtering, and `v3.searchLabel: "owner"` copies the field to the root field `owner`
 
 Now, when DataHub ingests Dashboards, it will index the priority and status fields in Elasticsearch. The priority field will be available for sorting operations, and both fields will be available as filters in the UI.
 
@@ -556,47 +550,94 @@ large.
 
 #### @SearchScore ⚠️ DEPRECATED
 
-**⚠️ DEPRECATED**: This annotation is deprecated and should not be used in new code. Use `searchLabel` with the new search tier system instead for ranking functionality.
+**⚠️ DEPRECATED**: This annotation is deprecated and should not be used in new code. Use `v3.searchLabel` instead for ranking functionality.
 
-#### Search Tier and Label System
+#### Search Label System
 
-The new search tier and label system provides a powerful way to organize search fields and create specialized search experiences:
+The search label system provides a powerful way to organize search fields and create specialized search experiences:
 
-**Search Tiers (`searchTier`):**
+**Search Labels (`v3.searchLabel`):**
 
-- Fields with `searchTier` are automatically copied to `_search.tier_{tier}` fields
-- This creates a fundamental change in search architecture: **fulltext search capabilities are now determined by the tier, not the individual field type**
-- All fields assigned to the same tier (e.g., `_search.tier_1`) are consolidated into a single searchable field, regardless of their individual `fieldType`
-- This allows you to create tiered search experiences where different fields contribute to different search priorities
-- Use `searchIndexed: true` if you need direct access to the field for filtering/sorting while maintaining tier functionality
-
-**Search Labels (`searchLabel`):**
-
-- Fields with `searchLabel` are copied to `_search.{label}` fields (without prefixes)
+- `searchLabel` is a property of the `v3` object. Search V2 and V2.5 do not read it.
+- On Search V3, `v3.searchLabel` names the root field the value is copied into.
 - Replaces the previous `sortLabel` and `boostLabel` annotations for a unified approach
 - Useful for creating specialized search, sorting, and ranking operations across multiple aspects
-- Automatically sets `index: false` to optimize storage
 
 **Entity Field Consolidation (`entityFieldName`):**
 
 - Allows multiple aspects to consolidate into a single entity-level field
 - Useful for creating unified search experiences across different aspect types
-- Fields are copied to `_search.{entityFieldName}` with root-level aliases
+- Fields are copied to the root field named by `entityFieldName`
+
+<a name="shared-search-fields-on-search-v3"></a>
+**Shared search fields on Search V3:**
+
+Search V3 keeps three field surfaces. `_aspects.<aspect>.<field>` is an analyzer-free copy of every searchable aspect field. The resolved V3 root controls its exact capabilities: indexed strings are keywords with a byte-safe `ignore_above`, dates, numbers and booleans use their native type, and a search-only string is stored but not indexed. The document-root field uses that same exact root, and `copy_to` feeds the shared label. The shared label is one root plus the union of its contributors' analyzer subfields. Full-text search reads `text` and `stemmed` only when the label declares them. A search-only label sets `"index": false` and `"docValues": false` on its root; every contributor resolves to that policy, so its document-root and `_aspects` copies are also unindexed.
+
+`mappings` replaces the fallback for that field. A root entry has `type` and no `subfield`. A subfield entry has both. Omitted `index` and `docValues` mean true. Exactly one root is required, and a subfield requires a `searchLabel`.
+
+```json
+"v3": {
+  "searchLabel": "name",
+  "mappings": [
+    { "type": "KEYWORD" },
+    { "subfield": "text", "type": "TEXT" },
+    { "subfield": "stemmed", "type": "STEMMED" }
+  ]
+}
+```
+
+An indexed keyword root automatically provides the case-preserving `.keyword` representation used by exact queries, so annotations do not declare that subfield again. A description is a text blob: its common label uses a keyword root with `index` and `docValues` both false, plus `text` and `stemmed`. V3 rejects filters with values, facets, sorts, ranges and exact-match boosts on that label or its contributors. An `EXISTS` query on an unindexed text blob cannot work either; use the indexed `hasDescription` boolean to filter for presence.
+
+When `mappings` is omitted, `KEYWORD` is an indexed keyword root. `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM`, `URN` and `URN_PARTIAL` use that root plus `text` and `stemmed` on the label. `DATETIME`, `BOOLEAN`, `COUNT` and `DOUBLE` are one native root. Browse path v2 keeps its path analyzer on the source field. Browse path v1 is not a Search V3 type: those fields stay on V2 and are dropped from the V3 index. Bundled shared labels use explicit mappings so their contract does not depend on fallback. The top-level `fieldType` is still the V2 mapping.
+
+Full-text search reads shared root fields instead of every searchable field. Search V3 does not serve autocomplete.
+The browse path v2 root keeps its path analyzer. Cross-aspect system metadata is the root `_system` object: `created.time`, `created.actor`, `modified.time`, `modified.actor`, `lastObserved`, `runId`, and `lastRunId`. It is not the same as the root `runId`, `systemCreated`, or `systemIndexModified` fields. Each searchable string field copies into:
+
+- the root field its `v3.searchLabel` or `entityFieldName` names. The label is the semantic bucket, so an ingested
+  value and an edited value of the same concept share it: names (the root field `name`),
+  `description` for descriptions, edited descriptions, glossary definitions and assertion descriptions,
+  `columns` for schema field paths and labels, `tags` for tags from every aspect, `glossaryTerms` for
+  glossary terms, and `owners` for owner urns. `sourceCreatedAt` and `sourceLastModifiedAt` are times
+  reported by the source platform. An incident's start time is `sourceCreatedAt`. A time or actor
+  recorded when DataHub itself wrote the aspect stays on
+  `systemMetadata` (`aspectCreated`, `aspectModified`), copied to `_system.created.time`,
+  `_system.created.actor`, `_system.modified.time`, and
+  `_system.modified.actor`, and is not indexed again. The V2 system-modified sidecar
+  (`includeSystemModifiedAt`) is Search V2 and V2.5 only;
+- otherwise, when the field is queried by default, the root field `other`, so V3 still searches every field V2 searches. An
+  entity none of whose fields names `name` sends the field its `_entityName` alias names to
+  `name` instead. The urn and the fields queried by default of an entity a reference field names
+  (`@SearchableRef`) only ever copy into `other`.
+
+A structured property is not a shared field. A `string`, `rich_text` or `urn` property is full-text indexed only when
+its definition has a `searchConfiguration`: that adds `text` and `stemmed` subfields to its root keyword field
+`structuredProperties.<field>`. `queryByDefault` decides whether an unqualified search includes the property.
+`boostScore` is the weight of `.text` (0.8 when unset) and `subfieldBoostScores.stemmed` is the weight of `.stemmed`
+(half the `.text` weight when unset). `copyTo` names shared fields (`name`, `qualifiedName`, `description`,
+`columns`, `other`) or a root field that feeds one. Each value is copied into that shared field, so a query
+on it matches the property. The property field and the stored name stay as they are. Unset copies nowhere.
+`excludeFromFullTextSearch` applies to Search V2 and V2.5; Search V3 ignores it.
+Number and date properties are not analyzed, and a `copyTo` on one is ignored. A property with no `searchConfiguration`
+keeps its keyword, number or date field for filters and facets only.
+
+A shared field fed by several fields holds all of their values, so an ingested description and an edited
+description are both searchable, and an edited display name is searched as `name` with the ingested
+name. A label that declares `text` and `stemmed` is analyzed on those subfields (an identifier such as `customer_id` is indexed whole and by its parts, and short parts such as `id` are dropped like any short word). `other` is a search-only keyword plus `text` and `stemmed`, because no PDL field owns it. A label whose root is an indexed keyword stays exact for sorts and filters; analyzer subfields do not replace that root. Matches in `name` and
+`qualifiedName` weigh 10, in `other` 0.5, and in every other
+shared field 1. A structured property's `.text` subfield weighs its `boostScore`, or 0.8 when that is unset. A field configuration names every opted-in property with `structuredProperties`, or one property with its full field path. A search field
+configuration (`fieldConfigurations` in the search configuration) names a shared field either directly or by any field
+that feeds it, except `other`, which only its own name selects. Matched fields ("Matched on") come from the urn,
+the fields that feed each searched shared field, except `columns`, and of `other` only the fields that
+name or tag an entity (`name`, `editedName`, `displayName`, `fullName`, `title`, `tags` and `glossaryTerms`): a match
+in a column or in another field still counts, but is not reported, since its values can be too large to fetch with
+every hit.
 
 **Benefits of the New System:**
 
-1. **Organized Search Fields**: All search-related fields are grouped under `_search.*`
-2. **Efficient Indexing**: Original fields are not indexed (index: false) but copied to search fields
-3. **Easy Access**: Aliases provide convenient access to fields at the root level
-4. **Flexible Querying**: Search queries can target specific tier, sort, or ranking fields
-5. **Performance**: Optimized storage and query patterns for complex search scenarios
-
-**Architectural Impact:**
-
-- **Before**: Each field's `fieldType` determined its individual search capabilities and analyzers
-- **After**: The `searchTier` determines fulltext search capabilities, while `fieldType` primarily affects storage format and individual field queries
-- **Search Consolidation**: Fields from different aspects with the same tier are automatically consolidated into unified search fields
-- **Simplified Search Logic**: Search queries can target entire tiers rather than individual fields, making complex search scenarios more manageable
+1. **Organized Search Fields**: Shared labels are root fields, and cross-aspect system metadata is the root `_system` object
+2. **Flexible Querying**: Search queries can target specific sort or ranking fields
+3. **Performance**: Optimized storage and query patterns for complex search scenarios
 
 #### Migration Guide for Deprecated Features
 
@@ -614,12 +655,10 @@ If you're currently using deprecated field types or parameters, here's how to mi
 
 **Parameter Migrations:**
 
-| Deprecated Pattern                        | New Pattern     | Benefits                                                                  |
-| ----------------------------------------- | --------------- | ------------------------------------------------------------------------- |
-| `queryByDefault: true`                    | `searchTier: 1` | More explicit control over search behavior and better performance         |
-| `enableAutocomplete: true`                | `searchTier: 1` | Better performance and organization                                       |
-| `includeSystemModifiedAt: true`           | **Automatic**   | System modification tracking is now handled automatically for all aspects |
-| `systemModifiedAtFieldName: "customName"` | **Automatic**   | System modification field names are now standardized automatically        |
+| Deprecated Pattern                        | New Pattern          | Benefits                                                                    |
+| ----------------------------------------- | -------------------- | --------------------------------------------------------------------------- |
+| `includeSystemModifiedAt: true`           | **V2 and V2.5 only** | Search V3 uses `systemMetadata.aspectModified` and does not map the sidecar |
+| `systemModifiedAtFieldName: "customName"` | **V2 and V2.5 only** | The sidecar name stays on the top-level annotation for older indices        |
 
 **Example Migration:**
 
@@ -636,49 +675,16 @@ title: string
 // New recommended approach
 @Searchable = {
   "fieldType": "TEXT",
-  "searchTier": 1,
+  "enableAutocomplete": true,
   "entityFieldName": "name"
 }
 title: string
 ```
 
-**Tier Consolidation Example:**
-
-```aidl
-// Multiple aspects can now contribute to the same search tier
-record DatasetInfo {
-  @Searchable = {
-    "fieldType": "KEYWORD",
-    "searchTier": 1,
-    "entityFieldName": "name"
-  }
-  name: string
-
-  @Searchable = {
-    "fieldType": "TEXT",
-    "searchTier": 1,
-    "entityFieldName": "description"
-  }
-  description: string
-}
-
-record ChartInfo {
-  @Searchable = {
-    "fieldType": "KEYWORD",
-    "searchTier": 1,
-    "entityFieldName": "name"
-  }
-  chartName: string
-}
-```
-
-In this example, all three fields (`name`, `description`, `chartName`) are automatically consolidated into `_search.tier_1`. A single search query against `_search.tier_1:*` will search across all these fields simultaneously, regardless of their individual aspect and field locations. The `fieldType` now primarily determines how each field is stored and accessed individually, while the tier determines how it participates in fulltext search.
-
 **Benefits of Migration:**
 
 - Better search performance through optimized indexing
 - More organized search field structure
-- Enhanced query capabilities with tier-based targeting
 - Future-proof annotations that won't be deprecated
 - Improved Elasticsearch mapping efficiency
 

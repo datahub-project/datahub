@@ -23,6 +23,7 @@ from datahub.metadata.schema_classes import (
     QueryUsageStatisticsClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from tests.integration.mssql.tls import prepare_mssql_tls
 from tests.test_helpers.docker_helpers import wait_for_port
 
 MSSQL_PORT = 1433
@@ -47,6 +48,7 @@ def is_mssql_up(container_name: str) -> bool:
 @pytest.fixture(scope="module")
 def mssql_runner(docker_compose_runner, test_resources_dir):
     """Start SQL Server container with Query Store enabled."""
+    prepare_mssql_tls(test_resources_dir)
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "sql-server"
     ) as docker_services:
@@ -80,7 +82,7 @@ def mssql_connection(mssql_runner):
     # First, create database and enable Query Store using master connection
     master_engine = sa.create_engine(
         f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
-        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
 
@@ -104,7 +106,7 @@ def mssql_connection(mssql_runner):
     # Now create engine connected to lineage_test database
     test_engine = sa.create_engine(
         f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/lineage_test?"
-        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
 
@@ -400,7 +402,7 @@ class TestMSSQLLineageIntegration:
         """Test behavior when Query Store is disabled."""
         master_engine = sa.create_engine(
             f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
-            "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+            "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
             isolation_level="AUTOCOMMIT",
         )
 
@@ -412,7 +414,7 @@ class TestMSSQLLineageIntegration:
 
         test_engine = sa.create_engine(
             f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/test_no_qs?"
-            "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+            "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
             isolation_level="AUTOCOMMIT",
         )
 
@@ -1119,7 +1121,7 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
     """End-to-end DMV extraction test simulating SQL Server 2014 (no Query Store)."""
     master_engine = sa.create_engine(
         f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
-        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
 
@@ -1130,7 +1132,7 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
 
     test_engine = sa.create_engine(
         f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/dmv_test_db?"
-        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
 

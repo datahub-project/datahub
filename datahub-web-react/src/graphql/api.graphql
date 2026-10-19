@@ -1,0 +1,84 @@
+query getApi($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on Api {
+            ...apiFields
+            autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+                ...autoRenderAspectFields
+            }
+            structuredProperties {
+                properties {
+                    ...structuredPropertiesFields
+                }
+            }
+            ...entityProfileVersionProperties
+        }
+    }
+}
+
+fragment apiFields on Api {
+    ...apiSearchFields
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+    ...entityDataProduct
+    privileges {
+        ...entityPrivileges
+    }
+}
+
+fragment apiSearchFields on Api {
+    urn
+    type
+    properties {
+        name
+        description
+        externalUrl
+    }
+    signature {
+        schemaDefinition
+        inputFields {
+            ...apiSignatureFieldFields
+        }
+        outputFields {
+            ...apiSignatureFieldFields
+        }
+    }
+    restProperties {
+        method
+        path
+    }
+    subTypes {
+        typeNames
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    dataPlatformInstance {
+        platform {
+            ...platformFields
+        }
+    }
+    exists
+    status {
+        removed
+    }
+}
+
+fragment apiSignatureFieldFields on SchemaField {
+    fieldPath
+    nullable
+    description
+    nativeDataType
+    type
+}

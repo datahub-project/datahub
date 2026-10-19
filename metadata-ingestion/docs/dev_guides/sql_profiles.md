@@ -90,7 +90,14 @@ Flattening trades round trips for scans, so `combined_queries_issued` can rise w
 | `flat_group_cte_recoveries`   | of those, how many the CTE path recovered in one round trip                                        |
 | `flat_group_serial_fallbacks` | of those, how many ended up one query per round trip                                               |
 
-If `scans_avoided` is low, those last four say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
+If `scans_avoided` is low, `flatten_singletons` through `flat_group_serial_fallbacks` say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
+
+Two more counters are about the row-count gate rather than flattening, and a high value in either is a saving rather than a problem:
+
+| counter                       | meaning                                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `queries_skipped_after_gate`  | queries never issued because the table's row count failed on its own, so it could not be read      |
+| `queries_skipped_empty_table` | queries never issued because the exact row count was 0, so their results would have been discarded |
 
 ### Sampling
 

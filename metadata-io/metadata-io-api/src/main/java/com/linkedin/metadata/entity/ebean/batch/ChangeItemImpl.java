@@ -83,6 +83,9 @@ public class ChangeItemImpl implements ChangeMCP {
 
   @Setter @Nullable private SystemAspect previousSystemAspect;
   @Setter private long nextAspectVersion;
+  @Setter private boolean semanticNoOp;
+  @Setter private int semanticNoOpStrategyMask;
+  @Setter private long semanticNoOpProposedVersion;
   private final Map<String, String> headers;
 
   @Nonnull
@@ -197,6 +200,9 @@ public class ChangeItemImpl implements ChangeMCP {
           this.aspectSpec,
           this.previousSystemAspect,
           this.nextAspectVersion,
+          this.semanticNoOp,
+          this.semanticNoOpStrategyMask,
+          this.semanticNoOpProposedVersion,
           this.headers);
     }
 

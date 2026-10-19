@@ -10,6 +10,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.MoveDocumentInput;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.SearchIndexMode;
@@ -124,5 +126,26 @@ public class MoveDocumentResolverTest {
         expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     assertTrue(exception.getCause() instanceof AuthorizationException);
+  }
+
+  @Test
+  public void testMoveDocumentInvalidParentIsBadRequest() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    doThrow(
+            new IllegalArgumentException(
+                "Parent Document with URN " + TEST_PARENT_URN + " does not exist"))
+        .when(mockService)
+        .moveDocument(any(OperationContext.class), any(), any(), any(), eq(SearchIndexMode.SYNC));
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof DataHubGraphQLException);
+    final DataHubGraphQLException graphQLException = (DataHubGraphQLException) exception.getCause();
+    assertEquals(graphQLException.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
+    assertTrue(graphQLException.getMessage().contains("does not exist"));
+    assertTrue(graphQLException.getCause() instanceof IllegalArgumentException);
   }
 }

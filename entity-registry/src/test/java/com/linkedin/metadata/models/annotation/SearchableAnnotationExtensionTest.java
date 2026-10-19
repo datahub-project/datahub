@@ -17,10 +17,11 @@ public class SearchableAnnotationExtensionTest {
   @Test
   public void testSearchableAnnotationWithNewFields() {
     // Create a test annotation map with the new fields
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", "priorityField");
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT");
-    annotationMap.put("searchTier", 1);
-    annotationMap.put("searchLabel", "priorityField");
+    annotationMap.put("v3", v3);
     annotationMap.put("queryByDefault", true);
     annotationMap.put("enableAutocomplete", false);
     annotationMap.put("addToFilters", false);
@@ -37,12 +38,7 @@ public class SearchableAnnotationExtensionTest {
     assertTrue(annotation.isQueryByDefault());
     assertEquals(annotation.getBoostScore(), 2.0);
 
-    // Verify new fields are parsed correctly
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
-
-    assertTrue(annotation.getSearchLabel().isPresent());
-    assertEquals(annotation.getSearchLabel().get(), "priorityField");
+    assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "priorityField");
   }
 
   @Test
@@ -66,7 +62,6 @@ public class SearchableAnnotationExtensionTest {
     assertEquals(annotation.getBoostScore(), 1.5);
 
     // Verify new fields are empty (backward compatibility)
-    assertTrue(annotation.getSearchTier().isEmpty());
     assertTrue(annotation.getSearchLabel().isEmpty());
     assertTrue(annotation.getSearchLabel().isEmpty());
   }
@@ -74,10 +69,11 @@ public class SearchableAnnotationExtensionTest {
   @Test
   public void testSearchableAnnotationWithPartialNewFields() {
     // Create a test annotation map with only some of the new fields
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", "relevance");
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT_PARTIAL");
-    annotationMap.put("searchTier", 3);
-    annotationMap.put("searchLabel", "relevance");
+    annotationMap.put("v3", v3);
 
     // Create SearchableAnnotation from the map
     SearchableAnnotation annotation =
@@ -88,150 +84,7 @@ public class SearchableAnnotationExtensionTest {
     assertEquals(annotation.getFieldName(), "partialField");
     assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.TEXT_PARTIAL);
 
-    // Verify new fields are parsed correctly
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(3));
-
-    assertTrue(annotation.getSearchLabel().isPresent());
-    assertEquals(annotation.getSearchLabel().get(), "relevance");
-  }
-
-  @Test
-  public void testSearchTierValidation() {
-    // Test valid searchTier
-    DataMap validAnnotationMap = new DataMap();
-    validAnnotationMap.put("fieldType", "TEXT");
-    validAnnotationMap.put("searchTier", 1);
-
-    // Should not throw exception
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            validAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
-
-    // Test invalid searchTier (< 1)
-    DataMap invalidAnnotationMap = new DataMap();
-    invalidAnnotationMap.put("fieldType", "TEXT");
-    invalidAnnotationMap.put("searchTier", 0);
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              invalidAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-
-    // Test invalid searchTier (negative)
-    DataMap negativeAnnotationMap = new DataMap();
-    negativeAnnotationMap.put("fieldType", "TEXT");
-    negativeAnnotationMap.put("searchTier", -1);
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              negativeAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-  }
-
-  @Test
-  public void testSortLabelValidation() {
-    // Test valid searchLabel
-    DataMap validAnnotationMap = new DataMap();
-    validAnnotationMap.put("fieldType", "TEXT");
-    validAnnotationMap.put("searchLabel", "validLabel");
-
-    // Should not throw exception
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            validAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-    assertEquals(annotation.getSearchLabel().get(), "validLabel");
-
-    // Test searchLabel with spaces
-    DataMap spacesAnnotationMap = new DataMap();
-    spacesAnnotationMap.put("fieldType", "TEXT");
-    spacesAnnotationMap.put("searchLabel", "invalid label");
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              spacesAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-
-    // Test searchLabel starting with underscore
-    DataMap underscoreAnnotationMap = new DataMap();
-    underscoreAnnotationMap.put("fieldType", "TEXT");
-    underscoreAnnotationMap.put("searchLabel", "_invalidLabel");
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              underscoreAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-
-    // Test empty searchLabel
-    DataMap emptyAnnotationMap = new DataMap();
-    emptyAnnotationMap.put("fieldType", "TEXT");
-    emptyAnnotationMap.put("searchLabel", "");
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              emptyAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-
-    // Test searchLabel with invalid characters
-    DataMap invalidCharsAnnotationMap = new DataMap();
-    invalidCharsAnnotationMap.put("fieldType", "TEXT");
-    invalidCharsAnnotationMap.put("searchLabel", "invalid@label");
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              invalidCharsAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-  }
-
-  @Test
-  public void testRankingLabelValidation() {
-    // Test valid searchLabel
-    DataMap validAnnotationMap = new DataMap();
-    validAnnotationMap.put("fieldType", "TEXT");
-    validAnnotationMap.put("searchLabel", "validRanking");
-
-    // Should not throw exception
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            validAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-    assertEquals(annotation.getSearchLabel().get(), "validRanking");
-
-    // Test searchLabel with spaces
-    DataMap spacesAnnotationMap = new DataMap();
-    spacesAnnotationMap.put("fieldType", "TEXT");
-    spacesAnnotationMap.put("searchLabel", "invalid ranking");
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              spacesAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-
-    // Test searchLabel starting with underscore
-    DataMap underscoreAnnotationMap = new DataMap();
-    underscoreAnnotationMap.put("fieldType", "TEXT");
-    underscoreAnnotationMap.put("searchLabel", "_invalidRanking");
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              underscoreAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
+    assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "relevance");
   }
 
   @Test
@@ -251,15 +104,13 @@ public class SearchableAnnotationExtensionTest {
     };
 
     for (String validName : validNames) {
-      DataMap annotationMap = new DataMap();
-      annotationMap.put("fieldType", "TEXT");
-      annotationMap.put("searchLabel", validName);
-
-      // Should not throw exception
       SearchableAnnotation annotation =
           SearchableAnnotation.fromPegasusAnnotationObject(
-              annotationMap, "testField", DataSchema.Type.STRING, "test context for " + validName);
-      assertEquals(annotation.getSearchLabel().get(), validName);
+              labeled("TEXT", validName),
+              "testField",
+              DataSchema.Type.STRING,
+              "test context for " + validName);
+      assertEquals(annotation.resolvedForV3().getSearchLabel().get(), validName);
     }
   }
 
@@ -279,105 +130,15 @@ public class SearchableAnnotationExtensionTest {
     };
 
     for (String invalidName : invalidNames) {
-      DataMap annotationMap = new DataMap();
-      annotationMap.put("fieldType", "TEXT");
-      annotationMap.put("searchLabel", invalidName);
-
-      // Should throw exception
-      assertThrows(
-          ModelValidationException.class,
-          () -> {
-            SearchableAnnotation.fromPegasusAnnotationObject(
-                annotationMap,
-                "testField",
-                DataSchema.Type.STRING,
-                "test context for " + invalidName);
-          });
-    }
-  }
-
-  @Test
-  public void testSearchTierFieldTypeValidation() {
-    // Test valid case: string field with searchTier
-    DataMap validAnnotationMap = new DataMap();
-    validAnnotationMap.put("fieldType", "TEXT");
-    validAnnotationMap.put("searchTier", 1);
-
-    // Should not throw exception
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            validAnnotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
-  }
-
-  @Test
-  public void testSearchTierFieldTypeValidationFailure() {
-    // Test invalid case: non-string field with searchTier
-    DataMap invalidAnnotationMap = new DataMap();
-    invalidAnnotationMap.put("fieldType", "COUNT");
-    invalidAnnotationMap.put("searchTier", 1);
-
-    assertThrows(
-        ModelValidationException.class,
-        () ->
-            SearchableAnnotation.fromPegasusAnnotationObject(
-                invalidAnnotationMap, "testField", DataSchema.Type.INT, "test context"));
-  }
-
-  @Test
-  public void testSearchTierFieldTypeValidationWithDifferentTypes() {
-    // Test various invalid field types for searchTier
-    String[] invalidFieldTypes = {
-      "COUNT", "BOOLEAN", "DATETIME", "OBJECT", "BROWSE_PATH", "URN_PARTIAL"
-    };
-
-    for (String invalidFieldType : invalidFieldTypes) {
-      DataMap annotationMap = new DataMap();
-      annotationMap.put("fieldType", invalidFieldType);
-      annotationMap.put("searchTier", 1);
-
       assertThrows(
           ModelValidationException.class,
           () ->
               SearchableAnnotation.fromPegasusAnnotationObject(
-                  annotationMap, "testField", DataSchema.Type.STRING, "test context"));
+                  labeled("TEXT", invalidName),
+                  "testField",
+                  DataSchema.Type.STRING,
+                  "test context for " + invalidName));
     }
-  }
-
-  @Test
-  public void testSearchTierWithWordGramFieldType() {
-    // Test that WORD_GRAM is a valid field type for searchTier
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("fieldType", "WORD_GRAM");
-    annotationMap.put("searchTier", 1);
-
-    // Should not throw exception
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            annotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
-    assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.WORD_GRAM);
-  }
-
-  @Test
-  public void testSearchTierWithUrnFieldType() {
-    // Test that URN is a valid field type for searchTier
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("fieldType", "URN");
-    annotationMap.put("searchTier", 2);
-
-    // Should not throw exception
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            annotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(2));
-    assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.URN);
   }
 
   @Test
@@ -392,22 +153,6 @@ public class SearchableAnnotationExtensionTest {
             annotationMap, "testField", DataSchema.Type.STRING, "test context");
 
     assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.TEXT);
-  }
-
-  @Test
-  public void testDefaultFieldTypeForStringWithSearchTier() {
-    // Test that string fields with searchTier and no explicit fieldType default to TEXT
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("searchTier", 1);
-    // No fieldType specified
-
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            annotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-    assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.TEXT);
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
   }
 
   @Test
@@ -442,49 +187,12 @@ public class SearchableAnnotationExtensionTest {
     // Test that explicit fieldType overrides the default
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT"); // Explicit fieldType
-    annotationMap.put("searchTier", 1);
 
     SearchableAnnotation annotation =
         SearchableAnnotation.fromPegasusAnnotationObject(
             annotationMap, "testField", DataSchema.Type.STRING, "test context");
 
     assertEquals(annotation.getFieldType(), SearchableAnnotation.FieldType.TEXT);
-    assertTrue(annotation.getSearchTier().isPresent());
-  }
-
-  @Test
-  public void testSearchTierWithDifferentValues() {
-    // Test various valid searchTier values
-    int[] validTiers = {1, 2, 5, 10, 100};
-
-    for (int tier : validTiers) {
-      DataMap annotationMap = new DataMap();
-      annotationMap.put("searchTier", tier);
-
-      SearchableAnnotation annotation =
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              annotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-      assertTrue(annotation.getSearchTier().isPresent());
-      assertEquals(annotation.getSearchTier().get(), Integer.valueOf(tier));
-    }
-  }
-
-  @Test
-  public void testSearchTierWithLabelsCombination() {
-    // Test that searchTier works correctly with searchLabel and searchLabel
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("searchTier", 2);
-    annotationMap.put("searchLabel", "priority_sort");
-
-    SearchableAnnotation annotation =
-        SearchableAnnotation.fromPegasusAnnotationObject(
-            annotationMap, "testField", DataSchema.Type.STRING, "test context");
-
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(2));
-    assertTrue(annotation.getSearchLabel().isPresent());
-    assertEquals(annotation.getSearchLabel().get(), "priority_sort");
   }
 
   @Test
@@ -508,15 +216,14 @@ public class SearchableAnnotationExtensionTest {
     String[] whitespaceLabels = {" ", "  ", "\t", "\n", " \t \n "};
 
     for (String whitespaceLabel : whitespaceLabels) {
-      DataMap annotationMap = new DataMap();
-      annotationMap.put("fieldType", "TEXT");
-      annotationMap.put("searchLabel", whitespaceLabel);
-
       assertThrows(
           ModelValidationException.class,
           () ->
               SearchableAnnotation.fromPegasusAnnotationObject(
-                  annotationMap, "testField", DataSchema.Type.STRING, "test context"));
+                  labeled("TEXT", whitespaceLabel),
+                  "testField",
+                  DataSchema.Type.STRING,
+                  "test context"));
     }
   }
 
@@ -594,22 +301,6 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
-  public void testSearchIndexedWithoutSearchTier() {
-    // Test that searchIndexed=true without searchTier throws ModelValidationException
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("fieldType", "TEXT");
-    annotationMap.put("searchIndexed", true);
-    // No searchTier specified
-
-    assertThrows(
-        ModelValidationException.class,
-        () -> {
-          SearchableAnnotation.fromPegasusAnnotationObject(
-              annotationMap, "testField", DataSchema.Type.STRING, "test context");
-        });
-  }
-
-  @Test
   public void testSearchIndexedWithInvalidFieldType() {
     // Test that searchIndexed=true with invalid field types throws ModelValidationException
     String[] invalidFieldTypes = {
@@ -628,7 +319,6 @@ public class SearchableAnnotationExtensionTest {
     for (String invalidFieldType : invalidFieldTypes) {
       DataMap annotationMap = new DataMap();
       annotationMap.put("fieldType", invalidFieldType);
-      annotationMap.put("searchTier", 1);
       annotationMap.put("searchIndexed", true);
 
       assertThrows(
@@ -648,7 +338,6 @@ public class SearchableAnnotationExtensionTest {
     for (String validFieldType : validFieldTypes) {
       DataMap annotationMap = new DataMap();
       annotationMap.put("fieldType", validFieldType);
-      annotationMap.put("searchTier", 1);
       annotationMap.put("searchIndexed", true);
 
       // Should not throw exception
@@ -658,17 +347,13 @@ public class SearchableAnnotationExtensionTest {
 
       assertTrue(annotation.getSearchIndexed().isPresent());
       assertTrue(annotation.getSearchIndexed().get());
-      assertTrue(annotation.getSearchTier().isPresent());
-      assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
     }
   }
 
   @Test
-  public void testSearchIndexedFalseWithSearchTier() {
-    // Test that searchIndexed=false with searchTier works correctly
+  public void testSearchIndexedFalse() {
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldType", "TEXT");
-    annotationMap.put("searchTier", 1);
     annotationMap.put("searchIndexed", false);
 
     // Should not throw exception
@@ -678,39 +363,12 @@ public class SearchableAnnotationExtensionTest {
 
     assertTrue(annotation.getSearchIndexed().isPresent());
     assertFalse(annotation.getSearchIndexed().get());
-    assertTrue(annotation.getSearchTier().isPresent());
-    assertEquals(annotation.getSearchTier().get(), Integer.valueOf(1));
   }
 
   @Test
   public void testSearchIndexedErrorMessageFormat() {
-    // Test the specific error message format for searchIndexed validation
-    DataMap annotationMap = new DataMap();
-    annotationMap.put("fieldType", "TEXT");
-    annotationMap.put("searchIndexed", true);
-    // No searchTier specified
-
-    try {
-      SearchableAnnotation.fromPegasusAnnotationObject(
-          annotationMap, "testField", DataSchema.Type.STRING, "testField");
-      assert false : "Expected ModelValidationException to be thrown";
-    } catch (ModelValidationException e) {
-      String expectedMessage =
-          String.format(
-              "Failed to validate @%s annotation declared at %s: searchIndexed can only be true when searchTier is specified",
-              "Searchable", "testField");
-      assert e.getMessage().contains(expectedMessage)
-          : "Error message should match expected format. Expected: "
-              + expectedMessage
-              + ", Actual: "
-              + e.getMessage();
-    }
-
-    // Test error message for invalid field type
-    // Use TEXT_PARTIAL which is valid for searchTier but invalid for searchIndexed
     DataMap invalidFieldTypeMap = new DataMap();
     invalidFieldTypeMap.put("fieldType", "TEXT_PARTIAL");
-    invalidFieldTypeMap.put("searchTier", 1);
     invalidFieldTypeMap.put("searchIndexed", true);
 
     try {
@@ -1008,5 +666,75 @@ public class SearchableAnnotationExtensionTest {
               + ", Actual: "
               + e.getMessage();
     }
+  }
+
+  @Test
+  public void testSearchLabelComesFromV3() {
+    DataMap overlay = new DataMap();
+    overlay.put("searchLabel", "name");
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "WORD_GRAM");
+    annotationMap.put("searchLabel", "entityName");
+    annotationMap.put("boostScore", 10.0);
+    annotationMap.put("includeSystemModifiedAt", true);
+    annotationMap.put("systemModifiedAtFieldName", "termsModifiedAt");
+    annotationMap.put("v3", overlay);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "name", DataSchema.Type.STRING, "testField");
+
+    assertTrue(annotation.getSearchLabel().isEmpty());
+    assertEquals(annotation.getV3SearchLabel().get(), "name");
+    assertTrue(annotation.isIncludeSystemModifiedAt());
+    assertEquals(annotation.getSystemModifiedAtFieldName().get(), "termsModifiedAt");
+    assertTrue(annotation.isV3Searchable());
+    assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "name");
+    assertTrue(annotation.resolvedForV3().isIncludeSystemModifiedAt());
+  }
+
+  @Test
+  public void testV3OverlayTurnsOffTheSystemModifiedSidecar() {
+    DataMap overlay = new DataMap();
+    overlay.put("includeSystemModifiedAt", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("includeSystemModifiedAt", true);
+    annotationMap.put("systemModifiedAtFieldName", "termsModifiedAt");
+    annotationMap.put("v3", overlay);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "glossaryTerms", DataSchema.Type.STRING, "testField");
+
+    assertTrue(annotation.isIncludeSystemModifiedAt());
+    assertEquals(annotation.getSystemModifiedAtFieldName().get(), "termsModifiedAt");
+    assertFalse(annotation.resolvedForV3().isIncludeSystemModifiedAt());
+    assertFalse(annotation.resolvedForV3().getSystemModifiedAtFieldName().isPresent());
+  }
+
+  @Test
+  public void testV3OverlayCanDisableSearch() {
+    DataMap overlay = new DataMap();
+    overlay.put("enabled", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("v3", overlay);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "hidden", DataSchema.Type.STRING, "testField");
+
+    assertFalse(annotation.isV3Searchable());
+    assertTrue(annotation.isQueryByDefault());
+  }
+
+  private static DataMap labeled(String fieldType, String searchLabel) {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", searchLabel);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", fieldType);
+    annotationMap.put("v3", v3);
+    return annotationMap;
   }
 }

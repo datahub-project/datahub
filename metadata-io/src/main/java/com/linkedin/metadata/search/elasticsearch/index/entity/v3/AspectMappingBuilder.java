@@ -1,17 +1,17 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
-import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
-import static com.linkedin.metadata.search.utils.ESUtils.PATH;
+import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -55,15 +55,14 @@ public class AspectMappingBuilder {
                   .forEach(
                       searchableFieldSpec -> {
                         aspectFields.putAll(
-                            MultiEntityMappingsBuilder.getMappingsForField(
-                                searchableFieldSpec,
-                                aspectName,
-                                fieldNameConflicts,
-                                fieldNameAliasConflicts));
+                            MultiEntityMappingsBuilder.getAspectMappingsForField(
+                                searchableFieldSpec, aspectName));
+                        copySharedHasValues(entitySpec, searchableFieldSpec, aspectFields);
                       });
 
-              // Add _systemMetadata field to each aspect
-              aspectFields.put("_systemMetadata", createSystemMetadataMapping());
+              // Add system metadata to each aspect using the projector's serialized field name.
+              aspectFields.put(
+                  V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
 
               if (!aspectFields.isEmpty()) {
                 aspectsMappings.put(aspectName, ImmutableMap.of(PROPERTIES, aspectFields));
@@ -74,143 +73,28 @@ public class AspectMappingBuilder {
   }
 
   /**
-   * Creates root-level aliases for field name aliases that don't have conflicts.
-   *
-   * @param entitySpec the entity spec to process
-   * @param fieldNameAliasConflicts map of field name aliases that have conflicts
-   * @return map of root-level aliases
+   * The aspect boolean copies onto the shared root name. Only a true is written, so the root field
+   * never holds both true and false.
    */
-  public static Map<String, Object> createRootLevelAliases(
-      @Nonnull EntitySpec entitySpec, @Nullable Map<String, Set<String>> fieldNameAliasConflicts) {
-
-    Map<String, Object> rootAliases = new HashMap<>();
-
-    entitySpec
-        .getAspectSpecs()
-        .forEach(
-            aspectSpec -> {
-              String aspectName = aspectSpec.getName();
-
-              // Skip structuredProperties aspect - handled separately
-              if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-                return;
-              }
-
-              aspectSpec
-                  .getSearchableFieldSpecs()
-                  .forEach(
-                      searchableFieldSpec -> {
-                        String baseFieldName =
-                            searchableFieldSpec.getSearchableAnnotation().getFieldName();
-
-                        // Skip OBJECT field types that are not MAP fields - aliases cannot point to
-                        // dynamic object fields in Elasticsearch, but we can create aliases for
-                        // MAP fields that were converted from OBJECT to MAP_ARRAY
-                        FieldType fieldType =
-                            searchableFieldSpec.getSearchableAnnotation().getFieldType();
-                        if (OBJECT_FIELD_TYPES.contains(fieldType)) {
-                          // Check if this is a MAP field by examining the underlying PDL schema
-                          DataSchema currentSchema = searchableFieldSpec.getPegasusSchema();
-                          if (currentSchema.getDereferencedType() != DataSchema.Type.MAP) {
-                            // Skip non-MAP fields with OBJECT field types
-                            return;
-                          }
-                          // For MAP fields with OBJECT field types, we can create aliases
-                        }
-
-                        String aspectFieldPath =
-                            MappingConstants.ASPECTS_FIELD_NAME
-                                + "."
-                                + aspectName
-                                + "."
-                                + baseFieldName;
-
-                        // Create aliases for field name aliases that don't have conflicts
-                        if (searchableFieldSpec.getSearchableAnnotation().getFieldNameAliases()
-                            != null) {
-                          searchableFieldSpec
-                              .getSearchableAnnotation()
-                              .getFieldNameAliases()
-                              .forEach(
-                                  alias -> {
-                                    if (fieldNameAliasConflicts == null
-                                        || !fieldNameAliasConflicts.containsKey(alias)) {
-                                      Map<String, Object> aliasMapping = new HashMap<>();
-                                      aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-
-                                      // Special handling for _entityName alias - point to
-                                      // _search.entityName
-                                      if (MultiEntityMappingsUtils.isEntityNameField(alias)
-                                          && searchableFieldSpec
-                                              .getSearchableAnnotation()
-                                              .getSearchLabel()
-                                              .isPresent()
-                                          && "entityName"
-                                              .equals(
-                                                  searchableFieldSpec
-                                                      .getSearchableAnnotation()
-                                                      .getSearchLabel()
-                                                      .get())) {
-                                        aliasMapping.putAll(
-                                            MultiEntityMappingsUtils
-                                                .createEntityNameAliasMapping());
-                                      } else {
-                                        aliasMapping.put(PATH, aspectFieldPath);
-                                      }
-
-                                      rootAliases.put(alias, aliasMapping);
-                                    }
-                                    // Conflicted field name aliases are handled in
-                                    // createRootFieldsWithCopyTo
-                                  });
-                        }
-
-                        // Create aliases for hasValuesFieldName and numValuesFieldName fields
-                        // These fields are created directly in the aspect, not nested under the
-                        // array field
-                        searchableFieldSpec
-                            .getSearchableAnnotation()
-                            .getHasValuesFieldName()
-                            .ifPresent(
-                                hasValuesFieldName -> {
-                                  if (fieldNameAliasConflicts == null
-                                      || !fieldNameAliasConflicts.containsKey(hasValuesFieldName)) {
-                                    Map<String, Object> aliasMapping = new HashMap<>();
-                                    aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-                                    aliasMapping.put(
-                                        PATH,
-                                        MappingConstants.ASPECTS_FIELD_NAME
-                                            + "."
-                                            + aspectName
-                                            + "."
-                                            + hasValuesFieldName);
-                                    rootAliases.put(hasValuesFieldName, aliasMapping);
-                                  }
-                                });
-
-                        searchableFieldSpec
-                            .getSearchableAnnotation()
-                            .getNumValuesFieldName()
-                            .ifPresent(
-                                numValuesFieldName -> {
-                                  if (fieldNameAliasConflicts == null
-                                      || !fieldNameAliasConflicts.containsKey(numValuesFieldName)) {
-                                    Map<String, Object> aliasMapping = new HashMap<>();
-                                    aliasMapping.put(TYPE, ALIAS_FIELD_TYPE);
-                                    aliasMapping.put(
-                                        PATH,
-                                        MappingConstants.ASPECTS_FIELD_NAME
-                                            + "."
-                                            + aspectName
-                                            + "."
-                                            + numValuesFieldName);
-                                    rootAliases.put(numValuesFieldName, aliasMapping);
-                                  }
-                                });
-                      });
+  private static void copySharedHasValues(
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull SearchableFieldSpec fieldSpec,
+      @Nonnull Map<String, Object> aspectFields) {
+    final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    if (!resolved.isV3Searchable()) {
+      return;
+    }
+    resolved
+        .getSearchLabel()
+        .filter(label -> !label.isEmpty())
+        .flatMap(label -> V3SearchFields.hasValuesFieldName(entitySpec, label))
+        .ifPresent(
+            booleanName -> {
+              Map<String, Object> mapping = new HashMap<>();
+              mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
+              mapping.put(COPY_TO, List.of(booleanName));
+              aspectFields.put(booleanName, mapping);
             });
-
-    return rootAliases;
   }
 
   /**
@@ -228,19 +112,19 @@ public class AspectMappingBuilder {
     // lastObserved field
     Map<String, Object> lastObserved = new HashMap<>();
     lastObserved.put(TYPE, "date");
-    lastObserved.put("copy_to", new String[] {"_search._system_lastObserved"});
+    lastObserved.put("copy_to", List.of("_system.lastObserved"));
     properties.put("lastObserved", lastObserved);
 
     // runId field
     Map<String, Object> runId = new HashMap<>();
     runId.put(TYPE, "keyword");
-    runId.put("copy_to", new String[] {"_search._system_runId"});
+    runId.put("copy_to", List.of("_system.runId"));
     properties.put("runId", runId);
 
     // lastRunId field
     Map<String, Object> lastRunId = new HashMap<>();
     lastRunId.put(TYPE, "keyword");
-    lastRunId.put("copy_to", new String[] {"_search._system_lastRunId"});
+    lastRunId.put("copy_to", List.of("_system.lastRunId"));
     properties.put("lastRunId", lastRunId);
 
     // aspectCreated field
@@ -250,12 +134,12 @@ public class AspectMappingBuilder {
 
     Map<String, Object> aspectCreatedTime = new HashMap<>();
     aspectCreatedTime.put(TYPE, "date");
-    aspectCreatedTime.put("copy_to", new String[] {"_search._system_aspectCreated_time"});
+    aspectCreatedTime.put("copy_to", List.of("_system.created.time"));
     aspectCreatedProperties.put("time", aspectCreatedTime);
 
     Map<String, Object> aspectCreatedActor = new HashMap<>();
     aspectCreatedActor.put(TYPE, "keyword");
-    aspectCreatedActor.put("copy_to", new String[] {"_search._system_aspectCreated_actor"});
+    aspectCreatedActor.put("copy_to", List.of("_system.created.actor"));
     aspectCreatedProperties.put("actor", aspectCreatedActor);
 
     Map<String, Object> aspectCreatedImpersonator = new HashMap<>();
@@ -272,12 +156,12 @@ public class AspectMappingBuilder {
 
     Map<String, Object> aspectModifiedTime = new HashMap<>();
     aspectModifiedTime.put(TYPE, "date");
-    aspectModifiedTime.put("copy_to", new String[] {"_search._system_aspectModified_time"});
+    aspectModifiedTime.put("copy_to", List.of("_system.modified.time"));
     aspectModifiedProperties.put("time", aspectModifiedTime);
 
     Map<String, Object> aspectModifiedActor = new HashMap<>();
     aspectModifiedActor.put(TYPE, "keyword");
-    aspectModifiedActor.put("copy_to", new String[] {"_search._system_aspectModified_actor"});
+    aspectModifiedActor.put("copy_to", List.of("_system.modified.actor"));
     aspectModifiedProperties.put("actor", aspectModifiedActor);
 
     Map<String, Object> aspectModifiedImpersonator = new HashMap<>();

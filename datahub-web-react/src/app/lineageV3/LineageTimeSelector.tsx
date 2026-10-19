@@ -1,5 +1,6 @@
-import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Button, Space } from 'antd';
 import i18next from 'i18next';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -20,7 +21,7 @@ const TimeRangeTrigger = styled.button`
     gap: 4px;
     border: none;
     background: none;
-    padding: 0;
+    padding: 4px 8px;
     font-size: 12px;
     font-weight: 700;
     line-height: 16px;
@@ -28,8 +29,7 @@ const TimeRangeTrigger = styled.button`
     cursor: pointer;
 `;
 
-const TriggerCaret = styled(CaretDownOutlined)`
-    font-size: 10px;
+const TriggerCaret = styled(CaretDown).attrs({ size: 12 })`
     color: ${(props) => props.theme.colors.icon};
 `;
 
@@ -109,7 +109,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
             {showText ? (
                 <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft" showArrow={false}>
                     <TimeRangeTrigger type="button" onClick={() => handleOpenChange(true)}>
-                        <CalendarOutlined style={{ marginRight: '4px' }} />
+                        <CalendarBlank size={16} />
                         {getTimeRangeDescription(startDate, endDate)}
                         <TriggerCaret />
                     </TimeRangeTrigger>

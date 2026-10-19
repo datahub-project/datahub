@@ -9,8 +9,15 @@ record DataTypeInfo {
      */
     @Searchable = {
       "fieldType": "KEYWORD",
-      "searchTier": 1,
-      "searchLabel": "qualifiedName"
+      "boostScore": 10.0,
+      "v3": {
+        "searchLabel": "qualifiedName",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
     }
     qualifiedName: string
 

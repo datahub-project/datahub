@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataProductProperties",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**
@@ -19,8 +19,14 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: optional string
 
@@ -30,8 +36,15 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2,
-    "sanitizeRichText": true
+    "sanitizeRichText": true,
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -41,7 +54,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProductContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document" ],
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api" ],
     }
   }
   assets: optional array[DataProductAssociation]
