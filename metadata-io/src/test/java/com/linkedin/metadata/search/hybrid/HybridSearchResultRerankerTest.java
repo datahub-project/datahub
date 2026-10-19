@@ -20,6 +20,8 @@ import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
+import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
+import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilderTest;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;

@@ -10,7 +10,15 @@ record EntityTypeInfo {
      */
     @Searchable = {
       "fieldType": "KEYWORD",
-      "searchLabel": "qualifiedName"
+      "boostScore": 10.0,
+      "v3": {
+        "searchLabel": "qualifiedName",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
     }
     qualifiedName: string
 
