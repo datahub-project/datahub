@@ -37,6 +37,10 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+
+  /** Raw aspect JSON stored in {@code _source} and not indexed. */
+  public static final String SEARCH_DOCUMENT_FIELD = "_searchDocument";
+
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
 
   private final SearchDocumentTransformer searchDocumentTransformer;
@@ -98,6 +102,7 @@ public class V3SearchDocumentProjector {
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
     omitV3ExcludedFields(aspectSpec, projectedFields);
+    storeSearchDocument(opContext, event, aspectSpec, projectedFields);
     final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
     final EntityRegistry entityRegistry = opContext.getEntityRegistry();
     final List<EntitySpec> indexGroup =
@@ -336,6 +341,31 @@ public class V3SearchDocumentProjector {
     return !value.isArray() || !value.isEmpty();
   }
 
+  private static void storeSearchDocument(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields) {
+    if (aspectSpec.getAspectAnnotation() == null
+        || !aspectSpec.getAspectAnnotation().isSearchDocument()) {
+      return;
+    }
+    if (ChangeType.DELETE.equals(event.getChangeType()) || event.getRecordTemplate() == null) {
+      projectedFields.putNull(SEARCH_DOCUMENT_FIELD);
+      return;
+    }
+    try {
+      projectedFields.set(
+          SEARCH_DOCUMENT_FIELD,
+          opContext
+              .getObjectMapper()
+              .readTree(RecordUtils.toJsonString(event.getRecordTemplate())));
+    } catch (Exception e) {
+      throw propagate(
+          "Failed to store search document for " + aspectSpec.getName() + " " + event.getUrn(), e);
+    }
+  }
+
   private static ProjectedAspect buildProjectedAspect(
       @Nonnull final String aspectName,
       @Nonnull final ObjectNode projectedFields,
@@ -347,6 +377,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final OperationContext opContext) {
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
+    rootFields.remove(SEARCH_DOCUMENT_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);

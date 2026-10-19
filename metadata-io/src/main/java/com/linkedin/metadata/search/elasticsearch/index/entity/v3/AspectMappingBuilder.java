@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
+import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -79,6 +80,15 @@ public class AspectMappingBuilder {
                 // Add system metadata to each aspect using the projector's serialized field name.
                 aspectFields.put(
                     V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
+              }
+              if (aspectSpec.getAspectAnnotation() != null
+                  && aspectSpec.getAspectAnnotation().isSearchDocument()) {
+                // Stored in _source for a template reload. Not indexed, so the mustache body is
+                // not a query field.
+                Map<String, Object> stored = new HashMap<>();
+                stored.put(TYPE, OBJECT_FIELD_TYPE);
+                stored.put("enabled", false);
+                aspectFields.put(V3SearchDocumentProjector.SEARCH_DOCUMENT_FIELD, stored);
               }
 
               if (!aspectFields.isEmpty()) {
