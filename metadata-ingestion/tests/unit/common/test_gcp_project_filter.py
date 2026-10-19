@@ -1,11 +1,11 @@
 """Unit tests for GCP project filter functionality."""
 
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
 from google.api_core.exceptions import GoogleAPICallError, PermissionDenied
 from google.auth.exceptions import GoogleAuthError
+from google.cloud.resourcemanager_v3 import Project
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.source import SourceReport
@@ -20,6 +20,16 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     validate_project_id_list,
     validate_project_label_list,
 )
+
+
+def _project(
+    project_id: str,
+    *,
+    display_name: str = "",
+    state: int = Project.State.ACTIVE,
+) -> Project:
+    """Build a Resource Manager project the way the API returns one."""
+    return Project(project_id=project_id, display_name=display_name, state=state)
 
 
 class TestGcpProjectFilterConfig:
@@ -133,8 +143,8 @@ class TestResolveGcpProjects:
         mock_client_class.return_value = mock_client
 
         mock_client.search_projects.return_value = [
-            SimpleNamespace(project_id="prod-1", display_name="Production 1"),
-            SimpleNamespace(project_id="prod-2", display_name="Production 2"),
+            _project("prod-1", display_name="Production 1"),
+            _project("prod-2", display_name="Production 2"),
         ]
 
         config = GcpProjectFilterConfig(project_labels=["env:prod"])
@@ -154,8 +164,8 @@ class TestResolveGcpProjects:
         mock_client_class.return_value = mock_client
 
         mock_client.search_projects.return_value = [
-            SimpleNamespace(project_id="prod-ml", display_name="ML Production"),
-            SimpleNamespace(project_id="prod-test", display_name="Test Environment"),
+            _project("prod-ml", display_name="ML Production"),
+            _project("prod-test", display_name="Test Environment"),
         ]
 
         config = GcpProjectFilterConfig(
@@ -184,8 +194,8 @@ class TestResolveGcpProjects:
         mock_client_class.return_value = mock_client
 
         mock_client.search_projects.return_value = [
-            SimpleNamespace(project_id="proj-1", display_name="Project 1"),
-            SimpleNamespace(project_id="proj-2", display_name="Project 2"),
+            _project("proj-1", display_name="Project 1"),
+            _project("proj-2", display_name="Project 2"),
         ]
 
         config = GcpProjectFilterConfig()
@@ -250,15 +260,14 @@ class TestResolveGcpProjects:
         assert len(report.failures) > 0  # Should report no projects found
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
-    def test_missing_project_id_field(self, mock_client_class):
-        """Test handling of malformed project objects missing project_id."""
+    def test_empty_project_id_field(self, mock_client_class):
+        """Test projects returned with an empty project_id are skipped."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        # Project object without project_id attribute
         mock_client.search_projects.return_value = [
-            SimpleNamespace(display_name="Project 1"),  # Missing project_id
-            SimpleNamespace(project_id="proj-2", display_name="Project 2"),
+            _project("", display_name="Project 1"),  # Empty project_id
+            _project("proj-2", display_name="Project 2"),
         ]
 
         config = GcpProjectFilterConfig()
@@ -266,18 +275,18 @@ class TestResolveGcpProjects:
             config, SourceReport(), projects_client=mock_client
         )
 
-        # Should skip malformed project and only return valid one
+        # Should skip the unusable project and only return the valid one
         assert len(projects) == 1
         assert projects[0].id == "proj-2"
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
-    def test_none_display_name(self, mock_client_class):
-        """Test handling when display_name is None."""
+    def test_empty_display_name(self, mock_client_class):
+        """Test an unset display_name falls back to the project_id."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
         mock_client.search_projects.return_value = [
-            SimpleNamespace(project_id="proj-1", display_name=None),
+            _project("proj-1"),
         ]
 
         config = GcpProjectFilterConfig()
@@ -286,7 +295,7 @@ class TestResolveGcpProjects:
         )
 
         assert len(projects) == 1
-        # Should fallback to project_id when display_name is None
+        # Should fallback to project_id when display_name is unset
         assert projects[0].id == "proj-1"
         assert projects[0].name == "proj-1"
 
@@ -311,8 +320,8 @@ class TestResolveGcpProjects:
         mock_client_class.return_value = mock_client
 
         mock_client.search_projects.return_value = [
-            SimpleNamespace(project_id="dev-1", display_name="Dev 1"),
-            SimpleNamespace(project_id="dev-2", display_name="Dev 2"),
+            _project("dev-1", display_name="Dev 1"),
+            _project("dev-2", display_name="Dev 2"),
         ]
 
         config = GcpProjectFilterConfig(
@@ -348,7 +357,7 @@ class TestResolveGcpProjects:
         mock_client_class.return_value = mock_client
 
         mock_client.search_projects.return_value = [
-            SimpleNamespace(project_id="my-project-123", display_name="My Project 123"),
+            _project("my-project-123", display_name="My Project 123"),
         ]
 
         config = GcpProjectFilterConfig()
