@@ -54,6 +54,27 @@ The following code snippet shows you how to add a Schema containing 3 fields to 
 
 </details>
 
+#### Declared keys
+
+Many datasets have no key constraints in their source: files, object stores, lake tables, and warehouse tables without declared constraints. The `declaredKeys` aspect lets users declare such keys in DataHub without touching the ingestion-owned `schemaMetadata` aspect, so ingestion runs never overwrite them. It holds:
+
+- `primaryKey`: the field paths of a declared primary key.
+- `businessKeys`: named business (logical) keys, for example `account_id + as_of_date`. They never compete with the primary key.
+
+Field paths must match the `fieldPath` values in the dataset's `schemaMetadata` when the dataset has one; writes that reference unknown fields, or keys that are empty or repeat a field, are rejected by every write API. Writing the aspect requires the Edit Entity privilege on the dataset.
+
+The source stays authoritative for the physical primary key. GraphQL exposes the resolved result as `Dataset.keys`, and the UI shows the primary key badge for the effective key:
+
+| Source primary key | Declared primary key | Effective primary key | Conflict |
+| ------------------ | -------------------- | --------------------- | -------- |
+| present            | absent               | source                | no       |
+| absent             | present              | declared              | no       |
+| present            | same fields          | source                | no       |
+| present            | different fields     | source                | yes      |
+| absent             | absent               | none                  | no       |
+
+The source primary key is `schemaMetadata.primaryKeys` together with every field whose `isPartOfKey` is true. Declared keys can be set with the `updateDeclaredKeys` GraphQL mutation or by writing the `declaredKeys` aspect through any API.
+
 ### Tags and Glossary Terms
 
 Datasets can have Tags or Terms attached to them. Read [this blog](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.

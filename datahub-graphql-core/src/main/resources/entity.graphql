@@ -1123,6 +1123,12 @@ type Mutation {
     urn: String!
     input: DisplayPropertiesUpdateInput!
   ): Boolean
+
+  """
+  Set the keys users declare for a dataset, replacing any previously declared keys.
+  Requires the Edit Entity privilege on the dataset.
+  """
+  updateDeclaredKeys(urn: String!, input: DeclaredKeysInput!): Boolean
 }
 
 """
@@ -1815,6 +1821,12 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   editableSchemaMetadata: EditableSchemaMetadata
     @aspectMapping(aspects: ["editableSchemaMetadata"])
+
+  """
+  Primary and business keys of the Dataset, resolved from the keys declared by the source and
+  the keys declared by users. A primary key declared by the source always takes precedence.
+  """
+  keys: DatasetKeys @aspectMapping(aspects: ["schemaMetadata", "declaredKeys"])
 
   """
   Status of the Dataset
@@ -3988,6 +4000,113 @@ type SchemaField {
   Schema field entity that exist in the database for this schema field
   """
   schemaFieldEntity: SchemaFieldEntity
+}
+
+"""
+Where the effective primary key of a dataset comes from
+"""
+enum PrimaryKeySource {
+  """
+  The primary key declared by the source (ingested schema)
+  """
+  SOURCE
+
+  """
+  The primary key declared by a user, used because the source declares none
+  """
+  DECLARED
+
+  """
+  Neither the source nor a user declares a primary key
+  """
+  NONE
+}
+
+"""
+Primary and business keys of a dataset
+"""
+type DatasetKeys {
+  """
+  Field paths of the primary key in effect: the source primary key if the source declares one,
+  otherwise the declared primary key
+  """
+  effectivePrimaryKey: [String!]!
+
+  """
+  Where the effective primary key comes from
+  """
+  primaryKeySource: PrimaryKeySource!
+
+  """
+  Field paths of the primary key declared by users, if any
+  """
+  declaredPrimaryKey: [String!]
+
+  """
+  True when both the source and users declare a primary key and they differ.
+  The source key stays in effect.
+  """
+  conflict: Boolean!
+
+  """
+  Named business keys declared by users. These never compete with the primary key.
+  """
+  businessKeys: [DatasetBusinessKey!]
+}
+
+"""
+A named business (logical) key of a dataset
+"""
+type DatasetBusinessKey {
+  """
+  Name of the key, unique within the dataset
+  """
+  name: String!
+
+  """
+  Field paths of the fields the key is made of
+  """
+  fields: [String!]!
+
+  """
+  Description of the key
+  """
+  description: String
+}
+
+"""
+Input for setting the keys declared for a dataset
+"""
+input DeclaredKeysInput {
+  """
+  Field paths of the declared primary key. Null or empty clears it.
+  """
+  primaryKey: [String!]
+
+  """
+  Named business keys. Null or empty clears them.
+  """
+  businessKeys: [DeclaredBusinessKeyInput!]
+}
+
+"""
+Input for a named business key
+"""
+input DeclaredBusinessKeyInput {
+  """
+  Name of the key, unique within the dataset
+  """
+  name: String!
+
+  """
+  Field paths of the fields the key is made of
+  """
+  fields: [String!]!
+
+  """
+  Description of the key
+  """
+  description: String
 }
 
 """

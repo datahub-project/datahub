@@ -57,6 +57,7 @@ import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.DeclaredKeys;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.SemanticModelProperties;
 import com.linkedin.dataset.UpstreamLineage;
@@ -223,6 +224,21 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         ASSET_SETTINGS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
+
+    if (aspectMap.containsKey(SCHEMA_METADATA_ASPECT_NAME)
+        || aspectMap.containsKey(DECLARED_KEYS_ASPECT_NAME)) {
+      mappingHelper
+          .getResult()
+          .setKeys(
+              DatasetKeysMapper.map(
+                  aspectMap.containsKey(SCHEMA_METADATA_ASPECT_NAME)
+                      ? new SchemaMetadata(
+                          aspectMap.get(SCHEMA_METADATA_ASPECT_NAME).getValue().data())
+                      : null,
+                  aspectMap.containsKey(DECLARED_KEYS_ASPECT_NAME)
+                      ? new DeclaredKeys(aspectMap.get(DECLARED_KEYS_ASPECT_NAME).getValue().data())
+                      : null));
+    }
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
