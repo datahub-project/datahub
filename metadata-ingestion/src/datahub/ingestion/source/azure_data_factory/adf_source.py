@@ -2437,17 +2437,25 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             # This MCP replaces the DataJob's whole dataJobInputOutput
             # aspect - including whatever fineGrainedLineages the static
             # path already emitted for this activity (e.g. a real
-            # explicit translator). Recompute it against the (possibly
-            # now-different) combined inputs/outputs rather than
-            # discarding it outright just because this specific run
-            # didn't itself contribute new column lineage.
-            fine_grained_lineages = self._extract_column_lineage(
-                activity=activity,
-                activity_type=activity.type or "Unknown",
-                inlets=sorted(combined_inputs),
-                outlets=sorted(combined_outputs),
-                factory_key=factory_key,
-            )
+            # explicit translator). Recompute it per actually-observed
+            # (source, sink) pair rather than against the flattened union
+            # of every pair's inputs/outputs: activity-specific extractors
+            # (e.g. CopyActivityColumnLineageExtractor) only look at
+            # inlets[0]/outlets[0], so handing them the combined multi-
+            # source/multi-sink lists would silently attribute every
+            # pair's columns to whichever URN happens to sort first.
+            recomputed_lineages: list[FineGrainedLineageClass] = []
+            for pair_inputs, pair_outputs in pairs:
+                pair_lineages = self._extract_column_lineage(
+                    activity=activity,
+                    activity_type=activity.type or "Unknown",
+                    inlets=list(pair_inputs),
+                    outlets=list(pair_outputs),
+                    factory_key=factory_key,
+                )
+                if pair_lineages:
+                    recomputed_lineages.extend(pair_lineages)
+            fine_grained_lineages = recomputed_lineages or None
         else:
             fine_grained_lineages = None
 
