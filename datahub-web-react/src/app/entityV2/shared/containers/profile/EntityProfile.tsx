@@ -1,4 +1,5 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
+import { Loader } from '@components';
 import { Alert } from 'antd';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,13 +32,12 @@ import {
 } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
-import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import LineageGraph from '@app/lineageV3/LineageGraph';
 import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -57,6 +57,28 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetFormsForEntityQuery } from '@graphql/form.generated';
 import { EntityType, Exact } from '@types';
+
+const FullscreenLineageLoader = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+`;
+
+// Fullscreen lineage is a mode switch, not part of the profile shell. The lineage tab
+// already loads the graph on its own chunk.
+const LineageGraph = lazyProfileComponent('LineageGraph', () => import('@app/lineageV3/LineageGraph'), {
+    fallback: () => (
+        <FullscreenLineageLoader>
+            <Loader />
+        </FullscreenLineageLoader>
+    ),
+});
+const DynamicTab = lazyProfileComponent(
+    'DynamicTab',
+    () => import('@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab'),
+);
 
 type Props<T, U> = {
     urn: string;

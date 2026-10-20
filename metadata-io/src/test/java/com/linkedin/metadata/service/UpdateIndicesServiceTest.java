@@ -4,12 +4,16 @@ import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
@@ -21,7 +25,9 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -35,6 +41,8 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -71,12 +79,13 @@ public class UpdateIndicesServiceTest {
             null);
 
     UpdateIndicesV3Strategy v3Strategy =
-        new UpdateIndicesV3Strategy(
-            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
-            entitySearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            null);
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(
+                EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+            .elasticSearchService(entitySearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .build();
 
     Collection<UpdateIndicesStrategy> strategies = Arrays.asList(v2Strategy, v3Strategy);
 
@@ -90,6 +99,82 @@ public class UpdateIndicesServiceTest {
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled
+  }
+
+  @Test
+  public void testIndicesFilledFromPrimaryStorageComeOnlyFromFillingStrategies() {
+    UpdateIndicesStrategy filling = mock(UpdateIndicesStrategy.class);
+    when(filling.isEnabled()).thenReturn(true);
+    when(filling.fillsNewIndicesFromPrimaryStorage()).thenReturn(true);
+    when(filling.getIndexMappings(operationContext))
+        .thenReturn(
+            List.of(
+                MappingsBuilder.IndexMapping.builder()
+                    .indexName("primaryindex_v3")
+                    .mappings(Collections.emptyMap())
+                    .build()));
+    UpdateIndicesStrategy upserting = mock(UpdateIndicesStrategy.class);
+    when(upserting.isEnabled()).thenReturn(true);
+    when(upserting.fillsNewIndicesFromPrimaryStorage()).thenReturn(false);
+    UpdateIndicesStrategy disabledFilling = mock(UpdateIndicesStrategy.class);
+    when(disabledFilling.isEnabled()).thenReturn(false);
+    when(disabledFilling.fillsNewIndicesFromPrimaryStorage()).thenReturn(true);
+
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(filling, upserting, disabledFilling),
+            null,
+            true,
+            true,
+            true);
+
+    assertEquals(
+        service.indicesFilledFromPrimaryStorage(operationContext), Set.of("primaryindex_v3"));
+    verify(upserting, never()).getIndexMappings(any(OperationContext.class));
+    verify(disabledFilling, never()).getIndexMappings(any(OperationContext.class));
+  }
+
+  @Test
+  public void testFillSearchIndicesWritesOnlyThroughFillingStrategies() {
+    UpdateIndicesStrategy filling = mock(UpdateIndicesStrategy.class);
+    when(filling.isEnabled()).thenReturn(true);
+    when(filling.fillsNewIndicesFromPrimaryStorage()).thenReturn(true);
+    UpdateIndicesStrategy upserting = mock(UpdateIndicesStrategy.class);
+    when(upserting.isEnabled()).thenReturn(true);
+    when(upserting.fillsNewIndicesFromPrimaryStorage()).thenReturn(false);
+    UpdateIndicesService service =
+        new UpdateIndicesService(
+            updateGraphIndicesService,
+            entitySearchService,
+            systemMetadataService,
+            List.of(filling, upserting),
+            null,
+            true,
+            true,
+            true);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,FilledDataset,PROD)");
+    com.linkedin.container.Container container = new com.linkedin.container.Container();
+    container.setContainer(UrnUtils.getUrn("urn:li:container:filled"));
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setChangeType(ChangeType.RESTATE);
+    event.setEntityUrn(urn);
+    event.setAspectName(CONTAINER_ASPECT_NAME);
+    event.setEntityType(urn.getEntityType());
+    event.setAspect(com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(container));
+    event.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+    event.setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    service.fillSearchIndices(operationContext, List.of(event));
+
+    verify(filling)
+        .processBatch(eq(operationContext), argThat(grouped -> grouped.containsKey(urn)), eq(true));
+    verify(upserting, never()).processBatch(any(), any(), anyBoolean());
+    // A fill rebuilds search documents only: no graph edges, no system metadata.
+    verify(updateGraphIndicesService, never()).handleChangeEvent(any(), any());
+    verify(systemMetadataService, never()).insert(any(), any(), any(), any());
   }
 
   @Test

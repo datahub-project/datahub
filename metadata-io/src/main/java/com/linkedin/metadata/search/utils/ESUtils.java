@@ -35,6 +35,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -73,6 +75,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
@@ -462,6 +465,18 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildFilterQuery(
+        filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain, null);
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder buildFilterQuery(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable SearchFieldResolver v3FieldResolver) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     // No early return on a null filter: unfiltered searches still need the latest-version clause.
     if (filter != null) {
@@ -479,26 +494,31 @@ public class ESUtils {
                             isTimeseries,
                             searchableFieldTypes,
                             opContext,
-                            queryFilterRewriteChain)));
+                            queryFilterRewriteChain,
+                            v3FieldResolver)));
       } else if (filter.getCriteria() != null) {
         // Otherwise, build boolean query from the deprecated "criteria" field.
         log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
         final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-        filter
-            .getCriteria()
-            .forEach(
-                criterion -> {
-                  if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
-                    andQueryBuilder.must(
-                        getQueryBuilderFromCriterion(
-                            criterion,
-                            isTimeseries,
-                            searchableFieldTypes,
-                            opContext,
-                            queryFilterRewriteChain));
-                  }
-                });
-        finalQueryBuilder.should(andQueryBuilder);
+        boolean omitted = false;
+        for (Criterion criterion : filter.getCriteria()) {
+          if (criterion.hasValues() || criterion.getCondition() == Condition.IS_NULL) {
+            QueryBuilder query =
+                getQueryBuilderFromCriterion(
+                    criterion,
+                    isTimeseries,
+                    searchableFieldTypes,
+                    opContext,
+                    queryFilterRewriteChain,
+                    v3FieldResolver);
+            if (query == null) {
+              omitted = true;
+            } else {
+              andQueryBuilder.must(query);
+            }
+          }
+        }
+        finalQueryBuilder.should(omittedGroup(andQueryBuilder, omitted));
       }
     }
     if (Boolean.TRUE.equals(
@@ -521,34 +541,68 @@ public class ESUtils {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildConjunctiveFilterQuery(
+        conjunctiveCriterion,
+        isTimeseries,
+        searchableFieldTypes,
+        opContext,
+        queryFilterRewriteChain,
+        null);
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder buildConjunctiveFilterQuery(
+      @Nonnull ConjunctiveCriterion conjunctiveCriterion,
+      boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable SearchFieldResolver v3FieldResolver) {
     final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
-    conjunctiveCriterion
-        .getAnd()
-        .forEach(
-            criterion -> {
-              if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
-                  || criterion.hasValues()) {
-                if (!criterion.isNegated()) {
-                  // `filter` instead of `must` (enables caching and bypasses scoring)
-                  andQueryBuilder.filter(
-                      getQueryBuilderFromCriterion(
-                          criterion,
-                          isTimeseries,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain));
-                } else {
-                  andQueryBuilder.mustNot(
-                      getQueryBuilderFromCriterion(
-                          criterion,
-                          isTimeseries,
-                          searchableFieldTypes,
-                          opContext,
-                          queryFilterRewriteChain));
-                }
-              }
-            });
-    return andQueryBuilder;
+    boolean omitted = false;
+    for (Criterion criterion : conjunctiveCriterion.getAnd()) {
+      if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
+          || criterion.hasValues()) {
+        QueryBuilder query =
+            getQueryBuilderFromCriterion(
+                criterion,
+                isTimeseries,
+                searchableFieldTypes,
+                opContext,
+                queryFilterRewriteChain,
+                v3FieldResolver);
+        if (query == null) {
+          omitted = true;
+          continue;
+        }
+        if (!criterion.isNegated()) {
+          // `filter` instead of `must` (enables caching and bypasses scoring)
+          andQueryBuilder.filter(query);
+        } else {
+          andQueryBuilder.mustNot(query);
+        }
+      }
+    }
+    return omittedGroup(andQueryBuilder, omitted);
+  }
+
+  /**
+   * An empty bool matches every document. A group that omitted every clause must not, or a sole
+   * unindexed filter and an OR branch of one would match the catalog.
+   */
+  @Nonnull
+  private static BoolQueryBuilder omittedGroup(@Nonnull BoolQueryBuilder group, boolean omitted) {
+    if (omitted && !hasClauses(group)) {
+      return QueryBuilders.boolQuery().mustNot(QueryBuilders.matchAllQuery());
+    }
+    return group;
+  }
+
+  private static boolean hasClauses(@Nonnull BoolQueryBuilder query) {
+    return !query.filter().isEmpty()
+        || !query.must().isEmpty()
+        || !query.should().isEmpty()
+        || !query.mustNot().isEmpty();
   }
 
   /**
@@ -585,8 +639,65 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return getQueryBuilderFromCriterion(
+        criterion, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain, null);
+  }
+
+  /**
+   * Returns null when a registered Search V3 field cannot answer the condition. An unindexed label
+   * such as {@code description} answers {@code EXISTS} and {@code IS_NULL} through its hasValues
+   * field and is left out for every other condition except {@code CONTAIN}.
+   */
+  @Nullable
+  public static QueryBuilder getQueryBuilderFromCriterion(
+      @Nonnull final Criterion criterion,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable SearchFieldResolver v3FieldResolver) {
+    final boolean resolvedForV3 =
+        v3FieldResolver != null
+            && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
+            && v3FieldResolver.contains(criterion.getField());
+    final Criterion effectiveCriterion;
+    if (resolvedForV3 && criterion.getCondition() == Condition.CONTAIN) {
+      SearchFieldResolver.Field containField =
+          v3FieldResolver.resolve(criterion.getField(), Intent.CONTAIN);
+      if (!containField.isIndexed()) {
+        return buildAnalyzedContainsQuery(
+            criterion.getField(), v3FieldResolver.analyzedPaths(criterion.getField()), criterion);
+      }
+      effectiveCriterion =
+          buildCriterion(
+              v3FieldResolver.exactPath(criterion.getField(), Intent.CONTAIN),
+              criterion.getCondition(),
+              criterion.isNegated(),
+              criterion.hasValues() ? criterion.getValues() : null);
+    } else if (resolvedForV3) {
+      Intent intent =
+          RANGE_QUERY_CONDITIONS.contains(criterion.getCondition()) ? Intent.RANGE : Intent.FILTER;
+      if (v3FieldResolver.supports(criterion.getField(), intent)) {
+        effectiveCriterion =
+            buildCriterion(
+                v3FieldResolver.exactPath(criterion.getField(), intent),
+                criterion.getCondition(),
+                criterion.isNegated(),
+                criterion.hasValues() ? criterion.getValues() : null);
+      } else {
+        Criterion rewritten = unindexedV3Criterion(v3FieldResolver, criterion);
+        if (rewritten == null) {
+          return null;
+        }
+        effectiveCriterion = rewritten;
+      }
+    } else {
+      effectiveCriterion = criterion;
+    }
     final String fieldName =
-        toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
+        resolvedForV3
+            ? effectiveCriterion.getField()
+            : toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
 
     /*
      * Check the field-name for a "sibling" field, or one which should ALWAYS
@@ -597,25 +708,74 @@ public class ESUtils {
      * without expansion.
      */
     final Optional<List<String>> maybeFieldToExpand =
-        Optional.ofNullable(FIELDS_TO_EXPANDED_FIELDS_LIST.get(fieldName));
+        resolvedForV3
+            ? Optional.empty()
+            : Optional.ofNullable(FIELDS_TO_EXPANDED_FIELDS_LIST.get(fieldName));
 
     if (maybeFieldToExpand.isPresent()) {
       return getQueryBuilderFromCriterionForFieldToExpand(
           maybeFieldToExpand.get(),
-          criterion,
+          effectiveCriterion,
           isTimeseries,
           searchableFieldTypes,
           opContext,
           queryFilterRewriteChain);
     }
 
+    if (resolvedForV3 && isSharedHasValuesFalse(v3FieldResolver, criterion)) {
+      return QueryBuilders.boolQuery()
+          .mustNot(QueryBuilders.existsQuery(effectiveCriterion.getField()))
+          .queryName(criterion.getField());
+    }
+
     return getQueryBuilderFromCriterionForSingleField(
-        criterion,
+        effectiveCriterion,
         isTimeseries,
         searchableFieldTypes,
         criterion.getField(),
         opContext,
-        queryFilterRewriteChain);
+        queryFilterRewriteChain,
+        resolvedForV3);
+  }
+
+  /**
+   * An unindexed label is searchable text. Existence uses the label's hasValues boolean. Every
+   * other condition has no indexed value to match, so the criterion is left out. A group with no
+   * clause left matches nothing.
+   */
+  @Nullable
+  private static Criterion unindexedV3Criterion(
+      @Nonnull SearchFieldResolver resolver, @Nonnull Criterion criterion) {
+    if (criterion.getCondition() == Condition.EXISTS
+        || criterion.getCondition() == Condition.IS_NULL) {
+      Optional<String> hasValues = resolver.hasValuesFieldName(criterion.getField());
+      if (hasValues.isPresent()) {
+        return buildCriterion(
+            hasValues.get(),
+            criterion.getCondition(),
+            criterion.isNegated(),
+            criterion.hasValues() ? criterion.getValues() : null);
+      }
+    }
+    log.debug(
+        "Omitting Search V3 {} filter on {}: the field is not indexed for that condition",
+        criterion.getCondition(),
+        criterion.getField());
+    return null;
+  }
+
+  /**
+   * Shared-label hasValues fields are never indexed as false, so false means the field is absent.
+   */
+  private static boolean isSharedHasValuesFalse(
+      @Nullable SearchFieldResolver v3FieldResolver, @Nonnull Criterion criterion) {
+    return v3FieldResolver != null
+        && v3FieldResolver.falseIsMissing(criterion.getField())
+        && (criterion.getCondition() == Condition.EQUAL
+            || criterion.getCondition() == Condition.IEQUAL)
+        && criterion.hasValues()
+        && criterion.getValues().size() == 1
+        && !Boolean.parseBoolean(criterion.getValues().get(0));
   }
 
   public static String getElasticTypeForFieldType(SearchableAnnotation.FieldType fieldType) {
@@ -658,7 +818,24 @@ public class ESUtils {
       List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs) {
     buildSortOrder(
-        searchSourceBuilder, sortCriteria == null ? List.of() : sortCriteria, entitySpecs, true);
+        searchSourceBuilder,
+        sortCriteria == null ? List.of() : sortCriteria,
+        entitySpecs,
+        true,
+        null);
+  }
+
+  public static void buildSortOrder(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      List<SortCriterion> sortCriteria,
+      List<EntitySpec> entitySpecs,
+      @Nullable SearchFieldResolver v3FieldResolver) {
+    buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria == null ? List.of() : sortCriteria,
+        entitySpecs,
+        true,
+        v3FieldResolver);
   }
 
   /**
@@ -673,6 +850,15 @@ public class ESUtils {
       @Nullable List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort) {
+    buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, enableDefaultSort, null);
+  }
+
+  public static void buildSortOrder(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nullable List<SortCriterion> sortCriteria,
+      List<EntitySpec> entitySpecs,
+      boolean enableDefaultSort,
+      @Nullable SearchFieldResolver v3FieldResolver) {
     if (sortCriteria.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
@@ -704,7 +890,11 @@ public class ESUtils {
                 ? SortOrder.ASC
                 : SortOrder.DESC;
         FieldSortBuilder sortBuilder =
-            new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder);
+            new FieldSortBuilder(
+                    v3FieldResolver != null && v3FieldResolver.contains(sortCriterion.getField())
+                        ? v3FieldResolver.exactPath(sortCriterion.getField(), Intent.SORT)
+                        : sortCriterion.getField())
+                .order(esSortOrder);
         if (fieldTypeForDefault.isPresent()) {
           String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
           if (esFieldtype != null) {
@@ -923,7 +1113,8 @@ public class ESUtils {
                   searchableFieldTypes,
                   null,
                   opContext,
-                  queryFilterRewriteChain)
+                  queryFilterRewriteChain,
+                  false)
               .queryName(field));
     }
     return orQueryBuilder;
@@ -940,10 +1131,14 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nullable String queryName,
       @Nonnull OperationContext opContext,
-      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean resolvedForV3) {
     final Condition condition = criterion.getCondition();
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
-    final String fieldName = toParentField(opContext, criterion.getField(), aspectRetriever);
+    final String fieldName =
+        resolvedForV3
+            ? criterion.getField()
+            : toParentField(opContext, criterion.getField(), aspectRetriever);
 
     boolean enableCaseInsensitiveSearch;
 
@@ -965,7 +1160,8 @@ public class ESUtils {
                 searchableFieldTypes,
                 opContext,
                 aspectRetriever,
-                enableCaseInsensitiveSearch)
+                enableCaseInsensitiveSearch,
+                resolvedForV3)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (RANGE_QUERY_CONDITIONS.contains(condition)) {
         return buildRangeQueryFromCriterion(
@@ -975,17 +1171,36 @@ public class ESUtils {
                 condition,
                 isTimeseries,
                 opContext,
-                aspectRetriever)
+                aspectRetriever,
+                resolvedForV3)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.CONTAIN) {
         return buildContainsConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
+            fieldName,
+            criterion,
+            queryName,
+            isTimeseries,
+            opContext,
+            aspectRetriever,
+            resolvedForV3);
       } else if (condition == Condition.START_WITH) {
         return buildStartsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
+            fieldName,
+            criterion,
+            queryName,
+            isTimeseries,
+            opContext,
+            aspectRetriever,
+            resolvedForV3);
       } else if (condition == Condition.END_WITH) {
         return buildEndsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
+            fieldName,
+            criterion,
+            queryName,
+            isTimeseries,
+            opContext,
+            aspectRetriever,
+            resolvedForV3);
       } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
         enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return QueryFilterRewriterContext.builder()
@@ -1002,7 +1217,8 @@ public class ESUtils {
                     searchableFieldTypes,
                     opContext,
                     aspectRetriever,
-                    enableCaseInsensitiveSearch))
+                    enableCaseInsensitiveSearch,
+                    resolvedForV3))
             .queryName(queryName != null ? queryName : fieldName);
       }
     }
@@ -1016,18 +1232,40 @@ public class ESUtils {
       @Nullable String queryName,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
-      String wildcardPattern) {
+      String wildcardPattern,
+      boolean resolvedForV3) {
     BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     for (String value : criterion.getValues()) {
       boolQuery.should(
           QueryBuilders.wildcardQuery(
-                  toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
+                  resolvedForV3
+                      ? fieldName
+                      : toKeywordField(
+                          opContext, criterion.getField(), isTimeseries, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
               .queryName(queryName != null ? queryName : fieldName)
               .caseInsensitive(true));
     }
     return boolQuery;
+  }
+
+  /**
+   * A contains filter on a text-only label matches each analyzed subfield. Every token must match,
+   * and any subfield is enough. Multiple values stay in disjunction, as a keyword wildcard does.
+   */
+  @Nonnull
+  private static QueryBuilder buildAnalyzedContainsQuery(
+      @Nonnull String queryName, @Nonnull List<String> paths, @Nonnull Criterion criterion) {
+    BoolQueryBuilder values = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    for (String value : criterion.getValues()) {
+      BoolQueryBuilder fields = QueryBuilders.boolQuery().minimumShouldMatch(1);
+      for (String path : paths) {
+        fields.should(QueryBuilders.matchQuery(path, value.trim()).operator(Operator.AND));
+      }
+      values.should(fields);
+    }
+    return values.queryName(queryName);
   }
 
   private static QueryBuilder buildContainsConditionFromCriterion(
@@ -1036,9 +1274,17 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nullable final Object opContext,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean resolvedForV3) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s*");
+        fieldName,
+        criterion,
+        isTimeseries,
+        queryName,
+        opContext,
+        aspectRetriever,
+        "*%s*",
+        resolvedForV3);
   }
 
   private static QueryBuilder buildStartsWithConditionFromCriterion(
@@ -1047,9 +1293,17 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nullable final Object opContext,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean resolvedForV3) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "%s*");
+        fieldName,
+        criterion,
+        isTimeseries,
+        queryName,
+        opContext,
+        aspectRetriever,
+        "%s*",
+        resolvedForV3);
   }
 
   private static QueryBuilder buildEndsWithConditionFromCriterion(
@@ -1058,9 +1312,17 @@ public class ESUtils {
       @Nullable String queryName,
       final boolean isTimeseries,
       @Nullable final Object opContext,
-      @Nonnull AspectRetriever aspectRetriever) {
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean resolvedForV3) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s");
+        fieldName,
+        criterion,
+        isTimeseries,
+        queryName,
+        opContext,
+        aspectRetriever,
+        "*%s",
+        resolvedForV3);
   }
 
   private static QueryBuilder buildEqualsConditionFromCriterion(
@@ -1070,7 +1332,8 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
-      boolean enableCaseInsensitiveSearch) {
+      boolean enableCaseInsensitiveSearch,
+      boolean resolvedForV3) {
     return buildEqualsConditionFromCriterionWithValues(
         fieldName,
         criterion,
@@ -1078,7 +1341,8 @@ public class ESUtils {
         searchableFieldTypes,
         opContext,
         aspectRetriever,
-        enableCaseInsensitiveSearch);
+        enableCaseInsensitiveSearch,
+        resolvedForV3);
   }
 
   /**
@@ -1092,7 +1356,8 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
-      boolean enableCaseInsensitiveSearch) {
+      boolean enableCaseInsensitiveSearch,
+      boolean resolvedForV3) {
     Set<String> fieldTypes =
         getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
     if (fieldTypes.size() > 1) {
@@ -1122,8 +1387,13 @@ public class ESUtils {
               value ->
                   boolQuery.should(
                       QueryBuilders.termQuery(
-                              toKeywordField(
-                                  opContext, criterion.getField(), isTimeseries, aspectRetriever),
+                              resolvedForV3
+                                  ? fieldName
+                                  : toKeywordField(
+                                      opContext,
+                                      criterion.getField(),
+                                      isTimeseries,
+                                      aspectRetriever),
                               value.trim())
                           .caseInsensitive(true)));
       if (!boolQuery.should().isEmpty()) {
@@ -1133,7 +1403,9 @@ public class ESUtils {
     }
 
     return QueryBuilders.termsQuery(
-            toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
+            resolvedForV3
+                ? fieldName
+                : toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
             criterion.getValues())
         .queryName(fieldName);
   }
@@ -1183,7 +1455,8 @@ public class ESUtils {
       Condition condition,
       boolean isTimeseries,
       @Nullable final Object opContext,
-      AspectRetriever aspectRetriever) {
+      AspectRetriever aspectRetriever,
+      boolean resolvedForV3) {
     Set<String> fieldTypes =
         getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
 
@@ -1204,7 +1477,10 @@ public class ESUtils {
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever);
+      documentFieldName =
+          resolvedForV3
+              ? fieldName
+              : toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever);
     }
 
     // Set up QueryBuilder based on condition

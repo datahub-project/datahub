@@ -22,7 +22,14 @@ record NotebookInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   title: string
 
@@ -32,7 +39,15 @@ record NotebookInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "sanitizeRichText": true
+    "sanitizeRichText": true,
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
