@@ -284,7 +284,9 @@ public class MultiEntityMappingsBuilderTest {
 
     assertFalse(mappings.isEmpty());
     for (IndexMapping mapping : mappings) {
-      Object aspects = withoutParsedUrnFields(getProperties(mapping.getMappings()).get("_aspects"));
+      Object aspects =
+          withoutStoredAspectJsonFields(
+              withoutParsedUrnFields(getProperties(mapping.getMappings()).get("_aspects")));
       Set<String> analyzers = new HashSet<>();
       collectAnalysisReferences(aspects, analyzers, new HashSet<>());
       Set<String> types = new HashSet<>();
@@ -1891,6 +1893,23 @@ public class MultiEntityMappingsBuilderTest {
         continue;
       }
       copy.put(key, withoutParsedUrnFields(entry.getValue()));
+    }
+    return copy;
+  }
+
+  /** The stored aspect body is intentionally an unindexed text field, not an analyzed copy. */
+  @SuppressWarnings("unchecked")
+  private static Object withoutStoredAspectJsonFields(Object value) {
+    if (!(value instanceof Map<?, ?> map)) {
+      return value;
+    }
+    Map<String, Object> copy = new HashMap<>();
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      String key = String.valueOf(entry.getKey());
+      if (V3SearchDocumentProjector.ASPECT_JSON_FIELD.equals(key)) {
+        continue;
+      }
+      copy.put(key, withoutStoredAspectJsonFields(entry.getValue()));
     }
     return copy;
   }

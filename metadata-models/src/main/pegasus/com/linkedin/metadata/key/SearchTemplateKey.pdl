@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a search query template.
+ */
+@Aspect = {
+  "name": "searchTemplateKey",
+}
+record SearchTemplateKey {
+  /**
+   * Unique id for the template. Well-known system ids are fulltext, list, structured, exact,
+   * structuredExact, and lineage.
+   */
+  id: string
+}
