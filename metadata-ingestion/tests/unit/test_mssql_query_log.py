@@ -12,6 +12,7 @@ from datahub.ingestion.source.sql.mssql.query import (
 )
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
+    QueryLogCache,
     query_log_file_pattern,
     unwrap_rpc_statement,
 )
@@ -40,6 +41,7 @@ def _result(rows: List[Dict[str, Any]]) -> Mock:
     result = Mock()
     result.mappings.return_value.fetchone.return_value = rows[0] if rows else None
     result.mappings.return_value.fetchall.return_value = rows
+    result.mappings.return_value.all.return_value = rows
     result.mappings.return_value.__iter__ = lambda _: iter(rows)
     return result
 
@@ -47,7 +49,7 @@ def _result(rows: List[Dict[str, Any]]) -> Mock:
 def _on_prem() -> List[Mock]:
     """Engine edition and version lookups a log source runs on SQL Server."""
     return [
-        _result([{"engine_edition": 3}]),
+        _result([{"engine_edition": 3, "current_database": "TestDB"}]),
         _result([{"version": "16.0", "major_version": 16}]),
     ]
 
@@ -67,19 +69,28 @@ def _extractor(
 
 
 def _log_row(
-    query_id: str, text: str, user: Optional[str], count: int, truncated: int = 0
+    query_id: str,
+    text: str,
+    user: Optional[str],
+    count: int,
+    truncated: int = 0,
+    unmapped: int = 0,
+    wrapped: int = 0,
+    database: str = "TestDB",
 ) -> Dict[str, Any]:
     return {
         "query_id": query_id,
         "query_text": text,
         "execution_count": count,
         "total_exec_time_ms": 0.0,
-        "database_name": "TestDB",
+        "database_name": database,
         "last_execution_time_utc": datetime(2026, 1, 1, 9),
         "window_execution_count": count,
         "user_name": user,
         "session_key": None,
         "is_truncated": truncated,
+        "is_unmapped": unmapped,
+        "wrapped_execution_count": wrapped,
     }
 
 
@@ -169,8 +180,9 @@ def test_query_store_rejects_log_only_settings() -> None:
 
 @pytest.mark.parametrize("database_scoped", [True, False])
 def test_extended_events_database_filter(database_scoped: bool) -> None:
-    """A server-scoped session must tie rows to the database; only a
-    database-scoped (Azure SQL Database) session can trust rows without one."""
+    """A server-scoped session must tie each row to a database; only a
+    database-scoped (Azure SQL Database) session can attribute rows without
+    one to the current database."""
     query, _ = MSSQLQuery.get_query_history_from_extended_events(
         path="/xe/x*.xel",
         window=_WINDOW,
@@ -179,11 +191,14 @@ def test_extended_events_database_filter(database_scoped: bool) -> None:
         database_scoped=database_scoped,
     )
     expected = (
-        "(database_name IS NULL OR database_name = DB_NAME())"
+        "COALESCE(x.action_database_name, DB_NAME())"
         if database_scoped
-        else "(database_name = DB_NAME() OR database_id = DB_ID())"
+        else "COALESCE(x.action_database_name, DB_NAME(x.action_database_id))"
     )
-    assert expected in str(query)
+    sql = str(query)
+    assert f"{expected} AS database_name" in sql
+    # Rows the session couldn't tie to a database are dropped.
+    assert f"AND {expected} IS NOT NULL" in sql
 
 
 @pytest.mark.parametrize("database_scoped", [True, False])
@@ -264,7 +279,7 @@ def test_query_log_rejects_sql_server_before_2017() -> None:
     extractor, _, report = _extractor(
         _config(query_history_source="audit_log", query_history_path="/a*.sqlaudit"),
         [
-            _result([{"engine_edition": 3}]),
+            _result([{"engine_edition": 3, "current_database": "TestDB"}]),
             _result([{"version": "13.0", "major_version": 13}]),
         ],
     )
@@ -277,7 +292,16 @@ def test_audit_log_on_azure_without_path_reports_failure() -> None:
     """Azure SQL Database has no T-SQL view of its audit location."""
     extractor, _, report = _extractor(
         _config(query_history_source="audit_log"),
-        [_result([{"engine_edition": AZURE_SQL_DATABASE_ENGINE_EDITION}])],
+        [
+            _result(
+                [
+                    {
+                        "engine_edition": AZURE_SQL_DATABASE_ENGINE_EDITION,
+                        "current_database": "TestDB",
+                    }
+                ]
+            )
+        ],
     )
 
     assert extractor.extract_query_history() == []
@@ -288,7 +312,14 @@ def test_extended_events_path_discovered_from_running_session() -> None:
     extractor, connection, _ = _extractor(
         _config(query_history_source="extended_events"),
         [
-            _result([{"engine_edition": AZURE_SQL_DATABASE_ENGINE_EDITION}]),
+            _result(
+                [
+                    {
+                        "engine_edition": AZURE_SQL_DATABASE_ENGINE_EDITION,
+                        "current_database": "TestDB",
+                    }
+                ]
+            ),
             _result(
                 [
                     {
@@ -332,3 +363,76 @@ def test_query_log_discovery_permission_error_reports_failure() -> None:
 
     assert extractor.extract_query_history() == []
     assert report.failures
+
+
+def test_unmapped_executes_are_counted_not_emitted() -> None:
+    """An sp_execute whose prepare isn't in the window can't be attributed, so
+    it's skipped and counted; executions of wrapped SQL are counted too."""
+    rows = [
+        _log_row("h1", "SELECT a FROM t WHERE id = @P0", "alice", 5, wrapped=5),
+        _log_row("h2", "<unmapped sp_execute>", "alice", 3, unmapped=1),
+    ]
+    extractor, _, report = _extractor(
+        _config(query_history_source="audit_log", query_history_path="/a*.sqlaudit"),
+        [*_on_prem(), _result(rows)],
+    )
+
+    queries = extractor.extract_query_history()
+
+    assert [q.query_text for q in queries] == ["SELECT a FROM t WHERE id = @P0"]
+    assert report.num_query_log_unmapped_executions == 3
+    assert report.num_query_log_rpc_executions_unwrapped == 5
+
+
+def test_query_log_is_read_once_and_split_by_database() -> None:
+    """A server audit covers every database, so the per-database extractors of
+    one run share a single read and each keeps only its own rows."""
+    rows = [
+        _log_row("h1", "SELECT a FROM t", "alice", 2, database="SalesDB"),
+        _log_row("h2", "SELECT b FROM u", "bob", 4, database="HrDB"),
+    ]
+    cache: QueryLogCache = {}
+    config = _config(
+        query_history_source="audit_log", query_history_path="/a*.sqlaudit"
+    )
+
+    def run(database: str, results: List[Mock]) -> Tuple[List[str], Mock]:
+        connection = Mock()
+        connection.engine.url.database = database
+        connection.execute.side_effect = results
+        extractor = MSSQLLineageExtractor(
+            config, connection, SQLSourceReport(), Mock(), "dbo", query_log_cache=cache
+        )
+        return [q.query_text for q in extractor.extract_query_history()], connection
+
+    def context(database: str) -> List[Mock]:
+        return [
+            _result([{"engine_edition": 3, "current_database": database}]),
+            _result([{"version": "16.0", "major_version": 16}]),
+        ]
+
+    sales, _ = run("SalesDB", [*context("SalesDB"), _result(rows)])
+    hr, hr_connection = run("HrDB", context("HrDB"))
+
+    assert sales == ["SELECT a FROM t"]
+    assert hr == ["SELECT b FROM u"]
+    # Only the server-context lookups ran for the second database.
+    assert hr_connection.execute.call_count == 2
+
+
+def test_log_sql_groups_on_inner_sql_and_maps_sp_execute() -> None:
+    """Ranking happens on the unwrapped statement, so parameter values of one
+    query don't compete, and sp_execute rows are joined to their prepare by
+    session and handle."""
+    query, _ = MSSQLQuery.get_query_history_from_audit_log(
+        path="/audit/x*.sqlaudit",
+        window=_WINDOW,
+        limit=10,
+        exclude_patterns=None,
+        statements_truncated=False,
+    )
+    sql = " ".join(str(query).split())
+    assert "HASHBYTES('SHA2_256', stmt_key)" in sql
+    assert "PARTITION BY database_name, is_unmapped" in sql
+    assert "pr.prep_handle = n.exec_handle AND pr.session_id = n.session_id" in sql
+    assert "INTO #dh_query_log" in sql

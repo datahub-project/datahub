@@ -2,7 +2,17 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Set
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
@@ -13,7 +23,6 @@ from datahub.ingestion.source.sql.mssql.query import (
     MSSQLQuery,
     QueryHistorySource,
     QueryHistoryWindow,
-    QueryParams,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -27,13 +36,22 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
-    from sqlalchemy.engine import Connection
+    from sqlalchemy.engine import Connection, RowMapping
     from sqlalchemy.sql.elements import TextClause
 
     from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
     from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 
 logger = logging.getLogger(__name__)
+
+
+class ServerContext(NamedTuple):
+    engine_edition: Optional[int]
+    current_database: Optional[str]
+
+
+# (source, path, database for database-scoped sessions) -> log rows.
+QueryLogCache = Dict[Tuple[str, str, Optional[str]], Sequence["RowMapping"]]
 
 
 class PrerequisiteResult(NamedTuple):
@@ -107,9 +125,6 @@ _PREPARE_PATTERN = re.compile(
 # Rolling file suffix SQL Server appends to audit/XE target files:
 # <name>_<partition>_<timestamp>.sqlaudit|.xel
 _ROLLING_FILE_SUFFIX_PATTERN = re.compile(r"_\d+_\d+\.(sqlaudit|xel)$", re.IGNORECASE)
-# Raw log statements fetched per kept query: parameter values make one query
-# appear as many raw statements until they are unwrapped and regrouped.
-_RAW_LOG_STATEMENTS_PER_QUERY = 10
 
 
 def unwrap_rpc_statement(statement: str) -> Optional[str]:
@@ -159,12 +174,18 @@ class MSSQLLineageExtractor:
         report: "SQLSourceReport",
         sql_aggregator: SqlParsingAggregator,
         default_schema: str = "dbo",
+        query_log_cache: Optional["QueryLogCache"] = None,
     ) -> None:
         self.config = config
         self.connection = connection
         self.report = report
         self.sql_aggregator = sql_aggregator
         self.default_schema = default_schema
+        # Shared across the per-database extractors of one run, so a server
+        # audit or server-scoped event session is read once, not per database.
+        self.query_log_cache: QueryLogCache = (
+            query_log_cache if query_log_cache is not None else {}
+        )
 
         self.queries_extracted = 0
         # Set when a query log (audit / Extended Events) path was resolved.
@@ -308,13 +329,18 @@ class MSSQLLineageExtractor:
             bucket_duration=self.config.bucket_duration,
         )
 
-    def _engine_edition(self) -> Optional[int]:
+    def _server_context(self) -> ServerContext:
         row = (
             self.connection.execute(MSSQLQuery.get_engine_edition())
             .mappings()
             .fetchone()
         )
-        return None if row is None else row["engine_edition"]
+        if row is None:
+            return ServerContext(engine_edition=None, current_database=None)
+        return ServerContext(
+            engine_edition=row["engine_edition"],
+            current_database=row["current_database"],
+        )
 
     def _discover_query_log_path(
         self, source: QueryHistorySource, is_azure_sql_database: bool
@@ -403,13 +429,17 @@ class MSSQLLineageExtractor:
             min_calls=self.config.min_query_calls,
             exclude_patterns=self.config.query_exclude_patterns,
         )
-        return self._run_query_history(query, params, prereq.method)
+        return self._run_query_history(
+            lambda: list(self.connection.execute(query, params).mappings()),
+            prereq.method,
+        )
 
     def _extract_from_query_log(
         self, source: QueryHistorySource
     ) -> List[MSSQLQueryEntry]:
         try:
-            edition = self._engine_edition()
+            context = self._server_context()
+            edition = context.engine_edition
             is_azure_sql_database = edition == AZURE_SQL_DATABASE_ENGINE_EDITION
             if edition not in (
                 AZURE_SQL_DATABASE_ENGINE_EDITION,
@@ -447,12 +477,11 @@ class MSSQLLineageExtractor:
             return []
         self.query_log_found = True
 
-        raw_limit = self.config.max_queries_to_extract * _RAW_LOG_STATEMENTS_PER_QUERY
         if source == QueryHistorySource.AUDIT_LOG:
             query, params = MSSQLQuery.get_query_history_from_audit_log(
                 path=path,
                 window=self._window(),
-                limit=raw_limit,
+                limit=self.config.max_queries_to_extract,
                 exclude_patterns=self.config.query_exclude_patterns,
                 statements_truncated=is_azure_sql_database,
             )
@@ -460,35 +489,62 @@ class MSSQLLineageExtractor:
             query, params = MSSQLQuery.get_query_history_from_extended_events(
                 path=path,
                 window=self._window(),
-                limit=raw_limit,
+                limit=self.config.max_queries_to_extract,
                 exclude_patterns=self.config.query_exclude_patterns,
                 database_scoped=is_azure_sql_database,
             )
-        return self._run_query_history(query, params, source.value, is_query_log=True)
+        # The log covers every database (a database-scoped Azure session only
+        # its own), so it is read once and each database takes its rows.
+        current_database = (context.current_database or "").lower()
+        cache_key = (
+            source.value,
+            path,
+            current_database if is_azure_sql_database else None,
+        )
+
+        def fetch() -> Sequence["RowMapping"]:
+            rows = self.query_log_cache.get(cache_key)
+            if rows is None:
+                rows = list(self.connection.execute(query, params).mappings())
+                self.query_log_cache[cache_key] = rows
+            return [
+                row
+                for row in rows
+                if str(row["database_name"]).lower() == current_database
+            ]
+
+        return self._run_query_history(fetch, source.value, is_query_log=True)
 
     def _run_query_history(
         self,
-        query: "TextClause",
-        params: QueryParams,
+        fetch: Callable[[], Sequence["RowMapping"]],
         method: str,
         is_query_log: bool = False,
     ) -> List[MSSQLQueryEntry]:
         with PerfTimer() as timer:
             try:
-                result = self.connection.execute(query, params)
+                rows = fetch()
 
                 # History queries return one row per (query, usage bucket[,
                 # user]) with executions in the window, so fold rows back into
                 # one entry per query.
                 queries_by_id: Dict[str, MSSQLQueryEntry] = {}
-                for row in result.mappings():
-                    if is_query_log and row["is_truncated"]:
-                        # Azure SQL Auditing cuts statements at 4000 characters;
-                        # parsing the remainder would give partial lineage.
-                        self.report.num_query_log_truncated_statements += int(
-                            row["window_execution_count"] or 0
+                for row in rows:
+                    if is_query_log:
+                        executions = int(row["window_execution_count"] or 0)
+                        if row["is_truncated"]:
+                            # Azure SQL Auditing cuts statements at 4000
+                            # characters; parsing the rest gives partial lineage.
+                            self.report.num_query_log_truncated_statements += executions
+                            continue
+                        if row["is_unmapped"]:
+                            # sp_execute whose prepare isn't in the window or
+                            # the event lacks a session id.
+                            self.report.num_query_log_unmapped_executions += executions
+                            continue
+                        self.report.num_query_log_rpc_executions_unwrapped += int(
+                            row["wrapped_execution_count"] or 0
                         )
-                        continue
                     query_id = str(row["query_id"])
                     entry = queries_by_id.get(query_id)
                     if entry is None:
@@ -585,9 +641,9 @@ class MSSQLLineageExtractor:
         """
         merged: Dict[str, MSSQLQueryEntry] = {}
         for entry in entries:
+            # The SQL already unwraps the common wrappers; this catches the
+            # rest (e.g. JDBC cursor prepares).
             unwrapped = unwrap_rpc_statement(entry.query_text)
-            if unwrapped is not None:
-                self.report.num_query_log_rpc_statements_unwrapped += 1
             query_text = unwrapped if unwrapped is not None else entry.query_text
             existing = merged.get(query_text)
             if existing is None:

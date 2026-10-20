@@ -183,17 +183,24 @@ The audit must capture `BATCH_COMPLETED_GROUP`. That group is part of the defaul
 
 ##### Option B: Extended Events (`extended_events`)
 
-Create a session with an `event_file` target that captures completed batches and RPCs with the login and database.
+Create a session with an `event_file` target that captures completed batches and RPCs with the login, session and database. `session_server_principal_name` credits `EXECUTE AS` work to the original login, and `session_id` lets the connector attribute JDBC/ODBC `sp_execute` calls to the statement they run. The examples skip system databases and the DataHub login, and cap the files the session keeps (5 × 100 MB); size them for your workload.
 
 **SQL Server and Managed Instance** (server-scoped session):
 
 ```sql
 CREATE EVENT SESSION DataHubQueries ON SERVER
 ADD EVENT sqlserver.sql_batch_completed(
-    ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
+    ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+           sqlserver.session_id, sqlserver.database_name)
+    WHERE sqlserver.database_id > 4
+      AND NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'datahub_login')),
 ADD EVENT sqlserver.rpc_completed(
-    ACTION(sqlserver.server_principal_name, sqlserver.database_name))
-ADD TARGET package0.event_file(SET filename = N'D:\XE\DataHubQueries.xel')
+    ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+           sqlserver.session_id, sqlserver.database_name)
+    WHERE sqlserver.database_id > 4
+      AND NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'datahub_login'))
+ADD TARGET package0.event_file(
+    SET filename = N'D:\XE\DataHubQueries.xel', max_file_size = 100, max_rollover_files = 5)
 WITH (STARTUP_STATE = ON);
 ALTER EVENT SESSION DataHubQueries ON SERVER STATE = START;
 -- SQL Server 2022+ (VIEW SERVER STATE on earlier versions)
@@ -205,11 +212,16 @@ GRANT VIEW SERVER PERFORMANCE STATE TO [datahub_login];
 ```sql
 CREATE EVENT SESSION DataHubQueries ON DATABASE
 ADD EVENT sqlserver.sql_batch_completed(
-    ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
+    ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+           sqlserver.session_id, sqlserver.database_name)
+    WHERE NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'datahub_user')),
 ADD EVENT sqlserver.rpc_completed(
-    ACTION(sqlserver.server_principal_name, sqlserver.database_name))
+    ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+           sqlserver.session_id, sqlserver.database_name)
+    WHERE NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'datahub_user'))
 ADD TARGET package0.event_file(
-    SET filename = N'https://<account>.blob.core.windows.net/<container>/DataHubQueries.xel')
+    SET filename = N'https://<account>.blob.core.windows.net/<container>/DataHubQueries.xel',
+        max_file_size = 100, max_rollover_files = 5)
 WITH (STARTUP_STATE = ON);
 ALTER EVENT SESSION DataHubQueries ON DATABASE STATE = START;
 GRANT VIEW DATABASE PERFORMANCE STATE TO [datahub_user];

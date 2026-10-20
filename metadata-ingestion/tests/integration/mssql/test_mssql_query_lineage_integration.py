@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Set, Tuple
 from unittest.mock import MagicMock, Mock
 
+import pytds
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
@@ -1400,6 +1401,13 @@ def query_log_targets(mssql_connection, mssql_runner):
         )
         master.execute(
             text(
+                "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'qh_other') "
+                "CREATE LOGIN qh_other WITH PASSWORD = 'Other!Passw0rd1', CHECK_POLICY = OFF"
+            )
+        )
+        master.execute(text("GRANT IMPERSONATE ON LOGIN::qh_other TO qh_analyst"))
+        master.execute(
+            text(
                 "IF NOT EXISTS (SELECT 1 FROM sys.server_audits WHERE name = 'qh_audit') "
                 "CREATE SERVER AUDIT qh_audit TO FILE (FILEPATH = '/var/opt/mssql/data/')"
             )
@@ -1415,10 +1423,17 @@ def query_log_targets(mssql_connection, mssql_runner):
             text("""
             CREATE EVENT SESSION qh_xe ON SERVER
             ADD EVENT sqlserver.sql_batch_completed(
-                ACTION(sqlserver.server_principal_name, sqlserver.database_name)),
+                ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+                       sqlserver.session_id, sqlserver.database_name)
+                WHERE sqlserver.database_id > 4
+                  AND NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'qh_excluded')),
             ADD EVENT sqlserver.rpc_completed(
-                ACTION(sqlserver.server_principal_name, sqlserver.database_name))
-            ADD TARGET package0.event_file(SET filename = N'/var/opt/mssql/data/qh_xe.xel')
+                ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+                       sqlserver.session_id, sqlserver.database_name)
+                WHERE sqlserver.database_id > 4
+                  AND NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'qh_excluded'))
+            ADD TARGET package0.event_file(
+                SET filename = N'/var/opt/mssql/data/qh_xe.xel', max_file_size = 100, max_rollover_files = 5)
             WITH (MAX_DISPATCH_LATENCY = 1 SECONDS)
         """)
         )
@@ -1431,6 +1446,10 @@ def query_log_targets(mssql_connection, mssql_runner):
         )
     )
     conn.execute(text("GRANT SELECT ON SCHEMA::lineage_test TO qh_analyst"))
+    conn.execute(
+        text("IF USER_ID('qh_other') IS NULL CREATE USER qh_other FOR LOGIN qh_other")
+    )
+    conn.execute(text("GRANT SELECT ON SCHEMA::lineage_test TO qh_other"))
     conn.execute(
         text(
             "CREATE DATABASE AUDIT SPECIFICATION qh_spec FOR SERVER AUDIT qh_audit "
@@ -1458,7 +1477,59 @@ def query_log_targets(mssql_connection, mssql_runner):
         # Permission denied -> must not become a query.
         with pytest.raises(sa.exc.DBAPIError):
             analyst.exec_driver_sql("SELECT secret_id FROM dbo.qh_restricted")
+        # Impersonation -> credited to the session's own login.
+        analyst.exec_driver_sql("EXECUTE AS LOGIN = 'qh_other'")
+        analyst.exec_driver_sql(
+            "SELECT country FROM lineage_test.source_customers /* impersonated */"
+        )
+        analyst.exec_driver_sql("REVERT")
+        # Over 4000 characters -> SQL Server splits it across audit records.
+        analyst.exec_driver_sql(
+            "SELECT total_amount FROM lineage_test.source_orders WHERE order_id IN ("
+            + ",".join(str(i) for i in range(1500))
+            + ") /* long */"
+        )
+        # A hot parameterized query with many distinct values.
+        for value in range(12):
+            analyst.execute(
+                text(
+                    "SELECT order_date FROM lineage_test.source_orders "
+                    "WHERE order_id = :value /* hot */"
+                ),
+                {"value": value},
+            )
     analyst_engine.dispose()
+
+    # JDBC re-runs a prepared statement with sp_prepare + `exec sp_execute <handle>`
+    # RPCs; pytds callproc sends the same RPCs over one session.
+    jdbc = pytds.connect(
+        "localhost",
+        "lineage_test",
+        "qh_analyst",
+        "Analyst!Passw0rd",
+        port=mssql_runner,
+        autocommit=True,
+        cafile=os.environ["MSSQL_CAFILE"],
+        validate_host=False,
+    )
+    cursor = jdbc.cursor()
+    cursor.callproc(
+        "sp_prepare",
+        (
+            pytds.output(param_type="int", value=None),
+            "@P0 int",
+            "SELECT customer_id FROM lineage_test.source_orders WHERE order_id = @P0 /* jdbc */",
+            1,
+        ),
+    )
+    while cursor.nextset():
+        pass
+    handle = cursor.get_proc_outputs()[0]
+    for value in range(4):
+        cursor.callproc("sp_execute", (handle, value))
+        while cursor.nextset():
+            pass
+    jdbc.close()
     # The connector's own login runs the same lookup; it must not be counted.
     conn.execute(lookup, {"customer_id": 101})
     time.sleep(3)  # event_file / audit buffers flush
@@ -1480,7 +1551,7 @@ def _run_query_log(
     mssql_connection: sa.engine.Connection,
     mssql_runner: int,
     query_history_source: str,
-    **overrides: str,
+    **overrides: object,
 ) -> Tuple[List[MetadataChangeProposalWrapper], SQLServerSource]:
     config = SQLServerConfig.model_validate(
         {
@@ -1496,6 +1567,14 @@ def _run_query_log(
         }
     )
     source = SQLServerSource(config, PipelineContext(run_id=query_history_source))
+    # No table-ingestion pass runs here, so record the fixture tables as
+    # discovered; only ingested tables become Query subjects.
+    for table in (
+        "lineage_test.lineage_test.source_customers",
+        "lineage_test.lineage_test.source_orders",
+        "lineage_test.dbo.qh_restricted",
+    ):
+        source.discovered_datasets.add(table)
     extractor = MSSQLLineageExtractor(
         config=config,
         connection=mssql_connection,
@@ -1544,12 +1623,33 @@ def test_query_log_attributes_queries_to_users(
     usage = _query_usage_by_statement(mcps)
     analyst = {"urn:li:corpuser:qh_analyst@example.com"}
 
-    lookups = {s: u for s, u in usage.items() if "source_customers" in s}
+    lookups = {
+        s: u
+        for s, u in usage.items()
+        if "source_customers" in s and "impersonated" not in s
+    }
     assert len(lookups) == 1, usage
     assert list(lookups.values())[0] == (3, analyst)
-    assert source.report.num_query_log_rpc_statements_unwrapped >= 3
+    assert source.report.num_query_log_rpc_executions_unwrapped >= 3
 
-    batches = [u for s, u in usage.items() if "source_orders" in s and "order_id" in s]
+    # EXECUTE AS work is credited to the login that opened the session.
+    impersonated = [u for s, u in usage.items() if "impersonated" in s]
+    assert impersonated == [(1, analyst)], usage
+
+    # A JDBC prepared statement re-run with sp_execute keeps every execution.
+    jdbc = [u for s, u in usage.items() if "/* jdbc */" in s]
+    assert jdbc == [(4, analyst)], usage
+
+    # A statement SQL Server split across audit records comes back whole.
+    long_statements = [s for s in usage if "/* long */" in s]
+    assert len(long_statements) == 1 and "1499" in long_statements[0], usage
+
+    # The plain batch is the only unfiltered read of source_orders.order_id.
+    batches = [
+        u
+        for s, u in usage.items()
+        if "source_orders" in s and "order_id" in s and "WHERE" not in s
+    ]
     assert batches == [(1, analyst)], usage
     if query_history_source == "audit_log":
         # Extended Events reports statement-level errors (e.g. permission
@@ -1570,3 +1670,20 @@ def test_query_log_respects_time_window(
         end_time="2000-01-02T00:00:00Z",
     )
     assert not any("source_customers" in s for s in _query_usage_by_statement(mcps))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_top_n_ranks_unwrapped_statements(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """Ranking happens on the unwrapped statement, so a parameterized query run
+    with 12 distinct values beats queries run once, even with a top-1 limit."""
+    mcps, _ = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        max_queries_to_extract=1,
+    )
+    usage = _query_usage_by_statement(mcps)
+    assert [count for s, (count, _) in usage.items() if "/* hot */" in s] == [12], usage

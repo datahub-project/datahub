@@ -59,25 +59,14 @@ AZURE_SQL_MANAGED_INSTANCE_ENGINE_EDITION = 8
 QUERY_LOG_MIN_MAJOR_VERSION = 14
 # Azure SQL Auditing truncates statements to this many characters.
 AUDIT_STATEMENT_MAX_CHARS = 4000
-# RPCs worth keeping: driver wrappers around parameterized SQL. Other RPCs
-# (sp_reset_connection, sp_unprepare, sp_cursorfetch, procedure calls, ...)
-# never reference tables and would only crowd out real queries in the top-N.
-RPC_SQL_WRAPPER_PROCEDURES = (
-    "sp_executesql",
-    "sp_prepexec",
-    "sp_prepare",
-    "sp_cursorprepexec",
-    "sp_cursorprepare",
-)
-# `_` is a LIKE wildcard, so escape it.
-_RPC_WRAPPER_FILTER = (
-    "("
-    + " OR ".join(
-        f"statement LIKE '%{name.replace('_', '[_]')}%'"
-        for name in RPC_SQL_WRAPPER_PROCEDURES
-    )
-    + ")"
-)
+# Driver RPCs are kept only when they carry SQL: wrappers around parameterized
+# SQL (sp_executesql, sp_prepexec, sp_prepare), and sp_execute calls that run a
+# statement prepared earlier in the session. Other RPCs (sp_reset_connection,
+# sp_unprepare, sp_cursorfetch, ...) carry no SQL to parse, and procedure-call
+# RPCs get their lineage from the stored-procedure extractor instead; keeping
+# them would only crowd out real queries in the top-N.
+# Group key for sp_execute rows whose prepare isn't in the window or session.
+UNMAPPED_EXECUTE_KEY = "<unmapped sp_execute>"
 
 
 @dataclass(frozen=True)
@@ -458,53 +447,190 @@ class MSSQLQuery:
             exclude_patterns=exclude_patterns,
         )
 
-    # Shared tail of the audit and Extended Events readers. `log_rows` yields
-    # (event_time, user_name, statement, is_rpc, is_truncated) for successful
-    # completed statements in the current database and window. Rows are
-    # grouped per (statement, user, usage bucket) and the top :limit raw
-    # statements by in-window count are kept; the caller regroups them after
-    # unwrapping RPC parameter values, so :limit is deliberately larger than
-    # max_queries_to_extract and min_calls is applied after regrouping.
-    # Statements are grouped by hash because NVARCHAR(MAX) can't be a GROUP BY
-    # key. The connector's own login is excluded so DataHub's metadata queries
-    # don't show up as user activity.
-    _LOG_QUERY_TAIL = f"""
+    # Shared by the audit and Extended Events readers. The log is read once
+    # into #dh_query_log (event_time, session_id, user_name, statement, is_rpc,
+    # is_truncated, database_name) for every database, then:
+    # - driver wrappers (sp_executesql, sp_prepexec, sp_prepare) are reduced to
+    #   their inner SQL, so all parameter values of a query share one key;
+    # - `exec sp_execute <handle>` rows take the SQL of the latest prepare of
+    #   that handle in the same session (JDBC/ODBC reuse prepared statements);
+    # - rows are grouped per (database, statement, user, usage bucket), and the
+    #   top :limit statements per database by in-window count are kept.
+    # Literal boundaries are found after replacing doubled quotes with a
+    # placeholder. Statements are grouped by hash because NVARCHAR(MAX) can't
+    # be a GROUP BY key. The connector's own login is excluded so DataHub's
+    # metadata queries don't show up as user activity.
+    _LOG_QUERY_TAIL = (
+        """
+            SELECT
+                event_time, session_id, user_name, statement, is_rpc,
+                is_truncated, database_name
+            INTO #dh_query_log
+            FROM log_rows;
+
+            WITH normalized AS (
+                SELECT
+                    q.*,
+                    CASE WHEN f.inner_sql IS NOT NULL
+                        THEN REPLACE(f.inner_sql, NCHAR(1), N'''')
+                        ELSE q.statement
+                    END AS stmt_key,
+                    CASE WHEN f.inner_sql IS NOT NULL THEN 1 ELSE 0 END AS is_wrapper,
+                    -- sp_prepare only prepares; its executions arrive as sp_execute.
+                    CASE WHEN p.prep_pos BETWEEN 1 AND 400
+                        AND PATINDEX(N'%sp[_]prepexec %', e.t) = 0
+                        THEN 1 ELSE 0
+                    END AS is_prepare_only,
+                    h.prep_handle,
+                    h.exec_handle
+                FROM #dh_query_log AS q
+                CROSS APPLY (
+                    SELECT LTRIM(REPLACE(q.statement, N'''''', NCHAR(1))) AS t
+                ) AS e
+                CROSS APPLY (
+                    SELECT
+                        CASE WHEN e.t LIKE N'exec%sp[_]executesql N''%'
+                            AND CHARINDEX(N'sp_executesql', e.t) <= 20
+                            THEN CHARINDEX(N'sp_executesql N''', e.t) + 16
+                        END AS es_start,
+                        CASE WHEN e.t LIKE N'declare%' OR e.t LIKE N'exec%'
+                            THEN COALESCE(
+                                NULLIF(PATINDEX(N'%sp[_]prepexec %', e.t), 0),
+                                NULLIF(PATINDEX(N'%sp[_]prepare %', e.t), 0)
+                            )
+                        END AS prep_pos,
+                        CASE WHEN e.t LIKE N'exec sp[_]execute [0-9]%' THEN 1 ELSE 0 END
+                            AS is_execute
+                ) AS p
+                CROSS APPLY (
+                    SELECT
+                        CASE WHEN p.es_start IS NOT NULL
+                            THEN CHARINDEX(N'''', e.t, p.es_start)
+                        END AS es_end,
+                        -- The prepare call follows the driver's short prelude.
+                        CASE WHEN p.prep_pos BETWEEN 1 AND 400
+                            THEN CHARINDEX(N'''', e.t, p.prep_pos)
+                        END AS l1s
+                ) AS a
+                CROSS APPLY (
+                    SELECT CASE WHEN a.l1s > 0 THEN CHARINDEX(N'''', e.t, a.l1s + 1) END AS l1e
+                ) AS b
+                CROSS APPLY (
+                    SELECT
+                        CASE WHEN b.l1e > 0
+                            THEN SUBSTRING(e.t, a.l1s + 1, b.l1e - a.l1s - 1)
+                        END AS lit1,
+                        CASE WHEN b.l1e > 0 THEN CHARINDEX(N'''', e.t, b.l1e + 1) END AS l2s
+                ) AS c
+                CROSS APPLY (
+                    SELECT CASE WHEN c.l2s > 0 THEN CHARINDEX(N'''', e.t, c.l2s + 1) END AS l2e
+                ) AS d
+                CROSS APPLY (
+                    SELECT CASE
+                        WHEN a.es_end > p.es_start
+                            THEN SUBSTRING(e.t, p.es_start, a.es_end - p.es_start)
+                        -- Prepare variants pass the parameter declaration
+                        -- ('@P1 int', or NULL) before the statement.
+                        WHEN c.lit1 LIKE N'@%' AND d.l2e > c.l2s
+                            THEN SUBSTRING(e.t, c.l2s + 1, d.l2e - c.l2s - 1)
+                        WHEN c.lit1 IS NOT NULL AND c.lit1 NOT LIKE N'@%'
+                            THEN c.lit1
+                    END AS inner_sql
+                ) AS f
+                CROSS APPLY (
+                    SELECT
+                        -- "declare @p1 int set @p1=<handle> exec sp_prepexec @p1 output, ..."
+                        CASE WHEN p.prep_pos BETWEEN 1 AND 400 AND e.t LIKE N'declare%'
+                            THEN LTRIM(SUBSTRING(
+                                e.t,
+                                CHARINDEX(N'=', e.t, NULLIF(CHARINDEX(N'set @', e.t), 0)) + 1,
+                                12
+                            ))
+                        END AS prep_raw,
+                        -- "exec sp_execute <handle>,<params>"
+                        CASE WHEN p.is_execute = 1 THEN SUBSTRING(e.t, 17, 12) END AS exec_raw
+                ) AS hr
+                CROSS APPLY (
+                    SELECT
+                        TRY_CAST(NULLIF(LEFT(hr.prep_raw, PATINDEX(N'%[^0-9]%', hr.prep_raw + N'x') - 1), N'') AS INT)
+                            AS prep_handle,
+                        TRY_CAST(NULLIF(LEFT(hr.exec_raw, PATINDEX(N'%[^0-9]%', hr.exec_raw + N'x') - 1), N'') AS INT)
+                            AS exec_handle
+                ) AS h
+            ),
+            mapped AS (
+                SELECT
+                    n.event_time,
+                    n.user_name,
+                    n.database_name,
+                    n.is_rpc,
+                    n.is_truncated,
+                    n.is_prepare_only,
+                    CASE
+                        WHEN n.exec_handle IS NULL THEN n.stmt_key
+                        ELSE COALESCE(m.stmt_key, N'"""
+        + UNMAPPED_EXECUTE_KEY
+        + """')
+                    END AS stmt_key,
+                    CASE WHEN n.exec_handle IS NULL THEN n.is_wrapper ELSE 1 END AS is_wrapper,
+                    CASE WHEN n.exec_handle IS NOT NULL AND m.stmt_key IS NULL THEN 1 ELSE 0 END
+                        AS is_unmapped
+                FROM normalized AS n
+                OUTER APPLY (
+                    SELECT TOP 1 pr.stmt_key
+                    FROM normalized AS pr
+                    WHERE
+                        n.exec_handle IS NOT NULL
+                        AND pr.prep_handle = n.exec_handle
+                        AND pr.session_id = n.session_id
+                        AND pr.database_name = n.database_name
+                        AND pr.event_time <= n.event_time
+                    ORDER BY pr.event_time DESC
+                ) AS m
+            ),
             filtered AS (
                 SELECT *
-                FROM log_rows
+                FROM mapped
                 WHERE
-                    statement IS NOT NULL
-                    AND LEN(statement) > 0
+                    stmt_key IS NOT NULL
+                    AND LEN(stmt_key) > 0
                     AND (user_name IS NULL OR user_name <> SUSER_SNAME())
-                    AND (is_rpc = 0 OR {_RPC_WRAPPER_FILTER})
-                    {{exclude_clause}}
+                    AND (is_rpc = 0 OR is_wrapper = 1)
+                    AND is_prepare_only = 0
+                    {exclude_clause}
             ),
             grouped AS (
                 SELECT
-                    HASHBYTES('SHA2_256', statement) AS statement_hash,
-                    MAX(statement) AS statement,
+                    database_name,
+                    HASHBYTES('SHA2_256', stmt_key) AS statement_hash,
+                    MAX(stmt_key) AS statement,
                     user_name,
                     MAX(event_time) AS last_event_time,
                     COUNT(*) AS bucket_execution_count,
-                    MAX(is_truncated) AS is_truncated
+                    MAX(is_truncated) AS is_truncated,
+                    MAX(is_unmapped) AS is_unmapped,
+                    SUM(is_wrapper) AS wrapped_execution_count
                 FROM filtered
                 GROUP BY
-                    HASHBYTES('SHA2_256', statement),
+                    database_name,
+                    HASHBYTES('SHA2_256', stmt_key),
                     user_name,
-                    DATEADD({{bucket_unit}}, DATEDIFF({{bucket_unit}}, 0, event_time), 0)
+                    DATEADD({bucket_unit}, DATEDIFF({bucket_unit}, 0, event_time), 0)
             ),
             totals AS (
                 SELECT
                     *,
-                    SUM(bucket_execution_count) OVER (PARTITION BY statement_hash)
-                        AS execution_count
+                    SUM(bucket_execution_count)
+                        OVER (PARTITION BY database_name, statement_hash) AS execution_count
                 FROM grouped
             ),
             ranked AS (
                 SELECT
                     *,
-                    DENSE_RANK() OVER (ORDER BY execution_count DESC, statement_hash)
-                        AS statement_rank
+                    DENSE_RANK() OVER (
+                        PARTITION BY database_name, is_unmapped
+                        ORDER BY execution_count DESC, statement_hash
+                    ) AS statement_rank
                 FROM totals
             )
             SELECT
@@ -515,15 +641,18 @@ class MSSQLQuery:
                 -- Duration is only recorded by Azure audits and XE; it is used
                 -- only for Query Store ranking, so it isn't extracted here.
                 0.0 AS total_exec_time_ms,
-                DB_NAME() AS database_name,
+                database_name,
                 CAST(last_event_time AS DATETIME) AS last_execution_time_utc,
                 bucket_execution_count AS window_execution_count,
                 user_name,
-                is_truncated
+                is_truncated,
+                is_unmapped,
+                wrapped_execution_count
             FROM ranked
             WHERE statement_rank <= :limit
-            ORDER BY statement_rank, last_event_time
+            ORDER BY database_name, statement_rank, last_event_time
         """
+    )
 
     @staticmethod
     def _get_log_query_history(
@@ -534,8 +663,12 @@ class MSSQLQuery:
         exclude_patterns: Optional[List[str]],
     ) -> Tuple[TextClause, QueryParams]:
         query, params = MSSQLQuery._get_query_history_base(
-            exclude_column_expr="statement",
-            query_template_builder=log_rows_cte + MSSQLQuery._LOG_QUERY_TAIL,
+            exclude_column_expr="stmt_key",
+            query_template_builder=(
+                "SET NOCOUNT ON;\nDROP TABLE IF EXISTS #dh_query_log;\n"
+                + log_rows_cte
+                + MSSQLQuery._LOG_QUERY_TAIL
+            ),
             window=window,
             limit=limit,
             min_calls=0,
@@ -557,11 +690,13 @@ class MSSQLQuery:
 
         Requires an audit capturing BATCH_COMPLETED_GROUP. :path is a file
         pattern (SQL Server, Managed Instance) or a blob URL prefix (Azure SQL
-        Database). event_time is already UTC. SQL Server splits statements over
-        4000 characters across records sharing a sequence_group_id, so they are
-        reassembled; Azure truncates them instead, which is flagged. The user is
-        the session's original login (not an EXECUTE AS identity), falling back
-        to the database user for contained users.
+        Database). Rows for every database in the log are returned, so a
+        server audit is read once per run. event_time is already UTC. SQL
+        Server splits statements over 4000 characters across records sharing
+        a sequence_group_id, so they are reassembled; Azure truncates them
+        instead, which is flagged. The user is the session's original login
+        (not an EXECUTE AS identity), falling back to the database user for
+        contained users.
         """
         action_ids = ", ".join(f"'{a}'" for a in AUDIT_BATCH_COMPLETED_ACTION_IDS)
         # Only Azure SQL Auditing truncates; SQL Server splits long statements
@@ -581,6 +716,7 @@ class MSSQLQuery:
                     sequence_group_id,
                     sequence_number,
                     action_id,
+                    database_name,
                     COALESCE(
                         NULLIF(session_server_principal_name, ''),
                         NULLIF(server_principal_name, ''),
@@ -591,21 +727,23 @@ class MSSQLQuery:
                 WHERE
                     action_id IN ({action_ids})
                     AND succeeded = 1
-                    AND database_name = DB_NAME()
+                    AND database_name IS NOT NULL
                     AND event_time >= :start_time
                     AND event_time < :end_time
             ),
             log_rows AS (
                 SELECT
                     MIN(event_time) AS event_time,
+                    session_id,
                     MAX(user_name) AS user_name,
                     STRING_AGG(CAST(statement AS NVARCHAR(MAX)), N'')
                         WITHIN GROUP (ORDER BY sequence_number) AS statement,
                     MAX(CASE WHEN action_id = 'RCM' THEN 1 ELSE 0 END) AS is_rpc,
-                    {is_truncated_expr} AS is_truncated
+                    {is_truncated_expr} AS is_truncated,
+                    MAX(database_name) AS database_name
                 FROM audit_records
                 GROUP BY session_id, sequence_group_id, event_time
-            ),"""
+            )"""
         return MSSQLQuery._get_log_query_history(
             log_rows_cte=log_rows_cte,
             path=path,
@@ -625,17 +763,20 @@ class MSSQLQuery:
         """Query history with users from an Extended Events event_file target.
 
         The session must capture sql_batch_completed and/or rpc_completed with
-        the server_principal_name (or username) action. A server-scoped session
-        must also collect database_name or database_id, or rows can't be tied
-        to a database; Azure SQL Database sessions are database-scoped, so rows
-        without them belong to the current database. :path is an .xel file
-        pattern or blob URL prefix.
+        a login action (session_server_principal_name preferred, so EXECUTE AS
+        is credited to the original login, then server_principal_name or
+        username), and session_id to resolve sp_execute calls. A server-scoped
+        session must also collect database_name or database_id, or rows can't
+        be tied to a database; its rows for every database are returned, so the
+        file is read and shredded once per run. Azure SQL Database sessions are
+        database-scoped, so rows without a database belong to the current one.
+        :path is an .xel file pattern or blob URL prefix.
         """
         events = ", ".join(f"'{e}'" for e in XE_COMPLETED_EVENTS)
-        database_filter = (
-            "(database_name IS NULL OR database_name = DB_NAME())"
+        database_expr = (
+            "COALESCE(x.action_database_name, DB_NAME())"
             if database_scoped
-            else "(database_name = DB_NAME() OR database_id = DB_ID())"
+            else "COALESCE(x.action_database_name, DB_NAME(x.action_database_id))"
         )
         log_rows_cte = f"""
             WITH xe_events AS (
@@ -653,30 +794,40 @@ class MSSQLQuery:
             xe_rows AS (
                 SELECT
                     timestamp_utc AS event_time,
-                    NULLIF(COALESCE(
-                        event_xml.value('(event/action[@name="server_principal_name"]/value)[1]', 'nvarchar(256)'),
-                        event_xml.value('(event/action[@name="username"]/value)[1]', 'nvarchar(256)')
-                    ), '') AS user_name,
+                    event_xml.value('(event/action[@name="session_id"]/value)[1]', 'int')
+                        AS session_id,
+                    COALESCE(
+                        NULLIF(event_xml.value('(event/action[@name="session_server_principal_name"]/value)[1]', 'nvarchar(256)'), ''),
+                        NULLIF(event_xml.value('(event/action[@name="server_principal_name"]/value)[1]', 'nvarchar(256)'), ''),
+                        NULLIF(event_xml.value('(event/action[@name="username"]/value)[1]', 'nvarchar(256)'), '')
+                    ) AS user_name,
                     COALESCE(
                         event_xml.value('(event/data[@name="batch_text"]/value)[1]', 'nvarchar(max)'),
                         event_xml.value('(event/data[@name="statement"]/value)[1]', 'nvarchar(max)')
                     ) AS statement,
                     event_xml.value('(event/action[@name="database_name"]/value)[1]', 'nvarchar(256)')
-                        AS database_name,
+                        AS action_database_name,
                     event_xml.value('(event/action[@name="database_id"]/value)[1]', 'int')
-                        AS database_id,
+                        AS action_database_id,
                     event_xml.value('(event/data[@name="result"]/text)[1]', 'nvarchar(32)')
                         AS result,
                     CASE WHEN object_name = 'rpc_completed' THEN 1 ELSE 0 END AS is_rpc
                 FROM xe_events
             ),
             log_rows AS (
-                SELECT event_time, user_name, statement, is_rpc, 0 AS is_truncated
-                FROM xe_rows
+                SELECT
+                    x.event_time,
+                    x.session_id,
+                    x.user_name,
+                    x.statement,
+                    x.is_rpc,
+                    0 AS is_truncated,
+                    {database_expr} AS database_name
+                FROM xe_rows AS x
                 WHERE
-                    {database_filter}
-                    AND (result IS NULL OR result = 'OK')
-            ),"""
+                    (x.result IS NULL OR x.result = 'OK')
+                    AND {database_expr} IS NOT NULL
+            )"""
         return MSSQLQuery._get_log_query_history(
             log_rows_cte=log_rows_cte,
             path=path,
@@ -688,7 +839,8 @@ class MSSQLQuery:
     @staticmethod
     def get_engine_edition() -> TextClause:
         return text(
-            "SELECT CAST(SERVERPROPERTY('EngineEdition') AS INT) AS engine_edition"
+            "SELECT CAST(SERVERPROPERTY('EngineEdition') AS INT) AS engine_edition, "
+            "DB_NAME() AS current_database"
         )
 
     @staticmethod
@@ -765,7 +917,9 @@ class MSSQLQuery:
             WHERE
                 t.target_name = 'event_file'
                 AND e.event_name IN ({events})
-                AND a.action_name IN ('server_principal_name', 'username')
+                AND a.action_name IN (
+                    'session_server_principal_name', 'server_principal_name', 'username'
+                )
                 {database_action_filter}
             ORDER BY s.name
         """)

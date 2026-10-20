@@ -103,6 +103,7 @@ from datahub.ingestion.source.sql.mssql.query import (
 )
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
+    QueryLogCache,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -2043,6 +2044,9 @@ class SQLServerSource(SQLAlchemySource):
         )
 
         query_log_found = False
+        # One read of a server audit / server-scoped event session serves every
+        # database's extractor.
+        query_log_cache: QueryLogCache = {}
         for inspector in self.get_inspectors():
             db_name = self.get_db_name(inspector)
             with inspector.engine.connect() as connection:
@@ -2052,6 +2056,7 @@ class SQLServerSource(SQLAlchemySource):
                     report=self.report,
                     sql_aggregator=self.aggregator,
                     default_schema="dbo",
+                    query_log_cache=query_log_cache,
                 )
 
                 try:
