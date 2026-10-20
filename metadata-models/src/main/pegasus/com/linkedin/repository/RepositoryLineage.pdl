@@ -28,11 +28,12 @@ record RepositoryLineage {
   forkOf: optional Urn
 
   /**
-   * Upstream entities this entity's code depends on. On Repository: datasets/
-   * repositories the repo's own code reads from. On dataJob/dataFlow: the
-   * Repository holding the pipeline/task's source code, and/or
-   * other upstream datasets analogous to Repository's own usage. Follows the
-   * same Edge-based pattern as ApplicationLineage.inputEdges.
+   * Upstream entities this entity's code depends on. On Repository: datasets
+   * or other repositories the repo's own code reads from. On dataJob/dataFlow:
+   * only the Repository holding the pipeline/task's source code; dataset
+   * upstreams of a pipeline or task belong in dataJobInputOutput, and
+   * RepositoryLineageDestinationValidator rejects any other destination there.
+   * Follows the same Edge-based pattern as ApplicationLineage.inputEdges.
    */
   @Relationship = {
     "/*/destinationUrn": {
@@ -58,11 +59,11 @@ record RepositoryLineage {
 
   /**
    * Downstream entities produced or written by this entity's code. On
-   * Repository: datasets/repositories the repo's own code writes to. Expected
-   * to stay empty in practice on dataJob/dataFlow -- a source-code repository
-   * is a dependency (inputEdges), not an output -- but not restricted at the
-   * schema level. Follows the same Edge-based pattern as
-   * ApplicationLineage.outputEdges.
+   * Repository: datasets or other repositories the repo's own code writes to.
+   * Not used on dataJob/dataFlow -- a source-code repository is a dependency
+   * (inputEdges), not an output -- and RepositoryLineageDestinationValidator
+   * rejects any non-repository destination there. Follows the same
+   * Edge-based pattern as ApplicationLineage.outputEdges.
    */
   @Relationship = {
     "/*/destinationUrn": {
