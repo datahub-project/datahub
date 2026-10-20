@@ -16,7 +16,6 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
-import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -30,11 +29,13 @@ public class LoadIndices implements Upgrade {
   public static final String LE_PIT_EPOCH_MS_ARG_NAME = "lePitEpochMs";
   public static final String ASPECT_NAMES_ARG_NAME = "aspectNames";
   public static final String LAST_URN_ARG_NAME = "lastUrn";
+  public static final String V3_BACKFILL_MODE_ARG_NAME = "v3BackfillMode";
+  public static final String SKIP_CONVERSION_ERRORS_ARG_NAME = "skipConversionErrors";
 
   private final List<UpgradeStep> _steps;
 
   public LoadIndices(
-      @Nullable final Database server,
+      @Nullable final AspectIndexLoader loader,
       final UpdateIndicesService updateIndicesService,
       @Nullable final LoadIndicesIndexManager indexManager,
       @Nullable final SystemMetadataService systemMetadataService,
@@ -42,10 +43,10 @@ public class LoadIndices implements Upgrade {
       @Nullable final EntitySearchService entitySearchService,
       @Nullable final GraphService graphService,
       @Nullable final AspectDao aspectDao) {
-    if (server != null && indexManager != null) {
+    if (loader != null && indexManager != null) {
       _steps =
           buildSteps(
-              server,
+              loader,
               updateIndicesService,
               indexManager,
               systemMetadataService,
@@ -69,7 +70,7 @@ public class LoadIndices implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(
-      final Database server,
+      final AspectIndexLoader loader,
       final UpdateIndicesService updateIndicesService,
       final LoadIndicesIndexManager indexManager,
       final SystemMetadataService systemMetadataService,
@@ -95,7 +96,7 @@ public class LoadIndices implements Upgrade {
       steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
     }
 
-    steps.add(new LoadIndicesStep(server, updateIndicesService, indexManager));
+    steps.add(new LoadIndicesStep(loader, updateIndicesService, indexManager));
     return steps;
   }
 
