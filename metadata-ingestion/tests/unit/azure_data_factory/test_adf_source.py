@@ -2649,6 +2649,71 @@ class TestPairSiblingDataJobEmission:
         assert len(source.report.warnings) == 1
 
 
+class TestUnionedDynamicLineageColumnRecompute:
+    """Tests for _emit_unioned_dynamic_lineage's column-lineage recompute
+    fallback: when none of the unioned pairs contributed cached dynamic
+    column mappings but column lineage is enabled, it must recompute
+    per actually-observed (source, sink) pair rather than against the
+    flattened union of every pair's inputs/outputs. Activity-specific
+    extractors like CopyActivityColumnLineageExtractor only look at
+    inlets[0]/outlets[0], so passing them the combined multi-source list
+    would silently attribute every pair's columns to whichever URN
+    happens to sort first."""
+
+    def _make_source(self) -> AzureDataFactorySource:
+        source = object.__new__(AzureDataFactorySource)
+        source.config = AzureDataFactoryConfig(
+            subscription_id="test-sub", include_column_lineage=True
+        )
+        source.report = AzureDataFactorySourceReport()
+        source._datasets_cache = {}
+        source._column_lineage_extractors = [CopyActivityColumnLineageExtractor()]
+        return source
+
+    def test_recomputes_column_lineage_per_pair_not_first_sorted_pair(self) -> None:
+        from datahub.metadata.urns import DataJobUrn
+
+        source = self._make_source()
+        activity = SimpleNamespace(
+            name="CopyActivity",
+            type="Copy",
+            translator={
+                "type": "TabularTranslator",
+                "columnMappings": {"id": "id"},
+            },
+        )
+        job_urn = DataJobUrn.create_from_ids(
+            data_flow_urn="urn:li:dataFlow:(azure-data-factory,factory.Pipeline,PROD)",
+            job_id="CopyActivity",
+        )
+        source_a = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.customers_table,PROD)"
+        source_b = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.vendors_table,PROD)"
+        sink = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.staging_table,PROD)"
+        pairs: dict[
+            tuple[tuple[str, ...], tuple[str, ...]],
+            set[tuple[tuple[str, ...], str]],
+        ] = {
+            ((source_a,), (sink,)): set(),
+            ((source_b,), (sink,)): set(),
+        }
+
+        workunits = list(
+            source._emit_unioned_dynamic_lineage(
+                activity, job_urn, "test-rg/test-factory", pairs, (), ()
+            )
+        )
+
+        assert len(workunits) == 1
+        aspect = workunits[0].metadata.aspect
+        fine_grained = aspect.fineGrainedLineages
+        assert fine_grained is not None
+        upstream_sources = {fgl.upstreams[0] for fgl in fine_grained}
+        assert upstream_sources == {
+            f"urn:li:schemaField:({source_a},id)",
+            f"urn:li:schemaField:({source_b},id)",
+        }
+
+
 class TestExtractQueryColumnLineageSinkCasing:
     """Tests for _extract_query_column_lineage's use of the sink's own
     schema casing (see match_sink_column_casing) - the third of the
