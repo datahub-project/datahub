@@ -5,6 +5,7 @@ import {
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { CUSTOM_SMOOTH_STEP_EDGE_NAME } from '@app/lineageV3/LineageEdge/CustomSmoothStepEdge';
 import { DATA_JOB_INPUT_OUTPUT_EDGE_NAME } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import {
@@ -191,6 +192,19 @@ export default function computeDataFlowGraph(
         seenNodeIds,
         { flowNodes, flowEdges, lineageFilters },
     );
+    Object.values(LineageDirection)
+        .filter((direction) => adjacencyList[direction].get(urn)?.size)
+        .forEach((direction) =>
+            flowNodes.push({
+                id: `${urn}-lineage-control-${direction}`,
+                type: DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+                parentId: urn,
+                position: { x: 0, y: 0 },
+                data: { urn, type, direction },
+                selectable: false,
+                draggable: false,
+            }),
+        );
 
     const extraEdgeData = (source: string, target: string): Partial<LineageEdgeData> => {
         const upstream = nodes.get(source);

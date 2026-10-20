@@ -1,3 +1,7 @@
+import {
+    DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+    DataFlowLineageControlData,
+} from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import {
     EdgeId,
@@ -50,7 +54,7 @@ function makeDownstreamNode(urn: string, type = EntityType.Dataset): LineageEnti
 }
 
 function expectNoOverlaps(flowNodes: { id: string; type?: string; position: { x: number; y: number } }[]) {
-    const boxes = flowNodes.filter((n) => n.id !== ROOT_URN);
+    const boxes = flowNodes.filter((n) => n.id !== ROOT_URN && n.type !== DATA_FLOW_LINEAGE_CONTROL_NODE_NAME);
     boxes.forEach((a, i) =>
         boxes.slice(i + 1).forEach((b) => {
             const overlaps =
@@ -120,6 +124,10 @@ describe('computeDataFlowGraph', () => {
         const repo = flowNodes.find((n) => n.id === REPO_URN);
         const flow = flowNodes.find((n) => n.id === ROOT_URN);
         expect(flow?.type).toBe(LINEAGE_BOUNDING_BOX_NODE_NAME);
+        const controls = flowNodes.filter((n) => n.type === DATA_FLOW_LINEAGE_CONTROL_NODE_NAME);
+        expect(controls.map((n) => [n.parentId, (n.data as DataFlowLineageControlData).direction])).toEqual([
+            [ROOT_URN, LineageDirection.Upstream],
+        ]);
         expect((repo?.position.x ?? 0) + LINEAGE_NODE_WIDTH).toBeLessThan(flow?.position.x ?? -Infinity);
         expect(flowEdges.some((e) => e.source === REPO_URN && e.target === ROOT_URN)).toBe(true);
     });

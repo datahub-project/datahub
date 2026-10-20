@@ -16,14 +16,13 @@ import {
     isGhostEntity,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
-import DataFlowLineageControls from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControls';
+import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import HorizontalHandle from '@app/lineageV3/components/HorizontalHandle';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import usePrevious from '@app/shared/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType } from '@types';
 
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
@@ -94,7 +93,7 @@ function useFitToContents(id: string) {
     const contentsKey = useStore((state) =>
         state
             .getNodes()
-            .filter((node) => node.parentId === id)
+            .filter((node) => node.parentId === id && node.type !== DATA_FLOW_LINEAGE_CONTROL_NODE_NAME)
             .map((node) => `${node.position.x},${node.position.y},${node.width},${node.height}`)
             .join(';'),
     );
@@ -170,7 +169,6 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
             />
             <HorizontalHandle type="target" position={Position.Left} isConnectable={false} />
             <HorizontalHandle type="source" position={Position.Right} isConnectable={false} />
-            {type === EntityType.DataFlow && <DataFlowLineageControls urn={urn} type={type} />}
             <StyledNodeWrapper
                 urn={urn}
                 selected={selected}

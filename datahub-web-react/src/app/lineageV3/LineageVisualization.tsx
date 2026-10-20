@@ -7,6 +7,9 @@ import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
     LINEAGE_ANNOTATION_NODE_NAME,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
+import DataFlowLineageControlNode, {
+    DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+} from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
@@ -75,6 +78,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
+    [DATA_FLOW_LINEAGE_CONTROL_NODE_NAME]: DataFlowLineageControlNode,
     [LINEAGE_ANNOTATION_NODE_NAME]: LineageAnnotationNode,
 };
 

@@ -5,6 +5,7 @@ import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBo
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
+import { DataFlowLineageControlData } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,
@@ -43,7 +44,9 @@ export const MAIN_Y_SEP_RATIO = 0.5;
 export const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
-export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode>;
+export type LineageVisualizationNode = Node<
+    LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode | DataFlowLineageControlData
+>;
 type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
 
 export function getNodePriority(node: LineageVisualizationNode) {
