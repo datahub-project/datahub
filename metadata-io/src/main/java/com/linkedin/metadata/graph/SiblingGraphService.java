@@ -168,12 +168,18 @@ public class SiblingGraphService {
   }
 
   /**
-   * Counts an entity's one-hop lineage the way {@link #getLineage} reports it, without fetching
-   * edges. {@code total} is the number of distinct neighbours of the entity and, unless {@code
-   * separateSiblings}, of its siblings. {@code filtered} reproduces what a page of {@code count}
-   * relationships would have dropped (non-primary siblings of other results, then ghosts), so
-   * {@code total - filtered} matches the number a caller derives from the full result.
-   * Relationships are left empty.
+   * Counts an entity's one-hop lineage without fetching edges. {@code total} is the number of
+   * distinct neighbours of the entity and, unless {@code separateSiblings}, of its siblings: a
+   * neighbour shared by several members of the group counts once. {@code filtered} applies the
+   * walk's post-processing (non-primary siblings of other results, then ghosts) to a sample of up
+   * to {@code count} of those neighbours. Relationships are left empty.
+   *
+   * <p>This deliberately differs from {@link #getLineage}. The walk adds up each member's edge
+   * total and removes only the duplicates it sees within one page, so for a sibling group whose
+   * lineage is larger than a page its {@code total - filtered} over-counts shared neighbours and
+   * depends on the page size. When the group's lineage fits in one page the two give the same
+   * {@code total - filtered}. {@code total} on its own differs whenever members share neighbours:
+   * the walk counts edges, this counts distinct entities.
    */
   @Nonnull
   public EntityLineageResult getLineageCount(
