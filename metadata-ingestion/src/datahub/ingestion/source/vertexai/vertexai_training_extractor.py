@@ -376,9 +376,9 @@ class VertexAITrainingExtractor:
             ).as_workunit()
 
     def _ensure_datasets_cached(self) -> None:
-        """Fetch and cache all datasets from Vertex AI (one-time operation)."""
+        """Fetch and cache all datasets from Vertex AI, once per region."""
         if self.datasets is None:
-            logger.info("Fetching Datasets from Vertex AI (one-time cache)")
+            logger.info("Fetching Datasets from Vertex AI (once per region)")
             self.datasets = {}
 
             for dtype in DatasetTypes.all():
