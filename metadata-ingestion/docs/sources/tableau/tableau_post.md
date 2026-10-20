@@ -2,6 +2,14 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+##### Pulse metric definitions
+
+Tableau Pulse metric definitions can be ingested from Tableau Cloud. Enable this with `extract_pulse_metrics: true`.
+
+The connector calls `GET /api/-/pulse/definitions`, then `GET /api/-/pulse/definitions/{definition_id}/metrics` for each definition. Each metric definition is a dataset with subtype Metric Definition. Each metric in that definition is a column on the dataset. The column name is taken from the metric's filters and time granularity, or `default` for the definition's default metric.
+
+Pulse is not available on Tableau Server. If the API is missing or the credential cannot read definitions, ingestion records a warning and continues with the rest of the Tableau site.
+
 ##### Virtual Connections
 
 [Tableau Virtual Connections](https://help.tableau.com/current/online/en-us/dm_vconn_overview.htm) are shared data sources that provide a centralised, governed view of underlying tables. DataHub ingests them as datasets and creates lineage back to the physical tables they reference, including column-level lineage where available.

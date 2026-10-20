@@ -139,6 +139,7 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_initial_sql_connections,
     extract_tds_bytes,
 )
+from datahub.ingestion.source.tableau.tableau_pulse import TableauPulseExtractor
 from datahub.ingestion.source.tableau.tableau_selection import (
     SiteFacts,
     is_project_allowed,
@@ -637,6 +638,17 @@ class TableauConfig(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
     )
+    extract_pulse_metrics: bool = Field(
+        default=False,
+        description=(
+            "Ingest Tableau Pulse metric definitions from the Pulse REST API "
+            "(`GET /api/-/pulse/definitions` and "
+            "`GET /api/-/pulse/definitions/{definition_id}/metrics`). "
+            "Each metric definition is emitted as a dataset with subtype "
+            "Metric Definition, and each metric in that definition is a column. "
+            "Tableau Cloud only. Disabled by default."
+        ),
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
@@ -1022,6 +1034,11 @@ class TableauSourceReport(
     emit_virtual_connections_timer: Dict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
+    emit_pulse_metrics_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    num_pulse_definitions: int = 0
+    num_pulse_metrics: int = 0
     # lineage
     num_tables_with_upstream_lineage: int = 0
     num_upstream_table_lineage: int = 0
@@ -4883,6 +4900,19 @@ class TableauSiteSource:
                 with PerfTimer() as timer:
                     yield from self.emit_upstream_tables()
                     self.report.emit_upstream_tables_timer[self.site_content_url] = (
+                        timer.elapsed_seconds(digits=2)
+                    )
+
+            if self.config.extract_pulse_metrics:
+                with PerfTimer() as timer:
+                    yield from TableauPulseExtractor(
+                        config=self.config,
+                        server=self.server,
+                        report=self.report,
+                        platform=self.platform,
+                        browse_prefix=self.dataset_browse_prefix,
+                    ).emit()
+                    self.report.emit_pulse_metrics_timer[self.site_content_url] = (
                         timer.elapsed_seconds(digits=2)
                     )
 
