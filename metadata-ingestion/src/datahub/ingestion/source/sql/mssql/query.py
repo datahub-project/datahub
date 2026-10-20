@@ -65,8 +65,14 @@ AUDIT_STATEMENT_MAX_CHARS = 4000
 # sp_unprepare, sp_cursorfetch, ...) carry no SQL to parse, and procedure-call
 # RPCs get their lineage from the stored-procedure extractor instead; keeping
 # them would only crowd out real queries in the top-N.
-# Group key for sp_execute rows whose prepare isn't in the window or session.
+# Group key for sp_execute rows whose prepare isn't in the log for the session.
 UNMAPPED_EXECUTE_KEY = "<unmapped sp_execute>"
+# `_` is a LIKE wildcard, so it's escaped.
+_EXECUTE_LIKE = (
+    "statement LIKE N'%sp[_]execute [0-9]%' "
+    "OR statement LIKE N'%sp[_]cursorexecute [0-9]%'"
+)
+_PREPARE_LIKE = "statement LIKE N'%sp[_]prep%' OR statement LIKE N'%sp[_]cursorprep%'"
 
 
 @dataclass(frozen=True)
@@ -462,27 +468,26 @@ class MSSQLQuery:
     # metadata queries don't show up as user activity.
     _LOG_QUERY_TAIL = (
         """
+            -- Materialized: the sp_execute mapping below reads it twice, and
+            -- inlining these string expressions twice exceeds SQL Server's
+            -- expression limits.
             SELECT
-                event_time, session_id, user_name, statement, is_rpc,
-                is_truncated, database_name
-            INTO #dh_query_log
-            FROM log_rows;
-
-            WITH normalized AS (
-                SELECT
                     q.*,
                     CASE WHEN f.inner_sql IS NOT NULL
                         THEN REPLACE(f.inner_sql, NCHAR(1), N'''')
                         ELSE q.statement
                     END AS stmt_key,
                     CASE WHEN f.inner_sql IS NOT NULL THEN 1 ELSE 0 END AS is_wrapper,
-                    -- sp_prepare only prepares; its executions arrive as sp_execute.
+                    -- sp_prepare / sp_cursorprepare only prepare; their executions
+                    -- arrive as sp_execute / sp_cursorexecute.
                     CASE WHEN p.prep_pos BETWEEN 1 AND 400
                         AND PATINDEX(N'%sp[_]prepexec %', e.t) = 0
+                        AND PATINDEX(N'%sp[_]cursorprepexec %', e.t) = 0
                         THEN 1 ELSE 0
                     END AS is_prepare_only,
                     h.prep_handle,
                     h.exec_handle
+            INTO #dh_query_norm
                 FROM #dh_query_log AS q
                 CROSS APPLY (
                     SELECT LTRIM(REPLACE(q.statement, N'''''', NCHAR(1))) AS t
@@ -496,11 +501,18 @@ class MSSQLQuery:
                         CASE WHEN e.t LIKE N'declare%' OR e.t LIKE N'exec%'
                             THEN COALESCE(
                                 NULLIF(PATINDEX(N'%sp[_]prepexec %', e.t), 0),
-                                NULLIF(PATINDEX(N'%sp[_]prepare %', e.t), 0)
+                                NULLIF(PATINDEX(N'%sp[_]prepare %', e.t), 0),
+                                NULLIF(PATINDEX(N'%sp[_]cursorprepexec %', e.t), 0),
+                                NULLIF(PATINDEX(N'%sp[_]cursorprepare %', e.t), 0)
                             )
                         END AS prep_pos,
-                        CASE WHEN e.t LIKE N'exec sp[_]execute [0-9]%' THEN 1 ELSE 0 END
-                            AS is_execute
+                        -- Start of the handle in "exec sp_execute <handle>,..." or,
+                        -- after the cursor prelude, "exec sp_cursorexecute <handle>,...".
+                        CASE
+                            WHEN e.t LIKE N'exec sp[_]execute [0-9]%' THEN 17
+                            WHEN PATINDEX(N'%exec sp[_]cursorexecute [0-9]%', e.t) BETWEEN 1 AND 400
+                                THEN PATINDEX(N'%exec sp[_]cursorexecute [0-9]%', e.t) + 22
+                        END AS exec_pos
                 ) AS p
                 CROSS APPLY (
                     SELECT
@@ -539,7 +551,9 @@ class MSSQLQuery:
                 ) AS f
                 CROSS APPLY (
                     SELECT
-                        -- "declare @p1 int set @p1=<handle> exec sp_prepexec @p1 output, ..."
+                        -- "declare @p1 int set @p1=<handle> exec sp_prepexec @p1 output, ...".
+                        -- Completed events render the returned handle, and the
+                        -- prepared handle is the first output in every variant.
                         CASE WHEN p.prep_pos BETWEEN 1 AND 400 AND e.t LIKE N'declare%'
                             THEN LTRIM(SUBSTRING(
                                 e.t,
@@ -547,8 +561,8 @@ class MSSQLQuery:
                                 12
                             ))
                         END AS prep_raw,
-                        -- "exec sp_execute <handle>,<params>"
-                        CASE WHEN p.is_execute = 1 THEN SUBSTRING(e.t, 17, 12) END AS exec_raw
+                        CASE WHEN p.exec_pos IS NOT NULL THEN SUBSTRING(e.t, p.exec_pos, 12) END
+                            AS exec_raw
                 ) AS hr
                 CROSS APPLY (
                     SELECT
@@ -556,9 +570,9 @@ class MSSQLQuery:
                             AS prep_handle,
                         TRY_CAST(NULLIF(LEFT(hr.exec_raw, PATINDEX(N'%[^0-9]%', hr.exec_raw + N'x') - 1), N'') AS INT)
                             AS exec_handle
-                ) AS h
-            ),
-            mapped AS (
+                ) AS h;
+
+            WITH mapped AS (
                 SELECT
                     n.event_time,
                     n.user_name,
@@ -566,6 +580,7 @@ class MSSQLQuery:
                     n.is_rpc,
                     n.is_truncated,
                     n.is_prepare_only,
+                    n.in_window,
                     CASE
                         WHEN n.exec_handle IS NULL THEN n.stmt_key
                         ELSE COALESCE(m.stmt_key, N'"""
@@ -575,10 +590,10 @@ class MSSQLQuery:
                     CASE WHEN n.exec_handle IS NULL THEN n.is_wrapper ELSE 1 END AS is_wrapper,
                     CASE WHEN n.exec_handle IS NOT NULL AND m.stmt_key IS NULL THEN 1 ELSE 0 END
                         AS is_unmapped
-                FROM normalized AS n
+                FROM #dh_query_norm AS n
                 OUTER APPLY (
                     SELECT TOP 1 pr.stmt_key
-                    FROM normalized AS pr
+                    FROM #dh_query_norm AS pr
                     WHERE
                         n.exec_handle IS NOT NULL
                         AND pr.prep_handle = n.exec_handle
@@ -595,6 +610,7 @@ class MSSQLQuery:
                     stmt_key IS NOT NULL
                     AND LEN(stmt_key) > 0
                     AND (user_name IS NULL OR user_name <> SUSER_SNAME())
+                    AND in_window = 1
                     AND (is_rpc = 0 OR is_wrapper = 1)
                     AND is_prepare_only = 0
                     {exclude_clause}
@@ -632,6 +648,7 @@ class MSSQLQuery:
                         ORDER BY execution_count DESC, statement_hash
                     ) AS statement_rank
                 FROM totals
+                WHERE is_unmapped = 1 OR execution_count >= :min_calls
             )
             SELECT
                 CONVERT(VARCHAR(64), statement_hash, 2) AS query_id,
@@ -657,24 +674,54 @@ class MSSQLQuery:
     @staticmethod
     def _get_log_query_history(
         log_rows_cte: str,
+        window_predicate: str,
+        before_window_predicate: str,
         path: str,
         window: QueryHistoryWindow,
         limit: int,
+        min_calls: int,
         exclude_patterns: Optional[List[str]],
     ) -> Tuple[TextClause, QueryParams]:
+        """Assemble a log reader. `log_rows_cte` defines `log_rows` with a
+        `__TIME__` slot for the event-time predicate.
+
+        Window rows are loaded first. When the window holds sp_execute /
+        sp_cursorexecute calls, the prepares those sessions made before the
+        window are loaded too (pooled connections prepare once and execute for
+        hours), only to resolve handles: they aren't counted.
+        """
+        columns = (
+            "event_time, session_id, user_name, statement, is_rpc, "
+            "is_truncated, database_name"
+        )
+        load = (
+            "SET NOCOUNT ON;\nDROP TABLE IF EXISTS #dh_query_log;\n"
+            + "DROP TABLE IF EXISTS #dh_query_norm;\n"
+            + log_rows_cte.replace("__TIME__", window_predicate)
+            + f"\nSELECT {columns}, 1 AS in_window INTO #dh_query_log FROM log_rows;\n"
+            + f"IF EXISTS (SELECT 1 FROM #dh_query_log WHERE {_EXECUTE_LIKE})\nBEGIN\n;"
+            + log_rows_cte.replace("__TIME__", before_window_predicate)
+            + f"""
+            INSERT INTO #dh_query_log
+            SELECT {columns}, 0 AS in_window
+            FROM log_rows
+            WHERE
+                ({_PREPARE_LIKE})
+                AND session_id IN (
+                    SELECT session_id FROM #dh_query_log
+                    WHERE in_window = 1 AND ({_EXECUTE_LIKE})
+                );
+            END;
+            """
+        )
         query, params = MSSQLQuery._get_query_history_base(
             exclude_column_expr="stmt_key",
-            query_template_builder=(
-                "SET NOCOUNT ON;\nDROP TABLE IF EXISTS #dh_query_log;\n"
-                + log_rows_cte
-                + MSSQLQuery._LOG_QUERY_TAIL
-            ),
+            query_template_builder=load + MSSQLQuery._LOG_QUERY_TAIL,
             window=window,
             limit=limit,
-            min_calls=0,
+            min_calls=min_calls,
             exclude_patterns=exclude_patterns,
         )
-        params.pop("min_calls")
         params["path"] = path
         return query, params
 
@@ -683,6 +730,7 @@ class MSSQLQuery:
         path: str,
         window: QueryHistoryWindow,
         limit: int,
+        min_calls: int,
         exclude_patterns: Optional[List[str]],
         statements_truncated: bool,
     ) -> Tuple[TextClause, QueryParams]:
@@ -728,8 +776,7 @@ class MSSQLQuery:
                     action_id IN ({action_ids})
                     AND succeeded = 1
                     AND database_name IS NOT NULL
-                    AND event_time >= :start_time
-                    AND event_time < :end_time
+                    AND __TIME__
             ),
             log_rows AS (
                 SELECT
@@ -746,9 +793,12 @@ class MSSQLQuery:
             )"""
         return MSSQLQuery._get_log_query_history(
             log_rows_cte=log_rows_cte,
+            window_predicate="event_time >= :start_time AND event_time < :end_time",
+            before_window_predicate="event_time < :start_time",
             path=path,
             window=window,
             limit=limit,
+            min_calls=min_calls,
             exclude_patterns=exclude_patterns,
         )
 
@@ -757,6 +807,7 @@ class MSSQLQuery:
         path: str,
         window: QueryHistoryWindow,
         limit: int,
+        min_calls: int,
         exclude_patterns: Optional[List[str]],
         database_scoped: bool,
     ) -> Tuple[TextClause, QueryParams]:
@@ -780,7 +831,6 @@ class MSSQLQuery:
         )
         log_rows_cte = f"""
             WITH xe_events AS (
-                -- timestamp_utc only compares correctly once cast explicitly.
                 SELECT
                     object_name,
                     CAST(timestamp_utc AS DATETIME2(7)) AS timestamp_utc,
@@ -788,8 +838,7 @@ class MSSQLQuery:
                 FROM sys.fn_xe_file_target_read_file(:path, NULL, NULL, NULL)
                 WHERE
                     object_name IN ({events})
-                    AND CAST(timestamp_utc AS DATETIME2(7)) >= :start_time
-                    AND CAST(timestamp_utc AS DATETIME2(7)) < :end_time
+                    AND __TIME__
             ),
             xe_rows AS (
                 SELECT
@@ -828,11 +877,16 @@ class MSSQLQuery:
                     (x.result IS NULL OR x.result = 'OK')
                     AND {database_expr} IS NOT NULL
             )"""
+        # timestamp_utc only compares correctly once cast explicitly.
+        timestamp = "CAST(timestamp_utc AS DATETIME2(7))"
         return MSSQLQuery._get_log_query_history(
             log_rows_cte=log_rows_cte,
+            window_predicate=f"{timestamp} >= :start_time AND {timestamp} < :end_time",
+            before_window_predicate=f"{timestamp} < :start_time",
             path=path,
             window=window,
             limit=limit,
+            min_calls=min_calls,
             exclude_patterns=exclude_patterns,
         )
 

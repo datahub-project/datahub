@@ -1,8 +1,8 @@
 import os
 import subprocess
 import time
-from datetime import datetime
-from typing import Dict, List, Set, Tuple
+from datetime import datetime, timezone
+from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, Mock
 
 import pytds
@@ -1382,6 +1382,16 @@ def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
     assert query_count >= 3
 
 
+def _int_output(value: Optional[int] = None) -> pytds.output:
+    return pytds.output(param_type="int", value=value)
+
+
+def _first_rpc_output(cursor: pytds.Cursor) -> int:
+    # pytds' get_proc_outputs() raises IndexError for cursor RPCs that mix
+    # input and output parameters, but the session keeps the returned values.
+    return next(iter(cursor._session.output_params.values())).value
+
+
 @pytest.fixture(scope="module")
 def query_log_targets(mssql_connection, mssql_runner):
     """A file audit capturing BATCH_COMPLETED_GROUP and an Extended Events
@@ -1529,6 +1539,37 @@ def query_log_targets(mssql_connection, mssql_runner):
         cursor.callproc("sp_execute", (handle, value))
         while cursor.nextset():
             pass
+    # JDBC server cursors: sp_cursorprepexec runs once, then sp_cursorexecute.
+    cursor.callproc(
+        "sp_cursorprepexec",
+        (
+            _int_output(),
+            _int_output(),
+            "@P0 int",
+            "SELECT order_date FROM lineage_test.source_orders WHERE order_id = @P0 /* cursor */",
+            _int_output(4100),
+            _int_output(8193),
+            _int_output(0),
+            1,
+        ),
+    )
+    while cursor.nextset():
+        pass
+    cursor_handle = _first_rpc_output(cursor)
+    for value in range(2):
+        cursor.callproc(
+            "sp_cursorexecute",
+            (
+                cursor_handle,
+                _int_output(),
+                _int_output(4),
+                _int_output(1),
+                _int_output(0),
+                value,
+            ),
+        )
+        while cursor.nextset():
+            pass
     jdbc.close()
     # The connector's own login runs the same lookup; it must not be counted.
     conn.execute(lookup, {"customer_id": 101})
@@ -1639,6 +1680,9 @@ def test_query_log_attributes_queries_to_users(
     # A JDBC prepared statement re-run with sp_execute keeps every execution.
     jdbc = [u for s, u in usage.items() if "/* jdbc */" in s]
     assert jdbc == [(4, analyst)], usage
+    # A server cursor: one sp_cursorprepexec plus two sp_cursorexecute calls.
+    cursors = [u for s, u in usage.items() if "/* cursor */" in s]
+    assert cursors == [(3, analyst)], usage
 
     # A statement SQL Server split across audit records comes back whole.
     long_statements = [s for s in usage if "/* long */" in s]
@@ -1687,3 +1731,57 @@ def test_query_log_top_n_ranks_unwrapped_statements(
     )
     usage = _query_usage_by_statement(mcps)
     assert [count for s, (count, _) in usage.items() if "/* hot */" in s] == [12], usage
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_attributes_executes_of_statements_prepared_before_window(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """Pooled connections prepare once and execute for hours, so the prepare is
+    usually older than start_time. Executions inside the window still count
+    against the prepared statement, and the prepare itself isn't counted."""
+    session = pytds.connect(
+        "localhost",
+        "lineage_test",
+        "qh_analyst",
+        "Analyst!Passw0rd",
+        port=mssql_runner,
+        autocommit=True,
+        cafile=os.environ["MSSQL_CAFILE"],
+        validate_host=False,
+    )
+    cursor = session.cursor()
+    cursor.callproc(
+        "sp_prepare",
+        (
+            _int_output(),
+            "@P0 int",
+            "SELECT country FROM lineage_test.source_customers WHERE customer_id = @P0 /* pooled */",
+            1,
+        ),
+    )
+    while cursor.nextset():
+        pass
+    handle = _first_rpc_output(cursor)
+    time.sleep(2)
+    window_start = datetime.now(tz=timezone.utc)
+    time.sleep(1)
+    for value in range(3):
+        cursor.callproc("sp_execute", (handle, value))
+        while cursor.nextset():
+            pass
+    session.close()
+    time.sleep(3)
+
+    mcps, source = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        start_time=window_start.isoformat(),
+        end_time="2100-01-01T00:00:00Z",
+    )
+    usage = _query_usage_by_statement(mcps)
+    pooled = [count for s, (count, _) in usage.items() if "/* pooled */" in s]
+    assert pooled == [3], usage
+    assert source.report.num_query_log_unmapped_executions == 0

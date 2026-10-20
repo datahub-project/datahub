@@ -94,46 +94,13 @@ class MSSQLQueryEntry:
 
 
 _UNDATED = datetime.min.replace(tzinfo=timezone.utc)
+# Warn when at least this share of a database's logged executions are
+# sp_execute calls that couldn't be attributed.
+_UNMAPPED_EXECUTION_WARNING_SHARE = 0.1
 
-# Drivers send parameterized queries as RPCs, which the audit log and Extended
-# Events record as the wrapper call:
-#   exec sp_executesql N'SELECT ... @P1', N'@P1 int', @P1=3
-#   declare @p1 int set @p1=1 exec sp_prepexec @p1 output, N'@P1 int', N'SELECT ... @P1', 10 select @p1
-# Both patterns are anchored at the start of the statement, so a batch that
-# merely contains an sp_executesql call is left alone.
-_TSQL_LITERAL = r"N?'((?:[^']|'')*)'"
-_RPC_PROCEDURE = r"exec(?:ute)?\s+(?:\[?sys\]?\.)?\[?{name}\]?\s+"
-_EXECUTESQL_PATTERN = re.compile(
-    r"^\s*" + _RPC_PROCEDURE.format(name="sp_executesql") + _TSQL_LITERAL,
-    re.IGNORECASE,
-)
-_PREPARE_PATTERN = re.compile(
-    # Handle and cursor declarations the driver prepends, e.g.
-    # "declare @p1 int set @p1=NULL declare @p2 int set @p2=180150003 ...".
-    r"^\s*(?:(?:declare\s+@\w+\s+\w+(?:\s*,\s*@\w+\s+\w+)*"
-    r"|set\s+@\w+\s*=\s*(?:-?\d+|NULL))\s*;?\s*)*"
-    + _RPC_PROCEDURE.format(
-        name="(?:sp_prepexec|sp_prepare|sp_cursorprepexec|sp_cursorprepare)"
-    )
-    # Handle (and, for cursor variants, the cursor) output parameters.
-    + r"@\w+\s+output\s*,\s*(?:@\w+\s+output\s*,\s*)?"
-    # Parameter declaration, then the statement.
-    + r"(?:N?'(?:[^']|'')*'|NULL)\s*,\s*"
-    + _TSQL_LITERAL,
-    re.IGNORECASE,
-)
 # Rolling file suffix SQL Server appends to audit/XE target files:
 # <name>_<partition>_<timestamp>.sqlaudit|.xel
 _ROLLING_FILE_SUFFIX_PATTERN = re.compile(r"_\d+_\d+\.(sqlaudit|xel)$", re.IGNORECASE)
-
-
-def unwrap_rpc_statement(statement: str) -> Optional[str]:
-    """Return the SQL inside an sp_executesql / sp_prepexec style RPC wrapper,
-    or None when the statement isn't one."""
-    match = _EXECUTESQL_PATTERN.match(statement) or _PREPARE_PATTERN.match(statement)
-    if match is None:
-        return None
-    return match.group(1).replace("''", "'")
 
 
 def query_log_file_pattern(current_file: str) -> str:
@@ -482,6 +449,7 @@ class MSSQLLineageExtractor:
                 path=path,
                 window=self._window(),
                 limit=self.config.max_queries_to_extract,
+                min_calls=self.config.min_query_calls,
                 exclude_patterns=self.config.query_exclude_patterns,
                 statements_truncated=is_azure_sql_database,
             )
@@ -490,6 +458,7 @@ class MSSQLLineageExtractor:
                 path=path,
                 window=self._window(),
                 limit=self.config.max_queries_to_extract,
+                min_calls=self.config.min_query_calls,
                 exclude_patterns=self.config.query_exclude_patterns,
                 database_scoped=is_azure_sql_database,
             )
@@ -571,8 +540,7 @@ class MSSQLLineageExtractor:
                         )
                 queries = list(queries_by_id.values())
                 if is_query_log:
-                    queries = self._regroup_query_log_entries(queries)
-                    self.queries_extracted = len(queries)
+                    self._warn_on_unmapped_executions(rows)
 
                 logger.info(
                     "Extracted %d queries from %s in %.2f seconds",
@@ -629,42 +597,26 @@ class MSSQLLineageExtractor:
                 )
                 return []
 
-    def _regroup_query_log_entries(
-        self, entries: List[MSSQLQueryEntry]
-    ) -> List[MSSQLQueryEntry]:
-        """Merge raw log statements that are the same query once unwrapped,
-        then apply min_query_calls and max_queries_to_extract.
-
-        The SQL groups on raw text, where each set of RPC parameter values is
-        a different statement, so this is where one parameterized query run
-        with many values becomes one entry with its full execution count.
-        """
-        merged: Dict[str, MSSQLQueryEntry] = {}
-        for entry in entries:
-            # The SQL already unwraps the common wrappers; this catches the
-            # rest (e.g. JDBC cursor prepares).
-            unwrapped = unwrap_rpc_statement(entry.query_text)
-            query_text = unwrapped if unwrapped is not None else entry.query_text
-            existing = merged.get(query_text)
-            if existing is None:
-                merged[query_text] = MSSQLQueryEntry(
-                    query_id=entry.query_id,
-                    query_text=query_text,
-                    execution_count=0,
-                    total_exec_time_ms=entry.total_exec_time_ms,
-                    database_name=entry.database_name,
-                )
-                existing = merged[query_text]
-            existing.executions.extend(entry.executions)
-        for entry in merged.values():
-            entry.execution_count = sum(e.count for e in entry.executions)
-        kept = [
-            entry
-            for entry in merged.values()
-            if entry.execution_count >= self.config.min_query_calls
-        ]
-        kept.sort(key=lambda e: e.execution_count, reverse=True)
-        return kept[: self.config.max_queries_to_extract]
+    def _warn_on_unmapped_executions(self, rows: Sequence["RowMapping"]) -> None:
+        """Counts are partial when many sp_execute calls can't be tied to their
+        prepare, e.g. the log was rotated or the event lacks session_id."""
+        total = sum(int(row["window_execution_count"] or 0) for row in rows)
+        unmapped = sum(
+            int(row["window_execution_count"] or 0)
+            for row in rows
+            if row["is_unmapped"]
+        )
+        if total and unmapped / total >= _UNMAPPED_EXECUTION_WARNING_SHARE:
+            self.report.warning(
+                title="Prepared-statement executions not attributed",
+                message=(
+                    "Some sp_execute calls could not be matched to the statement they "
+                    "ran, so query counts for prepared statements are partial. Check "
+                    "that the log retains the sessions' prepares and that Extended "
+                    "Events sessions collect the session_id action."
+                ),
+                context=f"{self._database_name()}: {unmapped} of {total} executions",
+            )
 
     def _user_urn(self, login: Optional[str]) -> Optional[CorpUserUrn]:
         """Map a SQL Server login to a DataHub user.

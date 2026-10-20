@@ -14,7 +14,6 @@ from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     QueryLogCache,
     query_log_file_pattern,
-    unwrap_rpc_statement,
 )
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
@@ -94,46 +93,6 @@ def _log_row(
     }
 
 
-@pytest.mark.parametrize(
-    "statement, expected",
-    [
-        (
-            "exec sp_executesql N'SELECT a FROM t WHERE id = @P1',N'@P1 INT',@P1=3",
-            "SELECT a FROM t WHERE id = @P1",
-        ),
-        (
-            "declare @p1 int\r\nset @p1=1\r\nexec sp_prepexec @p1 output,"
-            "N'@P1 int',N'SELECT id FROM t WHERE x > @P1',10\r\nselect @p1",
-            "SELECT id FROM t WHERE x > @P1",
-        ),
-        (
-            "exec sp_prepexec @p1 output,NULL,N'SELECT name FROM t WHERE x = ''a'''",
-            "SELECT name FROM t WHERE x = 'a'",
-        ),
-        (
-            # JDBC cursor prepare: several handle declarations, some NULL.
-            "declare @p1 int set @p1=NULL declare @p2 int set @p2=0 "
-            "declare @p5 int set @p5=4 exec sp_cursorprepexec @p1 output,"
-            "@p2 output,N'@P0 int',N'SELECT id FROM t WHERE x = @P0',@p5 output,1",
-            "SELECT id FROM t WHERE x = @P0",
-        ),
-        ("SELECT 1 FROM t", None),
-        ("exec sp_unprepare 1", None),
-        # Dynamic SQL from a variable: there is no inner literal to take.
-        ("EXEC sp_executesql @sql, N'@id int', @id=1", None),
-        # A batch that only contains a call keeps its own lineage.
-        (
-            "INSERT INTO a SELECT * FROM b; EXEC sp_executesql N'UPDATE c SET x = 1'",
-            None,
-        ),
-    ],
-)
-def test_unwrap_rpc_statement(statement: str, expected: Optional[str]) -> None:
-    """Drivers send parameterized SQL as RPC wrappers; the inner SQL is what
-    the parser needs to find tables. Anything else must be left alone."""
-    assert unwrap_rpc_statement(statement) == expected
-
-
 def test_query_log_file_pattern_local_and_blob() -> None:
     assert (
         query_log_file_pattern("/audit/dh_audit_0A1B2C3D_0_1343577783201.sqlaudit")
@@ -187,6 +146,7 @@ def test_extended_events_database_filter(database_scoped: bool) -> None:
         path="/xe/x*.xel",
         window=_WINDOW,
         limit=10,
+        min_calls=1,
         exclude_patterns=None,
         database_scoped=database_scoped,
     )
@@ -220,6 +180,7 @@ def test_audit_log_reassembles_split_statements(statements_truncated: bool) -> N
         path="/audit/x*.sqlaudit",
         window=_WINDOW,
         limit=10,
+        min_calls=1,
         exclude_patterns=None,
         statements_truncated=statements_truncated,
     )
@@ -229,24 +190,15 @@ def test_audit_log_reassembles_split_statements(statements_truncated: bool) -> N
     assert ("MAX(LEN(statement)) >= 4000" in sql) == statements_truncated
 
 
-def test_audit_log_rows_regroup_parameter_values_and_carry_users() -> None:
-    """The SQL groups on raw text, where each set of RPC parameter values is a
-    different statement. After unwrapping they must be one query with the
-    summed count, the per-user executions, and min_query_calls applied to it."""
+def test_audit_log_rows_fold_users_and_skip_truncated() -> None:
+    """The SQL returns one row per (statement, user, bucket), already grouped on
+    the unwrapped statement. Rows of one statement fold into one query with
+    per-user executions; truncated statements are skipped and counted."""
     rows = [
+        _log_row("h1", "SELECT a FROM t WHERE id = @P1", "CORP\\alice", 2, wrapped=2),
         _log_row(
-            "h1",
-            "exec sp_executesql N'SELECT a FROM t WHERE id = @P1',N'@P1 INT',@P1=3",
-            "CORP\\alice",
-            2,
+            "h1", "SELECT a FROM t WHERE id = @P1", "bob@example.com", 1, wrapped=1
         ),
-        _log_row(
-            "h2",
-            "exec sp_executesql N'SELECT a FROM t WHERE id = @P1',N'@P1 INT',@P1=4",
-            "bob@example.com",
-            1,
-        ),
-        _log_row("h3", "SELECT b FROM u", "CORP\\alice", 1),
         _log_row("h4", "SELECT c FROM v", "CORP\\alice", 5, truncated=1),
     ]
     extractor, connection, report = _extractor(
@@ -262,10 +214,12 @@ def test_audit_log_rows_regroup_parameter_values_and_carry_users() -> None:
     queries = extractor.extract_query_history()
 
     assert [q.query_text for q in queries] == ["SELECT a FROM t WHERE id = @P1"]
-    assert queries[0].execution_count == 3
     assert report.num_query_log_truncated_statements == 5
+    assert report.num_query_log_rpc_executions_unwrapped == 3
     _, params = connection.execute.call_args.args
     assert params["path"] == "/audit/x*.sqlaudit"
+    # min_query_calls is applied in SQL to each statement's in-window total.
+    assert params["min_calls"] == 2
     observed = extractor._build_observed_queries(queries[0])
     assert {
         (q.user.urn() if q.user else None, q.usage_multiplier) for q in observed
@@ -428,6 +382,7 @@ def test_log_sql_groups_on_inner_sql_and_maps_sp_execute() -> None:
         path="/audit/x*.sqlaudit",
         window=_WINDOW,
         limit=10,
+        min_calls=1,
         exclude_patterns=None,
         statements_truncated=False,
     )
@@ -436,3 +391,46 @@ def test_log_sql_groups_on_inner_sql_and_maps_sp_execute() -> None:
     assert "PARTITION BY database_name, is_unmapped" in sql
     assert "pr.prep_handle = n.exec_handle AND pr.session_id = n.session_id" in sql
     assert "INTO #dh_query_log" in sql
+
+
+def test_mostly_unmapped_executions_raise_a_warning() -> None:
+    """When many sp_execute calls can't be tied to a prepare, query counts are
+    partial and the report says so instead of only bumping a counter."""
+    rows = [
+        _log_row("h1", "SELECT a FROM t WHERE id = @P0", "alice", 5, wrapped=5),
+        _log_row("h2", "<unmapped sp_execute>", "alice", 5, unmapped=1),
+    ]
+    extractor, _, report = _extractor(
+        _config(query_history_source="audit_log", query_history_path="/a*.sqlaudit"),
+        [*_on_prem(), _result(rows)],
+    )
+
+    extractor.extract_query_history()
+
+    assert report.num_query_log_unmapped_executions == 5
+    assert any(
+        w.title == "Prepared-statement executions not attributed"
+        for w in report.warnings
+    )
+
+
+def test_log_sql_covers_cursor_prepares_and_prepares_before_the_window() -> None:
+    """Cursor prepares are unwrapped and sp_cursorexecute is attributed like
+    sp_execute. Prepares from before the window are loaded, for sessions that
+    executed in it, only to resolve handles; they aren't counted."""
+    query, _ = MSSQLQuery.get_query_history_from_extended_events(
+        path="/xe/x*.xel",
+        window=_WINDOW,
+        limit=10,
+        min_calls=1,
+        exclude_patterns=None,
+        database_scoped=False,
+    )
+    sql = " ".join(str(query).split())
+    assert "sp[_]cursorprepexec" in sql and "sp[_]cursorexecute" in sql
+    assert "CAST(timestamp_utc AS DATETIME2(7)) < :start_time" in sql
+    assert (
+        "SELECT event_time, session_id, user_name, statement, is_rpc, is_truncated, database_name, 0 AS in_window"
+        in sql
+    )
+    assert "AND in_window = 1" in sql
