@@ -1,6 +1,6 @@
 import { Heading, Text } from '@components';
 import { Spin } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { typography } from '@components/theme';
@@ -43,18 +43,26 @@ export const VideoContainer = styled.div`
     padding-top: 16px;
 `;
 
+const TOUR_MEDIA_WIDTH_PX = 620;
+const TOUR_MEDIA_HEIGHT_PX = Math.ceil((TOUR_MEDIA_WIDTH_PX * 720) / 1208);
+const TOUR_SLIDE_MIN_HEIGHT_PX = 470;
+const TOUR_TITLE_LINE_PX = 32;
+const TOUR_DESCRIPTION_LINE_PX = 28;
+// One slide, tall enough for a 2-line title and a 3-line description above the
+// 620px video, plus the slide's bottom margin. Still well under two slides,
+// so the list cannot open at the stacked height.
+const TOUR_LIST_MAX_HEIGHT_PX =
+    Math.max(
+        TOUR_SLIDE_MIN_HEIGHT_PX,
+        TOUR_TITLE_LINE_PX * 2 + 4 + TOUR_DESCRIPTION_LINE_PX * 3 + 16 + TOUR_MEDIA_HEIGHT_PX,
+    ) + 32;
+
 /**
- * Holds the tour carousel at the height slick settles on.
- *
- * Before slick finishes measuring, every slide is in normal flow. The centered
- * modal can open thousands of pixels tall, the visible video sits below the
- * viewport, and it jumps in when the track collapses to one row. That jump is
- * the first-visit CLS (the video enters the viewport mid zoom). Cap the list
- * so the modal opens already centered.
+ * Cap the list at one wrapped slide so the modal doesn't open at the stacked height of every slide.
  */
 export const TourSlides = styled.div`
     .slick-list {
-        max-height: 539px !important;
+        max-height: ${TOUR_LIST_MAX_HEIGHT_PX}px !important;
         overflow: hidden !important;
     }
 `;
@@ -128,6 +136,8 @@ interface VideoSlideProps {
     videoSrc?: string;
     posterSrc: string;
     width: string;
+    /** The visible slide plays. A prefetched slide only downloads. */
+    active?: boolean;
     onPlaying?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
     onTimeUpdate?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
     onEnded?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
@@ -144,6 +154,7 @@ export const VideoSlide: React.FC<VideoSlideProps> = ({
     videoSrc,
     posterSrc,
     width,
+    active = true,
     onPlaying,
     onTimeUpdate,
     onEnded,
@@ -151,22 +162,39 @@ export const VideoSlide: React.FC<VideoSlideProps> = ({
 }) => {
     const [posterReady, setPosterReady] = useState(false);
     const [frameReady, setFrameReady] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const showVideo = Boolean(posterReady && videoSrc);
 
     useEffect(() => {
         setFrameReady(false);
     }, [videoSrc]);
 
+    // autoPlay only applies on mount. A slide prefetched with src already set
+    // has to be started when it becomes the visible one.
+    useEffect(() => {
+        if (!active) return undefined;
+        const video = videoRef.current;
+        if (!video) return undefined;
+        try {
+            video.play()?.catch(() => {});
+        } catch {
+            // jsdom does not implement media playback.
+        }
+        return undefined;
+    }, [active, videoSrc]);
+
     return (
         <MediaBox $width={width}>
             <PosterImage src={posterSrc} alt="" width={1208} height={720} onLoad={() => setPosterReady(true)} />
             {showVideo ? (
                 <StyledVideo
+                    ref={videoRef}
                     src={videoSrc}
                     poster={posterSrc}
-                    autoPlay
+                    autoPlay={active}
                     muted
                     playsInline
+                    preload="auto"
                     style={{ opacity: frameReady ? 1 : 0 }}
                     onLoadedData={() => setFrameReady(true)}
                     onPlaying={onPlaying}

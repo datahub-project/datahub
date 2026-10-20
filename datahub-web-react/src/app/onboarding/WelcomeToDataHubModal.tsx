@@ -1,5 +1,5 @@
 import { Button, Carousel, LoadedImage, Modal } from '@components';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
@@ -64,6 +64,8 @@ export const WelcomeToDataHubModal = () => {
     const advancedFromSlideRef = useRef<number | null>(null);
     const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const prefetchedFromSlideRef = useRef<number | null>(null);
+    const [prefetchSlide, setPrefetchSlide] = useState<number | null>(null);
+    const [clipStarted, setClipStarted] = useState(false);
     const loadCancelledRef = useRef(false);
     currentSlideRef.current = currentSlide;
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
@@ -91,26 +93,24 @@ export const WelcomeToDataHubModal = () => {
         }
     }, [isModalTourOpen]);
 
-    function clearAdvanceTimer() {
+    const clearAdvanceTimer = useCallback(() => {
         if (advanceTimerRef.current) {
             clearTimeout(advanceTimerRef.current);
             advanceTimerRef.current = null;
         }
-    }
+    }, []);
 
-    // The carousel used to advance on a fixed 10s clock that started when the
-    // slide appeared, while the MP4 was still downloading. The lineage clip's
-    // column view is at the end, so the slide changed before that frame.
-    function goToNextSlide() {
+    // The lineage clip's column view is at the end, so advance on `ended`, not a fixed timer.
+    const goToNextSlide = useCallback(() => {
         const slide = currentSlideRef.current;
         if (advancedFromSlideRef.current === slide) return;
         if (slide >= TOTAL_CAROUSEL_SLIDES - 1) return;
         advancedFromSlideRef.current = slide;
         clearAdvanceTimer();
         carouselRef.current?.next();
-    }
+    }, [TOTAL_CAROUSEL_SLIDES, clearAdvanceTimer]);
 
-    function rememberVideo(videoKey: keyof VideoSources) {
+    const rememberVideo = useCallback((videoKey: keyof VideoSources) => {
         loadTourVideo(videoKey)
             .then((src) => {
                 if (loadCancelledRef.current) return;
@@ -119,16 +119,18 @@ export const WelcomeToDataHubModal = () => {
             .catch((error) => {
                 console.error(`Failed to load ${videoKey} video:`, error);
             });
-    }
+    }, []);
 
-    function scheduleAdvance(delayMs: number) {
-        clearAdvanceTimer();
-        advanceTimerRef.current = setTimeout(goToNextSlide, delayMs);
-    }
+    const scheduleAdvance = useCallback(
+        (delayMs: number) => {
+            clearAdvanceTimer();
+            advanceTimerRef.current = setTimeout(goToNextSlide, delayMs);
+        },
+        [clearAdvanceTimer, goToNextSlide],
+    );
 
-    // Download only the slide that is showing. The other slides stay in the tour
-    // and pick up their MP4 when the carousel reaches them. The next URL is
-    // fetched from the playing clip, a couple of seconds before it ends.
+    // Only the visible slide plays. About 2s before it ends, the next slide gets
+    // its MP4 URL with preload and no autoplay, so that file actually downloads.
     useEffect(() => {
         if (!shouldShow) return undefined;
 
@@ -152,9 +154,15 @@ export const WelcomeToDataHubModal = () => {
             loadCancelledRef.current = true;
             clearAdvanceTimer();
         };
-        // rememberVideo and scheduleAdvance close over the latest setters and refs.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentSlide, isDocumentationSlideEnabled, shouldShow]);
+    }, [
+        TOTAL_CAROUSEL_SLIDES,
+        clearAdvanceTimer,
+        currentSlide,
+        isDocumentationSlideEnabled,
+        rememberVideo,
+        scheduleAdvance,
+        shouldShow,
+    ]);
 
     function holdForRestOfClip(video: HTMLVideoElement) {
         if (advancedFromSlideRef.current === currentSlideRef.current) return;
@@ -166,6 +174,7 @@ export const WelcomeToDataHubModal = () => {
     }
 
     function handleVideoPlaying(event: React.SyntheticEvent<HTMLVideoElement>) {
+        setClipStarted(true);
         holdForRestOfClip(event.currentTarget);
     }
 
@@ -178,12 +187,22 @@ export const WelcomeToDataHubModal = () => {
         const remainingMs = (video.duration - video.currentTime) * 1000;
         if (remainingMs > NEXT_VIDEO_PREFETCH_LEAD_MS) return;
         prefetchedFromSlideRef.current = slide;
-        const nextKey = videoKeyForSlide(slide + 1, isDocumentationSlideEnabled);
-        if (nextKey) rememberVideo(nextKey);
+        const nextSlide = slide + 1;
+        const nextKey = videoKeyForSlide(nextSlide, isDocumentationSlideEnabled);
+        if (!nextKey) return;
+        rememberVideo(nextKey);
+        setPrefetchSlide(nextSlide);
     }
 
     function handleVideoFinished() {
         goToNextSlide();
+    }
+
+    // A broken clip used to leave its poster up for the slide. Skipping on
+    // `error` hides the title before anyone can read it.
+    function handleVideoError() {
+        setClipStarted(true);
+        scheduleAdvance(SLIDE_DURATION_MS);
     }
 
     // A manual move owns the slide so a late `ended` from the clip we left
@@ -250,6 +269,7 @@ export const WelcomeToDataHubModal = () => {
                 totalSlides: TOTAL_CAROUSEL_SLIDES,
             });
 
+            setClipStarted(false);
             setCurrentSlide(current);
         }
     };
@@ -286,6 +306,22 @@ export const WelcomeToDataHubModal = () => {
         });
     }
 
+    function tourVideo(slideIndex: number, src: string | undefined, posterSrc: string) {
+        const active = currentSlide === slideIndex;
+        return (
+            <VideoSlide
+                active={active}
+                videoSrc={videoSrcForSlide(currentSlide, slideIndex, src, prefetchSlide)}
+                posterSrc={posterSrc}
+                width={MODAL_IMAGE_WIDTH}
+                onPlaying={active ? handleVideoPlaying : undefined}
+                onTimeUpdate={active ? handleVideoTimeUpdate : undefined}
+                onEnded={active ? handleVideoFinished : undefined}
+                onError={active ? handleVideoError : undefined}
+            />
+        );
+    }
+
     return (
         <Modal
             title={t('welcome.modalTitle')}
@@ -301,7 +337,7 @@ export const WelcomeToDataHubModal = () => {
                     autoplay={false}
                     afterChange={handleSlideChange}
                     arrows={false}
-                    animateDot
+                    animateDot={!videoKeyForSlide(currentSlide, isDocumentationSlideEnabled) || clipStarted}
                     dotDuration={SLIDE_DURATION_MS}
                     leftComponent={
                         currentSlide === TOTAL_CAROUSEL_SLIDES - 1 ? (
@@ -333,63 +369,23 @@ export const WelcomeToDataHubModal = () => {
                     <SlideContainer>
                         <SlideTitle>{t('welcome.slideFindTitle')}</SlideTitle>
                         <SlideDescription>{t('welcome.slideFindDescription')}</SlideDescription>
-                        <VideoContainer>
-                            <VideoSlide
-                                videoSrc={videoSrcForSlide(currentSlide, 0, videoSources.search)}
-                                posterSrc={searchPoster}
-                                width={MODAL_IMAGE_WIDTH}
-                                onPlaying={handleVideoPlaying}
-                                onTimeUpdate={handleVideoTimeUpdate}
-                                onEnded={handleVideoFinished}
-                                onError={handleVideoFinished}
-                            />
-                        </VideoContainer>
+                        <VideoContainer>{tourVideo(0, videoSources.search, searchPoster)}</VideoContainer>
                     </SlideContainer>
                     <SlideContainer>
                         <SlideTitle>{t('welcome.slideLineageTitle')}</SlideTitle>
                         <SlideDescription>{t('welcome.slideLineageDescription')}</SlideDescription>
-                        <VideoContainer>
-                            <VideoSlide
-                                videoSrc={videoSrcForSlide(currentSlide, 1, videoSources.lineage)}
-                                posterSrc={lineagePoster}
-                                width={MODAL_IMAGE_WIDTH}
-                                onPlaying={handleVideoPlaying}
-                                onTimeUpdate={handleVideoTimeUpdate}
-                                onEnded={handleVideoFinished}
-                                onError={handleVideoFinished}
-                            />
-                        </VideoContainer>
+                        <VideoContainer>{tourVideo(1, videoSources.lineage, lineagePoster)}</VideoContainer>
                     </SlideContainer>
                     <SlideContainer>
                         <SlideTitle>{t('welcome.slideImpactTitle')}</SlideTitle>
                         <SlideDescription>{t('welcome.slideImpactDescription')}</SlideDescription>
-                        <VideoContainer>
-                            <VideoSlide
-                                videoSrc={videoSrcForSlide(currentSlide, 2, videoSources.impact)}
-                                posterSrc={impactPoster}
-                                width={MODAL_IMAGE_WIDTH}
-                                onPlaying={handleVideoPlaying}
-                                onTimeUpdate={handleVideoTimeUpdate}
-                                onEnded={handleVideoFinished}
-                                onError={handleVideoFinished}
-                            />
-                        </VideoContainer>
+                        <VideoContainer>{tourVideo(2, videoSources.impact, impactPoster)}</VideoContainer>
                     </SlideContainer>
                     {isDocumentationSlideEnabled && (
                         <SlideContainer>
                             <SlideTitle>{t('welcome.slideDocsTitle')}</SlideTitle>
                             <SlideDescription>{t('welcome.slideDocsDescription')}</SlideDescription>
-                            <VideoContainer>
-                                <VideoSlide
-                                    videoSrc={videoSrcForSlide(currentSlide, 3, videoSources.aiDocs)}
-                                    posterSrc={aiDocumentationPoster}
-                                    width={MODAL_IMAGE_WIDTH}
-                                    onPlaying={handleVideoPlaying}
-                                    onTimeUpdate={handleVideoTimeUpdate}
-                                    onEnded={handleVideoFinished}
-                                    onError={handleVideoFinished}
-                                />
-                            </VideoContainer>
+                            <VideoContainer>{tourVideo(3, videoSources.aiDocs, aiDocumentationPoster)}</VideoContainer>
                         </SlideContainer>
                     )}
                     <SlideContainer>

@@ -8,9 +8,15 @@ export function videoKeyForSlide(slideIndex: number, documentationSlideEnabled: 
     return null;
 }
 
-// The slide stays mounted either way. Only the visible one gets an MP4 URL,
-// so the others do not download until the carousel reaches them.
-export function videoSrcForSlide(currentSlide: number, slideIndex: number, src?: string): string | undefined {
-    if (currentSlide !== slideIndex) return undefined;
-    return src || undefined;
+// The slide stays mounted either way. The visible slide and the one being
+// prefetched get an MP4 URL. The rest do not download.
+export function videoSrcForSlide(
+    currentSlide: number,
+    slideIndex: number,
+    src?: string,
+    prefetchSlide?: number | null,
+): string | undefined {
+    if (!src) return undefined;
+    if (currentSlide !== slideIndex && prefetchSlide !== slideIndex) return undefined;
+    return src;
 }

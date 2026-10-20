@@ -64,4 +64,31 @@ describe('VideoSlide', () => {
 
         expect(onEnded).toHaveBeenCalledTimes(1);
     });
+
+    it('downloads a prefetched clip without playing it', () => {
+        const onTimeUpdate = vi.fn();
+        const { container } = render(
+            <MockedProvider>
+                <TestPageContainer>
+                    <VideoSlide
+                        active={false}
+                        posterSrc="/poster.webp"
+                        videoSrc="/video.mp4"
+                        width="620px"
+                        onTimeUpdate={onTimeUpdate}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.load(container.querySelector('img') as HTMLImageElement);
+
+        const video = container.querySelector('video');
+        expect(video).toHaveAttribute('src', '/video.mp4');
+        expect(video).toHaveAttribute('preload', 'auto');
+        expect(video).not.toHaveAttribute('autoplay');
+
+        fireEvent.timeUpdate(video as HTMLVideoElement);
+        expect(onTimeUpdate).toHaveBeenCalledTimes(1);
+    });
 });
