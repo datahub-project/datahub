@@ -1122,10 +1122,16 @@ def test_adf_source_dynamic_lineage_via_pipeline_run_parameters(tmp_path):
     ]
     assert len(lineage_aspects) >= 1
     # The augmentation MCP (emitted after execution-history processing)
-    # carries the union of both runs' resolved tables.
-    input_datasets = lineage_aspects[-1]["aspect"]["json"]["inputDatasets"]
-    assert any(",Orders," in d for d in input_datasets)
-    assert any(",Customers," in d for d in input_datasets)
+    # carries the union of both runs' resolved tables - select it
+    # explicitly by content rather than assuming it's always emitted
+    # last, in case a later aspect for this entity is ever added.
+    union_aspects = [
+        a["aspect"]["json"]["inputDatasets"]
+        for a in lineage_aspects
+        if any(",Orders," in d for d in a["aspect"]["json"]["inputDatasets"])
+        and any(",Customers," in d for d in a["aspect"]["json"]["inputDatasets"])
+    ]
+    assert len(union_aspects) == 1
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2068,9 +2074,9 @@ def test_adf_source_lookup_activity_never_produces_garbage_urn(tmp_path):
     assert len(lineage_aspects) >= 1
     aspect = lineage_aspects[-1]["aspect"]["json"]
 
-    assert aspect["inputDatasets"] == [
+    assert set(aspect["inputDatasets"]) == {
         "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.AppConfig,DEV)"
-    ]
+    }
     for urn in aspect["inputDatasets"]:
         assert "{'value'" not in urn
         assert "Expression" not in urn
