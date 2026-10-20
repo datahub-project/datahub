@@ -3,14 +3,12 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { MockedFunction, vi } from 'vitest';
 
-import { LineageNodesContext, getEdgeId } from '@app/lineageV3/common';
+import { FetchStatus, LineageNodesContext, getEdgeId } from '@app/lineageV3/common';
 import useFetchChildDataJobs from '@app/lineageV3/initialize/useFetchChildDataJobs';
 
 import { useGetDataFlowDagQuery } from '@graphql/dataFlow.generated';
 import { EntityType, LineageDirection } from '@types';
 
-// Mock the GraphQL hook so onCompleted can be invoked directly and synchronously,
-// same convention as useSecrets.test.tsx.
 vi.mock('@graphql/dataFlow.generated', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
@@ -75,10 +73,6 @@ describe('useFetchChildDataJobs', () => {
         vi.clearAllMocks();
     });
 
-    // Regression test: a DataFlow with an upstream attached directly (e.g. a source-code
-    // Repository via repositoryLineage) but zero registered child DataJobs. Before the fix, this
-    // urn's own upstream was never fetched at all, so the direct upstream never appeared in
-    // edges/adjacencyList regardless of what the API returned.
     it("adds an edge for the DataFlow's own direct upstream repository when there are no child jobs", () => {
         const contextValue = makeContextValue();
         mockQueryOnce({
@@ -95,14 +89,17 @@ describe('useFetchChildDataJobs', () => {
         const edgeId = getEdgeId(ROOT_URN, REPO_URN, LineageDirection.Upstream);
         expect(contextValue.edges.get(edgeId)).toEqual(expect.objectContaining({ isDisplayed: true }));
         expect(contextValue.adjacencyList[LineageDirection.Upstream].get(ROOT_URN)?.has(REPO_URN)).toBe(true);
-        // The edge target must have its own node, or it renders as an edge into nowhere.
+        // Upstream-only: laid out to the flow's left, and no downstream expansion to offer.
         expect(contextValue.nodes.get(REPO_URN)).toEqual(
-            expect.objectContaining({ urn: REPO_URN, type: EntityType.Dataset }),
+            expect.objectContaining({
+                urn: REPO_URN,
+                type: EntityType.Dataset,
+                direction: LineageDirection.Upstream,
+                fetchStatus: expect.objectContaining({ [LineageDirection.Downstream]: FetchStatus.UNNEEDED }),
+            }),
         );
     });
 
-    // No direct DataFlow-level upstream at all -- only child jobs, which is the common case for
-    // real DataFlows. Confirms the pre-existing child-job path is unaffected by the fix.
     it('still adds child-job nodes and their own upstream edges when the DataFlow has no direct upstream', () => {
         const contextValue = makeContextValue();
         mockQueryOnce({
@@ -133,14 +130,9 @@ describe('useFetchChildDataJobs', () => {
         expect(contextValue.nodes.get(CHILD_JOB_URN)).toEqual(expect.objectContaining({ parentDataJob: ROOT_URN }));
         const edgeId = getEdgeId(CHILD_JOB_URN, UPSTREAM_DATASET_URN, LineageDirection.Upstream);
         expect(contextValue.edges.get(edgeId)).toEqual(expect.objectContaining({ isDisplayed: true }));
-        // No spurious direct-upstream edge should be added for the root when the API returned none.
         expect(contextValue.adjacencyList[LineageDirection.Upstream].get(ROOT_URN)).toBeUndefined();
     });
 
-    // Both a direct DataFlow-level repository upstream AND a child job with its own upstream --
-    // matching the "has child jobs" case that already happened to work before the fix (via
-    // transitive rollup through the job). Confirms both edge sets coexist without one clobbering
-    // the other, now that they're fetched via two independent paths.
     it('adds both the direct upstream repository and child-job upstream edges together', () => {
         const contextValue = makeContextValue();
         mockQueryOnce({

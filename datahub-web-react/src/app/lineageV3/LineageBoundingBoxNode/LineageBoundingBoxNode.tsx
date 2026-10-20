@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Handle, NodeProps, NodeResizer, Position, useReactFlow, useStore } from 'reactflow';
+import { NodeProps, NodeResizer, Position, useReactFlow, useStore } from 'reactflow';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
@@ -16,6 +16,7 @@ import {
     isGhostEntity,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
+import HorizontalHandle from '@app/lineageV3/components/HorizontalHandle';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import usePrevious from '@app/shared/usePrevious';
@@ -116,13 +117,6 @@ function useFitToContents(id: string) {
     }, [id, contentsKey, setNodes]);
 }
 
-// Positioning comes from reactflow's own default .react-flow__handle-left/-right classes; only
-// the visible dot styling needs overriding here.
-const InvisibleHandle = styled(Handle)`
-    background: initial;
-    border: initial;
-`;
-
 export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingBox>) {
     const { data, selected, dragging } = props;
     const { urn, type, entity, colorHex } = data;
@@ -171,13 +165,9 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                 minHeight={LINEAGE_NODE_HEIGHT + 2 * BOUNDING_BOX_PADDING}
                 handleStyle={{ border: 'none' }}
             />
-            {/*
-              The DataFlow itself can have its own direct upstream/downstream (e.g. a linked
-              Repository), rendered as edges into/out of this box's own urn. Without these, such
-              edges have no connection point to attach to and silently fail to render.
-            */}
-            <InvisibleHandle type="target" position={Position.Left} isConnectable={false} />
-            <InvisibleHandle type="source" position={Position.Right} isConnectable={false} />
+            {/* Connection points for the DataFlow's own upstream edges, which attach to the box. */}
+            <HorizontalHandle type="target" position={Position.Left} isConnectable={false} />
+            <HorizontalHandle type="source" position={Position.Right} isConnectable={false} />
             <StyledNodeWrapper
                 urn={urn}
                 selected={selected}

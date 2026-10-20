@@ -8,6 +8,7 @@ import {
     getEdgeId,
     setDefault,
 } from '@app/lineageV3/common';
+import { setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { useGetDataFlowDagQuery } from '@graphql/dataFlow.generated';
 import { Entity, LineageDirection } from '@types';
@@ -15,7 +16,8 @@ import { Entity, LineageDirection } from '@types';
 const DATA_FLOW_CHILD_JOBS_PAGE_SIZE = 50;
 
 export default function useFetchChildDataJobs(): boolean {
-    const { rootUrn, nodes, edges, adjacencyList, setNodeVersion, showGhostEntities } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, nodes, edges, adjacencyList, setNodeVersion, showGhostEntities } =
+        useContext(LineageNodesContext);
     const [start, setStart] = useState(0);
     const [initialized, setInitialized] = useState(false);
 
@@ -29,14 +31,14 @@ export default function useFetchChildDataJobs(): boolean {
         onCompleted: (data) => {
             let addedNode = false;
 
-            // The DataFlow's own direct upstream (e.g. a linked source-code Repository via
-            // repositoryLineage) -- separate from, and in addition to, each child job's own
-            // upstream fetched below. Without this, a Repository attached directly to the
-            // DataFlow never renders unless it's also reachable via a child job.
+            // The DataFlow's own upstream (a linked Repository), in addition to each job's upstream below.
             data.dataFlow?.upstream?.relationships?.forEach((relationship) => {
                 if (!relationship.entity) return;
                 addedNode = addedNode || !nodes.has(relationship.entity.urn);
-                setDefault(nodes, relationship.entity.urn, makeInitialNode(relationship.entity));
+                setEntityNodeDefault(relationship.entity.urn, relationship.entity.type, LineageDirection.Upstream, {
+                    nodes,
+                    rootType,
+                });
                 const edgeId = getEdgeId(rootUrn, relationship.entity.urn, LineageDirection.Upstream);
                 edges.set(edgeId, { ...edges.get(edgeId), isDisplayed: true });
                 addToAdjacencyList(adjacencyList, LineageDirection.Upstream, rootUrn, relationship.entity.urn);
