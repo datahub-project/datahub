@@ -13,6 +13,8 @@ from typing import (
 )
 from urllib.parse import urlparse
 
+from pydantic import JsonValue
+
 from datahub.emitter.mce_builder import (
     datahub_guid,
     make_assertion_source,
@@ -734,6 +736,7 @@ def odcs_to_structured_property_mcps(
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
     unavailable: AbstractSet[str] = frozenset(),
+    contract_context: JsonValue = None,
 ) -> Tuple[List[Tuple[MetadataChangeProposalClass, bool]], List[str]]:
     """`odcs.*` structured-property patches for a logical dataset and its fields.
 
@@ -746,7 +749,12 @@ def odcs_to_structured_property_mcps(
     # ponytail: one patch per field per run; fine at contract scale, batch if
     # contracts with thousands of columns appear.
     targets: List[Tuple[str, str, PropertyValues, str]] = [
-        (logical_urn, DATASET_ENTITY_TYPE, dataset_property_values(schema_entry), "")
+        (
+            logical_urn,
+            DATASET_ENTITY_TYPE,
+            dataset_property_values(schema_entry, contract_context),
+            "",
+        )
     ]
     for field_path, prop in _walk_properties(schema_entry.properties):
         targets.append(

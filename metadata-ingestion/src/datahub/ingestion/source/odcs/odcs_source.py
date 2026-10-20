@@ -1032,7 +1032,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
         if self.config.emit_structured_properties:
             yield from self._structured_property_workunits(
-                schema_entry, logical_urn, source_uri
+                contract, schema_entry, logical_urn, source_uri
             )
 
     def _structured_property_definition_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -1094,10 +1094,17 @@ class ODCSSource(StatefulIngestionSourceBase):
                 )
 
     def _structured_property_workunits(
-        self, schema_entry: ODCSSchemaObject, logical_urn: str, source_uri: str
+        self,
+        contract: ODCSContract,
+        schema_entry: ODCSSchemaObject,
+        logical_urn: str,
+        source_uri: str,
     ) -> Iterable[MetadataWorkUnit]:
         mcps, rejected = odcs_to_structured_property_mcps(
-            schema_entry, logical_urn, self._unavailable_structured_properties
+            schema_entry,
+            logical_urn,
+            self._unavailable_structured_properties,
+            contract.context,
         )
         for index, (mcp, is_primary) in enumerate(mcps):
             yield MetadataWorkUnit(

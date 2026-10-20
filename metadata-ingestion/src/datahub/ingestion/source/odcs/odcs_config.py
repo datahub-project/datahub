@@ -316,8 +316,8 @@ class ODCSSourceConfig(
     emit_structured_properties: bool = Field(
         default=False,
         description="Emit ODCS v3.2 descriptive attributes as `odcs.*` structured properties "
-        "on the logical dataset and its fields: `semanticType`, `transformLogic`, `synonyms`, "
-        "`enum` values and vector `logicalTypeOptions`. Creates the instance-wide structured "
+        "on the logical dataset and its fields: `context`, `semanticType`, `transformLogic`, "
+        "`synonyms`, `enum` values and vector `logicalTypeOptions`. Creates the instance-wide structured "
         "property definitions before any contract is ingested (existing ones are left "
         "untouched). Values follow the contract: a value removed from the contract is removed "
         "from DataHub. Values outside a definition's allowed values are dropped and reported.",

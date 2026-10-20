@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import AbstractSet, Dict, Iterable, List, Tuple, Union
 
+import yaml
 from pydantic import JsonValue
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -101,6 +102,11 @@ SPECS: Tuple[_PropertySpec, ...] = (
         False,
         _FIELD,
     ),
+    # Contract- and schema-level `context` (RFC 0038), serialized as YAML so the
+    # instructions / verifiedStatements / constraints structure survives.
+    _PropertySpec(
+        "odcs.context", "ODCS AI Context", "string", False, (DATASET_ENTITY_TYPE,)
+    ),
 )
 _SPECS_BY_NAME = {spec.qualified_name: spec for spec in SPECS}
 
@@ -168,18 +174,37 @@ def _synonym_terms(
         return []
     terms: List[JsonValue] = []
     for s in synonyms:
+        term: JsonValue
+        status: JsonValue
         if isinstance(s, ODCSSynonym):
-            terms.append(s.synonym)
+            term, status = s.synonym, s.status
         elif isinstance(s, dict):
-            terms.append(s.get("synonym"))
+            term, status = s.get("synonym"), s.get("status")
         else:
-            terms.append(s)
+            term, status = s, None
+        # RFC 0041: a deprecated synonym is a former name, not a current one.
+        if str(status or "").strip().lower() != "deprecated":
+            terms.append(term)
     return terms
 
 
-def dataset_property_values(schema_entry: ODCSSchemaObject) -> PropertyValues:
+def dataset_property_values(
+    schema_entry: ODCSSchemaObject, contract_context: JsonValue = None
+) -> PropertyValues:
     result = PropertyValues()
     _put(result, "odcs.synonyms", _clean_strings(_synonym_terms(schema_entry.synonyms)))
+    context = {
+        level: value
+        for level, value in (
+            ("contract", contract_context),
+            ("schema", schema_entry.context),
+        )
+        if value not in (None, "", [], {})
+    }
+    if context:
+        result.values["odcs.context"] = [
+            yaml.safe_dump(context, sort_keys=False, allow_unicode=True).strip()
+        ]
     return result
 
 

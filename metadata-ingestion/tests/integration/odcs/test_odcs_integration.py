@@ -434,7 +434,7 @@ def test_odcs_v32_structured_properties(
     )
     mces = _read_mces(output_path)
     definitions = _aspects(mces, "propertyDefinition")
-    assert len(definitions) == 10
+    assert len(definitions) == 11
     patched = {
         m["entityUrn"]
         for m in mces

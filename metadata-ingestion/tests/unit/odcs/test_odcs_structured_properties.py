@@ -1,6 +1,8 @@
 import json
 from typing import Any, Dict, List
 
+import yaml
+
 from datahub.ingestion.source.odcs.odcs_models import ODCSProperty, ODCSSchemaObject
 from datahub.ingestion.source.odcs.odcs_structured_properties import (
     DATASET_ENTITY_TYPE,
@@ -42,7 +44,9 @@ def test_definitions_match_the_fixed_table() -> None:
         "odcs.vector.normalized",
         "odcs.vector.embeddingModel",
         "odcs.vector.embeddingModelVersion",
+        "odcs.context",
     }
+    assert defs["odcs.context"].entityTypes == [DATASET_ENTITY_TYPE]
     assert defs["odcs.vector.dimensions"].valueType == "urn:li:dataType:datahub.number"
     assert defs["odcs.synonyms"].cardinality == "MULTIPLE"
     assert defs["odcs.semanticType"].cardinality == "SINGLE"
@@ -156,8 +160,9 @@ def test_patch_sets_present_and_removes_absent_for_entity_type() -> None:
 def test_dataset_patch_touches_only_dataset_properties() -> None:
     urn = "urn:li:dataset:(urn:li:dataPlatform:odcs,c1.t,PROD)"
     ops = _ops(structured_property_patch_mcps(urn, DATASET_ENTITY_TYPE, {}))
-    assert [o["op"] for o in ops] == ["remove"]
-    assert "odcs.synonyms" in ops[0]["path"]
+    assert [o["op"] for o in ops] == ["remove", "remove"]
+    paths = " ".join(o["path"] for o in ops)
+    assert "odcs.synonyms" in paths and "odcs.context" in paths
 
 
 def test_patch_only_removes_properties_without_a_usable_definition() -> None:
@@ -180,3 +185,54 @@ def test_off_spec_attribute_shapes_yield_no_values() -> None:
     assert result.rejected == ["odcs.semanticType=1"]
     schema = ODCSSchemaObject.model_validate({"name": "t", "synonyms": "orders"})
     assert dataset_property_values(schema).values == {}
+
+
+def test_deprecated_synonyms_are_skipped() -> None:
+    schema = ODCSSchemaObject.model_validate(
+        {
+            "name": "t",
+            "synonyms": [
+                {"synonym": "orders"},
+                {"synonym": "purchases", "status": "deprecated"},
+            ],
+        }
+    )
+    assert dataset_property_values(schema).values == {"odcs.synonyms": ["orders"]}
+    prop = _prop(synonyms=[{"synonym": "TO", "status": "Deprecated"}, "turnover"])
+    assert field_property_values(prop).values == {"odcs.synonyms": ["turnover"]}
+
+
+def test_context_from_contract_and_schema_is_kept_verbatim() -> None:
+    schema = ODCSSchemaObject.model_validate(
+        {
+            "name": "t",
+            "context": {
+                "instructions": "Always filter by order_ts.",
+                "constraints": [{"constraint": "Aggregate to country level."}],
+            },
+        }
+    )
+    values = dataset_property_values(
+        schema,
+        contract_context={
+            "verifiedStatements": [
+                {"question": "Total revenue?", "answer": "Use ${total_revenue}."}
+            ]
+        },
+    ).values
+    (text,) = values["odcs.context"]
+    assert isinstance(text, str)
+    parsed = yaml.safe_load(text)
+    assert (
+        parsed["contract"]["verifiedStatements"][0]["answer"] == "Use ${total_revenue}."
+    )
+    assert parsed["schema"]["instructions"] == "Always filter by order_ts."
+
+
+def test_context_string_shorthand_and_absent() -> None:
+    schema = ODCSSchemaObject.model_validate({"name": "t"})
+    assert "odcs.context" not in dataset_property_values(schema).values
+    (text,) = dataset_property_values(
+        schema, contract_context="Use for revenue analysis."
+    ).values["odcs.context"]
+    assert yaml.safe_load(str(text)) == {"contract": "Use for revenue analysis."}

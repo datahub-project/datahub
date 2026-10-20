@@ -13,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
-        "context",
         "price",
         "roles",
         "slaDefaultElement",
@@ -24,7 +23,6 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
-        "context",
         "customProperties",
         "dataGranularityDescription",
         "id",
@@ -174,6 +172,9 @@ class ODCSSchemaObject(ODCSBaseModel):
     # Untyped like the v3.2 property attributes: mapped only behind
     # emit_structured_properties, so an off-spec shape must not fail the contract.
     synonyms: Optional[JsonValue] = None
+    # v3.2 (RFC 0038) AI context: a string or {instructions, verifiedStatements,
+    # constraints}. Kept verbatim; `${...}` inside it is prose, not a variable.
+    context: Optional[JsonValue] = None
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -310,6 +311,8 @@ class ODCSContract(ODCSBaseModel):
     domain: Optional[str] = None
     dataProduct: Optional[str] = None
     tenant: Optional[str] = None
+    # v3.2 (RFC 0038) AI context; see ODCSSchemaObject.context.
+    context: Optional[JsonValue] = None
     description: Optional[Union[str, ODCSDescription]] = None
     tags: Optional[List[str]] = None
     schema_: Optional[List[ODCSSchemaObject]] = Field(default=None, alias="schema")

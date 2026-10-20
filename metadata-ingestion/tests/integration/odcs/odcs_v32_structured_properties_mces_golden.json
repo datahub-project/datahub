@@ -324,6 +324,29 @@
     }
 },
 {
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:odcs.context",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+        "json": {
+            "qualifiedName": "odcs.context",
+            "displayName": "ODCS AI Context",
+            "valueType": "urn:li:dataType:datahub.string",
+            "cardinality": "SINGLE",
+            "entityTypes": [
+                "urn:li:entityType:datahub.dataset"
+            ],
+            "immutable": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_v32_structured_properties_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000032.readings,PROD)",
     "changeType": "UPSERT",
@@ -545,6 +568,18 @@
                         "values": [
                             {
                                 "string": "measurements"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "op": "add",
+                    "path": "/properties/urn:li:structuredProperty:odcs.context/",
+                    "value": {
+                        "propertyUrn": "urn:li:structuredProperty:odcs.context",
+                        "values": [
+                            {
+                                "string": "contract:\n  instructions: Readings are hourly; never sum col_reading across sensors."
                             }
                         ]
                     }
@@ -1445,6 +1480,18 @@
                     "op": "remove",
                     "path": "/properties/urn:li:structuredProperty:odcs.synonyms",
                     "value": {}
+                },
+                {
+                    "op": "add",
+                    "path": "/properties/urn:li:structuredProperty:odcs.context/",
+                    "value": {
+                        "propertyUrn": "urn:li:structuredProperty:odcs.context",
+                        "values": [
+                            {
+                                "string": "contract:\n  instructions: Readings are hourly; never sum col_reading across sensors."
+                            }
+                        ]
+                    }
                 }
             ]
         }
