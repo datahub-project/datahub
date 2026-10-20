@@ -179,18 +179,26 @@ class IcebergMetadataProbe(ProbeProviderBase):
         with self._calling(f"loading table {qualified}", _TABLE_EFFECT):
             try:
                 return self._catalog.load_table(identifier)
-            except (NoSuchIcebergTableError, NoSuchPropertyException):
-                # Glue and Hive list only Iceberg tables, so a non-Iceberg
-                # table is normally refused by the lookup above. This is the
-                # race where the table stopped being Iceberg between the two
-                # calls (or a catalog that lists every table): it exists, so
-                # an empty answer with a warning, as ingestion skips it with
-                # one. Checked before NoSuchTableError, its base class; Glue
-                # and Hive raise NoSuchPropertyException once the table_type
-                # parameter is gone.
+            # Both are checked before NoSuchTableError, their base class. The
+            # table exists, so each is an empty answer with a warning, as
+            # ingestion skips it with one.
+            except NoSuchIcebergTableError:
+                # Glue and Hive list only Iceberg tables, so this is the race
+                # where the table stopped being Iceberg between the two calls
+                # (or a catalog that lists every table).
                 self._warn(
                     f"{qualified} is not an Iceberg table, so ingestion skips it "
                     f"with a warning and nothing is reported for it"
+                )
+                return None
+            except NoSuchPropertyException:
+                # Glue and Hive raise this for a table typed Iceberg but
+                # registered without metadata_location (or without table_type
+                # at all), which passes the listing: no race is needed.
+                self._warn(
+                    f"{qualified} lacks a catalog property needed to load it "
+                    f"(such as metadata_location), so ingestion skips it with "
+                    f"a warning and nothing is reported for it"
                 )
                 return None
             except NoSuchTableError as exc:
@@ -279,8 +287,9 @@ class IcebergMetadataProbe(ProbeProviderBase):
             partition_spec = partition_spec_json(loaded)
         except (ValueError, KeyError, StopIteration) as exc:
             # Ingestion warns and records the partition spec as None.
-            # StopIteration: Table.spec() finds no spec for default-spec-id,
-            # which pyiceberg validates on load for format v2/v3 but not v1.
+            # StopIteration: Table.spec() or Table.schema() finds no entry for
+            # default-spec-id or current-schema-id, which pyiceberg validates
+            # on load for format v2/v3 but not v1.
             self._warn(
                 f"the partition spec could not be read "
                 f"{name_foreign(exc, type(self))}; ingestion records it as None"

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple, Type
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import pytest
 from botocore.exceptions import ClientError
@@ -258,19 +258,25 @@ def test_columns_of_a_missing_table_is_a_caller_error(
     assert "only Iceberg tables" in str(raised.value)
 
 
-@pytest.mark.parametrize("error", [NoSuchIcebergTableError, NoSuchPropertyException])
-def test_a_non_iceberg_table_is_an_empty_answer_with_a_warning(
-    monkeypatch: pytest.MonkeyPatch, error: Type[Exception]
+@pytest.mark.parametrize(
+    "error, reason",
+    [
+        # The race: listed as Iceberg, then its type changed before load_table.
+        (NoSuchIcebergTableError("table_type is HIVE"), "not an Iceberg table"),
+        # Typed Iceberg but registered without metadata_location: it passes
+        # the listing, so no race is needed; it is not "not Iceberg".
+        (NoSuchPropertyException("metadata_location is missing"), "property"),
+    ],
+)
+def test_an_unloadable_listed_table_is_an_empty_answer_naming_why(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, reason: str
 ) -> None:
-    # The race: the table was listed as Iceberg, then its type changed before
-    # load_table. Glue and Hive raise NoSuchPropertyException once the
-    # table_type parameter is gone; both mean ingestion skips it.
     catalog = _FakeCatalog({("sales",): ["legacy"]})
-    _fail_load_table(monkeypatch, catalog, error("not an iceberg table"))
+    _fail_load_table(monkeypatch, catalog, error)
     _patch_catalog(monkeypatch, catalog)
 
     # It exists, so this is the source's, not a wrong argument: an empty
-    # answer with a warning naming it, not an error.
+    # answer with a warning naming it and why, as ingestion skips it with one.
     for command, empty in (("columns", []), ("table_metadata", {})):
         result = run_probe_method(
             "iceberg",
@@ -279,7 +285,8 @@ def test_a_non_iceberg_table_is_an_empty_answer_with_a_warning(
             {"namespace": "sales", "table": "legacy"},
         )
         assert result.result == empty
-        assert any("'sales.legacy'" in w for w in result.warnings)
+        named = [w for w in result.warnings if "'sales.legacy'" in w]
+        assert named and all(reason in w for w in named)
 
 
 def _fail_load_table(
