@@ -1467,3 +1467,82 @@ def test_binding_iceberg_without_namespace_leaves_unbound() -> None:
     (binding,) = odcs_to_physical_bindings(contract, _config())
     assert binding.physical_urn is None
     assert binding.unmapped_reason and "namespace" in binding.unmapped_reason
+
+
+def test_non_string_synonym_status_does_not_fail_the_contract() -> None:
+    mcps = _logical_mcps(
+        [
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "synonyms": [
+                            {"synonym": "a", "status": 1},
+                            {"synonym": "b", "status": True},
+                        ],
+                    }
+                ],
+            }
+        ]
+    )
+    (ai,) = _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
+    )
+    assert ai.synonyms == ["a", "b"]
+
+
+@pytest.mark.parametrize(
+    "catalog_url",
+    [
+        "https://glue-fips.us-east-1.amazonaws.com/iceberg",
+        "https://glue.cn-north-1.amazonaws.com.cn/iceberg",
+    ],
+)
+def test_binding_iceberg_on_glue_endpoint_variants(catalog_url: str) -> None:
+    contract = _make_contract(
+        servers=[
+            {
+                "server": "lake",
+                "type": "iceberg",
+                "catalog": "main",
+                "catalogUrl": catalog_url,
+                "namespace": "sales",
+            }
+        ],
+        schema=[{"name": "t", "physicalName": "orders"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"
+    )
+
+
+def test_binding_iceberg_catalog_url_variable_leaves_unbound() -> None:
+    contract = _make_contract(
+        servers=[
+            {
+                "server": "lake",
+                "type": "iceberg",
+                "catalog": "main",
+                "catalogUrl": "${CATALOG_URL}",
+                "namespace": "sales",
+            }
+        ],
+        schema=[{"name": "t", "physicalName": "orders"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn is None
+    assert binding.unmapped_reason and "catalogUrl" in binding.unmapped_reason
+
+
+def test_binding_glue_names_are_lowercased() -> None:
+    # Glue stores database and table names in lowercase.
+    contract = _make_contract(
+        servers=[{"server": "g", "type": "glue", "database": "Sales"}],
+        schema=[{"name": "t", "physicalName": "Orders"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"
+    )

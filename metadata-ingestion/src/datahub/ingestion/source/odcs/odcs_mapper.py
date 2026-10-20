@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
 from urllib.parse import urlparse
@@ -236,6 +237,10 @@ def _override_for_server(
     return next((m for m in overrides if m.match_any), None)
 
 
+# AWS Glue endpoints, including FIPS and China regions.
+_GLUE_ENDPOINT_HOST = re.compile(r"^glue(-fips)?\.[a-z0-9-]+\.amazonaws\.com(\.cn)?$")
+
+
 def _is_iceberg_server(server: ODCSServer) -> bool:
     return (server.type or "").strip().lower() == "iceberg"
 
@@ -246,11 +251,12 @@ def _platform_for_server(server: ODCSServer) -> Optional[str]:
     An `iceberg` server whose REST catalog is AWS Glue
     (`https://glue.<region>.amazonaws.com/iceberg`) holds tables the Glue
     connector catalogs, so it binds to `glue`; other Iceberg catalogs bind to
-    `iceberg`. Either way the Iceberg namespace qualifies the table name.
+    `iceberg`. Either way the Iceberg namespace qualifies the table name. The
+    caller refuses a `catalogUrl` holding an unresolved variable.
     """
     if _is_iceberg_server(server):
         host = urlparse(server.catalogUrl or "").hostname or ""
-        if host.startswith("glue.") and host.endswith(".amazonaws.com"):
+        if _GLUE_ENDPOINT_HOST.match(host):
             return "glue"
     return SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
 
@@ -309,6 +315,16 @@ def _compose_physical_name(
             None,
             f"physicalName '{table}' contains an unresolved ODCS variable; "
             "resolve it or supply a physical_urn_overrides entry",
+            False,
+        )
+    if _is_iceberg_server(server) and "${" in (server.catalogUrl or ""):
+        # The catalogUrl picks the platform (glue vs iceberg), so a variable
+        # there makes the URN a guess.
+        return (
+            None,
+            f"server '{server.server}' catalogUrl '{server.catalogUrl}' contains an "
+            "unresolved ODCS variable; resolve it or supply a "
+            "physical_urn_overrides entry",
             False,
         )
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
@@ -700,7 +716,7 @@ def _field_aspect_mcps(
             s if isinstance(s, str) else s.synonym
             for s in prop.synonyms or []
             # RFC 0041: a deprecated synonym is a former name, not a current one.
-            if isinstance(s, str) or (s.status or "").strip().lower() != "deprecated"
+            if isinstance(s, str) or str(s.status or "").strip().lower() != "deprecated"
         ]
         synonyms = [name for name in names if name]
         if synonyms:

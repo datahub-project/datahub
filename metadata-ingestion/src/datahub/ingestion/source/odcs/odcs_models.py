@@ -129,7 +129,7 @@ class ODCSSynonym(ODCSBaseModel):
     # dropped; `locale`, `source` etc. are not recorded. Optional so one
     # malformed entry can't fail the whole contract's model validation.
     synonym: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[JsonValue] = None
 
 
 class ODCSProperty(ODCSBaseModel):
