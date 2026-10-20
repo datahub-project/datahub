@@ -617,11 +617,11 @@ public class GroupService implements ActorGroupMembershipService {
 
   /**
    * One aspect read for the whole batch, then one {@code batchIngestProposals} of per-member
-   * conditional writes, each with its own version. A version mismatch inside a request rejects the
-   * whole batch, so a thrown batch is re-read per member: the first attempt cannot leave a mixed
-   * commit. A failed slot or thrown batch is re-read from primary. A moved aspect is retried one at
-   * a time, counting the batch as write 1. An unmoved member of a thrown multi-member batch is
-   * retried alone, because that batch committed nothing.
+   * conditional writes, each with its own version. The entity client splits the batch into chunks
+   * of {@code batchIngestSize}, so a thrown batch may follow chunks that committed; every member of
+   * it is re-read from primary, as is a failed slot. A member already without the group is done. A
+   * moved aspect is retried one at a time, counting the batch as write 1. An unmoved member of a
+   * thrown multi-member batch was not written, so it is retried alone.
    */
   private void removeStaleGroupReferencesIfUnchanged(
       @Nonnull OperationContext opContext,
@@ -669,8 +669,8 @@ public class GroupService implements ActorGroupMembershipService {
         }
       }
     } catch (Exception e) {
-      // A version mismatch inside a request rejects the whole batch, so the first attempt cannot
-      // leave a mixed commit.
+      // Chunks of batchIngestSize before the one that threw may have committed; the per-member
+      // re-read below tells which.
       batchRejection = e;
       failedSlots.addAll(proposalOrder);
     }
@@ -739,8 +739,8 @@ public class GroupService implements ActorGroupMembershipService {
   /**
    * After the batch attempt: the group already gone is success. A moved aspect is a conflict and
    * the batch counts as write 1. An unmoved aspect on a one-member batch is a storage failure and
-   * is not written again. A thrown multi-member batch committed nothing, so an unmoved member is
-   * retried alone from write 1.
+   * is not written again. An unmoved member of a thrown multi-member batch was not written (its
+   * chunk did not commit), so it is retried alone from write 1.
    */
   private boolean settleMemberAfterBatch(
       @Nonnull OperationContext opContext,

@@ -1129,7 +1129,9 @@ public class DeleteEntityService {
    * Hard-deletes an entity that only exists for the deleted one. With conditional reference writes
    * on, the versions of its aspects are captured first and the key is deleted only if nothing was
    * written since. Otherwise the entity stays with its newer rows and only the captured aspects are
-   * removed. A kept entity, or one with no key row, is logged and counted as an error.
+   * removed. A kept entity is logged and counted as the cascade outcome {@code
+   * referencing_entity_kept}, which is not an error. One with no key row is logged and counted as
+   * the error {@code referencing_entity_missing}.
    */
   private void deleteReferencingEntity(
       @Nonnull OperationContext opContext,
