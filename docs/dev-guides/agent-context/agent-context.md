@@ -3,7 +3,7 @@
 The DataHub Agent Context Kit is a set of guides, SDKs, and an [MCP server](../../features/feature-guides/mcp.md) that help you build AI agents with access to the capabilities and context in your DataHub instance — business definitions, context documents, data ownership, lineage, quality signals, sample queries, and more.
 
 :::tip Quickest start: plugins for Claude and ChatGPT
-On DataHub Cloud, install the DataHub Cloud plugin for [Claude](./plugins.md#claude) or [ChatGPT](https://chatgpt.com/plugins/plugin_asdk_app_6abd46e594a08191a68a2fe9e77a7c88). It includes the MCP server and skills. See [Plugins](./plugins.md).
+On DataHub Cloud, install the DataHub Cloud plugin for [Claude](./plugins.md#claude), [ChatGPT, or Codex](./plugins.md#chatgpt-and-codex). It includes the MCP server and skills.
 :::
 
 ## What Can You Build?
@@ -41,13 +41,13 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 
 ### AI Coding Assistants
 
-| Platform                                | Guide                                   |
-| --------------------------------------- | --------------------------------------- |
-| Claude (web, desktop, Cowork, and Code) | [Guide](./claude.md)                    |
-| ChatGPT & Codex                         | [Guide](./plugins.md#chatgpt-and-codex) |
-| Cursor                                  | [Guide](./cursor.md)                    |
-| Google Gemini CLI                       | [Guide](./gemini-cli.md)                |
-| Snowflake Cortex Code                   | [Guide](./snowflake-cortex-code.md)     |
+| Platform                        | Guide                                   |
+| ------------------------------- | --------------------------------------- |
+| Claude (Code, Desktop & Cowork) | [Guide](./claude.md)                    |
+| ChatGPT & Codex                 | [Guide](./plugins.md#chatgpt-and-codex) |
+| Cursor                          | [Guide](./cursor.md)                    |
+| Google Gemini CLI               | [Guide](./gemini-cli.md)                |
+| Snowflake Cortex Code           | [Guide](./snowflake-cortex-code.md)     |
 
 ### Agent Frameworks (SDK)
 

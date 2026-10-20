@@ -10,7 +10,7 @@ Want to learn more about the motivation, architecture, and advanced use cases? C
 
 ## Deployment Options
 
-- [Plugins for Claude, ChatGPT, and Codex](../../dev-guides/agent-context/plugins.md) - One-click setup on DataHub Cloud
+- [Plugins for Claude, ChatGPT, and Codex](../../dev-guides/agent-context/plugins.md) - One-click setup, available on DataHub Cloud v1.0.2+
 - [Managed MCP Server](#managed-mcp-server-usage) - Available on DataHub Cloud v0.3.12+
 - [Self-Hosted MCP Server](#self-hosted-mcp-server-usage) - Available for DataHub Core
 
@@ -29,7 +29,7 @@ Trace data flow at table and column level, upstream or downstream, across multip
 Surface real SQL queries that reference a dataset — see join patterns, common filters, and aggregation behavior — then generate new queries grounded in actual usage.
 
 **Works Where You Work** <br />
-Works with Claude, ChatGPT, Cursor, Windsurf, and any other MCP client. Claude and ChatGPT also have one-click plugins.
+Works with Claude, ChatGPT, Cursor, Windsurf, and any other MCP-compatible client. Claude and ChatGPT also have one-click plugins.
 
 **What You Can Ask** <br />
 Once connected, try questions like:
@@ -268,7 +268,7 @@ Cursor supports remote MCP servers via the `url` field and handles OAuth flows a
 <details>
   <summary>ChatGPT</summary>
 
-The quickest option is the [DataHub Cloud plugin](https://chatgpt.com/plugins/plugin_asdk_app_6abd46e594a08191a68a2fe9e77a7c88) ([setup guide](../../dev-guides/agent-context/plugins.md#chatgpt-and-codex)). To connect a scoped server instead, add a custom connector. You need **Developer Mode** on a **Plus, Pro, Business, Enterprise, or Edu** plan.
+The quickest option is the [DataHub Cloud plugin](../../dev-guides/agent-context/plugins.md#chatgpt-and-codex). To connect a scoped server instead, add a custom connector. Custom connectors require **Developer Mode** and are available on **Plus, Pro, Team, Enterprise, and Edu** plans (not Free).
 
 1. Enable Developer Mode: profile picture → **Settings → Connectors → Advanced**, then toggle **Developer mode** on. (On Team/Enterprise, an admin must first allow it under **Workspace Settings → Permissions & Roles → Connected Data → Developer mode / Create custom MCP connectors**.)
 2. Still under **Settings → Connectors**, click **Add custom connector** (or **Create**).

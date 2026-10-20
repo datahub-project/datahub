@@ -1,6 +1,6 @@
 # Claude
 
-Give Claude ([web, desktop](https://claude.ai/download), Cowork, and [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)) access to your data context in DataHub — find trustworthy data, trace lineage, and look up ownership while you work.
+Give Claude ([web, desktop](https://claude.ai/download), Cowork, and [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)) access to your enterprise data context in DataHub — find trustworthy data, trace lineage, look up ownership, and reference documentation while you work.
 
 ## Prerequisites
 

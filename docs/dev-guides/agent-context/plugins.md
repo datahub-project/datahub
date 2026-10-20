@@ -1,13 +1,16 @@
 # DataHub Cloud Plugins
 
-Connect Claude, ChatGPT, or Codex to DataHub Cloud in one click. The plugin includes:
+Give Claude, ChatGPT, or Codex access to your enterprise data context in DataHub with a one-click plugin. The plugin includes:
 
 - **The DataHub MCP server.** You sign in with your DataHub account, so there are no tokens to manage.
-- **Skills.** Ready-made workflows for search, lineage, data quality, and SQL.
+- **Skills** for search, lineage, data quality, and SQL.
 
-You need DataHub Cloud v1.0.2 or later. The plugin can only see and change what your DataHub account can.
+The plugin can only see and change what your DataHub account can. Source code: [datahub-project/datahub-cloud-ai-plugins](https://github.com/datahub-project/datahub-cloud-ai-plugins).
 
-Source code: [datahub-project/datahub-cloud-ai-plugins](https://github.com/datahub-project/datahub-cloud-ai-plugins)
+## Prerequisites
+
+- A DataHub Cloud instance on v1.0.2+
+- Claude, ChatGPT, or Codex
 
 ## Claude
 
@@ -15,7 +18,7 @@ Works in Claude on the web and desktop, in Cowork, and in Claude Code.
 
 1. Sign in to Claude, go to **Customize → Plugins**, and search for **DataHub Cloud**.
 2. Click **Install**. On Team and Enterprise plans, an owner can install it for everyone.
-3. The first time you use it, click **Connect**, enter your DataHub domain (for example, `<tenant>`), and sign in.
+3. The first time you use it, click **Connect**, enter your DataHub domain (e.g. `<tenant>` for `https://<tenant>.acryl.io`), and sign in.
 
 Then ask a question, like _"Who owns the orders table?"_ You can also run a skill directly:
 
@@ -29,9 +32,9 @@ Only need the MCP tools, without skills? Add the [DataHub connector](https://cla
 
 ### ChatGPT
 
-1. Open the [DataHub Cloud plugin](https://chatgpt.com/plugins/plugin_asdk_app_6abd46e594a08191a68a2fe9e77a7c88). You can also search for **DataHub Cloud** in ChatGPT's plugin directory.
-2. Click **Add**. On Business and Enterprise plans, an admin may need to turn it on first.
-3. Enter your DataHub domain (for example, `<tenant>`) and sign in.
+1. Open the [DataHub Cloud plugin](https://chatgpt.com/plugins/plugin_asdk_app_6abd46e594a08191a68a2fe9e77a7c88), or search for **DataHub Cloud** in ChatGPT's plugin directory.
+2. Click **Add**. On Team and Enterprise plans, an admin may need to turn it on first.
+3. Enter your DataHub domain (e.g. `<tenant>` for `https://<tenant>.acryl.io`) and sign in.
 
 ### Codex
 
