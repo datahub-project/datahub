@@ -158,11 +158,7 @@ query getDataFlowDag(
     $includeGhostEntities: Boolean = false
 ) {
     dataFlow(urn: $urn) {
-        # A DataFlow has no dataset/dataJob-shaped input/output aspect of its own (see
-        # entity-registry.yml) -- its only direct lineage is repositoryLineage (upstream-only,
-        # a repo can't be downstream of a pipeline), so this only needs to fetch upstream.
-        # Without this, a Repository attached directly to the DataFlow never renders here at
-        # all unless it happens to also be reachable via a child job's own upstream below.
+        # The flow's own upstream (a linked Repository); a flow has no downstream lineage of its own.
         upstream: lineage(
             input: {
                 direction: UPSTREAM
