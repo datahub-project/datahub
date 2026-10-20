@@ -1576,8 +1576,10 @@ public class ESUtils {
    * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on. A caller whose filter
    * already references a siblings field (the sibling list on an entity page, the "has siblings"
    * facet) is asking about the group itself and is left alone. Only documents that carry {@code
-   * siblingsPrimary=false} are hidden, so a group with no primary member, or documents indexed
-   * before the field existed, stay visible.
+   * siblingsPrimary=false} are hidden, so documents indexed before the field existed stay visible.
+   * Each document carries only its own flag, so a group in which no member is marked primary cannot
+   * be told apart from the non-primary member of a normal group: every member of such a group is
+   * hidden. Groups must have exactly one primary member for this to be safe.
    */
   @Nonnull
   public static BoolQueryBuilder filterNonPrimarySiblings(

@@ -21,7 +21,9 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
@@ -98,6 +100,38 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     syncAfterWrite();
     _client.clear(operationContext);
     syncAfterWrite();
+  }
+
+  @Test
+  public void testLineageCountSamplesViaEntities() throws Exception {
+    // dataset2 is downstream of dataset1 through dataJobOne. The walk reports both dataset2 and
+    // the via entity; the count must sample the via entity too, or a deleted or collapsed via
+    // node would be counted without ever being filtered.
+    _client.addEdge(
+        operationContext,
+        new Edge(
+            dataset2Urn,
+            dataset1Urn,
+            downstreamOf,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            dataJobOneUrn));
+    syncAfterWrite();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            _client.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    LineageCountResult counted =
+        _client.getLineageCount(operationContext, Set.of(dataset1Urn), downstream, 10);
+    EntityLineageResult walked =
+        _client.getLineage(operationContext, dataset1Urn, downstream, 0, 10, 1);
+
+    assertEquals(counted.getTotal(), walked.getTotal().intValue());
+    assertEquals(new HashSet<>(counted.getSample()), Set.of(dataset2Urn, dataJobOneUrn));
   }
 
   @Nonnull

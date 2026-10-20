@@ -59,6 +59,8 @@ public class GraphQueryBaseDAOLineageCountTest {
     assertTrue(rendered.contains("\"cardinality\""), rendered);
     assertTrue(rendered.contains("\"terms\""), rendered);
     assertTrue(rendered.contains("lineageCount_"), rendered);
+    // Via entities are sampled too, so ghost and sibling filtering reach them.
+    assertTrue(rendered.contains("\"viaSample\""), rendered);
     // Members of the group are never counted as each other's neighbours.
     assertTrue(rendered.contains("must_not"), rendered);
     assertTrue(rendered.contains(DATASET_ONE.toString()), rendered);

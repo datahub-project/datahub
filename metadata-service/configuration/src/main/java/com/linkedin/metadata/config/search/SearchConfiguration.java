@@ -18,7 +18,8 @@ public class SearchConfiguration {
   /**
    * Hide non-primary members of dataset sibling groups from search, autocomplete and browse so a
    * group surfaces as one result. Callers whose filter references the siblings fields are exempt.
-   * Env var: {@code ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS}.
+   * Every sibling group needs exactly one primary member: a group with none is hidden entirely. Env
+   * var: {@code ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS}.
    */
   private boolean hideNonPrimarySiblings;
 

@@ -857,6 +857,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   private static final String DISTINCT_AGG = "distinct";
   private static final String VIA_AGG = "via";
   private static final String SAMPLE_AGG = "sample";
+  private static final String VIA_SAMPLE_AGG = "viaSample";
   // Cardinality is exact below this many distinct values; counts on a card never get near it.
   private static final long LINEAGE_COUNT_PRECISION = 10_000L;
 
@@ -946,6 +947,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                   .subAggregation(
                       AggregationBuilders.terms(SAMPLE_AGG)
                           .field(neighbourField)
+                          .size(Math.max(1, sampleSize)))
+                  // Via entities are counted into the total, so they must also reach the
+                  // caller's ghost and sibling filtering, as they do in the walk.
+                  .subAggregation(
+                      AggregationBuilders.terms(VIA_SAMPLE_AGG)
+                          .field(EDGE_FIELD_VIA)
                           .size(Math.max(1, sampleSize))));
         });
     return source;
@@ -973,8 +980,11 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       if (via != null) {
         total += via.getValue();
       }
-      Terms terms = sub.get(SAMPLE_AGG);
-      if (terms != null) {
+      for (String sampleAgg : List.of(SAMPLE_AGG, VIA_SAMPLE_AGG)) {
+        Terms terms = sub.get(sampleAgg);
+        if (terms == null) {
+          continue;
+        }
         for (Terms.Bucket bucket : terms.getBuckets()) {
           try {
             sample.add(Urn.createFromString(bucket.getKeyAsString()));
