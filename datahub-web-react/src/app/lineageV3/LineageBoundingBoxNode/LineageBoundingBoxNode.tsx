@@ -15,6 +15,7 @@ import {
     LineageNodesContext,
     isGhostEntity,
     useIgnoreSchemaFieldStatus,
+    LINEAGE_HANDLE_OFFSET,
 } from '@app/lineageV3/common';
 import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import HorizontalHandle from '@app/lineageV3/components/HorizontalHandle';
@@ -28,6 +29,8 @@ export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
 /** The box's label card renders above its top edge, so layout must leave room for it there. */
 export const BOUNDING_BOX_LABEL_HEIGHT = 54;
+/** Level with the label card's title, as entity nodes' handles are with theirs. Relative to the box's top edge. */
+export const BOUNDING_BOX_HANDLE_Y = LINEAGE_HANDLE_OFFSET - BOUNDING_BOX_LABEL_HEIGHT;
 
 const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string }>`
     background-color: ${({ $colorHex, theme }) => ($colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`)};
@@ -167,8 +170,18 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                 minHeight={LINEAGE_NODE_HEIGHT + 2 * BOUNDING_BOX_PADDING}
                 handleStyle={{ border: 'none' }}
             />
-            <HorizontalHandle type="target" position={Position.Left} isConnectable={false} />
-            <HorizontalHandle type="source" position={Position.Right} isConnectable={false} />
+            <HorizontalHandle
+                type="target"
+                position={Position.Left}
+                isConnectable={false}
+                style={{ top: BOUNDING_BOX_HANDLE_Y }}
+            />
+            <HorizontalHandle
+                type="source"
+                position={Position.Right}
+                isConnectable={false}
+                style={{ top: BOUNDING_BOX_HANDLE_Y }}
+            />
             <StyledNodeWrapper
                 urn={urn}
                 selected={selected}

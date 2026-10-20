@@ -2,11 +2,15 @@ import {
     DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
     DataFlowLineageControlData,
 } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
-import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import {
+    BOUNDING_BOX_HANDLE_Y,
+    LINEAGE_BOUNDING_BOX_NODE_NAME,
+} from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import {
     EdgeId,
     FetchStatus,
     LINEAGE_FILTER_PAGINATION,
+    LINEAGE_HANDLE_OFFSET,
     LINEAGE_NODE_WIDTH,
     LineageEdge,
     LineageEntity,
@@ -124,6 +128,7 @@ describe('computeDataFlowGraph', () => {
         const repo = flowNodes.find((n) => n.id === REPO_URN);
         const flow = flowNodes.find((n) => n.id === ROOT_URN);
         expect(flow?.type).toBe(LINEAGE_BOUNDING_BOX_NODE_NAME);
+        expect((repo?.position.y ?? 0) + LINEAGE_HANDLE_OFFSET).toBe(BOUNDING_BOX_HANDLE_Y);
         const controls = flowNodes.filter((n) => n.type === DATA_FLOW_LINEAGE_CONTROL_NODE_NAME);
         expect(controls.map((n) => [n.parentId, (n.data as DataFlowLineageControlData).direction])).toEqual([
             [ROOT_URN, LineageDirection.Upstream],

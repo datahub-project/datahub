@@ -2,6 +2,7 @@ import type { XYPosition } from '@reactflow/core/dist/esm/types';
 import { Edge, Node } from 'reactflow';
 
 import {
+    BOUNDING_BOX_HANDLE_Y,
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
@@ -19,6 +20,7 @@ import {
     NodeContext,
     VERTICAL_HANDLE,
     buildHighlightAdjacencyList,
+    LINEAGE_HANDLE_OFFSET,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
@@ -199,7 +201,7 @@ export default function computeDataFlowGraph(
                 id: `${urn}-lineage-control-${direction}`,
                 type: DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
                 parentId: urn,
-                position: { x: 0, y: 0 },
+                position: { x: 0, y: BOUNDING_BOX_HANDLE_Y },
                 data: { urn, type, direction },
                 selectable: false,
                 draggable: false,
@@ -339,7 +341,6 @@ function addFlowOwnLineage(
 
     const rootX = own.flowNodes.find((n) => n.id === urn)?.position.x ?? 0;
     const boxWidth = boundingBox.width ?? LINEAGE_NODE_WIDTH;
-    const boxHeight = boundingBox.height ?? LINEAGE_NODE_HEIGHT;
     const external = own.flowNodes.filter((n) => n.id !== urn && !seenNodeIds.has(n.id));
     [true, false].forEach((isUpstream) => {
         const side = external.filter((n) => n.position.x < rootX === isUpstream);
@@ -354,7 +355,7 @@ function addFlowOwnLineage(
         const dx = (isUpstream ? 0 : boxWidth - LINEAGE_NODE_WIDTH) - rootX;
         const dy = occupiedYs.length
             ? Math.min(...occupiedYs) - ROOT_SEPARATION - sideMaxY
-            : (boxHeight - (sideMaxY - sideMinY + LINEAGE_NODE_HEIGHT)) / 2 - sideMinY;
+            : BOUNDING_BOX_HANDLE_Y - LINEAGE_HANDLE_OFFSET - (sideMaxY - sideMinY) / 2 - sideMinY;
         side.forEach((n) => {
             seenNodeIds.add(n.id);
             // eslint-disable-next-line no-param-reassign

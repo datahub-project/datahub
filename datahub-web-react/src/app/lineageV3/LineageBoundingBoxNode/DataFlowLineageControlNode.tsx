@@ -39,7 +39,6 @@ export default function DataFlowLineageControlNode({ data }: NodeProps<DataFlowL
     const { nodes, adjacencyList } = useContext(LineageNodesContext);
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const boxWidth = useStore((state) => state.nodeInternals.get(urn)?.width ?? 0);
-    const boxHeight = useStore((state) => state.nodeInternals.get(urn)?.height ?? 0);
 
     const node = nodes.get(urn);
     const count = adjacencyList[direction].get(urn)?.size;
@@ -47,7 +46,7 @@ export default function DataFlowLineageControlNode({ data }: NodeProps<DataFlowL
 
     return (
         <NodeRoot>
-            <Anchor style={{ top: boxHeight / 2, left: direction === LineageDirection.Upstream ? 0 : boxWidth }}>
+            <Anchor style={{ left: direction === LineageDirection.Upstream ? 0 : boxWidth }}>
                 {node.isExpanded[direction] ? (
                     <ContractLineageControl urn={urn} direction={direction} />
                 ) : (
