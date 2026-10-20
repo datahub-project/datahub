@@ -56,6 +56,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -1376,7 +1377,7 @@ public class ESIndexBuilder {
 
   private static final int MAX_LOGGED_REINDEX_FAILURES = 20;
   private static final java.util.regex.Pattern FAILED_FIELD_PATTERN =
-      java.util.regex.Pattern.compile("field (?:\\[([^\\]]+)\\]|=\"([^\"]+)\")");
+      java.util.regex.Pattern.compile("field(?: \\[([^\\]]+)\\]|=\"([^\"]+)\")");
 
   /** Diagnostics run after a failure is already decided; they must not hold up the job's exit. */
   private static final Duration DIAGNOSTICS_BUDGET = Duration.ofSeconds(60);
@@ -1394,7 +1395,7 @@ public class ESIndexBuilder {
   }
 
   private static void addTaskId(List<String> taskIds, @Nullable String taskId) {
-    if (taskId != null && !taskId.isEmpty() && !taskIds.contains(taskId)) {
+    if (taskId != null && !taskIds.contains(taskId)) {
       taskIds.add(taskId);
     }
   }
@@ -1411,10 +1412,21 @@ public class ESIndexBuilder {
       String sourceIndex,
       String destIndex,
       List<String> taskIds) {
-    final long deadline = System.currentTimeMillis() + DIAGNOSTICS_BUDGET.toMillis();
+    logReindexFailureDiagnostics(
+        opContext, sourceIndex, destIndex, taskIds, System::currentTimeMillis);
+  }
+
+  @VisibleForTesting
+  public void logReindexFailureDiagnostics(
+      @Nonnull OperationContext opContext,
+      String sourceIndex,
+      String destIndex,
+      List<String> taskIds,
+      LongSupplier clock) {
+    final long deadline = clock.getAsLong() + DIAGNOSTICS_BUDGET.toMillis();
     int logged = 0;
     for (String taskId : taskIds) {
-      if (System.currentTimeMillis() > deadline) {
+      if (clock.getAsLong() > deadline) {
         log.warn("Reindex diagnostics stopped after {}s", DIAGNOSTICS_BUDGET.toSeconds());
         return;
       }
@@ -1464,7 +1476,7 @@ public class ESIndexBuilder {
             return;
           }
           logReindexFailure(
-              opContext, sourceIndex, ReindexFailure.parse(taskId, failure), deadline);
+              opContext, sourceIndex, ReindexFailure.parse(taskId, failure), clock, deadline);
         }
       } catch (ResponseException e) {
         // The search engine answered (e.g. 404 for an unknown task); the other tasks may still be
@@ -1520,7 +1532,11 @@ public class ESIndexBuilder {
   }
 
   private void logReindexFailure(
-      OperationContext opContext, String sourceIndex, ReindexFailure failure, long deadline) {
+      OperationContext opContext,
+      String sourceIndex,
+      ReindexFailure failure,
+      LongSupplier clock,
+      long deadline) {
     log.error(
         "Reindex task {} failure: status={}, document={}, field={}, cause={}",
         failure.taskId(),
@@ -1533,7 +1549,7 @@ public class ESIndexBuilder {
     if (failure.field() != null && failure.field().startsWith("structuredProperties.")) {
       log.error("  structured property: {}", describeStructuredPropertyField(failure.field()));
     }
-    if (failure.docId() != null && System.currentTimeMillis() <= deadline) {
+    if (failure.docId() != null && clock.getAsLong() <= deadline) {
       logSourceValueSize(opContext, sourceIndex, failure.docId(), failure.field());
     }
   }
@@ -1620,6 +1636,10 @@ public class ESIndexBuilder {
         return;
       }
       Object value = sourceValue(source, field);
+      if (value == null) {
+        log.error("  {} is not in the source document", field);
+        return;
+      }
       List<Object> values = value instanceof List ? (List<Object>) value : List.of(value);
       for (Object v : values) {
         if (v != null) {

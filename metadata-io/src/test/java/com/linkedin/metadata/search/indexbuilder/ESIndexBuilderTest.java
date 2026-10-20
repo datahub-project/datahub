@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -3031,6 +3032,70 @@ public class ESIndexBuilderTest {
         .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
   }
 
+  @Test
+  void testReindexFailureDiagnosticsStopsAtTimeBudget() throws IOException {
+    RawResponse runningTask =
+        rawResponse(
+            "{\"completed\": false, \"task\": {\"status\": {\"total\": 5, \"created\": 1}}}");
+    RawResponse failedTask =
+        rawResponse(
+            "{\"completed\": true, \"response\": {\"failures\": [{\"id\": \"a\", \"cause\":"
+                + " {\"type\": \"x\", \"reason\": \"failed to parse field [name]\"}}]}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(runningTask)
+        .thenReturn(failedTask);
+    // Within budget for the first two tasks, then past it before the source document lookup.
+    Iterator<Long> times = List.of(0L, 0L, 0L, 100_000L).iterator();
+
+    indexBuilder.logReindexFailureDiagnostics(
+        opContext,
+        "source",
+        "dest",
+        List.of("node:1", "node:2", "node:3"),
+        () -> times.hasNext() ? times.next() : 100_000L);
+
+    verify(searchClient, times(2))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsHandlesSourceDocumentShapes() throws IOException {
+    String field = "structuredProperties._versioned.desc.10000000000000.string";
+    String failure =
+        "{\"id\": \"a\", \"cause\": {\"type\": \"illegal_argument_exception\", \"reason\":"
+            + " \"Document contains at least one immense term in field=\\\""
+            + field
+            + "\\\"\"}}";
+    RawResponse task =
+        rawResponse(
+            "{\"completed\": true, \"response\": {\"failures\": ["
+                + String.join(",", Collections.nCopies(4, failure))
+                + "]}}");
+    RawResponse noSource = rawResponse("{\"found\": true}");
+    RawResponse fieldMissing =
+        rawResponse("{\"_source\": {\"structuredProperties\": {\"other\": 1}}}");
+    RawResponse dottedScalar = rawResponse("{\"_source\": {\"" + field + "\": \"short\"}}");
+    RawResponse listWithNull =
+        rawResponse(
+            "{\"_source\": {\"structuredProperties\": {\"_versioned\": {\"desc\":"
+                + " {\"10000000000000\": {\"string\": [\"s\", null]}}}}}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(task)
+        .thenReturn(noSource)
+        .thenReturn(fieldMissing)
+        .thenReturn(dottedScalar)
+        .thenReturn(listWithNull);
+
+    indexBuilder.logReindexFailureDiagnostics(opContext, "source", "dest", List.of("node:1"));
+
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, times(5))
+        .performLowLevelRequest(any(OperationFingerprint.class), requests.capture());
+    // The field is parsed from the immense-term reason format as well as the [field] format.
+    assertTrue(
+        requests.getAllValues().get(1).getParameters().get("_source_includes").endsWith(field));
+  }
+
   private static RawResponse rawResponse(String json) throws IOException {
     RawResponse response = mock(RawResponse.class);
     HttpEntity entity = mock(HttpEntity.class);
@@ -3068,5 +3133,8 @@ public class ESIndexBuilderTest {
     assertEquals(
         ESIndexBuilder.describeStructuredPropertyField("structuredProperties.dataOwner"),
         "qualifiedName dataOwner (any '_' may be '.')");
+    assertEquals(
+        ESIndexBuilder.describeStructuredPropertyField("structuredProperties.a.b.c.d"),
+        "qualifiedName a.b.c.d (any '_' may be '.')");
   }
 }
