@@ -2905,4 +2905,87 @@ public class ESIndexBuilderTest {
     assertTrue(result.reindexStartTime() > 0);
     Assert.assertFalse(result.skippedEmpty());
   }
+
+  @Test
+  void testReindexFailureDiagnosticsReadsStoredTaskFailuresAndValueSize() throws IOException {
+    String taskJson =
+        "{\"completed\": true, \"task\": {\"status\": {}}, \"response\": {\"total\": 3,"
+            + " \"created\": 2, \"updated\": 0, \"version_conflicts\": 0, \"failures\": [{\"index\":"
+            + " \"dest\", \"id\": \"urn%3Ali%3Adataset%3Aa\", \"status\": 400, \"cause\": {\"type\":"
+            + " \"document_parsing_exception\", \"reason\": \"failed to parse field"
+            + " [structuredProperties._versioned.desc.10000000000000.string] of type [keyword]."
+            + " Preview of field's value: 'xxxx'\", \"caused_by\": {\"type\":"
+            + " \"illegal_argument_exception\", \"reason\": \"immense term\"}}}]}}";
+    String docJson =
+        "{\"_source\": {\"structuredProperties\": {\"_versioned\": {\"desc\":"
+            + " {\"10000000000000\": {\"string\": [\"abc\"]}}}}}}";
+    RawResponse taskResponse = mock(RawResponse.class);
+    HttpEntity taskEntity = mock(HttpEntity.class);
+    when(taskResponse.getEntity()).thenReturn(taskEntity);
+    when(taskEntity.getContent()).thenReturn(new ByteArrayInputStream(taskJson.getBytes()));
+    RawResponse docResponse = mock(RawResponse.class);
+    HttpEntity docEntity = mock(HttpEntity.class);
+    when(docResponse.getEntity()).thenReturn(docEntity);
+    when(docEntity.getContent()).thenReturn(new ByteArrayInputStream(docJson.getBytes()));
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(taskResponse)
+        .thenReturn(docResponse);
+
+    indexBuilder.logReindexFailureDiagnostics(opContext, "source", "dest", List.of("node:1"));
+
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, times(2))
+        .performLowLevelRequest(any(OperationFingerprint.class), requests.capture());
+    assertEquals(requests.getAllValues().get(0).getEndpoint(), "/_tasks/node:1");
+    Request docRequest = requests.getAllValues().get(1);
+    assertEquals(docRequest.getEndpoint(), "/source/_doc/urn%253Ali%253Adataset%253Aa");
+    assertEquals(
+        docRequest.getParameters().get("_source_includes"),
+        "urn,source.urn,destination.urn,relationshipType,messageId,"
+            + "structuredProperties._versioned.desc.10000000000000.string");
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsStopsWhenSearchEngineUnreachable() throws IOException {
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenThrow(new IOException("unreachable"));
+
+    indexBuilder.logReindexFailureDiagnostics(
+        opContext, "source", "dest", List.of("node:1", "node:2"));
+
+    // Does not throw, and does not keep trying the other tasks once the engine is unreachable.
+    verify(searchClient, times(1))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testShortenValuePreviewKeepsValuePrefix() {
+    String reason =
+        "failed to parse field [f]. Preview of field's value: '" + "x".repeat(150) + "'";
+    assertEquals(
+        ESIndexBuilder.shortenValuePreview(reason),
+        "failed to parse field [f]. Preview of field's value: '"
+            + "x".repeat(100)
+            + "...' (truncated)");
+    assertEquals(
+        ESIndexBuilder.shortenValuePreview("Preview of field's value: 'short'"),
+        "Preview of field's value: 'short'");
+    assertEquals(
+        ESIndexBuilder.shortenValuePreview(
+            "immense term in field=\"f\". The prefix of the first immense term is: '[1, 2]'"),
+        "immense term in field=\"f\".");
+    assertEquals(ESIndexBuilder.shortenValuePreview("x".repeat(600)).length(), 503);
+  }
+
+  @Test
+  void testDescribeStructuredPropertyField() {
+    assertEquals(
+        ESIndexBuilder.describeStructuredPropertyField(
+            "structuredProperties._versioned.Schema_schemaAsStringText.10000000000000.string"),
+        "qualifiedName Schema_schemaAsStringText (any '_' may be '.'), version 10000000000000,"
+            + " value type string");
+    assertEquals(
+        ESIndexBuilder.describeStructuredPropertyField("structuredProperties.dataOwner"),
+        "qualifiedName dataOwner (any '_' may be '.')");
+  }
 }

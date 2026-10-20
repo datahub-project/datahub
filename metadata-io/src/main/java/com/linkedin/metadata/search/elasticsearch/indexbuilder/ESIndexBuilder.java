@@ -36,6 +36,9 @@ import io.github.resilience4j.retry.RetryRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -46,6 +49,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -1188,6 +1192,9 @@ public class ESIndexBuilder {
       final long timeoutAt = computeTimeoutAt();
 
       Map<String, Object> latestReindexInfo = new HashMap<>(reindexInfo);
+      final List<String> submittedTaskIds = new ArrayList<>();
+      addTaskId(submittedTaskIds, taskId);
+      addTaskId(submittedTaskIds, (String) reindexInfo.get("taskId"));
       int reindexCount = 1;
       int count = 0;
       // The active ES task id changes each time we re-submit on stall; track it so status lookups
@@ -1328,6 +1335,7 @@ public class ESIndexBuilder {
             final Object resubmittedTaskId = latestReindexInfo.get("taskId");
             if (resubmittedTaskId != null) {
               activeTaskId = (String) resubmittedTaskId;
+              addTaskId(submittedTaskIds, activeTaskId);
             }
             reindexCount++;
             documentCountsLastUpdated = System.currentTimeMillis();
@@ -1354,6 +1362,7 @@ public class ESIndexBuilder {
           documentCounts.getFirst(),
           activeTaskId,
           lookupReindexTask(opContext, activeTaskId));
+      logReindexFailureDiagnostics(opContext, sourceIndex, destIndex, submittedTaskIds);
       metrics.failed("timeout");
       recordReindexDocuments(metrics, documentCounts.getSecond());
       return new PollReindexResult(false, latestReindexInfo, documentCounts);
@@ -1363,6 +1372,292 @@ public class ESIndexBuilder {
     } finally {
       metrics.finish();
     }
+  }
+
+  private static final int MAX_LOGGED_REINDEX_FAILURES = 20;
+  private static final java.util.regex.Pattern FAILED_FIELD_PATTERN =
+      java.util.regex.Pattern.compile("field (?:\\[([^\\]]+)\\]|=\"([^\"]+)\")");
+
+  /** Diagnostics run after a failure is already decided; they must not hold up the job's exit. */
+  private static final Duration DIAGNOSTICS_BUDGET = Duration.ofSeconds(60);
+
+  private static final RequestOptions DIAGNOSTICS_REQUEST_OPTIONS =
+      RequestOptions.DEFAULT.toBuilder()
+          .setRequestConfig(
+              RequestConfig.custom().setConnectTimeout(5000).setSocketTimeout(10000).build())
+          .build();
+
+  private static Request diagnosticsRequest(String endpoint) {
+    Request request = new Request("GET", endpoint);
+    request.setOptions(DIAGNOSTICS_REQUEST_OPTIONS);
+    return request;
+  }
+
+  private static void addTaskId(List<String> taskIds, @Nullable String taskId) {
+    if (taskId != null && !taskId.isEmpty() && !taskIds.contains(taskId)) {
+      taskIds.add(taskId);
+    }
+  }
+
+  /**
+   * Logs why a reindex stopped short, read from the stored results of its tasks. The high-level
+   * get-task API returns only the status counters, so the failures (rejected documents, search
+   * failures, task errors) are read from the raw {@code _tasks} response. Best effort: never
+   * throws.
+   */
+  @VisibleForTesting
+  public void logReindexFailureDiagnostics(
+      @Nonnull OperationContext opContext,
+      String sourceIndex,
+      String destIndex,
+      List<String> taskIds) {
+    final long deadline = System.currentTimeMillis() + DIAGNOSTICS_BUDGET.toMillis();
+    int logged = 0;
+    for (String taskId : taskIds) {
+      if (System.currentTimeMillis() > deadline) {
+        log.warn("Reindex diagnostics stopped after {}s", DIAGNOSTICS_BUDGET.toSeconds());
+        return;
+      }
+      try {
+        RawResponse response =
+            searchClient.performLowLevelRequest(opContext, diagnosticsRequest("/_tasks/" + taskId));
+        Map<String, Object> task =
+            ObjectMapperContext.defaultMapper.readValue(
+                response.getEntity().getContent(), Map.class);
+        Map<String, Object> result =
+            (Map<String, Object>) task.getOrDefault("response", Collections.emptyMap());
+        Map<String, Object> status =
+            (Map<String, Object>)
+                ((Map<String, Object>) task.getOrDefault("task", Collections.emptyMap()))
+                    .getOrDefault("status", Collections.emptyMap());
+        Map<String, Object> counts = result.isEmpty() ? status : result;
+        log.warn(
+            "Reindex {} -> {} task {}: completed={}, total={}, created={}, updated={}, "
+                + "version_conflicts={}, retries={}, canceled={}",
+            sourceIndex,
+            destIndex,
+            taskId,
+            task.get("completed"),
+            counts.get("total"),
+            counts.get("created"),
+            counts.get("updated"),
+            counts.get("version_conflicts"),
+            counts.get("retries"),
+            counts.get("canceled"));
+        if (task.get("error") != null) {
+          log.error("Reindex task {} error: {}", taskId, task.get("error"));
+        }
+        List<Map<String, Object>> failures =
+            new ArrayList<>((List<Map<String, Object>>) result.getOrDefault("failures", List.of()));
+        for (Map<String, Object> slice :
+            (List<Map<String, Object>>) result.getOrDefault("slices", List.of())) {
+          if (slice != null) {
+            failures.addAll((List<Map<String, Object>>) slice.getOrDefault("failures", List.of()));
+          }
+        }
+        if (failures.isEmpty()) {
+          log.warn("Reindex task {} reported no failures", taskId);
+        }
+        for (Map<String, Object> failure : failures) {
+          if (logged++ >= MAX_LOGGED_REINDEX_FAILURES) {
+            log.warn("More reindex failures not logged (limit {})", MAX_LOGGED_REINDEX_FAILURES);
+            return;
+          }
+          logReindexFailure(
+              opContext, sourceIndex, ReindexFailure.parse(taskId, failure), deadline);
+        }
+      } catch (ResponseException e) {
+        // The search engine answered (e.g. 404 for an unknown task); the other tasks may still be
+        // readable.
+        log.warn("Could not read reindex task {} for diagnostics: {}", taskId, e.toString());
+      } catch (Exception e) {
+        log.warn(
+            "Could not reach the search engine for reindex diagnostics, skipping the rest: {}",
+            e.toString());
+        return;
+      }
+    }
+  }
+
+  /** One failure from a reindex task's stored result, with its cause chain flattened. */
+  private record ReindexFailure(
+      String taskId,
+      @Nullable Object status,
+      @Nullable String docId,
+      @Nullable Object shard,
+      @Nullable String field,
+      String causes) {
+
+    static ReindexFailure parse(String taskId, Map<String, Object> failure) {
+      // Bulk (write) failures carry the document id and cause; search failures carry the shard
+      // and reason.
+      StringBuilder causes = new StringBuilder();
+      Object cause = failure.containsKey("cause") ? failure.get("cause") : failure.get("reason");
+      while (cause instanceof Map) {
+        Map<String, Object> c = (Map<String, Object>) cause;
+        if (causes.length() > 0) {
+          causes.append(" <- ");
+        }
+        causes.append(c.get("type")).append(": ").append(shortenValuePreview(c.get("reason")));
+        cause = c.get("caused_by");
+      }
+      if (cause != null) {
+        causes.append(shortenValuePreview(cause));
+      }
+      String field = null;
+      java.util.regex.Matcher m = FAILED_FIELD_PATTERN.matcher(causes);
+      if (m.find()) {
+        field = m.group(1) != null ? m.group(1) : m.group(2);
+      }
+      return new ReindexFailure(
+          taskId,
+          failure.get("status"),
+          (String) failure.get("id"),
+          failure.get("shard"),
+          field,
+          causes.toString());
+    }
+  }
+
+  private void logReindexFailure(
+      OperationContext opContext, String sourceIndex, ReindexFailure failure, long deadline) {
+    log.error(
+        "Reindex task {} failure: status={}, document={}, field={}, cause={}",
+        failure.taskId(),
+        failure.status(),
+        failure.docId() == null
+            ? "shard " + failure.shard()
+            : URLDecoder.decode(failure.docId(), StandardCharsets.UTF_8),
+        failure.field(),
+        failure.causes());
+    if (failure.field() != null && failure.field().startsWith("structuredProperties.")) {
+      log.error("  structured property: {}", describeStructuredPropertyField(failure.field()));
+    }
+    if (failure.docId() != null && System.currentTimeMillis() <= deadline) {
+      logSourceValueSize(opContext, sourceIndex, failure.docId(), failure.field());
+    }
+  }
+
+  /**
+   * Names the structured property behind a search field. Field names are the qualifiedName with
+   * dots replaced by underscores, so the qualifiedName itself may contain dots where this shows _.
+   */
+  @VisibleForTesting
+  public static String describeStructuredPropertyField(String field) {
+    String[] parts = field.split("\\.");
+    if (parts.length == 5 && "_versioned".equals(parts[1])) {
+      return String.format(
+          "qualifiedName %s (any '_' may be '.'), version %s, value type %s",
+          parts[2], parts[3], parts[4]);
+    }
+    return String.format(
+        "qualifiedName %s (any '_' may be '.')", field.substring("structuredProperties.".length()));
+  }
+
+  private static final int VALUE_PREFIX_CHARS = 100;
+  private static final int LUCENE_MAX_TERM_BYTES = 32766;
+  private static final String VALUE_PREVIEW_MARKER = "Preview of field's value: '";
+  private static final String IMMENSE_TERM_PREFIX_MARKER = "The prefix of the first immense term";
+
+  /** Fields that identify a document whose id is not a URN (graph edges, timeseries events). */
+  private static final List<String> IDENTIFYING_FIELDS =
+      List.of("urn", "source.urn", "destination.urn", "relationshipType", "messageId");
+
+  /**
+   * OpenSearch quotes the rejected value in its reasons, sometimes in full, so the quote is cut to
+   * its first {@value #VALUE_PREFIX_CHARS} characters, the immense-term byte dump is dropped, and
+   * the reason is capped.
+   */
+  @VisibleForTesting
+  public static String shortenValuePreview(@Nullable Object reason) {
+    String text = String.valueOf(reason);
+    int immense = text.indexOf(IMMENSE_TERM_PREFIX_MARKER);
+    if (immense >= 0) {
+      text = text.substring(0, immense).trim();
+    }
+    int preview = text.indexOf(VALUE_PREVIEW_MARKER);
+    if (preview >= 0) {
+      int valueStart = preview + VALUE_PREVIEW_MARKER.length();
+      if (text.length() - valueStart > VALUE_PREFIX_CHARS) {
+        text = text.substring(0, valueStart + VALUE_PREFIX_CHARS) + "...' (truncated)";
+      }
+    }
+    return text.length() > 500 ? text.substring(0, 500) + "..." : text;
+  }
+
+  /**
+   * Logs what identifies the source document and the size and first characters of the rejected
+   * value, read from the source index.
+   */
+  private void logSourceValueSize(
+      OperationContext opContext, String sourceIndex, String docId, @Nullable String field) {
+    try {
+      List<String> includes = new ArrayList<>(IDENTIFYING_FIELDS);
+      if (field != null) {
+        includes.add(field);
+      }
+      Request request =
+          diagnosticsRequest(
+              String.format(
+                  "/%s/_doc/%s", sourceIndex, URLEncoder.encode(docId, StandardCharsets.UTF_8)));
+      request.addParameter("_source_includes", String.join(",", includes));
+      RawResponse response = searchClient.performLowLevelRequest(opContext, request);
+      Map<String, Object> doc =
+          ObjectMapperContext.defaultMapper.readValue(response.getEntity().getContent(), Map.class);
+      Map<String, Object> source = (Map<String, Object>) doc.get("_source");
+      Map<String, Object> identity = new LinkedHashMap<>();
+      for (String idField : IDENTIFYING_FIELDS) {
+        Object idValue = sourceValue(source, idField);
+        if (idValue != null) {
+          identity.put(idField, idValue);
+        }
+      }
+      if (!identity.isEmpty()) {
+        log.error(
+            "  source document {}: {}", URLDecoder.decode(docId, StandardCharsets.UTF_8), identity);
+      }
+      if (field == null) {
+        return;
+      }
+      Object value = sourceValue(source, field);
+      List<Object> values = value instanceof List ? (List<Object>) value : List.of(value);
+      for (Object v : values) {
+        if (v != null) {
+          String s = String.valueOf(v);
+          int bytes = s.getBytes(StandardCharsets.UTF_8).length;
+          log.error(
+              "  value of {}: {} characters, {} UTF-8 bytes{}, starts: '{}'",
+              field,
+              s.length(),
+              bytes,
+              bytes > LUCENE_MAX_TERM_BYTES ? " (over the 32766-byte keyword limit)" : "",
+              s.length() > VALUE_PREFIX_CHARS ? s.substring(0, VALUE_PREFIX_CHARS) + "..." : s);
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Could not read {} from source document {}: {}", field, docId, e.toString());
+    }
+  }
+
+  /** Resolves a dotted field path in _source, whose keys may themselves contain dots. */
+  @Nullable
+  private static Object sourceValue(@Nullable Map<String, Object> source, String path) {
+    if (source == null) {
+      return null;
+    }
+    if (source.containsKey(path)) {
+      return source.get(path);
+    }
+    for (int i = path.indexOf('.'); i > 0; i = path.indexOf('.', i + 1)) {
+      Object child = source.get(path.substring(0, i));
+      if (child instanceof Map) {
+        Object found = sourceValue((Map<String, Object>) child, path.substring(i + 1));
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 
   /** Caps doc counts into {@link LongRunningOperationMetrics#recordEntities(int)}. */
