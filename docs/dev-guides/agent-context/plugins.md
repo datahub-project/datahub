@@ -13,7 +13,7 @@ Source code: [datahub-project/datahub-cloud-ai-plugins](https://github.com/datah
 
 Works in Claude on the web and desktop, in Cowork, and in Claude Code.
 
-1. Sign in to Claude and open the [DataHub Cloud plugin](https://claude.ai/directory/plugins/plugin_017SYr9fyJK77Nmztx8nmDZy). You can also search for **DataHub Cloud** under **Customize → Plugins**.
+1. Sign in to Claude, go to **Customize → Plugins**, and search for **DataHub Cloud**.
 2. Click **Install**. On Team and Enterprise plans, an owner can install it for everyone.
 3. The first time you use it, click **Connect**, enter your DataHub domain (for example, `<tenant>`), and sign in.
 

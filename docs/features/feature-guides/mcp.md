@@ -209,7 +209,7 @@ Substitute the scoped server's **Connection URL** wherever these steps use `http
 <details>
   <summary>Claude (web and desktop)</summary>
 
-The quickest option is the [DataHub Cloud plugin](https://claude.ai/directory/plugins/plugin_017SYr9fyJK77Nmztx8nmDZy) ([setup guide](../../dev-guides/agent-context/plugins.md#claude)). To connect a scoped server instead, add a custom connector:
+The quickest option is the [DataHub Cloud plugin](../../dev-guides/agent-context/plugins.md#claude). To connect a scoped server instead, add a custom connector:
 
 1. Open **Customize → Connectors**. On Team/Enterprise, an owner adds it under **Organization settings → Connectors** and members connect individually.
 2. Click **+**, then **Add custom connector**.
