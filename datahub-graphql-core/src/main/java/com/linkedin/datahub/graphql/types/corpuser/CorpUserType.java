@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.corpuser;
 
 import static com.linkedin.datahub.graphql.Constants.DEFAULT_PERSONA_URNS;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.CORP_USER_KEY_ASPECT_NAME;
 
@@ -119,7 +120,11 @@ public class CorpUserType
                   gmsCorpUser == null
                       ? null
                       : DataFetcherResult.<CorpUser>newResult()
-                          .data(CorpUserMapper.map(context, gmsCorpUser, _featureFlags))
+                          .data(
+                              CorpUserMapper.map(
+                                  context,
+                                  viewableEntityResponse(context, gmsCorpUser),
+                                  _featureFlags))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

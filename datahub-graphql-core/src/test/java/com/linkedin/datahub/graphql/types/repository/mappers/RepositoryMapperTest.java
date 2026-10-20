@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.mockStatic;
 import static org.testng.Assert.*;
-import static org.testng.Assert.assertSame;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
@@ -247,7 +246,8 @@ public class RepositoryMapperTest {
   }
 
   @Test
-  public void testMapRestrictsRepositoryTheViewerCannotSee() {
+  public void testMapRepositoryTheViewerCannotSeeMapsLikeMissingRepository() {
+    final Urn hiddenRepoUrn = UrnUtils.getUrn("urn:li:repository:github.acme/private");
     final RepositoryProperties properties = new RepositoryProperties();
     properties.setName("acme/private");
 
@@ -255,19 +255,18 @@ public class RepositoryMapperTest {
     aspects.put(Constants.REPOSITORY_PROPERTIES_ASPECT_NAME, envelop(properties));
 
     final EntityResponse entityResponse = new EntityResponse();
-    entityResponse.setUrn(REPO_URN);
+    entityResponse.setUrn(hiddenRepoUrn);
     entityResponse.setEntityName(Constants.REPOSITORY_ENTITY_NAME);
     entityResponse.setAspects(aspects);
 
     try (MockedStatic<AuthorizationUtils> authUtils = mockStatic(AuthorizationUtils.class)) {
-      authUtils.when(() -> AuthorizationUtils.canView(any(), eq(REPO_URN))).thenReturn(false);
-      final Repository restricted = new Repository();
-      authUtils
-          .when(
-              () -> AuthorizationUtils.restrictEntity(any(Repository.class), eq(Repository.class)))
-          .thenReturn(restricted);
+      authUtils.when(() -> AuthorizationUtils.canView(any(), eq(hiddenRepoUrn))).thenReturn(false);
 
-      assertSame(RepositoryMapper.map(queryContext, entityResponse), restricted);
+      final Repository result = RepositoryMapper.map(queryContext, entityResponse);
+
+      assertEquals(result.getUrn(), hiddenRepoUrn.toString());
+      assertEquals(result.getType(), EntityType.REPOSITORY);
+      assertNull(result.getProperties());
     }
   }
 }

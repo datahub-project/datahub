@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.IngestionSourceExecutionRequests;
@@ -18,7 +19,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -54,7 +54,7 @@ public class IngestionSourceExecutionRequestsResolverTest {
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("start"))).thenReturn(0);
     Mockito.when(mockEnv.getArgument(Mockito.eq("count"))).thenReturn(10);

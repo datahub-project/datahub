@@ -24,6 +24,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.structured.StructuredProperties;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
@@ -51,6 +52,8 @@ public class DomainMapperTest {
     domainUrn = Urn.createFromString(TEST_DOMAIN_URN);
     actorUrn = Urn.createFromString(TEST_ACTOR_URN);
     mockQueryContext = mock(QueryContext.class);
+    when(mockQueryContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
   }
 
   @Test
@@ -328,29 +331,20 @@ public class DomainMapperTest {
   }
 
   @Test
-  public void testMapDomainWithRestrictedAccess() {
-    // Setup entity response
+  public void testMapDomainDeniedByViewAuthorizationMapsLikeMissingDomain() {
     EntityResponse entityResponse = createBasicEntityResponse();
+    DomainProperties domainProperties = new DomainProperties();
+    domainProperties.setName(TEST_DOMAIN_NAME);
+    addAspectToResponse(entityResponse, DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties);
 
-    // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn))).thenReturn(false);
 
-      Domain restrictedDomain = new Domain();
-      authUtilsMock
-          .when(() -> AuthorizationUtils.restrictEntity(any(Domain.class), eq(Domain.class)))
-          .thenReturn(restrictedDomain);
-
-      // Execute mapping
       Domain result = DomainMapper.map(mockQueryContext, entityResponse);
 
-      // Should return restricted entity
-      assertEquals(result, restrictedDomain);
-
-      // Verify authorization calls
-      authUtilsMock.verify(() -> AuthorizationUtils.canView(any(), eq(domainUrn)));
-      authUtilsMock.verify(
-          () -> AuthorizationUtils.restrictEntity(any(Domain.class), eq(Domain.class)));
+      assertEquals(result.getUrn(), TEST_DOMAIN_URN);
+      assertEquals(result.getId(), TEST_DOMAIN_ID);
+      assertNull(result.getProperties());
     }
   }
 

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
@@ -92,6 +94,10 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Entity parent = environment.getSource();
+    final QueryContext context = environment.getContext();
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(parent.getUrn()))) {
+      return CompletableFuture.completedFuture(healthOfMissingEntity());
+    }
 
     if (_featureFlags != null && _featureFlags.isEntityHealthBatchLoadEnabled()) {
       final EntityHealthBatchLoader.HealthQueryKey key =
@@ -108,8 +114,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final HealthStatuses statuses =
-                computeHealthStatusForAsset(parent.getUrn(), environment.getContext());
+            final HealthStatuses statuses = computeHealthStatusForAsset(parent.getUrn(), context);
             return statuses.healths;
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
@@ -117,6 +122,12 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private List<Health> healthOfMissingEntity() {
+    return _config.getIncidentsEnabled()
+        ? List.of(HealthComputationUtils.buildIncidentHealth(0, null, null))
+        : List.of();
   }
 
   /**

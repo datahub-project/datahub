@@ -1,10 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.createEmptySearchResults;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -81,6 +84,10 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
+      return CompletableFuture.completedFuture(createEmptySearchResults(start, count));
+    }
 
     // Fast path: every UI call site selects only `total`, so the hits the search would return are
     // discarded. Serve those from a batched, request-scoped aggregation instead, so a page of N

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.tag;
 
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.TAG_KEY_ASPECT_NAME;
 
@@ -113,7 +114,7 @@ public class TagType
                   gmsTag == null
                       ? null
                       : DataFetcherResult.<Tag>newResult()
-                          .data(TagMapper.map(context, gmsTag))
+                          .data(TagMapper.map(context, viewableEntityResponse(context, gmsTag)))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

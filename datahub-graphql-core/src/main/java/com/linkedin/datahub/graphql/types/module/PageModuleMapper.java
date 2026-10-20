@@ -1,12 +1,11 @@
 package com.linkedin.datahub.graphql.types.module;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -29,7 +28,8 @@ public class PageModuleMapper implements ModelMapper<EntityResponse, DataHubPage
 
   @Override
   public DataHubPageModule apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final DataHubPageModule result = new DataHubPageModule();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -44,11 +44,7 @@ public class PageModuleMapper implements ModelMapper<EntityResponse, DataHubPage
         DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME,
         (module, dataMap) -> mapProperties(module, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(result, DataHubPageModule.class);
-    } else {
-      return result;
-    }
+    return result;
   }
 
   private void mapProperties(@Nonnull DataHubPageModule module, @Nonnull DataMap dataMap) {

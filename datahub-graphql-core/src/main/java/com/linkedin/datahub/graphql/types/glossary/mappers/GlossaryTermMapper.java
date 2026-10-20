@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -16,7 +16,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
@@ -62,7 +61,8 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
 
   @Override
   public GlossaryTerm apply(
-      @Nullable QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     GlossaryTerm result = new GlossaryTerm();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -150,11 +150,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
     if (result.getProperties() != null && result.getProperties().getName() == null) {
       result.getProperties().setName(legacyName);
     }
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), GlossaryTerm.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private void mapGlossaryTermKey(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {

@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Actor;
@@ -15,17 +17,22 @@ import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetProperties;
+import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.Constants;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.Map;
+import org.mockito.MockedStatic;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -439,5 +446,47 @@ public class DatasetMapperTest {
     when(mockContext.getActorUrn()).thenReturn(actorUrn);
     when(mockContext.getOperationContext()).thenReturn(operationContext);
     return mockContext;
+  }
+
+  @Test
+  public void testDatasetDeniedByViewAuthorizationMapsLikeMissingDataset() {
+    final Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+    final QueryContext context = TestUtils.getMockAllowContext();
+    final com.linkedin.dataset.DatasetProperties properties =
+        new com.linkedin.dataset.DatasetProperties().setName("my_table");
+    final EntityResponse stored =
+        EntityResponseUtils.missingEntityResponse(
+            context.getOperationContext().getEntityRegistry(), datasetUrn);
+    stored
+        .getAspects()
+        .get(Constants.DATASET_KEY_ASPECT_NAME)
+        .setSystemMetadata(new SystemMetadata().setLastObserved(10L).setRunId("ingestion-run"));
+    stored
+        .getAspects()
+        .put(
+            Constants.DATASET_PROPERTIES_ASPECT_NAME,
+            new com.linkedin.entity.EnvelopedAspect()
+                .setName(Constants.DATASET_PROPERTIES_ASPECT_NAME)
+                .setValue(new Aspect(properties.data())));
+
+    final Dataset missing =
+        DatasetMapper.map(
+            context,
+            EntityResponseUtils.missingEntityResponse(
+                context.getOperationContext().getEntityRegistry(), datasetUrn));
+    final Dataset denied;
+    try (MockedStatic<AuthorizationUtils> authUtils = mockStatic(AuthorizationUtils.class)) {
+      authUtils.when(() -> AuthorizationUtils.canView(any(), eq(datasetUrn))).thenReturn(false);
+      denied = DatasetMapper.map(context, stored);
+    }
+
+    Assert.assertNull(denied.getProperties());
+    Assert.assertNull(denied.getLastIngested());
+    Assert.assertEquals(denied.getUrn(), missing.getUrn());
+    Assert.assertEquals(denied.getName(), missing.getName());
+    Assert.assertEquals(denied.getOrigin(), missing.getOrigin());
+    Assert.assertEquals(denied.getPlatform().getUrn(), missing.getPlatform().getUrn());
+    Assert.assertEquals(denied.getLastIngested(), missing.getLastIngested());
   }
 }

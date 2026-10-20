@@ -92,6 +92,9 @@ public class EntityRelationshipsResultResolver
     if (context == null) {
       return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
     }
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
+      return CompletableFuture.completedFuture(emptyEntityRelationshipsResult());
+    }
     if (context
         .getRelationshipTraversalContext()
         .filter(traversal -> !traversal.tryVisit(urn))

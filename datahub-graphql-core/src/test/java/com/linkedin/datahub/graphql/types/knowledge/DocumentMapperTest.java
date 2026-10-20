@@ -48,6 +48,7 @@ import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
@@ -327,11 +328,21 @@ public class DocumentMapperTest {
   }
 
   @Test
-  public void testMapDocumentWithRestrictedAccess() {
-    // Setup entity response
+  public void testMapDocumentDeniedByViewAuthorizationMapsLikeMissingDocument() {
     EntityResponse entityResponse = createBasicEntityResponse();
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp createdStamp = new AuditStamp();
+    createdStamp.setTime(TEST_TIMESTAMP);
+    createdStamp.setActor(actorUrn);
+    documentInfo.setCreated(createdStamp);
+    documentInfo.setLastModified(createdStamp);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+    when(mockQueryContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
 
-    // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
           .when(
@@ -343,24 +354,11 @@ public class DocumentMapperTest {
                       nullable(SubTypes.class)))
           .thenReturn(false);
 
-      Document restrictedDocument = new Document();
-      authUtilsMock
-          .when(() -> AuthorizationUtils.restrictEntity(any(Document.class), eq(Document.class)))
-          .thenReturn(restrictedDocument);
-
-      // Execute mapping
       Document result = DocumentMapper.map(mockQueryContext, entityResponse);
 
-      // Should return restricted entity
-      assertEquals(result, restrictedDocument);
-
-      // Verify authorization calls
-      authUtilsMock.verify(
-          () ->
-              AuthorizationUtils.canViewDocument(
-                  any(), eq(documentUrn), nullable(DocumentInfo.class), nullable(SubTypes.class)));
-      authUtilsMock.verify(
-          () -> AuthorizationUtils.restrictEntity(any(Document.class), eq(Document.class)));
+      assertEquals(result.getUrn(), TEST_DOCUMENT_URN);
+      assertEquals(result.getType(), EntityType.DOCUMENT);
+      assertNull(result.getInfo());
     }
   }
 

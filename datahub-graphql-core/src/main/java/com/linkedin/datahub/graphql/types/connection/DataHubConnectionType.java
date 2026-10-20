@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.connection;
 
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -82,7 +84,11 @@ public class DataHubConnectionType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataHubConnection>newResult()
-                          .data(ConnectionMapper.map(context, gmsResult, _secretService))
+                          .data(
+                              ConnectionMapper.map(
+                                  context,
+                                  viewableEntityResponse(context, gmsResult),
+                                  _secretService))
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {

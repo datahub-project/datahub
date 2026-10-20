@@ -12,6 +12,7 @@ import com.linkedin.dashboard.DashboardUsageStatistics;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
@@ -133,6 +134,7 @@ public class DashboardStatsSummaryTest {
     DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

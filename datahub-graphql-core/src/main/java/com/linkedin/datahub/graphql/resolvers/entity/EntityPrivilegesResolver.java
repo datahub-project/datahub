@@ -51,6 +51,10 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     final QueryContext context = environment.getContext();
     final String urnString = ((Entity) environment.getSource()).getUrn();
     final Urn urn = UrnUtils.getUrn(urnString);
+    if (!AuthorizationUtils.canView(context.getOperationContext(), urn)) {
+      // Evaluating privileges would match policies against the entity's stored owners and domains.
+      return CompletableFuture.completedFuture(new EntityPrivileges());
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

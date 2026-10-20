@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -22,7 +22,6 @@ import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -96,7 +95,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
   }
 
   public Dataset apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     Dataset result = new Dataset();
     Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityResponse.getUrn().toString());
@@ -224,11 +224,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private void mapDatasetKey(@Nonnull Dataset dataset, @Nonnull DataMap dataMap) {

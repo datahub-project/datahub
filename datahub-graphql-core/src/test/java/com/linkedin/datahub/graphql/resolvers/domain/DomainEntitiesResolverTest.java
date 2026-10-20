@@ -5,13 +5,13 @@ import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_S
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -34,7 +34,6 @@ import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -182,7 +181,7 @@ public class DomainEntitiesResolverTest {
     final DomainEntitiesInput input = new DomainEntitiesInput(null, 0, 0, List.of(platformFilter));
 
     final QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -319,7 +318,7 @@ public class DomainEntitiesResolverTest {
   private static DataFetchingEnvironment countOnlyEnv(
       final DomainEntitiesInput input, final DomainCountKey expectedKey, final long total) {
     final QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
 
     @SuppressWarnings("unchecked")
     final DataLoader<DomainCountKey, Long> mockLoader = Mockito.mock(DataLoader.class);

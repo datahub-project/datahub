@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.UrnUtils;
@@ -98,7 +99,8 @@ public class TimeSeriesAspectResolver
     // Auth is checked eagerly per-URN before DataLoader dispatch. Unauthorized URNs never
     // submit a key to the loader, so they cannot receive or leak data from authorized URNs
     // that are batched in the same request.
-    if (!isAuthorized(context, urn)) {
+    if (!isAuthorized(context, urn)
+        || !canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
       return CompletableFuture.completedFuture(Collections.emptyList());
     }
 

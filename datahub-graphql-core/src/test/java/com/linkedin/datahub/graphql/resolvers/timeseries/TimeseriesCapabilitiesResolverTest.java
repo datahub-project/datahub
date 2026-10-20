@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.timeseries;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -12,6 +11,7 @@ import com.linkedin.common.Operation;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.CreateFormInput;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FormType;
@@ -23,7 +23,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.mxe.GenericAspect;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -65,7 +64,7 @@ public class TimeseriesCapabilitiesResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);

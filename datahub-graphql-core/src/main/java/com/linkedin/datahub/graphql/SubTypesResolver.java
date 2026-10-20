@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -34,6 +36,9 @@ public class SubTypesResolver implements DataFetcher<CompletableFuture<SubTypes>
           final String urnStr = ((Entity) environment.getSource()).getUrn();
           try {
             final Urn urn = Urn.createFromString(urnStr);
+            if (!canView(context.getOperationContext(), urn)) {
+              return null;
+            }
             EntityResponse entityResponse =
                 _entityClient
                     .batchGetV2(

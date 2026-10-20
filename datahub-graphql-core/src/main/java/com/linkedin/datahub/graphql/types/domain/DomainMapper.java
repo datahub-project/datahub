@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.domain;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
@@ -13,7 +13,6 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -39,7 +38,8 @@ import javax.annotation.Nullable;
 
 public class DomainMapper {
 
-  public static Domain map(@Nullable QueryContext context, final EntityResponse entityResponse) {
+  public static Domain map(@Nullable QueryContext context, final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Domain result = new Domain();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -123,11 +123,7 @@ public class DomainMapper {
           AssetSettingsMapper.map(new AssetSettings(envelopedAssetSettings.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(result, Domain.class);
-    } else {
-      return result;
-    }
+    return result;
   }
 
   private static com.linkedin.datahub.graphql.generated.DomainProperties mapDomainProperties(

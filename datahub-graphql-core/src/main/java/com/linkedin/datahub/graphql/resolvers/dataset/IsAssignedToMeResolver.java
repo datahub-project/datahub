@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
@@ -25,6 +28,9 @@ public class IsAssignedToMeResolver implements DataFetcher<CompletableFuture<Boo
       throws Exception {
     final QueryContext context = environment.getContext();
     final Role role = environment.getSource();
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(role.getUrn()))) {
+      return CompletableFuture.completedFuture(false);
+    }
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {

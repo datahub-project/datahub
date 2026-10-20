@@ -9,6 +9,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -16,6 +17,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver.AspectsKey;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -32,6 +34,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -109,8 +113,15 @@ public class WeaklyTypedAspectsResolverBatchTest {
   }
 
   private static QueryContext mockQueryContext() {
+    final OperationContext opContext = Mockito.mock(OperationContext.class);
+    Mockito.when(opContext.getOperationContextConfig())
+        .thenReturn(
+            OperationContextConfig.builder()
+                .viewAuthorizationConfiguration(
+                    ViewAuthorizationConfiguration.builder().enabled(false).build())
+                .build());
     final QueryContext ctx = Mockito.mock(QueryContext.class);
-    Mockito.when(ctx.getOperationContext()).thenReturn(Mockito.mock(OperationContext.class));
+    Mockito.when(ctx.getOperationContext()).thenReturn(opContext);
     return ctx;
   }
 
@@ -143,6 +154,41 @@ public class WeaklyTypedAspectsResolverBatchTest {
 
     assertEquals(new WeaklyTypedAspectsResolver().get(environment), expected);
     Mockito.verify(loader).load(any(AspectsKey.class));
+  }
+
+  @Test
+  public void testUnviewableEntityReturnsOnlyWhatAMissingEntityWould() throws Exception {
+    final EntityClient client = Mockito.mock(EntityClient.class);
+    final EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    final QueryContext ctx = mockQueryContext();
+    final Set<String> aspectNames = Set.of("documentKey", "documentInfo");
+    Mockito.when(
+            client.batchGetV2(
+                nullable(OperationContext.class),
+                eq("document"),
+                eq(Collections.singleton(DOCUMENT_URN)),
+                eq(aspectNames)))
+        .thenReturn(
+            ImmutableMap.of(DOCUMENT_URN, entityResponseWithAspects(DOCUMENT_URN, "documentInfo")));
+    final AspectParams params = new AspectParams();
+    params.setAspectNames(ImmutableList.copyOf(aspectNames));
+
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.canView(any(), eq(DOCUMENT_URN)))
+          .thenReturn(false);
+
+      final List<List<RawAspect>> result =
+          WeaklyTypedAspectsResolver.batchLoad(
+              ImmutableList.of(AspectsKey.from(DOCUMENT_URN.toString(), "document", params)),
+              ctx,
+              client,
+              registry);
+
+      assertEquals(result.get(0).size(), 1);
+      assertEquals(result.get(0).get(0).getAspectName(), "documentKey");
+    }
   }
 
   @Test

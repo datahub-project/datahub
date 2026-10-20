@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataprocessinst;
 
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -96,7 +97,9 @@ public class DataProcessInstanceType
                   gmsResult == null
                       ? null
                       : DataFetcherResult.<DataProcessInstance>newResult()
-                          .data(DataProcessInstanceMapper.map(context, gmsResult))
+                          .data(
+                              DataProcessInstanceMapper.map(
+                                  context, viewableEntityResponse(context, gmsResult)))
                           .build())
           .collect(Collectors.toList());
 

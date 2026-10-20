@@ -13,6 +13,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.SessionActorIdentity;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -26,6 +27,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
@@ -33,11 +35,37 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import org.mockito.Answers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 
 public class TestUtils {
+
+  /**
+   * A mocked OperationContext whose view authorization is off, so canView answers true. Built with
+   * a default answer rather than stubbing so it can be created inside another stubbing call.
+   */
+  public static OperationContext mockOperationContext() {
+    final OperationContextConfig config = viewAuthorizationOffConfig();
+    return mock(
+        OperationContext.class,
+        invocation ->
+            "getOperationContextConfig".equals(invocation.getMethod().getName())
+                ? config
+                : Answers.RETURNS_DEFAULTS.answer(invocation));
+  }
+
+  public static void stubViewAuthorizationOff(final OperationContext opContext) {
+    when(opContext.getOperationContextConfig()).thenReturn(viewAuthorizationOffConfig());
+  }
+
+  private static OperationContextConfig viewAuthorizationOffConfig() {
+    return OperationContextConfig.builder()
+        .viewAuthorizationConfiguration(
+            ViewAuthorizationConfiguration.builder().enabled(false).build())
+        .build();
+  }
 
   public static EntityService<ChangeItemImpl> getMockEntityService() {
     return (EntityService<ChangeItemImpl>) Mockito.mock(EntityService.class);

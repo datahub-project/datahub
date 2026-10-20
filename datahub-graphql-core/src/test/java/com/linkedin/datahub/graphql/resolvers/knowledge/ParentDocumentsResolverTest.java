@@ -41,9 +41,11 @@ import org.testng.annotations.Test;
 
 public class ParentDocumentsResolverTest {
   @Test
-  public void testDocumentLoadsParentChainWithoutSourceViewGate() throws Exception {
+  public void testUnviewableDocumentHasNoParents() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     QueryContext context = Mockito.mock(QueryContext.class);
+    Mockito.when(context.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
     Urn documentUrn = UrnUtils.getUrn("urn:li:document:restricted");
     Document document = new Document();
@@ -51,12 +53,18 @@ public class ParentDocumentsResolverTest {
     Mockito.when(environment.getContext()).thenReturn(context);
     Mockito.when(environment.getSource()).thenReturn(document);
 
-    ParentDocumentsResult result = new ParentDocumentsResolver(mockClient).get(environment).get();
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.canView(any(), eq(documentUrn)))
+          .thenReturn(false);
 
-    assertEquals(result.getCount(), 0);
-    assertTrue(result.getDocuments().isEmpty());
-    Mockito.verify(mockClient)
-        .getV2(any(), eq(documentUrn.getEntityType()), eq(documentUrn), any());
+      ParentDocumentsResult result = new ParentDocumentsResolver(mockClient).get(environment).get();
+
+      assertEquals(result.getCount(), 0);
+      assertTrue(result.getDocuments().isEmpty());
+      Mockito.verifyNoInteractions(mockClient);
+    }
   }
 
   @Test

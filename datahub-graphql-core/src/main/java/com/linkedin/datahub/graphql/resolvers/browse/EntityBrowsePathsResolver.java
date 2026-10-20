@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
@@ -7,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -24,6 +28,9 @@ public class EntityBrowsePathsResolver implements DataFetcher<CompletableFuture<
 
     final QueryContext context = environment.getContext();
     final String urn = ((Entity) environment.getSource()).getUrn();
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
+      return CompletableFuture.completedFuture(Collections.emptyList());
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

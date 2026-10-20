@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -35,6 +37,9 @@ public class TestResultsResolver implements DataFetcher<CompletableFuture<TestRe
   public CompletableFuture<TestResults> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
+    if (!canView(context.getOperationContext(), entityUrn)) {
+      return CompletableFuture.completedFuture(null);
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

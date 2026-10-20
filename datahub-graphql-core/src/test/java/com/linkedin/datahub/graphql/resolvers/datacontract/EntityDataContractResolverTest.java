@@ -37,6 +37,7 @@ import com.linkedin.metadata.key.DataContractKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -132,6 +133,8 @@ public class EntityDataContractResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -191,6 +194,8 @@ public class EntityDataContractResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 
@@ -110,7 +111,9 @@ public class SchemaFieldType
                           || !KnownEntities.hasRepresentableParent(context, gmsResult.getUrn())
                       ? null
                       : DataFetcherResult.<SchemaFieldEntity>newResult()
-                          .data(SchemaFieldMapper.map(context, gmsResult))
+                          .data(
+                              SchemaFieldMapper.map(
+                                  context, viewableEntityResponse(context, gmsResult)))
                           .build())
           .collect(Collectors.toList());
 

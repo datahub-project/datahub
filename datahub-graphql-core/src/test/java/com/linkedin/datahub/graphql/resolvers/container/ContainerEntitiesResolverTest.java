@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.ContainerEntitiesInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -35,7 +36,6 @@ import graphql.language.FragmentSpread;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +93,7 @@ public class ContainerEntitiesResolverTest {
 
     QueryContext mockContext = mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -125,7 +125,7 @@ public class ContainerEntitiesResolverTest {
 
     QueryContext mockContext = mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
         .thenReturn(new ContainerEntitiesInput(null, 0, 20, ImmutableList.of(typeFilter)));
@@ -308,7 +308,7 @@ public class ContainerEntitiesResolverTest {
       final String... selectedFields) {
     QueryContext mockContext = mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
-    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
 
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canViewRelationship;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 
@@ -41,6 +42,10 @@ public class ParentDataProductsResolver
   public CompletableFuture<List<DataProduct>> get(final DataFetchingEnvironment environment) {
     final QueryContext context = getQueryContext(environment);
     final Urn sourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+
+    if (!canView(context.getOperationContext(), sourceUrn)) {
+      return CompletableFuture.completedFuture(List.of());
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

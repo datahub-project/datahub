@@ -15,6 +15,7 @@ import com.linkedin.usage.UsageTimeRange;
 import com.linkedin.usage.UserUsageCounts;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -55,6 +56,12 @@ public class DatasetStatsSummaryResolver
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    if (!AuthorizationUtils.canView(context.getOperationContext(), resourceUrn)) {
+      final DatasetStatsSummary summary = new DatasetStatsSummary();
+      summary.setUniqueUserCountLast30Days(0);
+      summary.setTopUsersLast30Days(Collections.emptyList());
+      return CompletableFuture.completedFuture(summary);
+    }
 
     if (featureFlags != null && featureFlags.isDatasetStatsSummaryBatchLoadEnabled()) {
       // Authorization is enforced per-URN inside the batch loader, where the checks run in

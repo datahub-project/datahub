@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -20,7 +20,6 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartEditableProperties;
@@ -75,7 +74,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
 
   @Override
   public Chart apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Chart result = new Chart();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -157,11 +157,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (chart, dataMap) -> mapApplicationAssociation(context, chart, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Chart.class);
-    } else {
-      return mappingHelper.getResult();
-    }
+    return mappingHelper.getResult();
   }
 
   private void mapChartKey(@Nonnull Chart chart, @Nonnull DataMap dataMap) {

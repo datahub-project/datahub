@@ -46,12 +46,12 @@ import org.codehaus.plexus.util.CollectionUtils;
 public class SearchUtils {
   private SearchUtils() {}
 
-  private static final int DEFAULT_SEARCH_COUNT = 10;
+  public static final int DEFAULT_SEARCH_COUNT = 10;
 
   /** Search-document field on structured properties listing the entity type URNs they apply to. */
   public static final String STRUCTURED_PROPERTY_ENTITY_TYPES_FIELD = "entityTypes";
 
-  private static final int DEFAULT_SCROLL_COUNT = 10;
+  public static final int DEFAULT_SCROLL_COUNT = 10;
   private static final String DEFAULT_SCROLL_KEEP_ALIVE = "5m";
 
   /**

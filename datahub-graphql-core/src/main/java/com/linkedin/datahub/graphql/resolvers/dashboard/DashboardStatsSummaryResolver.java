@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isViewDatasetUsageAuthorized;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 
@@ -20,6 +21,7 @@ import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanon
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -47,8 +49,14 @@ public class DashboardStatsSummaryResolver
   @Override
   public CompletableFuture<DashboardStatsSummary> get(DataFetchingEnvironment environment)
       throws Exception {
-    final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final QueryContext context = environment.getContext();
+    final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    if (!canView(context.getOperationContext(), resourceUrn)) {
+      final DashboardStatsSummary summary = new DashboardStatsSummary();
+      summary.setUniqueUserCountLast30Days(0);
+      summary.setTopUsersLast30Days(Collections.emptyList());
+      return CompletableFuture.completedFuture(summary);
+    }
 
     // TODO: We don't have a dashboard specific priv
     if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {

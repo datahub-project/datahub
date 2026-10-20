@@ -35,6 +35,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.Mockito;
@@ -124,6 +125,8 @@ public class EntityAssertionsResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
@@ -416,6 +419,8 @@ public class EntityAssertionsResolverTest {
 
   private static DataFetchingEnvironment mockEnv(Urn datasetUrn, boolean includeSoftDeleted) {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment env = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(env.getArgumentOrDefault(Mockito.eq("start"), Mockito.eq(0))).thenReturn(0);

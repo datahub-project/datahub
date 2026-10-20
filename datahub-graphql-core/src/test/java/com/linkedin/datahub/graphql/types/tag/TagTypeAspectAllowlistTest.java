@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -40,8 +41,7 @@ public class TagTypeAspectAllowlistTest {
     EntityClient client = mock(EntityClient.class);
     QueryContext context = mock(QueryContext.class);
     when(context.getAspectLoadContext("Tag")).thenReturn(AspectLoadContext.fetchAll());
-    when(context.getOperationContext())
-        .thenReturn(mock(io.datahubproject.metadata.context.OperationContext.class));
+    when(context.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
 
     Urn urn = UrnUtils.getUrn(TAG_URN);
     Deprecation deprecation =

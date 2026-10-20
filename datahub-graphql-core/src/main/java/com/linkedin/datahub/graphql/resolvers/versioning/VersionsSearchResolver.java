@@ -1,8 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.versioning;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.DEFAULT_SEARCH_COUNT;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.createEmptySearchResults;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
@@ -48,6 +52,13 @@ public class VersionsSearchResolver implements DataFetcher<CompletableFuture<Sea
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(entity.getUrn()))) {
+      return CompletableFuture.completedFuture(
+          createEmptySearchResults(
+              input.getStart() != null ? input.getStart() : 0,
+              input.getCount() != null ? input.getCount() : DEFAULT_SEARCH_COUNT));
+    }
+
     final Criterion versionSetFilter =
         CriterionUtils.buildCriterion(VERSION_SET_FIELD_NAME, Condition.EQUAL, entity.getUrn());
     final Filter baseFilter =
@@ -78,8 +89,7 @@ public class VersionsSearchResolver implements DataFetcher<CompletableFuture<Sea
     List<com.linkedin.datahub.graphql.generated.EntityType> searchTypes = input.getTypes();
     if (searchTypes == null || searchTypes.isEmpty()) {
       try {
-        final String entityName =
-            com.linkedin.common.urn.UrnUtils.getUrn(entity.getUrn()).getEntityKey().get(1);
+        final String entityName = UrnUtils.getUrn(entity.getUrn()).getEntityKey().get(1);
         searchTypes =
             List.of(
                 com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper.getType(entityName));

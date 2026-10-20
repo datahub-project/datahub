@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -55,6 +57,14 @@ public class IngestionSourceExecutionRequestsResolver
         environment.getArgument("start") != null ? environment.getArgument("start") : 0;
     final Integer count =
         environment.getArgument("count") != null ? environment.getArgument("count") : 10;
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(urn))) {
+      final IngestionSourceExecutionRequests result = new IngestionSourceExecutionRequests();
+      result.setStart(start);
+      result.setCount(count);
+      result.setTotal(0);
+      result.setExecutionRequests(List.of());
+      return CompletableFuture.completedFuture(result);
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

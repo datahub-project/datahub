@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.metric;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -23,6 +21,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,9 +89,7 @@ public class MetricType implements SearchableEntityType<Metric, String> {
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.METRIC_ENTITY_NAME,
-              metricUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              new HashSet<>(metricUrns),
               aspectsToResolve,
               true);
 

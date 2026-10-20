@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.siblings;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -74,6 +76,10 @@ public class SiblingsSearchResolver implements DataFetcher<CompletableFuture<Scr
     final QueryContext context = environment.getContext();
     final ScrollAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
+
+    if (!canView(context.getOperationContext(), UrnUtils.getUrn(entity.getUrn()))) {
+      return CompletableFuture.completedFuture(SiblingsSearchBatchLoader.emptyResults());
+    }
 
     final List<EntityType> entityTypes = resolveEntityTypes(input);
 

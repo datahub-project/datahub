@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.api.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.API_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.API_SIGNATURE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
@@ -27,7 +27,6 @@ import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Api;
 import com.linkedin.datahub.graphql.generated.ApiProperties;
 import com.linkedin.datahub.graphql.generated.ApiSignature;
@@ -69,7 +68,8 @@ public class ApiMapper implements ModelMapper<EntityResponse, Api> {
 
   @Override
   public Api apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Api result = new Api();
     final Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityUrn.toString());
@@ -130,9 +130,6 @@ public class ApiMapper implements ModelMapper<EntityResponse, Api> {
             api.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(result, Api.class);
-    }
     return result;
   }
 

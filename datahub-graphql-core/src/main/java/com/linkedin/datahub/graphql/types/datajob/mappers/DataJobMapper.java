@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.datajob.mappers;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
@@ -9,7 +10,6 @@ import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
@@ -49,7 +49,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
 
   @Override
   public DataJob apply(
-      @Nullable final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nullable final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final DataJob result = new DataJob();
     Urn entityUrn = entityResponse.getUrn();
 
@@ -144,11 +145,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
 
     mapApplicationAssociation(context, entityResponse.getAspects(), result);
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(result, DataJob.class);
-    } else {
-      return result;
-    }
+    return result;
   }
 
   /** Maps GMS {@link com.linkedin.datajob.DataJobInfo} to deprecated GraphQL {@link DataJobInfo} */

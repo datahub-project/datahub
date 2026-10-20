@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
@@ -125,7 +126,8 @@ public class DatasetStatsSummaryResolverTest {
 
     final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
-    Mockito.when(mockEnv.getContext()).thenReturn(Mockito.mock(QueryContext.class));
+    final QueryContext context = getMockAllowContext();
+    Mockito.when(mockEnv.getContext()).thenReturn(context);
     Mockito.when(mockEnv.getDataLoaderRegistry()).thenReturn(registry);
 
     final DatasetStatsSummary result = resolver.get(mockEnv).get();
@@ -213,6 +215,7 @@ public class DatasetStatsSummaryResolverTest {
     DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(TestUtils.mockOperationContext());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

@@ -1,6 +1,6 @@
 package com.linkedin.datahub.graphql.types.repository.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+import static com.linkedin.datahub.graphql.util.EntityResponseUtils.viewableEntityResponse;
 
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.GlobalTags;
@@ -11,7 +11,6 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Repository;
@@ -43,12 +42,13 @@ public class RepositoryMapper {
    * Maps a GMS entity response to a GraphQL Repository.
    *
    * @param context The query context
-   * @param entityResponse The GMS entity response
+   * @param fetchedResponse The GMS entity response
    * @return The mapped Repository
    */
   @Nullable
   public static Repository map(
-      @Nonnull final QueryContext context, @Nonnull final EntityResponse entityResponse) {
+      @Nonnull final QueryContext context, @Nonnull final EntityResponse fetchedResponse) {
+    final EntityResponse entityResponse = viewableEntityResponse(context, fetchedResponse);
     final Repository result = new Repository();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
@@ -169,9 +169,6 @@ public class RepositoryMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
-      return AuthorizationUtils.restrictEntity(result, Repository.class);
-    }
     return result;
   }
 

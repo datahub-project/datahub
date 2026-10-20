@@ -44,7 +44,7 @@ import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import com.linkedin.timeseries.GenericTable;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -110,6 +110,8 @@ public class EntityHealthResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -150,6 +152,8 @@ public class EntityHealthResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -219,6 +223,8 @@ public class EntityHealthResolverTest {
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -273,7 +279,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -328,7 +334,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -363,7 +369,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -396,7 +402,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -437,7 +443,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -465,7 +471,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -516,7 +522,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -557,7 +563,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -590,7 +596,7 @@ public class EntityHealthResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
     Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     Dataset parentDataset = new Dataset();
@@ -632,6 +638,8 @@ public class EntityHealthResolverTest {
         .thenReturn((DataLoader) loader);
 
     QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -878,7 +886,8 @@ public class EntityHealthResolverTest {
     final QueryContext context = Mockito.mock(QueryContext.class);
     Mockito.when(context.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(context.getActorUrn()).thenReturn("urn:li:corpuser:test");
-    Mockito.when(context.getOperationContext()).thenReturn(Mockito.mock(OperationContext.class));
+    Mockito.when(context.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     final DataFetchingEnvironment env = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(env.getContext()).thenReturn(context);
     final Dataset parentDataset = new Dataset();

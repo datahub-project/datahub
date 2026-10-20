@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.datacontract;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataContract;
@@ -43,6 +46,9 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
         () -> {
           final QueryContext context = environment.getContext();
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
+          if (!canView(context.getOperationContext(), UrnUtils.getUrn(entityUrn))) {
+            return null;
+          }
 
           try {
             // Step 1: Fetch the contract associated with the dataset.
