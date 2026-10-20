@@ -1,6 +1,6 @@
 import { Heading, Text } from '@components';
 import { Spin } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { typography } from '@components/theme';
@@ -128,28 +128,53 @@ interface VideoSlideProps {
     videoSrc?: string;
     posterSrc: string;
     width: string;
+    onPlaying?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+    onTimeUpdate?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+    onEnded?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+    onError?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
 }
 
 // Paint the WebP poster as an <img> first so first-visit LCP can be that image.
 // Mount the <video> only after the poster has painted and an MP4 URL is ready.
 // src on the video element restarts resource selection when the MP4 URL arrives.
 // A <source> child inserted after the first pass does not, so autoplay never starts.
-export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, posterSrc, width }) => {
+// The video sits on top of the img, so it also gets the poster and stays transparent
+// until a frame has decoded. Hiding the still at mount leaves an empty box.
+export const VideoSlide: React.FC<VideoSlideProps> = ({
+    videoSrc,
+    posterSrc,
+    width,
+    onPlaying,
+    onTimeUpdate,
+    onEnded,
+    onError,
+}) => {
     const [posterReady, setPosterReady] = useState(false);
+    const [frameReady, setFrameReady] = useState(false);
     const showVideo = Boolean(posterReady && videoSrc);
+
+    useEffect(() => {
+        setFrameReady(false);
+    }, [videoSrc]);
 
     return (
         <MediaBox $width={width}>
-            <PosterImage
-                src={posterSrc}
-                alt=""
-                width={1208}
-                height={720}
-                onLoad={() => setPosterReady(true)}
-                // Keep the poster under the video so a late decode does not flash empty.
-                style={{ visibility: showVideo ? 'hidden' : 'visible' }}
-            />
-            {showVideo ? <StyledVideo src={videoSrc} autoPlay loop muted playsInline /> : null}
+            <PosterImage src={posterSrc} alt="" width={1208} height={720} onLoad={() => setPosterReady(true)} />
+            {showVideo ? (
+                <StyledVideo
+                    src={videoSrc}
+                    poster={posterSrc}
+                    autoPlay
+                    muted
+                    playsInline
+                    style={{ opacity: frameReady ? 1 : 0 }}
+                    onLoadedData={() => setFrameReady(true)}
+                    onPlaying={onPlaying}
+                    onTimeUpdate={onTimeUpdate}
+                    onEnded={onEnded}
+                    onError={onError}
+                />
+            ) : null}
         </MediaBox>
     );
 };
