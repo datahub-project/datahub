@@ -13,9 +13,15 @@ vi.mock('@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema', () => ({
     useGetEntityWithSchema: mockUseGetEntityWithSchema,
 }));
 
-// The row itself is covered by its own component; here we only care which rows survive the filter.
+// The row itself is covered by its own component; here we only care which rows the filter shows.
+// The uncontrolled input stands in for an unsaved answer held in the row's own state.
 vi.mock('@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown', () => ({
-    default: ({ field }: { field: { fieldPath: string } }) => <div>row:{field.fieldPath}</div>,
+    default: ({ field }: { field: { fieldPath: string } }) => (
+        <div>
+            <span>row:{field.fieldPath}</span>
+            <input aria-label={`answer-${field.fieldPath}`} />
+        </div>
+    ),
 }));
 
 vi.mock('@app/shared/VirtualScrollChild', () => ({
@@ -42,7 +48,10 @@ function renderPrompts() {
 }
 
 function visibleColumns() {
-    return screen.queryAllByText(/^row:/).map((el) => el.textContent?.replace('row:', ''));
+    return screen
+        .queryAllByText(/^row:/)
+        .filter((el) => !el.closest('[hidden]'))
+        .map((el) => el.textContent?.replace('row:', ''));
 }
 
 describe('SchemaFieldPrompts column search', () => {
@@ -80,6 +89,33 @@ describe('SchemaFieldPrompts column search', () => {
         fireEvent.change(input, { target: { value: 'no_such_column' } });
         expect(visibleColumns()).toEqual([]);
         expect(screen.getByTestId('field-prompts-no-results')).toBeInTheDocument();
+    });
+
+    it('keeps an unsaved answer when its row is filtered out and shown again', () => {
+        const input = renderPrompts();
+        fireEvent.change(screen.getByLabelText('answer-Amount'), { target: { value: 'draft answer' } });
+        fireEvent.change(input, { target: { value: 'customer' } });
+        expect(visibleColumns()).toEqual(['customer_id']);
+        fireEvent.change(input, { target: { value: '' } });
+        expect((screen.getByLabelText('answer-Amount') as HTMLInputElement).value).toBe('draft answer');
+    });
+
+    it('does not match the type annotations inside a v2 field path', () => {
+        mockUseGetEntityWithSchema.mockReturnValue({
+            entityWithSchema: {
+                schemaMetadata: {
+                    fields: [
+                        { fieldPath: '[version=2.0].[type=struct].[type=string].name' },
+                        { fieldPath: '[version=2.0].[type=struct].[type=long].version_code' },
+                    ],
+                },
+            },
+        });
+        const input = renderPrompts();
+        fireEvent.change(input, { target: { value: 'string' } });
+        expect(visibleColumns()).toEqual([]);
+        fireEvent.change(input, { target: { value: 'version' } });
+        expect(visibleColumns()).toEqual(['[version=2.0].[type=struct].[type=long].version_code']);
     });
 
     it('renders nothing when the entity has no schema', () => {

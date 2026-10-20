@@ -40,15 +40,15 @@ export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
 
     const schemaFields = entityWithSchema?.schemaMetadata?.fields as SchemaField[] | undefined;
 
-    // Match against the path as it is displayed in the list, so what the responder types lines up
-    // with what they are reading, and against the raw path so a v2 path still finds its field.
-    const matchingFields = useMemo(() => {
+    // Match only the path as it is displayed. The raw v2 path carries [version=2.0].[type=...]
+    // annotations, so searching it would match "string" or "type" on every column.
+    const matchingFieldPaths = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
-        if (!query) return schemaFields;
-        return schemaFields?.filter(
-            (field) =>
-                translateFieldPath(field.fieldPath).toLowerCase().includes(query) ||
-                field.fieldPath.toLowerCase().includes(query),
+        if (!query) return undefined;
+        return new Set(
+            schemaFields
+                ?.filter((field) => translateFieldPath(field.fieldPath).toLowerCase().includes(query))
+                .map((field) => field.fieldPath),
         );
     }, [schemaFields, searchQuery]);
 
@@ -68,15 +68,18 @@ export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
                     data-testid="field-prompts-search"
                 />
             </SearchWrapper>
-            {matchingFields?.length === 0 && (
+            {matchingFieldPaths?.size === 0 && (
                 <NoResults data-testid="field-prompts-no-results">
                     {t('noFieldsMatchSearch', { searchQuery: searchQuery.trim() })}
                 </NoResults>
             )}
-            {matchingFields?.map((field) => (
-                <VirtualScrollChild key={field.fieldPath} height={50} triggerOnce>
-                    <SchemaFieldDropdown prompts={prompts} field={field} associatedUrn={associatedUrn} />
-                </VirtualScrollChild>
+            {/* Non-matching rows are hidden, not unmounted, so answers typed into them survive a search. */}
+            {schemaFields.map((field) => (
+                <div key={field.fieldPath} hidden={!!matchingFieldPaths && !matchingFieldPaths.has(field.fieldPath)}>
+                    <VirtualScrollChild height={50} triggerOnce>
+                        <SchemaFieldDropdown prompts={prompts} field={field} associatedUrn={associatedUrn} />
+                    </VirtualScrollChild>
+                </div>
             ))}
         </>
     );
