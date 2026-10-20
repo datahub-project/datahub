@@ -34,12 +34,9 @@ record DataHubSearchConfig {
     queryByDefault: boolean = false
 
     /**
-    * Whether to exclude this field's values from Search V3 full-text search.
-    * Applies to string, rich_text, and urn properties when their mapping is built.
-    * There is no separate global switch. Unset means not excluded. Takes effect
-    * for newly mapped properties. On a property that is already indexed it applies
-    * only once the V3 indices are rebuilt from the property definitions; a
-    * reindex that keeps the live structured-property mapping does not apply it.
+    * Whether to exclude this field's values from Search V2 and V2.5 full-text search.
+    * Search V3 ignores this field: a string, rich_text, or urn property is full-text
+    * indexed when searchConfiguration is present. Unset means not excluded.
     **/
     excludeFromFullTextSearch: optional boolean
 
@@ -70,9 +67,18 @@ record DataHubSearchConfig {
     hasValuesFilterNameOverride: optional string
 
     /**
-    * Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
+    * Boost multiplier to the match score. Matches on fields with higher boost score ranks higher.
+    * On Search V3 this is the weight of a structured property's `.text` subfield. When the key is
+    * absent, V3 uses 0.8; the default of 1.0 stays so V2 is unchanged.
     **/
     boostScore: double = 1.0
+
+    /**
+    * Weight of each analyzed subfield other than `.text`, which `boostScore` controls.
+    * Search V3 reads `stemmed`. When `stemmed` is absent its weight is half of the `.text`
+    * weight, before the partial factor scales both. Search V2 ignores this map.
+    **/
+    subfieldBoostScores: optional map[string, double]
 
     /**
     * If set, add a index field of the given name that checks whether the field exists
@@ -93,5 +99,14 @@ record DataHubSearchConfig {
     * (Optional) Aliases for this given field that can be used for sorting etc.
     **/
     fieldNameAliases: optional array[string]
+
+    /**
+    * Shared search fields this property's values are copied into, on Search V3.
+    * Each entry names a shared field (entityName, qualifiedName, description,
+    * columns, other) or a root field that feeds one (name, description).
+    * The property's own field is unchanged, and the stored name is unchanged.
+    * Unset copies nowhere. A number or date property ignores this list.
+    **/
+    copyTo: optional array[string]
 
 }

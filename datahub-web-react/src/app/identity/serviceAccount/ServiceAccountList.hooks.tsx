@@ -1,5 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
+import { toast } from '@components';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
@@ -117,10 +117,10 @@ export function useServiceAccountListData(page: number, pageSize: number, deboun
         async (urn: string) => {
             try {
                 await deleteServiceAccount({ variables: { urn } });
-                message.success(t('serviceAccounts.deleteSuccess'));
+                toast.success(t('serviceAccounts.deleteSuccess'));
                 removeServiceAccountFromListCache(apolloClient, urn, page, pageSize);
             } catch (e: any) {
-                message.error(t('serviceAccounts.deleteError', { error: e.message || '' }));
+                toast.error(t('serviceAccounts.deleteError', { error: e.message || '' }));
             }
         },
         [apolloClient, deleteServiceAccount, page, pageSize, t],
@@ -203,7 +203,7 @@ export function useServiceAccountRoleAssignment(
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success(
+                    toast.success(
                         newRoleUrn === NO_ROLE_URN
                             ? t('serviceAccounts.roleAssign.removeSuccess', {
                                   name: roleAssignmentState.serviceAccountName,
@@ -238,7 +238,7 @@ export function useServiceAccountRoleAssignment(
                 }
             })
             .catch((e) => {
-                message.error(
+                toast.error(
                     newRoleUrn === NO_ROLE_URN
                         ? t('serviceAccounts.roleAssign.removeError', {
                               name: roleAssignmentState.serviceAccountName,
@@ -302,12 +302,12 @@ export function useServiceAccountDefaultView(refetch: () => void) {
                         },
                     },
                 });
-                message.success(
+                toast.success(
                     viewUrn ? t('serviceAccounts.defaultViewUpdated') : t('serviceAccounts.defaultViewRemoved'),
                 );
                 refetch();
             } catch (e: any) {
-                message.error(t('serviceAccounts.defaultViewError', { error: e.message || '' }));
+                toast.error(t('serviceAccounts.defaultViewError', { error: e.message || '' }));
             }
         },
         [updateDefaultView, refetch, t],

@@ -23,7 +23,15 @@ record RepositoryProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -32,7 +40,15 @@ record RepositoryProperties {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -70,7 +86,13 @@ record RepositoryProperties {
     "/time": {
       "fieldName": "createdAt",
       "fieldType": "DATETIME",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   created: optional AuditStamp
@@ -82,7 +104,13 @@ record RepositoryProperties {
     "/time": {
       "fieldName": "lastModifiedAt",
       "fieldType": "DATETIME",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: optional AuditStamp

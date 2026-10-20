@@ -20,6 +20,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -30,6 +31,7 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -41,6 +43,7 @@ import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -49,6 +52,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.OtherSchema;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
@@ -73,6 +77,7 @@ import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class PrivilegeConstraintsValidatorTest {
@@ -804,8 +809,16 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
-  @Test
-  public void testValidateGlobalTagsPatchUnauthorized() throws Exception {
+  // A PATCH arrives as a PatchItemImpl by default, or as a ProposedItem under alternate MCP
+  // validation. The tag constraint must hold for both.
+  @DataProvider(name = "patchItemShapes")
+  public Object[][] patchItemShapes() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "patchItemShapes")
+  public void testValidateGlobalTagsPatchUnauthorized(boolean alternateValidation)
+      throws Exception {
     GlobalTags existingGlobalTags = createGlobalTags(TEST_TAG_URN);
 
     // Create a patch MCP
@@ -842,8 +855,7 @@ public class PrivilegeConstraintsValidatorTest {
             .build();
     mcp.setAspect(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
 
-    // Create ProposedItem
-    ProposedItem proposedItem = ProposedItem.builder().build(mcp, auditStamp, entityRegistry);
+    BatchItem proposedItem = patchItem(mcp, alternateValidation);
 
     // Mock existing tags
     Aspect existingAspect = new Aspect(existingGlobalTags.data());
@@ -871,6 +883,14 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertNotNull(exception);
     Assert.assertTrue(
         exception.getMessage().contains("Unauthorized to modify one or more tag Urns"));
+    // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAPIAuthorizedForTagModification(
+                Mockito.eq(mockAuthSession),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(Set.of(TEST_TAG_URN_2)),
+                any()));
   }
 
   /** Test that empty mcpItems collection returns empty stream without throwing exception. */
@@ -1318,6 +1338,105 @@ public class PrivilegeConstraintsValidatorTest {
               return new AuthorizationResult(req, AuthorizationResult.Type.ALLOW, "Allowed");
             });
     return authorizer;
+  }
+
+  @Test(dataProvider = "patchItemShapes")
+  public void testValidateSchemaMetadataPatchUnauthorized(boolean alternateValidation)
+      throws Exception {
+    stubCurrentAspect(
+        TEST_DATASET_URN,
+        SCHEMA_METADATA_ASPECT_NAME,
+        new Aspect(
+            createSchemaMetadata("field1", TEST_TAG_URN)
+                .setHash("")
+                .setPlatformSchema(
+                    SchemaMetadata.PlatformSchema.create(new OtherSchema().setRawSchema("")))
+                .data()));
+    SchemaField addedField = createSchemaMetadata("field2", TEST_TAG_URN_2).getFields().get(0);
+    BatchItem item =
+        patchItem(
+            keyedArrayAddPatch(SCHEMA_METADATA_ASPECT_NAME, "fields", "field2", addedField),
+            alternateValidation);
+
+    assertTagPatchDenied(item);
+  }
+
+  @Test(dataProvider = "patchItemShapes")
+  public void testValidateEditableSchemaMetadataPatchUnauthorized(boolean alternateValidation)
+      throws Exception {
+    stubCurrentAspect(
+        TEST_DATASET_URN,
+        EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        new Aspect(createEditableSchemaMetadata("field1", TEST_TAG_URN).data()));
+    EditableSchemaFieldInfo addedField =
+        createEditableSchemaMetadata("field2", TEST_TAG_URN_2).getEditableSchemaFieldInfo().get(0);
+    BatchItem item =
+        patchItem(
+            keyedArrayAddPatch(
+                EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                "editableSchemaFieldInfo",
+                "field2",
+                addedField),
+            alternateValidation);
+
+    assertTagPatchDenied(item);
+  }
+
+  private void assertTagPatchDenied(BatchItem item) {
+    Mockito.when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
+        .thenReturn(false);
+
+    Assert.assertTrue(
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                Collections.singletonList(item),
+                retrieverContext,
+                mockAuthSession)
+            .findAny()
+            .isPresent());
+    // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAPIAuthorizedForTagModification(
+                Mockito.eq(mockAuthSession),
+                Mockito.eq(TEST_DATASET_URN),
+                Mockito.eq(Set.of(TEST_TAG_URN_2)),
+                any()));
+  }
+
+  /** Adds one element, keyed by fieldPath, to a keyed array via a generic JSON patch. */
+  private MetadataChangeProposal keyedArrayAddPatch(
+      String aspectName, String arrayField, String fieldPath, RecordTemplate element)
+      throws Exception {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/" + arrayField + "/" + fieldPath);
+    patchOp.setValue(objectMapper.readTree(RecordUtils.toJsonString(element)));
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_DATASET_URN);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(aspectName);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(
+        GenericRecordUtils.serializePatch(
+            GenericJsonPatch.builder()
+                .patch(List.of(patchOp))
+                .arrayPrimaryKeys(Map.of(arrayField, List.of("fieldPath")))
+                .build(),
+            objectMapper));
+    return mcp;
+  }
+
+  private BatchItem patchItem(MetadataChangeProposal mcp, boolean alternateValidation) {
+    return alternateValidation
+        ? ProposedItem.builder().build(mcp, auditStamp, entityRegistry)
+        : PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
   }
 
   private GlobalTags createGlobalTags(TagUrn... tagUrns) {

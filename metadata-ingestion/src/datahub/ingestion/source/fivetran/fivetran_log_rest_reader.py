@@ -8,6 +8,7 @@ contract.
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Type
 
 import pydantic
@@ -23,10 +24,15 @@ from datahub.ingestion.source.fivetran.config import (
 from datahub.ingestion.source.fivetran.data_classes import (
     ColumnLineage,
     Connector,
-    Job,
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
+from datahub.ingestion.source.fivetran.fivetran_selection import (
+    ConnectorFacts,
+    ConnectorFilters,
+    connector_pattern_verdict,
+    destination_verdict,
+)
 from datahub.ingestion.source.fivetran.log_reader import (
     FivetranJobsReader,
     FivetranLineageReader,
@@ -48,6 +54,60 @@ _RECOVERABLE_REST_ERRORS: Tuple[Type[BaseException], ...] = (
     pydantic.ValidationError,
     ValueError,
 )
+
+# Failures reading the Fivetran log warehouse that degrade instead of failing
+# the connector:
+#   - SQLAlchemyError: connection drops, query timeouts.
+#   - ValueError (incl. JSONDecodeError): malformed end_message_data JSON in
+#     the sync-log row.
+#   - KeyError: Fivetran renames a log-table column or changes the JSON shape
+#     of end_message_data.
+#   - AttributeError: `row["start_time"].timestamp()` when the warehouse
+#     returns NULL for an in-flight sync at the cutoff boundary.
+# TypeError and other classes still propagate, so genuine programmer bugs are
+# not masked by a "successfully fell back" warning.
+DB_LOG_FALLBACK_ERRORS: Tuple[Type[BaseException], ...] = (
+    sqlalchemy.exc.SQLAlchemyError,
+    ValueError,
+    KeyError,
+    AttributeError,
+)
+
+LINEAGE_FROM_DB_LOG = "log_database"
+LINEAGE_FROM_SCHEMAS = "rest_schemas"
+
+
+@dataclass(frozen=True)
+class FetchedLineage:
+    lineage: List[TableLineage]
+    # Which backend answered: LINEAGE_FROM_DB_LOG or LINEAGE_FROM_SCHEMAS.
+    source: str
+
+
+def connector_from_listed(
+    listed: FivetranListedConnection,
+    *,
+    lineage: List[TableLineage],
+    user_id: str,
+) -> Connector:
+    """A listed connection as a Connector. Shared with the probe, which
+    passes no lineage and no user_id because it reports neither."""
+    return Connector(
+        connector_id=listed.id,
+        # `listed.schema_` is the destination schema (e.g. `postgres_public`)
+        # — the same identifier the Fivetran UI displays as the connector
+        # name and that the DB reader pulls from `connection.connection_name`.
+        connector_name=listed.schema_,
+        connector_type=listed.service,
+        paused=listed.paused,
+        sync_frequency=listed.sync_frequency,
+        destination_id=listed.group_id,
+        user_id=user_id,
+        lineage=lineage,
+        # Sync history (per-run DPI events) is not fetched in REST mode:
+        # Fivetran's REST API has no sync-history endpoint per connection.
+        jobs=[],
+    )
 
 
 class FivetranLogRestReader:
@@ -182,11 +242,15 @@ class FivetranLogRestReader:
             )
 
         # Collect work first (sequential, fast — just listing/filtering)…
+        filters = ConnectorFilters(
+            connector_patterns=connector_patterns,
+            destination_patterns=destination_patterns,
+        )
         scoped_listed: List[FivetranListedConnection] = []
         for group_id in self._discover_group_ids():
             # Filter groups before issuing list_connections — saves an API
             # call per disallowed group on accounts with many destinations.
-            if not destination_patterns.allowed(group_id):
+            if not destination_verdict(filters, group_id).included:
                 continue
             try:
                 listed_connections = list(self.api_client.list_connections(group_id))
@@ -199,19 +263,15 @@ class FivetranLogRestReader:
                 )
                 continue
             for listed in listed_connections:
-                # REST mode is new — no backwards-compat baseline to
-                # preserve — so we match either `connector_id` (`listed.id`,
-                # the stable identifier the Fivetran UI shows) or
-                # `connector_name` (`listed.schema_`, the destination schema
-                # name; the same string DB mode treats as `connector_name`).
-                # Allowing both lets a recipe written against DB-mode names
-                # keep working unchanged when the user switches to REST.
-                # DB mode itself remains name-only — see
-                # `fivetran_log_db_reader.py` for why we don't OR there.
-                if not (
-                    connector_patterns.allowed(listed.id)
-                    or connector_patterns.allowed(listed.schema_)
-                ):
+                # Either `connector_id` (`listed.id`, the stable identifier the
+                # Fivetran UI shows) or `connector_name` (`listed.schema_`, the
+                # string DB mode matches), so a recipe written against DB-mode
+                # names keeps working when the user switches to REST.
+                if not connector_pattern_verdict(
+                    filters,
+                    ConnectorFacts(name=listed.schema_, connector_id=listed.id),
+                    rest=True,
+                ).included:
                     # Filter pattern check is read-only on patterns + simple
                     # report mutation — do it under lock for symmetry.
                     with self._report_lock:
@@ -286,27 +346,7 @@ class FivetranLogRestReader:
                     [c.connector_id for c in connectors],
                     syncs_interval,
                 )
-            except (
-                sqlalchemy.exc.SQLAlchemyError,
-                ValueError,
-                KeyError,
-                AttributeError,
-            ) as e:
-                # Tuple covers warehouse-data-drift / SQL-transient failures
-                # that should degrade gracefully:
-                #   - SQLAlchemyError: connection drops, query timeouts.
-                #   - ValueError (incl. JSONDecodeError): malformed
-                #     end_message_data JSON in the sync-log row.
-                #   - KeyError: Fivetran renames a log-table column or
-                #     changes the JSON shape of end_message_data
-                #     (the comment in `_get_jobs_list` already acknowledges
-                #     "json string inside string" drift in the wild).
-                #   - AttributeError: `row["start_time"].timestamp()` blows
-                #     up when the warehouse returns NULL for an in-flight
-                #     sync at the cutoff boundary.
-                # TypeError and other exception classes still propagate so
-                # genuine programmer bugs aren't masked by the
-                # "successfully fell back" warning.
+            except DB_LOG_FALLBACK_ERRORS as e:
                 self._report.warning(
                     title="Failed to fetch Fivetran sync history from log warehouse",
                     message="Connectors will be emitted without per-run DPI events.",
@@ -331,37 +371,22 @@ class FivetranLogRestReader:
         # `name_in_destination` and is used as a fallback when the
         # Metadata API isn't available (e.g. plan-restricted to
         # Standard+) so we still emit table-level lineage.
-        lineage = self._fetch_lineage(listed.id)
-
-        # Sync history (per-run DPI events) is intentionally NOT fetched in
-        # REST mode: Fivetran's REST API does not expose a sync-history
-        # endpoint per connection. The only authoritative source for run
-        # history is the Fivetran log delivered by the Platform Connector
-        # to a destination warehouse (use `log_source: log_database` for
-        # that). REST mode emits structural metadata (DataFlow, DataJob,
-        # datasets, lineage) but no per-run DPI events.
-        jobs: List[Job] = []
-
-        return Connector(
-            connector_id=listed.id,
-            # `listed.schema_` is the destination schema (e.g. `postgres_public`)
-            # — the same identifier the Fivetran UI displays as the connector
-            # name and that the DB reader pulls from `connection.connection_name`.
-            connector_name=listed.schema_,
-            connector_type=listed.service,
-            paused=listed.paused,
-            sync_frequency=listed.sync_frequency,
-            destination_id=listed.group_id,
+        return connector_from_listed(
+            listed,
+            lineage=self._fetch_lineage(listed.id),
             user_id=listed.connected_by or "",
-            lineage=lineage,
-            jobs=jobs,
         )
 
     def _fetch_lineage(
         self,
         connector_id: str,
     ) -> List[TableLineage]:
-        """Resolve table+column lineage for one connector.
+        return self.fetch_lineage_with_source(connector_id).lineage
+
+    def fetch_lineage_with_source(self, connector_id: str) -> FetchedLineage:
+        """Resolve table+column lineage for one connector, and say which
+        backend answered. The probe calls this too, so the fallback order is
+        stated once.
 
         Fallback chain, in order of preference:
 
@@ -379,55 +404,58 @@ class FivetranLogRestReader:
            the post-Fivetran-rename destination name. Available on every
            plan, every account — no tier restrictions.
         """
-        # Fallback 1: DB log lineage tables (preferred when the connector
-        # writes its log to the configured warehouse — explicit source /
-        # destination column names from sync events). When the DB log
-        # has NO entry for this connector_id (typical for accounts where
-        # different connectors log to different warehouses, or for newly-
-        # added connectors that haven't synced yet) we fall through to
-        # REST. An empty result is not a failure — REST may still have
-        # full lineage for that connector via the schemas+columns path.
-        if self._db_lineage_reader is not None:
-            try:
-                lineage_by_id = self._db_lineage_reader.fetch_lineage_for_connectors(
-                    [connector_id]
-                )
-                db_result = lineage_by_id.get(connector_id, [])
-                if db_result:
-                    return db_result
-                # Fall through to REST: the connector exists in REST's
-                # account-wide view but isn't in this DB log warehouse.
-            except (
-                sqlalchemy.exc.SQLAlchemyError,
-                ValueError,
-                KeyError,
-                AttributeError,
-            ) as e:
-                # Warehouse-data-drift / SQL-transient classes — degrade
-                # to schemas-config rather than crashing the connector.
-                # One-shot per ingest: the cause is deployment-level
-                # (not specific to this connector) so per-connector
-                # warnings would just spam the report.
-                with self._report_lock:
-                    if not self._db_lineage_unavailable_reported:
-                        self._report.warning(
-                            title="DB log lineage fallback failed",
-                            message=(
-                                "Could not read column lineage from the DB log "
-                                "warehouse; falling through to the Fivetran "
-                                "schemas-config endpoint for the rest of the "
-                                "ingest. Subsequent connectors will use the "
-                                "REST schemas-config path silently."
-                            ),
-                            context=connector_id,
-                            exc=e,
-                        )
-                        self._db_lineage_unavailable_reported = True
+        from_db_log = self._lineage_from_db_log(connector_id)
+        if from_db_log:
+            return FetchedLineage(lineage=from_db_log, source=LINEAGE_FROM_DB_LOG)
+        return FetchedLineage(
+            lineage=self._lineage_from_schemas(connector_id),
+            source=LINEAGE_FROM_SCHEMAS,
+        )
 
-        # Fallback 2: connection-schema-config endpoint + per-table
-        # /columns. Available on every plan tier and works for every
-        # connector visible to REST regardless of which warehouse the
-        # connector's log lands in.
+    def _lineage_from_db_log(self, connector_id: str) -> List[TableLineage]:
+        """The DB log's lineage for one connector; empty when none is wired
+        in, when the log has no entry for it, or when the log cannot be read.
+
+        When the DB log has NO entry for this connector_id (typical for
+        accounts where different connectors log to different warehouses, or
+        for newly-added connectors that haven't synced yet) the caller falls
+        through to REST. An empty result is not a failure — REST may still
+        have full lineage for that connector via the schemas+columns path.
+        """
+        if self._db_lineage_reader is None:
+            return []
+        try:
+            lineage_by_id = self._db_lineage_reader.fetch_lineage_for_connectors(
+                [connector_id]
+            )
+        except DB_LOG_FALLBACK_ERRORS as e:
+            # Warehouse-data-drift / SQL-transient classes — degrade
+            # to schemas-config rather than crashing the connector.
+            # One-shot per ingest: the cause is deployment-level
+            # (not specific to this connector) so per-connector
+            # warnings would just spam the report.
+            with self._report_lock:
+                if not self._db_lineage_unavailable_reported:
+                    self._report.warning(
+                        title="DB log lineage fallback failed",
+                        message=(
+                            "Could not read column lineage from the DB log "
+                            "warehouse; falling through to the Fivetran "
+                            "schemas-config endpoint for the rest of the "
+                            "ingest. Subsequent connectors will use the "
+                            "REST schemas-config path silently."
+                        ),
+                        context=connector_id,
+                        exc=e,
+                    )
+                    self._db_lineage_unavailable_reported = True
+            return []
+        return lineage_by_id.get(connector_id, [])
+
+    def _lineage_from_schemas(self, connector_id: str) -> List[TableLineage]:
+        """Lineage from the connection-schema-config endpoint plus per-table
+        /columns: available on every plan tier, for every connector visible
+        to REST regardless of which warehouse its log lands in."""
         try:
             schemas = self.api_client.get_connection_schemas(connector_id)
         except _RECOVERABLE_REST_ERRORS as e:
