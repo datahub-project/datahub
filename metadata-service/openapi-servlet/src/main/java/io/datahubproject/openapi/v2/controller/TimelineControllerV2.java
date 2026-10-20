@@ -19,6 +19,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
@@ -30,7 +31,6 @@ import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -120,22 +120,15 @@ public class TimelineControllerV2 {
             ImmutableList.of(
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
-    if (restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec)) {
-      throw new UnauthorizedException(
-          actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
-    }
-    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
+    if ((restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec))
+        || !EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+      urn = EntityUtils.toMissingUrn(urn);
     }
 
     if (includeVersionSet) {
-      List<Urn> allUrns = resolveVersionSetUrns(urn, opContext);
-      // Authorize every version before merging histories. REST has no partial-result signal, so
-      // deny the whole request if any sibling is unauthorized under REST API authorization.
-      if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, allUrns)) {
-        throw new UnauthorizedException(
-            actorUrnStr + " is unauthorized to view one or more versions for entity " + urn);
-      }
+      final List<Urn> allUrns =
+          EntityAuthorizationUtils.filterAPIAuthorizedEntityUrns(
+              opContext, READ, resolveVersionSetUrns(urn, opContext));
       // REST clients today only consume the merged transaction stream; skipped-URN count is
       // surfaced on the GraphQL surface (GetTimelineResult.skippedVersionCount). If REST
       // consumers later need the same signal, return a wrapper object here instead.

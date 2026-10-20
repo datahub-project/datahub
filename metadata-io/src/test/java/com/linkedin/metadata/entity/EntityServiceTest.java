@@ -3997,6 +3997,79 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertFalse(logMessages.isEmpty(), "Logger should have been called");
   }
 
+  @Test
+  public void testToMissingHelpersMatchReadsOfAbsentUrn() throws Exception {
+    Urn absentUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,never_written,PROD)");
+    Set<String> aspectNames = Set.of(STATUS_ASPECT_NAME, DATASET_PROPERTIES_ASPECT_NAME);
+    EntityRegistry registry = opContext.getEntityRegistry();
+
+    for (boolean alwaysIncludeKeyAspect : List.of(true, false)) {
+      assertEquals(
+          withoutCreatedTimes(
+              _entityServiceImpl.getEntitiesV2(
+                  opContext,
+                  DATASET_ENTITY_NAME,
+                  Set.of(absentUrn),
+                  aspectNames,
+                  alwaysIncludeKeyAspect)),
+          withoutCreatedTimes(
+              EntityUtils.toMissingEntityResponses(
+                  registry, List.of(absentUrn), aspectNames, alwaysIncludeKeyAspect)));
+
+      for (Map<String, Long> versions :
+          List.of(
+              Map.of(STATUS_ASPECT_NAME, 0L),
+              Map.of(DATASET_KEY_ASPECT_NAME, 0L, STATUS_ASPECT_NAME, 2L),
+              Map.of(DATASET_KEY_ASPECT_NAME, 3L))) {
+        assertEquals(
+            withoutCreatedTimesInLists(
+                _entityServiceImpl.getEnvelopedVersionedAspects(
+                    opContext, Map.of(absentUrn, versions), alwaysIncludeKeyAspect)),
+            withoutCreatedTimesInLists(
+                EntityUtils.toMissingEnvelopedVersionedAspects(
+                    registry, Map.of(absentUrn, versions), alwaysIncludeKeyAspect)),
+            "versions " + versions);
+      }
+
+      for (VersionedUrn versionedUrn :
+          List.of(
+              new VersionedUrn().setUrn(absentUrn),
+              new VersionedUrn().setUrn(absentUrn).setVersionStamp("status:0"),
+              new VersionedUrn().setUrn(absentUrn).setVersionStamp("ownership:0"))) {
+        assertEquals(
+            withoutCreatedTimes(
+                _entityServiceImpl.getEntitiesVersionedV2(
+                    opContext, Set.of(versionedUrn), aspectNames, alwaysIncludeKeyAspect)),
+            withoutCreatedTimes(
+                EntityUtils.toMissingVersionedEntityResponses(
+                    registry, List.of(versionedUrn), aspectNames, alwaysIncludeKeyAspect)),
+            "version stamp " + versionedUrn.getVersionStamp());
+      }
+    }
+
+    for (Set<String> requested : List.of(Set.<String>of(), Set.of(STATUS_ASPECT_NAME))) {
+      assertEquals(
+          _entityServiceImpl.getEntity(opContext, absentUrn, requested, true),
+          EntityUtils.toMissingEntity(registry, absentUrn),
+          "aspects " + requested);
+    }
+  }
+
+  /** Key aspects built for a urn are stamped with the time they were built. */
+  private static Map<Urn, EntityResponse> withoutCreatedTimes(Map<Urn, EntityResponse> responses) {
+    responses
+        .values()
+        .forEach(
+            response -> response.getAspects().values().forEach(a -> a.data().remove("created")));
+    return responses;
+  }
+
+  private static Map<Urn, List<EnvelopedAspect>> withoutCreatedTimesInLists(
+      Map<Urn, List<EnvelopedAspect>> aspects) {
+    aspects.values().forEach(list -> list.forEach(a -> a.data().remove("created")));
+    return aspects;
+  }
+
   @Nonnull
   protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email)
       throws Exception {

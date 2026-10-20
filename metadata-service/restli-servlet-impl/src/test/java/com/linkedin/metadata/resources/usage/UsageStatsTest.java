@@ -1,14 +1,17 @@
 package com.linkedin.metadata.resources.usage;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -16,14 +19,25 @@ import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
+import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
+import com.linkedin.parseq.Engine;
+import com.linkedin.parseq.EngineBuilder;
+import com.linkedin.parseq.Task;
 import com.linkedin.usage.UsageAggregation;
 import com.linkedin.usage.UsageAggregationArray;
 import com.linkedin.usage.UsageAggregationMetrics;
 import com.linkedin.usage.UsageQueryResult;
+import com.linkedin.usage.UsageTimeRange;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.concurrent.Executors;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -63,6 +77,82 @@ public class UsageStatsTest {
     invokeStripTopSqlQueries(allowAllAuthorizer(), result);
 
     assertEquals(result.getBuckets().get(0).getMetrics().getTopSqlQueries(), new StringArray(TEST_SQL));
+  }
+
+  @Test
+  public void testQueryRunsUnviewableResourceAsMissingOne() throws Exception {
+    TimeseriesAspectService timeseriesAspectService = mock(TimeseriesAspectService.class);
+    UsageStats usageStats = new UsageStats();
+    setField(usageStats, "_timeseriesAspectService", timeseriesAspectService);
+    setField(usageStats, "_authorizer", denyAllQueryViewAuthorizer());
+    setField(
+        usageStats,
+        "systemOperationContext",
+        TestOperationContexts.systemContextNoSearchAuthorization());
+    AuthenticationContext.setAuthentication(
+        new Authentication(new Actor(ActorType.USER, "test"), ""));
+    String missingResource = EntityUtils.toMissingUrn(TEST_DATASET_URN).toString();
+    UsageQueryResult missingResult = new UsageQueryResult();
+
+    try (MockedStatic<TimeseriesAuthUtil> auth =
+            Mockito.mockStatic(TimeseriesAuthUtil.class, Mockito.CALLS_REAL_METHODS);
+        MockedStatic<UsageServiceUtil> usage = Mockito.mockStatic(UsageServiceUtil.class)) {
+      auth.when(
+              () ->
+                  TimeseriesAuthUtil.canViewAspect(
+                      any(OperationContext.class), eq(TEST_DATASET_URN), any(), any()))
+          .thenReturn(false);
+      usage
+          .when(
+              () ->
+                  UsageServiceUtil.query(
+                      any(), any(), eq(missingResource), any(), any(), any(), any(), eq("bad/zone")))
+          .thenReturn(missingResult);
+      usage
+          .when(
+              () ->
+                  UsageServiceUtil.queryRange(
+                      any(), any(), eq(missingResource), any(), any(), eq("bad/zone")))
+          .thenReturn(missingResult);
+
+      UsageQueryResult result =
+          awaitTask(
+              usageStats.query(
+                  TEST_DATASET_URN.toString(), WindowDuration.DAY, null, null, null, "bad/zone"));
+      UsageQueryResult rangeResult =
+          awaitTask(
+              usageStats.queryRange(
+                  TEST_DATASET_URN.toString(),
+                  WindowDuration.DAY,
+                  UsageTimeRange.MONTH,
+                  null,
+                  "bad/zone"));
+
+      assertSame(result, missingResult);
+      assertSame(rangeResult, missingResult);
+    } finally {
+      AuthenticationContext.remove();
+    }
+  }
+
+  private static <T> T awaitTask(Task<T> task) throws InterruptedException {
+    Engine engine =
+        new EngineBuilder()
+            .setTaskExecutor(Runnable::run)
+            .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
+            .build();
+    try {
+      engine.blockingRun(task);
+      return task.get();
+    } finally {
+      engine.shutdown();
+    }
+  }
+
+  private static void setField(Object target, String name, Object value) throws Exception {
+    Field field = UsageStats.class.getDeclaredField(name);
+    field.setAccessible(true);
+    field.set(target, value);
   }
 
   private static UsageQueryResult usageQueryResultWithSql() {

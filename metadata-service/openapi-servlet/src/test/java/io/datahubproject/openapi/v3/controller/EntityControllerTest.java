@@ -15,8 +15,10 @@ import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.TAG_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VIEW_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
+import static io.datahubproject.openapi.controller.GenericEntitiesController.NOT_FOUND_HEADER;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -70,6 +72,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -494,6 +497,118 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testHeadReturnsNotFoundWhenExistsDenied() throws Exception {
+    Urn hiddenUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)");
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                      any(OperationContext.class),
+                      eq(ApiOperation.EXISTS),
+                      argThat((Collection<Urn> urns) -> urns.contains(hiddenUrn))))
+          .thenReturn(false);
+
+      mockMvc
+          .perform(MockMvcRequestBuilders.head("/openapi/v3/entity/dataset/{urn}", hiddenUrn))
+          .andExpect(status().isNotFound());
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.head("/openapi/v3/entity/dataset/{urn}/status", hiddenUrn))
+          .andExpect(status().isNotFound());
+    }
+    verify(mockEntityService, never())
+        .exists(any(OperationContext.class), any(Urn.class), anyBoolean());
+    verify(mockEntityService, never())
+        .exists(any(OperationContext.class), any(Urn.class), anyString(), anyBoolean());
+  }
+
+  @Test
+  public void testGetEntityAndAspectAnswerNotFoundWhenReadDenied() throws Exception {
+    Urn hiddenUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)");
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v3/entity/dataset/{urn}", hiddenUrn)
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isNotFound())
+          .andExpect(MockMvcResultMatchers.header().string(NOT_FOUND_HEADER, "ENTITY"));
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get("/openapi/v3/entity/dataset/{urn}/status", hiddenUrn)
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isNotFound())
+          .andExpect(MockMvcResultMatchers.header().string(NOT_FOUND_HEADER, "ENTITY"));
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.get(
+                      "/openapi/v3/entity/dataset/{urn}/datasetProfile", hiddenUrn)
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isNotFound())
+          .andExpect(MockMvcResultMatchers.header().string(NOT_FOUND_HEADER, "ENTITY"));
+    }
+    verify(mockEntityService, never())
+        .getEnvelopedVersionedAspects(any(OperationContext.class), anyMap(), anyBoolean());
+    verify(mockTimeseriesAspectService, never())
+        .getLatestTimeseriesAspectValues(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testGetEntityBatchOmitsReadDeniedUrns() throws Exception {
+    Urn visibleUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,visible,PROD)");
+    Urn hiddenUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,hidden,PROD)");
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                visibleUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    try (MockedStatic<EntityAuthorizationUtils> authUtils =
+        mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      denyRead(authUtils, hiddenUrn);
+
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.post("/openapi/v3/entity/dataset/batchGet")
+                  .content(
+                      String.format(
+                          "[{\"urn\": \"%s\"}, {\"urn\": \"%s\"}]", hiddenUrn, visibleUrn))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful())
+          .andExpect(MockMvcResultMatchers.jsonPath("$.length()").value(1))
+          .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(visibleUrn.toString()));
+    }
+    ArgumentCaptor<Map<Urn, Map<String, Long>>> fetched = ArgumentCaptor.forClass(Map.class);
+    verify(mockEntityService)
+        .getEnvelopedVersionedAspects(any(OperationContext.class), fetched.capture(), eq(false));
+    assertEquals(fetched.getValue().keySet(), Set.of(visibleUrn));
+  }
+
+  private static void denyRead(MockedStatic<EntityAuthorizationUtils> authUtils, Urn urn) {
+    authUtils
+        .when(
+            () ->
+                EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+                    any(OperationContext.class),
+                    eq(ApiOperation.READ),
+                    argThat((Collection<Urn> urns) -> urns.contains(urn))))
+        .thenReturn(false);
+  }
+
+  @Test
   public void testTimeseriesAspect() throws Exception {
     Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
     DatasetProfile firstDatasetProfile =
@@ -782,7 +897,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .andExpect(status().is2xxSuccessful())
             .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(documentUrn.toString()));
       } else {
-        result.andExpect(status().isForbidden());
+        result
+            .andExpect(status().is2xxSuccessful())
+            .andExpect(MockMvcResultMatchers.jsonPath("$").isEmpty());
       }
     }
   }
@@ -834,7 +951,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 MockMvcResultMatchers.content()
                     .string(org.hamcrest.Matchers.containsString(TEST_QUERY_STATEMENT)));
       } else {
-        result.andExpect(status().isForbidden());
+        result
+            .andExpect(status().isNotFound())
+            .andExpect(MockMvcResultMatchers.header().string(NOT_FOUND_HEADER, "ENTITY"));
       }
     }
   }

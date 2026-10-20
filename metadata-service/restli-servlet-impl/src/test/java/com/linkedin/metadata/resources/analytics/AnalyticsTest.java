@@ -11,7 +11,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Actor;
@@ -20,9 +22,16 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.analytics.GetTimeseriesAggregatedStatsResponse;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.parseq.Engine;
+import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -31,7 +40,11 @@ import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
+import java.util.concurrent.Executors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -113,6 +126,52 @@ public class AnalyticsTest {
       verify(timeseriesAspectService)
           .getAggregatedStats(any(), eq("dataset"), eq("datasetProfile"), any(), isNull(), isNull());
     }
+  }
+
+  @Test
+  public void testGetTimeseriesStatsQueriesUnreadableUrnsAsMissing() {
+    Urn visibleUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,visible,PROD)");
+    Urn hiddenUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,hidden,PROD)");
+    Filter filter =
+        QueryUtils.newFilter(
+            CriterionUtils.buildCriterion(
+                "urn", Condition.EQUAL, visibleUrn.toString(), hiddenUrn.toString()));
+    when(timeseriesAspectService.getAggregatedStats(any(), any(), any(), any(), any(), any()))
+        .thenReturn(new GenericTable());
+
+    GetTimeseriesAggregatedStatsResponse response;
+    try (MockedStatic<TimeseriesAuthUtil> auth =
+        mockStatic(TimeseriesAuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      auth.when(
+              () ->
+                  TimeseriesAuthUtil.canReadAspect(
+                      any(OperationContext.class), any(Urn.class), anyString(), anyString()))
+          .thenAnswer(invocation -> visibleUrn.equals(invocation.getArgument(1)));
+
+      Task<GetTimeseriesAggregatedStatsResponse> task =
+          analytics.getTimeseriesStats(
+              "dataset", "datasetProfile", new AggregationSpec[] {aggregationSpec()}, filter, null);
+      Engine engine =
+          new EngineBuilder()
+              .setTaskExecutor(Runnable::run)
+              .setTimerScheduler(Executors.newSingleThreadScheduledExecutor())
+              .build();
+      try {
+        engine.blockingRun(task);
+      } finally {
+        engine.shutdown();
+      }
+      response = task.get();
+    }
+
+    ArgumentCaptor<Filter> queried = ArgumentCaptor.forClass(Filter.class);
+    verify(timeseriesAspectService)
+        .getAggregatedStats(
+            any(), eq("dataset"), eq("datasetProfile"), any(), queried.capture(), isNull());
+    List<String> queriedUrns = queried.getValue().getOr().get(0).getAnd().get(0).getValues();
+    assertTrue(queriedUrns.contains(visibleUrn.toString()));
+    assertFalse(queriedUrns.contains(hiddenUrn.toString()));
+    assertEquals(response.getFilter(), filter);
   }
 
   private static AggregationSpec aggregationSpec() {

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -1636,6 +1637,56 @@ public class LineageSearchServiceTest {
     // Flags it does honor, and the defaults, are left alone
     scroll(new LineageFlags().setEntitiesExploredPerHopLimit(10));
     scroll(new LineageFlags());
+  }
+
+  @Test
+  public void testEmptyLineageAnswersLikeAnEntityWithNoLineage() {
+    when(_graphService.getImpactLineage(any(), eq(ORDERS), any(), anyInt()))
+        .thenReturn(
+            new EntityLineageResult()
+                .setRelationships(new LineageRelationshipArray())
+                .setStart(0)
+                .setCount(0)
+                .setTotal(0)
+                .setPartial(false));
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+
+    LineageSearchResult searched =
+        _lineageSearchService.searchAcrossLineage(
+            _operationContext,
+            ORDERS,
+            LineageDirection.DOWNSTREAM,
+            entities,
+            null,
+            1,
+            null,
+            null,
+            0,
+            10);
+    LineageScrollResult scrolled =
+        _lineageSearchService.scrollAcrossLineage(
+            _operationContext,
+            ORDERS,
+            LineageDirection.DOWNSTREAM,
+            entities,
+            null,
+            1,
+            null,
+            null,
+            null,
+            "5m",
+            10);
+    clearInvocations(_graphService);
+
+    assertEquals(
+        _lineageSearchService.searchAcrossEmptyLineage(
+            _operationContext, entities, null, null, null, 0, 10),
+        searched);
+    assertEquals(
+        _lineageSearchService.scrollAcrossEmptyLineage(
+            _operationContext, entities, null, null, null, null, "5m", 10),
+        scrolled);
+    verify(_graphService, never()).getImpactLineage(any(), any(), any(), anyInt());
   }
 
   private void scroll(LineageFlags lineageFlags) {

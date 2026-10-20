@@ -115,6 +115,53 @@ public final class EntityAuthorizationUtils {
   }
 
   /**
+   * The urns the actor may access, in request order. Unlike {@link #isAPIAuthorizedEntityUrns},
+   * which denies the whole collection when any urn is denied, each urn is kept or dropped on its
+   * own, so that callers can answer for the denied ones exactly as for urns that do not exist.
+   */
+  @Nonnull
+  public static List<Urn> filterAPIAuthorizedEntityUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> urns) {
+    if (urns.isEmpty() || isAPIAuthorizedEntityUrns(opContext, apiOperation, urns)) {
+      return List.copyOf(urns);
+    }
+    final Set<Urn> readableQueries =
+        apiOperation == READ
+            ? filterAPIAuthorizedQueryUrns(
+                opContext,
+                urns.stream().filter(EntityAspectAuthorizationUtils::isQueryEntity).toList())
+            : Set.of();
+    return urns.stream()
+        .filter(
+            urn ->
+                apiOperation == READ && EntityAspectAuthorizationUtils.isQueryEntity(urn)
+                    ? readableQueries.contains(urn)
+                    : isAPIAuthorizedEntityUrns(opContext, apiOperation, List.of(urn)))
+        .collect(Collectors.toList());
+  }
+
+  /** {@link #filterAPIAuthorizedEntityUrns} for any API group, such as relationships or lineage. */
+  @Nonnull
+  public static List<Urn> filterAPIAuthorizedUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull ApiGroup apiGroup,
+      @Nonnull ApiOperation apiOperation,
+      @Nonnull Collection<Urn> urns) {
+    if (ENTITY.equals(apiGroup)) {
+      return filterAPIAuthorizedEntityUrns(opContext, apiOperation, urns);
+    }
+    if (urns.isEmpty() || AuthUtil.isAPIAuthorizedUrns(opContext, apiGroup, apiOperation, urns)) {
+      return List.copyOf(urns);
+    }
+    return urns.stream()
+        .filter(
+            urn -> AuthUtil.isAPIAuthorizedUrns(opContext, apiGroup, apiOperation, List.of(urn)))
+        .collect(Collectors.toList());
+  }
+
+  /**
    * Authorizes query entity URNs for API surfaces. READ requires {@code VIEW_ENTITY_QUERIES} (or a
    * privilege implying it) on the query's subject datasets via {@link
    * EntityAspectAuthorizationUtils#filterViewableQueryEntities} — active only when REST API

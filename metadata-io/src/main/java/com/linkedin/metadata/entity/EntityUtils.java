@@ -4,12 +4,16 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
+import com.datahub.util.ModelUtils;
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -26,6 +30,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
@@ -38,7 +43,9 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -57,7 +64,30 @@ public class EntityUtils {
   private static final UnknownDataGuard UNKNOWN_REFERENCES =
       UnknownDataGuard.forSite(EntityUtils.class, "references to unknown entity types in");
 
+  private static final String MISSING_URN_SUFFIX = "__datahub_missing__";
+
   private EntityUtils() {}
+
+  /**
+   * A distinct urn of the same entity type and key shape that is never stored. Reads for an urn the
+   * actor may not read run against it, so they validate input, fail and answer exactly as for a
+   * nonexistent urn.
+   */
+  @Nonnull
+  public static Urn toMissingUrn(@Nonnull final Urn urn) {
+    final List<String> parts = new ArrayList<>(urn.getEntityKey().getParts());
+    // Suffix the first plain part: urn-valued parts (a dataset's platform) and trailing enum
+    // parts (its env) must stay parseable.
+    int index = parts.size() - 1;
+    for (int i = 0; i < parts.size(); i++) {
+      if (!parts.get(i).startsWith("urn:")) {
+        index = i;
+        break;
+      }
+    }
+    parts.set(index, parts.get(index) + MISSING_URN_SUFFIX);
+    return Urn.createFromTuple(urn.getEntityType(), parts.toArray());
+  }
 
   /**
    * Whether a side-effect DELETE of {@code aspectName} for {@code urn} should use hardDelete.
@@ -172,6 +202,122 @@ public class EntityUtils {
             .setTime(System.currentTimeMillis()));
 
     return envelopedAspect;
+  }
+
+  /**
+   * What {@code getEnvelopedVersionedAspects} answers for urns that have no stored aspects, built
+   * from the urns alone so that nothing is read from storage. Callers use it to answer for urns the
+   * actor may not read exactly as for urns that do not exist.
+   */
+  @Nonnull
+  public static Map<Urn, List<EnvelopedAspect>> toMissingEnvelopedVersionedAspects(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Map<Urn, Map<String, Long>> urnAspectVersions,
+      boolean alwaysIncludeKeyAspect) {
+    final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
+    urnAspectVersions.forEach(
+        (urn, aspectVersions) -> {
+          if (aspectVersions.isEmpty() || isUnknownEntityType(entityRegistry, urn)) {
+            return;
+          }
+          final EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn, entityRegistry);
+          final Long requestedKeyVersion = aspectVersions.get(keyAspect.getName());
+          final boolean keyVersionMatches =
+              requestedKeyVersion == null || ASPECT_LATEST_VERSION.equals(requestedKeyVersion);
+          result.put(
+              urn, alwaysIncludeKeyAspect && keyVersionMatches ? List.of(keyAspect) : List.of());
+        });
+    return result;
+  }
+
+  /**
+   * What {@code getEntitiesV2} answers for urns that have no stored aspects, built from the urns
+   * alone. See {@link #toMissingEnvelopedVersionedAspects}.
+   */
+  @Nonnull
+  public static Map<Urn, EntityResponse> toMissingEntityResponses(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Collection<Urn> urns,
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
+    final Map<String, Long> latestVersions =
+        aspectNames.stream()
+            .collect(Collectors.toMap(name -> name, name -> ASPECT_LATEST_VERSION, (a, b) -> a));
+    final Map<Urn, Map<String, Long>> urnAspectVersions = new HashMap<>();
+    urns.forEach(urn -> urnAspectVersions.put(urn, latestVersions));
+    return toMissingEnvelopedVersionedAspects(
+            entityRegistry, urnAspectVersions, alwaysIncludeKeyAspect)
+        .entrySet()
+        .stream()
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+  }
+
+  /**
+   * What {@code getEntitiesVersionedV2} answers for urns that have no stored aspects, built from
+   * the urns alone. See {@link #toMissingEnvelopedVersionedAspects}.
+   */
+  @Nonnull
+  public static Map<Urn, EntityResponse> toMissingVersionedEntityResponses(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Collection<VersionedUrn> versionedUrns,
+      @Nonnull final Set<String> aspectNames,
+      boolean alwaysIncludeKeyAspect) {
+    final Map<Urn, EntityResponse> result = new HashMap<>();
+    for (VersionedUrn versionedUrn : versionedUrns) {
+      final Map<String, Long> stampedVersions =
+          VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp());
+      final Set<String> fetchedAspects =
+          stampedVersions.isEmpty()
+              ? aspectNames
+              : aspectNames.stream()
+                  .filter(stampedVersions::containsKey)
+                  .collect(Collectors.toSet());
+      if (!fetchedAspects.isEmpty()
+          && !isUnknownEntityType(entityRegistry, versionedUrn.getUrn())) {
+        final Urn urn = versionedUrn.getUrn();
+        result.put(
+            urn,
+            toEntityResponse(
+                urn,
+                alwaysIncludeKeyAspect
+                    ? List.of(getKeyEnvelopedAspect(urn, entityRegistry))
+                    : List.of()));
+      }
+    }
+    return result;
+  }
+
+  /**
+   * What the Snapshot-based {@code getEntity} answers for an urn with no stored aspects: a snapshot
+   * holding only the key aspect, built from the urn alone, or null for an unknown entity type.
+   */
+  @Nullable
+  public static Entity toMissingEntity(
+      @Nonnull final EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    if (isUnknownEntityType(entityRegistry, urn)) {
+      return null;
+    }
+    final EntitySpec entitySpec = entityRegistry.getEntitySpec(PegasusUtils.urnToEntityName(urn));
+    final UnionTemplate keyAspectUnion =
+        ModelUtils.newAspectUnion(
+            PegasusUtils.getDataTemplateClassFromSchema(
+                entitySpec.getAspectTyperefSchema(), UnionTemplate.class),
+            EntityApiUtils.buildKeyAspect(entityRegistry, urn));
+    final RecordTemplate snapshotRecord =
+        ModelUtils.newSnapshot(
+            PegasusUtils.getDataTemplateClassFromSchema(
+                entitySpec.getSnapshotSchema(), RecordTemplate.class),
+            urn,
+            List.of(keyAspectUnion));
+    return toEntity(toSnapshotUnion(snapshotRecord));
+  }
+
+  // Storage reads skip urns of entity types only a newer version knows, so their answer is absent.
+  private static boolean isUnknownEntityType(
+      @Nonnull final EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    return handling().isUnknown(entityRegistry, urn.getEntityType(), null);
   }
 
   static EntityResponse toEntityResponse(

@@ -19,6 +19,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -323,5 +324,41 @@ public class TimeseriesAuthUtilTest {
         TimeseriesAuthUtil.omitUnauthorizedTimeseriesAspects(
             opContext, DATASET_URN, aspects, name -> DATASET_PROFILE_ASPECT_NAME.equals(name));
     assertEquals(omitted, Map.of("status", "ok"));
+  }
+
+  @Test
+  public void testWithUnreadableUrnsAsMissingSwapsOnlyUnreadableUrns() {
+    Urn hiddenUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,hidden,PROD)");
+    authUtilMock
+        .when(() -> AuthUtil.isAPIAuthorizedUrns(eq(opContext), eq(TIMESERIES), eq(READ), any()))
+        .thenReturn(true);
+    entityAuthMock
+        .when(() -> EntityAuthorizationUtils.canViewEntity(opContext, DATASET_URN))
+        .thenReturn(true);
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("urn")
+                                    .setCondition(Condition.EQUAL)
+                                    .setValues(
+                                        new StringArray(
+                                            DATASET_URN.toString(), hiddenUrn.toString()))))));
+
+    Filter masked =
+        TimeseriesAuthUtil.withUnreadableUrnsAsMissing(
+            opContext, DATASET_ENTITY_NAME, "datasetOperationalStats", filter);
+
+    List<String> maskedUrns = masked.getOr().get(0).getAnd().get(0).getValues();
+    assertEquals(maskedUrns.size(), 2);
+    assertTrue(maskedUrns.contains(DATASET_URN.toString()));
+    assertFalse(maskedUrns.contains(hiddenUrn.toString()));
+    assertTrue(
+        filter.getOr().get(0).getAnd().get(0).getValues().contains(hiddenUrn.toString()),
+        "the caller's filter must stay unchanged");
   }
 }

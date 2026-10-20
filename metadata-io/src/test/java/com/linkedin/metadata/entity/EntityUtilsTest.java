@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.DATASET_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.Mockito.*;
@@ -7,10 +8,18 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataproduct.DataProductProperties;
+import com.linkedin.entity.Entity;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
@@ -440,5 +449,95 @@ public class EntityUtilsTest {
     public MockRecordTemplate() {
       super(new com.linkedin.data.DataMap(), null);
     }
+  }
+
+  private static final Urn MISSING_DATASET_URN =
+      EntityUtils.getUrnFromString("urn:li:dataset:(urn:li:dataPlatform:hdfs,missing,PROD)");
+
+  @Test
+  public void testToMissingEntityResponsesHoldOnlyAKeyAspectBuiltFromTheUrn() {
+    Map<Urn, EntityResponse> withKey =
+        EntityUtils.toMissingEntityResponses(
+            opContext.getEntityRegistry(),
+            List.of(MISSING_DATASET_URN),
+            Set.of(STATUS_ASPECT_NAME),
+            true);
+    Map<Urn, EntityResponse> withoutKey =
+        EntityUtils.toMissingEntityResponses(
+            opContext.getEntityRegistry(),
+            List.of(MISSING_DATASET_URN),
+            Set.of(STATUS_ASPECT_NAME),
+            false);
+    Map<Urn, EntityResponse> noAspects =
+        EntityUtils.toMissingEntityResponses(
+            opContext.getEntityRegistry(), List.of(MISSING_DATASET_URN), Set.of(), true);
+
+    EnvelopedAspect keyAspect =
+        withKey.get(MISSING_DATASET_URN).getAspects().get(DATASET_KEY_ASPECT_NAME);
+    assertEquals(
+        withKey.get(MISSING_DATASET_URN).getAspects().keySet(), Set.of(DATASET_KEY_ASPECT_NAME));
+    assertEquals(new DatasetKey(keyAspect.getValue().data()).getName(), "missing");
+    assertFalse(keyAspect.hasSystemMetadata());
+    assertTrue(withoutKey.get(MISSING_DATASET_URN).getAspects().isEmpty());
+    assertTrue(noAspects.isEmpty());
+  }
+
+  @Test
+  public void testToMissingEnvelopedVersionedAspectsDropsKeyForNonLatestKeyVersion() {
+    Map<Urn, List<EnvelopedAspect>> latest =
+        EntityUtils.toMissingEnvelopedVersionedAspects(
+            opContext.getEntityRegistry(),
+            Map.of(MISSING_DATASET_URN, Map.of(DATASET_KEY_ASPECT_NAME, 0L)),
+            true);
+    Map<Urn, List<EnvelopedAspect>> older =
+        EntityUtils.toMissingEnvelopedVersionedAspects(
+            opContext.getEntityRegistry(),
+            Map.of(MISSING_DATASET_URN, Map.of(DATASET_KEY_ASPECT_NAME, 3L)),
+            true);
+
+    assertEquals(latest.get(MISSING_DATASET_URN).size(), 1);
+    assertTrue(older.get(MISSING_DATASET_URN).isEmpty());
+  }
+
+  @Test
+  public void testToMissingEntityHoldsOnlyTheKeyAspect() {
+    Entity entity = EntityUtils.toMissingEntity(opContext.getEntityRegistry(), MISSING_DATASET_URN);
+
+    DatasetSnapshot snapshot = entity.getValue().getDatasetSnapshot();
+    assertEquals(snapshot.getUrn().toString(), MISSING_DATASET_URN.toString());
+    assertEquals(snapshot.getAspects().size(), 1);
+    assertEquals(snapshot.getAspects().get(0).getDatasetKey().getName(), "missing");
+  }
+
+  @Test
+  public void testToMissingHelpersOmitUnknownEntityTypes() {
+    Urn newerTypeUrn = UrnUtils.getUrn("urn:li:newerEntityType:hidden");
+
+    assertNull(EntityUtils.toMissingEntity(opContext.getEntityRegistry(), newerTypeUrn));
+    assertTrue(
+        EntityUtils.toMissingEntityResponses(
+                opContext.getEntityRegistry(), List.of(newerTypeUrn), Set.of("status"), true)
+            .isEmpty());
+    assertTrue(
+        EntityUtils.toMissingVersionedEntityResponses(
+                opContext.getEntityRegistry(),
+                List.of(new VersionedUrn().setUrn(newerTypeUrn)),
+                Set.of("status"),
+                true)
+            .isEmpty());
+  }
+
+  @Test
+  public void testToMissingUrnKeepsTypeAndKeyShape() {
+    Urn missingUrn = EntityUtils.toMissingUrn(MISSING_DATASET_URN);
+
+    assertNotEquals(missingUrn, MISSING_DATASET_URN);
+    DatasetKey key =
+        (DatasetKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                missingUrn,
+                opContext.getEntityRegistry().getEntitySpec("dataset").getKeyAspectSpec());
+    assertEquals(key.getPlatform().toString(), "urn:li:dataPlatform:hdfs");
+    assertEquals(key.getOrigin().toString(), "PROD");
   }
 }
