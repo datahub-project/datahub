@@ -63,3 +63,50 @@ def test_risky_unnest_does_not_crash_when_flatten_column_missing() -> None:
     )
     assert result.debug_info.table_error is None
     assert result.debug_info.column_error is None
+
+
+# BigQuery UNNEST of an unqualified column over a table missing from the schema.
+# sqlglot 30.12.0 only fixes the LATERAL FLATTEN path, so this shape can still
+# send optimize() into a loop; column-level lineage must be skipped up front.
+_BQ_UNNEST = (
+    "CREATE OR REPLACE TABLE my_project.my_dataset.out_table AS "
+    "SELECT k.col_a, item AS col_b "
+    "FROM my_project.my_dataset.known_table AS k "
+    "JOIN my_project.my_dataset.unknown_table AS u ON k.col_a = u.col_a, "
+    "UNNEST(items) AS item"
+)
+
+
+def test_bigquery_unnest_over_unschemad_table_skips_column_lineage() -> None:
+    resolver = SchemaResolver(platform="bigquery")
+    resolver.add_raw_schema_info(
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.known_table,PROD)",
+        {"col_a": "INT64", "col_c": "STRING"},
+    )
+    result = sqlglot_lineage(
+        _BQ_UNNEST,
+        schema_resolver=resolver,
+        default_db="my_project",
+        default_schema="my_dataset",
+    )
+    assert any("unknown_table" in t for t in result.in_tables), result.in_tables
+    assert any("out_table" in t for t in result.out_tables), result.out_tables
+    assert result.debug_info.table_error is None
+    assert result.debug_info.column_error is not None
+    assert "UNNEST" in str(result.debug_info.column_error)
+
+
+def test_bigquery_unnest_with_qualified_column_keeps_column_lineage() -> None:
+    resolver = SchemaResolver(platform="bigquery")
+    resolver.add_raw_schema_info(
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.known_table,PROD)",
+        {"col_a": "INT64", "items": "ARRAY<STRING>"},
+    )
+    result = sqlglot_lineage(
+        "SELECT k.col_a, item FROM my_project.my_dataset.known_table AS k, "
+        "UNNEST(k.items) AS item",
+        schema_resolver=resolver,
+        default_db="my_project",
+        default_schema="my_dataset",
+    )
+    assert result.debug_info.column_error is None
