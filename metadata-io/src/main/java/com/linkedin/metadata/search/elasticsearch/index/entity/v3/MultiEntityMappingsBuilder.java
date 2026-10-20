@@ -22,11 +22,11 @@ import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -56,9 +56,9 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>Aspect-based field organization under {@code _aspects} object
  *   <li>Real root-level projected fields for the V2.5-compatible search surface
- *   <li>Root-level projected fields own copy_to into the {@code _search} aggregate fields
+ *   <li>Root-level projected fields own copy_to into the shared root labels
  *   <li>Structured properties support under {@code structuredProperties} field
- *   <li>Search label organization under {@code _search} object
+ *   <li>Search label organization at the document root
  * </ul>
  *
  * <p>Key features:
@@ -87,11 +87,7 @@ import lombok.extern.slf4j.Slf4j;
  *       }
  *     },
  *     "owners": { "type": "keyword" },
- *     "_search": {
- *       "properties": {
- *         "entityName": { "type": "keyword" }
- *       }
- *     }
+ *     "name": { "type": "keyword" }
  *   }
  * }
  * }</pre>
@@ -112,7 +108,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   private final int keywordMaxLength;
 
-  /** Engine-specific search-as-you-type shape of the {@code _search.autocomplete} ngram field. */
+  /** Engine-specific shape of a declared partial ngram subfield. */
   @Nonnull private final Map<String, String> partialNgramConfig;
 
   @Nonnull private final List<V3MappingContributor> mappingContributors;
@@ -378,7 +374,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    *   <li>Merges all mappings into a unified structure
    *   <li>Creates real root-level projected fields
    *   <li>Merges with base configuration if available
-   *   <li>Builds the _search section for label organization
+   *   <li>Places shared labels at the document root; system metadata stays under _search
    * </ul>
    *
    * @param entityRegistry entity registry containing all entity specifications
@@ -485,7 +481,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     applyMappingContributors(combinedMappings, searchGroup);
 
-    // Build _search section with all copy_to destination fields
+    // Shared labels are root fields. The base mapping's _search object is not part of the index.
     Map<String, Object> searchSection =
         MultiEntityMappingsUtils.buildSearchSection(
             entitySpecs, combinedMappings, partialNgramConfig);
@@ -493,8 +489,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @SuppressWarnings("unchecked")
       Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
       if (properties != null) {
-        keepBaseSearchFields(properties.get("_search"), searchSection);
-        properties.put("_search", searchSection);
+        placeSharedFieldsAtRoot(properties, searchSection);
       }
     }
 
@@ -502,22 +497,54 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * The base configuration types the {@code _search._system_*} fields that per-aspect system
-   * metadata copies into; without them the engine maps those copies dynamically. Fields built from
-   * the models' search labels take precedence.
+   * Puts each shared label on the document root. When a source field has the label's name, that
+   * document path is the label: the label mapping replaces the root projection and keeps {@code
+   * copy_to}. Cross-aspect system metadata stays in the root {@code _system} object.
    */
   @SuppressWarnings("unchecked")
-  private static void keepBaseSearchFields(
-      @Nullable final Object baseSearchSection, @Nonnull final Map<String, Object> searchSection) {
-    if (!(baseSearchSection instanceof Map)
-        || !(((Map<String, Object>) baseSearchSection).get(PROPERTIES) instanceof Map)) {
-      return;
+  private static void placeSharedFieldsAtRoot(
+      @Nonnull final Map<String, Object> properties,
+      @Nonnull final Map<String, Object> searchSection) {
+    properties.remove("_search");
+    final Map<String, Object> searchProperties =
+        searchSection.get(PROPERTIES) instanceof Map
+            ? new HashMap<>((Map<String, Object>) searchSection.get(PROPERTIES))
+            : new HashMap<>();
+    searchProperties.forEach(
+        (name, mapping) -> {
+          if (name.startsWith("_") || isObjectMapping(properties.get(name))) {
+            return;
+          }
+          if (properties.get(name) instanceof Map) {
+            properties.put(name, withPreservedCopyTo(properties.get(name), mapping));
+          } else if (!properties.containsKey(name)) {
+            properties.put(name, mapping);
+          }
+        });
+  }
+
+  /**
+   * An object mapping, such as the structured-property value object, cannot take analyzed
+   * subfields.
+   */
+  private static boolean isObjectMapping(@Nullable final Object mapping) {
+    return mapping instanceof Map<?, ?> field
+        && ("object".equals(field.get(TYPE)) || field.get(PROPERTIES) instanceof Map);
+  }
+
+  /**
+   * The label mapping replaces a same-named root projection. {@code copy_to} on the projection
+   * still feeds other destinations, such as {@code autocomplete}.
+   */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> withPreservedCopyTo(
+      @Nonnull final Object existing, @Nonnull final Object mapping) {
+    final Map<String, Object> replaced = new HashMap<>((Map<String, Object>) mapping);
+    final Object copyTo = ((Map<String, Object>) existing).get(COPY_TO);
+    if (copyTo != null) {
+      replaced.put(COPY_TO, copyTo);
     }
-    final Map<String, Object> merged =
-        new HashMap<>(
-            (Map<String, Object>) ((Map<String, Object>) baseSearchSection).get(PROPERTIES));
-    merged.putAll((Map<String, Object>) searchSection.get(PROPERTIES));
-    searchSection.put(PROPERTIES, merged);
+    return replaced;
   }
 
   @SuppressWarnings("unchecked")
@@ -533,7 +560,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         existingUrnMapping instanceof Map
             ? new HashMap<>((Map<String, Object>) existingUrnMapping)
             : new HashMap<>(Map.of(TYPE, ESUtils.KEYWORD_FIELD_TYPE));
-    // Exact urn matches use the keyword; full-text search finds the urn's parts in _search.other,
+    // Exact urn matches use the keyword; full-text search finds the urn's parts in other,
     // as V2 searches the urn by default
     urnMapping.put(COPY_TO, List.of(V3SearchFields.path(V3SearchFields.OTHER)));
     properties.put("urn", urnMapping);
@@ -759,6 +786,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     String aspectName = aspectSpec.getName();
 
     for (SearchableFieldSpec searchableFieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
+        continue;
+      }
       FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
 
       // Skip object field types from root projection unless handled through field aliases.
@@ -860,7 +890,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * @param rootFields map to populate with root field configurations
    * @param fieldNameToAllPaths map of field names to all their paths
    * @param entitySpecs all entity specifications for type resolution
-   * @param entityNameFallbacks fields that feed {@code _search.entityName} without naming it
+   * @param entityNameFallbacks fields that feed the root field {@code name} without naming it
    */
   private static void createRootFieldsForFieldNames(
       @Nonnull Map<String, Object> rootFields,
@@ -940,10 +970,10 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Aliases {@code _entityName} to {@code _search.entityName} when a root field of the index copies
-   * into it. Otherwise the alias points at the root field it names, as on V2: with one index per
-   * entity, {@code _search.entityName} is only mapped when a field feeds it, and an alias to an
-   * unmapped field makes the index mapping invalid.
+   * Aliases {@code _entityName} to the root field {@code name} when a root field of the index
+   * copies into it. Otherwise the alias points at the root field it names, as on V2: {@code name}
+   * is only mapped as a shared field when a field feeds it, and an alias to an unmapped field makes
+   * the index mapping invalid.
    */
   private static Map<String, Object> createEntityNameAliasMapping(
       @Nonnull String alias,
@@ -981,6 +1011,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           continue;
         }
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
+            continue;
+          }
           fieldSpec
               .getSearchableAnnotation()
               .getHasValuesFieldName()
@@ -995,18 +1028,20 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                   fieldName ->
                       rootFields.putIfAbsent(
                           fieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE)));
-          ESUtils.getSystemModifiedAtFieldName(fieldSpec)
-              .ifPresent(
-                  fieldName ->
-                      rootFields.putIfAbsent(
-                          fieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE)));
+          if (fieldSpec.getSearchableAnnotation().resolvedForV3().isIncludeSystemModifiedAt()) {
+            ESUtils.getSystemModifiedAtFieldName(fieldSpec)
+                .ifPresent(
+                    fieldName ->
+                        rootFields.putIfAbsent(
+                            fieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE)));
+          }
         }
       }
     }
   }
 
   /**
-   * @param entityNameFallbacks fields that feed {@code _search.entityName} without naming it
+   * @param entityNameFallbacks fields that feed the root field {@code name} without naming it
    * @param sharedFieldSources every source field of the root field, whose shared {@code _search}
    *     fields it copies into (see {@link V3SearchFields#rootSourceFieldSpecs}); none for an alias
    */
@@ -1069,35 +1104,22 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return new HashMap<>(FieldTypeMapper.getMappingsForKeyword());
     }
 
-    final Set<String> elasticsearchTypes =
+    final List<FieldMapping> roots =
         sourceFieldSpecs.stream()
             .map(
                 fieldSpec ->
-                    FieldTypeMapper.getElasticsearchTypeForFieldType(
-                        fieldSpec.getSearchableAnnotation().getFieldType(), fieldSpec))
-            .collect(Collectors.toSet());
-
-    final String resolvedElasticsearchType;
-    try {
-      resolvedElasticsearchType = ConflictResolver.resolveTypeConflict(elasticsearchTypes);
-    } catch (IllegalArgumentException e) {
+                    FieldMapping.rootOf(FieldMapping.of(fieldSpec.getSearchableAnnotation())))
+            .collect(Collectors.toList());
+    final FieldMapping root = roots.get(0);
+    if (roots.stream().anyMatch(other -> !root.sameRoot(other))) {
       throw new IllegalArgumentException(
           String.format(
-              "Non-resolvable field type conflict for projected root field '%s' with types %s. %s",
-              rootFieldName, elasticsearchTypes, e.getMessage()),
-          e);
+              "Projected root field '%s' contributors must resolve to the same V3 root",
+              rootFieldName));
     }
-    // The field is mapped as its source fields of the resolved type are, subfields included
-    final List<SearchableFieldSpec> resolvedFieldSpecs =
-        sourceFieldSpecs.stream()
-            .filter(
-                fieldSpec ->
-                    resolvedElasticsearchType.equals(
-                        FieldTypeMapper.getElasticsearchTypeForFieldType(
-                            fieldSpec.getSearchableAnnotation().getFieldType(), fieldSpec)))
-            .collect(Collectors.toList());
+    // The source field stores the exact root. Analyzer subfields live on the shared label.
     final Map<String, Object> rootFieldMapping =
-        new HashMap<>(FieldTypeMapper.getRichestCompatibleMapping(resolvedFieldSpecs));
+        new HashMap<>(FieldTypeMapper.mappingForRoot(root, sourceFieldSpecs.get(0)));
 
     applyProjectedRootFieldOptions(rootFieldMapping, sourceFieldSpecs);
     return rootFieldMapping;
@@ -1150,12 +1172,13 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     final List<String> copyToDestinations =
         V3SearchFields.destinations(sourceFieldSpecs, entityNameFallbacks).stream()
             .map(V3SearchFields::path)
+            .filter(destination -> !destination.equals(rootFieldName))
             .collect(Collectors.toList());
 
     if (!copyToDestinations.isEmpty()) {
       rootFieldMapping.put(COPY_TO, copyToDestinations);
       log.debug(
-          "Adding _search copy_to destinations for root projection field '{}': {}",
+          "Adding copy_to destinations for root projection field '{}': {}",
           rootFieldName,
           copyToDestinations);
     }
@@ -1219,17 +1242,22 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   /**
    * Gets the mappings for a field's copy under {@code _aspects.<aspect>}, which stays unanalyzed
-   * (see {@link FieldTypeMapper#getAspectMappingsForFieldType}) and copies into no {@code _search}
-   * field.
+   * (see {@link FieldTypeMapper#mappingForAspectRoot}) and copies into no {@code _search} field.
+   * The resolved V3 root controls exact indexing, so a search-only label also leaves its aspect
+   * copies unindexed.
    */
   public static Map<String, Object> getAspectMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec, @Nonnull final String aspectName) {
+    if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
+      return Map.of();
+    }
+    SearchableAnnotation annotation = searchableFieldSpec.getSearchableAnnotation().resolvedForV3();
+    FieldMapping root = FieldMapping.rootOf(FieldMapping.of(annotation));
     return buildFieldMappings(
         searchableFieldSpec,
         aspectName,
         false,
-        FieldTypeMapper.getAspectMappingsForFieldType(
-            searchableFieldSpec.getSearchableAnnotation().getFieldType(), searchableFieldSpec));
+        FieldTypeMapper.mappingForAspectRoot(root, searchableFieldSpec));
   }
 
   private static Map<String, Object> buildFieldMappings(
@@ -1237,6 +1265,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull final String aspectName,
       final boolean includeSearchCopyTo,
       @Nonnull final Map<String, Object> fieldTypeMapping) {
+    if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
+      return Map.of();
+    }
     FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
     String baseFieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
 
@@ -1303,8 +1334,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
               mappings.put(numValuesFieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE));
             });
 
-    // Add systemModifiedAt field if specified
-    if (ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
+    // Add systemModifiedAt field if V3 still searches the V2 sidecar
+    if (searchableFieldSpec.getSearchableAnnotation().resolvedForV3().isIncludeSystemModifiedAt()
+        && ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
       String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).get();
       mappings.put(modifiedAtFieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE));
     }
@@ -1394,8 +1426,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   /**
    * A referenced entity's field under a reference field. When full-text search reads the reference,
-   * its string values queried by default copy into {@code _search.other}, as V2 searches them at
-   * the reference's boost; never into the shared fields that name the referencing entity.
+   * its string values queried by default copy into the root field {@code other}, as V2 searches
+   * them at the reference's boost; never into the shared fields that name the referencing entity.
    */
   @SuppressWarnings("unchecked")
   private static Map<String, Object> getMappingsForReferencedField(

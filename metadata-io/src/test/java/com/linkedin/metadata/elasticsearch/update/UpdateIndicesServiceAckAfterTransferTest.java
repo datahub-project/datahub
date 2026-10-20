@@ -17,6 +17,7 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.testng.annotations.Test;
 
@@ -41,11 +42,11 @@ public class UpdateIndicesServiceAckAfterTransferTest {
   }
 
   @Test
-  public void testFlushAndWaitSkippedWhenBulkProcessorNull() {
+  public void testFlushAndWaitSkippedWhenNoBulkProcessors() {
     ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
-    when(writeDAO.getBulkProcessor()).thenReturn(null);
+    when(writeDAO.bulkProcessors()).thenReturn(List.of());
 
     UpdateIndicesService service =
         new UpdateIndicesService(
@@ -108,11 +109,25 @@ public class UpdateIndicesServiceAckAfterTransferTest {
     expectThrows(RuntimeException.class, service::flushAndWaitIfConfigured);
   }
 
-  private static UpdateIndicesService serviceWith(ESBulkProcessor bulkProcessor) {
+  @Test
+  public void testFlushAndWaitDrainsEveryCluster() throws Exception {
+    ESBulkProcessor primary = mock(ESBulkProcessor.class);
+    ESBulkProcessor secondary = mock(ESBulkProcessor.class);
+    for (ESBulkProcessor bulkProcessor : List.of(primary, secondary)) {
+      when(bulkProcessor.isAckAfterTransfer()).thenReturn(true);
+      when(bulkProcessor.getAckAfterTransferTimeoutSeconds()).thenReturn(30);
+    }
+    UpdateIndicesService service = serviceWith(primary, secondary);
+    service.flushAndWaitIfConfigured();
+    verify(primary).flushAndWait(Duration.ofSeconds(30));
+    verify(secondary).flushAndWait(Duration.ofSeconds(30));
+  }
+
+  private static UpdateIndicesService serviceWith(ESBulkProcessor... bulkProcessors) {
     ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
     ESWriteDAO writeDAO = mock(ESWriteDAO.class);
     when(elasticSearchService.getEsWriteDAO()).thenReturn(writeDAO);
-    when(writeDAO.getBulkProcessor()).thenReturn(bulkProcessor);
+    when(writeDAO.bulkProcessors()).thenReturn(List.of(bulkProcessors));
 
     return new UpdateIndicesService(
         mock(UpdateGraphIndicesService.class),

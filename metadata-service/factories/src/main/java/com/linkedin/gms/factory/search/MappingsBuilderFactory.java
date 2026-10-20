@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SearchEngineStructuredPropertyMappingLookup;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSear
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.DocumentV3EmbeddingMappingContributor;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3MappingContributor;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -28,8 +30,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration
+@Import(V3DocumentIdSchemeFactory.class)
 @Slf4j
 public class MappingsBuilderFactory {
 
@@ -63,7 +67,8 @@ public class MappingsBuilderFactory {
   protected MappingsBuilder createMultiEntityMappingsBuilder(
       ConfigurationProvider configProvider,
       SearchClusterRegistry searchClusterRegistry,
-      @Autowired(required = false) @Nullable List<V3MappingContributor> mappingContributors) {
+      @Autowired(required = false) @Nullable List<V3MappingContributor> mappingContributors,
+      @Qualifier("v3DocumentIdScheme") V3DocumentIdScheme v3DocumentIdScheme) {
     EntityIndexConfiguration entityIndexConfig =
         searchClusterRegistry.configFor(SearchComponent.SEARCH_V3).getEntityIndex();
     int keywordMaxLength = resolveKeywordMaxLength(configProvider);
@@ -76,8 +81,11 @@ public class MappingsBuilderFactory {
         "Creating MultiEntityMappingsBuilder bean (engineType={}; document V3 embeddings when semanticSearch is on)",
         v3Client.getEngineType());
     try {
-      return new MultiEntityMappingsBuilder(
-          entityIndexConfig, v3Client, keywordMaxLength, contributors);
+      // V3 documents carry hashed ids. Recording the running scheme on every V3 index at creation
+      // lets the incremental upgrade detect a later hasher change and rebuild the index.
+      return new DocumentIdSchemeStampingMappingsBuilder(
+          new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength, contributors),
+          v3DocumentIdScheme);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);
       throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
