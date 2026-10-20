@@ -66,6 +66,8 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.GetAliasesResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.CreateIndexRequest;
@@ -2917,8 +2919,10 @@ public class ESIndexBuilderTest {
             + " Preview of field's value: 'xxxx'\", \"caused_by\": {\"type\":"
             + " \"illegal_argument_exception\", \"reason\": \"immense term\"}}}]}}";
     String docJson =
-        "{\"_source\": {\"structuredProperties\": {\"_versioned\": {\"desc\":"
-            + " {\"10000000000000\": {\"string\": [\"abc\"]}}}}}}";
+        "{\"_source\": {\"urn\": \"urn:li:dataset:a\", \"structuredProperties\": {\"_versioned\":"
+            + " {\"desc\": {\"10000000000000\": {\"string\": [\""
+            + "x".repeat(40000)
+            + "\"]}}}}}}";
     RawResponse taskResponse = mock(RawResponse.class);
     HttpEntity taskEntity = mock(HttpEntity.class);
     when(taskResponse.getEntity()).thenReturn(taskEntity);
@@ -2956,6 +2960,83 @@ public class ESIndexBuilderTest {
     // Does not throw, and does not keep trying the other tasks once the engine is unreachable.
     verify(searchClient, times(1))
         .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsContinuesPastUnreadableTask() throws IOException {
+    Response notFound = mock(Response.class, RETURNS_DEEP_STUBS);
+    when(notFound.getStatusLine().getStatusCode()).thenReturn(404);
+    when(notFound.getEntity()).thenReturn(null);
+    String taskJson =
+        "{\"completed\": true, \"error\": {\"type\": \"task_cancelled_exception\"},"
+            + " \"response\": {\"total\": 3, \"created\": 3, \"failures\": []}}";
+    ResponseException notFoundException = new ResponseException(notFound);
+    RawResponse taskResponse = rawResponse(taskJson);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenThrow(notFoundException)
+        .thenReturn(taskResponse);
+
+    indexBuilder.logReindexFailureDiagnostics(
+        opContext, "source", "dest", List.of("node:1", "node:2"));
+
+    // A task the search engine answers for but can't return (e.g. 404) doesn't stop the others.
+    verify(searchClient, times(2))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsCapsLoggedFailuresAcrossSlices() throws IOException {
+    StringBuilder failures = new StringBuilder();
+    for (int i = 0; i < 25; i++) {
+      failures
+          .append(i == 0 ? "" : ",")
+          .append("{\"shard\": ")
+          .append(i)
+          .append(", \"reason\": \"search failed\"}");
+    }
+    String taskJson =
+        "{\"completed\": true, \"response\": {\"total\": 50, \"created\": 25, \"slices\": [null,"
+            + " {\"failures\": ["
+            + failures
+            + "]}]}}";
+    RawResponse taskResponse = rawResponse(taskJson);
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(taskResponse);
+
+    indexBuilder.logReindexFailureDiagnostics(
+        opContext, "source", "dest", List.of("node:1", "node:2"));
+
+    // Search failures have no document to look up, and once the cap is reached the remaining
+    // tasks are not read.
+    verify(searchClient, times(1))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  @Test
+  void testReindexFailureDiagnosticsSurvivesSourceDocumentLookupFailure() throws IOException {
+    String taskJson =
+        "{\"completed\": true, \"response\": {\"total\": 2, \"created\": 0, \"failures\": ["
+            + "{\"id\": \"a\", \"status\": 400, \"cause\": {\"type\": \"x\", \"reason\": \"bad\"}},"
+            + "{\"id\": \"b\", \"status\": 400, \"cause\": {\"type\": \"x\", \"reason\": \"bad\"}}]}}";
+    RawResponse taskResponse = rawResponse(taskJson);
+    RawResponse docResponse = rawResponse("{\"_source\": {\"urn\": \"urn:li:dataset:b\"}}");
+    when(searchClient.performLowLevelRequest(any(OperationFingerprint.class), any(Request.class)))
+        .thenReturn(taskResponse)
+        .thenThrow(new IOException("timed out"))
+        .thenReturn(docResponse);
+
+    indexBuilder.logReindexFailureDiagnostics(opContext, "source", "dest", List.of("node:1"));
+
+    verify(searchClient, times(3))
+        .performLowLevelRequest(any(OperationFingerprint.class), any(Request.class));
+  }
+
+  private static RawResponse rawResponse(String json) throws IOException {
+    RawResponse response = mock(RawResponse.class);
+    HttpEntity entity = mock(HttpEntity.class);
+    when(response.getEntity()).thenReturn(entity);
+    when(entity.getContent()).thenReturn(new ByteArrayInputStream(json.getBytes()));
+    return response;
   }
 
   @Test
