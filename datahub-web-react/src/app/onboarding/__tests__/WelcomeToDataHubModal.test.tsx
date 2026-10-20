@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
 import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
@@ -104,5 +104,40 @@ describe('WelcomeToDataHubModal slide advance', () => {
 
         expect(carouselNext).not.toHaveBeenCalled();
         expect(carouselPrev).not.toHaveBeenCalled();
+    });
+
+    it('does not show the tour or mount a video once it has been dismissed', () => {
+        localStorage.setItem('skipWelcomeModal', 'true');
+        renderTour();
+
+        expect(screen.queryByText('Find Any Asset, Anywhere')).toBeNull();
+        expect(document.querySelector('video')).toBeNull();
+        expect(document.querySelector('img')).toBeNull();
+
+        act(() => {
+            vi.advanceTimersByTime(SLIDE_FALLBACK_MS);
+        });
+
+        expect(screen.queryByText('Find Any Asset, Anywhere')).toBeNull();
+        expect(document.querySelector('video')).toBeNull();
+        expect(carouselNext).not.toHaveBeenCalled();
+    });
+
+    it('unmounts the modal and videos on close and stays closed next visit', () => {
+        const view = renderTour();
+        expect(screen.getByText('Find Any Asset, Anywhere')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('modal-close-icon'));
+
+        expect(localStorage.getItem('skipWelcomeModal')).toBe('true');
+        expect(screen.queryByText('Find Any Asset, Anywhere')).toBeNull();
+        expect(document.querySelector('video')).toBeNull();
+
+        view.unmount();
+        renderTour();
+
+        expect(screen.queryByText('Find Any Asset, Anywhere')).toBeNull();
+        expect(document.querySelector('video')).toBeNull();
+        expect(document.querySelector('img')).toBeNull();
     });
 });
