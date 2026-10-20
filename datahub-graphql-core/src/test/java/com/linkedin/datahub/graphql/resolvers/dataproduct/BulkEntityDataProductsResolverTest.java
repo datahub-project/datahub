@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SIBLINGS_ASPECT_NAME;
@@ -271,7 +272,11 @@ public class BulkEntityDataProductsResolverTest {
 
   private static QueryContext queryContext(final GraphRetriever graphRetriever) {
     // System context makes canView permissive, so the resolver returns every resolved membership.
-    final OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    return queryContext(graphRetriever, TestOperationContexts.systemContextNoSearchAuthorization());
+  }
+
+  private static QueryContext queryContext(
+      final GraphRetriever graphRetriever, final OperationContext base) {
     final RetrieverContext retrieverContext =
         RetrieverContext.builder()
             .graphRetriever(graphRetriever)
@@ -322,5 +327,53 @@ public class BulkEntityDataProductsResolverTest {
     return new EntityResponse()
         .setUrn(UrnUtils.getUrn(urn))
         .setAspects(new EnvelopedAspectMap(aspects));
+  }
+
+  @Test
+  public void testUnviewableInputAnswersAsMissing() throws Exception {
+    final String hidden = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.hidden,PROD)";
+    final EntityClient entityClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            entityClient.batchGetV2(
+                any(), eq("dataset"), any(), eq(Collections.singleton(SIBLINGS_ASPECT_NAME))))
+        .thenReturn(Map.of(UrnUtils.getUrn(hidden), siblingsResponse(hidden, SIBLING)));
+    Mockito.when(
+            entityClient.batchGetV2(
+                any(),
+                eq(DATA_PRODUCT_ENTITY_NAME),
+                any(),
+                eq(Collections.singleton(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(Map.of(UrnUtils.getUrn(DP_1), dataProductResponse(ENTITY, hidden)));
+
+    final GraphRetriever graphRetriever = Mockito.mock(GraphRetriever.class);
+    Mockito.when(
+            graphRetriever.scrollRelatedEntities(
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2, 2, null, List.of(relatedEntity(DP_1, ENTITY), relatedEntity(DP_1, hidden))));
+
+    final BulkEntityDataProductsInput input = new BulkEntityDataProductsInput();
+    input.setUrns(List.of(ENTITY, hidden));
+    final DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
+    final QueryContext queryContext =
+        queryContext(graphRetriever, contextHiding(UrnUtils.getUrn(hidden)).getOperationContext());
+    Mockito.when(environment.getContext()).thenReturn(queryContext);
+    Mockito.when(environment.getArgument("input")).thenReturn(input);
+
+    final BulkEntityDataProductsResult result =
+        new BulkEntityDataProductsResolver(entityClient).get(environment).get();
+
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(result.getEntities().get(0).getUrn(), ENTITY);
+    assertEquals(dataProductUrns(result.getEntities().get(0)), ImmutableSet.of(DP_1));
+    assertEquals(result.getEntities().get(1).getUrn(), hidden);
+    assertTrue(result.getEntities().get(1).getDataProductAssociations().isEmpty());
+    Mockito.verify(entityClient)
+        .batchGetV2(
+            any(),
+            eq("dataset"),
+            eq(Set.of(UrnUtils.getUrn(ENTITY))),
+            eq(Collections.singleton(SIBLINGS_ASPECT_NAME)));
   }
 }

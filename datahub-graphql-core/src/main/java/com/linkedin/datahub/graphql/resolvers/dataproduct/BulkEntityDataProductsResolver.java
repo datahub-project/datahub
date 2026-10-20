@@ -91,8 +91,16 @@ public class BulkEntityDataProductsResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          // An input entity the caller cannot view is answered as if it did not exist.
+          final List<Urn> viewableUrns =
+              parsedUrns.stream()
+                  .filter(urn -> canView(opContext, urn))
+                  .collect(Collectors.toList());
+          final Set<String> viewableUrnStrings =
+              viewableUrns.stream().map(Urn::toString).collect(Collectors.toSet());
+
           // 1. Read each input entity's siblings in one batched aspect read.
-          final Map<String, Set<String>> siblingsByEntity = getSiblings(opContext, parsedUrns);
+          final Map<String, Set<String>> siblingsByEntity = getSiblings(opContext, viewableUrns);
 
           // 2. Every entity plus its siblings, since a sibling's data product membership counts
           // too. Bounded well above MAX_URNS as a safety net on the set that drives the scroll.
@@ -122,11 +130,17 @@ public class BulkEntityDataProductsResolver
               inputUrns.stream()
                   .map(
                       urn ->
-                          buildEntityDataProducts(
-                              urn,
-                              siblingsByEntity.getOrDefault(urn, Collections.emptySet()),
-                              dataProductsByEntity,
-                              outputPortsByDataProduct))
+                          viewableUrnStrings.contains(urn)
+                              ? buildEntityDataProducts(
+                                  urn,
+                                  siblingsByEntity.getOrDefault(urn, Collections.emptySet()),
+                                  dataProductsByEntity,
+                                  outputPortsByDataProduct)
+                              : buildEntityDataProducts(
+                                  urn,
+                                  Collections.emptySet(),
+                                  Collections.emptyMap(),
+                                  Collections.emptyMap()))
                   .collect(Collectors.toList());
           final BulkEntityDataProductsResult result = new BulkEntityDataProductsResult();
           result.setEntities(entities);

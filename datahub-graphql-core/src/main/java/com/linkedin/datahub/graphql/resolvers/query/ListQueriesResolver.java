@@ -7,6 +7,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -91,10 +92,16 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
         input.getOrFilters() != null
             ? buildFilter(Collections.emptyList(), input.getOrFilters())
             : null;
-    final Filter finalFilter =
+    final Filter requestedFilter =
         inputFilter != null
             ? FilterUtils.combineFilters(inputFilter, buildFilters(input))
             : buildFilters(input);
+    final Filter finalFilter =
+        ViewAuthorizationSearchUtils.isUnviewableUrn(
+                context.getOperationContext(), input.getDatasetUrn())
+            ? FilterUtils.combineFilters(
+                requestedFilter, ViewAuthorizationSearchUtils.matchNothingFilter())
+            : requestedFilter;
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

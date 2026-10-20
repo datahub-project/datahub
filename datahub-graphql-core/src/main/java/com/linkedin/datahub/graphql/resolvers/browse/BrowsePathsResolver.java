@@ -1,14 +1,19 @@
 package com.linkedin.datahub.graphql.resolvers.browse;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowsePathsInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
+import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -41,10 +46,12 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
           try {
             _logger.debug(
                 "Fetch browse paths. entity type: {}, urn: {}", input.getType(), input.getUrn());
+            final QueryContext context = environment.getContext();
             if (_typeToEntity.containsKey(input.getType())) {
-              return _typeToEntity
-                  .get(input.getType())
-                  .browsePaths(input.getUrn(), environment.getContext());
+              if (isHidden(context, input)) {
+                return Collections.emptyList();
+              }
+              return _typeToEntity.get(input.getType()).browsePaths(input.getUrn(), context);
             }
             // Browse path is impl detail.
             return Collections.emptyList();
@@ -62,5 +69,21 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * An unviewable urn of the requested type gets the empty answer a missing one gets; any other urn
+   * goes through the type's own parser so it fails the same way for hidden and missing.
+   */
+  private static boolean isHidden(
+      @Nonnull final QueryContext context, @Nonnull final BrowsePathsInput input) {
+    final Urn urn;
+    try {
+      urn = Urn.createFromString(input.getUrn());
+    } catch (URISyntaxException e) {
+      return false;
+    }
+    return EntityTypeMapper.getName(input.getType()).equals(urn.getEntityType())
+        && !canView(context.getOperationContext(), urn);
   }
 }

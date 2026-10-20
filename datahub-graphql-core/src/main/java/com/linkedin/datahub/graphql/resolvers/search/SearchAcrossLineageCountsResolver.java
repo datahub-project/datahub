@@ -99,6 +99,11 @@ public class SearchAcrossLineageCountsResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            if (UnviewableLineageStart.isUnviewable(context, urn)) {
+              final SearchAcrossLineageCounts counts = new SearchAcrossLineageCounts();
+              counts.setTotal(0);
+              return counts;
+            }
             final LineageSearchResult result =
                 _entityClient.searchAcrossLineage(
                     context

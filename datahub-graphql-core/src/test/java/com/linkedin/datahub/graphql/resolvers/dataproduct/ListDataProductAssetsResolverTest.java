@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.dataproduct;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -219,6 +220,24 @@ public class ListDataProductAssetsResolverTest {
       assertTrue(and.getAnd().stream().noneMatch(c -> c.getField().equals("platform")));
     }
     Mockito.verifyNoInteractions(mockViewService);
+  }
+
+  @Test
+  public void testUnviewableDataProductAnswersAsMissing() throws Exception {
+    final EntityClient mockClient = mockClientWithAssets(ASSET_A);
+    final ListDataProductAssetsResolver resolver =
+        new ListDataProductAssetsResolver(mockClient, Mockito.mock(ViewService.class));
+    final QueryContext hidingContext = contextHiding(DATA_PRODUCT_URN);
+    final DataFetchingEnvironment env = mockEnv(null);
+    Mockito.when(env.getContext()).thenReturn(hidingContext);
+
+    final SearchResults results = resolver.get(env).get();
+
+    assertEquals((int) results.getTotal(), 0);
+    assertTrue(results.getSearchResults().isEmpty());
+    Mockito.verify(mockClient, Mockito.never()).getV2(any(), any(), any(), any());
+    Mockito.verify(mockClient, Mockito.never())
+        .searchAcrossEntities(any(), any(), any(), any(), anyInt(), any(), any());
   }
 
   private static EntityClient mockClientWithAssets(final Urn... assets) throws Exception {

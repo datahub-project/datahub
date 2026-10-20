@@ -134,7 +134,7 @@ public class LineageSearchService {
   private static final Set<String> LIGHTNING_FILTER_FIELDS =
       Set.of("platform", "origin", PARENT_FILTER);
 
-  private static final AggregationMetadata DEGREE_FILTER_GROUP =
+  public static final AggregationMetadata DEGREE_FILTER_GROUP =
       new AggregationMetadata()
           .setName(DEGREE_FILTER)
           .setDisplayName("Degree of Dependencies")

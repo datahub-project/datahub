@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.query;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.datahub.graphql.ViewAuthorizationTestContexts.contextHiding;
 import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
@@ -51,6 +52,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -84,6 +86,44 @@ public class ListQueriesResolverTest {
     return new Object[][] {
       {TEST_INPUT_FULL_FILTERS}, {TEST_INPUT_SOURCE_FILTER}, {TEST_INPUT_ENTITY_FILTER}
     };
+  }
+
+  @Test
+  public void testUnviewableDatasetMatchesNoQueries() throws Exception {
+    assertTrue(searchedFilter(contextHiding(TEST_DATASET_URN)).toString().contains("IS_NULL"));
+  }
+
+  @Test
+  public void testViewableDatasetSearchesItsQueries() throws Exception {
+    assertFalse(searchedFilter(contextHiding(TEST_DATASET_URN_2)).toString().contains("IS_NULL"));
+  }
+
+  /** The filter of the one search or scroll a request for TEST_INPUT_ENTITY_FILTER makes. */
+  private static Filter searchedFilter(final QueryContext context) throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(mockClient.search(any(), any(), any(), any(), any(), anyInt(), any()))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(0)
+                .setNumEntities(0)
+                .setEntities(new SearchEntityArray()));
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(), any(), any(), any(), any(), any(), any(), anyInt()))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_ENTITY_FILTER);
+    Mockito.when(mockEnv.getContext()).thenReturn(context);
+
+    assertEquals((int) new ListQueriesResolver(mockClient).get(mockEnv).get().getTotal(), 0);
+
+    return Mockito.mockingDetails(mockClient).getInvocations().stream()
+        .flatMap(invocation -> Arrays.stream(invocation.getArguments()))
+        .filter(Filter.class::isInstance)
+        .map(Filter.class::cast)
+        .findFirst()
+        .orElseThrow();
   }
 
   @Test(dataProvider = "inputs")

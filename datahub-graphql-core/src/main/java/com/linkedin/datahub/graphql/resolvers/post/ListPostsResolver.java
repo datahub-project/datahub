@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.ViewAuthorizationSearchUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -61,6 +62,16 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            final boolean resourceUnviewable =
+                ViewAuthorizationSearchUtils.isUnviewableUrn(
+                    context.getOperationContext(), maybeResourceUrn);
+            // No post targets a resource that doesn't exist, so only the caller's own filters
+            // can match.
+            final Filter filter =
+                resourceUnviewable && filters.isEmpty()
+                    ? ViewAuthorizationSearchUtils.matchNothingFilter()
+                    : buildFilters(resourceUnviewable ? null : maybeResourceUrn, filters);
+
             final List<SortCriterion> sortCriteria =
                 Collections.singletonList(
                     new SortCriterion()
@@ -73,7 +84,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     POST_ENTITY_NAME,
                     query,
-                    buildFilters(maybeResourceUrn, filters),
+                    filter,
                     sortCriteria,
                     start,
                     count);
