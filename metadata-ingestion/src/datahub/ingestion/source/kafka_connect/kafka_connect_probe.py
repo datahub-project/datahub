@@ -238,7 +238,10 @@ def source_for_probe(
     probe warns about both where they would change the answer. Not primed,
     because nothing reused reads them: _topic_cache, _topic_retriever,
     _consumer_group_analyzer, ctx. If a reused step starts reading one, the
-    probe fails as a defect (exit 1), not as a source failure."""
+    probe fails as a defect (exit 1), not as a source failure -- unless
+    ingestion's own try/except around that read turns it into a warning
+    (as _get_cached_kafka_topics does), in which case it degrades the same
+    way here."""
     shim = KafkaConnectSource.__new__(KafkaConnectSource)
     shim.config = config
     shim.report = KafkaConnectSourceReport()
