@@ -659,6 +659,30 @@ def test_a_saved_run_judges_a_null_destination_as_ingestion_meets_it(
     ]
 
 
+def test_a_saved_run_with_a_masked_destination_does_not_judge_it_null(
+    engine: MagicMock,
+) -> None:
+    # A destination_id that collides with a secret is masked in the saved run,
+    # and the listing drops it. Its value is unknown, not NULL.
+    run = run_probe_method("fivetran", db_recipe(), "connectors", {}).to_dict()
+    records = run["result"]
+    assert isinstance(records, list)
+    for record in records:
+        record["destination_id"] = "***REDACTED:DEST***"
+    listing = listing_from_run(run)
+    assert "destination_id" in listing.masked_attributes
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=db_recipe(),
+        kind=str(listing.kind),
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    assert result.results
+    assert all(v.excluded_by is None for v in result.results)
+
+
 def test_a_defect_opening_the_log_warehouse_is_not_a_connection_failure() -> None:
     # Our code failing (config drift between the probe and the reader's
     # constructor) exits 1 as a defect, not 3 as "could not open".

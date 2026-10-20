@@ -112,6 +112,10 @@ DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
 FIVETRAN_DESTINATION_KIND = "Destination"
 FIVETRAN_CONNECTOR_KIND = "Connector"
 
+# Set on each `probe run connectors` record. A saved run drops a NULL
+# destination_id and a masked one alike, so only this flag says it was NULL.
+DESTINATION_ID_IS_NULL = "destination_id_is_null"
+
 # REST ingestion keeps a connector when connector_patterns allows its id OR its
 # name (FivetranLogRestReader.get_allowed_connectors_list); DB ingestion
 # matches the name only. A verdict given only the name is half the REST rule,
@@ -546,9 +550,7 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             destination_id = UNKNOWN
         elif "destination_id" in attributes:
             destination_id = attributes["destination_id"]
-        elif not rest and connector_id is not UNKNOWN:
-            # A listed log row always carries connector_id; a saved run drops
-            # a NULL destination_id, so here it was NULL.
+        elif not rest and attributes.get(DESTINATION_ID_IS_NULL) == "true":
             destination_id = None
         else:
             destination_id = UNKNOWN

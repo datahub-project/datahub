@@ -23,6 +23,7 @@ from datahub.ingestion.agent.verdicts import (
 )
 from datahub.ingestion.api.source import StructuredLogs
 from datahub.ingestion.source.fivetran.config import (
+    DESTINATION_ID_IS_NULL,
     FIVETRAN_CONNECTOR_KIND,
     FIVETRAN_DESTINATION_KIND,
     Constant,
@@ -347,6 +348,7 @@ class FivetranMetadataProbe(ProbeProviderBase):
             "connector_id": connector.connector_id,
             "connector_type": connector.connector_type,
             "destination_id": connector.destination_id,
+            DESTINATION_ID_IS_NULL: connector.destination_id is None,
             "paused": connector.paused,
             "sync_frequency": connector.sync_frequency,
             # sources_to_platform_instance is keyed by connector id. An
@@ -409,8 +411,9 @@ class FivetranMetadataProbe(ProbeProviderBase):
         against; pass `destination_id` as --parent so the destination's own
         pattern is judged too, or pass --destination here to list one
         destination and have it reported as the parent. Read from the same
-        backend ingestion uses (log_source). Metadata only: the connecting
-        user is never returned."""
+        backend ingestion uses (log_source). `destination_id_is_null` marks a
+        connector the log places on no destination, which ingestion stops on.
+        Metadata only: the connecting user is never returned."""
         found = self._list_connectors(destination, stop_after=limit)
         if destination is not None and not found:
             self._warn(

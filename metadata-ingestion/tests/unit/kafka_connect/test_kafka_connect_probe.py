@@ -742,21 +742,61 @@ def test_only_the_missing_credential_error_is_reported_as_one() -> None:
     assert not isinstance(raised.value, ConfluentCloudCredentialsRequired)
 
 
-def test_a_probe_defect_in_a_reused_step_exits_as_a_defect() -> None:
+def test_a_shim_gap_in_a_reused_step_exits_as_a_defect() -> None:
     # The shim skips __init__; a reused step reading state only __init__ sets
     # fails in the probe and not in ingestion, so it is not reported as a
     # failure "ingestion would fail on too".
+    def reads_unset_state(self: KafkaConnectSource, *args: object) -> bool:
+        return bool(self._consumer_group_analyzer)
+
     with (
         requests_mock.Mocker() as m,
-        mock.patch.object(
-            KafkaConnectSource, "_enrich_manifest", side_effect=AttributeError("ctx")
-        ),
+        mock.patch.object(KafkaConnectSource, "_enrich_manifest", reads_unset_state),
         pytest.raises(ProbeInternalError),
     ):
         _mock_cluster(m, CLUSTER, TOPICS)
         run_probe_method(
             "kafka-connect", dict(_RECIPE), "connector", {"connector": "orders-sink"}
         )
+
+
+SNOWFLAKE_SINK_WITHOUT_DATABASE: Dict[str, str] = {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+    "topics": "orders",
+    "snowflake.schema.name": "public",
+}
+
+
+@pytest.mark.parametrize("command", ["connector", "connector_lineage"])
+def test_bad_connector_config_that_fails_ingestion_is_a_read_failure(
+    command: str,
+) -> None:
+    # SnowflakeSinkConnector.get_parser indexes snowflake.database.name
+    # directly: the KeyError comes from the cluster's data, not the shim, and
+    # ingestion's run fails on it the same way.
+    with requests_mock.Mocker() as m:
+        _mock_cluster(
+            m, {"snow": ("sink", SNOWFLAKE_SINK_WITHOUT_DATABASE)}, {"snow": []}
+        )
+        with pytest.raises(ProbeReadFailed):
+            run_probe_method(
+                "kafka-connect", dict(_RECIPE), command, {"connector": "snow"}
+            )
+
+
+def test_a_malformed_connector_body_is_a_read_failure() -> None:
+    # A non-object /connectors/{name} body makes the reused parse raise
+    # AttributeError on the body, not on the shim.
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        m.get(f"{CONNECT}/connectors/orders-sink", json=["not", "an", "object"])
+        with pytest.raises(ProbeReadFailed):
+            run_probe_method(
+                "kafka-connect",
+                dict(_RECIPE),
+                "connector",
+                {"connector": "orders-sink"},
+            )
 
 
 def test_cluster_topics_checks_the_connect_credentials_as_ingestion_does() -> None:

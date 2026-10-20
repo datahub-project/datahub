@@ -16,7 +16,6 @@ from urllib.parse import urlsplit
 import requests
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.agent.error_policy import DEFECT_TYPES
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import (
     ProbeProviderBase,
@@ -349,9 +348,8 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
         ):
             yield
 
-    @staticmethod
     @contextmanager
-    def _error_text_withheld(what_failed: str) -> Iterator[None]:
+    def _error_text_withheld(self, what_failed: str) -> Iterator[None]:
         """Run reused ingestion code with its error text withheld.
 
         Ingestion's parsers quote connector config in their exceptions -- the
@@ -361,17 +359,19 @@ class KafkaConnectMetadataProbe(ProbeProviderBase):
         Only the exception type is kept, and `from None` keeps the original off
         __cause__, where a traceback would print it.
 
-        A defect type (AttributeError, TypeError, ...) is the probe's own
-        failure -- the shim lacking state real ingestion has -- so it exits 1,
-        not as a failure ingestion would share."""
+        Only an attribute missing from the shim itself -- state ingestion's
+        __init__ sets and source_for_probe does not -- is the probe's own
+        defect (exit 1). Any other error, KeyError and TypeError included, can
+        come from what the cluster sent (a Snowflake sink without
+        snowflake.database.name), and ingestion does not catch those either."""
         try:
             yield
-        except DEFECT_TYPES as exc:
-            raise ProbeInternalError(
-                f"{what_failed} ({type(exc).__name__}); this is a defect in the "
-                f"probe, not something ingestion would hit"
-            ) from None
         except Exception as exc:
+            if isinstance(exc, AttributeError) and exc.obj is self._source:
+                raise ProbeInternalError(
+                    f"{what_failed} ({type(exc).__name__}): the probe's source "
+                    f"lacks state ingestion sets up; this is a defect in the probe"
+                ) from None
             raise ProbeReadFailed(
                 f"{what_failed} ({type(exc).__name__}); ingestion would fail on it too"
             ) from None
