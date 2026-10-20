@@ -17,7 +17,7 @@ from pyiceberg.io.pyarrow import PyArrowFileIO
 from pyiceberg.partitioning import PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
-from pyiceberg.table.metadata import TableMetadataV2
+from pyiceberg.table.metadata import TableMetadataUtil, TableMetadataV2
 from pyiceberg.types import LongType, NestedField, StringType
 
 from datahub.ingestion.agent.filter_check import check_filters
@@ -246,21 +246,25 @@ def test_columns_of_a_missing_table_is_a_caller_error(
 ) -> None:
     _patch_catalog(monkeypatch, _FakeCatalog({("sales",): ["orders"]}))
 
-    with pytest.raises(ProbeArgumentError, match="'nope'"):
+    with pytest.raises(ProbeArgumentError, match="'nope'") as raised:
         run_probe_method(
             "iceberg",
             _config_dict(),
             "columns",
             {"namespace": "sales", "table": "nope"},
         )
+    # Glue and Hive leave non-Iceberg tables out of the listing, so the message
+    # must not read as "the table does not exist" to someone who can see it.
+    assert "only Iceberg tables" in str(raised.value)
 
 
 @pytest.mark.parametrize("error", [NoSuchIcebergTableError, NoSuchPropertyException])
 def test_a_non_iceberg_table_is_an_empty_answer_with_a_warning(
     monkeypatch: pytest.MonkeyPatch, error: Type[Exception]
 ) -> None:
-    # Glue and Hive raise NoSuchPropertyException for a table without a
-    # table_type parameter; both mean ingestion skips it.
+    # The race: the table was listed as Iceberg, then its type changed before
+    # load_table. Glue and Hive raise NoSuchPropertyException once the
+    # table_type parameter is gone; both mean ingestion skips it.
     catalog = _FakeCatalog({("sales",): ["legacy"]})
     _fail_load_table(monkeypatch, catalog, error("not an iceberg table"))
     _patch_catalog(monkeypatch, catalog)
@@ -560,6 +564,49 @@ def test_table_metadata_is_the_custom_properties_ingestion_records(
     assert probed == table_custom_properties(
         catalog.load_table(("sales", "orders")), "[]"
     )
+
+
+def test_a_v1_default_spec_id_without_its_spec_is_recorded_as_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # pyiceberg validates default-spec-id against partition-specs for format
+    # v2 and v3 only, so this v1 metadata loads and Table.spec() raises
+    # StopIteration. Ingestion records the spec as None and keeps the rest.
+    v1 = TableMetadataUtil.parse_obj(
+        {
+            "format-version": 1,
+            "table-uuid": "9c12d441-03fe-4693-9a96-a0705ddf69c1",
+            "location": "s3://warehouse/sales/legacy",
+            "last-updated-ms": 1,
+            "last-column-id": 1,
+            "schema": {
+                "type": "struct",
+                "fields": [{"id": 1, "name": "id", "required": True, "type": "long"}],
+            },
+            "partition-specs": [{"spec-id": 0, "fields": []}],
+            "default-spec-id": 7,
+        }
+    )
+    loaded = Table(
+        identifier=("sales", "legacy"),
+        metadata=v1,
+        metadata_location="s3://warehouse/sales/legacy/metadata/v1.json",
+        io=PyArrowFileIO(),
+        catalog=NoopCatalog("test"),
+    )
+    catalog = _FakeCatalog({("sales",): ["legacy"]})
+    monkeypatch.setattr(catalog, "load_table", lambda identifier: loaded)
+    _patch_catalog(monkeypatch, catalog)
+
+    result = run_probe_method(
+        "iceberg",
+        _config_dict(),
+        "table_metadata",
+        {"namespace": "sales", "table": "legacy"},
+    )
+
+    assert result.result == table_custom_properties(loaded, None)
+    assert any("partition spec" in w for w in result.warnings)
 
 
 def test_a_table_is_judged_on_its_qualified_name() -> None:

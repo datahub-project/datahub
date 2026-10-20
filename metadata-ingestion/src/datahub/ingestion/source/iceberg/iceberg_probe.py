@@ -168,7 +168,10 @@ class IcebergMetadataProbe(ProbeProviderBase):
             self._list_tables(resolved),
             key=lambda listed: str(listed[-1]),
             kind="table",
-            where=f"in namespace {echoed(namespace)}",
+            where=(
+                f"in namespace {echoed(namespace)}; the catalog lists only "
+                "Iceberg tables, so a non-Iceberg table is never ingested"
+            ),
             list_command="probe run tables",
             stop_at_first=True,
         ).record
@@ -177,12 +180,14 @@ class IcebergMetadataProbe(ProbeProviderBase):
             try:
                 return self._catalog.load_table(identifier)
             except (NoSuchIcebergTableError, NoSuchPropertyException):
-                # The table exists, so this is a property of the source, not a
-                # wrong argument: an empty answer with a warning, as ingestion
-                # skips it with one (and as other probes answer an object of the
-                # wrong kind). Checked before NoSuchTableError, its base class;
-                # Glue and Hive raise NoSuchPropertyException for a table
-                # without a table_type parameter.
+                # Glue and Hive list only Iceberg tables, so a non-Iceberg
+                # table is normally refused by the lookup above. This is the
+                # race where the table stopped being Iceberg between the two
+                # calls (or a catalog that lists every table): it exists, so
+                # an empty answer with a warning, as ingestion skips it with
+                # one. Checked before NoSuchTableError, its base class; Glue
+                # and Hive raise NoSuchPropertyException once the table_type
+                # parameter is gone.
                 self._warn(
                     f"{qualified} is not an Iceberg table, so ingestion skips it "
                     f"with a warning and nothing is reported for it"
@@ -272,8 +277,10 @@ class IcebergMetadataProbe(ProbeProviderBase):
         partition_spec: Optional[str] = None
         try:
             partition_spec = partition_spec_json(loaded)
-        except (ValueError, KeyError) as exc:
+        except (ValueError, KeyError, StopIteration) as exc:
             # Ingestion warns and records the partition spec as None.
+            # StopIteration: Table.spec() finds no spec for default-spec-id,
+            # which pyiceberg validates on load for format v2/v3 but not v1.
             self._warn(
                 f"the partition spec could not be read "
                 f"{name_foreign(exc, type(self))}; ingestion records it as None"
