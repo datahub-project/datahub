@@ -49,6 +49,8 @@ type Props = {
     onClickPreview?: () => void;
     onClickDelete?: () => void;
     selectView?: () => void;
+    // Called once a menu action finishes, e.g. so a parent dropdown can close itself.
+    onActionComplete?: () => void;
 };
 
 export const ViewDropdownMenu = ({
@@ -60,6 +62,7 @@ export const ViewDropdownMenu = ({
     onClickPreview,
     onClickDelete,
     selectView,
+    onActionComplete,
 }: Props) => {
     const { t } = useTranslation('entity.views');
     const { t: tc } = useTranslation('common.actions');
@@ -85,6 +88,7 @@ export const ViewDropdownMenu = ({
             .then(({ errors }) => {
                 if (!errors) {
                     if (viewUrn && selectView) selectView();
+                    else onActionComplete?.();
                     userContext.updateState({
                         ...userContext.state,
                         views: {
@@ -121,6 +125,7 @@ export const ViewDropdownMenu = ({
                             globalDefaultViewUrn: viewUrn,
                         },
                     });
+                    onActionComplete?.();
                     analytics.event({
                         type: EventType.SetGlobalDefaultViewEvent,
                         urn: viewUrn,
@@ -183,6 +188,12 @@ export const ViewDropdownMenu = ({
     const deleteConfirmedView = () => {
         setIsDeleteConfirmationOpen(false);
         deleteView(view.urn);
+        onActionComplete?.();
+    };
+
+    const cancelDeleteView = () => {
+        setIsDeleteConfirmationOpen(false);
+        onActionComplete?.();
     };
 
     const canManageGlobalViews = userContext.platformPrivileges?.manageGlobalViews;
@@ -296,7 +307,7 @@ export const ViewDropdownMenu = ({
             )}
             <ConfirmationModal
                 isOpen={isDeleteConfirmationOpen}
-                handleClose={() => setIsDeleteConfirmationOpen(false)}
+                handleClose={cancelDeleteView}
                 handleConfirm={deleteConfirmedView}
                 modalTitle={t('deleteConfirm.title', { name: view.name })}
                 modalText={t('deleteConfirm.content')}

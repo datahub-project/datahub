@@ -39,6 +39,10 @@ public class TestMCP implements ChangeMCP {
   private static final String TEST_DATASET_URN =
       "urn:li:dataset:(urn:li:dataPlatform:datahub,Test,PROD)";
 
+  @Setter private boolean semanticNoOp;
+  @Setter private int semanticNoOpStrategyMask;
+  @Setter private long semanticNoOpProposedVersion;
+
   public static <T extends RecordTemplate> Collection<ReadItem> ofOneBatchItem(
       Urn urn, T aspect, EntityRegistry entityRegistry) {
     return Set.of(

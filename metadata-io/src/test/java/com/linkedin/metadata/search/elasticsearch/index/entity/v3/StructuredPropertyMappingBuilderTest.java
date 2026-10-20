@@ -9,14 +9,18 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -253,33 +257,112 @@ public class StructuredPropertyMappingBuilderTest {
   }
 
   @Test
-  public void testStringValuesCopyToFullTextFieldUnlessExcluded() {
+  public void testSearchConfigurationOptsIntoAnalyzedSubfields() {
     for (String valueType : List.of("string", "rich_text", "urn")) {
-      assertEquals(
+      Map<String, Object> unconfigured =
           StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
-                  propertyOfType(valueType))
-              .get("copy_to"),
-          List.of("_search.structuredProperties"),
-          valueType);
-    }
-    for (String valueType : List.of("number", "date")) {
-      assertFalse(
-          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
-                  propertyOfType(valueType))
-              .containsKey("copy_to"),
-          valueType);
-    }
+              propertyOfType(valueType));
+      assertFalse(unconfigured.containsKey("copy_to"), valueType);
+      assertFalse(analyzedSubfields(unconfigured).contains("text"), valueType);
 
-    // An opted-out property keeps its field for filters and facets
-    for (String valueType : List.of("string", "rich_text", "urn")) {
+      Map<String, Object> configured =
+          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+              propertyOfType(valueType)
+                  .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(false)));
+      assertFalse(configured.containsKey("copy_to"), valueType);
+      assertEquals(configured.get("type"), "keyword", valueType);
+      assertAnalyzedSubfields(configured, valueType);
+      if (!"urn".equals(valueType)) {
+        assertTrue(analyzedSubfields(configured).contains("keyword"), configured.toString());
+      }
+
+      // V3 ignores the V2 exclusion once a configuration is present
       Map<String, Object> excluded =
           StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
               propertyOfType(valueType)
                   .setSearchConfiguration(
-                      new DataHubSearchConfig().setExcludeFromFullTextSearch(true)));
-      assertFalse(excluded.containsKey("copy_to"), valueType);
-      assertEquals(excluded.get("type"), "keyword", valueType);
+                      new DataHubSearchConfig()
+                          .setQueryByDefault(true)
+                          .setExcludeFromFullTextSearch(true)));
+      assertAnalyzedSubfields(excluded, valueType);
     }
+    for (String valueType : List.of("number", "date")) {
+      Map<String, Object> configured =
+          StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+              propertyOfType(valueType)
+                  .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true)));
+      assertFalse(configured.containsKey("copy_to"), valueType);
+      assertFalse(analyzedSubfields(configured).contains("text"), configured.toString());
+    }
+  }
+
+  private static Set<String> analyzedSubfields(Map<String, Object> mapping) {
+    Object fields = mapping.get("fields");
+    if (!(fields instanceof Map<?, ?> fieldsMap)) {
+      return Set.of();
+    }
+    Set<String> names = new HashSet<>();
+    fieldsMap.keySet().forEach(key -> names.add(String.valueOf(key)));
+    return names;
+  }
+
+  private static void assertAnalyzedSubfields(Map<String, Object> mapping, String valueType) {
+    Map<String, Object> expected = V3SearchFields.analyzedSubfields();
+    assertEquals(subfield(mapping, "text"), expected.get("text"), valueType);
+    assertEquals(subfield(mapping, "stemmed"), expected.get("stemmed"), valueType);
+  }
+
+  private static Object subfield(Map<String, Object> mapping, String name) {
+    Object fields = mapping.get("fields");
+    if (!(fields instanceof Map<?, ?> fieldsMap)) {
+      return null;
+    }
+    return fieldsMap.get(name);
+  }
+
+  @Test
+  public void testCopyToTargetsTheSharedFieldARootFieldFeeds() throws URISyntaxException {
+    EntitySpec dataset = TestOperationContexts.defaultEntityRegistry().getEntitySpec("dataset");
+    StructuredPropertyDefinition businessName =
+        propertyOfType("string")
+            .setQualifiedName("businessName")
+            .setSearchConfiguration(
+                new DataHubSearchConfig()
+                    .setQueryByDefault(false)
+                    .setCopyTo(new StringArray(List.of("name", "entityName", "notAField"))));
+
+    Map<String, Object> mappings =
+        StructuredPropertyMappingBuilder.createStructuredPropertyMappings(
+            dataset,
+            List.of(
+                Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:businessName"), businessName)));
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> field = (Map<String, Object>) mappings.get("businessName");
+    assertEquals(field.get("copy_to"), List.of("name"));
+    assertEquals(field.get("type"), "keyword");
+    assertAnalyzedSubfields(field, "string");
+
+    StructuredPropertyDefinition notes =
+        propertyOfType("string")
+            .setSearchConfiguration(
+                new DataHubSearchConfig()
+                    .setQueryByDefault(true)
+                    .setCopyTo(new StringArray(List.of("description", "_search.other"))));
+    Map<String, Object> noteMapping =
+        StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(notes, List.of(dataset));
+    assertEquals(noteMapping.get("copy_to"), List.of("description", "other"));
+
+    Map<String, Object> number =
+        StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
+            propertyOfType("number")
+                .setSearchConfiguration(
+                    new DataHubSearchConfig()
+                        .setQueryByDefault(true)
+                        .setCopyTo(new StringArray(List.of("name")))),
+            List.of(dataset));
+    assertFalse(number.containsKey("copy_to"), number.toString());
+    assertFalse(analyzedSubfields(number).contains("text"), number.toString());
   }
 
   @Test

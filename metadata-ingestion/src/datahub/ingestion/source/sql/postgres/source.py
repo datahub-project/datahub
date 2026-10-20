@@ -545,6 +545,10 @@ class PostgresConfig(BasePostgresConfig, BaseUsageConfig):
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:

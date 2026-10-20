@@ -29,13 +29,18 @@ from typing import (
     cast,
 )
 
-from typing_extensions import Self
+from typing_extensions import LiteralString, Self
 
 from datahub.ingestion.agent.error_policy import label_foreign_text
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
     ProbeInternalError,
     ProbeSoftError,
+)
+from datahub.ingestion.api.source import (
+    StructuredLogCategory,
+    StructuredLogLevel,
+    StructuredLogs,
 )
 
 if TYPE_CHECKING:
@@ -290,6 +295,41 @@ class soft_listing:
             return False
         self._warn(label_foreign_text(soft))
         return True
+
+
+class UnloggedStructuredLogs(StructuredLogs):
+    """Report entries that are recorded but never written to the Python logger.
+
+    Ingestion's report.warning() logs `title: message => context: <exception
+    text>` to the console. A reused ingestion step can put a value read off
+    the source into the context, or an exception whose text quotes a driver
+    error or a REST reply body. The CLI's log masking only knows the recipe's
+    secrets, so on a probe that line would reach stderr as-is. The probe
+    result renders entries as `title: message` only, so nothing is lost by
+    not logging them. A provider whose reused steps write to a SourceReport
+    gives that report one of these as its `_structured_logs`."""
+
+    def report_log(
+        self,
+        level: StructuredLogLevel,
+        message: LiteralString,
+        title: Optional[LiteralString] = None,
+        context: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = False,
+        stacklevel: int = 1,
+        log_category: Optional[StructuredLogCategory] = None,
+    ) -> None:
+        super().report_log(
+            level,
+            message,
+            title=title,
+            context=context,
+            exc=exc,
+            log=False,
+            stacklevel=stacklevel,
+            log_category=log_category,
+        )
 
 
 class ProbeProviderBase:

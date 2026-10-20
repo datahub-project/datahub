@@ -1,5 +1,6 @@
 import * as QueryString from 'query-string';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import {
     HIGHLIGHTABLE_ENTITY_TYPES,
     MatchedFieldConfig,
@@ -179,9 +180,9 @@ export const getDescriptionSlice = (text: string, target: string) => {
 
 export const getColumnsTabUrlPath = (entityType: EntityType) => {
     if (entityType === EntityType.Chart) {
-        return 'Fields';
+        return EntityTabPath.FIELDS;
     }
-    return 'Columns';
+    return EntityTabPath.COLUMNS;
 };
 
 // Each context maps to its own complete, independently-translatable tooltip sentence — add a new

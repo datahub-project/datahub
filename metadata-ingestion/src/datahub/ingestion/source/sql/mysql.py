@@ -387,6 +387,10 @@ class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
         SourceCapabilityModifier.TABLE,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -11,11 +12,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import lombok.AllArgsConstructor;
 import lombok.Value;
 import org.apache.commons.lang3.EnumUtils;
 
 /** Simple object representation of the @Searchable annotation metadata. */
 @Value
+@AllArgsConstructor
 public class SearchableAnnotation {
 
   public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
@@ -64,18 +67,13 @@ public class SearchableAnnotation {
 
   Optional<String> systemModifiedAtFieldName;
 
-  // Deprecated no-op: search indices no longer build tier fields. Still parsed and validated so
-  // existing models keep loading
-  Optional<Integer> searchTier;
-
-  // Unified label for search operations
+  // Shared Search V3 field. Parsed from v3.searchLabel; resolvedForV3 copies that value here.
   Optional<String> searchLabel;
 
-  // Deprecated no-op, like searchTier: every searchable field is indexed under its own name
+  // Deprecated no-op: every searchable field is indexed under its own name
   Optional<Boolean> searchIndexed;
 
-  // If set, this field will be copied to _search.<entityFieldName> and the root alias will point
-  // there
+  // If set, this field is copied to the root field of this name and the root alias points there.
   // This allows multiple aspects to consolidate into a single entity-level field
   Optional<String> entityFieldName;
 
@@ -86,6 +84,111 @@ public class SearchableAnnotation {
   // Whether to sanitize rich text content (HTML, Markdown, base64 images) before indexing
   // This prevents indexing failures due to term size limits and improves search relevance
   boolean sanitizeRichText;
+
+  // V3-only overrides. Absent means V3 uses the top-level annotation. V2 never reads these.
+  boolean v3Searchable;
+
+  Optional<String> v3SearchLabel;
+
+  Optional<Boolean> v3IncludeSystemModifiedAt;
+
+  /**
+   * Search V3 root and label subfields. Explicit {@code v3.mappings} replace the fallback derived
+   * from {@link #fieldType}. {@code _aspects} does not read this list.
+   */
+  @Nonnull List<FieldMapping> v3Mappings;
+
+  /**
+   * Constructor for annotations with no V3 overlay. V3 searches the field with the top-level
+   * settings.
+   */
+  public SearchableAnnotation(
+      String fieldName,
+      FieldType fieldType,
+      boolean queryByDefault,
+      boolean enableAutocomplete,
+      boolean addToFilters,
+      boolean addHasValuesToFilters,
+      Optional<String> filterNameOverride,
+      Optional<String> hasValuesFilterNameOverride,
+      double boostScore,
+      Optional<String> hasValuesFieldName,
+      Optional<String> numValuesFieldName,
+      Map<Object, Double> weightsPerFieldValue,
+      List<String> fieldNameAliases,
+      boolean includeQueryEmptyAggregation,
+      boolean includeSystemModifiedAt,
+      Optional<String> systemModifiedAtFieldName,
+      Optional<String> searchLabel,
+      Optional<Boolean> searchIndexed,
+      Optional<String> entityFieldName,
+      Optional<Boolean> eagerGlobalOrdinals,
+      boolean sanitizeRichText) {
+    this(
+        fieldName,
+        fieldType,
+        queryByDefault,
+        enableAutocomplete,
+        addToFilters,
+        addHasValuesToFilters,
+        filterNameOverride,
+        hasValuesFilterNameOverride,
+        boostScore,
+        hasValuesFieldName,
+        numValuesFieldName,
+        weightsPerFieldValue,
+        fieldNameAliases,
+        includeQueryEmptyAggregation,
+        includeSystemModifiedAt,
+        systemModifiedAtFieldName,
+        searchLabel,
+        searchIndexed,
+        entityFieldName,
+        eagerGlobalOrdinals,
+        sanitizeRichText,
+        true,
+        Optional.empty(),
+        Optional.empty(),
+        FieldMapping.fallback(fieldType, hasSearchDestination(searchLabel, entityFieldName)));
+  }
+
+  /**
+   * The annotation Search V3 indexes. {@code searchLabel} is read only from the {@code v3} object.
+   * The overlay can also turn the system-modified sidecar off or drop the field from V3 search.
+   */
+  @Nonnull
+  public SearchableAnnotation resolvedForV3() {
+    if (v3Searchable && v3SearchLabel.isEmpty() && v3IncludeSystemModifiedAt.isEmpty()) {
+      return this;
+    }
+    final boolean includeModified = v3IncludeSystemModifiedAt.orElse(includeSystemModifiedAt);
+    return new SearchableAnnotation(
+        fieldName,
+        fieldType,
+        queryByDefault,
+        enableAutocomplete,
+        addToFilters,
+        addHasValuesToFilters,
+        filterNameOverride,
+        hasValuesFilterNameOverride,
+        boostScore,
+        hasValuesFieldName,
+        numValuesFieldName,
+        weightsPerFieldValue,
+        fieldNameAliases,
+        includeQueryEmptyAggregation,
+        includeModified,
+        includeModified ? systemModifiedAtFieldName : Optional.empty(),
+        v3SearchLabel,
+        searchIndexed,
+        entityFieldName,
+        eagerGlobalOrdinals,
+        sanitizeRichText,
+        v3Searchable,
+        Optional.empty(),
+        Optional.empty(),
+        v3Mappings);
+  }
 
   public enum FieldType {
     KEYWORD,
@@ -157,22 +260,51 @@ public class SearchableAnnotation {
     final Optional<String> systemModifiedAtFieldName =
         AnnotationUtils.getField(map, "systemModifiedAtFieldName", String.class);
 
-    // Parse new fields
-    final Optional<Integer> searchTier = AnnotationUtils.getField(map, "searchTier", Integer.class);
-    final Optional<String> searchLabel = AnnotationUtils.getField(map, "searchLabel", String.class);
-    final Optional<Boolean> searchIndexed =
-        AnnotationUtils.getField(map, "searchIndexed", Boolean.class);
+    final Optional<Map> v3Overlay = AnnotationUtils.getField(map, "v3", Map.class);
+    final boolean v3Searchable =
+        v3Overlay
+            .flatMap(overlay -> AnnotationUtils.getField(overlay, "enabled", Boolean.class))
+            .orElse(resolvedFieldType != FieldType.BROWSE_PATH);
+    if (resolvedFieldType == FieldType.BROWSE_PATH && v3Searchable) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: field type BROWSE_PATH is not"
+                  + " supported on Search V3",
+              ANNOTATION_NAME, context));
+    }
+    final Optional<String> v3SearchLabel =
+        v3Overlay.flatMap(
+            overlay -> AnnotationUtils.getField(overlay, "searchLabel", String.class));
+    final Optional<Boolean> v3IncludeSystemModifiedAt =
+        v3Overlay.flatMap(
+            overlay -> AnnotationUtils.getField(overlay, "includeSystemModifiedAt", Boolean.class));
     final Optional<String> entityFieldName =
         AnnotationUtils.getField(map, "entityFieldName", String.class);
+    final boolean hasSearchDestination = hasSearchDestination(v3SearchLabel, entityFieldName);
+    final List<FieldMapping> v3Mappings =
+        v3Searchable
+            ? v3Overlay
+                .flatMap(overlay -> AnnotationUtils.getField(overlay, "mappings", List.class))
+                .map(raw -> FieldMapping.parse(raw, context))
+                .orElseGet(() -> FieldMapping.fallback(resolvedFieldType, hasSearchDestination))
+            : List.of();
+    if (!hasSearchDestination && v3Mappings.stream().anyMatch(mapping -> !mapping.isRoot())) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: a mappings subfield requires a"
+                  + " searchLabel",
+              ANNOTATION_NAME, context));
+    }
+    final Optional<Boolean> searchIndexed =
+        AnnotationUtils.getField(map, "searchIndexed", Boolean.class);
     final Optional<Boolean> eagerGlobalOrdinals =
         AnnotationUtils.getField(map, "eagerGlobalOrdinals", Boolean.class);
     final Optional<Boolean> sanitizeRichText =
         AnnotationUtils.getField(map, "sanitizeRichText", Boolean.class);
 
     // Validate new fields
-    validateSearchTier(searchTier, resolvedFieldType, context);
-    validateSearchIndexed(searchIndexed, resolvedFieldType, searchTier, context);
-    validateElasticsearchFieldName(searchLabel, "searchLabel", context);
+    validateSearchIndexed(searchIndexed, resolvedFieldType, context);
+    validateElasticsearchFieldName(v3SearchLabel, "searchLabel", context);
     validateElasticsearchFieldName(entityFieldName, "entityFieldName", context);
     validateEagerGlobalOrdinals(eagerGlobalOrdinals, resolvedFieldType, context);
     validateSanitizeRichText(sanitizeRichText, resolvedFieldType, context);
@@ -194,12 +326,21 @@ public class SearchableAnnotation {
         includeQueryEmptyAggregation.orElse(false),
         includeSystemModifiedAt.orElse(false),
         systemModifiedAtFieldName,
-        searchTier,
-        searchLabel,
+        Optional.empty(),
         searchIndexed,
         entityFieldName,
         eagerGlobalOrdinals,
-        sanitizeRichText.orElse(false));
+        sanitizeRichText.orElse(false),
+        v3Searchable,
+        v3SearchLabel,
+        v3IncludeSystemModifiedAt,
+        v3Mappings);
+  }
+
+  private static boolean hasSearchDestination(
+      Optional<String> searchLabel, Optional<String> entityFieldName) {
+    return searchLabel.filter(label -> !label.isEmpty()).isPresent()
+        || entityFieldName.filter(name -> !name.isEmpty()).isPresent();
   }
 
   private static FieldType getFieldType(
@@ -264,52 +405,10 @@ public class SearchableAnnotation {
     return aliases;
   }
 
-  /**
-   * Validates that searchTier is >= 1 if present and that fields with searchTier are of type
-   * KEYWORD, TEXT, TEXT_PARTIAL, WORD_GRAM, or URN
-   */
-  private static void validateSearchTier(
-      Optional<Integer> searchTier, FieldType fieldType, String context) {
-    if (searchTier.isPresent()) {
-      // Validate searchTier value is >= 1
-      if (searchTier.get() < 1) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: searchTier must be >= 1, but was %d",
-                ANNOTATION_NAME, context, searchTier.get()));
-      }
-
-      // Validate that fields with searchTier are of type KEYWORD, TEXT, TEXT_PARTIAL, WORD_GRAM, or
-      // URN
-      if (fieldType != FieldType.KEYWORD
-          && fieldType != FieldType.TEXT
-          && fieldType != FieldType.TEXT_PARTIAL
-          && fieldType != FieldType.WORD_GRAM
-          && fieldType != FieldType.URN) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: searchTier can only be used with KEYWORD, TEXT, TEXT_PARTIAL, WORD_GRAM, or URN field types, but was %s",
-                ANNOTATION_NAME, context, fieldType));
-      }
-    }
-  }
-
-  /** Validates that searchIndexed is only used with appropriate field types and searchTier */
+  /** Validates that searchIndexed is only used with KEYWORD or TEXT fields. */
   private static void validateSearchIndexed(
-      Optional<Boolean> searchIndexed,
-      FieldType fieldType,
-      Optional<Integer> searchTier,
-      String context) {
+      Optional<Boolean> searchIndexed, FieldType fieldType, String context) {
     if (searchIndexed.isPresent() && searchIndexed.get()) {
-      // searchIndexed can only be true when searchTier is present
-      if (!searchTier.isPresent()) {
-        throw new ModelValidationException(
-            String.format(
-                "Failed to validate @%s annotation declared at %s: searchIndexed can only be true when searchTier is specified",
-                ANNOTATION_NAME, context));
-      }
-
-      // searchIndexed can only be used with KEYWORD or TEXT field types
       if (fieldType != FieldType.KEYWORD && fieldType != FieldType.TEXT) {
         throw new ModelValidationException(
             String.format(
