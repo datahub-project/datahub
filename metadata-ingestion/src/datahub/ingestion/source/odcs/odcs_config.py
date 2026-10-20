@@ -51,7 +51,7 @@ SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
 
 # Platforms whose DataHub connectors lowercase dataset names by default; the
 # composed physical name follows suit when `lowercase_physical_urns` is on.
-LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake",))
+LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake", "glue"))
 
 
 class ServerMapping(ConfigModel):
@@ -167,7 +167,7 @@ class ODCSSourceConfig(
     lowercase_physical_urns: bool = Field(
         default=True,
         description="Lowercase composed physical dataset names for platforms whose DataHub "
-        "connectors lowercase URNs by default (currently snowflake). Set False if your "
+        "connectors lowercase URNs by default (currently snowflake and glue). Set False if your "
         "snowflake ingestion runs with convert_urns_to_lowercase disabled. Logical `odcs` "
         "dataset URNs always preserve the contract's casing.",
     )
