@@ -55,6 +55,20 @@ public class V3IndexKeysTest {
   }
 
   @Test
+  public void entitySpecsForKeyMatchesTheLowerCasedIndexNameToken() {
+    EntitySpec schemaField = mock(EntitySpec.class);
+    when(schemaField.getName()).thenReturn("schemaField");
+    when(schemaField.getSearchGroup()).thenReturn("schemaField");
+
+    EntityRegistry registry = mock(EntityRegistry.class);
+    when(registry.getEntitySpecs()).thenReturn(Map.of("schemaField", schemaField));
+
+    // Index names are lower case, so the key read back from schemafieldindex_v3 is lower case.
+    assertEquals(V3IndexKeys.entitySpecsForKey(registry, "schemafield"), List.of(schemaField));
+    assertEquals(V3IndexKeys.entitySpecsForKey(registry, "other"), List.of());
+  }
+
+  @Test
   public void groupEntitySpecsDoesNotRefreshForLaterPluginEntities() {
     EntitySpec dataset = mock(EntitySpec.class);
     when(dataset.getName()).thenReturn("dataset");

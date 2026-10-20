@@ -287,6 +287,13 @@ LoadIndices can be executed via:
 | `aspectNames` | Comma-separated list of aspect names to process | `-a aspectNames=ownership,schemaMetadata` |
 | `lastUrn`     | Resume processing from this URN (inclusive)     | `-a lastUrn=urn:li:dataset:my-dataset`    |
 
+### 🧭 Run Mode
+
+| Parameter              | Description                                                                                                                                                                                            | Example                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| `v3BackfillMode`       | How the run is marked for the Search V3 writer: `baseline` (default) is an initial population whose events may carry an entity's complete stored state; `catchup` is a replay over a window of changes | `-a v3BackfillMode=catchup`    |
+| `skipConversionErrors` | When `true`, an aspect that fails conversion is counted and skipped instead of failing the run. Off by default so a corrupt aspect is not silently left out                                            | `-a skipConversionErrors=true` |
+
 ### ⚙️ System Configuration
 
 | Environment Variable         | Description                             | Default                             | Example                        |
@@ -339,6 +346,8 @@ The Gradle task supports these parameters:
 - `lePitEpochMs`: Process records created before this timestamp
 - `gePitEpochMs`: Process records created after this timestamp
 - `lastUrn`: Resume processing from this URN (inclusive)
+- `v3BackfillMode`: `baseline` (default) or `catchup`
+- `skipConversionErrors`: skip aspects that fail conversion instead of failing the run (default: `false`)
 
 ### 🐳 Docker Environment Variables
 
@@ -396,6 +405,7 @@ To resume from where you left off:
 
 - **Use the exact URN**: Copy the URN exactly as logged (including any URL encoding)
 - **Inclusive processing**: The `lastUrn` parameter processes from the specified URN onwards (inclusive)
+- **Bounded pages**: The scan reads one page at a time in `(urn, aspect)` order and completes the last entity of each page, so every entity a page writes is whole and a resume re-reads the checkpointed entity from its first row
 - **Monitor progress**: Watch the logs for the "Last URN processed" messages to track progress
 - **Batch boundaries**: Resume works at the URN level, not batch level - some aspects may be reprocessed
 

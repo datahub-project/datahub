@@ -14,6 +14,8 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -43,7 +45,11 @@ public class MappingsBuilderFactoryTest {
 
     MappingsBuilder mappingsBuilder =
         new MappingsBuilderFactory()
-            .createMultiEntityMappingsBuilder(configProvider, searchClusterRegistry, null);
+            .createMultiEntityMappingsBuilder(
+                configProvider,
+                searchClusterRegistry,
+                null,
+                new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher()));
 
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     IndexMapping datasets =

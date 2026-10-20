@@ -518,20 +518,39 @@ public class IndexConventionImpl implements IndexConvention {
     return true;
   }
 
+  /**
+   * Entity index alias of {@code version} carrying the prefix its family is named under: the
+   * cluster overlay for that generation's component when one is configured, else this operation's
+   * resolver prefix, the same resolution {@link #getEntityIndexName} and {@link
+   * #getEntityIndexNameV3} apply. Physical backing names are classified through {@link
+   * IndexConvention#entityIndexVersionOf} and the {@code OrBackingType} checks instead.
+   */
+  private boolean isEntityIndexOfVersion(
+      @Nonnull OperationFingerprint operation,
+      @Nonnull String indexName,
+      @Nonnull EntityIndexVersion version) {
+    if (!version.isAliasName(indexName)) {
+      return false;
+    }
+    SearchComponent component =
+        switch (version) {
+          case V2 -> SearchComponent.SEARCH_V2;
+          case V3 -> SearchComponent.SEARCH_V3;
+        };
+    String prefix = prefix(operation, component);
+    return prefix.isEmpty() || indexName.startsWith(prefix + "_");
+  }
+
   @Override
   public boolean isV2EntityIndex(
       @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
-    // Pattern: [prefix]_[entityName]index_v2
-    return isEntityIndexWithSuffix(
-        operation, indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+    return isEntityIndexOfVersion(operation, indexName, EntityIndexVersion.V2);
   }
 
   @Override
   public boolean isV3EntityIndex(
       @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
-    // Pattern: [prefix]_[entityName]index_v3
-    return isEntityIndexWithSuffix(
-        operation, indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION_V3);
+    return isEntityIndexOfVersion(operation, indexName, EntityIndexVersion.V3);
   }
 
   @Override
