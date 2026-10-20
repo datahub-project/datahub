@@ -89,7 +89,6 @@ import com.linkedin.datahub.graphql.resolvers.dataset.DatasetOperationsStatsReso
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.UpdateDeclaredKeysResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
@@ -1663,7 +1662,6 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateDisplayProperties",
                   new UpdateDisplayPropertiesResolver(this.entityService, this.entityClient))
-              .dataFetcher("updateDeclaredKeys", new UpdateDeclaredKeysResolver(this.entityClient))
               .dataFetcher(
                   "deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher("submitFormPrompt", new SubmitFormPromptResolver(this.formService))

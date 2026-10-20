@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.schema.EditableSchemaMetadata;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -28,6 +29,9 @@ public class EditableSchemaMetadataMapper {
         input.getEditableSchemaFieldInfo().stream()
             .map(schemaField -> EditableSchemaFieldInfoMapper.map(context, schemaField, entityUrn))
             .collect(Collectors.toList()));
+    if (input.hasPrimaryKeys()) {
+      result.setPrimaryKeys(new ArrayList<>(input.getPrimaryKeys()));
+    }
     return result;
   }
 }

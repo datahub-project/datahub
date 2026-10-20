@@ -234,7 +234,6 @@ public class Constants {
   public static final String UPSTREAM_LINEAGE_ASPECT_NAME = "upstreamLineage";
   public static final String SCHEMA_METADATA_ASPECT_NAME = "schemaMetadata";
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
-  public static final String DECLARED_KEYS_ASPECT_NAME = "declaredKeys";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
   public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";

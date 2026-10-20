@@ -27,7 +27,6 @@ import com.linkedin.metadata.aspect.validation.CorpUserCredentialsAuthorizationV
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
-import com.linkedin.metadata.aspect.validation.DeclaredKeysValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
@@ -1233,23 +1232,6 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(SCHEMA_FIELD_ENTITY_NAME)
                             .aspectName(LOGICAL_PARENT_ASPECT_NAME)
-                            .build()))
-                .build());
-  }
-
-  @Bean
-  public AspectPayloadValidator declaredKeysValidator() {
-    return new DeclaredKeysValidator()
-        .setConfig(
-            AspectPluginConfig.builder()
-                .className(DeclaredKeysValidator.class.getName())
-                .enabled(true)
-                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
-                .supportedEntityAspectNames(
-                    List.of(
-                        AspectPluginConfig.EntityAspectName.builder()
-                            .entityName(DATASET_ENTITY_NAME)
-                            .aspectName(DECLARED_KEYS_ASPECT_NAME)
                             .build()))
                 .build());
   }

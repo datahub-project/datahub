@@ -44,10 +44,6 @@ query getDataset($urn: String!) {
     dataset(urn: $urn) {
         urn
         type
-        keys {
-            primaryKeySource
-            effectivePrimaryKey
-        }
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
@@ -382,6 +378,7 @@ fragment datasetSchema on Dataset {
         ...schemaMetadataFields
     }
     editableSchemaMetadata {
+        primaryKeys
         editableSchemaFieldInfo {
             fieldPath
             description

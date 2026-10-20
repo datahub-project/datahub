@@ -4,7 +4,6 @@ import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import NullableLabel, {
@@ -14,8 +13,7 @@ import NullableLabel, {
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 
-import { GetDatasetQuery } from '@graphql/dataset.generated';
-import { PrimaryKeySource, SchemaMetadata, SubResourceType } from '@types';
+import { SchemaMetadata, SubResourceType } from '@types';
 
 const MAX_COMPACT_FIELD_PATH_LENGTH = 15;
 
@@ -59,27 +57,8 @@ type InteriorTitleProps = {
     fieldPath: string;
     record: ExtendedSchemaFields;
     isCompact?: boolean;
+    isPrimaryKey: boolean;
 };
-
-type DatasetKeys = Pick<
-    NonNullable<NonNullable<GetDatasetQuery['dataset']>['keys']>,
-    'primaryKeySource' | 'effectivePrimaryKey'
->;
-
-// The source key comes from the displayed schema; a declared key only applies when the server
-// resolved it as the effective key, i.e. when the source declares none.
-export function isPrimaryKeyField(
-    fieldPath: string,
-    record: Pick<ExtendedSchemaFields, 'isPartOfKey'>,
-    schemaMetadata: Pick<SchemaMetadata, 'primaryKeys'> | undefined | null,
-    keys: DatasetKeys | undefined | null,
-): boolean {
-    return (
-        !!schemaMetadata?.primaryKeys?.includes(fieldPath) ||
-        !!record.isPartOfKey ||
-        (keys?.primaryKeySource === PrimaryKeySource.Declared && keys.effectivePrimaryKey.includes(fieldPath))
-    );
-}
 
 export const InteriorTitleContent = ({
     parentUrn,
@@ -88,13 +67,8 @@ export const InteriorTitleContent = ({
     fieldPath,
     record,
     isCompact,
+    isPrimaryKey,
 }: InteriorTitleProps) => {
-    const isPrimaryKey = isPrimaryKeyField(
-        fieldPath,
-        record,
-        schemaMetadata,
-        useBaseEntity<GetDatasetQuery>()?.dataset?.keys,
-    );
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
     let pathToDisplay = fieldPathWithoutAnnotations;
