@@ -11,6 +11,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
@@ -54,7 +55,17 @@ public final class StructuredPropertySearchCatalog {
   private final StructuredPropertyQueryConfiguration config;
   private final Cache<SearchRetriever, List<IndexedProperty>> cache;
 
-  public StructuredPropertySearchCatalog(@Nonnull StructuredPropertyQueryConfiguration config) {
+  public StructuredPropertySearchCatalog(@Nullable StructuredPropertyQueryConfiguration config) {
+    if (config == null) {
+      config =
+          StructuredPropertyQueryConfiguration.builder()
+              .cacheTtlSeconds(300)
+              .defaultTextWeight(0.8f)
+              .stemmedFactor(0.5f)
+              .pageSize(500)
+              .maxProperties(1000)
+              .build();
+    }
     if (config.getPageSize() < 1
         || config.getMaxProperties() < 1
         || config.getCacheTtlSeconds() < 1) {
@@ -78,10 +89,24 @@ public final class StructuredPropertySearchCatalog {
             .noneMatch(entitySpec -> entitySpec.hasAspect(STRUCTURED_PROPERTIES_ASPECT_NAME))) {
       return List.of();
     }
+    return all(opContext).stream().filter(property -> property.appliesTo(entitySpecs)).toList();
+  }
+
+  /** Stable request-cache identity for the currently loaded definitions. */
+  @Nonnull
+  public String catalogStamp(@Nullable OperationContext opContext) {
+    if (opContext == null) {
+      return "0";
+    }
+    return Integer.toHexString(all(opContext).hashCode());
+  }
+
+  @Nonnull
+  private List<IndexedProperty> all(@Nonnull OperationContext opContext) {
     SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
-    List<IndexedProperty> all =
-        cache.asMap().computeIfAbsent(searchRetriever, ignored -> load(opContext, searchRetriever));
-    return all.stream().filter(property -> property.appliesTo(entitySpecs)).toList();
+    return cache
+        .asMap()
+        .computeIfAbsent(searchRetriever, ignored -> load(opContext, searchRetriever));
   }
 
   @Nonnull
@@ -183,6 +208,11 @@ public final class StructuredPropertySearchCatalog {
             : fieldPath;
     return Optional.of(
         new IndexedProperty(
+            propertyUrn,
+            definition.getQualifiedName(),
+            definition.hasDisplayName() ? definition.getDisplayName() : null,
+            definition.getVersion(GetMode.NULL),
+            logicalValueType,
             fieldPath,
             definition.getEntityTypes(),
             config.isQueryByDefault(),
@@ -213,6 +243,11 @@ public final class StructuredPropertySearchCatalog {
    * and the identity sibling for a URN. Weights are before the partial factor.
    */
   public record IndexedProperty(
+      @Nonnull Urn propertyUrn,
+      @Nonnull String qualifiedName,
+      @Nullable String displayName,
+      @Nullable String version,
+      @Nonnull LogicalValueType valueType,
       @Nonnull String fieldPath,
       @Nonnull Collection<Urn> entityTypes,
       boolean queryByDefault,

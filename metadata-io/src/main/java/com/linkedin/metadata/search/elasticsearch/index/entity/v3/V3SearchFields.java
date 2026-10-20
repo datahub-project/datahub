@@ -120,8 +120,14 @@ public final class V3SearchFields {
   /** Word subfield of every full-text shared field. */
   public static final String TEXT = FieldMapping.TEXT;
 
+  /** Indexed path suffix of {@link #TEXT}. */
+  public static final String TEXT_SUFFIX = "." + TEXT;
+
   /** Stemmed subfield of every full-text shared field. */
   public static final String STEMMED = FieldMapping.STEMMED;
+
+  /** Indexed path suffix of {@link #STEMMED}. */
+  public static final String STEMMED_SUFFIX = "." + STEMMED;
 
   public static final String TEXT_ANALYZER = "v3_text";
   public static final String TEXT_SEARCH_ANALYZER = "v3_text_search";

@@ -209,8 +209,13 @@ record SearchTemplateProperties {
 
   /**
    * Parent template. The child replaces only the sections it sets. The parent must use the same
-   * dialect. Indexed so a write can load the templates whose parent is this URN.
+   * dialect. Indexed so a write can load the templates whose parent is this URN. The IsPartOf
+   * edge is removed when this template or its parent is hard deleted.
    */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "searchTemplate" ]
+  }
   @Searchable = {
     "fieldName": "parent",
     "fieldType": "URN",

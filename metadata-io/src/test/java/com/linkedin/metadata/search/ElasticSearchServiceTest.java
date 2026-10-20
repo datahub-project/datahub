@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertNotNull;
 
@@ -33,8 +34,10 @@ import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -543,6 +546,44 @@ public class ElasticSearchServiceTest {
         DEFAULT_LIMIT,
         "Null count should result in default limit being used");
     assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2ForcesBrowseSurface() {
+    OperationContext tagged =
+        opContext
+            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
+            .withResolvedSearchTemplate(mock(ResolvedSearchTemplate.class));
+
+    esSearchServiceLimited.browseV2(tagged, ENTITY_NAME, PATH, null, INPUT, START, 10);
+    esSearchServiceLimited.browseV2(tagged, List.of(ENTITY_NAME), PATH, null, INPUT, START, 10);
+
+    ArgumentCaptor<OperationContext> contextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            contextCaptor.capture(),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            eq(10));
+    verify(esBrowseDAO)
+        .browseV2(
+            contextCaptor.capture(),
+            eq(List.of(ENTITY_NAME)),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            eq(10));
+    assertEquals(contextCaptor.getAllValues().size(), 2);
+    for (OperationContext browse : contextCaptor.getAllValues()) {
+      assertEquals(
+          browse.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.BROWSE_ENTITIES);
+      assertNull(browse.getSearchContext().getResolvedSearchTemplate());
+    }
   }
 
   @Test
