@@ -133,6 +133,11 @@ export const WelcomeToDataHubModal = () => {
         if (!shouldShow) return undefined;
 
         loadCancelledRef.current = false;
+        // The lock records the slide we already left. Showing that index again
+        // (a dot click back, or the tour reopening on it) has to be able to advance.
+        if (advancedFromSlideRef.current === currentSlide) {
+            advancedFromSlideRef.current = null;
+        }
         const videoKey = videoKeyForSlide(currentSlide, isDocumentationSlideEnabled);
         if (videoKey) {
             rememberVideo(videoKey);
@@ -181,6 +186,20 @@ export const WelcomeToDataHubModal = () => {
         goToNextSlide();
     }
 
+    // A manual move owns the slide so a late `ended` from the clip we left
+    // does not advance again. ArrowLeft on the first slide and ArrowRight on
+    // the last are no-ops (`infinite` is off). Stamping the lock anyway, and
+    // clearing the fallback timer, freezes that clip.
+    function leaveSlide(direction: 'prev' | 'next') {
+        const slide = currentSlideRef.current;
+        const canMove = direction === 'prev' ? slide > 0 : slide < TOTAL_CAROUSEL_SLIDES - 1;
+        if (!canMove) return;
+        advancedFromSlideRef.current = slide;
+        clearAdvanceTimer();
+        if (direction === 'prev') carouselRef.current?.prev();
+        else carouselRef.current?.next();
+    }
+
     // Keyboard navigation: Left/Right cycle slides, Escape closes the modal.
     // Bound at document level because focus inside the modal sits on a non-carousel
     // element (close button / body), so react-slick's built-in handler never fires.
@@ -190,15 +209,10 @@ export const WelcomeToDataHubModal = () => {
         function handleKeyDown(e: KeyboardEvent) {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                // Manual move owns the slide. Ignore a late `ended` from the clip we left.
-                advancedFromSlideRef.current = currentSlideRef.current;
-                clearAdvanceTimer();
-                carouselRef.current?.prev();
+                leaveSlide('prev');
             } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                advancedFromSlideRef.current = currentSlideRef.current;
-                clearAdvanceTimer();
-                carouselRef.current?.next();
+                leaveSlide('next');
             } else if (e.key === 'Escape') {
                 e.preventDefault();
                 closeTour('escape_key');
@@ -250,6 +264,8 @@ export const WelcomeToDataHubModal = () => {
             exitMethod,
         });
 
+        advancedFromSlideRef.current = null;
+        clearAdvanceTimer();
         setShouldShow(false);
         setCurrentSlide(0); // Reset to first slide for next opening
 
