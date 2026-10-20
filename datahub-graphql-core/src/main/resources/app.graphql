@@ -698,9 +698,10 @@ type FeatureFlagsConfig {
   """
   showAcrylInfo: Boolean!
   """
-  Whether ERModelRelationship Tables Feature should be shown.
+  Deprecated. Always false; the flag had no effect and was removed.
   """
   erModelRelationshipFeatureEnabled: Boolean!
+    @deprecated(reason: "No effect; the flag was removed. Always false.")
 
   """
   Whether we should show AccessManagement tab in the datahub UI.

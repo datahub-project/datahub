@@ -582,7 +582,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.editableDatasetNameEnabled",
           "featureFlags.multipleDataProductsPerAsset",
           "featureFlags.entityVersioning",
-          "featureFlags.erModelRelationshipFeatureEnabled",
           "featureFlags.fineGrainedLineageNotAllowedForPlatforms",
           "featureFlags.graphServiceDiffModeEnabled",
           "featureFlags.hideDbtSourceInLineage",
