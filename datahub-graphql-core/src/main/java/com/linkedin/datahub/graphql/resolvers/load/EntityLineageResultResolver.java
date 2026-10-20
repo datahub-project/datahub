@@ -22,15 +22,24 @@ import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import graphql.execution.MergedField;
+import graphql.language.Field;
+import graphql.language.FragmentDefinition;
+import graphql.language.FragmentSpread;
+import graphql.language.InlineFragment;
+import graphql.language.Selection;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -87,8 +96,7 @@ public class EntityLineageResultResolver
     final boolean countOnly =
         _featureFlags != null
             && _featureFlags.isLineageCountOnlyEnabled()
-            && environment.getSelectionSet() != null
-            && !environment.getSelectionSet().contains(RELATIONSHIPS_FIELD);
+            && !selectsRelationships(environment);
 
     final Urn finalUrn = urn;
     return GraphQLConcurrencyUtils.supplyAsync(
@@ -153,6 +161,61 @@ public class EntityLineageResultResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Whether the request asked for {@code relationships} on this lineage field. Reads the field's
+   * own AST rather than {@link DataFetchingEnvironment#getSelectionSet()}: the selection set is
+   * computed from the normalized form of the whole operation, and for a search page (a union over
+   * every entity type) that exceeds graphql-java's 100,000 field limit and fails the request.
+   * Anything that cannot be resolved here (a missing fragment, no merged field) counts as selected,
+   * so the full walk is the fallback.
+   */
+  static boolean selectsRelationships(@Nonnull final DataFetchingEnvironment environment) {
+    final MergedField mergedField = environment.getMergedField();
+    if (mergedField == null) {
+      return true;
+    }
+    final Map<String, FragmentDefinition> fragments =
+        environment.getFragmentsByName() != null ? environment.getFragmentsByName() : Map.of();
+    final Set<String> visitedFragments = new HashSet<>();
+    for (Field field : mergedField.getFields()) {
+      if (selectsRelationships(field.getSelectionSet(), fragments, visitedFragments)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean selectsRelationships(
+      @Nullable final SelectionSet selectionSet,
+      @Nonnull final Map<String, FragmentDefinition> fragments,
+      @Nonnull final Set<String> visitedFragments) {
+    if (selectionSet == null) {
+      return false;
+    }
+    for (Selection<?> selection : selectionSet.getSelections()) {
+      if (selection instanceof Field) {
+        if (RELATIONSHIPS_FIELD.equals(((Field) selection).getName())) {
+          return true;
+        }
+      } else if (selection instanceof InlineFragment) {
+        if (selectsRelationships(
+            ((InlineFragment) selection).getSelectionSet(), fragments, visitedFragments)) {
+          return true;
+        }
+      } else if (selection instanceof FragmentSpread) {
+        final String name = ((FragmentSpread) selection).getName();
+        if (visitedFragments.add(name)) {
+          final FragmentDefinition definition = fragments.get(name);
+          if (definition == null
+              || selectsRelationships(definition.getSelectionSet(), fragments, visitedFragments)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   private EntityLineageResult mapEntityRelationships(

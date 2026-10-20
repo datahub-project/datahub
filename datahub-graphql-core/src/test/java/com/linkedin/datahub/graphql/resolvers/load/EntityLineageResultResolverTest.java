@@ -10,6 +10,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
@@ -24,11 +26,18 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.SiblingGraphService;
+import graphql.execution.MergedField;
+import graphql.language.Document;
+import graphql.language.Field;
+import graphql.language.FragmentDefinition;
+import graphql.language.OperationDefinition;
+import graphql.parser.Parser;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -42,7 +51,6 @@ public class EntityLineageResultResolverTest {
   private FeatureFlags featureFlags;
   private EntityLineageResultResolver resolver;
   private DataFetchingEnvironment environment;
-  private DataFetchingFieldSelectionSet selectionSet;
 
   @BeforeMethod
   public void setup() {
@@ -63,11 +71,9 @@ public class EntityLineageResultResolverTest {
     source.setUrn(DATASET_URN.toString());
     source.setType(EntityType.DATASET);
     QueryContext context = getMockAllowContext();
-    selectionSet = mock(DataFetchingFieldSelectionSet.class);
     environment = mock(DataFetchingEnvironment.class);
     when(environment.getContext()).thenReturn(context);
     when(environment.getSource()).thenReturn(source);
-    when(environment.getSelectionSet()).thenReturn(selectionSet);
     when(environment.getArgument(eq("input")))
         .thenReturn(ImmutableMap.of("direction", "UPSTREAM", "start", 0, "count", 100));
 
@@ -101,13 +107,16 @@ public class EntityLineageResultResolverTest {
 
   @Test
   public void testTotalsOnlySelectionUsesTheCountPath() throws Exception {
-    when(selectionSet.contains("relationships")).thenReturn(false);
+    selecting("{ lineage { total filtered } }");
 
     EntityLineageResult result = resolver.get(environment).get();
 
     assertEquals(result.getTotal().intValue(), 13);
     assertEquals(result.getFiltered().intValue(), 2);
     assertEquals(result.getRelationships().size(), 0);
+    // The normalized selection set expands the whole operation; on a search page that exceeds
+    // graphql-java's field limit, so the resolver must never ask for it.
+    verify(environment, never()).getSelectionSet();
     verify(siblingGraphService, never())
         .getLineage(
             any(OperationContext.class),
@@ -123,7 +132,7 @@ public class EntityLineageResultResolverTest {
 
   @Test
   public void testRelationshipsSelectionWalksTheGraph() throws Exception {
-    when(selectionSet.contains("relationships")).thenReturn(true);
+    selecting("{ lineage { total relationships { type } } }");
 
     resolver.get(environment).get();
 
@@ -140,7 +149,7 @@ public class EntityLineageResultResolverTest {
   @Test
   public void testFlagOffWalksTheGraph() throws Exception {
     featureFlags.setLineageCountOnlyEnabled(false);
-    when(selectionSet.contains("relationships")).thenReturn(false);
+    selecting("{ lineage { total filtered } }");
 
     resolver.get(environment).get();
 
@@ -152,5 +161,36 @@ public class EntityLineageResultResolverTest {
             anyInt(),
             anyBoolean(),
             anyBoolean());
+  }
+
+  @Test
+  public void testRelationshipsFoundThroughFragments() {
+    selecting("{ lineage { total ... on EntityLineageResult { relationships { type } } } }");
+    assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
+
+    selecting(
+        "{ lineage { total ...rels } }",
+        "fragment rels on EntityLineageResult { filtered ...deeper }",
+        "fragment deeper on EntityLineageResult { relationships { type } }");
+    assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
+
+    selecting("{ lineage { ...counts } }", "fragment counts on EntityLineageResult { total }");
+    assertFalse(EntityLineageResultResolver.selectsRelationships(environment));
+
+    // A fragment the request does not define cannot be inspected: take the full walk.
+    selecting("{ lineage { ...missing } }");
+    assertTrue(EntityLineageResultResolver.selectsRelationships(environment));
+  }
+
+  /** Points the environment at the {@code lineage} field of {@code query}. */
+  private void selecting(String query, String... fragments) {
+    Document document = Parser.parse(query + " " + String.join(" ", fragments));
+    OperationDefinition operation = document.getDefinitionsOfType(OperationDefinition.class).get(0);
+    Field lineage = (Field) operation.getSelectionSet().getSelections().get(0);
+    Map<String, FragmentDefinition> byName =
+        document.getDefinitionsOfType(FragmentDefinition.class).stream()
+            .collect(Collectors.toMap(FragmentDefinition::getName, f -> f));
+    when(environment.getMergedField()).thenReturn(MergedField.newMergedField(lineage).build());
+    when(environment.getFragmentsByName()).thenReturn(byName);
   }
 }
