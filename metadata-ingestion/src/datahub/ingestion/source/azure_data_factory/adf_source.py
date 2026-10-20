@@ -65,6 +65,7 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     get_activity_translator_config,
     infer_auto_mappings_by_name,
     parse_translator_column_mappings,
+    translator_has_explicit_mappings,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -98,6 +99,7 @@ from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -1382,7 +1384,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Build dataset name from type properties
         table_name = self._extract_table_name(
-            dataset, linked_service, dataset_name, activity_dataset_parameters
+            dataset,
+            linked_service,
+            dataset_name,
+            factory_key,
+            activity_dataset_parameters,
         )
         if table_name:
             # Fully qualify a 2-part (or bare) reference with a resolved
@@ -1711,6 +1717,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         expr: str,
         dataset_props: Any,
         dataset_name: str,
+        factory_key: str,
         activity_dataset_parameters: Optional[dict[str, Any]],
     ) -> Optional[str]:
         """Resolve an ADF dynamic-content expression of the form
@@ -1741,6 +1748,23 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     self.report.report_unresolved_dynamic_property(dataset_name, expr)
                     return None
                 return override
+            if isinstance(override, str):
+                global_param_match = GLOBAL_PARAMETER_REFERENCE_PATTERN.match(
+                    override.strip()
+                )
+                if global_param_match:
+                    # Unlike a pipeline parameter (below), a global
+                    # parameter is a tenant-wide literal constant, so it's
+                    # resolvable without any execution history - same
+                    # cache used for Databricks workspace URL resolution
+                    # (see _resolve_literal_or_global_parameter).
+                    resolved_global = self._global_parameters_cache.get(
+                        factory_key, {}
+                    ).get(global_param_match.group(1))
+                    if resolved_global is not None:
+                        return resolved_global
+                    self.report.report_unresolved_dynamic_property(dataset_name, expr)
+                    return None
             if isinstance(override, str) and PIPELINE_PARAMETER_REFERENCE_PATTERN.match(
                 override.strip()
             ):
@@ -1785,6 +1809,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         dataset: DatasetResource,
         linked_service: LinkedServiceResource,
         dataset_name: str,
+        factory_key: str,
         activity_dataset_parameters: Optional[dict[str, Any]] = None,
     ) -> Optional[str]:
         """Extract table/file name from dataset properties.
@@ -1813,7 +1838,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             if not isinstance(expr, str):
                 return None
             return self._resolve_dynamic_content_value(
-                expr, props, dataset_name, activity_dataset_parameters
+                expr, props, dataset_name, factory_key, activity_dataset_parameters
             )
 
         # SQL-like datasets - check for table_name or table attributes
@@ -2006,28 +2031,41 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         factory_key: str,
         pipeline_run_parameters: dict[str, str],
     ) -> set[str]:
-        """Resolve DatasetReference.parameters values driven by
-        "@pipeline().parameters.X" against a specific run's actual resolved
-        pipeline parameter values."""
+        """Resolve every DatasetReference in dataset_refs against a
+        specific run's actual resolved pipeline parameters, substituting
+        any "@pipeline().parameters.X" value found in a reference's own
+        static parameters. Returns a URN for every ref that resolves -
+        including ones with no pipeline-parameter substitution at all -
+        so the caller can safely replace its whole static input/output
+        set with this result without losing a non-parameterized
+        reference just because a sibling reference on the same activity
+        does get substituted. Returns an empty set (deferring to the
+        static fallback) when nothing on the activity actually needed
+        substitution."""
         resolved: set[str] = set()
+        substituted_any = False
         for ref in dataset_refs:
-            static_params = getattr(ref, "parameters", None)
             reference_name = getattr(ref, "reference_name", None)
-            if not static_params or not reference_name:
+            if not reference_name:
                 continue
-            effective_params = self._substitute_pipeline_run_parameters(
-                static_params, pipeline_run_parameters
+            static_params = getattr(ref, "parameters", None)
+            effective_params = (
+                self._substitute_pipeline_run_parameters(
+                    static_params, pipeline_run_parameters
+                )
+                if static_params
+                else None
             )
-            if not effective_params:
-                continue
+            if effective_params is not None:
+                substituted_any = True
             urn = self._resolve_dataset_urn(
                 reference_name,
                 factory_key,
-                activity_dataset_parameters=effective_params,
+                activity_dataset_parameters=effective_params or static_params,
             )
             if urn:
                 resolved.add(str(urn))
-        return resolved
+        return resolved if substituted_any else set()
 
     def _substitute_pipeline_run_parameters(
         self,
@@ -2270,9 +2308,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         factory_key,
                         next(iter(query_output_urns)),
                     )
-            elif static_translator is None and len(query_output_urns) == 1:
+            elif (
+                static_translator is None
+                or not translator_has_explicit_mappings(static_translator)
+            ) and len(query_output_urns) == 1:
                 # Only attempt column-level lineage when there's a single,
                 # unambiguous per-run sink table to pair columns against.
+                # An explicit-but-empty TabularTranslator (no
+                # mappings/columnMappings) falls back to ADF's own
+                # default name-based auto-mapping, exactly like having no
+                # translator configured at all - same as the static
+                # (no-execution-history) path already does.
                 column_mappings = self._extract_query_column_lineage(
                     activity, activity_run, factory_key, next(iter(query_output_urns))
                 )
@@ -2544,6 +2590,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             parsed.expressions[0], sqlglot_exp.Star
         ):
             return False
+        if parsed.args.get("joins"):
+            # Covers CROSS/OUTER APPLY and table-valued expressions too,
+            # not just ordinary JOINs - sqlglot records all of these as
+            # "joins" regardless of whether the right-hand side is a real
+            # Table node, so checking only the Table count below would
+            # miss a table-valued function/expression widening the
+            # result set beyond the single source table's own columns.
+            return False
         return len(list(parsed.find_all(sqlglot_exp.Table))) == 1
 
     def _infer_column_lineage_from_graph_schema(
@@ -2583,7 +2637,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 )
                 schema_metadata = None
             if schema_metadata and schema_metadata.fields:
-                columns = [f.fieldPath for f in schema_metadata.fields if f.fieldPath]
+                # fieldPath may be a v2 path (e.g.
+                # "[version=2.0].[type=struct].id") rather than a plain
+                # column name - normalize it so it can actually match the
+                # simple names used by parsed SQL and ADF's own Copy
+                # activity column references.
+                columns = [
+                    get_simple_field_path_from_v2_field_path(f.fieldPath)
+                    for f in schema_metadata.fields
+                    if f.fieldPath
+                ]
                 if columns:
                     schema_info = DatasetSchemaInfo(columns=columns)
 

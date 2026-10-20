@@ -345,7 +345,10 @@ class TestExpressionParameterResolution:
         source = self._make_source()
         dataset = self._make_dataset(table="Customers", schema="dbo")
         result = source._extract_table_name(
-            dataset, linked_service=None, dataset_name="MyDataset"
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
         )
         assert result == "dbo.Customers"
 
@@ -361,6 +364,7 @@ class TestExpressionParameterResolution:
             dataset,
             linked_service=None,
             dataset_name="MyDataset",
+            factory_key="rg/factory",
             activity_dataset_parameters={"table_name": "Orders"},
         )
         assert result == "dbo.Orders"
@@ -383,6 +387,7 @@ class TestExpressionParameterResolution:
             dataset,
             linked_service=None,
             dataset_name="MyDataset",
+            factory_key="rg/factory",
             activity_dataset_parameters={
                 "table_name": {"value": "Orders", "type": "Expression"}
             },
@@ -400,7 +405,10 @@ class TestExpressionParameterResolution:
             },
         )
         result = source._extract_table_name(
-            dataset, linked_service=None, dataset_name="MyDataset"
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
         )
         assert result == "DefaultOrders"
 
@@ -418,6 +426,7 @@ class TestExpressionParameterResolution:
             dataset,
             linked_service=None,
             dataset_name="MyDataset",
+            factory_key="rg/factory",
             activity_dataset_parameters={"table_name": "@item().TableName"},
         )
         assert result is None
@@ -440,11 +449,38 @@ class TestExpressionParameterResolution:
             dataset,
             linked_service=None,
             dataset_name="MyDataset",
+            factory_key="rg/factory",
             activity_dataset_parameters={"table_name": "@item().TableName"},
         )
         assert result is None
         assert result != "NA"
         assert source.report.unresolved_dynamic_properties == 1
+
+    def test_global_parameter_override_resolves_without_execution_history(
+        self,
+    ) -> None:
+        """Regression test: unlike a pipeline parameter reference (below),
+        "@pipeline().globalParameters.X" is a tenant-wide literal
+        constant - it must resolve from _global_parameters_cache even
+        when execution history is disabled, not be deferred/treated as
+        unresolvable."""
+        source = self._make_source()
+        source.config.include_execution_history = False
+        source._global_parameters_cache = {"rg/factory": {"TargetTable": "RealOrders"}}
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
+            activity_dataset_parameters={
+                "table_name": "@pipeline().globalParameters.TargetTable"
+            },
+        )
+        assert result == "RealOrders"
+        assert source.report.unresolved_dynamic_properties == 0
 
     def test_pipeline_parameter_reference_deferred_without_warning(self) -> None:
         """When execution history is enabled, a pipeline-parameter-driven
@@ -459,6 +495,7 @@ class TestExpressionParameterResolution:
             dataset,
             linked_service=None,
             dataset_name="MyDataset",
+            factory_key="rg/factory",
             activity_dataset_parameters={
                 "table_name": "@pipeline().parameters.TargetTable"
             },
@@ -478,6 +515,7 @@ class TestExpressionParameterResolution:
             dataset,
             linked_service=None,
             dataset_name="MyDataset",
+            factory_key="rg/factory",
             activity_dataset_parameters={
                 "table_name": "@pipeline().parameters.TargetTable"
             },
@@ -493,7 +531,10 @@ class TestExpressionParameterResolution:
             table={"value": "@dataset().table_name", "type": "Expression"},
         )
         result = source._extract_table_name(
-            dataset, linked_service=None, dataset_name="MyDataset"
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
         )
         assert result is None
         assert source.report.unresolved_dynamic_properties == 1
@@ -601,7 +642,10 @@ class TestExpressionParameterResolution:
             )
         )
         result = source._extract_table_name(
-            dataset, linked_service=None, dataset_name="MyDataset"
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
         )
         assert result == "orders"
 
@@ -1167,6 +1211,51 @@ class TestExpressionParameterResolution:
         activity = SimpleNamespace(translator=translator_obj, type_properties={})
         result = get_activity_translator_config(activity)
         assert result == {"type": "TabularTranslator", "columnMappings": {}}
+
+    def test_resolve_dynamic_dataset_refs_preserves_non_parameterized_sibling(
+        self,
+    ) -> None:
+        """Regression test: when an activity has two inputs and only one
+        of them is driven by "@pipeline().parameters.X", the resolved
+        set must still include the other, non-parameterized input -
+        previously, resolving even a single ref dropped every ref that
+        had no static parameters to substitute at all."""
+        source = self._make_source()
+        static_dataset = self._make_dataset(table="StaticTable")
+        dynamic_dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+        )
+        for dataset in (static_dataset, dynamic_dataset):
+            dataset.properties.linked_service_name = SimpleNamespace(
+                reference_name="MySqlLS"
+            )
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(type="AzureSqlDatabase")
+        )
+        source._datasets_cache = {
+            "rg/factory": {
+                "StaticDataset": static_dataset,
+                "DynamicDataset": dynamic_dataset,
+            }
+        }
+        source._linked_services_cache = {"rg/factory": {"MySqlLS": linked_service}}
+        source.config.platform_instance_map = {}
+
+        static_ref = SimpleNamespace(reference_name="StaticDataset", parameters=None)
+        dynamic_ref = SimpleNamespace(
+            reference_name="DynamicDataset",
+            parameters={"table_name": "@pipeline().parameters.TargetTable"},
+        )
+
+        resolved = source._resolve_dynamic_dataset_refs(
+            [static_ref, dynamic_ref],
+            "rg/factory",
+            {"TargetTable": "RealOrders"},
+        )
+
+        assert any("StaticTable" in urn for urn in resolved)
+        assert any("RealOrders" in urn for urn in resolved)
+        assert len(resolved) == 2
 
 
 class TestFilePathExtractionLogic:
@@ -1991,6 +2080,15 @@ class TestSimpleSelectStarDetection:
         source = self._make_source()
         assert not source._is_simple_select_star("NOT VALID SQL {{{", "mssql")
 
+    def test_cross_apply_rejected(self) -> None:
+        """A table-valued CROSS APPLY widens the result set beyond the
+        single source table's own columns, even though it still only
+        references one real Table node - must not be treated as a safe
+        whole-table copy."""
+        source = self._make_source()
+        query = "SELECT * FROM t1 CROSS APPLY OPENJSON(t1.col) x"
+        assert not source._is_simple_select_star(query, "mssql")
+
 
 class TestGraphSchemaColumnLineageFallback:
     """Tests for resolving column lineage from DataHub's own knowledge of
@@ -2044,6 +2142,35 @@ class TestGraphSchemaColumnLineageFallback:
             ),
         }
         mock_graph.get_schema_metadata.assert_called_once_with(source_urn)
+
+    def test_normalizes_v2_field_paths_before_matching(self) -> None:
+        """Regression test: a schema fetched from the graph can use
+        DataHub's v2 fieldPath encoding (e.g.
+        "[version=2.0].[type=struct].id") rather than a plain column
+        name. Matching must use the simple name, or a v2-pathed source
+        schema would never line up with the plain names used by parsed
+        SQL and ADF's own Copy activity column references."""
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.orders,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
+
+        mock_graph = MagicMock()
+        mock_graph.get_schema_metadata.return_value = self._schema_metadata(
+            ["[version=2.0].[type=struct].id", "[version=2.0].[type=struct].name"]
+        )
+        source = self._make_source(graph=mock_graph)
+
+        mappings = source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
+
+        assert set(mappings) == {
+            (
+                (f"urn:li:schemaField:({source_urn},id)",),
+                f"urn:li:schemaField:({sink_urn},id)",
+            ),
+            (
+                (f"urn:li:schemaField:({source_urn},name)",),
+                f"urn:li:schemaField:({sink_urn},name)",
+            ),
+        }
 
     def test_caches_schema_lookup_across_calls(self) -> None:
         """The same source table is often referenced by many activity

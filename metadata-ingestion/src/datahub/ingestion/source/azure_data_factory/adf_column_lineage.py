@@ -238,6 +238,22 @@ def parse_translator_column_mappings(
     return []
 
 
+def translator_has_explicit_mappings(translator: dict[str, Any]) -> bool:
+    """Whether a translator configuration specifies actual column
+    mappings, as opposed to being present but empty (e.g. a bare
+    {"type": "TabularTranslator"} with no columnMappings/mappings). ADF
+    itself falls back to its own default name-based auto-mapping in that
+    case, exactly as when no translator is configured at all - callers
+    deciding whether to attempt auto-mapping recovery must treat an
+    empty translator the same as a missing one, not as an explicit one
+    that should block the fallback."""
+    column_mappings = translator.get("columnMappings")
+    if column_mappings and isinstance(column_mappings, dict):
+        return True
+    mappings_list = translator.get("mappings")
+    return bool(mappings_list and isinstance(mappings_list, list))
+
+
 def infer_auto_mappings_by_name(
     source_urn: str,
     sink_urn: str,
