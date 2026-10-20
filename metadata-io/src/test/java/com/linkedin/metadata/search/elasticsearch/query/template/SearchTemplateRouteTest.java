@@ -45,6 +45,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.List;
@@ -280,8 +281,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                         .setFulltext(true)
                         .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_LIST_URN)));
 
-    assertThrows(
-        SearchTemplateException.class, () -> selector.select(denied, "orders", true, null));
+    assertThrows(ActorAccessException.class, () -> selector.select(denied, "orders", true, null));
   }
 
   @Test
