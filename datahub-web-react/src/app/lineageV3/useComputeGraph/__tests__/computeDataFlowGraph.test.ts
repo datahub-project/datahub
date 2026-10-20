@@ -1,6 +1,8 @@
+import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import {
     EdgeId,
     FetchStatus,
+    LINEAGE_FILTER_PAGINATION,
     LINEAGE_NODE_WIDTH,
     LineageEdge,
     LineageEntity,
@@ -14,6 +16,7 @@ import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 import { EntityType, LineageDirection } from '@types';
 
 const entityRegistry = getTestEntityRegistry();
+const DATA_FLOW_NODE_HEIGHT = 80;
 
 const ROOT_URN = 'urn:li:dataFlow:(airflow,test-flow,PROD)';
 const REPO_URN = 'urn:li:dataset:(urn:li:dataPlatform:git,acme/repo1,PROD)';
@@ -31,8 +34,8 @@ function makeRootNode(): LineageEntity {
             [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
         },
         filters: {
-            [LineageDirection.Upstream]: { facetFilters: new Map() },
-            [LineageDirection.Downstream]: { facetFilters: new Map() },
+            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
         },
     };
 }
@@ -40,6 +43,22 @@ function makeRootNode(): LineageEntity {
 /** An external neighbor as the fetch hooks create it. */
 function makeUpstreamNode(urn: string, type = EntityType.Dataset): LineageEntity {
     return entityNodeDefault(urn, type, LineageDirection.Upstream, EntityType.DataFlow);
+}
+
+function makeDownstreamNode(urn: string, type = EntityType.Dataset): LineageEntity {
+    return entityNodeDefault(urn, type, LineageDirection.Downstream, EntityType.DataFlow);
+}
+
+function expectNoOverlaps(flowNodes: { id: string; type?: string; position: { x: number; y: number } }[]) {
+    const boxes = flowNodes.filter((n) => n.id !== ROOT_URN);
+    boxes.forEach((a, i) =>
+        boxes.slice(i + 1).forEach((b) => {
+            const overlaps =
+                Math.abs(a.position.x - b.position.x) < LINEAGE_NODE_WIDTH &&
+                Math.abs(a.position.y - b.position.y) < DATA_FLOW_NODE_HEIGHT;
+            expect(overlaps ? `${a.id} overlaps ${b.id}` : undefined).toBeUndefined();
+        }),
+    );
 }
 
 function makeJobNode(urn: string, isExpandedUpstream = false): LineageEntity {
@@ -60,6 +79,7 @@ function makeGraph(nodeList: LineageEntity[]) {
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     };
+    const addNode = (node: LineageEntity) => nodes.set(node.urn, node);
     const addUpstream = (downstream: string, upstream: string) => {
         edges.set(getEdgeId(downstream, upstream, LineageDirection.Upstream), { isDisplayed: true });
         if (!adjacencyList[LineageDirection.Upstream].has(downstream)) {
@@ -87,7 +107,7 @@ function makeGraph(nodeList: LineageEntity[]) {
             entityRegistry,
             false,
         );
-    return { addUpstream, compute };
+    return { addNode, addUpstream, compute };
 }
 
 describe('computeDataFlowGraph', () => {
@@ -99,7 +119,8 @@ describe('computeDataFlowGraph', () => {
 
         const repo = flowNodes.find((n) => n.id === REPO_URN);
         const flow = flowNodes.find((n) => n.id === ROOT_URN);
-        expect(repo && flow && repo.position.x < flow.position.x).toBe(true);
+        expect(flow?.type).toBe(LINEAGE_BOUNDING_BOX_NODE_NAME);
+        expect((repo?.position.x ?? 0) + LINEAGE_NODE_WIDTH).toBeLessThan(flow?.position.x ?? -Infinity);
         expect(flowEdges.some((e) => e.source === REPO_URN && e.target === ROOT_URN)).toBe(true);
     });
 
@@ -124,7 +145,7 @@ describe('computeDataFlowGraph', () => {
         expect(flowEdges.some((e) => e.source === REPO_URN && e.target === ROOT_URN)).toBe(true);
     });
 
-    it("keeps the DataFlow's own upstream clear of a job's upstream column", () => {
+    it("stacks the DataFlow's own upstream above a job's upstream, in the same column", () => {
         const jobs = [jobUrn('a'), jobUrn('b'), jobUrn('c')];
         const jobUpstream = datasetUrn('b_input');
         const { addUpstream, compute } = makeGraph([
@@ -142,8 +163,100 @@ describe('computeDataFlowGraph', () => {
 
         const repo = flowNodes.find((n) => n.id === REPO_URN);
         const input = flowNodes.find((n) => n.id === jobUpstream);
-        expect(repo && input).toBeTruthy();
-        expect((repo?.position.x ?? 0) + LINEAGE_NODE_WIDTH).toBeLessThanOrEqual(input?.position.x ?? 0);
+        expect(repo?.position.x).toBe(input?.position.x);
+        expect(repo?.position.y).toBeLessThan(input?.position.y ?? -Infinity);
+        expectNoOverlaps(flowNodes);
+    });
+
+    it("places the DataFlow's own downstream right of the box, stacked above a job's downstream", () => {
+        const job = jobUrn('job1');
+        const jobNode = makeJobNode(job);
+        jobNode.isExpanded = { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: true };
+        const jobOutput = datasetUrn('job_output');
+        const flowOutput = datasetUrn('flow_output');
+        const { addUpstream, compute } = makeGraph([
+            makeRootNode(),
+            jobNode,
+            makeDownstreamNode(jobOutput),
+            makeDownstreamNode(flowOutput),
+        ]);
+        addUpstream(jobOutput, job);
+        addUpstream(flowOutput, ROOT_URN);
+
+        const { flowNodes, flowEdges } = compute();
+
+        const box = flowNodes.find((n) => n.id === ROOT_URN);
+        const output = flowNodes.find((n) => n.id === flowOutput);
+        const jobOut = flowNodes.find((n) => n.id === jobOutput);
+        expect(output?.position.x).toBeGreaterThanOrEqual(box?.width ?? Infinity);
+        expect(output?.position.x).toBe(jobOut?.position.x);
+        expect(output?.position.y).toBeLessThan(jobOut?.position.y ?? -Infinity);
+        expect(flowEdges.some((e) => e.source === ROOT_URN && e.target === flowOutput)).toBe(true);
+        expectNoOverlaps(flowNodes);
+    });
+
+    it('paginates many direct neighbors on both sides without overlapping job lineage', () => {
+        const job = jobUrn('job1');
+        const jobNode = makeJobNode(job, true);
+        jobNode.isExpanded[LineageDirection.Downstream] = true;
+        const { addNode, addUpstream, compute } = makeGraph([makeRootNode(), jobNode]);
+        const count = LINEAGE_FILTER_PAGINATION + 3;
+        Array.from({ length: count }).forEach((_, i) => {
+            addNode(makeUpstreamNode(datasetUrn(`flow_in_${i}`)));
+            addUpstream(ROOT_URN, datasetUrn(`flow_in_${i}`));
+            addNode(makeDownstreamNode(datasetUrn(`flow_out_${i}`)));
+            addUpstream(datasetUrn(`flow_out_${i}`), ROOT_URN);
+            addNode(makeUpstreamNode(datasetUrn(`job_in_${i}`)));
+            addUpstream(job, datasetUrn(`job_in_${i}`));
+            addNode(makeDownstreamNode(datasetUrn(`job_out_${i}`)));
+            addUpstream(datasetUrn(`job_out_${i}`), job);
+        });
+
+        const { flowNodes, lineageFilters } = compute();
+
+        expect(lineageFilters.size).toBeGreaterThanOrEqual(4);
+        const shown = (prefix: string) => flowNodes.filter((n) => n.id.includes(`,${prefix}_`)).length;
+        expect(shown('flow_in')).toBe(LINEAGE_FILTER_PAGINATION);
+        expect(shown('flow_out')).toBe(LINEAGE_FILTER_PAGINATION);
+        expectNoOverlaps(flowNodes);
+    });
+
+    it("stacks the DataFlow's multi-hop lineage above the jobs' multi-hop lineage, column by column", () => {
+        const job = jobUrn('job1');
+        const jobIn = makeUpstreamNode(datasetUrn('job_in'));
+        jobIn.isExpanded[LineageDirection.Upstream] = true;
+        const repo = makeUpstreamNode(REPO_URN);
+        repo.isExpanded[LineageDirection.Upstream] = true;
+        const { addUpstream, compute } = makeGraph([
+            makeRootNode(),
+            makeJobNode(job, true),
+            jobIn,
+            makeUpstreamNode(datasetUrn('job_in_2')),
+            makeUpstreamNode(datasetUrn('job_in_3')),
+            repo,
+            makeUpstreamNode(datasetUrn('repo_in')),
+            makeUpstreamNode(datasetUrn('repo_in_other')),
+        ]);
+        addUpstream(job, datasetUrn('job_in'));
+        addUpstream(datasetUrn('job_in'), datasetUrn('job_in_2'));
+        addUpstream(datasetUrn('job_in'), datasetUrn('job_in_3'));
+        addUpstream(ROOT_URN, REPO_URN);
+        addUpstream(REPO_URN, datasetUrn('repo_in'));
+        addUpstream(REPO_URN, datasetUrn('repo_in_other'));
+
+        const { flowNodes, flowEdges } = compute();
+
+        const at = (urn: string) => flowNodes.find((n) => n.id === urn)?.position;
+        expect(at(REPO_URN)?.x).toBe(at(datasetUrn('job_in'))?.x);
+        expect(at(datasetUrn('repo_in'))?.x).toBe(at(datasetUrn('job_in_2'))?.x);
+        const highestJobNeighbor = Math.min(
+            ...['job_in', 'job_in_2', 'job_in_3'].map((name) => at(datasetUrn(name))?.y ?? -Infinity),
+        );
+        ['repo_in', 'repo_in_other'].forEach((name) =>
+            expect(at(datasetUrn(name))?.y).toBeLessThan(highestJobNeighbor),
+        );
+        expect(flowEdges.some((e) => e.source === datasetUrn('repo_in') && e.target === REPO_URN)).toBe(true);
+        expectNoOverlaps(flowNodes);
     });
 
     it('renders a repository linked to both the DataFlow and a child job once, with both edges', () => {

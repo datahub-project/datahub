@@ -8,7 +8,6 @@ import {
     getEdgeId,
     setDefault,
 } from '@app/lineageV3/common';
-import { setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { useGetDataFlowDagQuery } from '@graphql/dataFlow.generated';
 import { Entity, LineageDirection } from '@types';
@@ -16,8 +15,7 @@ import { Entity, LineageDirection } from '@types';
 const DATA_FLOW_CHILD_JOBS_PAGE_SIZE = 50;
 
 export default function useFetchChildDataJobs(): boolean {
-    const { rootUrn, rootType, nodes, edges, adjacencyList, setNodeVersion, showGhostEntities } =
-        useContext(LineageNodesContext);
+    const { rootUrn, nodes, edges, adjacencyList, setNodeVersion, showGhostEntities } = useContext(LineageNodesContext);
     const [start, setStart] = useState(0);
     const [initialized, setInitialized] = useState(false);
 
@@ -30,19 +28,6 @@ export default function useFetchChildDataJobs(): boolean {
         },
         onCompleted: (data) => {
             let addedNode = false;
-
-            // The DataFlow's own upstream (a linked Repository), in addition to each job's upstream below.
-            data.dataFlow?.upstream?.relationships?.forEach((relationship) => {
-                if (!relationship.entity) return;
-                addedNode = addedNode || !nodes.has(relationship.entity.urn);
-                setEntityNodeDefault(relationship.entity.urn, relationship.entity.type, LineageDirection.Upstream, {
-                    nodes,
-                    rootType,
-                });
-                const edgeId = getEdgeId(rootUrn, relationship.entity.urn, LineageDirection.Upstream);
-                edges.set(edgeId, { ...edges.get(edgeId), isDisplayed: true });
-                addToAdjacencyList(adjacencyList, LineageDirection.Upstream, rootUrn, relationship.entity.urn);
-            });
 
             const jobs = data.dataFlow?.childJobs;
             jobs?.relationships?.forEach((job) => {

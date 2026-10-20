@@ -158,20 +158,6 @@ query getDataFlowDag(
     $includeGhostEntities: Boolean = false
 ) {
     dataFlow(urn: $urn) {
-        # The flow's own upstream (a linked Repository); a flow has no downstream lineage of its own.
-        upstream: lineage(
-            input: {
-                direction: UPSTREAM
-                start: 0
-                count: 1000
-                separateSiblings: $separateSiblings
-                startTimeMillis: $startTimeMillis
-                endTimeMillis: $endTimeMillis
-                includeGhostEntities: $includeGhostEntities
-            }
-        ) {
-            ...lineageV2Result
-        }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
