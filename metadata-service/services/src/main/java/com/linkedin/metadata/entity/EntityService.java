@@ -428,6 +428,9 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull RestoreIndicesArgs args,
       @Nonnull Consumer<String> logger);
 
+  /** Rows the urn has in primary storage, every aspect and every version; -1 when unknown. */
+  int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn);
+
   // TODO: Extract this to a different service, doesn't need to be here
   List<RestoreIndicesResult> restoreIndices(
       @Nonnull OperationContext opContext,

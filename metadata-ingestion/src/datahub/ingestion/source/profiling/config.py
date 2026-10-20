@@ -179,11 +179,11 @@ class ProfilingConfig(ProfilingBaseConfig):
     )
 
     profile_table_row_count_estimate_only: Annotated[
-        bool, SupportedSources(["postgres", "mysql"])
+        bool, SupportedSources(["postgres", "mysql", "redshift"])
     ] = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
-        "less accurate. Only supported for Postgres and MySQL. ",
+        "less accurate. Only supported for Postgres, MySQL and Redshift. ",
     )
 
     # The query combiner enables us to combine multiple queries into a single query,
