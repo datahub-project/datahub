@@ -144,4 +144,6 @@ PLATFORM_NAME_PARTS: Dict[str, Tuple[str, ...]] = {
     "databricks": ("catalog", "schema_"),
     "bigquery": ("project", "dataset"),
     "mysql": ("database",),
+    "glue": ("database",),
+    "iceberg": ("namespace",),
 }

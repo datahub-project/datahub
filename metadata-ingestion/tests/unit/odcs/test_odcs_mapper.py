@@ -1351,3 +1351,119 @@ def test_binding_unresolved_variable_leaves_unbound(
     assert bindings[0].physical_urn is None
     assert bindings[0].unmapped_reason is not None
     assert "unresolved ODCS variable" in bindings[0].unmapped_reason
+
+
+def test_schema_assertion_excludes_measures() -> None:
+    # A v3.2 measure is an aggregate (e.g. SUM(amount)), not a physical column,
+    # so asserting it exists on the physical table would always fail.
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "properties": [
+                    {"name": "region", "semanticType": "dimension"},
+                    {
+                        "name": "total_amount",
+                        "semanticType": "measure",
+                        "transformLogic": "SUM(amount)",
+                    },
+                    {"name": "amount", "logicalType": "number"},
+                ],
+            }
+        ]
+    )
+    _, mcps = odcs_to_schema_assertion_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+        compatibility=SchemaAssertionCompatibility.SUPERSET,
+    )
+    sa = _single_info(mcps).schemaAssertion
+    assert sa is not None
+    assert [f.fieldPath for f in sa.schema.fields] == ["region", "amount"]
+
+
+def test_deprecated_synonyms_are_not_emitted() -> None:
+    mcps = _logical_mcps(
+        [
+            {
+                "name": "t",
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "synonyms": [
+                            {"synonym": "current"},
+                            {"synonym": "retired", "status": "Deprecated"},
+                        ],
+                    },
+                    {
+                        "name": "col_b",
+                        "synonyms": [{"synonym": "old", "status": "deprecated"}],
+                    },
+                ],
+            }
+        ]
+    )
+    (ai,) = _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
+    )
+    assert ai.synonyms == ["current"]
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), AiContextClass
+    )
+
+
+@pytest.mark.parametrize(
+    "server,expected_urn",
+    [
+        (
+            {"type": "glue", "account": "123456789012", "database": "sales"},
+            "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)",
+        ),
+        (
+            # Iceberg REST catalog served by AWS Glue: namespace = Glue database.
+            {
+                "type": "iceberg",
+                "catalog": "main",
+                "catalogUrl": "https://glue.eu-west-1.amazonaws.com/iceberg",
+                "namespace": "sales",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)",
+        ),
+        (
+            {
+                "type": "iceberg",
+                "catalog": "main",
+                "catalogUrl": "https://polaris.example.com/api/catalog",
+                "namespace": "sales",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)",
+        ),
+    ],
+)
+def test_binding_glue_and_iceberg_servers(
+    server: Dict[str, Any], expected_urn: str
+) -> None:
+    contract = _make_contract(
+        servers=[{"server": "lake", **server}],
+        schema=[{"name": "t", "physicalName": "orders"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn == expected_urn
+
+
+def test_binding_iceberg_without_namespace_leaves_unbound() -> None:
+    contract = _make_contract(
+        servers=[
+            {
+                "server": "lake",
+                "type": "iceberg",
+                "catalog": "main",
+                "catalogUrl": "https://polaris.example.com/api/catalog",
+            }
+        ],
+        schema=[{"name": "t", "physicalName": "orders"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn is None
+    assert binding.unmapped_reason and "namespace" in binding.unmapped_reason
