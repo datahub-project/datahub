@@ -207,7 +207,8 @@ class Api(ConfigModel):
         # InvalidUrnError is not a ValueError, so re-raise as one for pydantic
         # to surface it as a ValidationError.
         try:
-            return [str(DatasetUrn.from_string(urn)) for urn in raw]
+            # Preserve order but drop duplicates so one dataset yields one edge.
+            return list(dict.fromkeys(str(DatasetUrn.from_string(urn)) for urn in raw))
         except InvalidUrnError as e:
             raise ValueError(f"invalid dataset urn: {e}") from e
 

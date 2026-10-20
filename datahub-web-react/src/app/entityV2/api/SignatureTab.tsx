@@ -1,10 +1,12 @@
+import { Pill, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -94,25 +96,10 @@ const DatasetRefRow = styled.div`
     gap: 8px;
 `;
 
-const DatasetChip = styled(Link)`
+const DatasetRef = styled.span`
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px 4px 6px;
-    border-radius: 8px;
-    border: 1px solid ${(props) => props.theme.colors.border};
-    font-size: 13px;
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.hyperlinks};
-    &:hover {
-        text-decoration: underline;
-    }
-`;
-
-const DatasetSubtype = styled.span`
-    font-size: 11px;
-    font-weight: 600;
-    color: ${(props) => props.theme.colors.textSecondary};
+    gap: 4px;
 `;
 
 type ApiSignatureType = NonNullable<Extract<GetApiQuery['entity'], { __typename?: 'Api' }>['signature']>;
@@ -129,19 +116,31 @@ type DatasetRefType = NonNullable<ApiSignatureType['inputDatasets']>[number];
 function DatasetRefs({ datasets }: { datasets: DatasetRefType[] }) {
     const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
+    const history = useHistory();
     return (
         <DatasetRefRow data-testid="api-signature-dataset-refs">
-            <EmptyText>
-                {datasets.length === 1 ? t('api.signature.definedByDataset') : t('api.signature.definedByDatasets')}:
-            </EmptyText>
+            <EmptyText>{t('api.signature.definedByDataset', { count: datasets.length })}:</EmptyText>
             {datasets.map((dataset) => {
-                const subType = dataset.subTypes?.typeNames?.[0];
+                const subType = capitalizeFirstLetterOnly(dataset.subTypes?.typeNames?.[0]);
                 return (
-                    <DatasetChip key={dataset.urn} to={entityRegistry.getEntityUrl(EntityType.Dataset, dataset.urn)}>
-                        <PlatformIcon platform={dataset.platform} size={14} />
-                        {entityRegistry.getDisplayName(EntityType.Dataset, dataset)}
-                        {subType && <DatasetSubtype>{subType}</DatasetSubtype>}
-                    </DatasetChip>
+                    <DatasetRef key={dataset.urn}>
+                        <Pill
+                            label={entityRegistry.getDisplayName(EntityType.Dataset, dataset)}
+                            variant="filled"
+                            color="gray"
+                            size="md"
+                            clickable
+                            onPillClick={() =>
+                                history.push(entityRegistry.getEntityUrl(EntityType.Dataset, dataset.urn))
+                            }
+                            customIconRenderer={() => <PlatformIcon platform={dataset.platform} size={14} />}
+                        />
+                        {subType && (
+                            <Text size="sm" color="gray">
+                                {subType}
+                            </Text>
+                        )}
+                    </DatasetRef>
                 );
             })}
         </DatasetRefRow>

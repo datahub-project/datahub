@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -27,6 +27,12 @@ vi.mock('@app/useEntityRegistry', () => ({
 }));
 
 vi.mock('@app/sharedV2/icons/PlatformIcon', () => ({ default: () => <span data-testid="platform-icon" /> }));
+
+const mockPush = vi.fn();
+vi.mock('react-router-dom', async () => ({
+    ...(await vi.importActual<typeof import('react-router-dom')>('react-router-dom')),
+    useHistory: () => ({ push: mockPush }),
+}));
 
 function makeField(fieldPath: string, nullable: boolean, nativeDataType = 'string', description?: string) {
     return { fieldPath, nullable, nativeDataType, description, type: SchemaFieldDataType.String };
@@ -92,11 +98,12 @@ describe('SignatureTab', () => {
         expect(screen.queryByText('api.signature.noInput')).not.toBeInTheDocument();
         expect(screen.queryByText('api.signature.noOutput')).not.toBeInTheDocument();
 
-        expect(screen.getByText('orders.GetOrderRequest').closest('a')).toHaveAttribute(
-            'href',
-            `/entity/${REQUEST_URN}`,
-        );
-        expect(screen.getByText('orders.Order').closest('a')).toHaveAttribute('href', `/entity/${RESPONSE_URN}`);
+        // Dataset pills navigate to the dataset page.
+        fireEvent.click(screen.getByText('orders.GetOrderRequest'));
+        expect(mockPush).toHaveBeenCalledWith(`/entity/${REQUEST_URN}`);
+        expect(screen.getByText('orders.Order')).toBeInTheDocument();
+        // Subtype is shown capitalized, not raw.
+        expect(screen.getAllByText('Message').length).toBeGreaterThan(0);
     });
 
     it('shows the dataset reference ahead of inline fields when both are present', () => {
@@ -108,6 +115,9 @@ describe('SignatureTab', () => {
 
         expect(screen.getByText('orders.GetOrderRequest')).toBeInTheDocument();
         expect(screen.getByText('order_id')).toBeInTheDocument();
+        // The dataset reference is rendered before the inline field table.
+        const text = document.body.textContent ?? '';
+        expect(text.indexOf('orders.GetOrderRequest')).toBeLessThan(text.indexOf('order_id'));
         expect(screen.getByText('api.signature.noOutput')).toBeInTheDocument();
     });
 
