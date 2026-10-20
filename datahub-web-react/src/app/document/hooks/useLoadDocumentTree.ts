@@ -37,7 +37,8 @@ export function useLoadDocumentTree(
     options?: { paginateRoots?: boolean },
 ) {
     const paginateRoots = options?.paginateRoots ?? true;
-    const { initializeTree, appendRootNodes, setNodeChildren, appendNodeChildren } = useDocumentTree();
+    const { initializeTree, appendRootNodes, setNodeChildren, appendNodeChildren, getLocalRootNodes } =
+        useDocumentTree();
     const [searchDocumentsQuery] = useSearchDocumentsLazyQuery();
     // Bumped on each page-0 load so an in-flight later page cannot append after a sort/view reset.
     const rootLoadGenerationRef = useRef(0);
@@ -245,8 +246,15 @@ export function useLoadDocumentTree(
                     // Clear the spinner as soon as page 0 is in context. Missing platform
                     // sections fill in afterward — awaiting them blocked DocumentTree and
                     // the /context/documents redirect on every Source load/sort/View change.
+                    // Include roots still pinned after the page-0 merge. Page 0 alone would
+                    // prefetch another root for a platform those pins already represent.
                     setIsInitializing(false);
-                    loadMissingSourceSectionRoots(nodes, generation).catch((error) => {
+                    const sectionRoots = [...nodes];
+                    const sectionUrns = new Set(sectionRoots.map((node) => node.urn));
+                    getLocalRootNodes().forEach((node) => {
+                        if (!sectionUrns.has(node.urn)) sectionRoots.push(node);
+                    });
+                    loadMissingSourceSectionRoots(sectionRoots, generation).catch((error) => {
                         console.error('Failed to load source sections:', error);
                     });
                 } else {
@@ -267,6 +275,7 @@ export function useLoadDocumentTree(
             toTreeNodes,
             isCurrentRootLoad,
             initializeTree,
+            getLocalRootNodes,
             loadMissingSourceSectionRoots,
             appendRootNodes,
             viewUrn,

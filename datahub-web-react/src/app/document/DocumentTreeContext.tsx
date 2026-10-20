@@ -75,6 +75,8 @@ interface DocumentTreeContextType {
     // Tree queries
     getNode: (urn: string) => DocumentTreeNode | undefined;
     getRootNodes: () => DocumentTreeNode[];
+    /** Roots still pinned locally after the latest page-0 merge. */
+    getLocalRootNodes: () => DocumentTreeNode[];
     getChildren: (parentUrn: string | null) => DocumentTreeNode[];
 
     // Tree mutations (immediate state updates)
@@ -98,23 +100,6 @@ interface DocumentTreeContextType {
 }
 
 export const DocumentTreeContext = React.createContext<DocumentTreeContextType | undefined>(undefined);
-
-/** Keep locally pinned roots and their already-loaded descendants across an empty reload. */
-function retainNodesUnderRoots(
-    nodes: Map<string, DocumentTreeNode>,
-    rootUrns: ReadonlySet<string>,
-): Map<string, DocumentTreeNode> {
-    const kept = new Map<string, DocumentTreeNode>();
-    const visit = (urn: string) => {
-        if (kept.has(urn)) return;
-        const node = nodes.get(urn);
-        if (!node) return;
-        kept.set(urn, node);
-        node.children?.forEach((child) => visit(child.urn));
-    };
-    rootUrns.forEach((urn) => visit(urn));
-    return kept;
-}
 
 export const useDocumentTree = () => {
     const context = useContext(DocumentTreeContext);
@@ -145,6 +130,15 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const getRootNodes = useCallback(() => {
         return rootUrns.map((urn) => nodes.get(urn)).filter(Boolean) as DocumentTreeNode[];
     }, [nodes, rootUrns]);
+
+    const getLocalRootNodes = useCallback(() => {
+        const localNodes: DocumentTreeNode[] = [];
+        localRootPlacementsRef.current.forEach((_placement, urn) => {
+            const node = nodes.get(urn);
+            if (node) localNodes.push(node);
+        });
+        return localNodes;
+    }, [nodes]);
 
     // Query: Get children of a parent (or root if parentUrn is null)
     const getChildren = useCallback(
@@ -419,11 +413,11 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // existed because an earlier page was scrolled in do not.
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
         if (rootNodes.length === 0) {
-            // View changes clear the server window before page 0 returns. Keep
-            // create / move-to-root pins so that next page can still merge them in.
-            const localRoots = localRootPlacementsRef.current;
-            setRootUrns((prev) => prev.filter((urn) => localRoots.has(urn)));
-            setNodes((prev) => retainNodesUnderRoots(prev, new Set(localRoots.keys())));
+            // View changes start from an empty window. A pinned create or move-to-root
+            // must not survive into a View that filters it out, including an empty View.
+            localRootPlacementsRef.current.clear();
+            setRootUrns([]);
+            setNodes(new Map());
         } else {
             const serverUrns = rootNodes.map((node) => node.urn);
             serverUrns.forEach((urn) => localRootPlacementsRef.current.delete(urn));
@@ -470,6 +464,7 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             rootUrns,
             getNode,
             getRootNodes,
+            getLocalRootNodes,
             getChildren,
             updateNodeTitle,
             moveNode,
@@ -490,6 +485,7 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
             rootUrns,
             getNode,
             getRootNodes,
+            getLocalRootNodes,
             getChildren,
             updateNodeTitle,
             moveNode,

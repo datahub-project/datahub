@@ -20,6 +20,7 @@ describe('useLoadDocumentTree', () => {
     const mockSetNodeChildren = vi.fn();
     const mockAppendNodeChildren = vi.fn();
     const mockGetRootNodes = vi.fn();
+    const mockGetLocalRootNodes = vi.fn();
 
     const mockContextValue = {
         nodes: new Map(),
@@ -29,6 +30,7 @@ describe('useLoadDocumentTree', () => {
         setNodeChildren: mockSetNodeChildren,
         appendNodeChildren: mockAppendNodeChildren,
         getRootNodes: mockGetRootNodes,
+        getLocalRootNodes: mockGetLocalRootNodes,
         getChildren: vi.fn(),
         addNode: vi.fn(),
         deleteNode: vi.fn(),
@@ -53,6 +55,7 @@ describe('useLoadDocumentTree', () => {
         });
 
         mockGetRootNodes.mockReturnValue([]);
+        mockGetLocalRootNodes.mockReturnValue([]);
 
         mockSearchDocumentsLazyQuery = vi.fn().mockResolvedValue({
             data: { searchDocuments: { documents: [], total: 0 } },
@@ -370,6 +373,96 @@ describe('useLoadDocumentTree', () => {
                 }),
             }),
         );
+    });
+
+    it('does not prefetch a platform already represented by a locally pinned root', async () => {
+        const notion = {
+            urn: 'urn:li:document:notion',
+            platform: { urn: 'urn:li:dataPlatform:notion', name: 'notion', type: 'DATA_PLATFORM' },
+            info: { title: 'Notion', parentDocument: null },
+        };
+        mockGetLocalRootNodes.mockReturnValue([
+            {
+                urn: 'urn:li:document:pinned-confluence',
+                title: 'Pinned',
+                parentUrn: null,
+                hasChildren: false,
+                platform: { urn: 'urn:li:dataPlatform:confluence', name: 'confluence', type: 'DATA_PLATFORM' },
+            },
+        ]);
+
+        mockSearchDocumentsLazyQuery.mockImplementation((opts: any) => {
+            const input = opts?.variables?.input ?? {};
+            if (input.parentDocuments) {
+                return Promise.resolve({ data: { searchDocuments: { documents: [], total: 0 } } });
+            }
+            if (input.facets) {
+                return Promise.resolve({
+                    data: {
+                        searchDocuments: {
+                            documents: [],
+                            total: 0,
+                            facets: [
+                                {
+                                    field: 'platform',
+                                    aggregations: [
+                                        { value: 'urn:li:dataPlatform:notion', count: 1 },
+                                        { value: 'urn:li:dataPlatform:confluence', count: 4 },
+                                    ],
+                                },
+                            ],
+                        },
+                    },
+                });
+            }
+            if (input.platforms?.[0] === 'urn:li:dataPlatform:confluence') {
+                return Promise.resolve({
+                    data: {
+                        searchDocuments: {
+                            documents: [
+                                {
+                                    urn: 'urn:li:document:extra-confluence',
+                                    platform: {
+                                        urn: 'urn:li:dataPlatform:confluence',
+                                        name: 'confluence',
+                                        type: 'DATA_PLATFORM',
+                                    },
+                                    info: { title: 'Extra', parentDocument: null },
+                                },
+                            ],
+                            total: 4,
+                        },
+                    },
+                });
+            }
+            return Promise.resolve({ data: { searchDocuments: { documents: [notion], total: 1 } } });
+        });
+
+        renderHook(() => useLoadDocumentTree(), { wrapper });
+
+        await waitFor(() => {
+            expect(mockInitializeTree).toHaveBeenCalled();
+        });
+        await waitFor(() => {
+            expect(mockSearchDocumentsLazyQuery).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    variables: expect.objectContaining({
+                        input: expect.objectContaining({ facets: ['platform'] }),
+                    }),
+                }),
+            );
+        });
+
+        expect(mockSearchDocumentsLazyQuery).not.toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    input: expect.objectContaining({
+                        platforms: ['urn:li:dataPlatform:confluence'],
+                    }),
+                }),
+            }),
+        );
+        expect(mockAppendRootNodes).not.toHaveBeenCalled();
     });
 
     it('clears the root spinner before missing source sections finish loading', async () => {

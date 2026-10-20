@@ -98,7 +98,7 @@ describe('DocumentTreeContext root replacement', () => {
         expect(result.current.getNode('root')?.children?.map((child) => child.urn)).toEqual(['child']);
     });
 
-    it('keeps a created root across an empty reload and the following page 0', () => {
+    it('drops a created root when a View reload clears the tree', () => {
         const { result } = renderHook(() => useDocumentTree(), { wrapper });
 
         act(() => {
@@ -110,13 +110,13 @@ describe('DocumentTreeContext root replacement', () => {
             result.current.initializeTree([]);
         });
 
-        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['created']);
-        expect(result.current.getNode('created-child')?.parentUrn).toBe('created');
+        expect(result.current.getRootNodes()).toEqual([]);
+        expect(result.current.getNode('created')).toBeUndefined();
 
         act(() => {
             result.current.initializeTree([makeNode('next-page')]);
         });
 
-        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['created', 'next-page']);
+        expect(result.current.getRootNodes().map((node) => node.urn)).toEqual(['next-page']);
     });
 });
