@@ -177,7 +177,8 @@ in place.
   To un-deprecate, set `deprecated: false` — deleting the key does not undo an earlier run.
   Removing all `synonyms` does not clear previously ingested ones. The field's AI context aspect is written as a whole, replacing any
   instructions or examples set on that field of the logical dataset.
-  `context`, schema-object `synonyms`, `enum`, `semanticType`, `transformLogic` and vector
+  `context`, schema-object `synonyms`, `enum`, `semanticType` (beyond the measure exclusion
+  above), `transformLogic` and vector
   `logicalTypeOptions` are mapped only with `emit_structured_properties` (below). Accepted but
   not yet mapped: the server fields `encoding` and `workgroup`.
 - **Structured properties (opt-in).** With `emit_structured_properties: true` the source

@@ -236,3 +236,20 @@ def test_context_string_shorthand_and_absent() -> None:
         schema, contract_context="Use for revenue analysis."
     ).values["odcs.context"]
     assert yaml.safe_load(str(text)) == {"contract": "Use for revenue analysis."}
+
+
+def test_context_multiline_text_stays_readable() -> None:
+    schema = ODCSSchemaObject.model_validate(
+        {"name": "t", "context": {"instructions": "Line one.\nLine two.\n"}}
+    )
+    (text,) = dataset_property_values(schema).values["odcs.context"]
+    assert "instructions: |" in str(text)
+    assert "Line one.\n    Line two." in str(text)
+    assert (
+        yaml.safe_load(str(text))["schema"]["instructions"] == "Line one.\nLine two.\n"
+    )
+
+
+def test_whitespace_only_context_is_skipped() -> None:
+    schema = ODCSSchemaObject.model_validate({"name": "t", "context": "   "})
+    assert "odcs.context" not in dataset_property_values(schema).values

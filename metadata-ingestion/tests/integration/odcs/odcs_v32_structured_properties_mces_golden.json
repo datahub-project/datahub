@@ -579,7 +579,7 @@
                         "propertyUrn": "urn:li:structuredProperty:odcs.context",
                         "values": [
                             {
-                                "string": "contract:\n  instructions: Readings are hourly; never sum col_reading across sensors."
+                                "string": "contract:\n  instructions: Readings are hourly; never sum col_reading across sensors.\n"
                             }
                         ]
                     }
@@ -1488,7 +1488,7 @@
                         "propertyUrn": "urn:li:structuredProperty:odcs.context",
                         "values": [
                             {
-                                "string": "contract:\n  instructions: Readings are hourly; never sum col_reading across sensors."
+                                "string": "contract:\n  instructions: Readings are hourly; never sum col_reading across sensors.\n"
                             }
                         ]
                     }

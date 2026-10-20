@@ -188,6 +188,18 @@ def _synonym_terms(
     return terms
 
 
+class _ContextDumper(yaml.SafeDumper):
+    """Writes multi-line strings as `|` blocks so agents and the UI read prose."""
+
+
+def _represent_str(dumper: yaml.SafeDumper, value: str) -> yaml.ScalarNode:
+    style = "|" if "\n" in value else None
+    return dumper.represent_scalar("tag:yaml.org,2002:str", value, style=style)
+
+
+_ContextDumper.add_representer(str, _represent_str)
+
+
 def dataset_property_values(
     schema_entry: ODCSSchemaObject, contract_context: JsonValue = None
 ) -> PropertyValues:
@@ -199,11 +211,13 @@ def dataset_property_values(
             ("contract", contract_context),
             ("schema", schema_entry.context),
         )
-        if value not in (None, "", [], {})
+        if not (value is None or value in ([], {}) or str(value).strip() == "")
     }
     if context:
         result.values["odcs.context"] = [
-            yaml.safe_dump(context, sort_keys=False, allow_unicode=True).strip()
+            yaml.dump(
+                context, Dumper=_ContextDumper, sort_keys=False, allow_unicode=True
+            )
         ]
     return result
 
