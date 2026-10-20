@@ -2206,6 +2206,12 @@
           "description": "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
