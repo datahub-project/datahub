@@ -2648,6 +2648,32 @@ class TestPairSiblingDataJobEmission:
         assert workunits == []
         assert len(source.report.warnings) == 1
 
+    def test_display_name_truncates_more_than_three_names(self) -> None:
+        """A pair with more than 3 inputs (or outputs) summarizes as
+        "name1, name2, name3 and N more" instead of listing every name,
+        so a sibling DataJob's display name for a wide fan-in/fan-out
+        pair stays readable."""
+        source = self._make_source()
+        inputs = (
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.a,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.b,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.c,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.d,PROD)",
+        )
+        outputs = ("urn:li:dataset:(urn:li:dataPlatform:mssql,db.sink,PROD)",)
+
+        name = source._pair_sibling_display_name("CopyActivity", inputs, outputs)
+
+        assert name == "CopyActivity (a, b, c and 1 more -> sink)"
+
+    def test_short_dataset_name_falls_back_to_raw_urn_on_parse_failure(self) -> None:
+        """A malformed URN (should never happen, but _short_dataset_name
+        is purely cosmetic) falls back to the raw string rather than
+        raising and breaking the whole display-name computation."""
+        source = self._make_source()
+
+        assert source._short_dataset_name("not a valid urn") == "not a valid urn"
+
 
 class TestUnionedDynamicLineageColumnRecompute:
     """Tests for _emit_unioned_dynamic_lineage's column-lineage recompute
@@ -2712,6 +2738,41 @@ class TestUnionedDynamicLineageColumnRecompute:
             f"urn:li:schemaField:({source_a},id)",
             f"urn:li:schemaField:({source_b},id)",
         }
+
+    def test_no_column_lineage_when_disabled(self) -> None:
+        """When include_column_lineage is off, the union still emits the
+        input/output URNs but never attempts any column-lineage
+        recompute."""
+        from datahub.metadata.urns import DataJobUrn
+
+        source = self._make_source()
+        source.config.include_column_lineage = False
+        activity = SimpleNamespace(name="CopyActivity", type="Copy", translator=None)
+        job_urn = DataJobUrn.create_from_ids(
+            data_flow_urn="urn:li:dataFlow:(azure-data-factory,factory.Pipeline,PROD)",
+            job_id="CopyActivity",
+        )
+        source_a = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.customers_table,PROD)"
+        source_b = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.vendors_table,PROD)"
+        sink = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.staging_table,PROD)"
+        pairs: dict[
+            tuple[tuple[str, ...], tuple[str, ...]],
+            set[tuple[tuple[str, ...], str]],
+        ] = {
+            ((source_a,), (sink,)): set(),
+            ((source_b,), (sink,)): set(),
+        }
+
+        workunits = list(
+            source._emit_unioned_dynamic_lineage(
+                activity, job_urn, "test-rg/test-factory", pairs, (), ()
+            )
+        )
+
+        assert len(workunits) == 1
+        aspect = workunits[0].metadata.aspect
+        assert aspect.fineGrainedLineages is None
+        assert set(aspect.inputDatasets) == {source_a, source_b}
 
 
 class TestExtractQueryColumnLineageSinkCasing:
