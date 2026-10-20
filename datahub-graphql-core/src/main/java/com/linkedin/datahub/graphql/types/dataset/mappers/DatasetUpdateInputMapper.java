@@ -7,6 +7,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
@@ -102,6 +103,10 @@ public class DatasetUpdateInputMapper
               datasetUpdateInput.getEditableSchemaMetadata().getEditableSchemaFieldInfo().stream()
                   .map(element -> mapSchemaFieldInfo(context, element))
                   .collect(Collectors.toList())));
+      if (datasetUpdateInput.getEditableSchemaMetadata().getPrimaryKeys() != null) {
+        editableSchemaMetadata.setPrimaryKeys(
+            new StringArray(datasetUpdateInput.getEditableSchemaMetadata().getPrimaryKeys()));
+      }
       editableSchemaMetadata.setLastModified(auditStamp);
       editableSchemaMetadata.setCreated(auditStamp);
       proposals.add(

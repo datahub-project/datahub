@@ -5627,6 +5627,12 @@ input EditableSchemaMetadataUpdate {
   Update to writable schema field metadata
   """
   editableSchemaFieldInfo: [EditableSchemaFieldInfoUpdate!]!
+
+  """
+  Field paths of a user-declared primary key, for datasets whose source declares none.
+  The aspect is replaced as a whole, so omitting this clears any edited primary key.
+  """
+  primaryKeys: [String!]
 }
 
 """

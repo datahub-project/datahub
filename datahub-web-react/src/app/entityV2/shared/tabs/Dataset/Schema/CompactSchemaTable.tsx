@@ -229,6 +229,7 @@ export default function CompactSchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaPrimaryKeys={schemaMetadata?.primaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}

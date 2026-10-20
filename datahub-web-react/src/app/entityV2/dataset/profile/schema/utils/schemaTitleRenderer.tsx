@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 
 import { InteriorTitleContent } from '@app/entityV2/dataset/profile/schema/components/InteriorTitleContent';
-import { getEffectivePrimaryKeys } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
+import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 
 import { EditableSchemaMetadata, SchemaMetadata } from '@types';
@@ -26,7 +26,7 @@ export default function useSchemaTitleRenderer(
                 fieldPath={fieldPath}
                 record={record}
                 schemaMetadata={schemaMetadata}
-                isPrimaryKey={primaryKeys.has(fieldPath)}
+                isPrimaryKey={isPrimaryKeyField(primaryKeys, record)}
             />
         );
     };

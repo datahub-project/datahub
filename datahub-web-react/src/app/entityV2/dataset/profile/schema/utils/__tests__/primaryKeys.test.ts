@@ -1,4 +1,4 @@
-import { getEffectivePrimaryKeys } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
+import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
 
 import { SchemaField } from '@types';
 
@@ -14,5 +14,10 @@ describe('getEffectivePrimaryKeys', () => {
         const schema = { primaryKeys: [], fields: [field('id'), field('col_a')] };
         expect(getEffectivePrimaryKeys(schema, { primaryKeys: ['col_a'] })).toEqual(new Set(['col_a']));
         expect(getEffectivePrimaryKeys(schema, null)).toEqual(new Set());
+    });
+
+    it('keeps isPartOfKey badges when there is no schemaMetadata', () => {
+        expect(isPrimaryKeyField(getEffectivePrimaryKeys(null, null), field('id', true))).toBe(true);
+        expect(isPrimaryKeyField(getEffectivePrimaryKeys(null, null), field('col_a'))).toBe(false);
     });
 });

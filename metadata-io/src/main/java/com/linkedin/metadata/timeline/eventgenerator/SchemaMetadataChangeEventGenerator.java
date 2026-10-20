@@ -732,7 +732,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     return foreignKeyChangeEvents;
   }
 
-  private static List<ChangeEvent> getPrimaryKeyChangeEvents(
+  static List<ChangeEvent> getPrimaryKeyChangeEvents(
       Set<ChangeCategory> changeCategories,
       SchemaMetadata baseSchema,
       SchemaMetadata targetSchema,

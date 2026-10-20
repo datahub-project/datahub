@@ -20,6 +20,7 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaMetadata;
 import jakarta.json.JsonPatch;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -360,7 +361,21 @@ public class EditableSchemaMetadataChangeEventGenerator
     changeEvents.addAll(
         computeDiffs(
             from.getValue(), to.getValue(), urn, ChangeCategory.GLOSSARY_TERM, auditStamp));
+    // Edited primary keys produce the same events as primary keys declared by the source.
+    changeEvents.addAll(
+        SchemaMetadataChangeEventGenerator.getPrimaryKeyChangeEvents(
+            Set.of(ChangeCategory.TECHNICAL_SCHEMA),
+            primaryKeysOnly(from.getValue()),
+            primaryKeysOnly(to.getValue()),
+            urn,
+            auditStamp));
     return changeEvents;
+  }
+
+  private static SchemaMetadata primaryKeysOnly(EditableSchemaMetadata editableSchemaMetadata) {
+    return editableSchemaMetadata != null && editableSchemaMetadata.hasPrimaryKeys()
+        ? new SchemaMetadata().setPrimaryKeys(editableSchemaMetadata.getPrimaryKeys())
+        : null;
   }
 
   private static Urn getDatasetFieldUrn(

@@ -617,6 +617,7 @@ export default function SchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaPrimaryKeys={schemaMetadata?.primaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
