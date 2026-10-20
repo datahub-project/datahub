@@ -67,49 +67,16 @@ describe('useResetLineageGraph', () => {
         expect(context.setDisplayVersion).toHaveBeenCalledWith([0, []]);
     });
 
-    it('resets when the time range changes if the caller opts in', () => {
+    it('resets the graph when the time range changes', () => {
         const context = makeContext();
-        const { rerender } = renderHook(() =>
-            useResetLineageGraph(context, URN, EntityType.Dataset, makeInitialNode, true),
-        );
+        const { rerender } = renderHook(() => useResetLineageGraph(context, URN, EntityType.Dataset, makeInitialNode));
 
         context.edges.set('fetched-edge', {} as never);
-
-        // appConfig resolving its default lookback window looks exactly like this: the params flip
-        // from undefined to a concrete value.
         mocks.startTimeMillis = 1_600_000_000_000;
         rerender();
 
         expect(context.edges.size).toBe(0);
-    });
-
-    it('does not reset when the time range changes if the caller opts out', () => {
-        const context = makeContext();
-        const { rerender } = renderHook(() =>
-            useResetLineageGraph(context, URN, EntityType.Dataset, makeInitialNode, false),
-        );
-
-        context.edges.set('fetched-edge', {} as never);
-
-        mocks.startTimeMillis = 1_600_000_000_000;
-        rerender();
-
-        // The caller's query does not vary by time range, so nothing would refetch these edges.
-        expect(Array.from(context.edges.keys())).toEqual(['fetched-edge']);
-    });
-
-    it('still resets on a home-node change when opted out of time-range resets', () => {
-        const context = makeContext();
-        let urn = URN;
-        const { rerender } = renderHook(() =>
-            useResetLineageGraph(context, urn, EntityType.Dataset, makeInitialNode, false),
-        );
-
-        context.edges.set('fetched-edge', {} as never);
-        urn = 'urn:li:dataset:(urn:li:dataPlatform:mysql,db.other,PROD)';
-        rerender();
-
-        expect(context.edges.size).toBe(0);
+        expect(Array.from(context.nodes.keys())).toEqual([URN]);
     });
 
     it('clears fetched edges and node entities when showGhostEntities changes', () => {
@@ -137,7 +104,7 @@ describe('useResetLineageGraph', () => {
         mocks.ignoreSchemaFieldStatus = false;
         const context = makeContext();
         const { rerender } = renderHook(
-            ({ ctx }) => useResetLineageGraph(ctx, URN, EntityType.DataFlow, makeInitialNode, false),
+            ({ ctx }) => useResetLineageGraph(ctx, URN, EntityType.DataFlow, makeInitialNode),
             { initialProps: { ctx: context } },
         );
 

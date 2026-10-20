@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     BOUNDING_BOX_ENTITY_TYPES,
     EdgeId,
@@ -26,6 +27,11 @@ interface Props {
 
 export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
+
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    // Member queries of these initializers don't take the time params, so after the time-range
+    // reset nothing would re-add their members. Remounting restarts pagination and refetches them.
+    const timeRangeKey = `${startTimeMillis}-${endTimeMillis}`;
 
     const [nodes] = useState(new Map<string, LineageEntity>());
     const [edges] = useState(new Map<EdgeId, LineageEdge>());
@@ -74,9 +80,13 @@ export default function LineageExplorer(props: Props) {
 
     return (
         <LineageNodesContext.Provider value={context}>
-            {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
-            {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
-            {type === EntityType.SemanticModel && <SemanticModelGraphInitializer urn={urn} type={type} />}
+            {type === EntityType.DataFlow && <DAGNodeInitializer key={timeRangeKey} urn={urn} type={type} />}
+            {type === EntityType.DataProduct && (
+                <DataProductGraphInitializer key={timeRangeKey} urn={urn} type={type} />
+            )}
+            {type === EntityType.SemanticModel && (
+                <SemanticModelGraphInitializer key={timeRangeKey} urn={urn} type={type} />
+            )}
             {type !== EntityType.DataFlow && !BOUNDING_BOX_ENTITY_TYPES.has(type) && (
                 <ImpactAnalysisNodeInitializer urn={urn} type={type} />
             )}

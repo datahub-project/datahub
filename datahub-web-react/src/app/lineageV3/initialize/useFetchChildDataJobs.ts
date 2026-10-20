@@ -1,5 +1,6 @@
 import { useContext, useState } from 'react';
 
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     LineageEntity,
@@ -18,12 +19,15 @@ export default function useFetchChildDataJobs(): boolean {
     const { rootUrn, nodes, edges, adjacencyList, setNodeVersion, showGhostEntities } = useContext(LineageNodesContext);
     const [start, setStart] = useState(0);
     const [initialized, setInitialized] = useState(false);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     useGetDataFlowDagQuery({
         variables: {
             urn: rootUrn,
             count: DATA_FLOW_CHILD_JOBS_PAGE_SIZE,
             start,
+            startTimeMillis,
+            endTimeMillis,
             includeGhostEntities: showGhostEntities,
         },
         onCompleted: (data) => {
