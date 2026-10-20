@@ -1559,6 +1559,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    *     fully consume the stream before returning
    * @return whatever {@code consumer} returns
    */
+  @Nullable
+  @Override
   public <R> R streamAspectBatches(
       @Nonnull final OperationContext opContext,
       @Nonnull final RestoreIndicesArgs args,
