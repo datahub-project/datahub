@@ -1,21 +1,23 @@
 """Configuration for Google Dataplex source."""
 
 import logging
-from typing import Dict, List, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional, Sequence
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
     GCPValidationError,
     validate_project_label_list,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -26,6 +28,19 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Probe kinds. Only Project is a DataHub subtype (the one Dataplex emits for
+# project containers); the others are Dataplex's own levels, because DataHub
+# emits no entity for an entry group and an FQN is a second name for an entry.
+DATAPLEX_PROJECT_KIND = str(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+DATAPLEX_ENTRY_GROUP_KIND = "EntryGroup"
+DATAPLEX_ENTRY_KIND = "Entry"
+# An entry is filtered twice, on two different strings -- its resource name
+# (entries.pattern) and its FQN (entries.fqn_pattern) -- and a kind resolves to
+# one pattern, so the FQN is its own kind. Both must include for ingestion to
+# keep the entry (DataplexEntriesProcessor._report_and_should_process_entry).
+DATAPLEX_ENTRY_FQN_KIND = "EntryFqn"
+DATAPLEX_ASPECT_TYPE_KIND = "AspectType"
 
 DEFAULT_LINEAGE_LOCATIONS = [
     "us",
@@ -77,11 +92,11 @@ DEFAULT_LINEAGE_LOCATIONS = [
 class EntriesFilterConfig(ConfigModel):
     """Filter configuration specific to Dataplex Entries API (Universal Catalog)."""
 
-    pattern: AllowDenyPattern = Field(
+    pattern: Annotated[AllowDenyPattern, Filters(DATAPLEX_ENTRY_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Dataplex entry names to filter in ingestion.",
     )
-    fqn_pattern: AllowDenyPattern = Field(
+    fqn_pattern: Annotated[AllowDenyPattern, Filters(DATAPLEX_ENTRY_FQN_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for Dataplex fully-qualified names to filter in ingestion.",
     )
@@ -90,7 +105,7 @@ class EntriesFilterConfig(ConfigModel):
 class EntryGroupFilterConfig(ConfigModel):
     """Filter configuration for Dataplex entry groups."""
 
-    pattern: AllowDenyPattern = Field(
+    pattern: Annotated[AllowDenyPattern, Filters(DATAPLEX_ENTRY_GROUP_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for entry group resource names to include/exclude.",
     )
@@ -273,7 +288,9 @@ class DataplexConfig(
         description="Filters to control which Dataplex resources are ingested.",
     )
 
-    aspect_type_pattern: AllowDenyPattern = Field(
+    aspect_type_pattern: Annotated[
+        AllowDenyPattern, Filters(DATAPLEX_ASPECT_TYPE_KIND)
+    ] = Field(
         default=AllowDenyPattern(deny=["datahub-.*"]),
         description="Regex allow/deny patterns matched against Dataplex aspect type "
         "names to decide which aspects are flattened into DataHub custom properties. "
@@ -521,6 +538,38 @@ class DataplexConfig(
                 "'export_config.bucket_base_name' as a fallback."
             )
         return self
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports the Dataplex and Resource Manager gRPC
+        # clients, which `probe filter` and `recipe describe` never need.
+        from datahub.ingestion.source.dataplex.dataplex_probe import (
+            DataplexMetadataProbe,
+        )
+
+        return DataplexMetadataProbe
+
+    @property
+    def reads_from_export(self) -> bool:
+        """Entries come from a metadata export (export, read_export), not the
+        Catalog API, so the entry-group pattern is never applied."""
+        return self.extraction_method != "api"
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Late import: ingestion never needs the probe's verdict module.
+        from datahub.ingestion.source.dataplex.dataplex_probe_verdicts import (
+            ancestor_kinds,
+        )
+
+        return ancestor_kinds(self, kind)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # Late import: ingestion never needs the probe's verdict module.
+        from datahub.ingestion.source.dataplex.dataplex_probe_verdicts import (
+            verdict,
+        )
+
+        return verdict(self, ctx)
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
         """Get credentials dictionary for authentication."""
