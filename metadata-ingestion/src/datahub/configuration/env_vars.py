@@ -441,8 +441,8 @@ def get_probe_disabled() -> bool:
     not give you that.
 
     Deliberately not everything. `recipe describe`, `recipe scaffold`,
-    `recipe validate`, `probe methods` and `probe filter` need no
-    connection -- they read the connector's own declarations and judge names
+    `recipe validate`, `probe methods`, `recipe probe-methods` and
+    `probe filter` need no connection -- they read the connector's own declarations and judge names
     the caller already has. Disabling those too would stop an agent learning
     what a recipe needs or checking one it has written, which is work that
     never reaches the source. The line is the connection, not the feature.

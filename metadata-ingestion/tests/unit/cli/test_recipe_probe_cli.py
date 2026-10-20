@@ -3093,6 +3093,7 @@ def test_probe_methods_by_source_type_matches_the_recipe_form(tmp_path):
         recipe, ["probe", "methods", "--recipe", _recipe_file(tmp_path)]
     )
     by_type = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert by_recipe.exit_code == 0, by_recipe.output
     assert by_type.exit_code == 0, by_type.output
     assert json.loads(by_type.output) == json.loads(by_recipe.output)
 
@@ -3135,3 +3136,34 @@ def test_probe_methods_by_source_type_still_answers_with_probing_disabled(monkey
     res = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
     assert res.exit_code == 0, res.output
     assert json.loads(res.output)["methods"]
+
+
+@pytest.mark.parametrize("separator", [":", "."])
+def test_probe_methods_by_source_type_never_imports_a_path(
+    monkeypatch, tmp_path, separator
+):
+    # The registry loads a type containing "." or ":" as an import path. A
+    # caller that may only name a source must not be able to import modules.
+    (tmp_path / "probe_import_canary.py").write_text("IMPORTED = True\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.delitem(sys.modules, "probe_import_canary", raising=False)
+    res = CliRunner().invoke(
+        recipe, ["probe-methods", f"probe_import_canary{separator}Source"]
+    )
+    assert res.exit_code == rc.EXIT_USER, res.output
+    assert '"error"' in res.output
+    assert "probe_import_canary" not in sys.modules
+
+
+def test_probe_methods_by_source_type_pings_only_a_real_source_type(monkeypatch):
+    pings: List[Tuple[str, str]] = []
+    monkeypatch.setattr(
+        rc,
+        "_ping_probe",
+        lambda command, source_type, **_: pings.append((command, source_type)),
+    )
+    CliRunner().invoke(recipe, ["probe-methods", "definitely-not-a-real-source"])
+    assert pings == []
+    res = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert res.exit_code == 0, res.output
+    assert pings == [("methods", "postgres")]

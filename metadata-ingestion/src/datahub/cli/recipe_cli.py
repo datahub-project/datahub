@@ -608,10 +608,18 @@ def describe(source_type: str) -> None:
 def probe_methods_by_type(source_type: str) -> None:
     """List what a source type can be asked about, and how to ask it.
 
-    The same payload as `probe methods`, from the source type alone: no recipe,
-    no secret and no connection, so a read-only caller can offer it.
+    The same payload as `probe methods --recipe`, from the source type alone:
+    no recipe, no secret and no connection, so a read-only caller can offer
+    it. Only a registered source name is accepted, never an import path.
     """
     with _exit_codes(fallback=EXIT_INTERNAL):
+        if "." in source_type or ":" in source_type:
+            # The registry imports such a name as a module path. No registered
+            # source name contains either, so refuse before anything loads.
+            raise ValueError(
+                f"{source_type!r} is not a registered source type; this command "
+                f"takes a source name such as 'snowflake', not an import path"
+            )
         _emit(_probe_methods_payload(source_type))
 
 
@@ -809,7 +817,8 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     """List what this source can be asked about, and how to ask it.
 
     Connection-free: reports each command, its params, and its description --
-    the help the agent reads to decide which method to call.
+    the help the agent reads to decide which method to call. `datahub recipe
+    probe-methods <source_type>` reports the same without a recipe.
     """
     secret_values: Set[str] = set()
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
@@ -823,11 +832,10 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
 def _probe_methods_payload(source_type: str) -> Dict[str, object]:
     """What `probe methods` and `probe-methods` both report: the commands
     depend on the source type alone, never on recipe values."""
+    # Listed before the ping, so telemetry only ever sees a real source type.
+    methods = [s.to_dict() for s in list_probe_methods(source_type)]
     _ping_probe("methods", source_type)
-    return {
-        "source_type": source_type,
-        "methods": [s.to_dict() for s in list_probe_methods(source_type)],
-    }
+    return {"source_type": source_type, "methods": methods}
 
 
 # A `probe run` result is capped at MAX_PROBE_ITEMS entries, so a real one is
