@@ -2,8 +2,24 @@ import { MockedProvider } from '@apollo/client/testing';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+vi.mock('@images/FTE-search.mp4', () => ({ default: '/search.mp4' }));
+vi.mock('@images/FTE-lineage.mp4', () => ({ default: '/lineage.mp4' }));
+vi.mock('@images/FTE-impact.mp4', () => ({ default: '/impact.mp4' }));
+vi.mock('@images/FTE-ai-documentation.mp4', () => ({ default: '/ai.mp4' }));
+
+function ReopenTour() {
+    const { triggerModalTour } = useOnboardingTour();
+    return (
+        <button type="button" onClick={triggerModalTour}>
+            reopen tour
+        </button>
+    );
+}
 
 const { carouselNext, carouselPrev, slideChange } = vi.hoisted(() => ({
     carouselNext: vi.fn(),
@@ -54,10 +70,15 @@ describe('WelcomeToDataHubModal slide advance', () => {
         carouselPrev.mockClear();
         slideChange.current = undefined;
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        // jsdom logs "Not implemented" for media playback. The pause behavior is
+        // covered in the VideoSlide tests.
+        vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+        vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
     });
 
     afterEach(() => {
         vi.useRealTimers();
+        vi.restoreAllMocks();
     });
 
     it('still advances the first clip after ArrowLeft does not move', () => {
@@ -139,5 +160,45 @@ describe('WelcomeToDataHubModal slide advance', () => {
         expect(screen.queryByText('Find Any Asset, Anywhere')).toBeNull();
         expect(document.querySelector('video')).toBeNull();
         expect(document.querySelector('img')).toBeNull();
+    });
+
+    it('does not keep a prefetched clip playing on the next opening', async () => {
+        render(
+            <MockedProvider>
+                <TestPageContainer>
+                    <OnboardingTourProvider>
+                        <WelcomeToDataHubModal />
+                        <ReopenTour />
+                    </OnboardingTourProvider>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        document.querySelectorAll('img').forEach((img) => fireEvent.load(img));
+
+        const search = document.querySelector('video[src="/search.mp4"]') as HTMLVideoElement;
+        expect(search).not.toBeNull();
+        Object.defineProperty(search, 'duration', { configurable: true, value: 10 });
+        Object.defineProperty(search, 'currentTime', { configurable: true, value: 9 });
+        fireEvent.timeUpdate(search);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        document.querySelectorAll('img').forEach((img) => fireEvent.load(img));
+        expect(document.querySelector('video[src="/lineage.mp4"]')).not.toBeNull();
+
+        fireEvent.click(screen.getByTestId('modal-close-icon'));
+        fireEvent.click(screen.getByRole('button', { name: 'reopen tour' }));
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        document.querySelectorAll('img').forEach((img) => fireEvent.load(img));
+
+        expect(document.querySelector('video[src="/search.mp4"]')).not.toBeNull();
+        expect(document.querySelector('video[src="/lineage.mp4"]')).toBeNull();
     });
 });

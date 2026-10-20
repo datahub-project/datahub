@@ -6,6 +6,16 @@ import { VideoSlide } from '@app/onboarding/WelcomeToDataHubModal.components';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('VideoSlide', () => {
+    beforeEach(() => {
+        // jsdom logs "Not implemented" for media playback.
+        vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+        vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it('paints the poster image first and mounts the video after it loads', () => {
         const { container, rerender } = render(
             <MockedProvider>
@@ -90,5 +100,29 @@ describe('VideoSlide', () => {
 
         fireEvent.timeUpdate(video as HTMLVideoElement);
         expect(onTimeUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('pauses a clip when it stops being the visible slide', () => {
+        const { container, rerender } = render(
+            <MockedProvider>
+                <TestPageContainer>
+                    <VideoSlide posterSrc="/poster.webp" videoSrc="/video.mp4" width="620px" />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.load(container.querySelector('img') as HTMLImageElement);
+        const video = container.querySelector('video') as HTMLVideoElement;
+        Object.defineProperty(video, 'paused', { configurable: true, value: false });
+
+        rerender(
+            <MockedProvider>
+                <TestPageContainer>
+                    <VideoSlide active={false} posterSrc="/poster.webp" videoSrc="/video.mp4" width="620px" />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
     });
 });

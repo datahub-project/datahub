@@ -169,13 +169,17 @@ export const VideoSlide: React.FC<VideoSlideProps> = ({
         setFrameReady(false);
     }, [videoSrc]);
 
-    // autoPlay only applies on mount. A slide prefetched with src already set
-    // has to be started when it becomes the visible one.
+    // autoPlay only applies on mount. A slide that already has its MP4 has to be
+    // started when it becomes the visible one, and paused when it is not, or a
+    // hidden clip keeps playing.
     useEffect(() => {
-        if (!active) return undefined;
         const video = videoRef.current;
         if (!video) return undefined;
         try {
+            if (!active) {
+                if (!video.paused) video.pause();
+                return undefined;
+            }
             video.play()?.catch(() => {});
         } catch {
             // jsdom does not implement media playback.

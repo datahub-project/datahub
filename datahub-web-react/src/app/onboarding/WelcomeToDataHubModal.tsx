@@ -77,21 +77,31 @@ export const WelcomeToDataHubModal = () => {
     const MODAL_WIDTH_NUM = MODAL_IMAGE_WIDTH_RAW + 45; // Add padding
     const MODAL_WIDTH = `${MODAL_WIDTH_NUM}px`;
 
+    // HomePage keeps this modal mounted, so a prefetch index would otherwise
+    // survive the slide change, the close, and the next Product Tour open.
+    const clearPrefetch = useCallback(() => {
+        prefetchedFromSlideRef.current = null;
+        setPrefetchSlide(null);
+    }, []);
+
     // Automatic tour for first-time home page visitors
     useEffect(() => {
         if (!shouldSkipWelcomeModal) {
+            clearPrefetch();
             setShouldShow(true);
             setCurrentSlide(0);
         }
-    }, [shouldSkipWelcomeModal]);
+    }, [clearPrefetch, shouldSkipWelcomeModal]);
 
     // Manual tour trigger from Product Tour buttons
     useEffect(() => {
         if (isModalTourOpen) {
+            clearPrefetch();
+            setClipStarted(false);
             setShouldShow(true);
             setCurrentSlide(0);
         }
-    }, [isModalTourOpen]);
+    }, [clearPrefetch, isModalTourOpen]);
 
     const clearAdvanceTimer = useCallback(() => {
         if (advanceTimerRef.current) {
@@ -269,6 +279,7 @@ export const WelcomeToDataHubModal = () => {
                 totalSlides: TOTAL_CAROUSEL_SLIDES,
             });
 
+            clearPrefetch();
             setClipStarted(false);
             setCurrentSlide(current);
         }
@@ -285,6 +296,8 @@ export const WelcomeToDataHubModal = () => {
         });
 
         advancedFromSlideRef.current = null;
+        clearPrefetch();
+        setClipStarted(false);
         clearAdvanceTimer();
         setShouldShow(false);
         setCurrentSlide(0); // Reset to first slide for next opening
