@@ -18,6 +18,7 @@ describe('revealDocumentInTree', () => {
             documentTitle: 'Root Doc',
             parentDocuments: [],
             getNode: () => undefined,
+            isLoadedRoot: () => false,
             expandNode,
             ensureNode,
             loadChildren,
@@ -42,6 +43,33 @@ describe('revealDocumentInTree', () => {
                 { urn: 'urn:li:document:a', title: 'A' },
             ],
             getNode: () => undefined,
+            isLoadedRoot: () => false,
+            expandNode: vi.fn(),
+            ensureNode,
+            loadChildren,
+            loadMoreChildren: vi.fn().mockResolvedValue([]),
+            hasMoreChildren: () => false,
+        });
+
+        expect(ensureNode).not.toHaveBeenCalled();
+        expect(loadChildren).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when the root exists only as a stale nodes-map entry', async () => {
+        // initializeTree drops scrolled-off roots from rootUrns but may leave them in nodes.
+        const staleRoot = makeNode({ urn: 'urn:li:document:a', title: 'A', hasChildren: true });
+        const ensureNode = vi.fn();
+        const loadChildren = vi.fn().mockResolvedValue([]);
+
+        await revealDocumentInTree({
+            documentUrn: 'urn:li:document:c',
+            documentTitle: 'C',
+            parentDocuments: [
+                { urn: 'urn:li:document:b', title: 'B' },
+                { urn: 'urn:li:document:a', title: 'A' },
+            ],
+            getNode: (urn) => (urn === staleRoot.urn ? staleRoot : undefined),
+            isLoadedRoot: () => false,
             expandNode: vi.fn(),
             ensureNode,
             loadChildren,
@@ -92,6 +120,7 @@ describe('revealDocumentInTree', () => {
                 { urn: 'urn:li:document:a', title: 'A' },
             ],
             getNode: (urn) => nodes.get(urn),
+            isLoadedRoot: (urn) => nodes.has(urn) && nodes.get(urn)?.parentUrn == null,
             expandNode,
             ensureNode,
             loadChildren,
@@ -132,6 +161,7 @@ describe('revealDocumentInTree', () => {
             documentTitle: 'Target',
             parentDocuments: [{ urn: 'urn:li:document:a', title: 'A' }],
             getNode: (urn) => nodes.get(urn),
+            isLoadedRoot: (urn) => urn === 'urn:li:document:a',
             expandNode,
             ensureNode,
             loadChildren,
@@ -181,6 +211,7 @@ describe('revealDocumentInTree', () => {
             documentTitle: 'Target',
             parentDocuments: [{ urn: 'urn:li:document:a', title: 'A' }],
             getNode: (urn) => nodes.get(urn),
+            isLoadedRoot: (urn) => urn === 'urn:li:document:a',
             expandNode,
             ensureNode,
             loadChildren,

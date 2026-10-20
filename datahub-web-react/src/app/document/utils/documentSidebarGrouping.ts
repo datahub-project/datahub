@@ -1,4 +1,5 @@
 import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { prependMissingUrnEntities } from '@app/sharedV2/utils/mergeUrnEntities';
 
 import { Document, Domain, Entity, EntityType, FacetMetadata } from '@types';
 
@@ -32,10 +33,6 @@ type BuildDocumentDomainGroupsOptions = {
 
 function isDomain(entity: Entity | null | undefined): entity is Domain {
     return entity?.type === EntityType.Domain;
-}
-
-export function sumFacetAggregationCounts(facet?: FacetMetadata): number {
-    return (facet?.aggregations ?? []).reduce((total, aggregation) => total + aggregation.count, 0);
 }
 
 /**
@@ -122,6 +119,8 @@ export function buildDocumentDomainGroupSearchInput(groupKey: string): {
     return { domains: [groupKey] };
 }
 
+type DomainGroupDocument = { urn: string; domain?: Document['domain'] };
+
 /** True when the document's domain association matches the group header key. */
 export function documentBelongsInDomainGroup(
     document: Pick<Document, 'domain'> | null | undefined,
@@ -131,6 +130,43 @@ export function documentBelongsInDomainGroup(
     const domainUrn = document.domain?.domain?.urn;
     if (isUnassignedDocumentDomainGroup(groupKey)) return !domainUrn;
     return domainUrn === groupKey;
+}
+
+/**
+ * Drop the open document from a group it has left, and prepend it onto the group
+ * it now belongs to when that group's loaded page doesn't include it yet.
+ */
+export function documentsInDomainGroup<T extends DomainGroupDocument>(
+    documents: T[],
+    groupKey: string,
+    selectedDocument?: T | null,
+): T[] {
+    if (!selectedDocument) return documents;
+
+    const belongs = documentBelongsInDomainGroup(selectedDocument, groupKey);
+    const visible = belongs ? documents : documents.filter((document) => document.urn !== selectedDocument.urn);
+    if (!belongs) return visible;
+    return prependMissingUrnEntities(visible, [selectedDocument]);
+}
+
+/**
+ * Refetch domain group pages only when the same open document moves between groups.
+ * Opening a different document in another group must not remount the tree.
+ * First resolution and navigate-away must not refetch.
+ */
+export function shouldRefetchDocumentDomainGroups(
+    previousUrn: string | null | undefined,
+    previousGroupKey: string | null | undefined,
+    nextUrn: string | null | undefined,
+    nextGroupKey: string | null | undefined,
+): boolean {
+    return (
+        !!previousUrn &&
+        previousUrn === nextUrn &&
+        !!previousGroupKey &&
+        !!nextGroupKey &&
+        previousGroupKey !== nextGroupKey
+    );
 }
 
 export function getDocumentSidebarTitle(document: Document, untitledFallback: string): string {
