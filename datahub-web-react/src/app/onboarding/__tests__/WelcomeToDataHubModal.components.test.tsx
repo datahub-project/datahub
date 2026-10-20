@@ -1,12 +1,12 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
 import { VideoSlide } from '@app/onboarding/WelcomeToDataHubModal.components';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('VideoSlide', () => {
-    it('keeps the poster video mounted when its source becomes available', () => {
+    it('paints the poster image first and mounts the video after it loads', () => {
         const { container, rerender } = render(
             <MockedProvider>
                 <TestPageContainer>
@@ -14,11 +14,10 @@ describe('VideoSlide', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        const video = container.querySelector('video');
 
-        expect(video).toHaveAttribute('poster', '/poster.webp');
-        expect(video).not.toHaveAttribute('src');
-        expect(video).not.toHaveAttribute('width');
+        const poster = container.querySelector('img');
+        expect(poster).toHaveAttribute('src', '/poster.webp');
+        expect(container.querySelector('video')).toBeNull();
 
         rerender(
             <MockedProvider>
@@ -28,7 +27,14 @@ describe('VideoSlide', () => {
             </MockedProvider>,
         );
 
-        expect(container.querySelector('video')).toBe(video);
+        // Video stays unmounted until the poster has painted.
+        expect(container.querySelector('video')).toBeNull();
+
+        fireEvent.load(container.querySelector('img') as HTMLImageElement);
+
+        const video = container.querySelector('video');
+        expect(video).not.toBeNull();
         expect(video).toHaveAttribute('src', '/video.mp4');
+        expect(video).not.toHaveAttribute('width');
     });
 });

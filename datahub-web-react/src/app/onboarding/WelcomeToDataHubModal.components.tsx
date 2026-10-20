@@ -1,6 +1,6 @@
 import { Heading, Text } from '@components';
 import { Spin } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { typography } from '@components/theme';
@@ -46,12 +46,11 @@ export const VideoContainer = styled.div`
 /**
  * Holds the tour carousel at the height slick settles on.
  *
- * Before slick finishes measuring, every slide is in normal flow, including the
- * 3376×2000 closing screenshot. The centered modal is then ~3200px tall, the
- * visible video sits below the viewport, and it jumps in when the track
- * collapses to one row. That jump is the first-visit CLS (the video enters the
- * viewport mid zoom). Cap the list at the settled height — the closing slide,
- * 539px at a 620px image — so the modal opens already centered.
+ * Before slick finishes measuring, every slide is in normal flow. The centered
+ * modal can open thousands of pixels tall, the visible video sits below the
+ * viewport, and it jumps in when the track collapses to one row. That jump is
+ * the first-visit CLS (the video enters the viewport mid zoom). Cap the list
+ * so the modal opens already centered.
  */
 export const TourSlides = styled.div`
     .slick-list {
@@ -100,13 +99,28 @@ export const StyledDocsLink = styled.a`
     }
 `;
 
-const StyledVideo = styled.video<{ $width: string }>`
+const MediaBox = styled.div<{ $width: string }>`
+    position: relative;
     display: block;
     width: ${(props) => props.$width};
-    /* Lock the box before metadata arrives. A bare <video> is 300×150 until the
-       MP4 loads, and that jump is what pushed first-visit CLS over 0.1. */
     height: calc(${(props) => props.$width} * 720 / 1208);
     aspect-ratio: 1208 / 720;
+    margin: 0 auto;
+`;
+
+const PosterImage = styled.img`
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+`;
+
+const StyledVideo = styled.video`
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
 `;
 
@@ -116,9 +130,26 @@ interface VideoSlideProps {
     width: string;
 }
 
+// Paint the WebP poster as an <img> first so first-visit LCP can be that image.
+// Mount the <video> only after the poster has painted and an MP4 URL is ready.
 // src on the video element restarts resource selection when the MP4 URL arrives.
 // A <source> child inserted after the first pass does not, so autoplay never starts.
-// $width stays off the DOM: the width attribute would otherwise be the string "620px".
-export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, posterSrc, width }) => (
-    <StyledVideo $width={width} poster={posterSrc} src={videoSrc || undefined} autoPlay loop muted playsInline />
-);
+export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, posterSrc, width }) => {
+    const [posterReady, setPosterReady] = useState(false);
+    const showVideo = Boolean(posterReady && videoSrc);
+
+    return (
+        <MediaBox $width={width}>
+            <PosterImage
+                src={posterSrc}
+                alt=""
+                width={1208}
+                height={720}
+                onLoad={() => setPosterReady(true)}
+                // Keep the poster under the video so a late decode does not flash empty.
+                style={{ visibility: showVideo ? 'hidden' : 'visible' }}
+            />
+            {showVideo ? <StyledVideo src={videoSrc} autoPlay loop muted playsInline /> : null}
+        </MediaBox>
+    );
+};

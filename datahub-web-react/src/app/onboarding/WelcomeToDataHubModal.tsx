@@ -21,9 +21,11 @@ import aiDocumentationPoster from '@images/FTE-ai-documentation-poster.webp';
 import impactPoster from '@images/FTE-impact-poster.webp';
 import lineagePoster from '@images/FTE-lineage-poster.webp';
 import searchPoster from '@images/FTE-search-poster.webp';
-import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.png';
+import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.webp';
 
 const SLIDE_DURATION_MS = 10000;
+/** Start the next clip before autoplay advances so the following slide is warm. */
+const NEXT_VIDEO_PREFETCH_MS = SLIDE_DURATION_MS - 2000;
 const DATAHUB_DOCS_URL = 'https://docs.datahub.com/docs/category/features';
 
 interface VideoSources {
@@ -80,25 +82,40 @@ export const WelcomeToDataHubModal = () => {
     }, [isModalTourOpen]);
 
     // Download only the slide that is showing. The other slides stay in the tour
-    // and pick up their MP4 when the carousel reaches them.
+    // and pick up their MP4 when the carousel reaches them. Prefetch the next
+    // clip shortly before autoplay advances so the following slide is warm.
     useEffect(() => {
         if (!shouldShow) return undefined;
 
-        const videoKey = videoKeyForSlide(currentSlide, isDocumentationSlideEnabled);
-        if (!videoKey) return undefined;
-
         let cancelled = false;
-        loadTourVideo(videoKey)
-            .then((src) => {
-                if (cancelled) return;
-                setVideoSources((prev) => (prev[videoKey] === src ? prev : { ...prev, [videoKey]: src }));
-            })
-            .catch((error) => {
-                console.error(`Failed to load ${videoKey} video:`, error);
-            });
+
+        function rememberVideo(videoKey: keyof VideoSources) {
+            loadTourVideo(videoKey)
+                .then((src) => {
+                    if (cancelled) return;
+                    setVideoSources((prev) => (prev[videoKey] === src ? prev : { ...prev, [videoKey]: src }));
+                })
+                .catch((error) => {
+                    console.error(`Failed to load ${videoKey} video:`, error);
+                });
+        }
+
+        const videoKey = videoKeyForSlide(currentSlide, isDocumentationSlideEnabled);
+        if (videoKey) {
+            rememberVideo(videoKey);
+        }
+
+        const nextKey = videoKeyForSlide(currentSlide + 1, isDocumentationSlideEnabled);
+        let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
+        if (nextKey) {
+            prefetchTimer = setTimeout(() => {
+                if (!cancelled) rememberVideo(nextKey);
+            }, NEXT_VIDEO_PREFETCH_MS);
+        }
 
         return () => {
             cancelled = true;
+            if (prefetchTimer) clearTimeout(prefetchTimer);
         };
     }, [currentSlide, isDocumentationSlideEnabled, shouldShow]);
 
