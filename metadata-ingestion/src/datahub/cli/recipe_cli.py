@@ -603,6 +603,18 @@ def describe(source_type: str) -> None:
         _emit(describe_source(source_type).to_dict())
 
 
+@recipe.command(name="probe-methods")
+@click.argument("source_type")
+def probe_methods_by_type(source_type: str) -> None:
+    """List what a source type can be asked about, and how to ask it.
+
+    The same payload as `probe methods`, from the source type alone: no recipe,
+    no secret and no connection, so a read-only caller can offer it.
+    """
+    with _exit_codes(fallback=EXIT_INTERNAL):
+        _emit(_probe_methods_payload(source_type))
+
+
 @recipe.command(name="scaffold")
 @click.argument("source_type")
 def recipe_scaffold(source_type: str) -> None:
@@ -803,14 +815,19 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, _, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
-        _ping_probe("methods", source_type)
-        specs = list_probe_methods(source_type)
-        payload = {
-            "source_type": source_type,
-            "methods": [s.to_dict() for s in specs],
-        }
+        payload = _probe_methods_payload(source_type)
         _write_report(report_to, payload)
         _emit(payload)
+
+
+def _probe_methods_payload(source_type: str) -> Dict[str, object]:
+    """What `probe methods` and `probe-methods` both report: the commands
+    depend on the source type alone, never on recipe values."""
+    _ping_probe("methods", source_type)
+    return {
+        "source_type": source_type,
+        "methods": [s.to_dict() for s in list_probe_methods(source_type)],
+    }
 
 
 # A `probe run` result is capped at MAX_PROBE_ITEMS entries, so a real one is

@@ -523,6 +523,8 @@ parameters and what it returns:
 
 ```shell
 datahub recipe probe methods --recipe my_recipe.yml
+# The same list from the source type alone: no recipe, no secret, no connection
+datahub recipe probe-methods snowflake
 
 # Call one; a command's parameters imply the nesting
 datahub recipe probe run columns --recipe my_recipe.yml --schema public --table orders
