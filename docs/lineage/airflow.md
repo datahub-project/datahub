@@ -28,6 +28,19 @@ The plugin requires Airflow 3.0+ and Python 3.10+. If you don't meet these requi
 pip install 'acryl-datahub-airflow-plugin'
 ```
 
+### Installing with Airflow constraints
+
+`acryl-datahub` requires `click>=8.3.3` and `anyio>=4.14.2`. Apache Airflow's published constraint file still pins older releases of both, so `pip install acryl-datahub-airflow-plugin -c <airflow constraints>` cannot resolve. Rewrite those two lines, then install against the result. Replace the Airflow and Python versions in the URL with the ones you run:
+
+```shell
+curl -fsSL "https://raw.githubusercontent.com/apache/airflow/constraints-3.0.2/constraints-3.11.txt" \
+  | sed -e 's/^anyio==.*/anyio>=4.14.2/' -e 's/^click==.*/click>=8.3.3/' \
+  > /tmp/datahub-relaxed-constraints.txt
+pip install 'acryl-datahub-airflow-plugin' -c /tmp/datahub-relaxed-constraints.txt
+```
+
+Leave every other pin in that file as Airflow published it.
+
 ### Configuration
 
 Set up a DataHub connection in Airflow, either via command line or the Airflow UI.
@@ -608,6 +621,14 @@ All recent versions require Python 3.10+.
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. The lineage backend functionality was pretty limited - it did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA - and so it has been removed from the codebase. The [documentation for the lineage backend](https://archive.docs.datahub.com/docs/0.10.5/lineage/airflow#using-datahubs-airflow-lineage-backend-deprecated) has been archived.
 
 ## Changelog
+
+### Next
+
+- _Fixes_:
+  - Installing with Apache Airflow's constraint file needs those two pins relaxed first.
+    `click` is `>=8.3.3` and `anyio` is `>=4.14.2`, and Airflow's file still pins older
+    releases, so a constrained install cannot resolve until the file is rewritten. See
+    [Installing with Airflow constraints](#installing-with-airflow-constraints).
 
 `acryl-datahub-airflow-plugin` is published to PyPI on **every** DataHub release and carries that
 release's version, so `acryl-datahub-airflow-plugin==1.7.0.10` is the plugin built from DataHub

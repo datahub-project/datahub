@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from typing import Any, Dict
+from typing import Any, Dict, List
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -7,7 +7,7 @@ import requests
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe_methods import _iter_specs
-from datahub.ingestion.agent.verdicts import ProbeSoftError
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
 from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
     ModeProbeSource,
@@ -371,10 +371,35 @@ def test_a_space_scoped_command_lists_spaces_exactly_once(call):
     assert len(listings) == 1, cfg._session.calls
 
 
-def test_an_unknown_space_degrades_with_a_warning_not_a_false_empty():
+def test_an_unknown_space_is_the_callers_argument_not_a_false_empty():
     probe = _probe(_cfg())
-    assert probe.reports("NoSuchSpace") == []
-    assert any("NoSuchSpace" in w for w in probe.warnings)
+    with pytest.raises(ProbeArgumentError, match="NoSuchSpace"):
+        probe.reports("NoSuchSpace")
+
+
+def test_an_unknown_report_is_the_callers_argument():
+    probe = _probe(_cfg())
+    with pytest.raises(ProbeArgumentError):
+        probe.queries("SharedSpaceA", "NoSuchReport")
+
+
+class _ForbiddenSession(_SoftErrorOnSecondPageSession):
+    """Every request 403s, the primary /spaces listing included."""
+
+    def get(self, url, **kw):
+        response = SimpleNamespace(status_code=403, text="mocked error body")
+
+        def _raise() -> None:
+            raise requests.HTTPError("403 Client Error", response=response)
+
+        response.raise_for_status = _raise
+        return response
+
+
+def test_a_403_on_the_spaces_listing_is_a_warning_not_a_silent_empty():
+    probe = _probe(_cfg(session=_ForbiddenSession()))
+    assert probe.spaces() == []
+    assert any("403" in w for w in probe.warnings), probe.warnings
 
 
 def test_the_provider_closes_its_session():
@@ -420,18 +445,13 @@ def test_datasets_404_degrades_to_empty_and_records_a_warning():
     assert "404" in probe.warnings[0]
 
 
-def test_unresolvable_parent_produces_warnings_not_a_silent_empty_listing():
+def test_unresolvable_parent_is_refused_not_a_silent_empty_listing():
     # Regression guard: a typo'd --parent must not look identical to "this
-    # space genuinely has no reports/datasets" -- both sibling levels resolve
-    # the same parent name independently, so each contributes its own
-    # warning (see _reports/_datasets) instead of the call quietly returning
-    # nodes=[], warnings=[].
+    # space genuinely has no reports/datasets", on either sibling listing.
     probe = _probe(_cfg())
-    assert probe.reports("NoSuchSpace") == []
-    assert probe.datasets("NoSuchSpace") == []
-    # One shared reason, deduped, rather than one per listing asked.
-    assert len(probe.warnings) == 1
-    assert "NoSuchSpace" in probe.warnings[0]
+    for listing in (probe.reports, probe.datasets):
+        with pytest.raises(ProbeArgumentError):
+            listing("NoSuchSpace")
 
 
 def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
@@ -532,6 +552,20 @@ def test_probe_source_context_manager_closes_session():
     with probe:
         pass
     assert session.closed
+
+
+def test_probe_source_exit_closes_what_it_opened_and_not_the_ingestion_report(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A client opened with _open_once is ProbeProviderBase's to close; the
+    # chain stops there, short of ModeSource.close (Closeable.__exit__), which
+    # would close a report on a source the probe never initialised.
+    closed: List[str] = []
+    monkeypatch.setattr(ModeSource, "close", lambda self: closed.append("report"))
+    probe = _method_probe()
+    with probe:
+        probe._open_once("client", object, close=lambda _c: closed.append("client"))
+    assert closed == ["client"]
 
 
 @pytest.mark.parametrize("status_code", [404, 403, 401, 500])

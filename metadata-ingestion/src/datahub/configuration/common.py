@@ -454,6 +454,20 @@ class AllowDenyPattern(ConfigModel):
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
 
+    def is_allow_all(self) -> bool:
+        """Whether this pattern lets every string through.
+
+        Use this instead of `== AllowDenyPattern.allow_all()`. `__eq__`
+        compares `__dict__`, which also holds the compiled-regex caches once
+        `allowed()` has run, so a used default pattern stops equalling a
+        fresh one. `ignoreCase` does not matter: `.*` matches regardless.
+
+        Only a literal `".*"` allow entry with an empty deny list counts.
+        Equivalent regexes (`^.*$`, `.+`) return False, so treat False as
+        "unknown", not "restricted".
+        """
+        return not self.deny and ".*" in self.allow
+
     def allowed(self, string: str) -> bool:
         if self.denied(string):
             return False
@@ -517,6 +531,65 @@ class Filters:
 
     `kind` is a DataHub subtype constant — a StrEnum member, hence a str. It is
     typed str so this module stays free of any ingestion imports.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Enables:
+    """Declares that this bool field enables a probe level: True, ingestion
+    emits that kind; False, it emits none of it, whatever its pattern says.
+
+    Sibling of Filters, attached the same way, at the field:
+
+        include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
+            default=True, description="Whether views should be ingested."
+        )
+
+    The polarity is fixed: True enables. A field whose True means skip
+    (`skip_views`) must not carry it, since the probe would then report the
+    kind excluded exactly when ingestion emits it. Only False switches the
+    kind off, so an Optional[bool] left unset reads as enabled.
+
+    Declare it only where False stops the kind being emitted at all; a flag
+    deciding what is emitted about an object (lineage, profiling) is not one.
+    A field enabling more than one kind stacks one Enables per kind, as
+    Filters does:
+
+        include_views: Annotated[
+            bool,
+            Enables(DatasetSubTypes.VIEW),
+            Enables(DatasetSubTypes.SEMANTIC_MODEL),
+        ] = Field(default=True, description="...")
+
+    `kind` is a DataHub subtype constant, typed str as Filters' is.
+    """
+
+    kind: str
+
+
+@dataclasses.dataclass(frozen=True)
+class FiltersByRule:
+    """Declares that this field's rules, not an AllowDenyPattern, decide which
+    objects of a probe level are ingested.
+
+    Sibling of Filters, for a level no pattern states: a list of path rules,
+    or a bool under which the level follows from what else is ingested. The
+    field can be of any type, which is why this is not Enables: a bool can be
+    either. The probe reports the kind filtered by rule, naming this field,
+    and asks the config's probe_verdict_override to judge every name of it.
+
+        path_specs: Annotated[
+            List[PathSpec],
+            FiltersByRule(DatasetContainerSubTypes.FOLDER),
+            FiltersByRule(DatasetSubTypes.TABLE),
+        ] = Field(description="...")
+
+    One per kind, stacked as Filters stacks. A kind it marks has no pattern
+    field, so it carries no Filters.
+
+    `kind` is a DataHub subtype constant, typed str as Filters' is.
     """
 
     kind: str

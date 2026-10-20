@@ -20,7 +20,12 @@ record Owner {
     "hasValuesFieldName": "hasOwners",
     "queryByDefault": false,
     "filterNameOverride": "Owned By",
-    "searchTier": 2
+    "v3": {
+      "searchLabel": "owners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   owner: Urn
 

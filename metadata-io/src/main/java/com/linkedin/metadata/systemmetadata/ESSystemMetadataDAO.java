@@ -12,6 +12,8 @@ import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -179,7 +181,10 @@ public class ESSystemMetadataDAO {
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -221,7 +226,10 @@ public class ESSystemMetadataDAO {
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -260,7 +268,10 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexName(opContext));
 
     try {
-      return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.time(
+          opContext,
+          SearchOperation.SYSTEM_METADATA,
+          () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
     }
@@ -295,7 +306,11 @@ public class ESSystemMetadataDAO {
     searchRequest.indices(indexName(opContext));
 
     try {
-      SearchResponse response = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      SearchResponse response =
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       if (response == null
           || response.getHits() == null
           || response.getHits().getTotalHits() == null) {
@@ -365,7 +380,10 @@ public class ESSystemMetadataDAO {
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return searchResponse;
     } catch (IOException e) {
       e.printStackTrace();
@@ -390,7 +408,10 @@ public class ESSystemMetadataDAO {
 
     try {
       SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return parseRemovalStatusFiltersAggregation(searchResponse);
     } catch (IOException e) {
       log.error("Key aspect count query failed for aspect {}", keyAspectName, e);
@@ -429,7 +450,10 @@ public class ESSystemMetadataDAO {
 
     try {
       SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return parseKeyAspectTermsAggregation(searchResponse, keyAspectNames);
     } catch (IOException e) {
       log.error("Key aspect batch count query failed", e);

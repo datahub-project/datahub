@@ -155,12 +155,14 @@ public class SsoManager {
       OidcProvider existingOidcProvider = (OidcProvider) existingSsoProvider;
       // If the existing provider is an OIDC provider and the configs are the same, do nothing.
       if (existingOidcProvider.configs().equals(oidcConfigs)) {
+        log.debug("OIDC provider reused; settings unchanged");
         return;
       }
     }
 
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
     setSsoProvider(oidcProvider);
+    log.info("OIDC provider rebuilt");
   }
 
   /** Call the Auth Service to get SSO settings */

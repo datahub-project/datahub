@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUti
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -87,6 +88,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         boolean useOpenSearch = usageComponents.getSearchClient().getEngineType().isOpenSearch();
         int numShards = usageComponents.getConfig().getIndex().getNumShards();
         int numReplicas = usageComponents.getConfig().getIndex().getNumReplicas();
+        int usageRefreshSeconds = usageRefreshSeconds(usageComponents);
 
         log.info(
             "Creating usage event indices on engine {} shards={} replicas={}",
@@ -96,10 +98,20 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
 
         if (useOpenSearch) {
           setupOpenSearchUsageEvents(
-              usageComponents, indexPrefix, numShards, numReplicas, context.opContext());
+              usageComponents,
+              indexPrefix,
+              numShards,
+              numReplicas,
+              usageRefreshSeconds,
+              context.opContext());
         } else {
           setupElasticsearchUsageEvents(
-              usageComponents, context.opContext(), indexPrefix, numShards, numReplicas);
+              usageComponents,
+              context.opContext(),
+              indexPrefix,
+              numShards,
+              numReplicas,
+              usageRefreshSeconds);
         }
 
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -120,16 +132,32 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         .asComponents(esComponents.getIndexConvention());
   }
 
+  private static int usageRefreshSeconds(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster) {
+    RefreshIntervals intervals =
+        cluster.getConfig() == null || cluster.getConfig().getIndex() == null
+            ? null
+            : cluster.getConfig().getIndex().getRefreshIntervals();
+    Integer seconds = intervals == null ? null : intervals.getUsageSeconds();
+    if (seconds == null) {
+      throw new IllegalStateException(
+          "elasticsearch.index.refreshIntervals.usageSeconds is not configured");
+    }
+    return seconds;
+  }
+
   private void setupElasticsearchUsageEvents(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
       OperationContext operationContext,
       String prefix,
       int numShards,
-      int numReplicas)
+      int numReplicas,
+      int usageRefreshSeconds)
       throws Exception {
     String prefixedPolicy = prefix + "datahub_usage_event_policy";
     String prefixedTemplate = prefix + "datahub_usage_event_index_template";
     String prefixedDataStream = prefix + "datahub_usage_event";
+    String refreshInterval = usageRefreshSeconds + "s";
 
     UsageEventIndexUtils.createIlmPolicy(operationContext, cluster, prefixedPolicy);
     UsageEventIndexUtils.createIndexTemplate(
@@ -139,7 +167,8 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         prefixedPolicy,
         numShards,
         numReplicas,
-        prefix);
+        prefix,
+        refreshInterval);
     withLegacyMigration(
         cluster,
         operationContext,
@@ -147,6 +176,8 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         false,
         true,
         () -> UsageEventIndexUtils.createDataStream(operationContext, cluster, prefixedDataStream));
+    UsageEventIndexUtils.applyRefreshInterval(
+        operationContext, cluster, prefixedDataStream, usageRefreshSeconds);
   }
 
   private void setupOpenSearchUsageEvents(
@@ -154,6 +185,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       String prefix,
       int numShards,
       int numReplicas,
+      int usageRefreshSeconds,
       OperationContext operationContext)
       throws Exception {
     String prefixedPolicy = prefix + "datahub_usage_event_policy";
@@ -169,7 +201,13 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       log.info("ISM policy created successfully, proceeding with template and index creation");
       log.info("Creating index template: {}", prefixedTemplate);
       UsageEventIndexUtils.createOpenSearchIndexTemplate(
-          operationContext, cluster, prefixedTemplate, numShards, numReplicas, prefix);
+          operationContext,
+          cluster,
+          prefixedTemplate,
+          numShards,
+          numReplicas,
+          prefix,
+          usageRefreshSeconds + "s");
       withLegacyMigration(
           cluster,
           operationContext,
@@ -188,6 +226,9 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       // A layout an earlier run created may still have backups to copy back.
       withLegacyMigration(cluster, operationContext, prefix, true, false, null);
     }
+    // An existing alias still needs the configured interval when this run cannot create the policy.
+    UsageEventIndexUtils.applyRefreshInterval(
+        operationContext, cluster, prefixedAlias, usageRefreshSeconds);
   }
 
   @FunctionalInterface

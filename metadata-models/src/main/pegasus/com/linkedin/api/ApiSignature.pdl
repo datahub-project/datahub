@@ -29,7 +29,8 @@ import com.linkedin.schema.SchemaField
  * cached or partial view.
  */
 @Aspect = {
-  "name": "apiSignature"
+  "name": "apiSignature",
+  "schemaVersion": 2
 }
 record ApiSignature {
   /**

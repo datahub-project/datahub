@@ -19,6 +19,8 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.FieldConfiguration;
+import com.linkedin.metadata.config.search.custom.HighlightFields;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -37,8 +39,16 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchedFields;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -60,6 +70,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -88,6 +99,20 @@ import org.opensearch.search.suggest.term.TermSuggestion;
 @Slf4j
 public class SearchRequestHandler extends BaseRequestHandler {
 
+  // Subfields that V2 highlight fields name and V3 indices do not have
+  private static final Set<String> V2_HIGHLIGHT_SUBFIELDS =
+      Set.of(
+          "*",
+          V2MappingsBuilder.DELIMITED,
+          ESUtils.KEYWORD,
+          V2LegacySettingsBuilder.NGRAM,
+          "_2gram",
+          "_3gram",
+          "_4gram",
+          V2MappingsBuilder.WORD_GRAMS_LENGTH_2,
+          V2MappingsBuilder.WORD_GRAMS_LENGTH_3,
+          V2MappingsBuilder.WORD_GRAMS_LENGTH_4);
+
   private static final Map<SearchHandlerKey, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
   private final List<EntitySpec> entitySpecs;
@@ -97,6 +122,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   private final SearchServiceConfiguration searchServiceConfig;
   private final SearchQueryBuilder searchQueryBuilder;
+
+  // Set when keyword reads go to Search V3, whose full-text query reads the shared root fields
+  @Nullable private final V3SearchQueryBuilder v3SearchQueryBuilder;
+
+  @Getter @Nullable private final SearchFieldResolver v3SearchFieldResolver;
+  // Words shorter than this are dropped by the analyzers, so they never match on V3
+  private final int v3MinWordLength;
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
   private final CustomizedQueryHandler customizedQueryHandler;
@@ -138,16 +170,28 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .collect(Collectors.toList());
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     highlights = getDefaultHighlights(opContext);
+    boolean readV3 = EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex());
+    v3SearchFieldResolver =
+        readV3
+            ? new SearchFieldResolver(
+                V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs))
+            : null;
+    v3SearchQueryBuilder =
+        readV3
+            ? new V3SearchQueryBuilder(
+                configs.getSearch(), customSearchConfiguration, v3SearchFieldResolver)
+            : null;
     searchQueryBuilder =
-        new SearchQueryBuilder(
-            configs.getSearch(),
-            customSearchConfiguration,
-            EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex()));
+        v3SearchQueryBuilder != null
+            ? v3SearchQueryBuilder
+            : new SearchQueryBuilder(configs.getSearch(), customSearchConfiguration);
+    v3MinWordLength =
+        configs.getIndex() != null ? configs.getIndex().getMinSearchFilterLength() : 0;
     aggregationQueryBuilder =
-        new AggregationQueryBuilder(
-            configs.getSearch(),
-            entitySearchAnnotations,
-            EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex()));
+        readV3
+            ? new V3AggregationQueryBuilder(
+                configs.getSearch(), entitySearchAnnotations, v3SearchFieldResolver)
+            : new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
     this.searchServiceConfig = searchServiceConfig;
     searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
@@ -227,13 +271,17 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
-    return getFilterQuery(
-        opContext,
-        this.entityNames,
-        filter,
-        searchableFieldTypes,
-        queryFilterRewriteChain,
-        entityIndexConfiguration);
+    final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
+    BoolQueryBuilder filterQuery =
+        ESUtils.buildFilterQuery(
+            readV3 ? EntityFilter.toEntityFilter(opContext, filter) : filter,
+            false,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain,
+            v3SearchFieldResolver);
+    return applyDefaultSearchFilters(
+        opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
   }
 
   public static BoolQueryBuilder getFilterQuery(
@@ -253,15 +301,37 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable EntityIndexConfiguration entityIndexConfiguration) {
+    return getFilterQuery(
+        opContext,
+        entityNames,
+        filter,
+        searchableFieldTypes,
+        queryFilterRewriteChain,
+        entityIndexConfiguration,
+        null);
+  }
+
+  /**
+   * {@code fieldResolver} is the resolver cached on a {@link SearchRequestHandler}. This method
+   * does not build one: constructing it walks every searchable field of the entity specs.
+   */
+  public static BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityNames,
+      @Nullable Filter filter,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration,
+      @Nullable SearchFieldResolver fieldResolver) {
     final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            readV3 ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
+            readV3 ? EntityFilter.toEntityFilter(opContext, filter) : filter,
             false,
-            readV3,
             searchableFieldTypes,
             opContext,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            readV3 ? fieldResolver : null);
     return applyDefaultSearchFilters(
         opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
   }
@@ -297,7 +367,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    applyFetchSource(searchSourceBuilder, searchFlags);
+    applyFetchSource(
+        searchSourceBuilder, searchFlags, getV3MatchedFieldSources(opContext, searchFlags, input));
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -309,13 +380,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
           .getAggregations(opContext, facets)
           .forEach(searchSourceBuilder::aggregation);
     }
-    if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
+    // Search V3 finds matched fields after the query instead (see MatchedFields)
+    if (v3SearchQueryBuilder == null && Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       // Apply custom highlight configuration
       HighlightBuilder highlightBuilder = getHighlightBuilder(opContext, searchFlags);
       searchSourceBuilder.highlighter(highlightBuilder);
     }
 
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
 
     if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
@@ -365,7 +437,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    applyFetchSource(searchSourceBuilder, searchFlags);
+    applyFetchSource(
+        searchSourceBuilder, searchFlags, getV3MatchedFieldSources(opContext, searchFlags, input));
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
     searchSourceBuilder.query(
@@ -377,12 +450,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
           .getAggregations(opContext, facets)
           .forEach(searchSourceBuilder::aggregation);
     }
-    if (Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
+    // Search V3 finds matched fields after the query instead (see MatchedFields)
+    if (v3SearchQueryBuilder == null && Boolean.FALSE.equals(searchFlags.isSkipHighlighting())) {
       // Apply custom highlight configuration
       HighlightBuilder highlightBuilder = getHighlightBuilder(opContext, searchFlags);
       searchSourceBuilder.highlighter(highlightBuilder);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
 
     // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
@@ -435,7 +509,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -459,18 +533,16 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
 
-    final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
+    String aggregationField =
+        v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
+            ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
+            : ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever());
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
-            .field(
-                ESUtils.toKeywordField(
-                    opContext,
-                    readV3 ? ESUtils.toV3EntityField(field) : field,
-                    readV3,
-                    opContext.getAspectRetriever()))
+            .field(aggregationField)
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 
@@ -482,13 +554,136 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return searchQueryBuilder.buildQuery(opContext, entitySpecs, query, fulltext);
   }
 
+  /**
+   * Build the query, optionally the light Stage 1 query without its expensive clauses (fuzzy,
+   * wildcard). Null for a light query that a custom configuration leaves without any clause.
+   *
+   * @see SearchQueryBuilder#buildQuery(OperationContext, List, String, boolean, boolean)
+   */
+  @Nullable
+  public QueryBuilder getQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      boolean fulltext,
+      boolean skipExpensiveClauses) {
+    return searchQueryBuilder.buildQuery(
+        opContext, entitySpecs, query, fulltext, skipExpensiveClauses);
+  }
+
   private static void applyFetchSource(
-      @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SearchFlags searchFlags) {
-    String[] includes =
-        SearchDocFieldFetchConfig.resolve(
-                SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags)
-            .toArray(String[]::new);
-    searchSourceBuilder.fetchSource(includes, null);
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nullable SearchFlags searchFlags,
+      @Nonnull Collection<String> matchedFieldSources) {
+    Set<String> includes =
+        new LinkedHashSet<>(
+            SearchDocFieldFetchConfig.resolve(
+                SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags));
+    includes.addAll(matchedFieldSources);
+    searchSourceBuilder.fetchSource(includes.toArray(String[]::new), null);
+  }
+
+  /**
+   * On Search V3, the root fields whose values {@link MatchedFields} checks: those feeding the
+   * shared fields the query reads that {@link V3SearchFields#matchedFieldSources} keeps, and the
+   * urn, as V2 highlights the fields it queries. Empty on V2, when highlighting is off, for a
+   * structured query (the {@code /q} prefix, or a search that is not full text), which names its
+   * own fields and operators that word matching would misread, and for a query with no word that
+   * could match, such as only stop words.
+   */
+  @Nonnull
+  private List<String> getV3MatchedFieldSources(
+      @Nonnull OperationContext opContext,
+      @Nullable SearchFlags searchFlags,
+      @Nullable String input) {
+    if (v3SearchQueryBuilder == null
+        || searchFlags == null
+        || Boolean.TRUE.equals(searchFlags.isSkipHighlighting())
+        || !Boolean.TRUE.equals(searchFlags.isFulltext())
+        || input == null
+        || input.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)
+        || !new MatchedFields(input, v3MinWordLength).hasQueryWords()) {
+      return List.of();
+    }
+    String fieldConfigLabel =
+        customizedQueryHandler.resolveFieldConfiguration(
+            searchFlags, CustomConfiguration::getSearchFieldConfigDefault);
+    if (!customizedQueryHandler.isHighlightingEnabled(fieldConfigLabel)) {
+      return List.of();
+    }
+    Set<String> sources =
+        new LinkedHashSet<>(
+            V3SearchFields.matchedFieldSources(
+                v3SearchQueryBuilder.searchedFields(opContext, entitySpecs)));
+    sources.add("urn");
+    final List<String> matched;
+    // Only a field the query reads can match, as V2 highlights only those
+    if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
+      Set<String> custom = v3SourceFields(searchFlags.getCustomHighlightingFields());
+      matched = sources.stream().filter(custom::contains).collect(Collectors.toList());
+    } else {
+      // A highlight configuration names V2 fields and subfields; read them as root fields. Only a
+      // field the query reads can match, as V2 highlights only those, so added fields change
+      // nothing
+      HighlightFields highlightFields = getHighlightFields(fieldConfigLabel);
+      if (highlightFields != null && !highlightFields.getReplace().isEmpty()) {
+        Set<String> replace = v3SourceFields(highlightFields.getReplace());
+        matched = sources.stream().filter(replace::contains).collect(Collectors.toList());
+      } else {
+        Set<String> remove =
+            highlightFields == null ? Set.of() : v3SourceFields(highlightFields.getRemove());
+        matched =
+            sources.stream().filter(field -> !remove.contains(field)).collect(Collectors.toList());
+      }
+    }
+    // A property copied into a searched shared field is not in that field's _source
+    List<String> copied =
+        v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs);
+    if (copied.isEmpty()) {
+      return matched;
+    }
+    List<String> withCopied = new ArrayList<>(matched);
+    for (String field : copied) {
+      if (!withCopied.contains(field)) {
+        withCopied.add(field);
+      }
+    }
+    return withCopied;
+  }
+
+  @Nullable
+  private HighlightFields getHighlightFields(@Nullable String fieldConfigLabel) {
+    CustomSearchConfiguration customSearchConfiguration =
+        customizedQueryHandler.getCustomSearchConfiguration();
+    if (fieldConfigLabel == null
+        || customSearchConfiguration == null
+        || customSearchConfiguration.getFieldConfigurations() == null) {
+      return null;
+    }
+    FieldConfiguration fieldConfiguration =
+        customSearchConfiguration.getFieldConfigurations().get(fieldConfigLabel);
+    return fieldConfiguration == null ? null : fieldConfiguration.getHighlightFields();
+  }
+
+  @Nonnull
+  private static Set<String> v3SourceFields(@Nonnull Collection<String> highlightFields) {
+    return highlightFields.stream()
+        .map(SearchRequestHandler::v3SourceField)
+        .collect(Collectors.toSet());
+  }
+
+  /**
+   * The root field a V2 highlight field names: V2 highlights subfields such as {@code
+   * name.delimited} or {@code name.*}, while V3 matches the root field's value.
+   */
+  @Nonnull
+  private static String v3SourceField(@Nonnull final String highlightField) {
+    String field = highlightField;
+    int subfield;
+    while ((subfield = field.lastIndexOf('.')) > 0
+        && V2_HIGHLIGHT_SUBFIELDS.contains(field.substring(subfield + 1))) {
+      field = field.substring(0, subfield);
+    }
+    return field;
   }
 
   @Override
@@ -510,9 +705,24 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Filter filter,
       int from,
       @Nullable Integer size) {
+    return extractResult(opContext, searchResponse, filter, from, size, null);
+  }
+
+  /**
+   * @param input the search input, from which Search V3 finds the fields each hit matched on; null
+   *     reports none on V3
+   */
+  @WithSpan
+  public SearchResult extractResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      int from,
+      @Nullable Integer size,
+      @Nullable String input) {
     handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
+    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse, input);
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
 
@@ -532,6 +742,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String keepAlive,
       @Nullable Integer size,
       boolean supportsPointInTime) {
+    return extractScrollResult(
+        opContext, searchResponse, filter, keepAlive, size, supportsPointInTime, null);
+  }
+
+  /**
+   * @param input the search input, from which Search V3 finds the fields each hit matched on; null
+   *     reports none on V3
+   */
+  @WithSpan
+  public ScrollResult extractScrollResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      boolean supportsPointInTime,
+      @Nullable String input) {
     handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
@@ -546,9 +773,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
 
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
+    final Function<SearchHit, List<MatchedField>> matchedFields = matchedFieldsOf(opContext, input);
     for (SearchHit hit : searchHits) {
       // Build base SearchEntity — skip hits with missing/invalid URN rather than crashing
-      Optional<SearchEntity> maybeEntity = getResultSafely(opContext, hit);
+      Optional<SearchEntity> maybeEntity = getResultSafely(opContext, hit, matchedFields);
       if (maybeEntity.isEmpty()) {
         continue;
       }
@@ -645,6 +873,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // falls through to the transient path (no regression vs pre-change — the text-fielddata symptom
     // that causes the SP poisoning still matches on every backend). Carrying the type through the
     // shim is a follow-up.
+    // A clause overflow (too_many_nested_clauses) also repeats for the same query, but it stays
+    // here: failing the search would drop the results of the indices that answered too.
     return reason.contains("illegal_argument_exception")
         || reason.contains("illegalargumentexception")
         || reason.contains("text fields are not optimised");
@@ -660,6 +890,29 @@ public class SearchRequestHandler extends BaseRequestHandler {
       reason.append(' ').append(cause);
     }
     return reason.toString();
+  }
+
+  /**
+   * How the hits of one response find their matched fields: from the highlights on V2, and on V3
+   * from the fetched values of the fields the query searched, which are worked out once for the
+   * response.
+   */
+  @Nonnull
+  private Function<SearchHit, List<MatchedField>> matchedFieldsOf(
+      @Nonnull OperationContext opContext, @Nullable String input) {
+    if (v3SearchQueryBuilder == null) {
+      return this::extractMatchedFields;
+    }
+    final List<String> fields =
+        getV3MatchedFieldSources(opContext, opContext.getSearchContext().getSearchFlags(), input);
+    if (fields.isEmpty()) {
+      return hit -> List.of();
+    }
+    final MatchedFields matcher = new MatchedFields(input, v3MinWordLength);
+    return hit -> {
+      final Map<String, Object> source = hit.getSourceAsMap();
+      return source == null ? List.of() : matcher.find(source, fields);
+    };
   }
 
   @Nonnull
@@ -765,11 +1018,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
         Features.Name.SEARCH_BACKEND_SCORE.toString(), (double) searchHit.getScore());
   }
 
-  private SearchEntity getResult(@Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+  private SearchEntity getResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchHit hit,
+      @Nonnull Function<SearchHit, List<MatchedField>> matchedFields) {
     SearchEntity entity =
         new SearchEntity()
             .setEntity(getUrnFromSearchHit(hit))
-            .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit)))
+            .setMatchedFields(new MatchedFieldArray(matchedFields.apply(hit)))
             .setScore(hit.getScore())
             .setFeatures(new DoubleMap(extractFeatures(hit)));
     SearchFlags flags = opContext.getSearchContext().getSearchFlags();
@@ -842,9 +1098,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
    * tolerated.
    */
   private Optional<SearchEntity> getResultSafely(
-      @Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchHit hit,
+      @Nonnull Function<SearchHit, List<MatchedField>> matchedFields) {
     try {
-      return Optional.of(getResult(opContext, hit));
+      return Optional.of(getResult(opContext, hit, matchedFields));
     } catch (InvalidSearchHitException e) {
       log.warn(
           "Skipping search hit with invalid or missing URN. Index: {}, ID: {}",
@@ -870,10 +1128,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
    */
   @Nonnull
   private Collection<SearchEntity> getRestrictedResults(
-      @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nullable String input) {
+    final Function<SearchHit, List<MatchedField>> matchedFields = matchedFieldsOf(opContext, input);
     List<SearchEntity> results =
         Arrays.stream(searchResponse.getHits().getHits())
-            .flatMap(hit -> getResultSafely(opContext, hit).stream())
+            .flatMap(hit -> getResultSafely(opContext, hit, matchedFields).stream())
             .collect(Collectors.toList());
     return ESAccessControlUtil.restrictSearchResult(opContext, results);
   }

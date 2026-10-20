@@ -303,6 +303,39 @@ public class CascadeOperationContextTest {
   }
 
   @Test
+  public void testOutcomeIsNotAnError() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:form:testForm");
+    String opType = "metricTest_outcome";
+
+    try (CascadeOperationContext ctx =
+        CascadeOperationContext.begin(metricUtils, opType, triggerUrn, 10)) {
+      ctx.recordOutcome("referencing_entity_kept");
+      ctx.recordOutcome("referencing_entity_kept");
+    }
+
+    Counter errorCounter =
+        meterRegistry.find("datahub.cascade.errors").tag("operation_type", opType).counter();
+    assertNull(errorCounter, "a kept entity is not an error");
+
+    Timer durationTimer =
+        meterRegistry
+            .find("datahub.cascade.duration")
+            .tag("operation_type", opType)
+            .tag("status", "completed")
+            .timer();
+    assertNotNull(durationTimer, "outcomes alone complete without errors");
+
+    Counter outcomeCounter =
+        meterRegistry
+            .find("datahub.cascade.outcomes")
+            .tag("operation_type", opType)
+            .tag("outcome", "referencing_entity_kept")
+            .counter();
+    assertNotNull(outcomeCounter, "kept entities are counted on their own");
+    assertEquals(outcomeCounter.count(), 2.0);
+  }
+
+  @Test
   public void testCloseIsIdempotent() {
     Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
     String opType = "idempotentTest";

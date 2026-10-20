@@ -44,6 +44,7 @@ const mockEntityRegistry = {
     getCollectionName: () => 'Documents',
     getEntityName: () => 'Document',
     getGenericEntityProperties: () => null,
+    getCreatedTime: () => undefined,
     getSupportedEntityCapabilities: () => new Set(),
     hasEntity: () => true,
     renderPreview: () => null,
@@ -1202,7 +1203,7 @@ describe('Document Profile Rendering', () => {
         it('should render native profile loading state', async () => {
             const mockDocument = createMockNativeDocument();
 
-            const { container } = render(
+            render(
                 <ProfileTestWrapper document={mockDocument} urn={mockDocument.urn}>
                     <DocumentNativeProfile
                         urn={mockDocument.urn}
@@ -1213,10 +1214,8 @@ describe('Document Profile Rendering', () => {
                 </ProfileTestWrapper>,
             );
 
-            // Should show loading indicator
             await waitFor(() => {
-                const loadingIcon = container.querySelector('.anticon-loading');
-                expect(loadingIcon).toBeInTheDocument();
+                expect(screen.getByLabelText('Loading...')).toBeInTheDocument();
             });
         });
 

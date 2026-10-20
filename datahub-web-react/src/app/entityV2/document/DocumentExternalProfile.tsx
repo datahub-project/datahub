@@ -1,9 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import ExternalDocumentInlineSummaryTab from '@app/entityV2/document/ExternalDocumentInlineSummaryTab';
+import { getDocumentOverrideProperties } from '@app/entityV2/document/document.utils';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
@@ -30,11 +31,12 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
             urn={urn}
             entityType={EntityType.Document}
             useEntityQuery={useGetDocumentQuery}
-            getOverrideProperties={new DocumentEntity().getOverridePropertiesFromEntity}
+            getOverrideProperties={getDocumentOverrideProperties}
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
                     name: t('tab.summary'),
+                    path: EntityTabPath.SUMMARY,
                     component: ExternalDocumentInlineSummaryTab,
                     display: {
                         visible: () => true,
@@ -43,6 +45,7 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
                 },
                 {
                     name: t('tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     display: {
                         visible: () => true,

@@ -1,4 +1,4 @@
-import { FilterOutlined } from '@ant-design/icons';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -46,6 +46,7 @@ type Props = {
     refetch?: () => void;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    numResults?: number;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -63,6 +64,7 @@ export default function EmbeddedListSearchHeader({
     refetch,
     searchBarStyle,
     searchBarInputStyle,
+    numResults,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { t } = useTranslation('entityV1.shared.components');
@@ -72,7 +74,7 @@ export default function EmbeddedListSearchHeader({
             <TabToolbar>
                 <HeaderContainer>
                     <Button type="text" onClick={onToggleFilters}>
-                        <FilterOutlined />
+                        <Funnel className="anticon" />
                         <Typography.Text>{t('embeddedListSearch.filters')}</Typography.Text>
                     </Button>
                     <SearchAndDownloadContainer>
@@ -104,6 +106,7 @@ export default function EmbeddedListSearchHeader({
                                 filters={filters}
                                 query={query}
                                 setShowSelectMode={setIsSelectMode}
+                                totalResults={numResults}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>

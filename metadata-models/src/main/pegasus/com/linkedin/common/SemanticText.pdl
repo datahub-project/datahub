@@ -27,8 +27,7 @@ record SemanticText {
    */
   @Searchable = {
     "fieldName": "semanticText",
-    "fieldType": "TEXT",
-    "searchTier": 2
+    "fieldType": "TEXT"
   }
   text: string
 }

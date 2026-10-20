@@ -1,5 +1,6 @@
-import { ReadFilled, ReadOutlined } from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { Divider } from 'antd';
 import styled from 'styled-components';
 
@@ -8,10 +9,24 @@ export const FlexWrapper = styled.div`
     line-height: 18px;
 `;
 
-export const StyledIcon = styled(Icon)<{ addLineHeight?: boolean }>`
-    font-size: 18px;
+export const StyledSealCheck = styled(SealCheck).attrs({ size: 18, weight: 'fill' })<{ addLineHeight?: boolean }>`
     margin-right: 8px;
+    flex-shrink: 0;
     ${(props) => props.addLineHeight && `line-height: 24px;`}
+`;
+
+export const GreenSealCheck = styled(StyledSealCheck)`
+    color: ${(props) => props.theme.colors.iconSuccess};
+`;
+
+export const PurpleSealCheck = styled(StyledSealCheck)`
+    color: ${(props) => props.theme.colors.iconBrand};
+`;
+
+export const GrayWarningCircle = styled(WarningCircle).attrs({ size: 18, weight: 'fill' })`
+    margin-right: 8px;
+    flex-shrink: 0;
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 export const SubTitle = styled.div<{ addMargin?: boolean }>`
@@ -31,7 +46,7 @@ export const StyledDivider = styled(Divider)`
     margin: 12px 0 0 0;
 `;
 
-export const StyledReadOutlined = styled(ReadOutlined)<{ addLineHeight?: boolean }>`
+export const StyledReadOutlined = styled(BookOpen)<{ addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 13.72px;
     width: 17.5px;
@@ -39,7 +54,7 @@ export const StyledReadOutlined = styled(ReadOutlined)<{ addLineHeight?: boolean
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;
 
-export const StyledReadFilled = styled(ReadFilled)<{ addLineHeight?: boolean }>`
+export const StyledReadFilled = styled(BookOpen).attrs({ weight: 'fill' })<{ addLineHeight?: boolean }>`
     margin-right: 8px;
     height: 13.72px;
     width: 17.5px;

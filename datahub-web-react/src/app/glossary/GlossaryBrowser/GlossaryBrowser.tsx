@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
@@ -9,7 +9,6 @@ import NodeItem from '@app/glossary/GlossaryBrowser/NodeItem';
 import TermItem from '@app/glossary/GlossaryBrowser/TermItem';
 import { ROOT_NODES, ROOT_TERMS } from '@app/glossary/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { ANTD_GRAY } from '@src/app/entity/shared/constants';
 
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '@graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
@@ -21,18 +20,6 @@ const BrowserWrapper = styled.div`
     max-height: calc(100% - 47px);
     padding: 10px 20px 20px 20px;
     overflow: auto;
-`;
-
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${ANTD_GRAY[8]};
-    }
 `;
 
 interface Props {
@@ -104,11 +91,7 @@ function GlossaryBrowser(props: Props) {
 
     return (
         <BrowserWrapper data-testid="glossary-browser">
-            {loading && (
-                <LoadingWrapper>
-                    <LoadingOutlined />
-                </LoadingWrapper>
-            )}
+            {loading && <Loader size="xs" padding={8} />}
             {sortedNodes.map((node) => (
                 <NodeItem
                     key={node.urn}

@@ -1650,8 +1650,7 @@ public class GmsGraphQLEngine {
                   "createApplication",
                   new CreateApplicationResolver(this.applicationService, this.entityService))
               .dataFetcher(
-                  "deleteApplication",
-                  new DeleteApplicationResolver(this.entityClient, this.applicationService))
+                  "deleteApplication", new DeleteApplicationResolver(this.applicationService))
               .dataFetcher(
                   "batchSetApplication", new BatchSetApplicationResolver(this.applicationService))
               .dataFetcher(
@@ -3815,7 +3814,8 @@ public class GmsGraphQLEngine {
                               return query.getPlatform() != null
                                   ? query.getPlatform().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient)))
         .type(
             "QueryProperties",
             typeWiring ->

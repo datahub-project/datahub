@@ -7,8 +7,8 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
-import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
@@ -20,12 +20,13 @@ import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
 import HoverCardLinks, { HoverCardLink } from '@app/sharedV2/hoverCard/HoverCardLinks';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import HoverCardStatusBadges from '@app/sharedV2/hoverCard/HoverCardStatusBadges';
+import useGroupMemberCount from '@app/sharedV2/hoverCard/useGroupMemberCount';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
+import { CorpUser, Entity, EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@src/utils/runtimeBasePath';
 
 /** Keeps long documentation from turning the card into a wall of text. */
@@ -53,7 +54,14 @@ const Sections = styled.div`
     width: 100%;
 `;
 
+// Plain text, not CompactMarkdownViewer. That viewer imports Editor, and the
+// mention chip inside Editor renders this card, so the Editor import closes a
+// cycle across Editor's dynamic import of EditorImpl.
 const Description = styled.div`
+    display: -webkit-box;
+    -webkit-line-clamp: ${DESCRIPTION_MAX_LINES};
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     overflow-wrap: anywhere;
 `;
 
@@ -80,14 +88,6 @@ type Props = {
     propagationDetails?: AttributionDetails;
     ownershipRole?: HoverCardOwnershipRole;
 };
-
-/** Member total, only when a query actually selected it. A missing field is not "0 members". */
-function getGroupMemberCount(entity: Entity): number | undefined {
-    if (entity.type !== EntityType.CorpGroup) return undefined;
-    const group = entity as CorpGroup & { memberCount?: { total?: number | null } | null };
-    const total = group.memberCount?.total ?? group.relationships?.total;
-    return total == null ? undefined : total;
-}
 
 export default function EntityHoverCard({ entity, propagationDetails, ownershipRole }: Props) {
     const { t } = useTranslation('common.labels');
@@ -118,7 +118,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
               undefined
             : undefined;
 
-    const memberCount = getGroupMemberCount(entity);
+    const memberCount = useGroupMemberCount(entity);
     const subtitle =
         jobTitle || (memberCount != null ? tTypes('shared.membersCount', { count: memberCount }) : undefined);
 
@@ -206,14 +206,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
                 <Sections>
                     {description && (
                         <HoverCardSection title={t('documentation')}>
-                            <Description>
-                                <CompactMarkdownViewer
-                                    content={description}
-                                    lineLimit={DESCRIPTION_MAX_LINES}
-                                    scrollableY={false}
-                                    hideShowMore
-                                />
-                            </Description>
+                            <Description>{removeMarkdown(description, { preserveNewlines: true })}</Description>
                         </HoverCardSection>
                     )}
                     {ownershipRole && (

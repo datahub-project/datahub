@@ -130,9 +130,10 @@ public class SemanticEntitySearchServiceFactory {
    *   <li>embed-english-v3.0 → embed_english_v3_0
    * </ul>
    *
-   * <p>Package-visible so {@link EmbeddingProviderFactory} validates the same key at startup.
+   * <p>Public so {@link EmbeddingProviderFactory} and hybrid search validate the same key at
+   * startup.
    */
-  static String deriveModelEmbeddingKeyFromModelId(final String modelId) {
+  public static String deriveModelEmbeddingKeyFromModelId(final String modelId) {
     if (modelId == null || modelId.isBlank()) {
       return DEFAULT_MODEL_EMBEDDING_KEY;
     }

@@ -79,20 +79,17 @@ jobs:
         with:
           client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-workflows: write
 
       - name: Check out source commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.sha != '' && inputs.sha || steps.branches.outputs.source }}
-          # PAT required: GITHUB_TOKEN pushes do not trigger push-event workflows
-          # (e.g. docker-unified.yml on releases/** and hotfixes/**).
+          # App token required: a ref created by GITHUB_TOKEN does not trigger
+          # push-event workflows (e.g. docker-unified.yml on releases/** and hotfixes/**).
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 1
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Validate target branch does not already exist
         run: |
@@ -107,13 +104,17 @@ jobs:
             exit 1
           fi
 
-      - name: Create and push branch
+      - name: Create branch
         id: create_branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           TARGET="${{ steps.branches.outputs.target }}"
-          git checkout -b "$TARGET"
-          git push origin "$TARGET"
-          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          SHA=$(git rev-parse HEAD)
+          gh api --method POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/heads/${TARGET}" \
+            -f sha="$SHA"
+          echo "commit_sha=${SHA}" >> "$GITHUB_OUTPUT"
           echo "Created branch: $TARGET"
 
       - name: Write job summary
@@ -175,3 +176,43 @@ jobs:
           emoji: ":scissors:"
           message: ${{ steps.slack_message.outputs.message }}
           slack-bot-token: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+
+  rollback_analysis:
+    name: Rollback Analysis
+    needs: cut_branch
+    if: inputs.branch_type == 'release'
+    runs-on: depot-ubuntu-24.04-small
+    # Informational report: the branch is already cut, so a failure or hang
+    # here must not mark the release workflow as failed.
+    continue-on-error: true
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo with full history and tags
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+
+      # N is the just-cut branch tip. N-1 is left to the script, which picks the
+      # latest stable release tag for this repo (v*-cloud in acryl-fork, v* in OSS).
+      - name: Rollback analysis N → N-1
+        env:
+          CURRENT: ${{ needs.cut_branch.outputs.commit_sha }}
+        run: |
+          python3 .github/scripts/rollback_analysis.py \
+            --current "$CURRENT" \
+            --output rollback-n1.md --json
+          cat rollback-n1.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: rollback-reports-v${{ inputs.version }}
+          path: |
+            rollback-n1.md
+            rollback-n1.json
+          if-no-files-found: warn

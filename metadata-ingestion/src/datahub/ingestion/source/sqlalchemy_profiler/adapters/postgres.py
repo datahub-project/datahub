@@ -11,6 +11,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
     ProfilingConnection,
+    QueryTimeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,21 @@ class PostgresAdapter(PlatformAdapter):
     # =========================================================================
     # Row Count Estimation
     # =========================================================================
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        # Milliseconds. Restoring the value read beforehand rather than
+        # DEFAULT keeps a limit the session already carried.
+        return QueryTimeout(
+            read="SHOW statement_timeout",
+            apply=f"SET statement_timeout = {seconds * 1000}",
+            restore="SET statement_timeout = '{value}'",
+        )
+
+    def is_query_timeout(self, e: Exception) -> bool:
+        # 57014 query_canceled, which is what statement_timeout raises. A
+        # user's own pg_cancel_backend() also lands here; retrying that in a
+        # more expensive shape is no better an idea.
+        return getattr(getattr(e, "orig", None), "pgcode", None) == "57014"
 
     def supports_row_count_estimation(self) -> bool:
         """

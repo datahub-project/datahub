@@ -151,6 +151,11 @@ type PlatformPrivileges {
   manageDocuments: Boolean!
 
   """
+  Whether the user should be able to create Documents (Knowledge Articles)
+  """
+  createDocuments: Boolean!
+
+  """
   Whether the user is able to manage user credentials
   """
   manageUserCredentials: Boolean!

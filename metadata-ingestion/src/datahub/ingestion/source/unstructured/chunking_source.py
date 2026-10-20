@@ -163,6 +163,7 @@ class DocumentChunkingSource(Source):
         config: DocumentChunkingSourceConfig,
         standalone: bool = True,
         graph: Optional[DataHubGraph] = None,
+        fail_on_config_lookup_error: bool = False,
     ):
         """Initialize DocumentChunkingSource.
 
@@ -172,6 +173,8 @@ class DocumentChunkingSource(Source):
             standalone: If True, runs as a standalone source (fetches docs from DataHub).
                        If False, runs as a sub-component (called inline by other sources).
             graph: Optional DataHubGraph for inline mode (parent's graph connection).
+            fail_on_config_lookup_error: Raise instead of skipping embedding when the
+                server's embedding config cannot be loaded.
         """
         super().__init__(ctx)
         self.config = config
@@ -201,7 +204,9 @@ class DocumentChunkingSource(Source):
         self.embedding_model: Optional[str] = None
         self._provider: Optional[EmbeddingProvider] = None
         self.config.embedding = DocumentChunkingSource.resolve_embedding_config(
-            self.config.embedding, self.graph
+            self.config.embedding,
+            self.graph,
+            fail_on_lookup_error=fail_on_config_lookup_error,
         )
 
         # At this point, embedding config should be fully resolved
@@ -1242,6 +1247,7 @@ class DocumentChunkingSource(Source):
     def resolve_embedding_config(
         embedding_config: "EmbeddingConfig",
         graph: Optional[DataHubGraph] = None,
+        fail_on_lookup_error: bool = False,
     ) -> "EmbeddingConfig":
         """Resolve embedding configuration using server-first, then defaults logic.
 
@@ -1256,12 +1262,16 @@ class DocumentChunkingSource(Source):
         Args:
             embedding_config: Initial embedding configuration from recipe
             graph: Optional DataHubGraph for querying server config
+            fail_on_lookup_error: With no local config, raise when the server config
+                cannot be loaded instead of skipping embedding. A server that answers
+                with semantic search disabled still skips embedding.
 
         Returns:
             Resolved EmbeddingConfig ready for use
 
         Raises:
-            ValueError: If local config validation fails (unless allow_local_embedding_config=true)
+            ValueError: If local config validation fails (unless allow_local_embedding_config=true),
+                or the server config cannot be loaded and fail_on_lookup_error is set
         """
         from datahub.ingestion.source.unstructured.chunking_config import (
             EmbeddingConfig,
@@ -1397,6 +1407,12 @@ class DocumentChunkingSource(Source):
                     return EmbeddingConfig()
 
             except Exception as e:
+                if fail_on_lookup_error:
+                    raise ValueError(
+                        "Could not load the embedding configuration from the DataHub "
+                        f"server: {e}. Stopping before any document is processed, so "
+                        "saved document hashes are left unchanged."
+                    ) from e
                 logger.warning(
                     f"Failed to load embedding config from server: {e}. Skipping embedding generation."
                 )

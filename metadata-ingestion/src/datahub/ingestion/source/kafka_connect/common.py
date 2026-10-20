@@ -3,7 +3,18 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, ClassVar, Dict, Final, List, Optional
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Callable,
+    ClassVar,
+    Dict,
+    Final,
+    List,
+    Optional,
+    Sequence,
+    Set,
+)
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -11,6 +22,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
+    Filters,
     LaxStr,
     TransparentSecretStr,
 )
@@ -19,6 +31,8 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.agent.verdicts import ancestors_in
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
@@ -56,6 +70,11 @@ SOURCE: Final[str] = "source"
 SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
 JDBC_PREFIX: Final[str] = "jdbc:"
+
+# The probe kind for a Kafka Connect connector (emitted as a DataFlow). No DataHub
+# subtype exists for it; declared once so the probe command and the Filters()
+# declaration on connector_patterns cannot drift apart.
+KAFKA_CONNECT_CONNECTOR_KIND: Final[str] = "Connector"
 
 # Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
 _ORACLE_THIN_RE: Final = re.compile(
@@ -219,7 +238,9 @@ class KafkaConnectSourceConfig(
         default=False,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
     )
-    connector_patterns: AllowDenyPattern = Field(
+    connector_patterns: Annotated[
+        AllowDenyPattern, Filters(KAFKA_CONNECT_CONNECTOR_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for connectors to filter for ingestion.",
     )
@@ -329,6 +350,31 @@ class KafkaConnectSourceConfig(
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports kafka_connect.py (jpype, requests), which the
+        # config import path must not pay for.
+        from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
+            KafkaConnectMetadataProbe,
+        )
+
+        return KafkaConnectMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Topics are reported whole: this source has no topic pattern, and a
+        topic appears in lineage whenever its connector is kept. Declared so
+        `probe filter --kind Topic` says 'unfiltered' rather than 'unresolved'."""
+        return {str(DatasetSubTypes.TOPIC)}
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Per-connector topics and lineage exist only for connectors
+        connector_patterns keeps (get_connectors_manifest), so a topic's verdict
+        follows its connector's."""
+        return ancestors_in(
+            (KAFKA_CONNECT_CONNECTOR_KIND,), kind, (str(DatasetSubTypes.TOPIC),)
+        )
 
     @model_validator(mode="before")
     @classmethod

@@ -2,7 +2,7 @@ import base64
 import logging
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import jpype
 import jpype.imports
@@ -76,6 +76,19 @@ from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
 logger = logging.getLogger(__name__)
 
+# Named so the probe can report this recipe error in the same words without
+# quoting the exception.
+CONFLUENT_CLOUD_CREDENTIALS_REQUIRED = (
+    "Confluent Cloud detected but no Connect API credentials provided. "
+    "Confluent Cloud requires authentication credentials for API access."
+)
+
+
+class ConfluentCloudCredentialsRequired(ValueError):
+    """Confluent Cloud without Connect credentials: a recipe error. A
+    ValueError, as ingestion has always raised it; its own type so the probe
+    can tell it apart without comparing message text."""
+
 
 class CatalogLineageOutcome(Enum):
     # No catalog entry, lineage disabled, or not a source: behave as if no catalog.
@@ -104,6 +117,10 @@ class CatalogLineageResult:
     "Requires Confluent Cloud Stream Governance; enable via `confluent_catalog`",
     supported=True,
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class KafkaConnectSource(StatefulIngestionSourceBase):
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -113,28 +130,17 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = KafkaConnectSourceReport()
-        self.session = self._create_json_session()
+        self.session = self._create_connect_session(self.config)
 
         # Separate session for Kafka REST API calls — must NOT inherit Connect auth,
         # because Confluent Cloud uses different credentials for Connect vs Kafka APIs.
         # Mount retries for transient REST failures (see MAX_KAFKA_TOPIC_FETCH_ATTEMPTS).
         self.kafka_session = self._create_kafka_session()
 
-        # Test the connection using appropriate credentials
-        connect_username, connect_password = self.config.get_connect_credentials()
-        if connect_username is not None and connect_password is not None:
+        if self.session.auth is not None:
             logger.info(
                 f"Connecting to {self.config.connect_uri} with Authentication..."
             )
-            # Set up Basic Authentication for Connect API (requests handles the encoding automatically)
-            self.session.auth = (connect_username, connect_password)
-        else:
-            # For Confluent Cloud, authentication is required
-            if self.config.is_confluent_cloud():
-                raise ValueError(
-                    "Confluent Cloud detected but no Connect API credentials provided. "
-                    "Confluent Cloud requires authentication credentials for API access."
-                )
 
         effective_uri = self.config.connect_uri
         test_response = self.session.get(f"{effective_uri}/connectors")
@@ -219,27 +225,45 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 self.report.report_dropped(connector_name)
                 continue
 
-            if self.config.provided_configs:
-                transform_connector_config(
-                    connector_manifest.config, self.config.provided_configs
-                )
-
-            connector_manifest.url = connector_url
-            connector_manifest.topic_names = self._get_connector_topics(
-                connector_manifest
-            )
-
-            # Add tasks for source connectors
-            # Skip for Confluent Cloud as the /tasks endpoint is not available in Connect v1 API
-            if connector_manifest.type == SOURCE and not self._is_confluent_cloud:
-                connector_manifest.tasks = self._get_connector_tasks(connector_name)
-
-            # Extract lineages for this connector and check if it should be included
-            should_include = self.extract_connector_lineages(connector_manifest)
-            if not should_include:
+            if not self._enrich_manifest(
+                connector_name, connector_manifest, connector_url
+            ):
                 continue
 
             yield connector_manifest
+
+    def _enrich_manifest(
+        self,
+        connector_name: str,
+        connector_manifest: ConnectorManifest,
+        connector_url: str,
+    ) -> bool:
+        """Everything ingestion does to one kept connector: provided-config
+        substitution, runtime topics, tasks, lineage. Returns whether ingestion
+        emits it (an unsupported source connector is dropped).
+
+        Split out of get_connectors_manifest so the probe runs exactly this for a
+        connector connector_patterns would drop -- the pattern is the caller's
+        question, and hiding the answer behind it would make a denied connector
+        vanish instead of being reported as excluded.
+
+        `connector_name` is the listing name, kept distinct from
+        connector_manifest.name because the tasks call has always used it."""
+        if self.config.provided_configs:
+            transform_connector_config(
+                connector_manifest.config, self.config.provided_configs
+            )
+
+        connector_manifest.url = connector_url
+        connector_manifest.topic_names = self._get_connector_topics(connector_manifest)
+
+        # Add tasks for source connectors
+        # Skip for Confluent Cloud as the /tasks endpoint is not available in Connect v1 API
+        if connector_manifest.type == SOURCE and not self._is_confluent_cloud:
+            connector_manifest.tasks = self._get_connector_tasks(connector_name)
+
+        # Extract lineages for this connector and check if it should be included
+        return self.extract_connector_lineages(connector_manifest)
 
     def extract_connector_lineages(self, connector_manifest: ConnectorManifest) -> bool:
         from datahub.ingestion.source.kafka_connect.connector_registry import (
@@ -409,8 +433,16 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             return None
-        manifest = connector_response.json()
+        return self._parse_connector_manifest(connector_name, connector_response.json())
 
+    def _parse_connector_manifest(
+        self, connector_name: str, manifest: Dict[str, Any]
+    ) -> Optional[ConnectorManifest]:
+        """Shape a /connectors/{name} body into a ConnectorManifest.
+
+        Separate from the fetch because the fetch degrades every error to a
+        warning, which is right for ingestion and wrong for a diagnostic: the
+        probe does its own fetch (raising on 401/5xx) and reuses this parse."""
         # Filter the manifest to only include fields expected by ConnectorManifest
         # This handles API responses that may contain additional fields (e.g., 'extensions' in Confluent Cloud)
         # Some APIs may have nested structure - try to extract the actual connector info
@@ -474,9 +506,14 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return response.json()
 
     @staticmethod
-    def _create_json_session() -> requests.Session:
-        """Create a requests session with standard JSON headers."""
-        session = requests.Session()
+    def _create_json_session(
+        session: Optional[requests.Session] = None,
+    ) -> requests.Session:
+        """A session with standard JSON headers.
+
+        Takes an existing session so the probe can pass one that applies a
+        default timeout and still get exactly ingestion's headers."""
+        session = session if session is not None else requests.Session()
         session.headers.update(
             {
                 "Accept": "application/json",
@@ -486,8 +523,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return session
 
     @classmethod
-    def _create_kafka_session(cls) -> requests.Session:
-        session = cls._create_json_session()
+    def _create_kafka_session(
+        cls, session: Optional[requests.Session] = None
+    ) -> requests.Session:
+        session = cls._create_json_session(session)
         retry_strategy = Retry(
             total=MAX_KAFKA_TOPIC_FETCH_ATTEMPTS - 1,
             backoff_factor=1,
@@ -498,6 +537,28 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
+        return session
+
+    @classmethod
+    def _create_connect_session(
+        cls,
+        config: KafkaConnectSourceConfig,
+        session: Optional[requests.Session] = None,
+    ) -> requests.Session:
+        """The Connect REST session: JSON headers plus the recipe's basic auth.
+
+        Shared with the probe so a probe request authenticates exactly as an
+        ingestion request does; restating the auth there is how the two would
+        drift when the scheme changes."""
+        session = cls._create_json_session(session)
+        connect_username, connect_password = config.get_connect_credentials()
+        if connect_username is not None and connect_password is not None:
+            # requests handles the Basic encoding.
+            session.auth = (connect_username, connect_password)
+        elif config.is_confluent_cloud():
+            raise ConfluentCloudCredentialsRequired(
+                CONFLUENT_CLOUD_CREDENTIALS_REQUIRED
+            )
         return session
 
     def _get_connector_topics(self, connector_manifest: ConnectorManifest) -> List[str]:
