@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Annotated, FrozenSet, Iterator, List, Optional, Protocol
+from typing import Annotated, FrozenSet, Iterable, Iterator, List, Optional, Protocol
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
@@ -238,6 +238,31 @@ def iter_candidate_projects(
     return iter_all_projects(projects_client)
 
 
+def _filter_projects(
+    projects: Iterable[GcpProject],
+    filter_config: GcpProjectFilterConfig,
+    report: SourceReport,
+) -> List[GcpProject]:
+    allowed: List[GcpProject] = []
+    for project in projects:
+        # Pattern check runs first so excluded projects never raise state warnings
+        if not is_project_allowed(filter_config, project.id):
+            continue
+        if not is_project_active(project):
+            if is_project_state_unexpected(project):
+                report.warning(
+                    title="Project Not Active",
+                    message=(
+                        "Skipped a project in an unexpected lifecycle state. "
+                        "Only ACTIVE projects are ingested."
+                    ),
+                    context=f"project_id={project.id}, state={project.state}",
+                )
+            continue
+        allowed.append(project)
+    return allowed
+
+
 def resolve_gcp_projects(
     filter_config: GcpProjectFilterConfig,
     report: SourceReport,
@@ -264,8 +289,11 @@ def resolve_gcp_projects(
             return resolved
 
         if filter_config.project_labels:
-            labeled = list(iter_candidate_projects(filter_config, projects_client))
-            allowed = [p for p in labeled if is_project_allowed(filter_config, p.id)]
+            allowed = _filter_projects(
+                iter_candidate_projects(filter_config, projects_client),
+                filter_config,
+                report,
+            )
             if not allowed:
                 report.warning(
                     title="Project Filter",
@@ -278,8 +306,11 @@ def resolve_gcp_projects(
             )
             return allowed
 
-        all_projects = list(iter_candidate_projects(filter_config, projects_client))
-        allowed = [p for p in all_projects if is_project_allowed(filter_config, p.id)]
+        allowed = _filter_projects(
+            iter_candidate_projects(filter_config, projects_client),
+            filter_config,
+            report,
+        )
         if not allowed:
             report.failure(
                 title="No GCP projects resolved",

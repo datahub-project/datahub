@@ -255,6 +255,59 @@ class TestResolveGcpProjects:
         assert [p.id for p in projects] == ["active-proj-1"]
         assert not report.warnings
 
+    @pytest.mark.parametrize(
+        "state",
+        [
+            Project.State.STATE_UNSPECIFIED,
+            # State returned by API but not recognised by installed SDK version
+            666,
+        ],
+    )
+    @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
+    def test_resolve_excludes_unexpected_lifecycle_state(
+        self, mock_client_class, state
+    ):
+        """Test projects in an unexpected lifecycle state are skipped with a warning."""
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+
+        mock_client.search_projects.return_value = [
+            _project("active-proj-1", display_name="Active 1"),
+            _project("unknown-proj-1", state=state),
+        ]
+
+        config = GcpProjectFilterConfig()
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
+
+        assert [p.id for p in projects] == ["active-proj-1"]
+        assert any(
+            any("unknown-proj-1" in ctx for ctx in entry.context)
+            for entry in report.warnings
+        )
+
+    @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
+    def test_excluded_project_in_unexpected_state_does_not_warn(
+        self, mock_client_class
+    ):
+        """Test projects excluded by project_id_pattern raise no lifecycle state warning."""
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+
+        mock_client.search_projects.return_value = [
+            _project("active-proj-1", display_name="Active 1"),
+            _project("unknown-proj-1", state=Project.State.STATE_UNSPECIFIED),
+        ]
+
+        config = GcpProjectFilterConfig(
+            project_id_pattern=AllowDenyPattern(deny=["unknown-.*"])
+        )
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
+
+        assert [p.id for p in projects] == ["active-proj-1"]
+        assert not report.warnings
+
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
     def test_auth_failure_in_search(self, mock_client_class):
         """Test handling of authentication failures during project search."""
