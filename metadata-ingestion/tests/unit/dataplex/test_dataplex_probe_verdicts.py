@@ -1,12 +1,11 @@
-"""Connection-free Dataplex verdicts, each compared against the predicate
-ingestion itself runs for the same input."""
+"""Connection-free Dataplex verdicts. Agreement with what ingestion really
+emits is pinned in test_dataplex_probe_parity.py."""
 
-from typing import Dict, Sequence
+from typing import Dict, Sequence, Tuple
 
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.verdicts import VerdictContext
-from datahub.ingestion.source.common.gcp_project_filter import is_project_allowed
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DATAPLEX_ASPECT_TYPE_KIND,
     DATAPLEX_ENTRY_FQN_KIND,
@@ -76,37 +75,6 @@ def test_entry_group_verdicts_match_should_process_entry_group() -> None:
     assert [r.target for r in result.results] == names
 
 
-def test_entry_name_and_fqn_are_judged_by_their_own_patterns() -> None:
-    config: Dict[str, object] = {
-        "project_ids": ["proj-a"],
-        "filter_config": {
-            "entries": {
-                "pattern": {"deny": [".*/entries/tmp_"]},
-                "fqn_pattern": {"allow": ["^bigquery:proj-a\\."]},
-            }
-        },
-    }
-    processor = _processor(config)
-    names = [ENTRY_ORDERS, f"{GROUP_SALES}/entries/tmp_scratch"]
-    fqns = ["bigquery:proj-a.sales.orders", "bigquery:proj-b.sales.orders"]
-
-    by_name = _judge(config, DATAPLEX_ENTRY_KIND, names)
-    by_fqn = _judge(config, DATAPLEX_ENTRY_FQN_KIND, fqns)
-
-    assert (
-        [r.included for r in by_name.results]
-        == [processor._entry_name_allowed(n) for n in names]
-        == [True, False]
-    )
-    assert (
-        [r.included for r in by_fqn.results]
-        == [processor._entry_fqn_allowed(f) for f in fqns]
-        == [True, False]
-    )
-    assert by_name.pattern_field == "filter_config.entries.pattern"
-    assert by_fqn.pattern_field == "filter_config.entries.fqn_pattern"
-
-
 def test_an_entry_inside_a_denied_entry_group_is_reported_excluded() -> None:
     config: Dict[str, object] = {
         "project_ids": ["proj-a"],
@@ -127,16 +95,13 @@ def test_an_entry_group_inside_an_unlisted_project_is_reported_excluded() -> Non
     assert result.results[0].excluded_by == "project_ids"
 
 
-def test_project_verdicts_match_is_project_allowed_when_discovering() -> None:
+def test_discovered_projects_are_judged_by_project_id_pattern() -> None:
     config: Dict[str, object] = {"project_id_pattern": {"allow": ["^prod-"]}}
-    names = ["prod-a", "dev-a"]
-    result = _judge(config, DATAPLEX_PROJECT_KIND, names)
-    parsed = DataplexConfig.model_validate(config)
-    assert (
-        [r.included for r in result.results]
-        == [is_project_allowed(parsed, n) for n in names]
-        == [True, False]
-    )
+    result = _judge(config, DATAPLEX_PROJECT_KIND, ["prod-a", "dev-a"])
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (True, None),
+        (False, "project_id_pattern"),
+    ]
     assert result.pattern_field == "project_id_pattern"
     assert result.warnings == []
 
@@ -149,13 +114,9 @@ def test_project_ids_decide_the_project_verdict() -> None:
     result = _judge(config, DATAPLEX_PROJECT_KIND, ["proj-a", "proj-b"])
     # The pattern alone says proj-a is excluded and proj-b included; ingestion
     # reads proj-a (listed) and never proj-b (unlisted).
-    parsed = DataplexConfig.model_validate(config)
     assert [(r.included, r.excluded_by) for r in result.results] == [
         (True, None),
         (False, "project_ids"),
-    ]
-    assert [r.included for r in result.results] == [
-        is_project_allowed(parsed, n) for n in ["proj-a", "proj-b"]
     ]
     assert any("project_id_pattern" in w for w in result.warnings)
 
@@ -433,8 +394,6 @@ def test_entry_kind_also_applies_fqn_pattern_from_a_listed_record() -> None:
         (True, None),
         (False, "missing_fully_qualified_name"),
     ]
-    processor = _processor(config)
-    assert not processor._entry_fqn_allowed("bigquery:proj-a.sales.orders")
 
 
 def test_entry_kind_without_the_fqn_warns_that_fqn_pattern_was_not_judged() -> None:
@@ -447,3 +406,38 @@ def test_entry_kind_without_the_fqn_warns_that_fqn_pattern_was_not_judged() -> N
     )
     assert result.results[0].included
     assert any("fqn_pattern" in w for w in result.warnings)
+
+
+def test_export_mode_finds_the_project_in_a_bare_project_resource_parent() -> None:
+    # `probe filter --parent projects/proj-a --name orders`
+    cases: Sequence[Tuple[Dict[str, object], str]] = (
+        ({**EXPORT_MODE, "project_ids": ["proj-b"]}, "project_ids"),
+        (
+            {**EXPORT_MODE, "project_id_pattern": {"allow": ["^proj-b$"]}},
+            "project_id_pattern",
+        ),
+    )
+    for config, field in cases:
+        result = _judge(
+            config, DATAPLEX_ENTRY_KIND, ["orders"], parents=["projects/proj-a"]
+        )
+        assert [(r.included, r.excluded_by) for r in result.results] == [(False, field)]
+
+
+def test_a_missing_fqn_is_reported_before_a_denied_entry_name() -> None:
+    # Ingestion's _report_and_should_process_entry counts a missing FQN first,
+    # whatever the patterns say.
+    config: Dict[str, object] = {
+        "project_ids": ["proj-a"],
+        "filter_config": {"entries": {"pattern": {"deny": [".*/entries/orders$"]}}},
+    }
+    result = _judge_attrs(
+        config,
+        DATAPLEX_ENTRY_KIND,
+        [ENTRY_ORDERS],
+        attributes=[{"fully_qualified_name": ""}],
+        parents=["proj-a", GROUP_SALES],
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, "missing_fully_qualified_name")
+    ]

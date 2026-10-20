@@ -333,12 +333,15 @@ class DataplexMetadataProbe(ProbeProviderBase):
         (e.g. bigquery:<project>.<dataset>.<table>). Entries without one are
         left out; `entries` shows them. An entry is ingested only if both its
         name (--kind Entry) and its FQN (--kind EntryFqn) are included."""
-        fqns = (
-            entry.fully_qualified_name
-            for entry in self._list_entries(entry_group)
-            if entry.fully_qualified_name
-        )
+        # The listing must start inside the block: the first ListEntries RPC
+        # goes out when the pager is built, and a NotFound from it is a
+        # mistyped --entry-group.
         with self._entry_group_named(entry_group):
+            fqns = (
+                entry.fully_qualified_name
+                for entry in self._list_entries(entry_group)
+                if entry.fully_qualified_name
+            )
             return take(fqns, limit)
 
     @probe_method(kind=DATAPLEX_ASPECT_TYPE_KIND)

@@ -31,7 +31,7 @@ FQN_PATTERN_FIELD = "filter_config.entries.fqn_pattern"
 # Ingestion skips an entry with no FQN, whatever the patterns say.
 MISSING_FQN = "missing_fully_qualified_name"
 # The project segment of a Dataplex resource name; it may be a project number.
-_PROJECT_SEGMENT = re.compile(r"(?:^|/)projects/([^/]+)/")
+_PROJECT_SEGMENT = re.compile(r"(?:^|/)projects/([^/]+)(?:/|$)")
 
 
 def ancestor_kinds(config: DataplexConfig, kind: str) -> Optional[Sequence[str]]:
@@ -137,13 +137,16 @@ def _project_verdict(
 
 
 def _entry_verdict(config: DataplexConfig, ctx: VerdictContext) -> Verdict:
-    """Both entry patterns, as ingestion requires both, then what the
-    extraction method adds."""
+    """A missing FQN, then both entry patterns, in the order ingestion's
+    _report_and_should_process_entry reports them, then what the extraction
+    method adds."""
     if ctx.kind == DATAPLEX_ENTRY_KIND:
+        fqn = ctx.attributes.get(FQN_ATTRIBUTE)
+        if fqn == "":
+            return Verdict.exclude(MISSING_FQN)
         by_name = pattern_verdict(config, ctx.pattern_field, ctx.target)
         if not by_name.included:
             return by_name
-        fqn = ctx.attributes.get(FQN_ATTRIBUTE)
         if fqn is None:
             ctx.warn(
                 "these entries were judged without their fully_qualified_name, "
@@ -151,8 +154,6 @@ def _entry_verdict(config: DataplexConfig, ctx: VerdictContext) -> Verdict:
                 "applies, was not; judge a `probe run entries` listing with "
                 "--from-run, or check the FQNs with --kind EntryFqn"
             )
-        elif not fqn:
-            return Verdict.exclude(MISSING_FQN)
         else:
             by_fqn = pattern_verdict(config, FQN_PATTERN_FIELD, fqn)
             if not by_fqn.included:
@@ -190,7 +191,7 @@ def _exported_entry_project_verdict(
     if project is None:
         ctx.warn(
             "no project could be found for these entries (no --parent project "
-            "id, and no projects/<id>/ in their names), so project_ids and "
+            "id, and no projects/<id> in their names), so project_ids and "
             "project_id_pattern, which decide what `export` exports, were not "
             "judged; pass the project id as the first --parent"
         )

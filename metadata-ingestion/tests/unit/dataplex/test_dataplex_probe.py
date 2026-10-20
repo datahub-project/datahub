@@ -316,8 +316,9 @@ def test_a_named_location_that_is_forbidden_raises(
 
 def test_every_opened_client_is_closed_even_when_one_close_fails() -> None:
     catalog = Mock(spec=dataplex_v1.CatalogServiceClient)
-    catalog.transport.close.side_effect = RuntimeError("close failed")
     projects = Mock(spec=resourcemanager_v3.ProjectsClient)
+    # projects is opened first; its failing close must not skip catalog's.
+    projects.transport.close.side_effect = RuntimeError("close failed")
     projects.search_projects.return_value = iter([])
     catalog.list_entry_groups.return_value = []
     probe = DataplexMetadataProbe(
@@ -456,15 +457,16 @@ def test_a_limited_listing_stops_reading_the_pager(
     assert pager.read == 3  # limit + 1, the framework's truncation probe
 
 
+@pytest.mark.parametrize("method", ["entries", "entry_fqns"])
 def test_an_unknown_entry_group_is_a_bad_argument(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, method: str
 ) -> None:
     client = Mock(spec=dataplex_v1.CatalogServiceClient)
     client.list_entries.side_effect = exceptions.NotFound(SERVER_DETAIL)
-    with pytest.raises(ValueError) as info:
+    with pytest.raises(ProbeArgumentError) as info:
         _run(
             monkeypatch,
-            "entries",
+            method,
             {"project": "proj-a", "entry_group": GROUP},
             catalog=client,
         )
