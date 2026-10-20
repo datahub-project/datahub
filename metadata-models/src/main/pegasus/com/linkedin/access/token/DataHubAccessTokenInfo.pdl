@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Information about a DataHub Access Token
  */
 @Aspect = {
-  "name": "dataHubAccessTokenInfo"
+  "name": "dataHubAccessTokenInfo",
+  "schemaVersion": 2
 }
 record DataHubAccessTokenInfo {
 
@@ -76,5 +77,17 @@ record DataHubAccessTokenInfo {
   /**
    * Description of the token if defined.
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 }

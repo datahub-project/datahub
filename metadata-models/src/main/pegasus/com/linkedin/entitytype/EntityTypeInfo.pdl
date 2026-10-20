@@ -1,7 +1,8 @@
 namespace com.linkedin.entitytype
 
 @Aspect = {
-    "name": "entityTypeInfo"
+    "name": "entityTypeInfo",
+    "schemaVersion": 2
 }
 record EntityTypeInfo {
     /**
@@ -10,6 +11,7 @@ record EntityTypeInfo {
      */
     @Searchable = {
       "fieldType": "KEYWORD",
+      "queryByDefault": true,
       "boostScore": 10.0,
       "v3": {
         "searchLabel": "qualifiedName",
@@ -25,10 +27,34 @@ record EntityTypeInfo {
     /**
      * The display name for the Entity Type.
      */
+    @Searchable = {
+      "fieldType": "WORD_GRAM",
+      "boostScore": 10.0,
+      "v3": {
+        "searchLabel": "name",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
+    }
     displayName: optional string
 
     /**
      * A description for the Entity Type: what is it for?
      */
+    @Searchable = {
+      "fieldType": "TEXT",
+      "hasValuesFieldName": "hasDescription",
+      "v3": {
+        "searchLabel": "description",
+        "mappings": [
+          { "type": "KEYWORD", "index": false, "docValues": false },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
+    }
     description: optional string
 }

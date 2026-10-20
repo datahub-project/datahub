@@ -827,6 +827,41 @@ def test_bc_added_boost_score_is_compatible():
     assert bsv._defs_backward_compatible(base, cur) is True
 
 
+def test_bc_changed_query_by_default_is_compatible():
+    # queryByDefault only changes whether an unqualified query reads the field.
+    # It does not change the stored record, so the aspect version stays.
+    base = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "queryByDefault": false }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "queryByDefault": true }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_query_by_default_is_compatible():
+    base = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "queryByDefault": true }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_nested_query_by_default_is_compatible():
+    base = _record_defs(
+        '@Searchable = { "/name": { "fieldType": "KEYWORD" } }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "/name": { "fieldType": "KEYWORD", "queryByDefault": true } }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
 def test_bc_nested_boost_score_is_compatible():
     base = _record_defs(
         '@Searchable = { "/time": { "fieldName": "createdAt", "fieldType": "DATETIME", "boostScore": 1.0 } }',

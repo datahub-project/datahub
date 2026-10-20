@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.COLUMNS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.DESCRIPTION;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.OTHER;
@@ -43,7 +42,6 @@ public class V3SearchFieldsTest {
             ENTITY_NAME,
             QUALIFIED_NAME,
             DESCRIPTION,
-            COLUMNS,
             OTHER,
             "tags",
             "glossaryTerms",
@@ -59,17 +57,12 @@ public class V3SearchFieldsTest {
         fields.get(ENTITY_NAME).containsAll(List.of("name", "editedName")), fields.toString());
     assertEquals(fields.get(QUALIFIED_NAME), List.of("qualifiedName"));
     assertTrue(
-        fields
-            .get(DESCRIPTION)
-            .containsAll(
-                List.of(
-                    "description",
-                    "editedDescription",
-                    "fieldDescriptions",
-                    "editedFieldDescriptions")),
+        fields.get(DESCRIPTION).containsAll(List.of("description", "editedDescription")),
         fields.toString());
-    assertTrue(
-        fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
+    assertFalse(fields.get(DESCRIPTION).contains("fieldDescriptions"), fields.toString());
+    assertFalse(fields.containsKey("description_1"), fields.toString());
+    assertFalse(fields.containsKey("name_1"), fields.toString());
+    assertFalse(fields.containsKey("columns"), fields.toString());
     assertEquals(fields.get("tags"), List.of("tags"), fields.toString());
     assertTrue(
         V3SearchFields.storedParsedNameFields(List.of(dataset()))
@@ -90,12 +83,32 @@ public class V3SearchFieldsTest {
         fields.toString());
   }
 
-  /** A dataset search reads the columns' arrays, but matched fields never fetch them. */
+  /**
+   * A search that includes both entities still skips column text. The business attribute's own
+   * description opts in {@code description}; that does not opt in {@code description_1}.
+   */
+  @Test
+  public void testSharedSourceNameDoesNotOptInAnotherDegree() {
+    Map<String, List<String>> fields =
+        V3SearchFields.fullTextFields(
+            List.of(dataset(), REGISTRY.getEntitySpec("businessAttribute")));
+
+    assertTrue(fields.containsKey(DESCRIPTION), fields.toString());
+    assertTrue(
+        fields.get(DESCRIPTION).containsAll(List.of("description", "editedDescription")),
+        fields.toString());
+    assertTrue(fields.get(DESCRIPTION).contains("editedFieldDescriptions"), fields.toString());
+    assertFalse(fields.containsKey("description_1"), fields.toString());
+    assertFalse(fields.containsKey("name_1"), fields.toString());
+    assertFalse(fields.containsKey("tags_1"), fields.toString());
+    assertFalse(fields.containsKey("glossaryTerms_1"), fields.toString());
+  }
+
+  /** An unqualified dataset search does not read column fields, and never fetches their arrays. */
   @Test
   public void testMatchedFieldSourcesLeaveOutTheColumnArrays() {
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(dataset()));
-    assertTrue(
-        fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
+    assertFalse(fields.containsKey("name_1"), fields.toString());
 
     List<String> sources = V3SearchFields.matchedFieldSources(fields);
 
@@ -301,6 +314,22 @@ public class V3SearchFieldsTest {
         declared.stream().filter(name -> !searchableFieldNames.contains(name)).toList().toString());
   }
 
+  @Test
+  public void testIndexedFieldWeightFollowsTheResolvedScore() {
+    List<EntitySpec> specs = List.of(dataset(), REGISTRY.getEntitySpec("businessAttribute"));
+
+    assertEquals(V3SearchFields.weight(specs, "name"), 10f);
+    assertEquals(V3SearchFields.weight(specs, "name_1"), 1f);
+    assertEquals(V3SearchFields.weight(specs, "qualifiedName"), 10f);
+    assertEquals(V3SearchFields.weight(specs, "description"), 1f);
+    assertEquals(V3SearchFields.weight(specs, "description_1"), 0.5f);
+    assertEquals(V3SearchFields.weight(specs, "tags"), 0.5f);
+    assertEquals(V3SearchFields.weight(specs, "tags_1"), 0.25f);
+    assertEquals(V3SearchFields.weight(specs, "glossaryTerms"), 0.5f);
+    assertEquals(V3SearchFields.weight(specs, "glossaryTerms_1"), 0.25f);
+    assertEquals(V3SearchFields.weight(specs, OTHER), 0.5f);
+  }
+
   private static EntitySpec dataset() {
     return REGISTRY.getEntitySpec("dataset");
   }
@@ -311,6 +340,11 @@ public class V3SearchFieldsTest {
     when(annotation.getFieldName()).thenReturn("title");
     when(annotation.getFieldType()).thenReturn(fieldType);
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.empty());
     when(annotation.isV3Searchable()).thenReturn(true);
     when(annotation.resolvedForV3()).thenReturn(annotation);

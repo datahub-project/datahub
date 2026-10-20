@@ -96,11 +96,15 @@ public class SearchFieldConfig {
   private boolean isWordGramSubfield;
 
   public static SearchFieldConfig detectSubFieldType(@Nonnull SearchableFieldSpec fieldSpec) {
-    final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
-    final String fieldName = searchableAnnotation.getFieldName();
-    final float boost = (float) searchableAnnotation.getBoostScore();
-    final SearchableAnnotation.FieldType fieldType = searchableAnnotation.getFieldType();
-    return detectSubFieldType(fieldName, boost, fieldType, searchableAnnotation.isQueryByDefault());
+    return detectSubFieldType(fieldSpec.getSearchableAnnotation());
+  }
+
+  public static SearchFieldConfig detectSubFieldType(@Nonnull SearchableAnnotation annotation) {
+    return detectSubFieldType(
+        annotation.getFieldName(),
+        (float) annotation.getBoostScore(),
+        annotation.getFieldType(),
+        annotation.isQueryByDefault());
   }
 
   public static Set<SearchFieldConfig> detectSubFieldType(

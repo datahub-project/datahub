@@ -12,9 +12,13 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class SearchFieldResolverTest {
@@ -179,6 +183,111 @@ public class SearchFieldResolverTest {
     assertFalse(ownerResolver.supports("owners", SearchFieldResolver.Intent.FULL_TEXT));
   }
 
+  @Test
+  public void testChildValueMatchesItsDegreeAndNotTheEntityLabel() {
+    EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    SearchFieldResolver resolver = new SearchFieldResolver(List.of(dataset));
+
+    assertEquals(resolver.resolve("description", Intent.FULL_TEXT).getPath(), "description");
+    assertEquals(
+        resolver.resolve("fieldDescriptions", Intent.FULL_TEXT).getPath(), "description_1");
+    assertEquals(
+        resolver.resolve("editedFieldDescriptions", Intent.FULL_TEXT).getPath(), "description_1");
+    assertFalse(
+        resolver
+            .resolve("description", Intent.FULL_TEXT)
+            .getSourceFields()
+            .contains("fieldDescriptions"));
+    assertEquals(resolver.resolve("hasDescription", Intent.FILTER).getPath(), "hasDescription");
+    assertEquals(resolver.resolve("hasDescription_1", Intent.FILTER).getPath(), "hasDescription_1");
+    assertEquals(resolver.hasValuesFieldName("description"), Optional.of("hasDescription"));
+    assertEquals(resolver.hasValuesFieldName("description_1"), Optional.of("hasDescription_1"));
+    assertEquals(resolver.hasValuesFieldName("fieldDescriptions"), Optional.of("hasDescription_1"));
+    assertTrue(resolver.falseIsMissing("hasDescription"));
+    assertTrue(resolver.falseIsMissing("hasDescription_1"));
+    assertEquals(resolver.resolve("hasTags", Intent.FILTER).getPath(), "hasTags");
+    assertEquals(resolver.resolve("hasTags_1", Intent.FILTER).getPath(), "hasTags_1");
+    assertEquals(resolver.hasValuesFieldName("tags"), Optional.of("hasTags"));
+    assertEquals(resolver.hasValuesFieldName("tags_1"), Optional.of("hasTags_1"));
+    assertEquals(resolver.hasValuesFieldName("fieldTags"), Optional.of("hasTags_1"));
+
+    assertEquals(resolver.resolve("tags", Intent.FILTER).getPath(), "tags");
+    assertEquals(resolver.resolve("fieldTags", Intent.FILTER).getPath(), "tags_1");
+    assertEquals(resolver.resolve("editedFieldTags", Intent.FILTER).getPath(), "tags_1");
+    assertEquals(resolver.resolve("tags_1", Intent.FILTER).getPath(), "tags_1");
+    assertFalse(resolver.resolve("tags", Intent.FILTER).getSourceFields().contains("fieldTags"));
+    assertEquals(
+        resolver.resolve("tags_1", Intent.FILTER).getSourceFields(),
+        Set.of("fieldTags", "editedFieldTags"));
+
+    assertEquals(resolver.resolve("glossaryTerms", Intent.FILTER).getPath(), "glossaryTerms");
+    assertEquals(
+        resolver.resolve("fieldGlossaryTerms", Intent.FILTER).getPath(), "glossaryTerms_1");
+    assertEquals(
+        resolver.resolve("editedFieldGlossaryTerms", Intent.FILTER).getPath(), "glossaryTerms_1");
+    assertFalse(
+        resolver
+            .resolve("glossaryTerms", Intent.FILTER)
+            .getSourceFields()
+            .contains("fieldGlossaryTerms"));
+
+    SearchableFieldSpec fieldTags =
+        dataset.getAspectSpec("schemaMetadata").getSearchableFieldSpecs().stream()
+            .filter(spec -> "fieldTags".equals(spec.getSearchableAnnotation().getFieldName()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(SearchFieldConfig.detectSubFieldType(fieldTags).boost(), 0.5f);
+
+    EntitySpec businessAttribute = registry.getEntitySpec("businessAttribute");
+    SearchFieldResolver attributeResolver = new SearchFieldResolver(List.of(businessAttribute));
+    assertEquals(
+        attributeResolver.resolve("editedFieldDescriptions", Intent.FULL_TEXT).getPath(),
+        "description");
+    assertFalse(attributeResolver.contains("description_1"));
+    assertEquals(
+        attributeResolver.resolve("hasDescription", Intent.FILTER).getPath(), "hasDescription");
+    assertEquals(
+        attributeResolver.hasValuesFieldName("editedFieldDescriptions"),
+        Optional.of("hasDescription"));
+    assertFalse(attributeResolver.contains("hasDescription_1"));
+    assertEquals(attributeResolver.resolve("editedFieldTags", Intent.FILTER).getPath(), "tags");
+    assertFalse(attributeResolver.contains("tags_1"));
+
+    SearchFieldResolver sharedRecord = new SearchFieldResolver(List.of(dataset, businessAttribute));
+    assertEquals(
+        sharedRecord.resolve("editedFieldTags", Intent.FILTER).getPath(), "editedFieldTags");
+    assertTrue(sharedRecord.supports("editedFieldDescriptions", Intent.CONTAIN));
+    assertEquals(
+        Set.copyOf(sharedRecord.analyzedPaths("editedFieldDescriptions")),
+        Set.of(
+            "description.text",
+            "description.stemmed",
+            "description_1.text",
+            "description_1.stemmed"));
+    assertEquals(
+        Set.copyOf(sharedRecord.hasValuesFieldNames("editedFieldDescriptions")),
+        Set.of("hasDescription", "hasDescription_1"));
+    assertEquals(sharedRecord.hasValuesFieldName("editedFieldDescriptions"), Optional.empty());
+    assertEquals(sharedRecord.resolve("tags", Intent.FILTER).getPath(), "tags");
+    assertEquals(sharedRecord.resolve("tags_1", Intent.FILTER).getPath(), "tags_1");
+    assertEquals(sharedRecord.hasValuesFieldName("tags"), Optional.of("hasTags"));
+    assertEquals(sharedRecord.hasValuesFieldName("tags_1"), Optional.of("hasTags_1"));
+    assertTrue(
+        sharedRecord.resolve("tags", Intent.FILTER).getSourceFields().contains("editedFieldTags"));
+    assertTrue(
+        sharedRecord
+            .resolve("tags_1", Intent.FILTER)
+            .getSourceFields()
+            .contains("editedFieldTags"));
+    assertEquals(resolver.exactPath("tags", Intent.FILTER), "tags_urn");
+    assertEquals(resolver.exactPath("tags_1", Intent.FILTER), "tags_1_urn");
+    assertEquals(resolver.exactPath("fieldTags", Intent.FILTER), "tags_1_urn");
+    assertEquals(sharedRecord.exactPath("tags", Intent.FILTER), "tags_urn");
+    assertEquals(sharedRecord.exactPath("tags_1", Intent.FILTER), "tags_1_urn");
+    assertEquals(sharedRecord.exactPath("editedFieldTags", Intent.FILTER), "editedFieldTags");
+  }
+
   private static SearchFieldResolver resolver(SearchableFieldSpec... fields) {
     return resolver(List.of(List.of(fields)));
   }
@@ -231,8 +340,15 @@ public class SearchFieldResolverTest {
     when(annotation.getFieldName()).thenReturn(fieldName);
     when(annotation.getFieldNameAliases()).thenReturn(aliases);
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.empty());
     when(annotation.getHasValuesFieldName()).thenReturn(Optional.ofNullable(hasValuesFieldName));
+    when(annotation.indexedHasValuesFieldName())
+        .thenReturn(Optional.ofNullable(hasValuesFieldName));
     when(annotation.getNumValuesFieldName()).thenReturn(Optional.empty());
     when(annotation.getV3Mappings()).thenReturn(mappings);
     when(annotation.isEnableAutocomplete()).thenReturn(enableAutocomplete);

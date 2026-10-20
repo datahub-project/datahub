@@ -374,7 +374,7 @@ public class MultiEntityMappingsUtils {
             continue;
           }
           addLabelContributor(
-              byLabel, representative, annotation.getSearchLabel(), fieldSpec, entitySpecs);
+              byLabel, representative, annotation.indexedFieldName(), fieldSpec, entitySpecs);
           addLabelContributor(
               byLabel, representative, annotation.getEntityFieldName(), fieldSpec, entitySpecs);
         }
