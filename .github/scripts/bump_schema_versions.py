@@ -796,6 +796,24 @@ def _strip_field_default(type_text: str) -> str:
 # other field annotations (@deprecated, @compliance, @UrnValidation, ...),
 # which carry no reindex-relevant semantics and stay ignored — these must be
 # treated as a real, bump-worthy schema change.
+def _without_retired_search_tier(annotation_text: str) -> str:
+    """Ignore a retired ``searchTier`` key when comparing ``@Searchable`` values.
+
+    The setting never changed stored aspect data or a production index, so
+    removing it is not a schema migration. Annotations that do not name the key
+    are returned unchanged, including a trailing comma that was already there.
+    """
+    without_trailing_comma = re.sub(
+        r'"searchTier"\s*:\s*-?\d+\s*,', "", annotation_text
+    )
+    if without_trailing_comma != annotation_text:
+        return normalize_pdl_for_compare(without_trailing_comma)
+    without_key = re.sub(r',?\s*"searchTier"\s*:\s*-?\d+', "", annotation_text)
+    if without_key == annotation_text:
+        return annotation_text
+    return normalize_pdl_for_compare(without_key)
+
+
 BUMP_WORTHY_ANNOTATIONS = frozenset(
     {
         "Searchable",
@@ -807,7 +825,9 @@ BUMP_WORTHY_ANNOTATIONS = frozenset(
 )
 
 
-def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]] | None:
+def parse_record_fields(
+    body: str,
+) -> dict[str, tuple[str, bool, dict[str, str], bool]] | None:
     """Parse the top-level fields of a record body (comments already stripped).
 
     Returns {field name: (normalized type, is_optional, annotations)}, or None
@@ -822,8 +842,9 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
     parser (rather than duplicating the brace-balanced scanning logic) so both
     tools classify annotation changes identically.
     """
-    fields: dict[str, tuple[str, bool, dict[str, str]]] = {}
+    fields: dict[str, tuple[str, bool, dict[str, str], bool]] = {}
     pending_annotations: dict[str, str] = {}
+    pending_deprecated = False
     n = len(body)
     i = _skip_ws(body, 0)
     while i < n:
@@ -837,6 +858,8 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
                 return None
             ann_name = m.group(0)
             i = m.end()
+            if ann_name == "deprecated":
+                pending_deprecated = True
             while i < n and body[i] == ".":
                 m = _IDENT_RE.match(body, i + 1)
                 if not m:
@@ -848,9 +871,10 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
                 if nxt is None:
                     return None
                 if ann_name in BUMP_WORTHY_ANNOTATIONS:
-                    pending_annotations[ann_name] = normalize_pdl_for_compare(
-                        body[j + 1 : nxt]
-                    )
+                    value = normalize_pdl_for_compare(body[j + 1 : nxt])
+                    if ann_name == "Searchable":
+                        value = _without_retired_search_tier(value)
+                    pending_annotations[ann_name] = value
                 i = nxt
             i = _skip_ws(body, i)
             continue
@@ -869,8 +893,9 @@ def parse_record_fields(body: str) -> dict[str, tuple[str, bool, dict[str, str]]
         type_norm = normalize_pdl_for_compare(_strip_field_default(type_text))
         if name in fields:
             return None
-        fields[name] = (type_norm, _type_is_optional(type_text), pending_annotations)
+        fields[name] = (type_norm, _type_is_optional(type_text), pending_annotations, pending_deprecated)
         pending_annotations = {}
+        pending_deprecated = False
         i = _skip_ws(body, end)
     return fields
 
@@ -1006,6 +1031,110 @@ def _aspect_annotation_without_version(content: str) -> dict | None:
     return data
 
 
+_BOOST_SCORE_RE = re.compile(r'"boostScore"\s*:\s*-?(?:\d+(?:\.\d*)?|\.\d+)')
+
+
+def _without_boost_score(annotation: str) -> str:
+    """Drop boostScore from a normalized @Searchable value, including path maps."""
+    text = _BOOST_SCORE_RE.sub("", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    return " ".join(text.split())
+
+
+def _without_v3_overlay(annotation: str) -> str:
+    """Drop a nested v3 value from a normalized @Searchable value.
+
+    The overlay changes only the Search V3 index, including a mappings array with
+    nested objects. It does not change rows stored for the aspect, so it is
+    ignored the same way searchLabel is.
+    """
+    pieces: list[str] = []
+    cursor = 0
+    for match in re.finditer(r'"v3"\s*:', annotation):
+        value_start = _skip_ws(annotation, match.end())
+        if value_start >= len(annotation) or annotation[value_start] not in "{[":
+            continue
+        value_end = _skip_balanced(annotation, value_start)
+        if value_end is None:
+            continue
+        pieces.append(annotation[cursor : match.start()])
+        cursor = value_end
+    text = "".join(pieces) + annotation[cursor:]
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _without_search_label(annotation: str) -> str:
+    """Drop searchLabel from a normalized @Searchable value, including path maps."""
+    text = re.sub(r'"searchLabel"\s*:\s*"[^"]*"', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _without_has_values_field_name(annotation: str) -> str:
+    """Drop hasValuesFieldName from a normalized @Searchable value, including path maps.
+
+    The name selects the shared existence boolean for a search label. Changing it
+    rebuilds the index mapping and does not change rows stored for the aspect.
+    """
+    text = re.sub(r'"hasValuesFieldName"\s*:\s*"[^"]*"', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
+def _is_empty_annotation(annotation: str) -> bool:
+    return re.fullmatch(r"\{\s*\}", annotation) is not None
+
+
+def _annotations_for_version_bump(annotations: dict[str, str]) -> dict[str, str]:
+    """Annotations that require a stored-aspect migration.
+
+    searchLabel selects a shared search field, hasValuesFieldName names that label's
+    existence boolean, and a nested v3 object overrides the label for Search V3 only.
+    Changing any of them rebuilds the index mapping and does not change rows already
+    stored for the aspect, so they are ignored the same way boostScore is. A
+    @Searchable annotation that contains nothing else is ignored too.
+    """
+    compared: dict[str, str] = {}
+    for name, value in annotations.items():
+        if name != "Searchable":
+            compared[name] = value
+            continue
+        value = _without_has_values_field_name(
+            _without_search_label(_without_boost_score(_without_v3_overlay(value)))
+        )
+        if not _is_empty_annotation(value):
+            compared[name] = value
+    return compared
+
+
+def _annotations_compared_for_version_bump(
+    base_annotations: dict[str, str], current_annotations: dict[str, str]
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Compare annotations, treating removal of @Searchable as mapping-only.
+
+    Dropping @Searchable stops indexing that field. The aspect field and its
+    stored value remain, so this is not a row migration. Adding @Searchable, or
+    changing one that remains, still bumps.
+    """
+    base = _annotations_for_version_bump(base_annotations)
+    current = _annotations_for_version_bump(current_annotations)
+    if "Searchable" in base and "Searchable" not in current:
+        base = {name: value for name, value in base.items() if name != "Searchable"}
+    return base, current
+
+
 def _defs_backward_compatible(
     base_defs: dict[str, dict], cur_defs: dict[str, dict]
 ) -> bool:
@@ -1020,10 +1149,15 @@ def _defs_backward_compatible(
         @compliance, @UrnValidation)
 
     Any removal, type change, optional→required flip, added non-optional field,
-    includes change, removed enum symbol, or a changed/added/removed
+    includes change, removed enum symbol, or a changed or added
     `BUMP_WORTHY_ANNOTATIONS` value on an existing field (@Searchable,
-    @Relationship, @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection
-    — these drive reindexing) is treated as incompatible (bump).
+    @Relationship, @SearchableRef, @TimeseriesField, @TimeseriesFieldCollection)
+    is treated as incompatible (bump). Removing @Searchable is not: the field
+    stays in the aspect and its stored value remains; only the search mapping
+    changes. `boostScore` is a query weight. `searchLabel` selects the shared search
+    field a value is copied into, and `hasValuesFieldName` names that label's existence
+    boolean. Either one is applied by reindexing, not by migrating rows. Deprecating a
+    field that remains does not bump; deleting the field does.
     """
     for name, bdef in base_defs.items():
         cdef = cur_defs.get(name)
@@ -1034,11 +1168,11 @@ def _defs_backward_compatible(
                 return False
             base_fields = bdef["fields"]
             cur_fields = cdef["fields"]
-            for fname, (btype, bopt, bann) in base_fields.items():
+            for fname, (btype, bopt, bann, _bdeprecated) in base_fields.items():
                 cur_field = cur_fields.get(fname)
                 if cur_field is None:
                     return False
-                ctype, copt, cann = cur_field
+                ctype, copt, cann, _cdeprecated = cur_field
                 # Type change or optional→required is breaking (matches report).
                 if ctype != btype:
                     return False
@@ -1048,11 +1182,17 @@ def _defs_backward_compatible(
                 # has_structural there); treat as bump-worthy to stay aligned.
                 if (not bopt) and copt:
                     return False
-                # A whitelisted annotation (index/reindex-relevant) changing
-                # value, appearing, or disappearing is a real schema change.
-                if bann != cann:
+                # A whitelisted annotation changing value or appearing is a
+                # stored-aspect change. Removing @Searchable is not: the source
+                # value stays, and only the search mapping changes. boostScore,
+                # searchLabel, and hasValuesFieldName are applied by reindexing.
+                # Deprecating a field that remains does not bump; deleting the field does.
+                base_annotations, current_annotations = (
+                    _annotations_compared_for_version_bump(bann, cann)
+                )
+                if base_annotations != current_annotations:
                     return False
-            for fname, (_ctype, copt, _ann) in cur_fields.items():
+            for fname, (_ctype, copt, _ann, _deprecated) in cur_fields.items():
                 if fname not in base_fields and not copt:
                     return False
         elif not bdef["symbols"].issubset(cdef["symbols"]):
@@ -1277,7 +1417,7 @@ def main() -> int:
         if args.verbose:
             print(
                 f"Ignoring {len(backward_compatible)} backward-compatible PDL "
-                "change(s) (additive optional fields / enum symbols only):"
+                "change(s) (no stored-aspect migration):"
             )
             for f in backward_compatible:
                 print(f"  {f}")

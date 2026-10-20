@@ -12,20 +12,26 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Projects transformed searchable aspect fields into the consolidated V3 entity document. */
 public class V3SearchDocumentProjector {
 
-  public static final String URN_FIELD = "urn";
-  public static final String ENTITY_TYPE_FIELD = "_entityType";
+  public static final String URN_FIELD = MappingConstants.URN_FIELD;
+  public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
 
@@ -67,6 +73,9 @@ public class V3SearchDocumentProjector {
     final ObjectNode projectedFields =
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
+    omitV3ExcludedFields(aspectSpec, projectedFields);
+    final Set<String> sharedHasValues =
+        placeSharedHasValues(event.getEntitySpec(), aspectSpec, projectedFields);
 
     return Optional.of(
         buildProjectedAspect(
@@ -74,6 +83,7 @@ public class V3SearchDocumentProjector {
             projectedFields,
             event.getSystemMetadata(),
             STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
+            sharedHasValues,
             opContext));
   }
 
@@ -94,28 +104,47 @@ public class V3SearchDocumentProjector {
       @Nonnull final AspectSpec aspectSpec) {
     try {
       final boolean isDelete = ChangeType.DELETE.equals(event.getChangeType());
-      return searchDocumentTransformer
-          .transformAspect(
-              opContext,
-              event.getUrn(),
-              event.getRecordTemplate(),
-              aspectSpec,
-              isDelete,
-              event.getAuditStamp())
-          .map(
-              objectNode ->
-                  event.getAuditStamp() == null
-                      ? objectNode
-                      : SearchDocumentTransformer.withSystemCreated(
-                          objectNode,
-                          event.getChangeType(),
-                          event.getEntitySpec(),
-                          aspectSpec,
-                          event.getAuditStamp()));
+      Optional<ObjectNode> transformed =
+          searchDocumentTransformer
+              .transformAspect(
+                  opContext,
+                  event.getUrn(),
+                  event.getRecordTemplate(),
+                  aspectSpec,
+                  isDelete,
+                  event.getAuditStamp())
+              .map(
+                  objectNode ->
+                      event.getAuditStamp() == null
+                          ? objectNode
+                          : SearchDocumentTransformer.withSystemCreated(
+                              objectNode,
+                              changeTypeForSystemCreated(event),
+                              event.getEntitySpec(),
+                              aspectSpec,
+                              event.getAuditStamp()));
+      return transformed;
     } catch (Exception e) {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
     }
+  }
+
+  /**
+   * A backfill restates what primary storage holds, so its key aspect carries the row's creation
+   * time the way the upsert that created the entity did, and the document records it. A live
+   * restate records nothing, as before.
+   */
+  private static ChangeType changeTypeForSystemCreated(@Nonnull final MCLItem event) {
+    if (event.getChangeType() != ChangeType.RESTATE) {
+      return event.getChangeType();
+    }
+    final MetadataChangeLog changeLog = event.getMetadataChangeLog();
+    final boolean backfill =
+        changeLog != null
+            && changeLog.getHeaders() != null
+            && changeLog.getHeaders().containsKey(BackfillHeaders.MODE_HEADER_NAME);
+    return backfill ? ChangeType.UPSERT : ChangeType.RESTATE;
   }
 
   private Optional<ObjectNode> transformPreviousAspect(
@@ -128,12 +157,94 @@ public class V3SearchDocumentProjector {
       return Optional.empty();
     }
     try {
-      return searchDocumentTransformer.transformAspect(
-          opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
+      Optional<ObjectNode> transformed =
+          searchDocumentTransformer.transformAspect(
+              opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
+      return transformed;
     } catch (Exception e) {
       throw propagate(
           "Failed to transform previous V3 aspect " + aspectSpec.getName() + " for " + urn, e);
     }
+  }
+
+  private static void omitV3ExcludedFields(
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+      if (!annotation.isV3Searchable()) {
+        projectedFields.remove(annotation.getFieldName());
+        annotation.getHasValuesFieldName().ifPresent(projectedFields::remove);
+        annotation.getNumValuesFieldName().ifPresent(projectedFields::remove);
+      }
+      if (!annotation.resolvedForV3().isIncludeSystemModifiedAt()) {
+        ESUtils.getSystemModifiedAtFieldName(fieldSpec).ifPresent(projectedFields::remove);
+      }
+    }
+  }
+
+  /**
+   * A shared-label hasValues boolean is written under the aspect only when a source in this aspect
+   * is populated. {@code copy_to} ORs those trues onto the root name. The root value is cleared so
+   * a stored false is not indexed beside a copied true.
+   */
+  @Nonnull
+  private static Set<String> placeSharedHasValues(
+      @Nonnull final EntitySpec entitySpec,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields) {
+    final Set<String> names = new LinkedHashSet<>();
+    final Set<String> populated = new LinkedHashSet<>();
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+      final SearchableAnnotation resolved = annotation.resolvedForV3();
+      if (!resolved.isV3Searchable()) {
+        continue;
+      }
+      final Optional<String> label = resolved.getSearchLabel().filter(name -> !name.isEmpty());
+      if (label.isEmpty()) {
+        continue;
+      }
+      V3SearchFields.hasValuesFieldName(entitySpec, label.get())
+          .ifPresent(
+              booleanName -> {
+                names.add(booleanName);
+                if (sourcePopulated(annotation, projectedFields)) {
+                  populated.add(booleanName);
+                }
+              });
+    }
+    for (String name : names) {
+      if (populated.contains(name)) {
+        projectedFields.put(name, true);
+      } else {
+        projectedFields.remove(name);
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Uses the boolean {@code setSearchableValue} already wrote when this field declares one.
+   * Otherwise the source field it wrote is populated when that value is present.
+   */
+  private static boolean sourcePopulated(
+      @Nonnull final SearchableAnnotation annotation, @Nonnull final ObjectNode projectedFields) {
+    final Optional<String> declared = annotation.getHasValuesFieldName();
+    if (declared.isPresent()) {
+      final JsonNode flag = projectedFields.get(declared.get());
+      return flag != null && flag.isBoolean() && flag.booleanValue();
+    }
+    final JsonNode value = projectedFields.get(annotation.getFieldName());
+    if (value == null || value.isNull()) {
+      return false;
+    }
+    if (value.isBoolean()) {
+      return value.booleanValue();
+    }
+    if (value.isTextual()) {
+      return !value.asText().isEmpty();
+    }
+    return !value.isArray() || !value.isEmpty();
   }
 
   private static ProjectedAspect buildProjectedAspect(
@@ -141,12 +252,21 @@ public class V3SearchDocumentProjector {
       @Nonnull final ObjectNode projectedFields,
       @Nullable final SystemMetadata systemMetadata,
       final boolean rootOnly,
+      @Nonnull final Set<String> sharedHasValues,
       @Nonnull final OperationContext opContext) {
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
+    for (String name : sharedHasValues) {
+      // Drop a stored root true or false. The indexed term comes from copy_to.
+      rootFields.putNull(name);
+      final JsonNode aspectValue = aspectFields.get(name);
+      if (aspectValue == null || !aspectValue.isBoolean() || !aspectValue.booleanValue()) {
+        aspectFields.remove(name);
+      }
+    }
     addSystemMetadata(opContext, aspectFields, systemMetadata);
 
     if (SEMANTIC_CONTENT_ASPECT_NAME.equals(aspectName)) {

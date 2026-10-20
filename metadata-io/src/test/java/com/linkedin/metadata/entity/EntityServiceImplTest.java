@@ -75,6 +75,7 @@ import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.common.AttributeKey;
@@ -2335,5 +2336,25 @@ public class EntityServiceImplTest {
     verify(retentionBuffer, times(1)).enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
     verify(mockMetricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  /** A replica-reading caller still counts on primary, where the delete ceiling is read. */
+  @Test
+  public void countUrnRowsCountsOnPrimaryEvenWhenTheCallerReadsTheReplica() {
+    AspectDao aspectDao = mock(AspectDao.class);
+    when(aspectDao.countUrnRows(any(), eq(TEST_URN.toString()))).thenReturn(4);
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            aspectDao, mockEventProducer, mock(PreProcessHooks.class), testConfig(), metricUtils);
+
+    assertEquals(
+        service.countUrnRows(opContext.withReadPreference(ReadPreference.READ), TEST_URN), 4);
+
+    verify(aspectDao)
+        .countUrnRows(
+            argThat(
+                ctx ->
+                    ctx.getPrimaryStorageContext().getReadPreference() == ReadPreference.PRIMARY),
+            eq(TEST_URN.toString()));
   }
 }
