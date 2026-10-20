@@ -43,6 +43,10 @@ SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
     "sqlserver": "mssql",
     "trino": "trino",
     "oracle": "oracle",
+    "glue": "glue",
+    # Remapped to `glue` when the REST catalog is AWS Glue (see
+    # odcs_mapper._platform_for_server).
+    "iceberg": "iceberg",
 }
 
 # Platforms whose DataHub connectors lowercase dataset names by default; the

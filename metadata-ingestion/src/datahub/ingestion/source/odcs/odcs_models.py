@@ -50,14 +50,12 @@ KNOWN_UNMAPPED_QUALITY_FIELDS: frozenset = frozenset()
 
 KNOWN_UNMAPPED_SERVER_FIELDS = frozenset(
     (
-        "catalogUrl",
         "customProperties",
         "delimiter",
         "encoding",
         "endpointUrl",
         "format",
         "id",
-        "namespace",
         "path",
         "regionName",
         "roles",
@@ -123,10 +121,11 @@ class ODCSDescription(ODCSBaseModel):
 
 
 class ODCSSynonym(ODCSBaseModel):
-    # v3.2 (RFC 0041). Only `synonym` is mapped; `locale`, `source`, `status`
-    # etc. are dropped. Optional so one malformed entry can't fail the whole
-    # contract's model validation.
+    # v3.2 (RFC 0041). `synonym` is mapped and `status: deprecated` entries are
+    # dropped; `locale`, `source` etc. are not recorded. Optional so one
+    # malformed entry can't fail the whole contract's model validation.
     synonym: Optional[str] = None
+    status: Optional[str] = None
 
 
 class ODCSProperty(ODCSBaseModel):
@@ -288,6 +287,9 @@ class ODCSServer(ODCSBaseModel):
     account: Optional[str] = None
     region: Optional[str] = None
     warehouse: Optional[str] = None
+    # v3.2 `iceberg` server (Iceberg REST catalog).
+    catalogUrl: Optional[str] = None
+    namespace: Optional[str] = None
 
 
 class ODCSContract(ODCSBaseModel):

@@ -1,6 +1,6 @@
 ### Overview
 
-The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0 and v3.1 YAML files from
+The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0, v3.1 and v3.2 YAML files from
 a path, directory, or glob, and models each contract as a **logical dataset** on the `odcs`
 platform: dataset properties, canonical schema metadata, ownership, top-level and
 column-level tags, a link to the source document, and the contract's `quality[]` rules as
@@ -51,7 +51,7 @@ how to disable replication.
   table's contract — and it requires `emit_logical_parent`.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
-  redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified
+  redshift, databricks, sqlserver, trino, glue, iceberg) to DataHub platforms and composes fully-qualified
   dataset names from the server's own fields (e.g. `database.schema.table`). Use
   `server_overrides` to refine `env` / `platform_instance`, or `physical_urn_overrides`
   (keyed by contract id, then `schema[]` entry name) for explicit URNs. Binding affects only

@@ -74,18 +74,20 @@ on it. Resolution per `schema[]` entry, in priority order:
    name (`physicalName`, falling back to `name`) is qualified with the server's own fields
    per the platform's URN convention:
 
-| Server `type` | DataHub platform | Physical name                                                                              |
-| ------------- | ---------------- | ------------------------------------------------------------------------------------------ |
-| `postgres`    | `postgres`       | `database.schema.table`                                                                    |
-| `redshift`    | `redshift`       | `database.schema.table`                                                                    |
-| `sqlserver`   | `mssql`          | `database.schema.table`                                                                    |
-| `snowflake`   | `snowflake`      | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out) |
-| `bigquery`    | `bigquery`       | `project.dataset.table`                                                                    |
-| `databricks`  | `databricks`     | `catalog.schema.table`                                                                     |
-| `trino`       | `trino`          | `catalog.schema.table`                                                                     |
-| `mysql`       | `mysql`          | `database.table`                                                                           |
-| `oracle`      | `oracle`         | not composable — supply a dotted `physicalName` or an explicit override                    |
-| anything else | —                | unbound (logical dataset and assertions unaffected)                                        |
+| Server `type` | DataHub platform    | Physical name                                                                                                                                                                                    |
+| ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `postgres`    | `postgres`          | `database.schema.table`                                                                                                                                                                          |
+| `redshift`    | `redshift`          | `database.schema.table`                                                                                                                                                                          |
+| `sqlserver`   | `mssql`             | `database.schema.table`                                                                                                                                                                          |
+| `snowflake`   | `snowflake`         | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out)                                                                                                       |
+| `bigquery`    | `bigquery`          | `project.dataset.table`                                                                                                                                                                          |
+| `databricks`  | `databricks`        | `catalog.schema.table`                                                                                                                                                                           |
+| `trino`       | `trino`             | `catalog.schema.table`                                                                                                                                                                           |
+| `mysql`       | `mysql`             | `database.table`                                                                                                                                                                                 |
+| `oracle`      | `oracle`            | not composable — supply a dotted `physicalName` or an explicit override                                                                                                                          |
+| `glue`        | `glue`              | `database.table`                                                                                                                                                                                 |
+| `iceberg`     | `glue` or `iceberg` | `namespace.table` — `glue` when `catalogUrl` is an AWS Glue Iceberg REST endpoint (`https://glue.<region>.amazonaws.com/iceberg`, where the namespace is the Glue database), `iceberg` otherwise |
+| anything else | —                   | unbound (logical dataset and assertions unaffected)                                                                                                                                              |
 
 A `physicalName` that already contains a dot is used verbatim (assumed pre-qualified) and
 counted in `report.physical_names_passthrough`. Missing server fields leave the entry
@@ -167,14 +169,17 @@ in place.
   element type are not recorded); `deprecated: true` on a schema object or property emits a
   `deprecation` aspect on the logical dataset or field, and an explicit `deprecated: false`
   clears it (an absent key emits nothing); property
-  `synonyms` map to the field's AI context synonyms (`locale`, `source`, `status` are dropped).
+  `synonyms` map to the field's AI context synonyms (`status: deprecated` entries are skipped;
+  `locale` and `source` are dropped). Properties with `semanticType: measure` are aggregates,
+  not physical columns, so they stay in the logical schema but are left out of the
+  schema-compliance assertion.
   To un-deprecate, set `deprecated: false` — deleting the key does not undo an earlier run.
   Removing all `synonyms` does not clear previously ingested ones. The field's AI context aspect is written as a whole, replacing any
   instructions or examples set on that field of the logical dataset.
   Schema-object `synonyms`, `enum`, `semanticType`, `transformLogic` and vector
   `logicalTypeOptions` are mapped only with `emit_structured_properties` (below). Accepted but
-  not yet mapped: `context` and the server fields `encoding`, `workgroup`, `catalogUrl`,
-  `namespace`. These may land in a follow-up.
+  not yet mapped: `context` and the server fields `encoding` and `workgroup`. These may land
+  in a follow-up.
 - **Structured properties (opt-in).** With `emit_structured_properties: true` the source
   writes these `odcs.*` structured properties onto the logical dataset and its fields:
 
