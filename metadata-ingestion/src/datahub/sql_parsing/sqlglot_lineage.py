@@ -1000,41 +1000,42 @@ class _ColumnResolver:
 
 
 def _statement_risks_unnest_resolver_recursion(
-    statement: sqlglot.exp.Expression, schema: sqlglot.MappingSchema
+    statement: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    schema: sqlglot.MappingSchema,
 ) -> bool:
-    """Detect the sqlglot resolver non-termination trigger (sqlglot >= 30.7.0).
+    """Detect a statement that can send sqlglot's ``optimize()`` into a hang.
 
-    sqlglot's column Resolver has no re-entrancy guard when it types a
-    ``LATERAL FLATTEN`` / ``UNNEST`` of an *unqualified* column whose base table
-    is absent from the schema, while a schema is otherwise present: typing the
-    unnested column disambiguates it via ``get_table``, which enumerates every
-    source's columns and re-enters the same unnest source. Depending on the
-    query this overflows the native stack (SIGSEGV in ``sqlglot[c]``) or spins
-    forever inside ``optimize()``, which the cooperative timeout cannot
-    interrupt. sqlglot 30.12.0 only guards the ``Lateral(Explode)`` path, so
-    ``UNNEST`` (e.g. BigQuery) is still affected. We detect the trigger and skip
-    column-level lineage, keeping table-level lineage.
-
-    The conditions mirror the confirmed trigger, so safe unnests (qualified
-    column, base table schema'd, or no schema at all) are unaffected.
+    In dialects where ``UNNEST`` takes a bare column (``UNNEST_COLUMN_ONLY``,
+    e.g. BigQuery), typing an *unqualified* unnested column builds a new
+    Resolver that enumerates every source's columns again, with no re-entrancy
+    guard. When a referenced table is missing from the schema, this can overflow
+    the stack or spin forever inside ``optimize()``, which the cooperative
+    timeout cannot interrupt. sqlglot (as of 30.12.0) only guards the
+    ``Lateral(Explode)`` path. We skip column-level lineage for this shape and
+    keep table-level lineage.
     """
+    if not getattr(dialect, "UNNEST_COLUMN_ONLY", False):
+        return False
+
     mapping = getattr(schema, "mapping", None) or {}
     if not mapping:
         # No schema -> sqlglot skips the type-resolution path; safe.
         return False
 
-    def _is_known(table: sqlglot.exp.Table) -> bool:
-        try:
-            return bool(schema.column_names(table))
-        except Exception:
-            return False
+    cte_names = {cte.alias_or_name for cte in statement.find_all(sqlglot.exp.CTE)}
 
-    if not any(not _is_known(table) for table in statement.find_all(sqlglot.exp.Table)):
-        # Every referenced table is schema'd -> type resolves directly; safe.
+    def _is_unknown(table: sqlglot.exp.Table) -> bool:
+        if not table.args.get("db") and table.name in cte_names:
+            return False
+        try:
+            return not schema.column_names(table)
+        except Exception:
+            return True
+
+    if not any(_is_unknown(table) for table in statement.find_all(sqlglot.exp.Table)):
         return False
 
-    # Lateral(Explode) (e.g. Snowflake LATERAL FLATTEN) is guarded in sqlglot
-    # 30.12.0, so only UNNEST still needs protecting.
     for unnest in statement.find_all(sqlglot.exp.Unnest):
         if any(not col.table for col in unnest.find_all(sqlglot.exp.Column)):
             return True
@@ -1117,14 +1118,14 @@ def _prepare_query_columns(
         # )
 
     if not is_create_ddl:
-        # The resolver recursion can SIGSEGV or never return, so the statement
-        # must be refused before it reaches optimize().
-        if _statement_risks_unnest_resolver_recursion(statement, sqlglot_db_schema):
+        # optimize() can hang on this shape, so refuse it before optimizing.
+        if _statement_risks_unnest_resolver_recursion(
+            statement, dialect, sqlglot_db_schema
+        ):
             raise SqlUnderstandingError(
-                "Skipping column-level lineage: UNNEST of an "
-                "unqualified column over a table missing from the schema triggers "
-                "a sqlglot optimizer stack overflow or hang (sqlglot>=30.7.0). "
-                "Table-level lineage is unaffected."
+                "Skipping column-level lineage: UNNEST of an unqualified column "
+                "with a referenced table missing from the schema can hang the "
+                "sqlglot optimizer. Table-level lineage is unaffected."
             )
 
         # Optimize the statement + qualify column references.
