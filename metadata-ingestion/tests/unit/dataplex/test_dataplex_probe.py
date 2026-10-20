@@ -35,6 +35,9 @@ BASE: Dict[str, object] = {
     "project_ids": ["proj-a"],
     "entries_locations": ["us", "eu"],
 }
+# Discovers projects through Resource Manager. DataplexConfig rejects an
+# allow-all pattern as no selector; this one still admits every test project.
+DISCOVERY: Dict[str, object] = {"project_id_pattern": {"allow": ["^[a-z]"]}}
 # Dataplex may return the project NUMBER in resource names even when the request
 # named the project id; the probe must hand back whatever the API returned.
 GROUP_US = "projects/123456/locations/us/entryGroups/sales"
@@ -93,6 +96,18 @@ def _factory(client: Optional[Mock]) -> Callable[[object], Mock]:
         return client
 
     return build
+
+
+def _rm_project(
+    project_id: str,
+    *,
+    display_name: str = "",
+    state: int = resourcemanager_v3.Project.State.ACTIVE,
+) -> resourcemanager_v3.Project:
+    """A Resource Manager project the way the API returns one."""
+    return resourcemanager_v3.Project(
+        project_id=project_id, display_name=display_name, state=state
+    )
 
 
 def _records(result: ProbeMethodResult) -> List[Dict[str, object]]:
@@ -181,8 +196,8 @@ def test_discovery_lists_denied_projects_too(monkeypatch: pytest.MonkeyPatch) ->
     projects = Mock(spec=resourcemanager_v3.ProjectsClient)
     projects.search_projects.return_value = iter(
         [
-            resourcemanager_v3.Project(project_id="prod-a", display_name="Prod A"),
-            resourcemanager_v3.Project(project_id="dev-a"),
+            _rm_project("prod-a", display_name="Prod A"),
+            _rm_project("dev-a"),
         ]
     )
     config: Dict[str, object] = {"project_id_pattern": {"allow": ["^prod-"]}}
@@ -198,7 +213,7 @@ def test_discovery_stops_reading_projects_at_the_limit(
     def pager() -> Iterator[resourcemanager_v3.Project]:
         for i in range(1000):
             pulled.append(f"p-{i}")
-            yield resourcemanager_v3.Project(project_id=f"p-{i}")
+            yield _rm_project(f"p-{i}")
 
     projects = Mock(spec=resourcemanager_v3.ProjectsClient)
     projects.search_projects.return_value = pager()
@@ -213,6 +228,47 @@ def test_discovery_stops_reading_projects_at_the_limit(
     assert result.truncated is True
     # The framework asks for one past the limit to detect truncation.
     assert len(pulled) <= 3
+
+
+def test_discovery_skips_projects_ingestion_skips(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test non-ACTIVE projects are left out, with a warning only for an unexpected state."""
+    State = resourcemanager_v3.Project.State
+    projects = Mock(spec=resourcemanager_v3.ProjectsClient)
+    projects.search_projects.return_value = iter(
+        [
+            _rm_project("deleted-a", state=State.DELETE_REQUESTED),
+            _rm_project("odd-a", state=State.STATE_UNSPECIFIED),
+            _rm_project("prod-a"),
+        ]
+    )
+    result = _run(monkeypatch, "projects", {}, config=DISCOVERY, projects=projects)
+    assert [r["name"] for r in _records(result)] == ["prod-a"]
+    assert any("odd-a" in w for w in result.warnings)
+    # Deletion is an expected lifecycle state, so it is skipped without a warning
+    assert not any("deleted-a" in w for w in result.warnings)
+
+
+def test_skipped_projects_do_not_count_toward_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test skipped projects do not count toward the projects limit."""
+    projects = Mock(spec=resourcemanager_v3.ProjectsClient)
+    projects.search_projects.return_value = iter(
+        [
+            _rm_project(
+                "deleted-a", state=resourcemanager_v3.Project.State.DELETE_REQUESTED
+            ),
+            _rm_project("p-0"),
+            _rm_project("p-1"),
+            _rm_project("p-2"),
+        ]
+    )
+    result = _run(
+        monkeypatch, "projects", {"limit": 2}, config=DISCOVERY, projects=projects
+    )
+    assert [r["name"] for r in _records(result)] == ["p-0", "p-1"]
 
 
 def test_a_failed_project_search_is_scrubbed(monkeypatch: pytest.MonkeyPatch) -> None:

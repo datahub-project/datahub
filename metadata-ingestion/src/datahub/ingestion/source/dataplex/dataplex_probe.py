@@ -33,7 +33,12 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.provider_helpers import ProbeProviderBase, echoed, take
 from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
 from datahub.ingestion.source.common.gcp_errors import gcp_error_code
-from datahub.ingestion.source.common.gcp_project_filter import iter_candidate_projects
+from datahub.ingestion.source.common.gcp_project_filter import (
+    GcpProject,
+    is_project_active,
+    is_project_state_unexpected,
+    iter_candidate_projects,
+)
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DATAPLEX_ASPECT_TYPE_KIND,
     DATAPLEX_ENTRY_FQN_KIND,
@@ -217,7 +222,9 @@ class DataplexMetadataProbe(ProbeProviderBase):
         string project_id_pattern is matched against. With project_ids set these
         are exactly those ids and Resource Manager is not called; otherwise every
         project the credential can see (narrowed by project_labels, as ingestion
-        narrows it), including ones project_id_pattern excludes."""
+        narrows it), including ones project_id_pattern excludes. Projects that
+        are not ACTIVE, such as deleted ones, are left out as ingestion leaves
+        them out."""
         if self._config.project_ids:
             self._warn(_EXPLICIT_PROJECTS_NOTE)
         # The candidates resolve_gcp_projects chooses from, without its
@@ -227,8 +234,22 @@ class DataplexMetadataProbe(ProbeProviderBase):
         projects = None if self._config.project_ids else self._projects()
         return [
             {"name": p.id, "display_name": p.name}
-            for p in take(iter_candidate_projects(self._config, projects), limit)
+            for p in take(
+                iter_candidate_projects(self._config, projects),
+                limit,
+                keep=self._usable_project,
+            )
         ]
+
+    def _usable_project(self, project: GcpProject) -> bool:
+        if is_project_active(project):
+            return True
+        if is_project_state_unexpected(project):
+            self._warn(
+                f"project {echoed(project.id)} is in lifecycle state "
+                f"{project.state}; skipped, as ingestion skips it"
+            )
+        return False
 
     @probe_method(
         kind=DATAPLEX_ENTRY_GROUP_KIND,
