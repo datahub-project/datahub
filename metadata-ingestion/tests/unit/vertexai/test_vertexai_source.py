@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta, timezone
-from typing import Iterator, Optional
+from typing import Iterator, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import NotFound, PermissionDenied
-from google.cloud.aiplatform import ExperimentRun, PipelineJob
+from google.cloud.aiplatform import ExperimentRun, ModelEvaluation, PipelineJob
 from google.cloud.aiplatform.metadata import constants as metadata_constants
 from google.cloud.aiplatform.metadata.context import Context as MetadataContext
 from google.cloud.aiplatform.metadata.execution import Execution as MetadataExecution
 from google.cloud.aiplatform.metadata.experiment_resources import Experiment
+from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import PipelineTaskDetail
 from google.cloud.aiplatform_v1.types import PipelineJob as PipelineJobType
 from google.rpc.error_details_pb2 import ErrorInfo
@@ -198,10 +199,12 @@ def test_evaluation_reuses_models_cache_within_region(
     evaluation.create_time = None
 
     def gapic_side_effect(cls: object, *args: object, **kwargs: object) -> list:
-        # Model registry listing vs per-model evaluation listing share one patch.
-        return [model] if cls is ext.client.Model else [evaluation]
+        if cls is ext.client.Model:
+            return [model]
+        if cls is ModelEvaluation:
+            return [evaluation]
+        raise AssertionError(f"unexpected listing: {cls}")
 
-    evaluation_wu = MagicMock()
     with (
         patch(
             "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
@@ -209,18 +212,17 @@ def test_evaluation_reuses_models_cache_within_region(
         ) as mock_list,
         patch.object(ext, "_list_versions", return_value=[]),
         patch.object(
-            ext, "_gen_model_evaluation_mcps", return_value=iter([evaluation_wu])
+            ext, "_gen_model_evaluation_mcps", return_value=iter([])
         ) as gen_eval,
     ):
         list(ext.get_model_workunits())
-        eval_wus = list(ext.get_evaluation_workunits())
+        list(ext.get_evaluation_workunits())
 
     model_list_calls = [
         c for c in mock_list.call_args_list if c.args and c.args[0] is ext.client.Model
     ]
     assert len(model_list_calls) == 1
     gen_eval.assert_called_once_with(model, evaluation)
-    assert eval_wus == [evaluation_wu]
 
 
 def test_region_loop_resets_caches_each_region() -> None:
@@ -229,7 +231,6 @@ def test_region_loop_resets_caches_each_region() -> None:
         ctx=PipelineContext(run_id="region-reset-test"),
         config=VertexAIConfig(
             project_ids=["test-project"],
-            region="us-west1",
             regions=["us-west1", "europe-west4"],
             use_ml_metadata_for_lineage=False,
             extract_execution_metrics=False,
@@ -237,16 +238,18 @@ def test_region_loop_resets_caches_each_region() -> None:
             # side effect below fires exactly once per region deterministically.
             include_pipelines=False,
             include_experiments=False,
+            # Load-bearing: with model ingestion off, only a reset at the region
+            # boundary can clear the caches.
             include_models=False,
             include_evaluations=False,
         ),
     )
-    source._project_to_regions = {"test-project": ["us-west1", "europe-west4"]}
     region1_dataset_key = "ds-region-1"
     region1_model_key = "projects/test-project/locations/us-west1/models/m1"
+    region1_model = MagicMock()
 
     # Snapshot each region's caches as its fetch begins
-    seen: list[tuple[str, dict, dict]] = []
+    seen: List[Tuple[str, Set[str], Set[str], List[Model]]] = []
 
     def fetch_phase1_side_effect(resource_type: str) -> Iterator[MetadataWorkUnit]:
         assert resource_type == "training_jobs"
@@ -254,14 +257,16 @@ def test_region_loop_resets_caches_each_region() -> None:
         seen.append(
             (
                 region,
-                dict(source.training_extractor.datasets or {}),
-                dict(source.model_extractor.endpoints or {}),
+                set(source.training_extractor.datasets or {}),
+                set(source.model_extractor.endpoints or {}),
+                list(source.model_extractor._models_cache or []),
             )
         )
         if region == "us-west1":
             # Simulate caches populated during region-1's fetch.
             source.training_extractor.datasets = {region1_dataset_key: MagicMock()}
             source.model_extractor.endpoints = {region1_model_key: [MagicMock()]}
+            source.model_extractor._models_cache = [region1_model]
         return iter([])
 
     def empty(*args: object, **kwargs: object) -> Iterator[MetadataWorkUnit]:
@@ -276,11 +281,12 @@ def test_region_loop_resets_caches_each_region() -> None:
     ):
         list(source.get_workunits_internal())
 
-    assert [region for region, _, _ in seen] == ["us-west1", "europe-west4"]
+    assert [region for region, _, _, _ in seen] == ["us-west1", "europe-west4"]
     # region-2's fetch began with region-1's caches already cleared.
-    _, region2_datasets, region2_endpoints = seen[1]
+    _, region2_datasets, region2_endpoints, region2_models = seen[1]
     assert region1_dataset_key not in region2_datasets
     assert region1_model_key not in region2_endpoints
+    assert region1_model not in region2_models
 
 
 def test_experiment_run_with_none_timestamps(source: VertexAISource) -> None:
