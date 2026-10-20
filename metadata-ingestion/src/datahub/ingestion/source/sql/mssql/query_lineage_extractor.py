@@ -66,6 +66,10 @@ class MSSQLQueryEntry:
     execution_count: int
     total_exec_time_ms: float
     database_name: str
+    # Groups statements into one parser session, so a temp table created by
+    # one statement resolves for later ones. Query Store has no batch identity,
+    # so it uses the query id; the DMV fallback uses the batch's sql_handle.
+    session_key: Optional[str] = None
     # Executions inside the ingestion window; execution_count above is the
     # lifetime total used only for ranking.
     executions: List[MSSQLQueryExecution] = field(default_factory=list)
@@ -490,6 +494,7 @@ class MSSQLLineageExtractor:
                     if entry is None:
                         entry = MSSQLQueryEntry(
                             query_id=query_id,
+                            session_key=row["session_key"],
                             query_text=row["query_text"],
                             execution_count=row["execution_count"],
                             total_exec_time_ms=float(row["total_exec_time_ms"]),
@@ -629,7 +634,7 @@ class MSSQLLineageExtractor:
         so lineage from older history is kept. Only the audit log and Extended
         Events record the executing user.
         """
-        session_id = f"queryid:{query_entry.query_id}"
+        session_id = f"queryid:{query_entry.session_key or query_entry.query_id}"
         query_text = query_entry.query_text
         if not query_entry.executions:
             return [

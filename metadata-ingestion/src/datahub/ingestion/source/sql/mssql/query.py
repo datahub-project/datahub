@@ -301,9 +301,8 @@ class MSSQLQuery:
                 INNER JOIN sys.query_store_runtime_stats AS rs
                     ON p.plan_id = rs.plan_id
                 WHERE
-                    rs.count_executions >= :min_calls
+                    qt.query_sql_text IS NOT NULL
                     {exclude_clause}
-                    AND qt.query_sql_text IS NOT NULL
                     AND LEN(qt.query_sql_text) > 0
                 GROUP BY q.query_id, qt.query_sql_text
                 HAVING SUM(rs.count_executions) >= :min_calls
@@ -318,6 +317,7 @@ class MSSQLQuery:
             )
             SELECT
                 CAST(tq.query_id AS VARCHAR(50)) AS query_id,
+                CAST(tq.query_id AS VARCHAR(50)) AS session_key,
                 tq.query_sql_text AS query_text,
                 tq.execution_count AS execution_count,
                 tq.total_exec_time_ms AS total_exec_time_ms,
@@ -387,6 +387,9 @@ class MSSQLQuery:
             SELECT TOP(:limit)
                 CONVERT(VARCHAR(130), qs.sql_handle, 1)
                     + ':' + CAST(qs.statement_start_offset AS VARCHAR(20)) AS query_id,
+                -- Statements of one batch share a session so temp tables
+                -- created earlier in the batch resolve for later statements.
+                CONVERT(VARCHAR(130), qs.sql_handle, 1) AS session_key,
                 stmt.statement_text AS query_text,
                 qs.execution_count AS execution_count,
                 qs.total_elapsed_time / 1000.0 AS total_exec_time_ms,
@@ -506,6 +509,7 @@ class MSSQLQuery:
             )
             SELECT
                 CONVERT(VARCHAR(64), statement_hash, 2) AS query_id,
+                CONVERT(VARCHAR(64), statement_hash, 2) AS session_key,
                 statement AS query_text,
                 execution_count,
                 -- Duration is only recorded by Azure audits and XE; it is used

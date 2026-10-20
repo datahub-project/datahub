@@ -78,6 +78,7 @@ def _log_row(
         "last_execution_time_utc": datetime(2026, 1, 1, 9),
         "window_execution_count": count,
         "user_name": user,
+        "session_key": None,
         "is_truncated": truncated,
     }
 

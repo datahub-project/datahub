@@ -857,6 +857,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         )
 
 
+def _is_user_object(name: str) -> bool:
+    return not is_mssql_system_object(name)
+
+
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.GA)
@@ -921,8 +925,6 @@ class SQLServerSource(SQLAlchemySource):
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
         self.tsql_alias_cleaner: Optional[MSSQLAliasFilter] = None
         self._discovered_table_cache: Dict[str, bool] = {}
-        self._discovered_lower: Set[str] = set()
-        self._discovered_lower_size = 0
         self._discovered_procedure_urns: Optional[Set[str]] = None
         # Databases whose sys.sql_expression_dependencies reads have already failed.
         self._dependency_reads_denied: Set[str] = set()
@@ -975,43 +977,16 @@ class SQLServerSource(SQLAlchemySource):
                 generate_query_usage_statistics=self.config.include_query_usage_statistics,
                 usage_config=self.config,
                 eager_graph_load=False,
-                is_allowed_table=self._is_allowed_query_history_table,
+                is_allowed_table=_is_user_object,
+                # Same predicate the stored-procedure path uses: `#temp` names,
+                # temporary_tables_pattern matches and anything outside the
+                # database/schema/table patterns that wasn't ingested. Those
+                # never become Query subjects, usage or lineage targets, and
+                # same-session temp tables resolve through to real upstreams.
+                # Only called during gen_metadata(), after discovery.
+                is_temp_table=lambda name: not self.is_discovered_table(name),
             )
         return super()._create_aggregator()
-
-    def _is_allowed_query_history_table(self, name: str) -> bool:
-        """Whether query history may reference this `db.schema.object`.
-
-        Applies the same scope as table ingestion, so queries that only touch
-        out-of-scope tables don't become Query entities, lineage or usage, plus
-        the system-object filter. Ingested tables and views are in scope by
-        definition, whichever of table_pattern / view_pattern let them in.
-        Query history doesn't say whether any other name is a table or a view,
-        so it must pass both patterns (both allow everything by default).
-        Upstreams of an allowed table are not filtered, so lineage from an
-        in-scope view to its sources is unchanged.
-        """
-        if is_mssql_system_object(name):
-            return False
-        if name.lower() in self._discovered_dataset_names_lower():
-            return True
-        parts = name.split(".")
-        if len(parts) < MSSQL_QUALIFIED_NAME_PARTS:
-            return True
-        return (
-            self.config.database_pattern.allowed(parts[-3])
-            and self.config.schema_pattern.allowed(parts[-2])
-            and self.config.table_pattern.allowed(name)
-            and self.config.view_pattern.allowed(name)
-        )
-
-    def _discovered_dataset_names_lower(self) -> Set[str]:
-        # discovered_datasets keeps the source's casing while query-history
-        # names come from (possibly lowercased) URNs; rebuild only on growth.
-        if self._discovered_lower_size != len(self.discovered_datasets):
-            self._discovered_lower = {d.lower() for d in self.discovered_datasets}
-            self._discovered_lower_size = len(self.discovered_datasets)
-        return self._discovered_lower
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:

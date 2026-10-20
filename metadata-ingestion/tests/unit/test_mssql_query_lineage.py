@@ -490,6 +490,7 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
         {
             "query_id": "2",
@@ -500,6 +501,7 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
     ]
 
@@ -550,6 +552,7 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
         # Query with execution_count=3 would be filtered by SQL WHERE clause
     ]
@@ -603,6 +606,7 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
         # Queries with sys.tables and msdb.dbo.jobs would be filtered by SQL WHERE clause
     ]
@@ -707,7 +711,9 @@ def test_query_store_sql_without_exclusions():
     query_str = str(query)
     assert "SELECT TOP(:limit)" in query_str
     assert "sys.query_store_query" in query_str
-    assert "count_executions >= :min_calls" in query_str
+    # min_calls judges a query's total, not each runtime-stats row.
+    assert "HAVING SUM(rs.count_executions) >= :min_calls" in query_str
+    assert "rs.count_executions >= :min_calls\n" not in query_str
     assert "NOT LIKE" not in query_str
 
     assert params["limit"] == 100
@@ -872,6 +878,7 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
         {
             "query_id": "2",
@@ -882,6 +889,7 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
     ]
 
@@ -1442,6 +1450,7 @@ def test_mssql_unicode_emoji_in_query_text(create_engine_mock):
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "session_key": None,
             "user_name": None,
         }
     ]
@@ -1528,6 +1537,7 @@ def test_mssql_very_long_query_text_handling():
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "session_key": None,
         }
     ]
 
@@ -1621,6 +1631,7 @@ def test_mssql_user_attribution_not_supported():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         }
     ]
 
@@ -1687,6 +1698,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "last_execution_time_utc": datetime(2026, 1, 1, 9, 30),
             "window_execution_count": 4,
             "user_name": None,
+            "session_key": None,
         },
         {
             **common,
@@ -1694,6 +1706,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "last_execution_time_utc": datetime(2026, 1, 1, 10, 45),
             "window_execution_count": 6,
             "user_name": None,
+            "session_key": None,
         },
         {
             **common,
@@ -1702,6 +1715,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "user_name": None,
+            "session_key": None,
         },
     ]
     conn_mock.execute.return_value = mock_result
@@ -1885,21 +1899,26 @@ def test_is_mssql_system_object(name: str, expected: bool) -> None:
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_query_history_respects_schema_pattern(create_engine_mock):
-    """Query history follows the same schema filter as table ingestion: a
-    query that only touches an out-of-scope schema is neither a Query entity
-    nor lineage, while one on an in-scope table still is."""
+def test_query_history_skips_temp_and_out_of_scope_tables(create_engine_mock):
+    """Read-only queries are emitted by default, so queries on `#temp` tables,
+    denied schemas or temporary_tables_pattern matches must not publish Query
+    entities. Same-session temp tables still resolve to real upstreams, and a
+    cross-database upstream that isn't ingested keeps its lineage edge."""
     config = SQLServerConfig.model_validate(
         {
             **_base_config(),
             "include_query_lineage": True,
-            "schema_pattern": {"allow": ["^reporting$"]},
-            "include_query_usage_statistics": True,
+            "schema_pattern": {"deny": ["^secret$"]},
+            "temporary_tables_pattern": [".*tmp_.*"],
             "start_time": "2026-01-01T00:00:00Z",
             "end_time": "2026-01-02T00:00:00Z",
         }
     )
     source = SQLServerSource(config, PipelineContext(run_id="test"))
+    for name in ("testdb.dbo.orders", "testdb.dbo.src", "testdb.dbo.tgt"):
+        source.aggregator._schema_resolver.add_raw_schema_info(
+            urn=DatasetUrn("mssql", name).urn(), schema_info={"id": "int"}
+        )
     extractor = MSSQLLineageExtractor(
         config, Mock(), source.report, source.aggregator, "dbo"
     )
@@ -1908,57 +1927,55 @@ def test_query_history_respects_schema_pattern(create_engine_mock):
             timestamp=datetime(2026, 1, 1, 9, tzinfo=timezone.utc), count=1
         )
     ]
-    entries = [
-        MSSQLQueryEntry(
+
+    def entry(query_id: str, text: str, session_key: str) -> MSSQLQueryEntry:
+        return MSSQLQueryEntry(
             query_id=query_id,
             query_text=text,
             execution_count=1,
             total_exec_time_ms=1.0,
             database_name="TestDB",
+            session_key=session_key,
             executions=executed,
         )
-        for query_id, text in (
-            ("1", "SELECT id FROM reporting.orders"),
-            ("2", "SELECT id FROM raw.orders"),
-            ("3", "INSERT INTO raw.orders_copy SELECT id FROM reporting.orders"),
-            ("4", "INSERT INTO reporting.orders_daily SELECT id FROM raw.orders"),
-        )
+
+    entries = [
+        entry("1", "SELECT id FROM #staging", "s1"),
+        entry("2", "SELECT id FROM secret.payroll", "s2"),
+        entry("3", "SELECT id FROM tmp_scratch", "s3"),
+        entry("4", "SELECT id FROM dbo.orders", "s4"),
+        # One batch: temp table populated then read into a real target.
+        entry("5", "SELECT id INTO #t FROM dbo.src", "batch"),
+        entry("6", "INSERT INTO dbo.tgt SELECT id FROM #t", "batch"),
+        entry("7", "INSERT INTO dbo.tgt SELECT id FROM otherdb.dbo.x", "s7"),
     ]
     with patch.object(extractor, "extract_query_history", return_value=entries):
         extractor.populate_lineage_from_queries()
     with patch.object(source, "_populate_aggregator_with_query_history"):
         workunits = list(source._generate_aggregator_workunits())
 
-    statements = [
-        aspect.statement.value
+    subjects = {
+        subject.entity
         for wu in workunits
-        for aspect in [wu.get_aspect_of_type(QueryPropertiesClass)]
+        for aspect in [wu.get_aspect_of_type(QuerySubjectsClass)]
         if aspect is not None
-    ]
-    assert any("reporting.orders" in s and "INSERT" not in s for s in statements)
-    assert not any("FROM raw.orders" in s and "INSERT" not in s for s in statements)
-    lineage_targets = {
-        wu.get_urn() for wu in workunits if wu.get_aspect_of_type(UpstreamLineageClass)
+        for subject in aspect.subjects
     }
-    assert DatasetUrn("mssql", "testdb.raw.orders_copy").urn() not in lineage_targets
-    # Lineage onto an in-scope table is kept, including its out-of-scope source.
-    assert DatasetUrn("mssql", "testdb.reporting.orders_daily").urn() in lineage_targets
-
-
-@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_query_history_scope_trusts_ingested_tables(create_engine_mock):
-    """An ingested table is in scope even when a narrower view_pattern would
-    reject its name; only names DataHub didn't ingest must pass both patterns."""
-    config = SQLServerConfig.model_validate(
-        {
-            **_base_config(),
-            "include_query_lineage": True,
-            "view_pattern": {"allow": [".*_vw$"]},
-        }
+    assert not any(
+        part in subject
+        for subject in subjects
+        for part in ("#staging", "secret.payroll", "tmp_scratch", "#t")
     )
-    source = SQLServerSource(config, PipelineContext(run_id="test"))
-    source.discovered_datasets.add("TestDB.dbo.Orders")
+    assert DatasetUrn("mssql", "testdb.dbo.orders").urn() in subjects
 
-    assert source._is_allowed_query_history_table("testdb.dbo.orders")
-    assert source._is_allowed_query_history_table("testdb.dbo.orders_vw")
-    assert not source._is_allowed_query_history_table("testdb.dbo.customers")
+    upstreams = {
+        upstream.dataset
+        for wu in workunits
+        if wu.get_urn() == DatasetUrn("mssql", "testdb.dbo.tgt").urn()
+        for aspect in [wu.get_aspect_of_type(UpstreamLineageClass)]
+        if aspect is not None
+        for upstream in aspect.upstreams
+    }
+    assert DatasetUrn("mssql", "testdb.dbo.src").urn() in upstreams
+    assert DatasetUrn("mssql", "otherdb.dbo.x").urn() in upstreams
+    assert not any("#t" in u for u in upstreams)

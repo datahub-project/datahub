@@ -1336,6 +1336,9 @@ def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
         }
     )
     source = SQLServerSource(config, PipelineContext(run_id="select-query-entity"))
+    # The extractor runs without a table-ingestion pass here, so record the
+    # table as discovered; only ingested tables become Query subjects.
+    source.discovered_datasets.add("lineage_test.lineage_test.source_customers")
     extractor = MSSQLLineageExtractor(
         config=config,
         connection=conn,
