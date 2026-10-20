@@ -47,6 +47,7 @@ import com.linkedin.metadata.aspect.validation.UpstreamMetricsValidator;
 import com.linkedin.metadata.aspect.validation.UrlValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.aspect.validation.VersionPropertiesAuthorizationValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
@@ -458,6 +459,27 @@ public class SpringStandardPluginConfiguration {
         .setConfig(
             AspectPluginConfig.builder()
                 .className(VersionPropertiesValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.versionProperties.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator versionPropertiesAuthorizationValidator() {
+    return new VersionPropertiesAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(VersionPropertiesAuthorizationValidator.class.getName())
                 .enabled(true)
                 .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
                 .supportedEntityAspectNames(

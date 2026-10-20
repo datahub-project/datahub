@@ -79,16 +79,21 @@ record DataHubFileInfo {
   schemaField: optional Urn
 
   /**
-   * Timestamp when this file was created and by whom
+   * Timestamp when this file was created and by whom.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "createdAt"
+       "fieldName": "createdAt",
+       "v3": { "enabled": false }
     },
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "createdBy"
+      "fieldName": "createdBy",
+      "v3": { "enabled": false }
     }
   }
   created: AuditStamp

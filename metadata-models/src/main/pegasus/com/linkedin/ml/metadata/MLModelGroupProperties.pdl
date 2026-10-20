@@ -11,7 +11,8 @@ import com.linkedin.common.ExternalReference
  * Properties associated with an ML Model Group
  */
 @Aspect = {
-  "name": "mlModelGroupProperties"
+  "name": "mlModelGroupProperties",
+  "schemaVersion": 2
 }
 record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, ExternalReference {
 
@@ -23,6 +24,14 @@ record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, Ext
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "queryByDefault": true,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: optional string
 
@@ -31,7 +40,15 @@ record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, Ext
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -42,13 +59,39 @@ record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo, Ext
   createdAt: optional Time
 
   /**
-   * Time and Actor who created the MLModelGroup
+   * When this model group was created in the source platform, and by whom.
    */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
+    }
+  }
   created: optional TimeStamp
 
   /**
-   * Date when the MLModelGroup was last modified
+   * When this model group was last modified in the source platform.
    */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
+    }
+  }
   lastModified: optional TimeStamp
 
   /**

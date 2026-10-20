@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
 import UsageFacepile from '@app/entityV2/dataset/profile/UsageFacepile';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SidebarHeader } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeader';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
@@ -13,8 +14,6 @@ import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { Operation, UsageQueryResult } from '@types';
 
 /* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
-const STATS_TAB = 'Stats';
-const QUERIES_TAB = 'Queries';
 /* eslint-enable i18next/no-literal-string */
 
 const HeaderInfoBody = styled(Typography.Text)`
@@ -79,7 +78,7 @@ export const SidebarStatsSection = () => {
         <div>
             <HeaderContainer>
                 <SidebarHeader title={t('sidebar.stats.sectionTitle')} />
-                <StatsButton onClick={() => routeToTab({ tabName: STATS_TAB })} type="link">
+                <StatsButton onClick={() => routeToTab({ tabName: EntityTabPath.STATS })} type="link">
                     {t('sidebar.stats.moreStatsLink')}
                 </StatsButton>
             </HeaderContainer>
@@ -89,7 +88,7 @@ export const SidebarStatsSection = () => {
                     {latestProfile?.rowCount ? (
                         <InfoItem
                             title={t('sidebar.stats.rowsLabel')}
-                            onClick={() => routeToTab({ tabName: QUERIES_TAB })}
+                            onClick={() => routeToTab({ tabName: EntityTabPath.QUERIES })}
                             width={INFO_ITEM_WIDTH_PX}
                         >
                             <HeaderInfoBody>{formatNumberWithoutAbbreviation(latestProfile?.rowCount)}</HeaderInfoBody>
@@ -108,7 +107,7 @@ export const SidebarStatsSection = () => {
                     {usageStats?.aggregations?.totalSqlQueries ? (
                         <InfoItem
                             title={t('sidebar.stats.monthlyQueriesLabel')}
-                            onClick={() => routeToTab({ tabName: QUERIES_TAB })}
+                            onClick={() => routeToTab({ tabName: EntityTabPath.QUERIES })}
                             width={INFO_ITEM_WIDTH_PX}
                         >
                             <HeaderInfoBody>
@@ -130,7 +129,7 @@ export const SidebarStatsSection = () => {
                 <StatsRow>
                     <InfoItem
                         title={t('sidebar.stats.lastUpdatedLabel')}
-                        onClick={() => routeToTab({ tabName: QUERIES_TAB })}
+                        onClick={() => routeToTab({ tabName: EntityTabPath.QUERIES })}
                         width={LAST_UPDATED_WIDTH_PX}
                     >
                         <HeaderInfoBody>{lastUpdatedTime}</HeaderInfoBody>

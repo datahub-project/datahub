@@ -22,28 +22,40 @@ record PostInfo {
   content: PostContent
 
   /**
-   * The time at which the post was initially created
+   * The time at which the post was initially created.
+   * Search V3 does not index this time. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
-    "fieldType": "COUNT"
+    "fieldType": "COUNT",
+    "v3": { "enabled": false }
   }
   created: long
 
   /**
-   * The time at which the post was last modified
+   * The time at which the post was last modified.
+   * Search V3 does not index this time. The write is systemMetadata.aspectModified,
+   * copied to _system.modified.time.
    */
+  @deprecated = "Use systemMetadata.aspectModified instead."
   @Searchable = {
-    "fieldType": "COUNT"
+    "fieldType": "COUNT",
+    "v3": { "enabled": false }
   }
   lastModified: long
 
   /**
-   * The audit stamp at which the request was last updated
+   * Audit stamp for who created the post and when. Updates change lastModified, not this stamp.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
         "fieldName": "created",
-        "fieldType": "COUNT"
+        "fieldType": "COUNT",
+        "v3": { "enabled": false }
       }
   }
   auditStamp: optional AuditStamp
