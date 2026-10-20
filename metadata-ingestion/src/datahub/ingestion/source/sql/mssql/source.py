@@ -923,6 +923,13 @@ class SQLServerSource(SQLAlchemySource):
                 usage_config=self.config,
                 eager_graph_load=False,
                 is_allowed_table=_is_user_object,
+                # Same predicate the stored-procedure path uses: `#temp` names,
+                # temporary_tables_pattern matches and anything outside the
+                # database/schema/table patterns that wasn't ingested. Those
+                # never become Query subjects, usage or lineage targets, and
+                # same-session temp tables resolve through to real upstreams.
+                # Only called during gen_metadata(), after discovery.
+                is_temp_table=lambda name: not self.is_discovered_table(name),
             )
         return super()._create_aggregator()
 

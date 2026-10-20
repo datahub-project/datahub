@@ -8,7 +8,7 @@ Extracts lineage and usage statistics by analyzing SQL queries:
 
 - **Table-level lineage**: Tables read from and written to
 - **Column-level lineage**: Data flow between columns
-- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped
+- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped. Queries that only touch `#temp` tables, `temporary_tables_pattern` matches or tables outside `database_pattern` / `schema_pattern` / `table_pattern` are skipped too, and temp tables used within one batch resolve through to their real sources. `max_queries_to_extract` applies per database, so a server with many databases can emit many more Query entities
 - **Usage patterns**: Per-query and per-table execution counts for the ingestion time window
 
 ##### Known Limitations
