@@ -4,7 +4,7 @@ from typing import Annotated, FrozenSet, Iterator, List, Optional, Protocol
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
-from google.cloud.resourcemanager_v3 import ProjectsClient
+from google.cloud.resourcemanager_v3 import Project, ProjectsClient
 from pydantic import BaseModel, Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 GCP_PROJECT_ID_PATTERN = re.compile(r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
 # GCP label format: key:value, both lowercase letters/digits/underscores/hyphens
 GCP_LABEL_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*:[a-z0-9_-]+$")
+# Resource Manager Project.State names
+PROJECT_STATE_ACTIVE = "ACTIVE"
+PROJECT_STATE_DELETE_REQUESTED = "DELETE_REQUESTED"
 
 
 class GCPValidationError(ValueError):
@@ -94,6 +97,32 @@ def validate_project_label_list(project_labels: List[str]) -> None:
 class GcpProject(BaseModel):
     id: str
     name: str
+    state: Optional[str] = None
+
+
+def _state_name(state: Project.State | int) -> str:
+    # proto-plus returns a raw int for states newer than the installed SDK
+    return state.name if isinstance(state, Project.State) else str(state)
+
+
+def is_project_active(project: GcpProject) -> bool:
+    """Whether a project can be ingested.
+
+    Projects from project_ids carry no state and are presumed to be active.
+    """
+    return project.state is None or project.state == PROJECT_STATE_ACTIVE
+
+
+def is_project_state_unexpected(project: GcpProject) -> bool:
+    """Whether an inactive project is in a state worth warning about.
+
+    DELETE_REQUESTED state means project has been deleted. Resource Manager can
+    still see deleted projects for 30 days, all other APIs return 403 for them.
+    """
+    return (
+        not is_project_active(project)
+        and project.state != PROJECT_STATE_DELETE_REQUESTED
+    )
 
 
 class GcpProjectFilterConfig(ConfigModel):
@@ -166,11 +195,11 @@ def iter_projects(
         else projects_client.search_projects()
     )
     for project in pages:
-        if getattr(project, "project_id", None):
-            display_name = getattr(project, "display_name", None)
+        if project.project_id:
             yield GcpProject(
                 id=project.project_id,
-                name=display_name if display_name else project.project_id,
+                name=project.display_name or project.project_id,
+                state=_state_name(project.state),
             )
 
 

@@ -120,9 +120,12 @@ class TestResolveGcpProjects:
 
     def test_resolve_explicit_project_ids(self):
         """Test resolution with explicit project IDs."""
+        mock_client = Mock()
         config = GcpProjectFilterConfig(project_ids=["proj-1", "proj-2"])
         report = SourceReport()
-        projects = resolve_gcp_projects(config, report)
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
+
+        mock_client.search_projects.assert_not_called()
 
         assert len(projects) == 2
         assert all(isinstance(p, GcpProject) for p in projects)
