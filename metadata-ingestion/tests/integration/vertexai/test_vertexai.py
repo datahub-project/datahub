@@ -21,8 +21,16 @@ from tests.integration.vertexai.mock_vertexai import (
     get_mock_pipeline_job,
 )
 
+# Modules that materialize listings via rate_limited_gapic_list (models, and
+# the training-job datasets cache).
 _EXTRACTOR_MODULES = [
     "datahub.ingestion.source.vertexai.vertexai_model_extractor",
+    "datahub.ingestion.source.vertexai.vertexai_training_extractor",
+]
+
+# Modules that stream large listings via rate_limited_gapic_iter instead of
+# materializing them with rate_limited_gapic_list.
+_STREAMING_EXTRACTOR_MODULES = [
     "datahub.ingestion.source.vertexai.vertexai_pipeline_extractor",
     "datahub.ingestion.source.vertexai.vertexai_training_extractor",
 ]
@@ -35,6 +43,11 @@ def _patch_gapic_list(
     for module in _EXTRACTOR_MODULES:
         exit_stack.enter_context(
             patch(f"{module}.rate_limited_gapic_list", side_effect=side_effect)
+        )
+    # The mock returns a list, which the streaming callers iterate lazily.
+    for module in _STREAMING_EXTRACTOR_MODULES:
+        exit_stack.enter_context(
+            patch(f"{module}.rate_limited_gapic_iter", side_effect=side_effect)
         )
 
 
