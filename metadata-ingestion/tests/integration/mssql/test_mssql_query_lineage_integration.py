@@ -1871,6 +1871,48 @@ def _fake_log_row(
     }
 
 
+def _run_log_sql(
+    connection: sa.engine.Connection,
+    rows: List[Dict[str, object]],
+    start: datetime,
+    limit: int,
+) -> List[sa.engine.RowMapping]:
+    """Run the shared audit / Extended Events SQL over fabricated log rows."""
+    connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))
+    connection.execute(
+        text(
+            "CREATE TABLE dbo.qh_fake_log (event_time DATETIME2(7), session_id INT, "
+            "user_name NVARCHAR(256), statement NVARCHAR(MAX), is_rpc INT, "
+            "is_truncated INT, database_name NVARCHAR(256))"
+        )
+    )
+    try:
+        connection.execute(
+            text(
+                "INSERT INTO dbo.qh_fake_log VALUES (:event_time, :session_id, "
+                ":user_name, :statement, :is_rpc, :is_truncated, :database_name)"
+            ),
+            rows,
+        )
+        query, params = MSSQLQuery._get_log_query_history(
+            log_rows_cte="WITH log_rows AS (SELECT * FROM dbo.qh_fake_log WHERE __TIME__)",
+            window_predicate="event_time >= :start_time AND event_time < :end_time",
+            before_window_predicate=(
+                "event_time >= :prepare_start_time AND event_time < :start_time"
+            ),
+            path="unused",
+            window=QueryHistoryWindow(
+                start_time=start, end_time=start + timedelta(days=2)
+            ),
+            limit=limit,
+            min_calls=1,
+            exclude_patterns=None,
+        )
+        return list(connection.execute(query, params).mappings())
+    finally:
+        connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))
+
+
 @pytest.mark.integration
 def test_query_log_sql_handles_truncated_records_and_old_prepares(mssql_connection):
     """Runs the shared audit / Extended Events SQL over fabricated log rows,
@@ -1900,7 +1942,9 @@ def test_query_log_sql_handles_truncated_records_and_old_prepares(mssql_connecti
             is_truncated=1,
         ),
         *(
-            _fake_log_row(at, (f"SELECT /* trunc{i} */ " + "z" * cap)[:cap], is_truncated=1)
+            _fake_log_row(
+                at, (f"SELECT /* trunc{i} */ " + "z" * cap)[:cap], is_truncated=1
+            )
             for i in range(3)
             for _ in range(5)
         ),
@@ -1925,58 +1969,62 @@ def test_query_log_sql_handles_truncated_records_and_old_prepares(mssql_connecti
         ),
         _fake_log_row(at, "exec sp_execute 8,1", session_id=52, is_rpc=1),
     ]
-    mssql_connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))
-    mssql_connection.execute(
-        text(
-            "CREATE TABLE dbo.qh_fake_log (event_time DATETIME2(7), session_id INT, "
-            "user_name NVARCHAR(256), statement NVARCHAR(MAX), is_rpc INT, "
-            "is_truncated INT, database_name NVARCHAR(256))"
-        )
-    )
-    mssql_connection.execute(
-        text(
-            "INSERT INTO dbo.qh_fake_log VALUES (:event_time, :session_id, "
-            ":user_name, :statement, :is_rpc, :is_truncated, :database_name)"
-        ),
-        rows,
-    )
 
     def run(limit: int) -> Dict[str, Tuple[int, int, int]]:
-        query, params = MSSQLQuery._get_log_query_history(
-            log_rows_cte="WITH log_rows AS (SELECT * FROM dbo.qh_fake_log WHERE __TIME__)",
-            window_predicate="event_time >= :start_time AND event_time < :end_time",
-            before_window_predicate=(
-                "event_time >= :prepare_start_time AND event_time < :start_time"
-            ),
-            path="unused",
-            window=QueryHistoryWindow(start_time=start, end_time=datetime(2030, 1, 11)),
-            limit=limit,
-            min_calls=1,
-            exclude_patterns=None,
-        )
         return {
             r["query_text"]: (r["execution_count"], r["is_truncated"], r["is_unmapped"])
-            for r in mssql_connection.execute(query, params).mappings()
+            for r in _run_log_sql(mssql_connection, rows, start, limit)
         }
 
-    try:
-        by_text = run(limit=10)
-        found = {
-            marker: counts
-            for marker in ("wrapped-long", "cut-literal", "real", "recent-prep")
-            for statement, counts in by_text.items()
-            if f"/* {marker} */" in statement
-        }
-        assert found == {
-            "wrapped-long": (1, 0, 0),
-            "cut-literal": (1, 1, 0),
-            "real": (3, 0, 0),
-            "recent-prep": (2, 0, 0),
-        }, by_text
-        assert by_text[UNMAPPED_EXECUTE_KEY] == (1, 0, 1)
-        assert not any("old-prep" in s for s in by_text)
+    by_text = run(limit=10)
+    found = {
+        marker: counts
+        for marker in ("wrapped-long", "cut-literal", "real", "recent-prep")
+        for statement, counts in by_text.items()
+        if f"/* {marker} */" in statement
+    }
+    assert found == {
+        "wrapped-long": (1, 0, 0),
+        "cut-literal": (1, 1, 0),
+        "real": (3, 0, 0),
+        "recent-prep": (2, 0, 0),
+    }, by_text
+    assert by_text[UNMAPPED_EXECUTE_KEY] == (1, 0, 1)
+    assert not any("old-prep" in s for s in by_text)
 
-        top = run(limit=1)
-        assert any("/* real */" in s for s in top), top
-    finally:
-        mssql_connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))
+    top = run(limit=1)
+    assert any("/* real */" in s for s in top), top
+
+
+@pytest.mark.integration
+def test_query_log_temp_session_spans_usage_buckets(mssql_connection):
+    """A connection that fills #stage just before midnight and reads it just
+    after keeps one parser session, so the reader resolves through #stage.
+    Another login reusing the session id is a separate session."""
+    start = datetime(2030, 1, 10)
+    rows = [
+        _fake_log_row(
+            datetime(2030, 1, 10, 23, 59),
+            "SELECT id INTO #stage FROM src /* fill */",
+            session_id=55,
+        ),
+        _fake_log_row(
+            datetime(2030, 1, 11, 0, 1),
+            "INSERT INTO tgt SELECT id FROM #stage /* read */",
+            session_id=55,
+        ),
+        {
+            **_fake_log_row(
+                datetime(2030, 1, 11, 0, 2),
+                "INSERT INTO tgt SELECT id FROM #stage /* read */",
+                session_id=55,
+            ),
+            "user_name": "qh_other_fake",
+        },
+    ]
+    keys = {
+        (r["query_text"].split("/* ")[1], r["user_name"]): r["session_key"]
+        for r in _run_log_sql(mssql_connection, rows, start, limit=10)
+    }
+    assert keys[("fill */", "qh_fake")] == keys[("read */", "qh_fake")], keys
+    assert keys[("read */", "qh_other_fake")] != keys[("read */", "qh_fake")], keys

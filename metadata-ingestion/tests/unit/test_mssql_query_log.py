@@ -450,11 +450,11 @@ def test_temp_table_statements_keep_their_session() -> None:
     rows = [
         {
             **_log_row("h1", insert, "alice", 1),
-            "session_key": "session:TestDB:51:alice:2026-01-01T00:00:00",
+            "session_key": "session:51:alice",
         },
         {
             **_log_row("h1", insert, "alice", 1),
-            "session_key": "session:TestDB:52:alice:2026-01-01T00:00:00",
+            "session_key": "session:52:alice",
         },
     ]
     extractor, _, _ = _extractor(
@@ -470,8 +470,8 @@ def test_temp_table_statements_keep_their_session() -> None:
         for observed in extractor._build_observed_queries(query)
     }
     assert sessions == {
-        "queryid:session:TestDB:51:alice:2026-01-01T00:00:00",
-        "queryid:session:TestDB:52:alice:2026-01-01T00:00:00",
+        "queryid:session:51:alice",
+        "queryid:session:52:alice",
     }
     sql = " ".join(
         str(

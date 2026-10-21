@@ -696,13 +696,16 @@ class MSSQLQuery:
             )
             SELECT
                 CONVERT(VARCHAR(64), statement_hash, 2) AS query_id,
-                -- Session ids are reused by later connections, so the login and
-                -- usage bucket are part of a temp-table statement's session key.
+                -- The parser session must span the whole connection, so it
+                -- leaves out the usage bucket and the current database (a
+                -- connection can cross buckets or run USE). Session ids are
+                -- reused by later connections; the login keeps another login's
+                -- connection apart. The audit's connection_id would be exact,
+                -- but SQL Server 2017/2019 audits don't return it.
                 CASE
                     WHEN temp_session_id IS NULL THEN CONVERT(VARCHAR(64), statement_hash, 2)
                     ELSE CONCAT(
-                        N'session:', database_name, N':', temp_session_id, N':',
-                        COALESCE(user_name, N''), N':', CONVERT(VARCHAR(19), bucket_start, 126)
+                        N'session:', temp_session_id, N':', COALESCE(user_name, N'')
                     )
                 END AS session_key,
                 statement AS query_text,
