@@ -1,8 +1,9 @@
-import { Text } from '@components';
 import { Image, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
+
+import { Text } from '@components/components/Text';
 
 import dataHubLogo from '@images/datahublogo.png';
 

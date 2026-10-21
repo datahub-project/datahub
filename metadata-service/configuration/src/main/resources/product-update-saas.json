@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "id": "v2.3",
   "releaseMonth": "2026-10",
   "requiredVersion": null,

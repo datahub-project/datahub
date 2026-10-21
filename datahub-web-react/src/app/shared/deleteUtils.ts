@@ -1,4 +1,5 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { PageRoutes } from '@conf/Global';
 
 import { useDeleteApplicationMutation } from '@graphql/application.generated';
@@ -38,7 +39,7 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
         case EntityType.DataProduct:
             // Return to Data Products tab of the domain it was part of
             if (domain) {
-                return `/domain/${domain.urn}/Data Products`;
+                return `/domain/${domain.urn}/${EntityTabPath.DATA_PRODUCTS}`;
             }
             return '/';
         case EntityType.BusinessAttribute:

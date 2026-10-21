@@ -13,7 +13,15 @@ record EditableMLModelProperties {
   @Searchable = {
     "fieldType": "TEXT",
     "fieldName": "editedDescription",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 }

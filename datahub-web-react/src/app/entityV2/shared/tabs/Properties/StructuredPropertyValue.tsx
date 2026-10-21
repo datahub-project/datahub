@@ -24,7 +24,8 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
     display: block;
     width: 100%;
 
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         font-size: ${(props) => props.size}px;
     }
 

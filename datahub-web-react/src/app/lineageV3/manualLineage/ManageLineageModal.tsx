@@ -1,4 +1,4 @@
-import { Modal as AntModal, message } from 'antd';
+import { message } from 'antd';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,6 +11,7 @@ import { buildUpdateLineagePayload } from '@app/lineageV3/manualLineage/buildUpd
 import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
@@ -22,6 +23,7 @@ import { useUpdateLineageMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
 
 const MODAL_WIDTH_PX = 1400;
+const MODAL_Z_INDEX = 2000; // Over node tooltips
 
 const StyledModal = styled(Modal)`
     top: 30px;
@@ -87,6 +89,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         filterManualLineageUrns(adjacencyList[direction].get(node.urn) || [], validEntityTypes),
     );
     const [isSaving, setIsSaving] = useState(false);
+    const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
@@ -138,19 +141,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
-            AntModal.confirm({
-                title: t('manualLineage.exitConfirmTitle'),
-                content: t('manualLineage.exitConfirmText', {
-                    count: entitiesToAdd.length + entitiesToRemove.length,
-                }),
-                onOk() {
-                    closeModal();
-                },
-                onCancel() {},
-                okText: tcAction('yes'),
-                maskClosable: true,
-                closable: true,
-            });
+            setIsExitConfirmOpen(true);
         } else {
             closeModal();
         }
@@ -187,7 +178,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 open
                 onCancel={onCancelSelect}
                 style={{ padding: 0 }}
-                zIndex={2000} // Over node tooltips
+                zIndex={MODAL_Z_INDEX}
                 buttons={modalButtons}
             >
                 <ModalContentContainer>
@@ -222,6 +213,17 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     </CurrentSection>
                 </ModalContentContainer>
             </StyledModal>
+            <ConfirmationModal
+                isOpen={isExitConfirmOpen}
+                handleClose={() => setIsExitConfirmOpen(false)}
+                handleConfirm={closeModal}
+                modalTitle={t('manualLineage.exitConfirmTitle')}
+                modalText={t('manualLineage.exitConfirmText', {
+                    count: entitiesToAdd.length + entitiesToRemove.length,
+                })}
+                confirmButtonText={tcAction('yes')}
+                zIndex={MODAL_Z_INDEX + 1} // Above this modal, otherwise the confirm opens hidden behind it
+            />
         </ClickOutside>
     );
 }

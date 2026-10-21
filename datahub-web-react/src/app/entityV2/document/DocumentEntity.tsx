@@ -3,6 +3,7 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getDocumentOverrideProperties } from '@app/entityV2/document/document.utils';
 import { Preview } from '@app/entityV2/document/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
@@ -12,7 +13,7 @@ import { EmbeddedProfile } from '@app/entityV2/shared/profileChunks';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
-import { Document, EntityType, SearchResult } from '@types';
+import { Document, DocumentSourceType, EntityType, SearchResult } from '@types';
 
 const DocumentProfile = lazyProfileComponent('DocumentProfile', () =>
     import('@app/entityV2/document/DocumentProfile').then((module) => ({
@@ -129,18 +130,18 @@ export class DocumentEntity implements Entity<Document> {
         return data?.info?.title || data?.urn;
     };
 
-    getOverridePropertiesFromEntity = (data: Document) => {
-        const externalUrl = data.info?.source?.externalUrl;
-        return {
-            name: data.info?.title,
-            externalUrl,
-            lastIngested: data.lastIngested ?? undefined,
-            properties: {
-                name: data.info?.title,
-                externalUrl,
-            },
-        };
+    createdTime = (data: Document) => {
+        const created = data?.info?.created?.time;
+        const lastModified = data?.info?.lastModified?.time;
+        // External connectors often default created to ingestion time, so only trust it if it predates lastModified.
+        const isExternal = data?.info?.source?.sourceType === DocumentSourceType.External;
+        if (!isExternal || (created && lastModified && created < lastModified)) {
+            return created;
+        }
+        return undefined;
     };
+
+    getOverridePropertiesFromEntity = getDocumentOverrideProperties;
 
     getGenericEntityProperties = (data: Document) => {
         return getDataForEntityType({

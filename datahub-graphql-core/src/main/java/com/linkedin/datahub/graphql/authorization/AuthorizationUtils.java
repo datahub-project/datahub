@@ -521,9 +521,13 @@ public class AuthorizationUtils {
   /**
    * Checks authorization for patch operations.
    *
-   * <p>Authorized when the actor holds Edit Entity on the target, or the entity type's own API
-   * UPDATE privilege (for example Manage Policies for {@code dataHubPolicy}). For entity types
-   * without a type-specific rule this is simply Edit Entity.
+   * <p>A patch of an entity that does not yet exist is a create: it is authorized with the entity
+   * type's API CREATE privileges. A patch of an existing entity, including a soft-deleted one, is
+   * an update. Edit Entity on the target is always sufficient. In addition, the entity type's own
+   * API privilege for that operation is accepted (for example Manage Policies for {@code
+   * dataHubPolicy}), so an actor granted a type-specific management privilege can patch that type
+   * without Edit Entity, the same way the dedicated GraphQL mutations for those types already
+   * allow.
    *
    * <p>The resource type used for policy matching is always taken from the URN, which is what the
    * patch is applied to, never from the client-supplied {@code entityType}. Otherwise a grant
@@ -533,10 +537,11 @@ public class AuthorizationUtils {
    *
    * @param input Patch entity input
    * @param context Query context
+   * @param entityExists whether the URN already exists, including soft-deleted entities
    * @return true if authorized, false otherwise
    */
   public static boolean isAuthorizedForPatch(
-      @Nonnull PatchEntityInput input, @Nonnull QueryContext context) {
+      @Nonnull PatchEntityInput input, @Nonnull QueryContext context, boolean entityExists) {
 
     String entityType = null;
     if (input.getUrn() != null) {
@@ -558,14 +563,10 @@ public class AuthorizationUtils {
       return false;
     }
 
-    // Edit Entity on the target is always sufficient. In addition, accept the entity type's own
-    // API UPDATE privileges (for example Manage Policies for dataHubPolicy), so an actor who was
-    // granted a type-specific management privilege can patch that type without Edit Entity, the
-    // same way the dedicated GraphQL mutations for those types already allow.
+    final ApiOperation operation = entityExists ? ApiOperation.UPDATE : ApiOperation.CREATE;
     final List<ConjunctivePrivilegeGroup> groups =
         new ArrayList<>(
-            AuthUtil.buildDisjunctivePrivilegeGroup(
-                    ApiGroup.ENTITY, ApiOperation.UPDATE, entityType)
+            AuthUtil.buildDisjunctivePrivilegeGroup(ApiGroup.ENTITY, operation, entityType)
                 .getAuthorizedPrivilegeGroups());
     groups.add(ALL_PRIVILEGES_GROUP);
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(groups);

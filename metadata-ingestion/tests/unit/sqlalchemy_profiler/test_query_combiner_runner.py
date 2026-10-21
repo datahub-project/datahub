@@ -429,11 +429,10 @@ class TestQueryCombinerRunner:
         self, sqlite_engine, test_adapter, test_table
     ):
         """
-        Test strategic batching: multiple flush points for different stages.
+        Test strategic batching: a second batch after the first has flushed.
 
-        This mimics the real profiler behavior where we batch queries in stages:
-        - Stage 1: Row count + column cardinality
-        - Stage 2: Numeric stats (min/max/mean/stdev)
+        Each batch() is its own flush point, so queries scheduled in the second
+        one cannot ride along with the first.
         """
         executed_statements: list = []
 
@@ -454,7 +453,7 @@ class TestQueryCombinerRunner:
                 ProfilingConnection(conn), "sqlite", test_adapter, query_combiner
             )
 
-            # Stage 1: Schedule row count and cardinality queries
+            # First batch: row count and cardinality queries
             row_count_future = runner.get_row_count(test_table)
             non_null_id_future = runner.get_column_non_null_count(test_table, "id")
             non_null_value_future = runner.get_column_non_null_count(
@@ -464,41 +463,37 @@ class TestQueryCombinerRunner:
                 test_table, "id", use_approx=False
             )
 
-            # Flush stage 1
             query_combiner.flush()
 
-            # Extract stage 1 results
             row_count = row_count_future.result()
             assert row_count == 3
             assert non_null_id_future.result() == 3
             assert non_null_value_future.result() == 3
             assert unique_id_future.result() == 3
 
-            # Stage 2: Schedule numeric stats
+            # Second batch: numeric stats
             min_future = runner.get_column_min(test_table, "value")
             max_future = runner.get_column_max(test_table, "value")
             mean_future = runner.get_column_mean(test_table, "value")
 
-            # Flush stage 2
             query_combiner.flush()
 
-            # Extract stage 2 results
             assert min_future.result() == 10.5
             assert max_future.result() == 30.5
             assert mean_future.result() == 20.5
 
-            # Verify batching happened in both stages
+            # Verify batching happened in both batches
             assert query_combiner.report.combined_queries_issued >= 2
             assert (
                 query_combiner.report.queries_combined == 7
-            )  # 4 in stage 1, 3 in stage 2
+            )  # 4 in the first batch, 3 in the second
 
-            # Verify each stage produced a combined SQL with multiple CTEs
+            # Verify each batch produced a combined SQL with multiple CTEs
             combined_sqls = [
                 s for s in executed_statements if s.count("AS \n(SELECT ") >= 2
             ]
             assert len(combined_sqls) == 2, (
-                f"Expected 2 combined SQL statements (one per stage), "
+                f"Expected 2 combined SQL statements (one per batch), "
                 f"found {len(combined_sqls)} out of {len(executed_statements)} total"
             )
 

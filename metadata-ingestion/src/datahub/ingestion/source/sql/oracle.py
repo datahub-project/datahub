@@ -1493,6 +1493,10 @@ class OracleSourceReport(SQLSourceReport):
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_query_usage` and `include_operational_stats`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class OracleSource(SQLAlchemySource):
     """
     This plugin extracts the following:

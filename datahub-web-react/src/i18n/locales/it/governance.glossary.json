@@ -18,5 +18,11 @@
     "sidebar.collapse": "Comprimi glossario",
     "sidebar.expand": "Espandi glossario",
     "sidebar.home": "Home del glossario",
-    "sidebar.section.allTerms": "Tutti i termini del glossario"
+    "sidebar.ownerFilter.label": "Proprietari",
+    "sidebar.ownerFilter.placeholder": "Filtra per proprietario",
+    "sidebar.domainFilter.label": "Domini",
+    "sidebar.domainFilter.placeholder": "Filtra per dominio",
+    "sidebar.section.allTerms": "Tutti i termini del glossario",
+    "sidebar.tagFilter.label": "Tag",
+    "sidebar.tagFilter.placeholder": "Filtra per tag"
 }

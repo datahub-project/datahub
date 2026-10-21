@@ -4,6 +4,7 @@ import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
@@ -97,13 +98,13 @@ export const getHealthSummaryMessage = (healths: Health[]) => {
 export const getHealthRedirectPath = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
-            return 'Quality/List';
+            return `${EntityTabPath.QUALITY}/List`;
         }
         case HealthStatusType.Incidents: {
-            return 'Incidents';
+            return EntityTabPath.INCIDENTS;
         }
         case HealthStatusType.Tests: {
-            return 'Governance';
+            return EntityTabPath.GOVERNANCE;
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);

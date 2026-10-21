@@ -42,6 +42,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITION_UPPER_BOUND_RE,
     PARTITIONING_COLUMN_FLAG,
     STRFTIME_FORMATS,
+    TEMPORAL_PARTITION_TYPES,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
@@ -1058,7 +1059,9 @@ class BigqueryProfiler(GenericProfiler):
 
         window_days = self.config.profiling.partition_datetime_window_days
 
-        date_columns = self._extract_date_columns_from_filters(partition_filters)
+        date_columns = self._extract_date_columns_from_filters(
+            partition_filters, self._resolved_partition_column_types(table)
+        )
 
         if not date_columns:
             logger.debug(
@@ -1236,17 +1239,40 @@ class BigqueryProfiler(GenericProfiler):
             rendered = f"{wrapper}({rendered})"
         return rendered
 
+    @staticmethod
+    def _resolved_partition_column_types(table: BigqueryTable) -> Dict[str, str]:
+        # Partition-column types resolved during the crawl, when the schema carried them.
+        # Used to decide which partition columns are temporal instead of guessing from the
+        # column name. Empty when the table has no resolved partition columns.
+        info = table.partition_info
+        if not info or not info.columns:
+            return {}
+        return {col.name: col.data_type for col in info.columns if col.data_type}
+
     def _extract_date_columns_from_filters(
-        self, partition_filters: List[str]
+        self,
+        partition_filters: List[str],
+        column_types: Optional[Dict[str, str]] = None,
     ) -> List[str]:
-        """Heuristic: partition filters are built without full schema metadata, so a
-        column is treated as a date column when its full name or any underscore-separated
-        token is a known date-like name (so ``event_ts`` matches via ``ts``)."""
+        """Identify the temporal partition columns referenced in the filters.
+
+        When a column's resolved type is known it is authoritative: only
+        DATE/DATETIME/TIMESTAMP columns are windowed, so a non-temporal column with a
+        date-like name (e.g. a STRING ``last_update_date``) is not widened and a temporal
+        column with an unfamiliar name is not missed. When the type is unavailable, fall
+        back to a name heuristic (the full name or any underscore-separated token is a
+        known date-like name, so ``event_ts`` matches via ``ts``)."""
+        column_types = column_types or {}
         date_columns: List[str] = []
 
         for filter_expr in partition_filters:
             for col_name in BACKTICK_COLUMN_NAME_RE.findall(filter_expr):
                 if col_name in date_columns:
+                    continue
+                resolved = column_types.get(col_name)
+                if resolved is not None:
+                    if resolved.upper() in TEMPORAL_PARTITION_TYPES:
+                        date_columns.append(col_name)
                     continue
                 name_lower = col_name.lower()
                 tokens = set(name_lower.split("_"))

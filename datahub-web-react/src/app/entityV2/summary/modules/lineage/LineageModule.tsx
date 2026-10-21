@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -17,7 +18,7 @@ export default function LineageModule(props: ModuleProps) {
     const entityRegistry = useEntityRegistryV2();
 
     const navigateToLineageTab = () => {
-        history.push(getEntityPath(entityType, urn, entityRegistry, false, false, 'Lineage'));
+        history.push(getEntityPath(entityType, urn, entityRegistry, false, false, EntityTabPath.LINEAGE));
     };
     return (
         <LargeModule

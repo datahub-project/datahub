@@ -16,6 +16,7 @@ import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeIm
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
@@ -41,6 +42,7 @@ interface ProcessedData {
 export default function useComputeGraph(): ProcessedData {
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const appConfig = useAppConfig();
+    const entityRegistry = useEntityRegistryV2();
     const { showLineageFilterNodes } = appConfig.config.featureFlags;
     const {
         rootUrn,
@@ -62,11 +64,11 @@ export default function useComputeGraph(): ProcessedData {
 
     const fineGrainedLineage = useMemo(
         () => {
-            const fgl = getFineGrainedLineage({ nodes, edges, rootType });
+            const fgl = getFineGrainedLineage({ nodes, edges, rootType }, entityRegistry);
             console.debug(fgl);
             return fgl;
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, edges, rootType, dataVersion],
+        [nodes, edges, rootType, entityRegistry, dataVersion],
     );
 
     const {
@@ -96,6 +98,7 @@ export default function useComputeGraph(): ProcessedData {
                     rootUrn,
                     rootType,
                     context,
+                    entityRegistry,
                     ignoreSchemaFieldStatus,
                     showLineageFilterNodes,
                 );
@@ -110,6 +113,7 @@ export default function useComputeGraph(): ProcessedData {
                 const result = computeBoundingBoxGraph(
                     rootUrn,
                     context,
+                    entityRegistry,
                     ignoreSchemaFieldStatus,
                     showLineageFilterNodes,
                 );
@@ -124,6 +128,7 @@ export default function useComputeGraph(): ProcessedData {
                 rootUrn,
                 rootType,
                 context,
+                entityRegistry,
                 ignoreSchemaFieldStatus,
                 undefined,
                 new Map(),
@@ -145,6 +150,7 @@ export default function useComputeGraph(): ProcessedData {
             showDataProcessInstances,
             showGhostEntities,
             outputPortsOnly,
+            entityRegistry,
             ignoreSchemaFieldStatus,
             dataVersion,
             isModuleView,

@@ -6,6 +6,7 @@ import styled, { useTheme } from 'styled-components';
 
 import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
 import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
+import { safeUrl } from '@app/shared/urlUtils';
 import { Text } from '@src/alchemy-components';
 
 const DropdownBase = styled.div`
@@ -25,7 +26,7 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
     const theme = useTheme();
     const onLinkItemClick = (linkItem: T) => {
         linkItem.attributes.onClick?.();
-        window.open(linkItem.url, '_blank', 'noopener,noreferrer');
+        window.open(safeUrl(linkItem.url), '_blank', 'noopener,noreferrer');
     };
 
     return (

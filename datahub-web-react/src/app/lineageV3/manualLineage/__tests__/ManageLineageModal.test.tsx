@@ -4,13 +4,31 @@ import React from 'react';
 
 import { FetchStatus, LineageNodesContext } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
+import { EntityAndType } from '@src/app/entity/shared/types';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
 
-// Mock the SearchSelect component to avoid rendering it
+// Mock the SearchSelect component to avoid rendering it; the button lets tests create a pending change
 vi.mock('../../../entityV2/shared/components/styled/search/SearchSelect', () => ({
-    SearchSelect: () => <div data-testid="mocked-search-select">Mocked SearchSelect</div>,
+    SearchSelect: ({
+        selectedEntities,
+        setSelectedEntities,
+    }: {
+        selectedEntities: EntityAndType[];
+        setSelectedEntities: (entities: EntityAndType[]) => void;
+    }) => (
+        <div data-testid="mocked-search-select">
+            <button
+                type="button"
+                onClick={() =>
+                    setSelectedEntities([...selectedEntities, { urn: 'urn:li:dataset:new', type: EntityType.Dataset }])
+                }
+            >
+                Add upstream
+            </button>
+        </div>
+    ),
 }));
 
 // Mock the LineageEdges component
@@ -192,6 +210,51 @@ describe('ManageLineageModal', () => {
         fireEvent.click(cancelButton);
 
         expect(mockCloseModal).toHaveBeenCalledTimes(1);
+    });
+
+    describe('with pending changes', () => {
+        const renderWithPendingChange = () => {
+            render(
+                <MockedProvider>
+                    <TestPageContainer>
+                        <LineageNodesContext.Provider value={mockLineageNodesContext as any}>
+                            <ManageLineageModal
+                                node={mockNode as any}
+                                direction={LineageDirection.Upstream}
+                                closeModal={mockCloseModal}
+                                refetch={mockRefetch}
+                            />
+                        </LineageNodesContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+            fireEvent.click(screen.getByText('Add upstream'));
+            fireEvent.click(screen.getByText('Cancel'));
+        };
+
+        it('asks for confirmation instead of closing', () => {
+            renderWithPendingChange();
+
+            expect(screen.getByText('Exit Lineage Management')).toBeInTheDocument();
+            expect(mockCloseModal).not.toHaveBeenCalled();
+        });
+
+        it('closes the modal when the exit is confirmed', () => {
+            renderWithPendingChange();
+
+            fireEvent.click(screen.getByTestId('modal-confirm-button'));
+
+            expect(mockCloseModal).toHaveBeenCalledTimes(1);
+        });
+
+        it('keeps the modal open when the exit is cancelled', () => {
+            renderWithPendingChange();
+
+            fireEvent.click(screen.getByTestId('modal-cancel-button'));
+
+            expect(mockCloseModal).not.toHaveBeenCalled();
+            expect(screen.getByText('Select the Upstreams to add to Test Dataset')).toBeInTheDocument();
+        });
     });
 
     it('expands lineage if fetchStatus is UNFETCHED', () => {

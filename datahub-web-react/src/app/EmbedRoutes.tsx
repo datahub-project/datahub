@@ -1,16 +1,19 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Route } from 'react-router-dom';
 
-import EmbeddedPage from '@app/embed/EmbeddedPage';
-import EmbedLookup from '@app/embed/lookup';
+import { SuspenseBlock } from '@app/shared/SuspenseBlock';
+import { lazyDefault } from '@app/shared/lazyPage';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
+
+const EmbeddedPage = lazyDefault(() => import('@app/embed/EmbeddedPage'));
+const EmbedLookup = lazyDefault(() => import('@app/embed/lookup'));
 
 export default function EmbedRoutes() {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <>
+        <Suspense fallback={<SuspenseBlock />}>
             <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
             {entityRegistry.getEntities().map((entity) => (
                 <Route
@@ -19,6 +22,6 @@ export default function EmbedRoutes() {
                     render={() => <EmbeddedPage entityType={entity.type} />}
                 />
             ))}
-        </>
+        </Suspense>
     );
 }

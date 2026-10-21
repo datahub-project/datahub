@@ -20,8 +20,14 @@ record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties,
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
   type: optional SchemaFieldDataType
