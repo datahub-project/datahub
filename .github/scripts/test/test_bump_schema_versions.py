@@ -807,6 +807,48 @@ def test_bc_changed_field_type_is_incompatible():
     assert bsv._defs_backward_compatible(base, cur) is False
 
 
+def test_bc_changed_boost_score_is_compatible():
+    # boostScore only changes how this version scores a query. It does not
+    # change the stored record or the index mapping, so the aspect version stays.
+    base = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 1.0 }', "a: optional string"
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 10.0 }', "a: optional string"
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_boost_score_is_compatible():
+    base = _record_defs('@Searchable = { "fieldType": "TEXT" }', "a: optional string")
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 10.0 }', "a: optional string"
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_nested_boost_score_is_compatible():
+    base = _record_defs(
+        '@Searchable = { "/time": { "fieldName": "createdAt", "fieldType": "DATETIME", "boostScore": 1.0 } }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "/time": { "fieldName": "createdAt", "fieldType": "DATETIME", "boostScore": 10.0 } }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_boost_score_with_field_type_change_is_incompatible():
+    base = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "boostScore": 1.0 }', "a: optional string"
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "boostScore": 10.0 }', "a: optional string"
+    )
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
 def test_bc_changed_searchable_annotation_is_incompatible():
     # @Searchable drives Elasticsearch index mapping, so changing its value on
     # an existing field requires a reindex — not a no-op, backward-compatible
@@ -824,12 +866,128 @@ def test_bc_added_searchable_annotation_is_incompatible():
     assert bsv._defs_backward_compatible(base, cur) is False
 
 
+def test_bc_removed_searchable_annotation_is_compatible():
+    # Dropping @Searchable updates the search mapping. The field and its stored
+    # value remain, so this is not a schema migration.
+    base = _record_defs('@Searchable = { "fieldType": "DATETIME" }', "a: optional string")
+    cur = _record_defs("a: optional string")
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_removed_searchable_with_other_annotation_change_is_incompatible():
+    base = _record_defs(
+        '@Searchable = { "fieldType": "URN" }',
+        '@Relationship = { "name": "OwnedBy" }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Relationship = { "name": "HasOwner" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
 def test_bc_changed_non_whitelisted_annotation_is_compatible():
     # @deprecated is not reindex-relevant, so it stays ignored — same as
     # before this change — even though its value differs.
     base = _record_defs('@deprecated = "old reason"', "a: optional string")
     cur = _record_defs('@deprecated = "new reason"', "a: optional string")
     assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_search_label_is_compatible():
+    # searchLabel copies a value into a shared search field. Adding, changing,
+    # or removing it rebuilds the index mapping and does not migrate stored rows.
+    base = _record_defs(
+        '@Searchable = { "fieldType": "TEXT" }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "searchLabel": "description" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_changed_search_label_is_compatible():
+    base = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "searchLabel": "description" }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "searchLabel": "columns" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_search_label_only_annotation_is_compatible():
+    base = _record_defs("@Searchable = {}", "a: optional string")
+    cur = _record_defs(
+        '@Searchable = { "searchLabel": "description" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_has_values_field_name_is_compatible():
+    # hasValuesFieldName names the shared existence boolean. Adding or changing it
+    # rebuilds the index mapping and does not migrate stored rows.
+    base = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "searchLabel": "description" }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "hasValuesFieldName": "hasDescription", "searchLabel": "description" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_changed_has_values_field_name_is_compatible():
+    base = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "hasValuesFieldName": "hasAssertionDescription" }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "TEXT", "hasValuesFieldName": "hasDescription" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_deprecated_field_dropping_search_label_is_compatible():
+    # Deprecating a field that remains is not a schema migration, including
+    # removal of the source-time search label.
+    base = _record_defs(
+        '@Searchable = { "/time": { "fieldName": "createdTime", "fieldType": "DATETIME", "searchLabel": "createdAt" } }',
+        "created: optional string",
+    )
+    cur = _record_defs(
+        '@deprecated = "Use systemMetadata.aspectCreated instead."',
+        '@Searchable = { "/time": { "fieldName": "createdTime", "fieldType": "DATETIME" } }',
+        "created: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_deprecated_field_type_change_is_incompatible():
+    base = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "searchLabel": "entityName" }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@deprecated = "gone"',
+        '@Searchable = { "fieldType": "TEXT", "searchLabel": "entityName" }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is False
+
+
+def test_bc_removed_field_is_incompatible_even_when_it_was_deprecated():
+    base = _record_defs('@deprecated = "gone"', "a: optional string", "b: boolean")
+    cur = _record_defs("b: boolean")
+    assert bsv._defs_backward_compatible(base, cur) is False
 
 
 def test_bc_changed_field_default_is_compatible():
@@ -900,6 +1058,250 @@ def test_is_bc_change_schema_version_removal_only(tmp_path, monkeypatch):
     p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
     monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
     assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_boost_score_is_compatible(tmp_path, monkeypatch):
+    # A query weight is read from the registry at query time, so changing it
+    # is not a schema migration.
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\",\n"
+        "    \"boostScore\": 1.0\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\",\n"
+        "    \"boostScore\": 10.0\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_added_search_label_is_compatible(tmp_path, monkeypatch):
+    base = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "TEXT"\n'
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "TEXT",\n'
+        '    "searchLabel": "description"\n'
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_v3_overlay_is_compatible(tmp_path, monkeypatch):
+    base = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "WORD_GRAM",\n'
+        '    "searchLabel": "entityName",\n'
+        '    "boostScore": 10.0\n'
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "WORD_GRAM",\n'
+        '    "searchLabel": "entityName",\n'
+        '    "boostScore": 10.0,\n'
+        '    "v3": { "searchLabel": "name" }\n'
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_nested_v3_mappings_are_compatible(tmp_path, monkeypatch):
+    base = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "TEXT"\n'
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "TEXT",\n'
+        '    "v3": {\n'
+        '      "searchLabel": "description",\n'
+        '      "mappings": [\n'
+        '        { "type": "KEYWORD", "index": false, "docValues": false },\n'
+        '        { "subfield": "text", "type": "TEXT" }\n'
+        "      ]\n"
+        "    }\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_deprecated_search_label_removal_is_compatible(tmp_path, monkeypatch):
+    base = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "/time": {\n'
+        '      "fieldName": "createdTime",\n'
+        '      "fieldType": "DATETIME",\n'
+        '      "searchLabel": "createdAt"\n'
+        "    }\n"
+        "  }\n"
+        "  created: optional string\n"
+        "}"
+    )
+    current = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        '  @deprecated = "Use systemMetadata.aspectCreated instead."\n'
+        "  @Searchable = {\n"
+        '    "/time": {\n'
+        '      "fieldName": "createdTime",\n'
+        '      "fieldType": "DATETIME"\n'
+        "    }\n"
+        "  }\n"
+        "  created: optional string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_removed_field_is_incompatible(tmp_path, monkeypatch):
+    base = (
+        'namespace x\n@Aspect = { "name": "foo" }\n'
+        "record Foo {\n"
+        '  @deprecated = "gone"\n'
+        "  a: optional string\n"
+        "}"
+    )
+    current = 'namespace x\n@Aspect = { "name": "foo" }\nrecord Foo {\n}'
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is False
+
+
+def test_is_bc_change_search_tier_removal_is_compatible(tmp_path, monkeypatch):
+    # searchTier never shipped as stored aspect data, so dropping it is not a migration.
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\",\n"
+        "    \"searchTier\": 1\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT\"\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_search_tier_only_annotation_is_compatible(tmp_path, monkeypatch):
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"searchTier\": 2\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_trailing_comma_without_search_tier_is_compatible(tmp_path, monkeypatch):
+    text = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        "    \"fieldType\": \"TEXT_PARTIAL\",\n"
+        "    \"fieldName\": \"editedName\",\n"
+        "  }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", text)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: text)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is True
+
+
+def test_is_bc_change_searchable_field_type_still_incompatible(tmp_path, monkeypatch):
+    base = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = { \"fieldType\": \"KEYWORD\", \"searchTier\": 1 }\n"
+        "  a: string\n"
+        "}"
+    )
+    current = (
+        "namespace x\n@Aspect = { \"name\": \"foo\" }\n"
+        "record Foo {\n"
+        "  @Searchable = { \"fieldType\": \"TEXT\" }\n"
+        "  a: string\n"
+        "}"
+    )
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_backward_compatible_change(str(p), "deadbeef") is False
 
 
 def test_is_bc_change_aspect_name_change_is_incompatible(tmp_path, monkeypatch):

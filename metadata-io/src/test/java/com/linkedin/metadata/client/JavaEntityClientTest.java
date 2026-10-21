@@ -16,6 +16,7 @@ import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -120,7 +121,7 @@ public class JavaEntityClientTest {
         dispatcher);
   }
 
-  /** Without the service (the system client): today's code. */
+  /** Without the service (system-update, tests): today's code. */
   @Test
   void testDeletesWithoutTheServiceRunTodaysCode() throws Exception {
     Urn urn = UrnUtils.getUrn("urn:li:tag:noService");
@@ -159,6 +160,69 @@ public class JavaEntityClientTest {
 
     verify(hardDeleteService).deleteEntity(opContext, urn);
     verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+  }
+
+  /**
+   * The system client offers its hard deletes to the service too. Before, it was built without one,
+   * so every service on the system client (data products and others) hard-deleted in-process.
+   */
+  @Test
+  void testTheSystemClientDeletesThroughTheService() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:systemClient");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
+    SystemJavaEntityClient client =
+        new SystemJavaEntityClient(
+            _entityService,
+            _deleteEntityService,
+            _entitySearchService,
+            _cachingEntitySearchService,
+            _searchService,
+            _lineageSearchService,
+            _timeseriesAspectService,
+            rollbackService,
+            _eventProducer,
+            new EntityClientCacheConfig(),
+            EntityClientConfig.builder().batchGetV2Size(1).build(),
+            _metricUtils,
+            hardDeleteService);
+
+    client.deleteEntity(opContext, urn);
+
+    verify(hardDeleteService).deleteEntity(opContext, urn);
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+  }
+
+  /**
+   * A refused submit reaches the system client's caller as a failure: nothing is deleted in-process
+   * instead. The hard-delete dispatcher throws when the delete it took cannot be submitted.
+   */
+  @Test
+  void testTheSystemClientThrowsWhenTheDispatcherRefusesTheDelete() {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:systemClientRefused");
+    DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
+    when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
+    HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
+    when(dispatcher.dispatch(any(), any())).thenThrow(new IllegalStateException("refused"));
+    SystemJavaEntityClient client =
+        new SystemJavaEntityClient(
+            _entityService,
+            _deleteEntityService,
+            _entitySearchService,
+            _cachingEntitySearchService,
+            _searchService,
+            _lineageSearchService,
+            _timeseriesAspectService,
+            rollbackService,
+            _eventProducer,
+            new EntityClientCacheConfig(),
+            EntityClientConfig.builder().batchGetV2Size(1).build(),
+            _metricUtils,
+            hardDeleteService(true, dispatcher));
+
+    assertThrows(IllegalStateException.class, () -> client.deleteEntity(opContext, urn));
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+    verify(_entityService, never())
+        .deleteUrn(any(OperationContext.class), any(Urn.class), any(DeleteCeiling.class));
   }
 
   @Test

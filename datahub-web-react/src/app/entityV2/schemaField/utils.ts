@@ -1,3 +1,4 @@
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 
 /**
@@ -43,5 +44,5 @@ export function getSchemaFieldParentLink(schemaFieldUrn: string) {
     const fieldPath = getFieldPathFromSchemaFieldUrn(schemaFieldUrn);
     const parentUrn = getSourceUrnFromSchemaFieldUrn(schemaFieldUrn);
 
-    return `/dataset/${parentUrn}/Columns?highlightedPath=${fieldPath}`;
+    return `/dataset/${parentUrn}/${EntityTabPath.COLUMNS}?highlightedPath=${fieldPath}`;
 }

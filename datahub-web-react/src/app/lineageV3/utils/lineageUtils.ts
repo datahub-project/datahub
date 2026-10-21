@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 
 import { getFieldPathFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
@@ -30,7 +31,7 @@ export function getLineageUrl(
     location: ReturnType<typeof useLocation>,
     entityRegistry: EntityRegistry,
 ) {
-    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
+    return `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.LINEAGE}${location.search}`;
 }
 
 export function useGetLineageUrl(urn?: string, type?: EntityType) {

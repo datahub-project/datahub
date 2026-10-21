@@ -44,6 +44,7 @@ const mockEntityRegistry = {
     getCollectionName: () => 'Documents',
     getEntityName: () => 'Document',
     getGenericEntityProperties: () => null,
+    getCreatedTime: () => undefined,
     getSupportedEntityCapabilities: () => new Set(),
     hasEntity: () => true,
     renderPreview: () => null,

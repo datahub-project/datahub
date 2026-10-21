@@ -1,6 +1,6 @@
 import { FetchResult } from '@apollo/client';
+import { Button, Icon, Text, Tooltip, toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
-import { Button, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -13,15 +13,17 @@ import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/Descr
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { Tooltip } from '@src/alchemy-components';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { UpdateDatasetMutation } from '@graphql/dataset.generated';
 import { MetadataAttribution } from '@types';
 
-const EditIcon = styled(PencilSimple).attrs({ size: 14 })`
+const EditIconButton = styled.button`
     cursor: pointer;
     display: none;
+    background: none;
+    border: none;
+    padding: 0;
     color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
@@ -51,8 +53,9 @@ const DescriptionContainer = styled.div`
     line-height: 24px;
     color: ${(props) => props.theme.colors.text};
     vertical-align: middle;
-    &:hover ${EditIcon} {
-        display: inline-block;
+    &:hover ${EditIconButton} {
+        display: inline-flex;
+        align-items: center;
     }
 
     & ins.diff {
@@ -70,7 +73,7 @@ const DescriptionContainer = styled.div`
         }
     }
 `;
-const EditedLabel = styled(Typography.Text)`
+const EditedLabel = styled(Text)`
     display: inline-block;
     margin-left: 8px;
     color: ${(props) => props.theme.colors.textTertiary};
@@ -79,8 +82,10 @@ const EditedLabel = styled(Typography.Text)`
     top: -2px;
 `;
 
-const ReadLessText = styled(Typography.Link)`
+const ReadLessText = styled(Text)`
     margin-right: 4px;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.hyperlinks};
 `;
 
 const StyledViewer = styled(Editor)`
@@ -155,31 +160,33 @@ export default function DescriptionField({
     };
 
     const onUpdateModal = async (desc: string | null) => {
-        message.loading({ content: tf('updating') });
+        toast.loading(tf('updating'));
         try {
             await onUpdate(desc || '');
-            message.destroy();
-            message.success({ content: tf('updated'), duration: 2 });
+            toast.destroy();
+            toast.success(tf('updated'), { duration: 2 });
             sendAnalytics();
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error)
-                message.error({
-                    content: t('dataset.updateDescriptionError', { error: e.message || '' }),
-                    duration: 2,
-                });
+                toast.error(t('dataset.updateDescriptionError', { error: e.message || '' }), { duration: 2 });
         }
         onCloseModal();
     };
 
     const enableEdits = isSchemaEditable && !isReadOnly;
-    const EditButton = (enableEdits && description && <EditIcon onClick={() => setShowAddModal(true)} />) || undefined;
+    const EditButton =
+        (enableEdits && description && (
+            <EditIconButton type="button" onClick={() => setShowAddModal(true)} aria-label={tc('edit')}>
+                <Icon icon={PencilSimple} size="md" color="inherit" />
+            </EditIconButton>
+        )) ||
+        undefined;
 
     const showAddButton = enableEdits && !description;
 
     return (
         <DescriptionContainer data-testid={dataTestId}>
-            {/* {expanded || !overLimit ? ( */}
             {expanded ? (
                 <>
                     {!!description && <StyledViewer content={description} readOnly />}
@@ -187,6 +194,8 @@ export default function DescriptionField({
                         <ExpandedActions>
                             {overLimit && (
                                 <ReadLessText
+                                    type="span"
+                                    size="sm"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleExpanded(false);
@@ -201,40 +210,24 @@ export default function DescriptionField({
                 </>
             ) : (
                 description && (
-                    <>
-                        {/* <StripMarkdownText
-                        limit={ABBREVIATED_LIMIT}
-                        // readMore={
-                        //     <>
-                        //         <Typography.Link
-                        //             onClick={(e) => {
-                        //                 e.stopPropagation();
-                        //                 handleExpanded(true);
-                        //             }}
-                        //         >
-                        //             Read More
-                        //         </Typography.Link>
-                        //     </>
-                        // }
-                        suffix={EditButton}
-                        shouldWrap
-                    > */}
-                        <Tooltip
-                            title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
-                        >
-                            <DescriptionWrapper>
-                                <CompactMarkdownViewer
-                                    content={description}
-                                    lineLimit={1}
-                                    fixedLineHeight
-                                    customStyle={{ fontSize: '12px' }}
-                                    scrollableY={false}
-                                />
-                                {isSchemaEditable && isEdited && <EditedLabel>{t('dataset.editedLabel')}</EditedLabel>}
-                            </DescriptionWrapper>
-                        </Tooltip>
-                        {/* </StripMarkdownText> */}
-                    </>
+                    <Tooltip
+                        title={isPropagated && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}
+                    >
+                        <DescriptionWrapper>
+                            <CompactMarkdownViewer
+                                content={description}
+                                lineLimit={1}
+                                fixedLineHeight
+                                customStyle={{ fontSize: '12px' }}
+                                scrollableY={false}
+                            />
+                            {isSchemaEditable && isEdited && (
+                                <EditedLabel type="span" size="sm">
+                                    {t('dataset.editedLabel')}
+                                </EditedLabel>
+                            )}
+                        </DescriptionWrapper>
+                    </Tooltip>
                 )
             )}
             {showAddModal && (
@@ -251,7 +244,7 @@ export default function DescriptionField({
             )}
             {showAddButton && (
                 <AddNewDescription
-                    type="text"
+                    variant="text"
                     onClick={(e) => {
                         setShowAddModal(true);
                         e.stopPropagation();

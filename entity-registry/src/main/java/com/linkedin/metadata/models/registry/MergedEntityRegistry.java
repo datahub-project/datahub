@@ -14,6 +14,7 @@ import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.ModelValidationException;
 import com.linkedin.metadata.models.RelationshipEdgeUniquenessValidator;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -102,6 +103,10 @@ public class MergedEntityRegistry implements EntityRegistry {
       }
       pendingEntitySpecs.put(e2Entry.getKey(), candidate);
     }
+
+    Map<String, EntitySpec> mergedEntitySpecs = new HashMap<>(entityNameToSpec);
+    mergedEntitySpecs.putAll(pendingEntitySpecs);
+    SearchableAnnotationValidator.validateSharedLabels(mergedEntitySpecs.values());
 
     // Merge Aspect Specs
     // (Fixed issue where custom defined aspects are not included in the API specification.)

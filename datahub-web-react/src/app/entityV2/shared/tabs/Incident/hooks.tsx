@@ -1,8 +1,9 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { IncidentAssigneeAvatarStack } from '@app/entityV2/shared/tabs/Incident/IncidentAssigneeAvatarStack';
 import { IncidentResolveButton } from '@app/entityV2/shared/tabs/Incident/IncidentResolveButton';
@@ -142,10 +143,10 @@ export const useIncidentURNCopyLink = (incidentUrn: string) => {
         });
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
-                message.success(t('toast.linkCopied'));
+                toast.success(t('toast.linkCopied'));
             },
             () => {
-                message.error(t('toast.linkCopyFailed'));
+                toast.error(t('toast.linkCopyFailed'));
             },
         );
     };
@@ -162,7 +163,7 @@ export const getOnOpenAssertionLink = (Urn: string) => {
 
         // Create a URL with the assertion_urn query parameter
         const currentUrl = new URL(window.location.href);
-        currentUrl.pathname = currentUrl.pathname.replace('Incidents', 'Quality/List');
+        currentUrl.pathname = currentUrl.pathname.replace(EntityTabPath.INCIDENTS, `${EntityTabPath.QUALITY}/List`);
 
         // Add or update the assertion_urn query parameter
         currentUrl.searchParams.set('assertion_urn', encodeURIComponent(assertionUrn));

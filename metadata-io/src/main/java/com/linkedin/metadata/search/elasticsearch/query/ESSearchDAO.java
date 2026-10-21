@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -44,11 +46,14 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequ
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
-import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryIntent;
-import com.linkedin.metadata.search.elasticsearch.query.request.understanding.QueryUnderstanding;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryIntent;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -73,6 +78,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -92,6 +98,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
+import org.opensearch.common.document.DocumentField;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -99,6 +106,9 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
+import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -177,6 +187,13 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
+
+  /**
+   * Search V3 has no autocomplete query. Warn once per process so a search bar that stays empty is
+   * visible without a log line on every keystroke.
+   */
+  private final AtomicBoolean loggedAutocompleteUnsupported = new AtomicBoolean();
+
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
@@ -241,10 +258,154 @@ public class ESSearchDAO {
     return SearchClients.forEntityIndices(opContext, searchRequest, searchConfiguration);
   }
 
+  /** Script field under which {@link #aspectFieldNamesByDocumentId} reads a document's aspects. */
+  private static final String ASPECT_FIELD_NAMES = "aspectFieldNames";
+
+  /**
+   * Map key meaning the document still has {@code _aspects.structuredProperties}. Not an aspect
+   * name, and not the list of root structured-property keys.
+   */
+  public static final String STALE_ASPECTS_STRUCTURED_PROPERTIES = "_aspects.structuredProperties";
+
+  /**
+   * Separates an object field from a key inside it in the names this script reports ({@code
+   * customProperties<separator>oldKey}). A dot cannot do that: searchable field names contain dots,
+   * and a dotted {@code structuredProperties.*} key is a root field name, not a child of an object.
+   */
+  public static final String NESTED_FIELD_SEPARATOR = "\u001f";
+
+  /**
+   * Aspect names under {@code _aspects}, each with the field names under it. An object field also
+   * contributes each key inside it, joined with {@link #NESTED_FIELD_SEPARATOR}, so a catch-up can
+   * null a map entry the restate dropped. Structured properties live at the root as dotted keys
+   * ({@code structuredProperties.<name>}), so that entry is those keys: every top-level {@code
+   * _source} key with that prefix, plus each child when {@code _source.structuredProperties} is
+   * itself a map. A leftover {@code _aspects.structuredProperties} is reported under {@link
+   * #STALE_ASPECTS_STRUCTURED_PROPERTIES} and does not replace that list. Names only.
+   */
+  private static final String ASPECT_FIELD_NAMES_SCRIPT =
+      "Map names = new HashMap();"
+          + " def source = params['_source'];"
+          + " if (!(source instanceof Map)) { return names; }"
+          + " def sep = '"
+          + NESTED_FIELD_SEPARATOR
+          + "';"
+          + " def aspects = source['_aspects'];"
+          + " if (aspects instanceof Map) {"
+          + "   for (def entry : aspects.entrySet()) {"
+          + "     if ('structuredProperties'.equals(entry.getKey())) {"
+          + "       names['"
+          + STALE_ASPECTS_STRUCTURED_PROPERTIES
+          + "'] = new ArrayList();"
+          + "       continue;"
+          + "     }"
+          + "     def pending = new ArrayList();"
+          + "     def prefixes = new ArrayList();"
+          + "     pending.add(entry.getValue());"
+          + "     prefixes.add('');"
+          + "     def collected = new ArrayList();"
+          + "     while (!pending.isEmpty()) {"
+          + "       def current = pending.remove(pending.size() - 1);"
+          + "       def prefix = prefixes.remove(prefixes.size() - 1);"
+          + "       if (!(current instanceof Map)) { continue; }"
+          + "       for (def child : current.entrySet()) {"
+          + "         if (!(child.getKey() instanceof String)) { continue; }"
+          + "         def key = (String) child.getKey();"
+          + "         def path = prefix == '' ? key : prefix + sep + key;"
+          + "         collected.add(path);"
+          + "         if (child.getValue() instanceof Map) {"
+          + "           pending.add(child.getValue());"
+          + "           prefixes.add(path);"
+          + "         }"
+          + "       }"
+          + "     }"
+          + "     names[entry.getKey()] = collected;"
+          + "   }"
+          + " }"
+          + " def dotted = new ArrayList();"
+          + " for (def key : source.keySet()) {"
+          + "   if (key instanceof String && ((String) key).startsWith('structuredProperties.')) {"
+          + "     dotted.add(key);"
+          + "   }"
+          + " }"
+          + " def nested = source['structuredProperties'];"
+          + " if (nested instanceof Map) {"
+          + "   for (def child : nested.keySet()) {"
+          + "     def dottedKey = 'structuredProperties.' + child;"
+          + "     if (!dotted.contains(dottedKey)) { dotted.add(dottedKey); }"
+          + "   }"
+          + " }"
+          + " if (!dotted.isEmpty()) { names['structuredProperties'] = dotted; }"
+          + " return names;";
+
+  /** The painless source {@link #aspectFieldNamesByDocumentId} runs. Visible for its contract. */
+  static String aspectFieldNamesScript() {
+    return ASPECT_FIELD_NAMES_SCRIPT;
+  }
+
   @Nonnull
   private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
     return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
+  }
+
+  /**
+   * For each of {@code documentIds} present in {@code indexName}, the aspects its document holds,
+   * as aspect name to the field names the document holds for it: the entries under {@code
+   * _aspects}, each field inside an object field joined to its parent with {@link
+   * #NESTED_FIELD_SEPARATOR}, the structured properties aspect as the dotted root keys it owns, and
+   * a leftover {@code _aspects.structuredProperties} entry under {@link
+   * #STALE_ASPECTS_STRUCTURED_PROPERTIES}. One request for the whole set, and names only: the
+   * engine reads each document's source map in a script field and sends no document body back. A
+   * document that is not in the index has no entry.
+   */
+  @Nonnull
+  public Map<String, Map<String, Set<String>>> aspectFieldNamesByDocumentId(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull Collection<String> documentIds) {
+    if (documentIds.isEmpty()) {
+      return Map.of();
+    }
+    SearchSourceBuilder source =
+        new SearchSourceBuilder()
+            .query(QueryBuilders.idsQuery().addIds(documentIds.toArray(new String[0])))
+            .size(documentIds.size())
+            .fetchSource(false)
+            .scriptField(
+                ASPECT_FIELD_NAMES,
+                new Script(ScriptType.INLINE, "painless", ASPECT_FIELD_NAMES_SCRIPT, Map.of()));
+    SearchRequest request = new SearchRequest(indexName).source(source);
+    SearchResponse response;
+    try {
+      response =
+          searchClient(opContext, indexName).search(opContext, request, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      throw new ESQueryException("Failed to read aspect names from " + indexName, e);
+    }
+    Map<String, Map<String, Set<String>>> byDocumentId = new HashMap<>();
+    for (SearchHit hit : response.getHits().getHits()) {
+      byDocumentId.put(hit.getId(), aspectFieldNames(hit.getFields().get(ASPECT_FIELD_NAMES)));
+    }
+    return byDocumentId;
+  }
+
+  @Nonnull
+  @VisibleForTesting
+  static Map<String, Set<String>> aspectFieldNames(@Nullable DocumentField field) {
+    Map<String, Set<String>> byAspect = new HashMap<>();
+    Object value = field == null ? null : field.getValue();
+    if (!(value instanceof Map<?, ?> aspects)) {
+      return byAspect;
+    }
+    aspects.forEach(
+        (aspect, fields) ->
+            byAspect.put(
+                String.valueOf(aspect),
+                fields instanceof Collection<?> names
+                    ? names.stream().map(String::valueOf).collect(Collectors.toSet())
+                    : Set.of()));
+    return byAspect;
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
@@ -257,13 +418,14 @@ public class ESSearchDAO {
     CountRequest countRequest =
         new CountRequest(entityIndexName(opContext, entityName))
             .query(
-                SearchRequestHandler.getFilterQuery(
-                    opContext,
-                    List.of(entityName),
-                    filter,
-                    entitySpec.getSearchableFieldTypes(),
-                    queryFilterRewriteChain,
-                    searchConfiguration.getEntityIndex()));
+                SearchRequestHandler.getBuilder(
+                        opContext,
+                        entitySpec,
+                        searchConfiguration,
+                        customSearchConfiguration,
+                        queryFilterRewriteChain,
+                        searchServiceConfig)
+                    .getFilterQuery(opContext, filter));
 
     return opContext.withSpan(
         "docCount",
@@ -302,8 +464,12 @@ public class ESSearchDAO {
             log.debug("Executing request {}: {}", id, searchRequest);
             searchResponse =
                 lightQuery == null
-                    ? searchClient(opContext, searchRequest)
-                        .search(opContext, searchRequest, RequestOptions.DEFAULT)
+                    ? SearchTookMetrics.time(
+                        opContext,
+                        SearchOperation.ENTITY_SEARCH,
+                        () ->
+                            searchClient(opContext, searchRequest)
+                                .search(opContext, searchRequest, RequestOptions.DEFAULT))
                     : searchLightFirst(opContext, searchRequest, lightQuery, input);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
@@ -433,8 +599,12 @@ public class ESSearchDAO {
         () -> {
           try {
             final SearchResponse searchResponse =
-                searchClient(opContext, searchRequest)
-                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.time(
+                    opContext,
+                    SearchOperation.ENTITY_SCROLL,
+                    () ->
+                        searchClient(opContext, searchRequest)
+                            .search(opContext, searchRequest, RequestOptions.DEFAULT));
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
                 opContext,
@@ -802,15 +972,23 @@ public class ESSearchDAO {
     QueryBuilder lightSourceQuery = buildLightSourceQuery(fullQuery, lightQuery);
     if (lightSourceQuery == null) {
       countLightFirst(opContext, "direct");
-      return searchClient(opContext, searchRequest)
-          .search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.time(
+          opContext,
+          SearchOperation.ENTITY_SEARCH,
+          () ->
+              searchClient(opContext, searchRequest)
+                  .search(opContext, searchRequest, RequestOptions.DEFAULT));
     }
     SearchResponse lightResponse;
     searchRequest.source().query(lightSourceQuery);
     try {
       lightResponse =
-          searchClient(opContext, searchRequest)
-              .search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.ENTITY_SEARCH,
+              () ->
+                  searchClient(opContext, searchRequest)
+                      .search(opContext, searchRequest, RequestOptions.DEFAULT));
     } finally {
       searchRequest.source().query(fullQuery);
     }
@@ -834,8 +1012,12 @@ public class ESSearchDAO {
     }
     countLightFirst(opContext, "full");
     log.debug("Light query matched nothing, running the full query for \"{}\"", input);
-    return searchClient(opContext, searchRequest)
-        .search(opContext, searchRequest, RequestOptions.DEFAULT);
+    return SearchTookMetrics.time(
+        opContext,
+        SearchOperation.ENTITY_SEARCH,
+        () ->
+            searchClient(opContext, searchRequest)
+                .search(opContext, searchRequest, RequestOptions.DEFAULT));
   }
 
   /**
@@ -1068,12 +1250,31 @@ public class ESSearchDAO {
       @Nullable String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
+    if (EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(ESSearchDAO.class, "autocompleteUnsupported", 1));
+      if (loggedAutocompleteUnsupported.compareAndSet(false, true)) {
+        log.warn("Search V3 keyword reads do not support autocomplete; returning no suggestions.");
+      }
+      return new AutoCompleteResult()
+          .setQuery(query)
+          .setSuggestions(new StringArray())
+          .setEntities(new AutoCompleteEntityArray());
+    }
     try {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
           buildAutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
       SearchResponse searchResponse =
-          searchClient(opContext, searchRequestAndBuilder.getLeft())
-              .search(opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.ENTITY_AUTOCOMPLETE,
+              () ->
+                  searchClient(opContext, searchRequestAndBuilder.getLeft())
+                      .search(
+                          opContext, searchRequestAndBuilder.getLeft(), RequestOptions.DEFAULT));
       return searchRequestAndBuilder.getRight().extractResult(opContext, searchResponse, query);
     } catch (Exception e) {
       log.error("Auto complete query failed:" + e.getMessage());
@@ -1135,8 +1336,12 @@ public class ESSearchDAO {
             final SearchRequest searchRequest =
                 buildAggregateByValue(opContext, entityNames, field, requestParams, limit);
             final SearchResponse searchResponse =
-                searchClient(opContext, searchRequest)
-                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.time(
+                    opContext,
+                    SearchOperation.ENTITY_AGGREGATE_BY_VALUE,
+                    () ->
+                        searchClient(opContext, searchRequest)
+                            .search(opContext, searchRequest, RequestOptions.DEFAULT));
             // extract results, validated against document model as well
             return AggregationQueryBuilder.extractAggregationsFromResponse(searchResponse, field);
           } catch (Exception e) {
@@ -1227,8 +1432,12 @@ public class ESSearchDAO {
               final SearchRequest searchRequest =
                   buildActiveIncidentStatsRequest(opContext, new HashSet<>(batch));
               final SearchResponse searchResponse =
-                  searchClient(opContext, searchRequest)
-                      .search(opContext, searchRequest, RequestOptions.DEFAULT);
+                  SearchTookMetrics.time(
+                      opContext,
+                      SearchOperation.INCIDENT_STATS,
+                      () ->
+                          searchClient(opContext, searchRequest)
+                              .search(opContext, searchRequest, RequestOptions.DEFAULT));
               result.putAll(extractIncidentStats(searchResponse));
             }
             return result;
@@ -1435,7 +1644,10 @@ public class ESSearchDAO {
   }
 
   public Optional<SearchResponse> raw(
-      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nullable String jsonQuery,
+      @Nonnull SearchOperation operation) {
     return Optional.ofNullable(jsonQuery)
         .map(
             json -> {
@@ -1454,8 +1666,12 @@ public class ESSearchDAO {
                 SearchRequest searchRequest = new SearchRequest(resolvedIndex);
                 searchRequest.source(searchSourceBuilder);
 
-                return SearchClients.forIndex(opContext, searchConfiguration, resolvedIndex)
-                    .search(opContext, searchRequest, RequestOptions.DEFAULT);
+                return SearchTookMetrics.time(
+                    opContext,
+                    operation,
+                    () ->
+                        SearchClients.forIndex(opContext, searchConfiguration, resolvedIndex)
+                            .search(opContext, searchRequest, RequestOptions.DEFAULT));
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -1482,7 +1698,7 @@ public class ESSearchDAO {
                 BoolQueryBuilder query =
                     QueryBuilders.boolQuery()
                         .filter(QueryBuilders.termQuery(URN_FIELD, entry.getKey().toString()));
-                EntitySearchIndexResolver.applyEntityTypeFilter(
+                EntityFilter.applyEntityTypeFilter(
                     query,
                     List.of(entry.getValue().getName()),
                     searchConfiguration.getEntityIndex());
@@ -1495,8 +1711,12 @@ public class ESSearchDAO {
 
                 return Map.entry(
                     entry.getKey(),
-                    searchClient(opContext, searchRequest)
-                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
+                    SearchTookMetrics.time(
+                        opContext,
+                        SearchOperation.ENTITY_SEARCH,
+                        () ->
+                            searchClient(opContext, searchRequest)
+                                .search(opContext, searchRequest, RequestOptions.DEFAULT)));
               } catch (IOException e) {
                 throw new RuntimeException(e);
               }
@@ -1578,8 +1798,12 @@ public class ESSearchDAO {
             .source(
                 new SearchSourceBuilder().query(lightSourceQuery).size(0).trackTotalHitsUpTo(1));
     SearchResponse count =
-        searchClient(opContext, countRequest)
-            .search(opContext, countRequest, RequestOptions.DEFAULT);
+        SearchTookMetrics.time(
+            opContext,
+            SearchOperation.ENTITY_SEARCH,
+            () ->
+                searchClient(opContext, countRequest)
+                    .search(opContext, countRequest, RequestOptions.DEFAULT));
     // The decision searchLightFirst makes
     return hasHits(count) || stopsOnEmpty(count, input) ? lightSourceQuery : fullQuery;
   }
@@ -1615,7 +1839,7 @@ public class ESSearchDAO {
       @Nonnull IndexConvention indexConvention) {
     return rewriteEntityTypeToIndex()
         ? transformFilterForEntities(opContext, filter, indexConvention)
-        : ESUtils.toV3EntityFilter(opContext, filter);
+        : EntityFilter.toEntityFilter(opContext, filter);
   }
 
   @Nonnull

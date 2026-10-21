@@ -56,10 +56,13 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
@@ -726,7 +729,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY,
-            entityIndex);
+            entityIndex,
+            cachedV3Resolver(entityIndex));
 
     assertTrue(
         query.filter().stream()
@@ -738,7 +742,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
   }
 
-  /** V3 root fields keep the V2 .keyword subfield, so filters and value counts use it as on V2. */
+  /** V3 resolves exact paths from the declared root rather than field-name heuristics. */
   @Test
   public void testV3FiltersAndValueCountsUseKeywordSubfields() {
     EntityIndexConfiguration entityIndex =
@@ -763,7 +767,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 filter,
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                entityIndex)
+                entityIndex,
+                cachedV3Resolver(entityIndex))
             .toString();
     String v2Filter =
         SearchRequestHandler.getFilterQuery(
@@ -796,7 +801,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * V3 root fields keep the V2 .keyword subfield, so filters resolve as on V2; entity type enum
+   * V3 strips caller-supplied legacy subfields and resolves from the registry; entity type enum
    * names, as the UI sends them, still match the V3 _entityType field.
    */
   @Test
@@ -826,7 +831,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 filter,
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY,
-                entityIndex)
+                entityIndex,
+                cachedV3Resolver(entityIndex))
             .toString();
     String v2Filter =
         SearchRequestHandler.getFilterQuery(
@@ -847,6 +853,253 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
+  /**
+   * Keyword conditions on an unindexed label are left out. A group with nothing left matches
+   * nothing. Indexed siblings in the same AND stay.
+   */
+  @Test
+  public void testV3OmitsUnindexedLabelFiltersOtherThanContain() {
+    for (Criterion criterion :
+        List.of(
+            buildCriterion("description", Condition.EQUAL, "daily revenue"),
+            buildCriterion("description", Condition.START_WITH, "daily revenue"),
+            buildCriterion("description", Condition.END_WITH, "daily revenue"),
+            buildCriterion("editedDescription", Condition.EQUAL, "daily revenue"),
+            buildCriterion("fieldDescriptions", Condition.EQUAL, "daily revenue"),
+            buildCriterion("description", Condition.GREATER_THAN, "daily revenue"))) {
+      String query = v3Filter(criterion);
+      assertFalse(query.contains("daily revenue"), criterion + " " + query);
+      assertFalse(query.contains("description.text"), criterion + " " + query);
+      assertFalse(query.contains("description.keyword"), criterion + " " + query);
+      assertMatchNone(query);
+    }
+
+    String platformOnly =
+        v3Filter(buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
+    assertEquals(
+        v3Filter(
+            buildCriterion("description", Condition.EQUAL, "daily revenue"),
+            buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive")),
+        platformOnly);
+    assertEquals(
+        v3Filter(
+            buildCriterion("description", Condition.EQUAL, true, "daily revenue"),
+            buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive")),
+        platformOnly);
+
+    String either =
+        v3Or(
+            buildCriterion("description", Condition.EQUAL, "daily revenue"),
+            buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
+    assertTrue(either.contains("platform.keyword"), either);
+    assertTrue(either.contains("urn:li:dataPlatform:hive"), either);
+    assertFalse(either.contains("daily revenue"), either);
+    assertMatchNone(either);
+  }
+
+  /** Existence of an unindexed description is the shared hasDescription boolean. */
+  @Test
+  public void testV3UnindexedLabelExistenceUsesHasValuesField() {
+    for (String field : List.of("description", "editedDescription", "fieldDescriptions")) {
+      assertHasDescriptionExistence(v3Filter(buildExistsCriterion(field)), field, false);
+      assertHasDescriptionExistence(v3Filter(buildIsNullCriterion(field)), field, true);
+    }
+  }
+
+  private static void assertHasDescriptionExistence(
+      String query, String sourceField, boolean missing) {
+    int fieldAt = query.indexOf("\"field\" : \"hasDescription\"");
+    assertTrue(fieldAt > 0, sourceField + " " + query);
+    String around = query.substring(Math.max(0, fieldAt - 120), fieldAt);
+    assertTrue(around.contains("\"exists\""), sourceField + " " + around);
+    if (missing) {
+      assertTrue(around.contains("must_not"), sourceField + " " + around);
+    } else {
+      assertFalse(around.contains("must_not"), sourceField + " " + around);
+    }
+    assertTrue(query.contains("\"_name\" : \"" + sourceField + "\""), sourceField + " " + query);
+    assertFalse(query.contains("description.text"), query);
+    assertFalse(query.contains("description.keyword"), query);
+  }
+
+  /** {@code must_not}/{@code match_all} is the empty side of an omitted group. */
+  private static void assertMatchNone(String query) {
+    int matchAll = query.indexOf("\"match_all\"");
+    assertTrue(matchAll > 0, query);
+    int mustNot = query.lastIndexOf("must_not", matchAll);
+    int must = query.lastIndexOf("\"must\"", matchAll);
+    assertTrue(mustNot > must, query.substring(Math.max(0, matchAll - 200), matchAll));
+  }
+
+  private String v3Or(Criterion... branches) {
+    ConjunctiveCriterionArray or = new ConjunctiveCriterionArray();
+    for (Criterion branch : branches) {
+      or.add(new ConjunctiveCriterion().setAnd(new CriterionArray(branch)));
+    }
+    return SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            new Filter().setOr(or),
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            V3_READ_CONFIG.getEntityIndex(),
+            cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+        .toString();
+  }
+
+  @Test
+  public void testV3ContainOnTextOnlyLabelMatchesAnalyzedFields() {
+    String description =
+        v3Filter(buildCriterion("description", Condition.CONTAIN, "data warehouse"));
+    assertTrue(description.contains("\"description.text\""), description);
+    assertTrue(description.contains("\"description.stemmed\""), description);
+    assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertFalse(description.contains("wildcard"), description);
+
+    String fieldDescriptions =
+        v3Filter(buildCriterion("fieldDescriptions", Condition.CONTAIN, "data warehouse"));
+    assertTrue(fieldDescriptions.contains("\"description.text\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"description.stemmed\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"fieldDescriptions\""), fieldDescriptions);
+    assertFalse(fieldDescriptions.contains("wildcard"), fieldDescriptions);
+  }
+
+  @Test
+  public void testV3ContainOnKeywordLabelStaysOnKeyword() {
+    String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
+    assertTrue(query.contains("columns.keyword"), query);
+    assertTrue(query.contains("wildcard"), query);
+    assertTrue(query.contains("*user_id*"), query);
+    assertFalse(query.contains("description.text"), query);
+  }
+
+  @Test
+  public void testV3DescriptionSupportsExistenceButRejectsFacetsAndSorts() {
+    Filter existenceFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("hasDescription", Condition.EQUAL, "true")))));
+    String query =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                existenceFilter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(query.contains("\"hasDescription\""), query);
+    assertFalse(query.contains("hasDescription.keyword"), query);
+
+    String missingDescription =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion(
+                                            "hasDescription", Condition.EQUAL, "false"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(missingDescription.contains("must_not"), missingDescription);
+    assertTrue(missingDescription.contains("exists"), missingDescription);
+    assertFalse(missingDescription.contains("\"value\" : false"), missingDescription);
+
+    String unlabeledFalse =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.EQUAL, "false"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledFalse.contains("\"hasRowCount\""), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("\"false\""), unlabeledFalse);
+    assertFalse(unlabeledFalse.contains("\"field\" : \"hasRowCount\""), unlabeledFalse);
+
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> handler.getAggregationRequest(operationContext, "description", null, 10));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            handler.getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
+                "*",
+                null,
+                null,
+                0,
+                10,
+                List.of("description")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            handler.getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(new SortCriterion().setField("description").setOrder(SortOrder.ASCENDING)),
+                0,
+                10,
+                List.of()));
+  }
+
+  private String v3Filter(Criterion... criteria) {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion().setAnd(new CriterionArray(List.of(criteria)))));
+    return SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            filter,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            V3_READ_CONFIG.getEntityIndex(),
+            cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+        .toString();
+  }
+
+  private SearchFieldResolver cachedV3Resolver(EntityIndexConfiguration entityIndex) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            testQueryConfig.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getV3SearchFieldResolver();
+  }
+
   private static final ElasticSearchConfiguration V3_READ_CONFIG =
       testQueryConfig.toBuilder()
           .entityIndex(
@@ -856,7 +1109,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                   .build())
           .build();
 
-  // The root fields of _search.columns, an array each, as long as the dataset's schema
+  // Schema-field arrays. They are searched through their labels and never fetched: a fetch cannot
+  // cut them short, so a dataset with thousands of fields would send all of them with every hit.
   private static final Set<String> COLUMN_ARRAYS =
       Set.of(
           "fieldPaths",
@@ -900,10 +1154,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, V3_READ_CONFIG, "test query");
 
     String query = v3.query().toString();
-    assertTrue(query.contains("_search.entityName.text"), query);
-    assertTrue(query.contains("_search.columns.text"), query);
-    assertTrue(query.contains("_search.columns.stemmed"), query);
-    assertTrue(query.contains("_search.structuredProperties.text"), query);
+    assertTrue(query.contains("name.text"), query);
+    assertTrue(query.contains("columns.text"), query);
+    assertTrue(query.contains("columns.stemmed"), query);
+    assertFalse(query.contains("_search."), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());
@@ -1033,7 +1287,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Of _search.other, V3 matched fields fetch only what names or tags an entity: a document's text,
+   * Of other, V3 matched fields fetch only what names or tags an entity: a document's text,
    * semantic text and custom properties are searched but never fetched, even when highlighting
    * names them.
    */
@@ -1055,7 +1309,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         handler.getSearchRequest(fulltext, "runbook", null, null, 0, 10, List.of()).source();
 
     String query = source.query().toString();
-    assertTrue(query.contains("_search.other.text"), query);
+    assertTrue(query.contains("other.text"), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
     assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
     assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());

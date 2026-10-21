@@ -13,9 +13,15 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.turbo.TurboFilter;
+import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -56,12 +62,16 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -71,6 +81,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.BeforeClass;
@@ -1656,5 +1667,174 @@ public class LineageSearchServiceTest {
     result.setPageSize(10);
     result.setNumEntities(0);
     return result;
+  }
+
+  @Test
+  public void testLineageDurationTimerTags() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    _lineageSearchService.setMetricUtils(MetricUtils.builder().registry(registry).build());
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:timer-tags");
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    try {
+      // Impact, tortoise, cache miss then hit
+      search(_operationContext, sourceUrn, entities);
+      search(_operationContext, sourceUrn, entities);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "impact", "tortoise", "miss").count(), 1L);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "impact", "tortoise", "hit").count(), 1L);
+
+      // Lightning, cache skipped by the caller
+      search(
+          _operationContext
+              .withSearchFlags(f -> f.setSkipCache(true))
+              .withLineageFlags(f -> new LineageFlags().setForceLightningMode(true)),
+          sourceUrn,
+          entities);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "impact", "lightning", "skip").count(), 1L);
+
+      // Visualization walk
+      search(
+          _operationContext.withLineageFlags(
+              f -> new LineageFlags().setEntitiesExploredPerHopLimit(10)),
+          UrnUtils.getUrn("urn:li:dataset:timer-tags-viz"),
+          entities);
+      assertEquals(
+          lineageTimer(registry, "searchAcrossLineage", "visualization", "tortoise", "miss")
+              .count(),
+          1L);
+    } finally {
+      _lineageSearchService.setMetricUtils(null);
+    }
+  }
+
+  @Test
+  public void testLineageLogLineCarriesStageTimes() {
+    Logger logger = (Logger) LoggerFactory.getLogger(CascadeOperationContext.class);
+    Level previousLevel = logger.getLevel();
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    logger.setLevel(Level.DEBUG);
+    // A Spring Boot test earlier in the same JVM can leave its deny-all TurboFilter installed,
+    // which
+    // drops every event before it reaches the appender; set the filters aside while capturing.
+    List<TurboFilter> turboFilters =
+        new ArrayList<>(logger.getLoggerContext().getTurboFilterList());
+    logger.getLoggerContext().getTurboFilterList().clear();
+    try {
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:stage-times");
+      List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+      // Cache miss, then a hit that skips the walk
+      search(_operationContext, sourceUrn, entities);
+      search(_operationContext, sourceUrn, entities);
+
+      List<String> lines =
+          appender.list.stream()
+              .map(ILoggingEvent::getFormattedMessage)
+              .filter(l -> l.startsWith("Cascade completed") && l.contains("searchAcrossLineage"))
+              .toList();
+      assertEquals(lines.size(), 2, lines.toString());
+      assertTrue(
+          lines.get(0).matches(".*cache=miss, walkMs=\\d+, filterMs=\\d+, searchMs=\\d+$"),
+          lines.get(0));
+      assertTrue(lines.get(1).matches(".*cache=hit, filterMs=\\d+, searchMs=\\d+$"), lines.get(1));
+    } finally {
+      logger.getLoggerContext().getTurboFilterList().addAll(turboFilters);
+      logger.setLevel(previousLevel);
+      logger.detachAppender(appender);
+    }
+  }
+
+  @Test
+  public void testFailedAndRejectedLineageRequests() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    _lineageSearchService.setMetricUtils(MetricUtils.builder().registry(registry).build());
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    Urn failingUrn = UrnUtils.getUrn("urn:li:dataset:failed-walk");
+    // Scoped to one urn because the graph mock is shared across the class
+    when(_graphService.getImpactLineage(any(), eq(failingUrn), any(), anyInt()))
+        .thenThrow(new IllegalStateException("graph unavailable"));
+    try {
+      // A rejected request: forced lightning cannot answer a text query
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              _lineageSearchService.searchAcrossLineage(
+                  _operationContext.withLineageFlags(
+                      f -> new LineageFlags().setForceLightningMode(true)),
+                  UrnUtils.getUrn("urn:li:dataset:rejected-search"),
+                  LineageDirection.DOWNSTREAM,
+                  entities,
+                  "some text",
+                  3,
+                  null,
+                  null,
+                  0,
+                  10));
+      // Any other exception, here from the graph walk
+      assertThrows(
+          IllegalStateException.class, () -> search(_operationContext, failingUrn, entities));
+
+      // The rejection is an outcome, not an error
+      assertEquals(
+          registry
+              .find("datahub.lineage.duration")
+              .tags("status", "completed", "search_path", "unknown")
+              .timer()
+              .count(),
+          1L);
+      assertEquals(
+          registry
+              .find("datahub.lineage.outcomes")
+              .tag("outcome", "invalid_request")
+              .counter()
+              .count(),
+          1.0);
+      // The graph failure is an error
+      assertEquals(
+          registry
+              .find("datahub.lineage.duration")
+              .tags("status", "completed_with_errors", "search_path", "unknown")
+              .timer()
+              .count(),
+          1L);
+      assertEquals(registry.find("datahub.lineage.errors").counters().size(), 1);
+      assertEquals(
+          registry.find("datahub.lineage.errors").tag("error_type", "failure").counter().count(),
+          1.0);
+    } finally {
+      _lineageSearchService.setMetricUtils(null);
+    }
+  }
+
+  private void search(OperationContext opContext, Urn sourceUrn, List<String> entities) {
+    _lineageSearchService.searchAcrossLineage(
+        opContext, sourceUrn, LineageDirection.DOWNSTREAM, entities, null, 3, null, null, 0, 10);
+  }
+
+  private static Timer lineageTimer(
+      SimpleMeterRegistry registry,
+      String operationType,
+      String kind,
+      String searchPath,
+      String cache) {
+    Timer timer =
+        registry
+            .find("datahub.lineage.duration")
+            .tags(
+                "operation_type",
+                operationType,
+                "kind",
+                kind,
+                "search_path",
+                searchPath,
+                "cache",
+                cache)
+            .timer();
+    assertNotNull(timer, String.join("/", operationType, kind, searchPath, cache));
+    assertNull(timer.getId().getTag("trigger_urn_type"));
+    return timer;
   }
 }

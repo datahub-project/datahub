@@ -123,6 +123,27 @@ destination_to_platform_instance:
     env: PROD
 ```
 
+#### Probe support
+
+`datahub recipe probe` answers "what is in this Fivetran account, and what would my recipe pick up?" before a run. It reads from the same place ingestion does, which is chosen by `log_source`. In `log_database` mode that is the Fivetran log in your warehouse. In `rest_api` mode it is the Fivetran REST API, with the log used for lineage and sync history when `fivetran_log_config` is also set.
+
+```shell
+datahub recipe probe methods --recipe fivetran.yml
+datahub recipe probe run destinations --recipe fivetran.yml
+datahub recipe probe run connectors --recipe fivetran.yml --destination <destination_id>
+datahub recipe probe run connector_tables --recipe fivetran.yml --connector <connector_id or name>
+datahub recipe probe run sync_history --recipe fivetran.yml --connector <connector_id or name>
+datahub recipe probe filter --recipe fivetran.yml --kind Connector --parent <destination_id> --name <name>
+```
+
+Listings include connectors your patterns would drop, so `probe filter` can explain why. `--parent` judges `destination_patterns` as well as `connector_patterns`.
+
+In `rest_api` mode, ingestion keeps a connector when `connector_patterns` allows **either** its connector ID **or** its name. Save the listing with `probe run connectors --report-to out.json` and judge it with `probe filter --kind Connector --from-run out.json`, which passes each connector's `connector_id` alongside its name. With names alone the verdict covers the name only, and says so.
+
+In `log_database` mode, a connector whose log row has no `destination_id` is judged excluded as `null_destination_id`: ingestion stops the run on it unless `connector_patterns` drops it first.
+
+The probe returns metadata only: IDs, names, flags, table and column names, and run status. It never returns user emails or sync message text. It offers no raw SQL or REST passthrough, because the Fivetran log tables are ordinary warehouse tables that hold user emails and run messages, not a catalog.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

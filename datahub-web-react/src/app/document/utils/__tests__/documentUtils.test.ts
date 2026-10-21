@@ -10,6 +10,7 @@ import {
     isAllowedRelatedAssetUrn,
     isDocumentUnpublished,
     isExternalDocument,
+    mapDocumentsToTreeNodes,
     resolveActorDisplayName,
     sortDocumentsByCreationTime,
 } from '@app/document/utils/documentUtils';
@@ -123,6 +124,21 @@ describe('documentUtils', () => {
             const result = documentToTreeNode(doc, false);
 
             expect(result.parentUrn).toBe(null);
+        });
+
+        it('maps a page of documents through a child-count map', () => {
+            const withChildren = createTestDocument({ urn: 'urn:li:document:parent' });
+            const leaf = createTestDocument({ urn: 'urn:li:document:leaf' });
+
+            expect(
+                mapDocumentsToTreeNodes([withChildren, leaf], {
+                    'urn:li:document:parent': 2,
+                    'urn:li:document:leaf': 0,
+                }),
+            ).toEqual([
+                expect.objectContaining({ urn: 'urn:li:document:parent', hasChildren: true, childCount: 2 }),
+                expect.objectContaining({ urn: 'urn:li:document:leaf', hasChildren: false, childCount: 0 }),
+            ]);
         });
 
         it('should correctly set hasChildren flag', () => {

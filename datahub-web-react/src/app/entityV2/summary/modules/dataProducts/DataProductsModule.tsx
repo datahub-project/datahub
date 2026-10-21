@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { useGetChildDataProducts } from '@app/entityV2/summary/modules/dataProducts/useGetChildDataProducts';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
@@ -25,7 +26,7 @@ export default function DataProductsModule(props: ModuleProps) {
     const history = useHistory();
 
     const navigateToDataProductsTab = () => {
-        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Data Products`);
+        history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/${EntityTabPath.DATA_PRODUCTS}`);
     };
 
     return (

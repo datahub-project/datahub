@@ -23,7 +23,8 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class InviteTokenServiceTest {
-  private static final String INVITE_TOKEN_URN_STRING = "urn:li:inviteToken:admin-invite-token";
+  private static final String INVITE_TOKEN_ID = "admin-invite-token";
+  private static final String INVITE_TOKEN_URN_STRING = "urn:li:inviteToken:" + INVITE_TOKEN_ID;
   private static final String ROLE_URN_STRING = "urn:li:dataHubRole:Admin";
   private static final String INVITE_TOKEN_STRING = "inviteToken";
   private static final String HASHED_INVITE_TOKEN_STRING = "hashedInviteToken";
@@ -57,75 +58,56 @@ public class InviteTokenServiceTest {
   }
 
   @Test
-  public void testIsInviteTokenValidFalse() throws Exception {
-    when(_entityClient.exists(any(OperationContext.class), eq(inviteTokenUrn))).thenReturn(false);
-
-    assertFalse(_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn));
-  }
-
-  @Test
-  public void testIsInviteTokenValidTrue() throws Exception {
-    when(_entityClient.exists(any(OperationContext.class), eq(inviteTokenUrn))).thenReturn(true);
-
-    assertTrue(_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn));
-  }
-
-  @Test
-  public void testGetInviteTokenRoleNullEntity() throws Exception {
+  public void testGetVerifiedInviteTokenNullEntity() throws Exception {
+    when(_secretService.hashString(INVITE_TOKEN_STRING)).thenReturn(INVITE_TOKEN_ID);
     when(_entityClient.getV2(
             any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
         .thenReturn(null);
 
-    assertThrows(() -> _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn));
+    assertNull(_inviteTokenService.getVerifiedInviteToken(opContext, INVITE_TOKEN_STRING));
   }
 
   @Test
-  public void testGetInviteTokenRoleEmptyAspectMap() throws Exception {
-    final EntityResponse entityResponse = new EntityResponse().setAspects(new EnvelopedAspectMap());
-
+  public void testGetVerifiedInviteTokenEmptyAspectMap() throws Exception {
+    when(_secretService.hashString(INVITE_TOKEN_STRING)).thenReturn(INVITE_TOKEN_ID);
     when(_entityClient.getV2(
             any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
-        .thenReturn(entityResponse);
+        .thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap()));
 
-    assertThrows(() -> _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn));
+    assertNull(_inviteTokenService.getVerifiedInviteToken(opContext, INVITE_TOKEN_STRING));
   }
 
   @Test
-  public void testGetInviteTokenRoleNoRole() throws Exception {
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    final InviteToken inviteTokenAspect = new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING);
-    aspectMap.put(
-        INVITE_TOKEN_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
-    entityResponse.setAspects(aspectMap);
+  public void testGetVerifiedInviteToken() throws Exception {
+    mockInviteTokenEntity(
+        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    when(_secretService.decrypt(eq(_systemOperationContext), eq(ENCRYPTED_INVITE_TOKEN_STRING)))
+        .thenReturn(INVITE_TOKEN_STRING);
 
-    when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
-        .thenReturn(entityResponse);
-
-    Urn roleUrn = _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn);
-    assertNull(roleUrn);
+    final InviteToken inviteToken =
+        _inviteTokenService.getVerifiedInviteToken(opContext, INVITE_TOKEN_STRING);
+    assertNotNull(inviteToken);
+    assertEquals(inviteToken.getRole(), roleUrn);
   }
 
   @Test
-  public void testGetInviteTokenRole() throws Exception {
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    final InviteToken inviteTokenAspect =
-        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn);
-    aspectMap.put(
-        INVITE_TOKEN_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
-    entityResponse.setAspects(aspectMap);
+  public void testGetVerifiedInviteTokenStoredValueMismatch() throws Exception {
+    mockInviteTokenEntity(
+        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    when(_secretService.decrypt(any(), eq(ENCRYPTED_INVITE_TOKEN_STRING)))
+        .thenReturn("otherInviteToken");
 
-    when(_entityClient.getV2(
-            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
-        .thenReturn(entityResponse);
+    assertNull(_inviteTokenService.getVerifiedInviteToken(opContext, INVITE_TOKEN_STRING));
+  }
 
-    Urn roleUrn = _inviteTokenService.getInviteTokenRole(opContext, inviteTokenUrn);
-    assertNotNull(roleUrn);
-    assertEquals(roleUrn, this.roleUrn);
+  @Test
+  public void testGetVerifiedInviteTokenUndecryptableStoredValue() throws Exception {
+    mockInviteTokenEntity(
+        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    when(_secretService.decrypt(any(), eq(ENCRYPTED_INVITE_TOKEN_STRING)))
+        .thenThrow(new RuntimeException("Failed to decrypt"));
+
+    assertNull(_inviteTokenService.getVerifiedInviteToken(opContext, INVITE_TOKEN_STRING));
   }
 
   @Test
@@ -234,5 +216,16 @@ public class InviteTokenServiceTest {
         .thenReturn(INVITE_TOKEN_STRING);
 
     assertEquals(_inviteTokenService.getInviteToken(opContext, null, false), INVITE_TOKEN_STRING);
+  }
+
+  private void mockInviteTokenEntity(final InviteToken inviteTokenAspect) throws Exception {
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        INVITE_TOKEN_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(inviteTokenAspect.data())));
+    when(_secretService.hashString(INVITE_TOKEN_STRING)).thenReturn(INVITE_TOKEN_ID);
+    when(_entityClient.getV2(
+            any(OperationContext.class), eq(INVITE_TOKEN_ENTITY_NAME), eq(inviteTokenUrn), any()))
+        .thenReturn(new EntityResponse().setAspects(aspectMap));
   }
 }

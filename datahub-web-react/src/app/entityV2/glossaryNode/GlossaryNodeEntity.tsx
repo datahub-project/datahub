@@ -9,6 +9,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/glossaryNode/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -102,9 +103,6 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getSidebarSections = () => [
         {
             component: SidebarAboutSection,
-            properties: {
-                hideLinksButton: true,
-            },
         },
         {
             component: SidebarNotesSection,
@@ -140,12 +138,14 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.summary'),
+                          path: EntityTabPath.SUMMARY,
                           component: SummaryTab,
                       },
                   ]
                 : []),
             {
                 name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
                 component: ChildrenTabWrapper,
                 icon: SquaresFour,
             },
@@ -153,6 +153,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: FileText,
                           properties: {
@@ -163,6 +164,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 : []),
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
