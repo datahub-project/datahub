@@ -1840,7 +1840,9 @@ def test_query_log_sql_handles_truncated_records_and_old_prepares(mssql_connecti
             is_truncated=1,
         ),
         *(
-            _fake_log_row(at, (f"SELECT /* trunc{i} */ " + "z" * cap)[:cap], is_truncated=1)
+            _fake_log_row(
+                at, (f"SELECT /* trunc{i} */ " + "z" * cap)[:cap], is_truncated=1
+            )
             for i in range(3)
             for _ in range(5)
         ),
