@@ -90,6 +90,26 @@ public class SearchContext implements ContextInterface {
 
   @Nullable private final List<String> prioritizedDatahubEntityTypes;
 
+  /**
+   * Search V3 template surface ({@code searchEntities}, {@code scrollEntitiesLineage}, ...).
+   * Selection reads this. It is not an API operation name and not itself a cache component; the
+   * resolved template URN is.
+   */
+  @Nullable private final String searchSurface;
+
+  /**
+   * Template chosen for this search invocation. Selection does not read it. Each invocation
+   * overwrites it. Included in {@link #getCacheKeyComponent()} by URN and parent-chain {@code
+   * lastModified}.
+   */
+  @Nullable private final ResolvedSearchTemplate resolvedSearchTemplate;
+
+  /**
+   * Internal index-occupancy checks do not run a search template. Absent from equality and the
+   * search-result cache key because it selects the request builder, not the stored result.
+   */
+  @EqualsAndHashCode.Exclude private final boolean skipTemplateExecution;
+
   public boolean isRestrictedSearch() {
     return Optional.ofNullable(searchFlags.isIncludeRestricted()).orElse(false);
   }
@@ -114,8 +134,13 @@ public class SearchContext implements ContextInterface {
     // Here the prefix is a static deploy-wide constant (contributes nothing distinguishing); a
     // deployment that scopes the prefix per operation MUST fold that discriminator into the
     // OperationContext-level cache key via its enrichment, not here.
+    // Absent resolution contributes 0, so templates that are off do not move existing cache keys.
+    String templateKey =
+        resolvedSearchTemplate == null ? "" : resolvedSearchTemplate.cacheKeyComponent();
     return Optional.of(
-        Stream.of(keySearchFlags().toString(), keyLineageFlags()).mapToInt(String::hashCode).sum());
+        Stream.of(keySearchFlags().toString(), keyLineageFlags(), templateKey)
+            .mapToInt(String::hashCode)
+            .sum());
   }
 
   /**
@@ -126,7 +151,9 @@ public class SearchContext implements ContextInterface {
   private SearchFlags keySearchFlags() {
     try {
       // whether cache is enabled or not does not impact the result
-      return searchFlags.clone().setSkipCache(false);
+      SearchFlags keyFlags = searchFlags.clone().setSkipCache(false);
+      keyFlags.data().remove("searchTemplate");
+      return keyFlags;
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }
@@ -204,7 +231,10 @@ public class SearchContext implements ContextInterface {
           this.defaultAutocompleteEntityNames,
           this.defaultBrowseEntityNames,
           this.prioritizedSourceEntityTypes,
-          this.prioritizedDatahubEntityTypes);
+          this.prioritizedDatahubEntityTypes,
+          this.searchSurface,
+          this.resolvedSearchTemplate,
+          this.skipTemplateExecution);
     }
   }
 

@@ -835,6 +835,16 @@ entities:
     keyAspect: dataHubPageTemplateKey
     aspects:
       - dataHubPageTemplateProperties
+  - name: searchTemplate
+    doc: >-
+      A Mustache-rendered search query template, addressed by URN and selected at query time.
+      Managed through the generic entity API. Not included in default search, browse, or
+      autocomplete entity-type lists.
+    viewUnrestricted: true
+    category: core
+    keyAspect: searchTemplateKey
+    aspects:
+      - searchTemplateProperties
   - name: dataHubPageModule
     viewUnrestricted: true
     category: core

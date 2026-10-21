@@ -1,6 +1,7 @@
-import { Editor } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { Editor } from '@components/components/Editor';
 
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 
@@ -21,7 +22,8 @@ const Text = styled.div`
     align-items: start;
     flex-direction: column;
     padding: 0px;
-    &&&&& .remirror-editor.ProseMirror {
+    &&&&& .remirror-editor.ProseMirror,
+    &&&&& .datahub-editor-content {
         padding: 0px;
     }
 `;

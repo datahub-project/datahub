@@ -20,7 +20,8 @@ import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import { FormPrompt } from '@types';
 
 const PaddinglessEditor = styled(Editor)`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
     }
 `;

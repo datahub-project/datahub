@@ -1,13 +1,13 @@
 import { parse as parseGraphqlDocument, print as printGraphqlDocument } from 'graphql';
 import yaml from 'js-yaml';
-import { type SqlLanguage, format as formatSqlQuery } from 'sql-formatter';
 
 export type FormatCodeSuccess = {
     formatted: string;
 };
 
 export type FormatCodeFailure = {
-    error: 'invalid' | 'unchanged';
+    /** `unavailable` means the formatter chunk failed to load. */
+    error: 'invalid' | 'unchanged' | 'unavailable';
 };
 
 export type FormatCodeResult = FormatCodeSuccess | FormatCodeFailure;
@@ -38,7 +38,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
     md: 'markdown',
 };
 
-const SQL_FORMATTER_LANGUAGES: Record<string, SqlLanguage> = {
+const SQL_FORMATTER_LANGUAGES = {
     sql: 'sql',
     ansi: 'sql',
     snowflake: 'snowflake',
@@ -52,7 +52,39 @@ const SQL_FORMATTER_LANGUAGES: Record<string, SqlLanguage> = {
     mysql: 'mysql',
     tsql: 'tsql',
     transactsql: 'transactsql',
-};
+} as const;
+
+type SqlFormatterLanguage = (typeof SQL_FORMATTER_LANGUAGES)[keyof typeof SQL_FORMATTER_LANGUAGES];
+
+type SqlFormatterModule = typeof import('sql-formatter');
+
+/**
+ * Caches a successful load and drops a rejected one so the next call can retry.
+ * A failed chunk fetch must not stick for the rest of the page.
+ *
+ * @param load - Loads the module
+ * @returns Loader that reuses the in-flight or successful promise
+ */
+export function cacheSuccessfulImport<T>(load: () => Promise<T>): () => Promise<T> {
+    let pending: Promise<T> | null = null;
+    return () => {
+        if (!pending) {
+            pending = load().catch((error: unknown) => {
+                pending = null;
+                throw error;
+            });
+        }
+        return pending;
+    };
+}
+
+/**
+ * sql-formatter is only needed when the user formats SQL. A static import
+ * puts the dialect bundle on the home and entity chunks.
+ *
+ * @returns sql-formatter module, cached after the first successful format
+ */
+const loadSqlFormatter = cacheSuccessfulImport<SqlFormatterModule>(() => import('sql-formatter'));
 
 const SQL_FORMAT_OPTIONS = {
     tabWidth: 2,
@@ -76,7 +108,7 @@ const YAML_DUMP_OPTIONS = {
  */
 export function resolveCodeLanguage(language: string): string {
     const normalized = language.trim().toLowerCase();
-    return LANGUAGE_ALIASES[normalized] ?? normalized;
+    return Object.hasOwn(LANGUAGE_ALIASES, normalized) ? LANGUAGE_ALIASES[normalized] : normalized;
 }
 
 /**
@@ -85,9 +117,12 @@ export function resolveCodeLanguage(language: string): string {
  * @param language - Prism id or dialect such as `snowflake`
  * @returns sql-formatter language id, or undefined when this is not SQL
  */
-export function resolveSqlFormatterLanguage(language: string): SqlLanguage | undefined {
+export function resolveSqlFormatterLanguage(language: string): SqlFormatterLanguage | undefined {
     const normalized = language.trim().toLowerCase();
-    return SQL_FORMATTER_LANGUAGES[normalized];
+    if (!Object.hasOwn(SQL_FORMATTER_LANGUAGES, normalized)) {
+        return undefined;
+    }
+    return SQL_FORMATTER_LANGUAGES[normalized as keyof typeof SQL_FORMATTER_LANGUAGES];
 }
 
 /**
@@ -132,7 +167,14 @@ function formatYaml(code: string): FormatCodeResult {
     }
 }
 
-function formatSql(code: string, sqlLanguage: SqlLanguage): FormatCodeResult {
+async function formatSql(code: string, sqlLanguage: SqlFormatterLanguage): Promise<FormatCodeResult> {
+    let sqlFormatter: SqlFormatterModule;
+    try {
+        sqlFormatter = await loadSqlFormatter();
+    } catch {
+        return { error: 'unavailable' };
+    }
+    const { format: formatSqlQuery } = sqlFormatter;
     try {
         const formatted = withTrailingNewline(
             formatSqlQuery(code, {
@@ -180,9 +222,9 @@ function tidyWhitespace(code: string): string {
  *
  * @param code - Current editor value
  * @param language - Prism / dialect id (e.g. `sql`, `snowflake`, `json`, `yaml`, `graphql`)
- * @returns Formatted source, `unchanged`, or `invalid` when parsing fails
+ * @returns Formatted source, `unchanged`, `invalid` when parsing fails, or `unavailable` when the SQL formatter could not load
  */
-export function formatCode(code: string, language: string): FormatCodeResult {
+export async function formatCode(code: string, language: string): Promise<FormatCodeResult> {
     if (!code.trim()) {
         return { error: 'unchanged' };
     }

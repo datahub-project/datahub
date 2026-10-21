@@ -32,6 +32,8 @@ smoke-test-python:
   - "smoke-test/pyproject.toml"
   - "smoke-test/requirements.txt"
   - "smoke-test/build.gradle"
+vitals-node:
+  - added|modified: "e2e-test/perf/vitals/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
   # yarnGenerate declares these as inputs (see datahub-web-react/build.gradle):

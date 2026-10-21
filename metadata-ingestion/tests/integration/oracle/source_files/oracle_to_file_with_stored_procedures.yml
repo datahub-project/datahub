@@ -7,6 +7,14 @@ source:
     password: example
     host_port: "localhost:${ORACLE_PORT}"
     service_name: XEPDB1
+    options:
+      connect_args:
+        # The published port is TCPS. python-oracledb thin mode uses the
+        # descriptor's protocol; ewallet.pem in the wallet is the server cert.
+        # orapki's self-signed cert has no SAN, so hostname match is off.
+        dsn: "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=${ORACLE_PORT}))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+        wallet_location: "${ORACLE_WALLET}"
+        ssl_server_dn_match: false
     include_stored_procedures: true
     include_materialized_views: true
     

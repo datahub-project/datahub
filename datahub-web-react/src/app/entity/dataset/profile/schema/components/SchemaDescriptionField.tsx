@@ -99,7 +99,8 @@ const AttributeDescription = styled.div`
 const StyledAttributeViewer = styled(Editor)`
     padding-right: 8px;
     display: block;
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         color: ${(props) => props.theme.colors.textTertiary};
     }

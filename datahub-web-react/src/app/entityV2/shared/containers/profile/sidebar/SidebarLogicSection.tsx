@@ -1,8 +1,11 @@
-import { Button, CodeBlock } from '@components';
+import { Button } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { CodeBlock } from '@components/components/CodeBlock';
+
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useIsEmbeddedProfile } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -49,10 +52,15 @@ export function SidebarDataJobTransformationLogicSection() {
     );
 }
 
+type QuerySidebarEntity = QueryEntity & {
+    privileges?: { canViewQueries?: boolean | null } | null;
+};
+
 export function SidebarQueryLogicSection() {
     const { t } = useTranslation('entity.shared.containers');
-    const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
+    const baseEntity = useBaseEntity<{ entity: QuerySidebarEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
+    const canViewQueries = baseEntity?.entity?.privileges?.canViewQueries ?? false;
     const entityRegistry = useEntityRegistry();
     const externalUrl = entityRegistry.getEntityUrl(EntityType.Query, baseEntity?.entity?.urn || '');
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
@@ -61,7 +69,7 @@ export function SidebarQueryLogicSection() {
         [fineGrainedOperations],
     );
 
-    if (!statement) return null;
+    if (!statement || !canViewQueries) return null;
 
     return (
         <SidebarLogicSection
@@ -110,7 +118,8 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
     const code = showFormatted ? formattedLogic || statement : statement;
     const codeLanguage = language?.toLowerCase() ?? DEFAULT_LANGUAGE;
     const onLanguageChange = (value: string) => setShowFormatted(value === FORMATTED_OPTION);
-    const openFullProfile = () => window.open(`${externalUrl}/View Definition`, '_blank', 'noopener,noreferrer');
+    const openFullProfile = () =>
+        window.open(`${externalUrl}/${EntityTabPath.VIEW_DEFINITION}`, '_blank', 'noopener,noreferrer');
 
     return (
         <SidebarSection

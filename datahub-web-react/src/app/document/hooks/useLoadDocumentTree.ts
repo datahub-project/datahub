@@ -9,7 +9,15 @@ import {
     DocumentSidebarSortValue,
     documentSidebarSortToCriterion,
 } from '@app/document/utils/documentSidebarSort';
-import { documentToTreeNode } from '@app/document/utils/documentUtils';
+import {
+    SOURCE_SECTION_FACET_MAX,
+    SOURCE_SECTION_HEADER_COUNT,
+    positiveFacetAggregationValues,
+    sourcePlatformsMissingFromRoots,
+} from '@app/document/utils/documentTreeGrouping';
+import { documentTreeRootResetTrigger, isCurrentRootLoadGeneration } from '@app/document/utils/documentTreeRoots';
+import { documentToTreeNode, mapDocumentsToTreeNodes } from '@app/document/utils/documentUtils';
+import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { useSearchDocumentsLazyQuery } from '@graphql/document.generated';
 import { Document } from '@types';
@@ -29,8 +37,18 @@ export function useLoadDocumentTree(
     options?: { paginateRoots?: boolean },
 ) {
     const paginateRoots = options?.paginateRoots ?? true;
-    const { initializeTree, appendRootNodes, setNodeChildren, appendNodeChildren } = useDocumentTree();
+    const { initializeTree, appendRootNodes, setNodeChildren, appendNodeChildren, getLocalRootNodes } =
+        useDocumentTree();
     const [searchDocumentsQuery] = useSearchDocumentsLazyQuery();
+    // Bumped on each page-0 load so an in-flight later page cannot append after a sort/view reset.
+    const rootLoadGenerationRef = useRef(0);
+    const mountedRef = useRef(true);
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
 
     // Scope the document tree (overview page + sidebar) to the active View, mirroring
     // how the rest of search respects the selected View. The picker popovers rely on
@@ -108,6 +126,81 @@ export function useLoadDocumentTree(
         [searchDocumentsQuery, viewUrn],
     );
 
+    const toTreeNodes = useCallback(
+        async (documents: Document[]): Promise<DocumentTreeNode[]> => {
+            const childCountMap = await checkForChildren(documents.map((document) => document.urn));
+            return mapDocumentsToTreeNodes(documents, childCountMap);
+        },
+        [checkForChildren],
+    );
+
+    const isCurrentRootLoad = useCallback((generation: number) => {
+        return isCurrentRootLoadGeneration(mountedRef.current, rootLoadGenerationRef.current, generation);
+    }, []);
+
+    // Root pagination is global (one sorted window). A platform that doesn't appear
+    // in that window would have no section until the user scrolled to it. Fetch one
+    // root per missing platform so its header is present without a full page of
+    // child-count queries on every load, sort, and View change.
+    const loadMissingSourceSectionRoots = useCallback(
+        async (loadedRoots: DocumentTreeNode[], generation: number) => {
+            if (!isCurrentRootLoad(generation)) return;
+
+            const facetResult = await searchDocumentsQuery({
+                variables: {
+                    input: {
+                        query: '*',
+                        rootOnly: true,
+                        start: 0,
+                        count: 0,
+                        viewUrn,
+                        facets: [PLATFORM_FILTER_NAME],
+                        searchFlags: { maxAggValues: SOURCE_SECTION_FACET_MAX },
+                    },
+                },
+                fetchPolicy: 'network-only',
+            });
+            if (!isCurrentRootLoad(generation)) return;
+
+            const facet = (facetResult.data?.searchDocuments?.facets ?? []).find(
+                (item) => item?.field === PLATFORM_FILTER_NAME,
+            );
+            const missingPlatformUrns = sourcePlatformsMissingFromRoots(
+                positiveFacetAggregationValues(facet?.aggregations),
+                loadedRoots,
+            );
+            if (missingPlatformUrns.length === 0) return;
+
+            const pages = await Promise.all(
+                missingPlatformUrns.map(async (platformUrn) => {
+                    const result = await searchDocumentsQuery({
+                        variables: {
+                            input: {
+                                query: '*',
+                                rootOnly: true,
+                                platforms: [platformUrn],
+                                start: 0,
+                                count: SOURCE_SECTION_HEADER_COUNT,
+                                viewUrn,
+                                sortInput,
+                            },
+                        },
+                        fetchPolicy: 'network-only',
+                    });
+                    const documents = (result.data?.searchDocuments?.documents || []) as Document[];
+                    return toTreeNodes(documents);
+                }),
+            );
+            if (!isCurrentRootLoad(generation)) return;
+
+            pages.forEach((page) => {
+                // Prefetch must not unpin a create or move-to-root that search returns here.
+                if (page.length > 0) appendRootNodes(page, { preserveLocalPlacement: true });
+            });
+        },
+        [appendRootNodes, isCurrentRootLoad, searchDocumentsQuery, sortInput, toTreeNodes, viewUrn],
+    );
+
     // Core root-document page loader, shared by useInfiniteScroll's pagination and the
     // View-change reset effect below. Ordering comes from the searchDocuments sortInput —
     // do not sort client-side.
@@ -118,6 +211,7 @@ export function useLoadDocumentTree(
                 setIsInitializing(false);
                 return [];
             }
+            const generation = start === 0 ? ++rootLoadGenerationRef.current : rootLoadGenerationRef.current;
             try {
                 const result = await searchDocumentsQuery({
                     variables: {
@@ -134,20 +228,35 @@ export function useLoadDocumentTree(
                     },
                     fetchPolicy: start === 0 ? 'cache-and-network' : 'network-only',
                 });
-
                 const documents = (result.data?.searchDocuments?.documents || []) as Document[];
+                // A superseded page must not be written into the tree, but it still has to
+                // report its real length. Returning [] makes the root scroller treat the page
+                // as the end of the list.
+                if (!isCurrentRootLoad(generation)) {
+                    return documents.map((document) => documentToTreeNode(document, false));
+                }
 
-                const childUrns = documents.map((d) => d.urn);
-                const childCountMap = await checkForChildren(childUrns);
-                const nodes = documents.map((d) => {
-                    const childCount = childCountMap[d.urn] || 0;
-                    return documentToTreeNode(d, childCount > 0, childCount);
-                });
+                const nodes = await toTreeNodes(documents);
+                if (!isCurrentRootLoad(generation)) return nodes;
 
                 if (start === 0) {
                     // Always replace roots so sort and View changes take effect even when the
                     // shared tree context still holds the previous page.
                     initializeTree(nodes);
+                    // Clear the spinner as soon as page 0 is in context. Missing platform
+                    // sections fill in afterward — awaiting them blocked DocumentTree and
+                    // the /context/documents redirect on every Source load/sort/View change.
+                    // Include roots still pinned after the page-0 merge. Page 0 alone would
+                    // prefetch another root for a platform those pins already represent.
+                    setIsInitializing(false);
+                    const sectionRoots = [...nodes];
+                    const sectionUrns = new Set(sectionRoots.map((node) => node.urn));
+                    getLocalRootNodes().forEach((node) => {
+                        if (!sectionUrns.has(node.urn)) sectionRoots.push(node);
+                    });
+                    loadMissingSourceSectionRoots(sectionRoots, generation).catch((error) => {
+                        console.error('Failed to load source sections:', error);
+                    });
                 } else {
                     appendRootNodes(nodes);
                 }
@@ -157,22 +266,32 @@ export function useLoadDocumentTree(
                 console.error('Failed to load root documents:', error);
                 return [];
             } finally {
-                if (start === 0) setIsInitializing(false);
+                if (start === 0 && isCurrentRootLoad(generation)) setIsInitializing(false);
             }
         },
-        [paginateRoots, searchDocumentsQuery, checkForChildren, initializeTree, appendRootNodes, viewUrn, sortInput],
+        [
+            paginateRoots,
+            searchDocumentsQuery,
+            toTreeNodes,
+            isCurrentRootLoad,
+            initializeTree,
+            getLocalRootNodes,
+            loadMissingSourceSectionRoots,
+            appendRootNodes,
+            viewUrn,
+            sortInput,
+        ],
     );
 
     // fetchData for useInfiniteScroll — fetches root documents and pushes into tree context
     const fetchRootDocuments = useCallback((start: number, _count: number) => loadRootPage(start), [loadRootPage]);
 
-    // Clear locally-cached tree state and force a fresh root-document fetch when the
-    // active View changes. `resetTrigger` below only resets useInfiniteScroll's own
-    // pagination bookkeeping — it does NOT itself refetch, so we can't rely on it (or
-    // on the IntersectionObserver, whose sentinel is unmounted while `loading` is true)
-    // to kick off the reload. We call loadRootPage directly instead, the same way the
-    // initial mount does, guaranteeing `isInitializing` always gets flipped back to false
-    // in its `finally` regardless of sentinel visibility.
+    // Clear tree + child pagination when the View changes, then fetch page 0 directly.
+    // resetTrigger also includes viewUrn so in-flight infinite-scroll pages from the
+    // previous View are dropped (generation bump) and cannot append stale rows.
+    // We still call loadRootPage here: if a fetch was in-flight during reset,
+    // useInfiniteScroll skips its auto-reload, and the sentinel is unmounted while
+    // `loading` is true — without an explicit fetch the spinner would stick.
     const prevViewUrnRef = useRef(viewUrn);
     useEffect(() => {
         if (prevViewUrnRef.current === viewUrn) return;
@@ -192,10 +311,7 @@ export function useLoadDocumentTree(
         fetchData: fetchRootDocuments,
         pageSize: DOCUMENT_PAGE_SIZE,
         getKey: (node) => node.urn,
-        // Reset pagination when sort changes. View changes are handled separately via the effect above,
-        // which manually calls initializeTree and loadRootPage, so resetTrigger omits viewUrn to avoid
-        // duplicate fetches and state conflicts.
-        resetTrigger: sort,
+        resetTrigger: documentTreeRootResetTrigger(sort, viewUrn),
     });
 
     // Load children for a specific parent (first page, called on expand)
@@ -220,14 +336,7 @@ export function useLoadDocumentTree(
 
                 const documents = (result.data?.searchDocuments?.documents || []) as Document[];
                 const total = result.data?.searchDocuments?.total || 0;
-
-                const childUrns = documents.map((doc) => doc.urn);
-                const childCountMap = await checkForChildren(childUrns);
-
-                const treeNodes: DocumentTreeNode[] = documents.map((doc) => {
-                    const childCount = childCountMap[doc.urn] || 0;
-                    return documentToTreeNode(doc, childCount > 0, childCount);
-                });
+                const treeNodes = await toTreeNodes(documents);
 
                 setNodeChildren(parentUrn, treeNodes);
 
@@ -245,7 +354,7 @@ export function useLoadDocumentTree(
                 return [];
             }
         },
-        [searchDocumentsQuery, checkForChildren, setNodeChildren, viewUrn, sortInput],
+        [searchDocumentsQuery, toTreeNodes, setNodeChildren, viewUrn, sortInput],
     );
 
     // Load more children for a parent (subsequent pages)
@@ -270,12 +379,7 @@ export function useLoadDocumentTree(
                 });
 
                 const documents = (result.data?.searchDocuments?.documents || []) as Document[];
-                const childUrns = documents.map((d) => d.urn);
-                const childCountMap = await checkForChildren(childUrns);
-                const nodes = documents.map((d) => {
-                    const childCount = childCountMap[d.urn] || 0;
-                    return documentToTreeNode(d, childCount > 0, childCount);
-                });
+                const nodes = await toTreeNodes(documents);
 
                 appendNodeChildren(parentUrn, nodes);
 
@@ -290,7 +394,7 @@ export function useLoadDocumentTree(
                 return [];
             }
         },
-        [searchDocumentsQuery, checkForChildren, appendNodeChildren, viewUrn, sortInput],
+        [searchDocumentsQuery, toTreeNodes, appendNodeChildren, viewUrn, sortInput],
     );
 
     return {

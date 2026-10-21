@@ -24,8 +24,14 @@ record CorpGroupInfo {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   displayName: optional string
 
@@ -73,7 +79,15 @@ record CorpGroupInfo {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -83,14 +97,17 @@ record CorpGroupInfo {
   slack: optional string
 
   /**
-   * Created Audit stamp
+   * When this group was created in DataHub.
+   * Search V3 does not index this time. It is systemMetadata.aspectCreated,
+   * copied to _system.created.time.
    */
-   @Searchable = {
-     "/time": {
+  @deprecated = "Use systemMetadata.aspectCreated instead."
+  @Searchable = {
+    "/time": {
       "fieldName": "createdTime",
       "fieldType": "DATETIME",
-      "searchLabel": "createdAt"
-     }
-   }
-   created: optional AuditStamp
+      "v3": { "enabled": false }
+    }
+  }
+  created: optional AuditStamp
 }
