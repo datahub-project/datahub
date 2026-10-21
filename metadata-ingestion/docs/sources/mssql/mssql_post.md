@@ -8,12 +8,13 @@ Extracts lineage and usage statistics by analyzing SQL queries:
 
 - **Table-level lineage**: Tables read from and written to
 - **Column-level lineage**: Data flow between columns
-- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped. Queries that only touch `#temp` tables, `temporary_tables_pattern` matches or tables outside `database_pattern` / `schema_pattern` / `table_pattern` are skipped too, and temp tables used within one batch resolve through to their real sources. `max_queries_to_extract` applies per database, so a server with many databases can emit many more Query entities
+- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped. Queries that only touch `#temp` tables, `temporary_tables_pattern` matches or tables outside `database_pattern` / `schema_pattern` / `table_pattern` are skipped too. With the DMV fallback, a temp table filled and read within one batch resolves through to its real sources. `max_queries_to_extract` applies per database, so a server with many databases can emit many more Query entities
 - **Usage patterns**: Per-query and per-table execution counts for the ingestion time window
 
 ##### Known Limitations
 
 - **User attribution not supported**: SQL Server Query Store and DMVs do not preserve historical user session context. Query extraction focuses on query content, frequency, and performance metrics.
+- **Temp tables with Query Store**: Query Store records each statement on its own, without the batch or session it ran in, so a `#temp` table filled by one statement and read by another does not resolve to its real source in lineage.
 - **DMV execution counts are approximate**: The plan cache only records a running total and the last execution time per plan. With the DMV fallback, a query is counted at its last execution with its full total if the plan was cached inside the window, and as a single execution otherwise. Enable Query Store for exact per-window counts.
 
 ##### Configuration
