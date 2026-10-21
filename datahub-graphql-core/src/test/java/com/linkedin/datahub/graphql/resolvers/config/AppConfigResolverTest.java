@@ -115,7 +115,6 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isReadOnlyModeEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowBrowseV2()).thenReturn(false);
     when(mockFeatureFlags.isShowAcrylInfo()).thenReturn(false);
-    when(mockFeatureFlags.isErModelRelationshipFeatureEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowAccessManagement()).thenReturn(false);
     when(mockFeatureFlags.isNestedDomainsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isPlatformBrowseV2()).thenReturn(false);

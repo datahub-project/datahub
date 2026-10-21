@@ -955,7 +955,6 @@ Reference Links:
 | `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI-sourced index updates (GraphQL `appSource=ui`). Set the same value on GMS and MAE       | GMS, MAE   |
 | `PRE_PROCESS_HOOKS_REPROCESS_ENABLED`   | `false` | Reprocess UI-sourced events in MAE `UpdateIndicesHook`. Falls back to `PRE_PROCESS_HOOKS_UI_ENABLED` when unset | GMS, MAE   |
 | `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                                        | GMS        |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                                                                      | GMS        |
 | `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                                   | GMS        |
 | `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                                           | GMS        |
 | `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                                | GMS        |
