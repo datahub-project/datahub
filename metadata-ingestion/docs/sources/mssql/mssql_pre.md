@@ -1,20 +1,20 @@
 ### Overview
 
-The `mssql` module ingests metadata from Mssql into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+The `mssql` module ingests metadata from Microsoft SQL Server into DataHub: databases, schemas, tables, views, stored procedures, and SQL Server Agent jobs, with table- and column-level lineage. Query-based lineage and usage statistics are optional and need extra setup, described below.
 
 :::info ODBC
 
 Two source types are available:
 
-- `mssql`: Uses python-tds library (pure Python, easier to install)
-- `mssql-odbc`: Uses pyodbc library (required for encryption, Azure managed services)
-- If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
+- `mssql`: Uses python-tds library (pure Python, easier to install). Supports encrypted connections through `options.connect_args`, as shown in the starter recipe.
+- `mssql-odbc`: Uses pyodbc library. Use it when you need ODBC driver settings (for example, for Azure SQL), and configure them in `uri_args`. `uri_args` is only accepted by `mssql-odbc`.
+- `mssql-odbc` needs the Microsoft ODBC Driver for SQL Server installed wherever ingestion runs. The full `acryldata/datahub-actions` image includes it, but the `-slim` image used by `datahub docker quickstart` does not. For local quickstart, run the recipe with the CLI on a machine that has the driver installed.
 
 :::
 
 ### Prerequisites
 
-Requires specific privileges to ingest SQL Server Jobs and stored procedures.
+Stored procedures and SQL Server Agent jobs are ingested by default and need the permissions below. Query-based lineage is off by default; its setup is in the optional sections at the end.
 
 The connector automatically detects your environment and uses the optimal method:
 
@@ -22,7 +22,7 @@ The connector automatically detects your environment and uses the optimal method
 - **On-premises SQL Server**: Direct table access (typically faster)
 - **Automatic fallback**: Tries alternative method if primary fails
 
-#### Permissions for All Environments
+#### Permissions for Jobs and Stored Procedures
 
 ```sql
 -- Core permissions for stored procedures (required)
@@ -76,7 +76,9 @@ source:
     # ... other config
 ```
 
-#### Prerequisites for Query-Based Lineage
+#### (Optional) Prerequisites for Query-Based Lineage
+
+Only needed if you set `include_query_lineage: true`.
 
 ##### SQL Server Version Requirements
 
@@ -109,7 +111,7 @@ WHERE grantee_principal_id = SUSER_ID('datahub_user');
 -- Should show VIEW SERVER STATE
 ```
 
-#### Query Store Setup (Recommended)
+#### (Optional) Query Store Setup
 
 Query Store is the preferred method for query extraction. It provides better query history retention and performance.
 
