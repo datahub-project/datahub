@@ -538,27 +538,27 @@ index 05c50b13d7..bf8ccdf35a 100644
  record InputFields {
    /**
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
-index 3ce4df0795..493eb2896f 100644
+index f874257227c..54303e9b328 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
-@@ -14,7 +14,8 @@ import com.linkedin.common.Edge
-  * Information about a dashboard
+@@ -15,7 +15,7 @@ import com.linkedin.common.Edge
   */
  @Aspect = {
--  "name": "dashboardInfo"
-+  "name": "dashboardInfo",
-+  "schemaVersion": 2
+   "name": "dashboardInfo",
+-  "schemaVersion": 2
++  "schemaVersion": 3
  }
  record DashboardInfo includes CustomProperties, ExternalReference {
  
-@@ -35,6 +36,6 @@ record DashboardInfo includes CustomProperties, ExternalReference {
+@@ -42,7 +42,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     * Detailed description about the dashboard
     */
    @Searchable = {
 -    "fieldType": "TEXT",
 +    "fieldType": "TEXT_PARTIAL",
      "hasValuesFieldName": "hasDescription",
-     "sanitizeRichText": true
+     "sanitizeRichText": true,
+     "v3": {
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl b/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
 index 9d2aa6a5c2..2bca5e1263 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
@@ -609,7 +609,7 @@ index bf63933ff1..22df2f4c82 100644
  record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
  
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl b/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
-index 3c50420290..4585ce86b5 100644
+index 5baadac9875..57b8d24b282 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
 @@ -4,7 +4,8 @@ namespace com.linkedin.tag
@@ -622,14 +622,11 @@ index 3c50420290..4585ce86b5 100644
  }
  record TagProperties {
    /**
-@@ -23,7 +24,9 @@ record TagProperties {
-   /**
+@@ -30,6 +31,7 @@ record TagProperties {
     * Documentation of the tag
     */
--  @Searchable = {}
-+  @Searchable = {
-+    "fieldType": "TEXT"
-+  }
-   description: optional string
- 
-   /**
+   @Searchable = {
++    "fieldType": "TEXT",
+     "hasValuesFieldName": "hasDescription",
+     "v3": {
+       "searchLabel": "description",
