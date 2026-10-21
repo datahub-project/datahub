@@ -3,7 +3,9 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
+import static com.linkedin.metadata.search.utils.ESUtils.INDEX;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.TEXT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
@@ -69,7 +71,7 @@ public class AspectMappingBuilder {
                           aspectFields.putAll(
                               MultiEntityMappingsBuilder.getAspectMappingsForField(
                                   searchableFieldSpec, aspectName));
-                          copySharedHasValues(entitySpec, searchableFieldSpec, aspectFields);
+                          copySharedHasValues(searchableFieldSpec, aspectFields);
                         });
               }
 
@@ -79,6 +81,15 @@ public class AspectMappingBuilder {
                 // Add system metadata to each aspect using the projector's serialized field name.
                 aspectFields.put(
                     V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
+              }
+              if (aspectSpec.getAspectAnnotation() != null
+                  && aspectSpec.getAspectAnnotation().isAspectJson()) {
+                // A string so doc_as_upsert replaces the aspect JSON. An object would merge, and
+                // a cleared field would stay in _source.
+                Map<String, Object> stored = new HashMap<>();
+                stored.put(TYPE, TEXT_FIELD_TYPE);
+                stored.put(INDEX, false);
+                aspectFields.put(V3SearchDocumentProjector.ASPECT_JSON_FIELD, stored);
               }
 
               if (!aspectFields.isEmpty()) {
@@ -90,8 +101,8 @@ public class AspectMappingBuilder {
   }
 
   /**
-   * One indexed keyword per URN field. {@code copy_to} follows the field's search label, or {@code
-   * other} when the URN is included in full text and has no label.
+   * One indexed keyword per URN field. {@code copy_to} follows the field's degree-qualified label,
+   * or {@code other} when the URN is included in full text and has no label.
    */
   private static void addParsedUrnFields(
       @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec,
@@ -118,27 +129,26 @@ public class AspectMappingBuilder {
   }
 
   /**
-   * The aspect boolean copies onto the shared root name. Only a true is written, so the root field
-   * never holds both true and false.
+   * The aspect boolean keeps the name the document writes and copies onto the degree's root name.
+   * Degree 0 copies {@code hasDescription} onto {@code hasDescription}. Degree 1 copies it onto
+   * {@code hasDescription_1}. Only a true is written, so the root field never holds both true and
+   * false.
    */
   private static void copySharedHasValues(
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull SearchableFieldSpec fieldSpec,
-      @Nonnull Map<String, Object> aspectFields) {
+      @Nonnull SearchableFieldSpec fieldSpec, @Nonnull Map<String, Object> aspectFields) {
     final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-    if (!resolved.isV3Searchable()) {
+    if (!resolved.isV3Searchable() || resolved.indexedFieldName().isEmpty()) {
       return;
     }
     resolved
-        .getSearchLabel()
-        .filter(label -> !label.isEmpty())
-        .flatMap(label -> V3SearchFields.hasValuesFieldName(entitySpec, label))
+        .getHasValuesFieldName()
         .ifPresent(
-            booleanName -> {
+            declaredName -> {
+              String rootName = resolved.indexedHasValuesFieldName().orElse(declaredName);
               Map<String, Object> mapping = new HashMap<>();
               mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
-              mapping.put(COPY_TO, List.of(booleanName));
-              aspectFields.put(booleanName, mapping);
+              mapping.put(COPY_TO, List.of(rootName));
+              aspectFields.put(declaredName, mapping);
             });
   }
 

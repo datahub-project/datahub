@@ -14,6 +14,8 @@ import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TEXT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -24,13 +26,16 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -41,14 +46,17 @@ import javax.annotation.Nullable;
  * {@code searchLabel}, not a {@code _search} object:
  *
  * <ul>
- *   <li>a searchable field copies into the shared field its {@code searchLabel} or {@code
- *       entityFieldName} names. A label is the semantic bucket, and tags applied from any aspect
- *       are {@code tags}. Names are {@code name} on Search V3;
- *   <li>a string field queried by default that names none copies into the root field {@code other},
- *       so V3 still searches every field V2 searches. An entity whose fields name no {@code name}
- *       sends the field its {@code _entityName} alias names to {@code name} instead. The urn and
- *       fields of an entity a reference field names ({@code @SearchableRef}) only ever copy into
- *       {@code other}, and matched fields do not report them.
+ *   <li>a searchable field copies into the shared field its label and degree name, {@code tags} or
+ *       {@code tags_1}, or the field its {@code entityFieldName} names. A label is the semantic
+ *       bucket. Degree 0 is the value on the entity, and a higher degree is a child or related
+ *       copy. The entity name is {@code name}. A schema field path or label is that name at degree
+ *       1 ({@code name_1});
+ *   <li>a string field queried by default in V3 that names none copies into the root field {@code
+ *       other}. A field with {@code v3.queryByDefault: false} is excluded even when V2 queries it
+ *       by default. An entity whose fields name no {@code name} sends the field its {@code
+ *       _entityName} alias names to {@code name} instead. The urn and fields of an entity a
+ *       reference field names ({@code @SearchableRef}) only ever copy into {@code other}, and
+ *       matched fields do not report them.
  * </ul>
  *
  * <p>A field of type {@code URN} or {@code URN_PARTIAL}, or a root mapping of type {@code URN},
@@ -88,7 +96,6 @@ public final class V3SearchFields {
   public static final String ENTITY_NAME = "name";
   public static final String QUALIFIED_NAME = "qualifiedName";
   public static final String DESCRIPTION = "description";
-  public static final String COLUMNS = "columns";
   public static final String OTHER = "other";
 
   /**
@@ -117,8 +124,14 @@ public final class V3SearchFields {
   /** Word subfield of every full-text shared field. */
   public static final String TEXT = FieldMapping.TEXT;
 
+  /** Indexed path suffix of {@link #TEXT}. */
+  public static final String TEXT_SUFFIX = "." + TEXT;
+
   /** Stemmed subfield of every full-text shared field. */
   public static final String STEMMED = FieldMapping.STEMMED;
+
+  /** Indexed path suffix of {@link #STEMMED}. */
+  public static final String STEMMED_SUFFIX = "." + STEMMED;
 
   public static final String TEXT_ANALYZER = "v3_text";
   public static final String TEXT_SEARCH_ANALYZER = "v3_text_search";
@@ -166,28 +179,26 @@ public final class V3SearchFields {
       ESUtils.keywordIgnoreAboveForMaxBytes(ESUtils.KEYWORD_MAXLENGTH);
 
   /**
-   * The {@code hasValuesFieldName} declared by a field that copies into {@code label}. Every source
-   * of the label writes that boolean. Absent when the label declares none.
+   * The Search V3 hasValues boolean for the indexed field {@code name}. Degree 0 keeps the declared
+   * name. Degree n appends {@code _n}. Absent when none declare one.
    */
   @Nonnull
   public static Optional<String> hasValuesFieldName(
-      @Nonnull EntitySpec entitySpec, @Nonnull String label) {
+      @Nonnull EntitySpec entitySpec, @Nonnull String name) {
     return entitySpec.getAspectSpecs().stream()
         .flatMap(aspect -> aspect.getSearchableFieldSpecs().stream())
         .map(SearchableFieldSpec::getSearchableAnnotation)
         .map(SearchableAnnotation::resolvedForV3)
         .filter(SearchableAnnotation::isV3Searchable)
-        .filter(annotation -> label.equals(annotation.getSearchLabel().orElse(null)))
-        .map(SearchableAnnotation::getHasValuesFieldName)
+        .filter(annotation -> name.equals(annotation.indexedFieldName().orElse(null)))
+        .map(SearchableAnnotation::indexedHasValuesFieldName)
         .flatMap(Optional::stream)
         .findFirst();
   }
 
-  // Relative weight of a match in each full-text shared field; a field not listed weighs 1. These
-  // replace the per-field @Searchable boostScore on V3. A structured property weighs what its own
-  // searchConfiguration says.
-  private static final Map<String, Float> WEIGHTS =
-      Map.of(ENTITY_NAME, 10.0f, QUALIFIED_NAME, 10.0f, OTHER, 0.5f);
+  // Relative weight of built-in fields that are not a PDL label. A PDL label's weight is the
+  // resolved boost of its indexed field.
+  private static final Map<String, Float> WEIGHTS = Map.of(OTHER, 0.5f);
 
   private static final Set<FieldType> STRING_FIELD_TYPES =
       Set.of(
@@ -261,36 +272,12 @@ public final class V3SearchFields {
    */
   @Nonnull
   public static Set<String> parsedKeywordLabels(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Map<String, Boolean> urnOnly = new LinkedHashMap<>();
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
-            continue;
-          }
-          final boolean parsedUrn = contributesParsedUrn(fieldSpec);
-          for (String label : labels(fieldSpec)) {
-            urnOnly.merge(label, parsedUrn, (left, right) -> left && right);
-          }
-        }
-      }
-    }
-    final Set<String> labels = new LinkedHashSet<>();
-    urnOnly.forEach(
-        (label, onlyParsedUrns) -> {
-          if (onlyParsedUrns) {
-            labels.add(label);
-          }
-        });
-    return labels;
+    return new LinkedHashSet<>(UrnRoots.of(entitySpecs).parsedKeywordLabels());
   }
 
   public static boolean isParsedKeywordLabel(
       @Nonnull final String label, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    return parsedKeywordLabels(entitySpecs).contains(label);
+    return UrnRoots.of(entitySpecs).parsedKeywordLabels().contains(label);
   }
 
   /**
@@ -300,37 +287,13 @@ public final class V3SearchFields {
    */
   public static boolean isUrnObjectField(
       @Nonnull final String fieldName, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    boolean saw = false;
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          final SearchableAnnotation annotation =
-              fieldSpec.getSearchableAnnotation().resolvedForV3();
-          if (!annotation.isV3Searchable() || !fieldName.equals(annotation.getFieldName())) {
-            continue;
-          }
-          saw = true;
-          if (!isExactUrn(fieldSpec)) {
-            return false;
-          }
-          for (String label : labels(fieldSpec)) {
-            if (isParsedKeywordLabel(label, entitySpecs) && !label.equals(fieldName)) {
-              return false;
-            }
-          }
-        }
-      }
-    }
-    return saw;
+    return UrnRoots.of(entitySpecs).isUrnObjectField(fieldName);
   }
 
   /** A logical field whose value is the parsed URN name, with the complete URN on {@code _urn}. */
   public static boolean isParsedUrnRoot(
       @Nonnull final String name, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    return isParsedKeywordLabel(name, entitySpecs) || isUrnObjectField(name, entitySpecs);
+    return UrnRoots.of(entitySpecs).isParsedUrnRoot(name);
   }
 
   /**
@@ -339,61 +302,146 @@ public final class V3SearchFields {
    */
   public static boolean urnRootHasAnalyzers(
       @Nonnull final String name, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    if (isParsedKeywordLabel(name, entitySpecs)) {
-      return parsedKeywordHasAnalyzers(name, entitySpecs);
-    }
-    if (!isUrnObjectField(name, entitySpecs)) {
-      return false;
-    }
-    boolean saw = false;
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          final SearchableAnnotation annotation =
-              fieldSpec.getSearchableAnnotation().resolvedForV3();
-          if (!annotation.isV3Searchable() || !name.equals(annotation.getFieldName())) {
-            continue;
-          }
-          saw = true;
-          if (!contributesFullTextUrn(fieldSpec)) {
-            return false;
-          }
-        }
-      }
-    }
-    return saw;
+    return UrnRoots.of(entitySpecs).hasAnalyzers(name);
   }
 
   /** URN roots whose parsed name full text reads. */
   @Nonnull
   private static Set<String> analyzedUrnRoots(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<String> names = parsedUrnRoots(entitySpecs);
-    names.removeIf(name -> !urnRootHasAnalyzers(name, entitySpecs));
-    return names;
+    return UrnRoots.of(entitySpecs).analyzedRoots();
   }
 
   /** Logical fields that store a parsed URN name. */
   @Nonnull
   private static Set<String> parsedUrnRoots(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<String> names = new LinkedHashSet<>(parsedKeywordLabels(entitySpecs));
+    return new LinkedHashSet<>(UrnRoots.of(entitySpecs).parsedRoots());
+  }
+
+  /**
+   * The parsed-URN facts of one entity list. The registry's specs do not change while GMS runs, and
+   * the projector asks for them for every field of every document, so they are built once per list
+   * of spec instances. {@link EntitySpec} has identity equality, so a different spec with the same
+   * name is a different key.
+   */
+  private static final Cache<List<EntitySpec>, UrnRoots> URN_ROOTS =
+      Caffeine.newBuilder().maximumSize(256).build();
+
+  private record UrnRoots(
+      Set<String> parsedKeywordLabels,
+      Map<String, Boolean> labelFullText,
+      Map<String, Boolean> objectFields,
+      Map<String, Boolean> objectFullText,
+      Set<String> parsedRoots) {
+
+    @Nonnull
+    static UrnRoots of(@Nonnull final Collection<EntitySpec> entitySpecs) {
+      return URN_ROOTS.get(List.copyOf(entitySpecs), UrnRoots::build);
+    }
+
+    @Nonnull
+    private static UrnRoots build(@Nonnull final Collection<EntitySpec> entitySpecs) {
+      final Map<String, Boolean> urnOnly = new LinkedHashMap<>();
+      final Map<String, Boolean> labelFullText = new HashMap<>();
+      forEachFieldSpec(
+          entitySpecs,
+          (aspectSpec, fieldSpec) -> {
+            if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
+              return;
+            }
+            final boolean parsedUrn = contributesParsedUrn(fieldSpec);
+            final boolean fullText = contributesFullTextUrn(fieldSpec);
+            for (String label : labels(fieldSpec)) {
+              urnOnly.merge(label, parsedUrn, Boolean::logicalAnd);
+              labelFullText.merge(label, fullText, Boolean::logicalAnd);
+            }
+          });
+      final Set<String> parsedKeywordLabels = new LinkedHashSet<>();
+      urnOnly.forEach(
+          (label, onlyParsedUrns) -> {
+            if (onlyParsedUrns) {
+              parsedKeywordLabels.add(label);
+            }
+          });
+
+      final Map<String, Boolean> objectFields = new HashMap<>();
+      final Map<String, Boolean> objectFullText = new HashMap<>();
+      final Set<String> parsedRoots = new LinkedHashSet<>(parsedKeywordLabels);
+      forEachFieldSpec(
+          entitySpecs,
+          (aspectSpec, fieldSpec) -> {
+            final SearchableAnnotation annotation =
+                fieldSpec.getSearchableAnnotation().resolvedForV3();
+            if (!annotation.isV3Searchable()) {
+              return;
+            }
+            final String fieldName = annotation.getFieldName();
+            final boolean exact =
+                isExactUrn(fieldSpec)
+                    && labels(fieldSpec).stream()
+                        .noneMatch(
+                            label ->
+                                parsedKeywordLabels.contains(label) && !label.equals(fieldName));
+            objectFields.merge(fieldName, exact, Boolean::logicalAnd);
+            objectFullText.merge(fieldName, contributesFullTextUrn(fieldSpec), Boolean::logicalAnd);
+          });
+      // Every field is visited, searchable or not, so the roots keep their declaration order
+      forEachFieldSpec(
+          entitySpecs,
+          (aspectSpec, fieldSpec) -> {
+            final String fieldName =
+                fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
+            if (Boolean.TRUE.equals(objectFields.get(fieldName))) {
+              parsedRoots.add(fieldName);
+            }
+          });
+      return new UrnRoots(
+          Collections.unmodifiableSet(parsedKeywordLabels),
+          Map.copyOf(labelFullText),
+          Map.copyOf(objectFields),
+          Map.copyOf(objectFullText),
+          Collections.unmodifiableSet(parsedRoots));
+    }
+
+    boolean isUrnObjectField(@Nonnull final String fieldName) {
+      return Boolean.TRUE.equals(objectFields.get(fieldName));
+    }
+
+    boolean isParsedUrnRoot(@Nonnull final String name) {
+      return parsedKeywordLabels.contains(name) || isUrnObjectField(name);
+    }
+
+    boolean parsedKeywordHasAnalyzers(@Nonnull final String label) {
+      return parsedKeywordLabels.contains(label) && Boolean.TRUE.equals(labelFullText.get(label));
+    }
+
+    boolean hasAnalyzers(@Nonnull final String name) {
+      if (parsedKeywordLabels.contains(name)) {
+        return parsedKeywordHasAnalyzers(name);
+      }
+      return isUrnObjectField(name) && Boolean.TRUE.equals(objectFullText.get(name));
+    }
+
+    @Nonnull
+    Set<String> analyzedRoots() {
+      final Set<String> names = new LinkedHashSet<>(parsedRoots);
+      names.removeIf(name -> !hasAnalyzers(name));
+      return names;
+    }
+  }
+
+  private static void forEachFieldSpec(
+      @Nonnull final Collection<EntitySpec> entitySpecs,
+      @Nonnull final BiConsumer<AspectSpec, SearchableFieldSpec> consumer) {
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
         continue;
       }
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          final String fieldName =
-              fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
-          if (isUrnObjectField(fieldName, entitySpecs)) {
-            names.add(fieldName);
-          }
+          consumer.accept(aspectSpec, fieldSpec);
         }
       }
     }
-    return names;
   }
 
   /**
@@ -440,28 +488,7 @@ public final class V3SearchFields {
    */
   public static boolean parsedKeywordHasAnalyzers(
       @Nonnull final String label, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    if (!isParsedKeywordLabel(label, entitySpecs)) {
-      return false;
-    }
-    boolean saw = false;
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          if (!fieldSpec.getSearchableAnnotation().isV3Searchable()
-              || !labels(fieldSpec).contains(label)) {
-            continue;
-          }
-          saw = true;
-          if (!contributesFullTextUrn(fieldSpec)) {
-            return false;
-          }
-        }
-      }
-    }
-    return saw;
+    return UrnRoots.of(entitySpecs).parsedKeywordHasAnalyzers(label);
   }
 
   /**
@@ -473,20 +500,26 @@ public final class V3SearchFields {
   public static List<String> parsedNameDestinations(
       @Nonnull final SearchableFieldSpec fieldSpec,
       @Nonnull final Collection<EntitySpec> entitySpecs) {
+    return parsedNameDestinations(fieldSpec, UrnRoots.of(entitySpecs));
+  }
+
+  @Nonnull
+  private static List<String> parsedNameDestinations(
+      @Nonnull final SearchableFieldSpec fieldSpec, @Nonnull final UrnRoots roots) {
     if (!contributesParsedUrn(fieldSpec)) {
       return List.of();
     }
     final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
     final Set<String> declared = labels(fieldSpec);
     final List<String> destinations = new ArrayList<>();
-    if (isParsedUrnRoot(fieldName, entitySpecs)) {
+    if (roots.isParsedUrnRoot(fieldName)) {
       destinations.add(parsedKeywordField(fieldName));
     }
     for (String label : declared) {
       if (label.equals(fieldName)) {
         continue;
       }
-      if (isParsedKeywordLabel(label, entitySpecs)) {
+      if (roots.parsedKeywordLabels().contains(label)) {
         destinations.add(parsedKeywordField(label));
       } else if (contributesFullTextUrn(fieldSpec)) {
         destinations.add(label);
@@ -507,13 +540,14 @@ public final class V3SearchFields {
       @Nonnull final SearchableFieldSpec fieldSpec,
       @Nonnull final Collection<EntitySpec> entitySpecs) {
     final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
+    final UrnRoots roots = UrnRoots.of(entitySpecs);
     final Set<String> targets = new LinkedHashSet<>();
-    if (isExactUrn(fieldSpec) && isParsedUrnRoot(fieldName, entitySpecs)) {
+    if (isExactUrn(fieldSpec) && roots.isParsedUrnRoot(fieldName)) {
       targets.add(fullUrnField(fieldName));
     }
     if (contributesParsedUrn(fieldSpec)) {
       for (String label : labels(fieldSpec)) {
-        if (isParsedKeywordLabel(label, entitySpecs)) {
+        if (roots.parsedKeywordLabels().contains(label)) {
           targets.add(fullUrnField(label));
         }
       }
@@ -574,6 +608,7 @@ public final class V3SearchFields {
   @Nonnull
   public static List<String> directParsedFullTextFields(
       @Nonnull final Collection<EntitySpec> entitySpecs) {
+    final UrnRoots roots = UrnRoots.of(entitySpecs);
     final List<String> paths = new ArrayList<>();
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
@@ -582,7 +617,7 @@ public final class V3SearchFields {
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
           if (!contributesFullTextUrn(fieldSpec)
-              || !parsedNameDestinations(fieldSpec, entitySpecs).isEmpty()) {
+              || !parsedNameDestinations(fieldSpec, roots).isEmpty()) {
             continue;
           }
           final String fieldName =
@@ -601,7 +636,8 @@ public final class V3SearchFields {
   @Nonnull
   public static Map<String, List<String>> storedParsedNameFields(
       @Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<String> labels = analyzedUrnRoots(entitySpecs);
+    final UrnRoots roots = UrnRoots.of(entitySpecs);
+    final Set<String> labels = roots.analyzedRoots();
     final Map<String, List<String>> stored = new LinkedHashMap<>();
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
@@ -615,7 +651,7 @@ public final class V3SearchFields {
           final String fieldName =
               fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
           final String path = aspectParsedName(aspectSpec.getName(), fieldName);
-          for (String destination : parsedNameDestinations(fieldSpec, entitySpecs)) {
+          for (String destination : parsedNameDestinations(fieldSpec, roots)) {
             if (!labels.contains(destination)) {
               continue;
             }
@@ -694,6 +730,28 @@ public final class V3SearchFields {
         .anyMatch(mapping -> mapping.isRoot() && mapping.getType() == FieldMapping.Type.URN);
   }
 
+  /**
+   * The default query weight of an indexed field. A PDL label uses the resolved boost its sources
+   * agreed on. {@code other} stays on {@link #WEIGHTS}.
+   */
+  public static float weight(
+      @Nonnull final Collection<EntitySpec> entitySpecs, @Nonnull final String name) {
+    if (WEIGHTS.containsKey(name)) {
+      return WEIGHTS.get(name);
+    }
+    OptionalDouble resolved =
+        entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getAspectSpecs().stream())
+            .flatMap(aspectSpec -> aspectSpec.getSearchableFieldSpecs().stream())
+            .map(SearchableFieldSpec::getSearchableAnnotation)
+            .map(SearchableAnnotation::resolvedForV3)
+            .filter(SearchableAnnotation::isV3Searchable)
+            .filter(annotation -> name.equals(annotation.indexedFieldName().orElse(null)))
+            .mapToDouble(SearchableAnnotation::getBoostScore)
+            .findFirst();
+    return resolved.isPresent() ? (float) resolved.getAsDouble() : WEIGHTS.getOrDefault(name, 1.0f);
+  }
+
   /** Whether a field of this type holds strings, the only values the shared fields copy. */
   public static boolean isStringFieldType(@Nonnull final FieldType fieldType) {
     return STRING_FIELD_TYPES.contains(fieldType);
@@ -742,10 +800,11 @@ public final class V3SearchFields {
 
   /**
    * The shared fields full-text search reads for these entities, each with the root fields that
-   * feed it, in the order the entities and their aspects declare them. A label is listed when a
-   * contributor declares a {@code text} subfield and a string field queried by default feeds it.
-   * {@code other} is listed for annotated URN identities and the remaining default text. Structured
-   * properties are not listed: search reads the root field of each opted-in property.
+   * feed it, in the order the entities and their aspects declare them. A label is listed when one
+   * of its own contributors declares a {@code text} subfield and is queried by default. Another
+   * degree of the same source field does not opt it in. {@code other} is listed for annotated URN
+   * identities and the remaining default text. Structured properties are not listed: search reads
+   * the root field of each opted-in property.
    */
   @Nonnull
   public static Map<String, List<String>> fullTextFields(
@@ -756,12 +815,16 @@ public final class V3SearchFields {
     rootSourceFieldSpecs(entitySpecs)
         .forEach(
             (rootField, fieldSpecs) -> {
-              final boolean queriedByDefault =
-                  fieldSpecs.stream().anyMatch(V3SearchFields::isQueriedByDefault)
-                      && declaresText(fieldSpecs);
+              final boolean groupHasLabel =
+                  fieldSpecs.stream().anyMatch(spec -> !labels(spec).isEmpty());
               for (String destination : destinations(fieldSpecs, fallbacks)) {
                 sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
-                if (queriedByDefault) {
+                if (fieldSpecs.stream()
+                    .anyMatch(
+                        spec ->
+                            landsIn(spec, destination, fallbacks, groupHasLabel)
+                                && declaresText(spec)
+                                && isQueriedByDefault(spec))) {
                   queried.add(destination);
                 }
               }
@@ -795,16 +858,17 @@ public final class V3SearchFields {
 
   /**
    * The root fields of the shared fields a search reads whose values matched fields are found from:
-   * not the columns' arrays, and of {@code other} only the fields that name or tag the entity,
-   * which "Matched on" shows. A fetch cannot cut a value short, so a table with thousands of
-   * fields, a long document or a long list of urns would be sent whole with every hit; search still
-   * reads every shared field.
+   * not {@code name_1} or the schema-field arrays, and of {@code other} only the fields that name
+   * or tag the entity, which "Matched on" shows. A fetch cannot cut a value short, so a table with
+   * thousands of fields, a long document or a long list of urns would be sent whole with every hit;
+   * search still reads every shared field.
    */
   @Nonnull
   public static List<String> matchedFieldSources(
       @Nonnull final Map<String, List<String>> searchedFields) {
     return searchedFields.entrySet().stream()
-        .filter(field -> !COLUMNS.equals(field.getKey()))
+        .filter(
+            field -> !SearchableAnnotation.indexedFieldName(ENTITY_NAME, 1).equals(field.getKey()))
         .flatMap(
             field ->
                 OTHER.equals(field.getKey())
@@ -862,9 +926,22 @@ public final class V3SearchFields {
     if (configured == null || configured.isEmpty()) {
       return List.of();
     }
-    final Set<String> fullText = fullTextFields(entitySpecs).keySet();
-    final Map<String, List<SearchableFieldSpec>> roots = rootSourceFieldSpecs(entitySpecs);
-    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
+    return copyDestinations(
+        fullTextFields(entitySpecs).keySet(),
+        rootSourceFieldSpecs(entitySpecs),
+        entityNameFallbacks(entitySpecs),
+        configured);
+  }
+
+  @Nonnull
+  static List<String> copyDestinations(
+      @Nonnull final Set<String> fullText,
+      @Nonnull final Map<String, List<SearchableFieldSpec>> roots,
+      @Nonnull final Set<SearchableFieldSpec> fallbacks,
+      @Nullable final Collection<String> configured) {
+    if (configured == null || configured.isEmpty()) {
+      return List.of();
+    }
     final Set<String> destinations = new LinkedHashSet<>();
     for (String entry : configured) {
       if (entry == null || entry.isBlank()) {
@@ -997,6 +1074,29 @@ public final class V3SearchFields {
     return labelSubfields(fieldSpecs).contains(TEXT);
   }
 
+  private static boolean declaresText(@Nonnull final SearchableFieldSpec fieldSpec) {
+    return declaresText(List.of(fieldSpec));
+  }
+
+  /**
+   * Whether this source copies into {@code destination}. A label on any source of the root field
+   * wins over the fallback to {@code other}, matching {@link #destinations}.
+   */
+  private static boolean landsIn(
+      @Nonnull final SearchableFieldSpec fieldSpec,
+      @Nonnull final String destination,
+      @Nonnull final Set<SearchableFieldSpec> entityNameFallbacks,
+      final boolean groupHasLabel) {
+    final Set<String> specLabels = labels(fieldSpec);
+    if (!specLabels.isEmpty()) {
+      return specLabels.contains(destination);
+    }
+    if (groupHasLabel) {
+      return false;
+    }
+    return destination.equals(entityNameFallbacks.contains(fieldSpec) ? ENTITY_NAME : OTHER);
+  }
+
   @Nonnull
   private static Set<String> labelSubfields(
       @Nonnull final Collection<SearchableFieldSpec> fieldSpecs) {
@@ -1018,10 +1118,10 @@ public final class V3SearchFields {
       return Set.of();
     }
     final SearchableAnnotation resolved = annotation.resolvedForV3();
-    return Stream.of(resolved.getSearchLabel(), resolved.getEntityFieldName())
-        .flatMap(Optional::stream)
-        .filter(label -> !label.isEmpty())
-        .collect(Collectors.toCollection(LinkedHashSet::new));
+    final Set<String> destinations = new LinkedHashSet<>();
+    resolved.indexedFieldName().ifPresent(destinations::add);
+    resolved.getEntityFieldName().filter(name -> !name.isEmpty()).ifPresent(destinations::add);
+    return destinations;
   }
 
   private static boolean isQueriedByDefault(@Nonnull final SearchableFieldSpec fieldSpec) {

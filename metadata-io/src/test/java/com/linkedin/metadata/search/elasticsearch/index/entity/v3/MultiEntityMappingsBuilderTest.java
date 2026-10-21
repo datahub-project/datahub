@@ -284,7 +284,9 @@ public class MultiEntityMappingsBuilderTest {
 
     assertFalse(mappings.isEmpty());
     for (IndexMapping mapping : mappings) {
-      Object aspects = withoutParsedUrnFields(getProperties(mapping.getMappings()).get("_aspects"));
+      Object aspects =
+          withoutStoredAspectJsonFields(
+              withoutParsedUrnFields(getProperties(mapping.getMappings()).get("_aspects")));
       Set<String> analyzers = new HashSet<>();
       collectAnalysisReferences(aspects, analyzers, new HashSet<>());
       Set<String> types = new HashSet<>();
@@ -397,6 +399,109 @@ public class MultiEntityMappingsBuilderTest {
       }
     }
     return false;
+  }
+
+  @Test
+  public void testChildCopyAndSharedRecordUseTheirOwnDegree() throws IOException {
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Object> datasetProperties = null;
+    Map<String, Object> businessAttributeProperties = null;
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      Map<String, Object> properties = getProperties(mapping.getMappings());
+      if (properties.containsKey("fieldTags")) {
+        datasetProperties = properties;
+      } else if (properties.containsKey("editedFieldTags")) {
+        businessAttributeProperties = properties;
+      }
+    }
+
+    assertNotNull(datasetProperties);
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags__urn_name"),
+        List.of("tags_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags"),
+        List.of("tags_1_urn"));
+    assertFalse(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags").contains("tags"));
+    assertFalse(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags").contains("tags_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(
+            datasetProperties, "editableSchemaMetadata", "editedFieldTags__urn_name"),
+        List.of("tags_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "editableSchemaMetadata", "editedFieldTags"),
+        List.of("tags_1_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldGlossaryTerms__urn_name"),
+        List.of("glossaryTerms_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldGlossaryTerms"),
+        List.of("glossaryTerms_1_urn"));
+    assertTrue(copyTo(datasetProperties, "fieldDescriptions").contains("description_1"));
+    assertFalse(copyTo(datasetProperties, "fieldDescriptions").contains("description"));
+    assertTrue(copyTo(datasetProperties, "editedFieldDescriptions").contains("description_1"));
+    assertFalse(copyTo(datasetProperties, "editedFieldDescriptions").contains("description"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "hasDescription"),
+        List.of("hasDescription_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "editableSchemaMetadata", "hasDescription"),
+        List.of("hasDescription_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "hasTags"), List.of("hasTags_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "globalTags", "hasTags"), List.of("hasTags"));
+    assertEquals(
+        ((Map<String, Object>) datasetProperties.get("hasDescription_1")).get("type"), "boolean");
+    assertEquals(((Map<String, Object>) datasetProperties.get("hasTags_1")).get("type"), "boolean");
+    assertEquals(
+        ((Map<String, Object>) datasetProperties.get("hasGlossaryTerms_1")).get("type"), "boolean");
+
+    assertNotNull(businessAttributeProperties);
+    assertTrue(
+        copyTo(businessAttributeProperties, "editedFieldDescriptions").contains("description"));
+    assertFalse(
+        copyTo(businessAttributeProperties, "editedFieldDescriptions").contains("description_1"));
+    assertTrue(copyTo(businessAttributeProperties, "editedFieldTags").isEmpty());
+    assertEquals(
+        aspectBooleanCopyTo(
+            businessAttributeProperties, "businessAttributeInfo", "editedFieldTags"),
+        List.of("tags_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(
+            businessAttributeProperties, "businessAttributeInfo", "editedFieldTags__urn_name"),
+        List.of("tags"));
+    assertTrue(
+        aspectBooleanCopyTo(
+                businessAttributeProperties, "businessAttributeInfo", "editedFieldGlossaryTerms")
+            .contains("glossaryTerms_urn"));
+    assertTrue(
+        aspectBooleanCopyTo(
+                businessAttributeProperties,
+                "businessAttributeInfo",
+                "editedFieldGlossaryTerms__urn_name")
+            .contains("glossaryTerms"));
+    assertFalse(
+        aspectBooleanCopyTo(businessAttributeProperties, "businessAttributeInfo", "editedFieldTags")
+            .contains("tags_1_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(businessAttributeProperties, "businessAttributeInfo", "hasDescription"),
+        List.of("hasDescription"));
+    assertFalse(businessAttributeProperties.containsKey("hasDescription_1"));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<?> aspectBooleanCopyTo(
+      Map<String, Object> properties, String aspect, String field) {
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    Map<String, Object> aspectMapping = (Map<String, Object>) aspectProperties.get(aspect);
+    Map<String, Object> fields = (Map<String, Object>) aspectMapping.get("properties");
+    Object copyTo = ((Map<String, Object>) fields.get(field)).get("copy_to");
+    return copyTo instanceof List<?> destinations ? destinations : List.of();
   }
 
   @SuppressWarnings("unchecked")
@@ -1418,6 +1523,8 @@ public class MultiEntityMappingsBuilderTest {
         entitySpec.getAspectSpecs().get(0).getSearchableFieldSpecs().get(0);
     when(fieldSpec.getSearchableAnnotation().getHasValuesFieldName())
         .thenReturn(Optional.of("hasDescription"));
+    when(fieldSpec.getSearchableAnnotation().indexedHasValuesFieldName())
+        .thenReturn(Optional.of("hasDescription"));
     when(fieldSpec.getSearchableAnnotation().getNumValuesFieldName())
         .thenReturn(Optional.of("numDescriptions"));
     when(fieldSpec.getSearchableAnnotation().isIncludeSystemModifiedAt()).thenReturn(true);
@@ -1790,6 +1897,23 @@ public class MultiEntityMappingsBuilderTest {
     return copy;
   }
 
+  /** The stored aspect body is intentionally an unindexed text field, not an analyzed copy. */
+  @SuppressWarnings("unchecked")
+  private static Object withoutStoredAspectJsonFields(Object value) {
+    if (!(value instanceof Map<?, ?> map)) {
+      return value;
+    }
+    Map<String, Object> copy = new HashMap<>();
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      String key = String.valueOf(entry.getKey());
+      if (V3SearchDocumentProjector.ASPECT_JSON_FIELD.equals(key)) {
+        continue;
+      }
+      copy.put(key, withoutStoredAspectJsonFields(entry.getValue()));
+    }
+    return copy;
+  }
+
   @SuppressWarnings("unchecked")
   private static Map<String, Object> parsedAspectField(
       Map<String, Object> properties, String path) {
@@ -2056,6 +2180,8 @@ public class MultiEntityMappingsBuilderTest {
     when(searchableAnnotation.getFieldNameAliases())
         .thenReturn(fieldNameAlias != null ? Collections.singletonList(fieldNameAlias) : null);
     when(searchableAnnotation.getSearchLabel()).thenReturn(searchLabel);
+    when(searchableAnnotation.indexedFieldName())
+        .thenReturn(searchLabel.filter(name -> !name.isEmpty()));
     when(searchableAnnotation.getEntityFieldName()).thenReturn(entityFieldName);
     when(searchableAnnotation.isV3Searchable()).thenReturn(true);
     when(searchableAnnotation.resolvedForV3()).thenReturn(searchableAnnotation);

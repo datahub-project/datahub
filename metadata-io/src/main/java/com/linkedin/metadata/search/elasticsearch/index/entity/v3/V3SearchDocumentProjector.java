@@ -37,6 +37,13 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+
+  /**
+   * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
+   * to SQL. A string, so a partial document update replaces it.
+   */
+  public static final String ASPECT_JSON_FIELD = "_aspectJson";
+
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
 
   private final SearchDocumentTransformer searchDocumentTransformer;
@@ -98,8 +105,8 @@ public class V3SearchDocumentProjector {
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
     omitV3ExcludedFields(aspectSpec, projectedFields);
-    final Set<String> sharedHasValues =
-        placeSharedHasValues(event.getEntitySpec(), aspectSpec, projectedFields);
+    storeAspectJson(event, aspectSpec, projectedFields);
+    final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
     final EntityRegistry entityRegistry = opContext.getEntityRegistry();
     final List<EntitySpec> indexGroup =
         V3SearchFields.indexGroupSpecs(entityRegistry, List.of(event.getEntitySpec()));
@@ -213,15 +220,14 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * A shared-label hasValues boolean is written under the aspect only when a source in this aspect
-   * is populated. {@code copy_to} ORs those trues onto the root name. The root value is cleared so
-   * a stored false is not indexed beside a copied true.
+   * A shared-label hasValues boolean is written under the aspect, at the declared name, only when a
+   * source in this aspect is populated. {@code copy_to} sends that true to the degree's root name
+   * ({@code hasDescription} or {@code hasDescription_1}). The declared name is cleared on the root
+   * so a column value is not indexed as the entity's own boolean.
    */
   @Nonnull
   private static Set<String> placeSharedHasValues(
-      @Nonnull final EntitySpec entitySpec,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final ObjectNode projectedFields) {
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
     final Set<String> names = new LinkedHashSet<>();
     final Set<String> populated = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
@@ -230,11 +236,12 @@ public class V3SearchDocumentProjector {
       if (!resolved.isV3Searchable()) {
         continue;
       }
-      final Optional<String> label = resolved.getSearchLabel().filter(name -> !name.isEmpty());
+      final Optional<String> label = resolved.indexedFieldName();
       if (label.isEmpty()) {
         continue;
       }
-      V3SearchFields.hasValuesFieldName(entitySpec, label.get())
+      resolved
+          .getHasValuesFieldName()
           .ifPresent(
               booleanName -> {
                 names.add(booleanName);
@@ -337,6 +344,37 @@ public class V3SearchDocumentProjector {
     return !value.isArray() || !value.isEmpty();
   }
 
+  private static void storeAspectJson(
+      @Nonnull final MCLItem event,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields) {
+    if (aspectSpec.getAspectAnnotation() == null
+        || !aspectSpec.getAspectAnnotation().isAspectJson()) {
+      return;
+    }
+    if (ChangeType.DELETE.equals(event.getChangeType()) || event.getRecordTemplate() == null) {
+      projectedFields.putNull(ASPECT_JSON_FIELD);
+      return;
+    }
+    projectedFields.put(ASPECT_JSON_FIELD, RecordUtils.toJsonString(event.getRecordTemplate()));
+  }
+
+  /**
+   * Aspect JSON from an {@code _aspects.<aspect>} object. A string is the stored value. An object
+   * is accepted so a caller can still parse a value that was written as JSON.
+   */
+  @Nullable
+  public static String aspectJson(@Nullable final JsonNode aspectNode) {
+    if (aspectNode == null || aspectNode.isNull() || aspectNode.isMissingNode()) {
+      return null;
+    }
+    JsonNode stored = aspectNode.get(ASPECT_JSON_FIELD);
+    if (stored == null || stored.isNull() || stored.isMissingNode()) {
+      return null;
+    }
+    return stored.isTextual() ? stored.asText() : stored.toString();
+  }
+
   private static ProjectedAspect buildProjectedAspect(
       @Nonnull final String aspectName,
       @Nonnull final ObjectNode projectedFields,
@@ -348,6 +386,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final OperationContext opContext) {
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
+    rootFields.remove(ASPECT_JSON_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);

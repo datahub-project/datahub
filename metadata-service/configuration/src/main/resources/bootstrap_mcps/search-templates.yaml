@@ -1,0 +1,768 @@
+# Search V3 query templates. Query bodies are Mustache for the search renderer.
+# BootstrapMCP also uses Mustache, so each body switches delimiters around its
+# {{tags}} so those tags are stored literally.
+- entityUrn: urn:li:searchTemplate:search
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Search
+    description: "Router for one fulltext query. A DataHub URN (urn:li and an entity type) or an s3, gs, or hdfs path uses identity. An empty query or * uses list. A quoted /q query uses structuredExact, and any other /q query uses structured. A quoted query uses exact. Any other query uses fulltext. Scroll and aggregation start here. Browse uses its own router."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    routes:
+      - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:list
+      - queryRegex: "^\\\\/q [\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+      - queryRegex: "^\\\\/q .*"
+        template: urn:li:searchTemplate:structured
+      - queryRegex: "^[\"'].+[\"']$"
+        template: urn:li:searchTemplate:exact
+    defaultRoute:
+      template: urn:li:searchTemplate:fulltext
+- entityUrn: urn:li:searchTemplate:searchLight
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Search light
+    description: "Same routes as search. An ordinary query starts on light and continues to fulltext when that first query does not stop. Search result pages start here."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:search
+    defaultRoute:
+      template: urn:li:searchTemplate:light
+- entityUrn: urn:li:searchTemplate:fulltext
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Fulltext
+    description: "Complete text query. Matches analyzed fields, a name prefix, and an exact name, and adds clauses for synonyms, identifiers, dotted names, and long phrases. A query of four or more tokens also scores a description that contains every term and a description that contains a share of them."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "dis_max": {
+          "tie_breaker": 0.01,
+          "queries": [
+            {
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "fields": {{&defaultQueryFieldsJson}},
+                "fuzzy_max_expansions": {{fuzzyMaxExpansions}},
+                "fuzzy_prefix_length": 0,
+                "fuzzy_transpositions": true
+              }
+            }
+            {{#synonyms}}
+            ,{
+              "simple_query_string": {
+                "query": "{{.}}",
+                "default_operator": "AND",
+                "fields": {{&defaultQueryFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/synonyms}}
+            {{#flags.alphanumericSplit}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "fields": {{&defaultQueryFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/flags.alphanumericSplit}}
+            {{#prefixFields}}
+            ,{
+              "match_phrase_prefix": {
+                "{{field}}": {
+                  "query": "{{unquoted}}",
+                  "boost": {{boost}},
+                  "max_expansions": {{prefixMaxExpansions}}
+                }
+              }
+            }
+            {{/prefixFields}}
+            ,{
+              "constant_score": {
+                "filter": {
+                  "term": {
+                    "{{nameKeyword}}": {
+                      "value": "{{unquoted}}",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                "boost": 1000
+              }
+            }
+            {{#synonyms}}
+            ,{
+              "constant_score": {
+                "filter": {
+                  "term": {
+                    "{{nameKeyword}}": {
+                      "value": "{{.}}",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                "boost": 1000
+              }
+            }
+            {{/synonyms}}
+            {{#wildcardTerm}}
+            {{#wildcardFields}}
+            ,{
+              "wildcard": {
+                "{{field}}": {
+                  "value": "*{{wildcardTerm}}*",
+                  "boost": {{boost}}
+                }
+              }
+            }
+            {{/wildcardFields}}
+            {{/wildcardTerm}}
+            {{#multiWord}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "default_operator": "AND",
+                "fields": {{&identityQueryFieldsJson}},
+                "boost": 3.0
+              }
+            }
+            {{/multiWord}}
+            {{#dotted}}
+            ,{
+              "match": {
+                "{{qualifiedNameText}}": {
+                  "query": "{{unquoted}}",
+                  "operator": "AND",
+                  "boost": 50.0
+                }
+              }
+            }
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true
+                }
+              }
+            }
+            {{/dotted}}
+            {{#longPhrase}}
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "AND",
+                  "boost": 100.0
+                }
+              }
+            }
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "OR",
+                  "minimum_should_match": "25%",
+                  "boost": 10.0
+                }
+              }
+            }
+            {{/longPhrase}}
+            {{#extraDisMaxQueries}}
+            ,{{&extraDisMaxQueries}}
+            {{/extraDisMaxQueries}}
+          ]
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    normalization:
+      wildcardMinimumLength: 5
+      synonymCap: 8
+      fuzzyTokenThreshold: 5
+      mediumFuzzyTokenThreshold: 7
+      broadQueryTokenCap: 8
+      shortFuzzyEdits: 1
+      mediumFuzzyEdits: 2
+    structuredPropertyQuery:
+      analyzedValue:
+        enabled: true
+        operator: OR
+      exactValue:
+        enabled: true
+    routes: []
+- entityUrn: urn:li:searchTemplate:light
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Light
+    description: "Cheaper text query for a relevance-sorted page that does not filter on a column and has fewer than four tokens. A longer query skips this rung and continues to fulltext. Keeps the result when it finds a hit, or when an empty result is an identifier or a long name. Otherwise continues to fulltext."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:fulltext
+    query: |
+      {{=<% %>=}}
+      {
+        "dis_max": {
+          "tie_breaker": 0.01,
+          "queries": [
+            {{^flags.exactNameLetterDigit}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&lightFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/flags.exactNameLetterDigit}}
+            {
+              "constant_score": {
+                "filter": {
+                  "term": {
+                    "{{nameKeyword}}": {
+                      "value": "{{unquoted}}",
+                      "case_insensitive": true
+                    }
+                  }
+                },
+                "boost": 1000
+              }
+            }
+            {{#synonyms}}
+            ,{
+              "multi_match": {
+                "query": "{{.}}",
+                "type": "best_fields",
+                "fields": {{&lightFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/synonyms}}
+            {{#wholeIdentifier}}
+            ,{
+              "simple_query_string": {
+                "query": "{{escaped}}",
+                "fields": {{&identityQueryFieldsJson}},
+                "default_operator": "AND"
+              }
+            }
+            {{/wholeIdentifier}}
+            {{#multiWord}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "fields": {{&identityQueryFieldsJson}},
+                "default_operator": "AND",
+                "boost": 3.0
+              }
+            }
+            {{/multiWord}}
+            {{#fullyQualifiedName}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fqnQuery}}",
+                "fields": ["{{qualifiedNameText}}"],
+                "default_operator": "AND",
+                "boost": 50.0
+              }
+            }
+            {{/fullyQualifiedName}}
+            {{#longPhrase}}
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "AND",
+                  "boost": 100.0
+                }
+              }
+            }
+            {{/longPhrase}}
+          ]
+        }
+      }
+      <%={{ }}=%>
+    ladder:
+      select:
+        - scoreSort
+        - pageSize
+        - -columnFilter
+        - -longQuery
+      stop:
+        - minHits: 1
+        - emptyWhen: spacelessIdentifier
+      next: urn:li:searchTemplate:fulltext
+- entityUrn: urn:li:searchTemplate:list
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: List
+    description: "Matches every document for an empty query or *. Ranking comes from enrichment weights, not from query text."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    query: '{ "match_all": {} }'
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    structuredPropertyQuery:
+      analyzedValue:
+        enabled: true
+        operator: OR
+      exactValue:
+        enabled: true
+    routes: []
+- entityUrn: urn:li:searchTemplate:exact
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Exact
+    description: "Quoted text query. Matches a name prefix, an exact name, and the URN, without the broader analyzed-text clauses. A query of four or more tokens also matches a description that contains every term."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "bool": {
+          "should": [
+            {
+              "match_phrase_prefix": {
+                "{{nameText}}": {
+                  "query": "{{unquoted}}",
+                  "boost": {{prefixFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{entityNameField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": {{exactFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnFoldedField}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "boost": {{exactFactor}},
+                  "_name": "urn"
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnExactField}}": {
+                  "value": "{{unquoted}}",
+                  "boost": {{caseSensitivityFactor}},
+                  "_name": "urn"
+                }
+              }
+            }
+            {{#longPhrase}}
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "AND",
+                  "boost": 100.0
+                }
+              }
+            }
+            {{/longPhrase}}
+          ],
+          "minimum_should_match": 1
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    structuredPropertyQuery:
+      analyzedValue:
+        enabled: true
+        operator: OR
+      exactValue:
+        enabled: true
+    routes: []
+- entityUrn: urn:li:searchTemplate:structured
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Structured
+    description: "Field query used when fulltext is off and for /q syntax. The field clause is the Java structured-query fragment, plus a name prefix and an exact name and URN. A DataHub URN or storage path, including one written after the /q prefix, uses identity, an empty query or * uses list, and a quoted query uses structuredExact. Any other query stays here."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "bool": {
+          "should": [
+            {{&structuredQuery}},
+            {
+              "match_phrase_prefix": {
+                "{{nameText}}": {
+                  "query": "{{unquoted}}",
+                  "boost": {{prefixFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{entityNameField}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": {{exactFactor}}
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnFoldedField}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "boost": {{exactFactor}},
+                  "_name": "urn"
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnExactField}}": {
+                  "value": "{{unquoted}}",
+                  "boost": {{caseSensitivityFactor}},
+                  "_name": "urn"
+                }
+              }
+            }
+          ],
+          "minimum_should_match": 1
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    structuredPropertyQuery:
+      analyzedValue:
+        enabled: true
+        operator: OR
+      exactValue:
+        enabled: true
+    routes:
+      - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:list
+      - queryRegex: "^(?:\\\\/q )?[\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+- entityUrn: urn:li:searchTemplate:structuredExact
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Structured exact
+    description: "Quoted field query. Runs the structured query and does not route again."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:structured
+    routes: []
+- entityUrn: urn:li:searchTemplate:lineage
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Lineage
+    description: "Text search over the entities a lineage graph walk already returned. Uses the fulltext query. A DataHub URN or storage path, an empty query or *, /q, and a quoted query route the same way as search. An ordinary query stays here. The graph walk is separate from this template."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:fulltext
+    routes:
+      - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:list
+      - queryRegex: "^\\\\/q [\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+      - queryRegex: "^\\\\/q .*"
+        template: urn:li:searchTemplate:structured
+      - queryRegex: "^[\"'].+[\"']$"
+        template: urn:li:searchTemplate:exact
+- entityUrn: urn:li:searchTemplate:identity
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Identity
+    description: "Lookup for a DataHub URN or an s3, gs, or hdfs path. Prefers an exact URN, then the parsed name, the qualified name, and the last path segment."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "bool": {
+          "should": [
+            {
+              "term": {
+                "{{urnKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "boost": 100.0
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnFoldedField}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "boost": 50.0
+                }
+              }
+            },
+            {
+              "term": {
+                "{{urnParsedField}}": {
+                  "value": "{{normalizedLastSegment}}",
+                  "boost": 40.0
+                }
+              }
+            },
+            {
+              "match_phrase": {
+                "{{qualifiedNameIdentity}}": {
+                  "query": "{{unquoted}}",
+                  "boost": 30.0
+                }
+              }
+            },
+            {
+              "term": {
+                "{{nameKeyword}}": {
+                  "value": "{{lastSegment}}",
+                  "case_insensitive": true,
+                  "boost": 20.0
+                }
+              }
+            }
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": 10.0
+                }
+              }
+            }
+            ,{
+              "simple_query_string": {
+                "query": "{{escaped}}",
+                "fields": {{&defaultQueryFieldsJson}},
+                "default_operator": "AND"
+              }
+            }
+          ],
+          "minimum_should_match": 1
+        }
+      }
+      <%={{ }}=%>
+    functionScore: |
+      {{=<% %>=}}
+      {
+        "functions": [
+          { "weight": 1.0 }
+          {{#valueScoreFunctions}}
+          ,{
+            "filter": { "term": { "{{field}}": { "value": {{&valueJson}} } } },
+            "weight": {{weight}}
+          }
+          {{/valueScoreFunctions}}
+          {{#fieldScoreFunctions}}
+          ,{
+            "field_value_factor": {
+              "field": "{{field}}",
+              "factor": {{factor}},
+              "missing": {{missing}}
+              {{#modifier}}, "modifier": "{{modifier}}"{{/modifier}}
+            }
+          }
+          {{/fieldScoreFunctions}}
+        ],
+        "score_mode": "avg",
+        "boost_mode": "multiply"
+      }
+      <%={{ }}=%>
+    structuredPropertyQuery:
+      analyzedValue:
+        enabled: true
+        operator: OR
+      exactValue:
+        enabled: true
+    routes: []
+- entityUrn: urn:li:searchTemplate:browseV2
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Browse
+    description: "Router for browse. Same routes as search, except an empty query or * uses browseV2List and any other ordinary query uses browseV2Fulltext. Those leaves omit enrichment ranking. Browse path, depth, and group aggregation stay in Java."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:search
+    routes:
+      - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
+        template: urn:li:searchTemplate:identity
+      - queryRegex: "^\\*?$"
+        template: urn:li:searchTemplate:browseV2List
+      - queryRegex: "^\\\\/q [\"'].+[\"']$"
+        template: urn:li:searchTemplate:structuredExact
+      - queryRegex: "^\\\\/q .*"
+        template: urn:li:searchTemplate:structured
+      - queryRegex: "^[\"'].+[\"']$"
+        template: urn:li:searchTemplate:exact
+    defaultRoute:
+      template: urn:li:searchTemplate:browseV2Fulltext
+- entityUrn: urn:li:searchTemplate:browseV2List
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Browse list
+    description: "Every document for an empty browse query or *. Omits enrichment ranking so scores do not change browse groups."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:list
+    functionScore: ""
+- entityUrn: urn:li:searchTemplate:browseV2Fulltext
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Browse fulltext
+    description: "Complete text query for browse. Omits enrichment ranking so scores do not change browse groups."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    parent: urn:li:searchTemplate:fulltext
+    functionScore: ""

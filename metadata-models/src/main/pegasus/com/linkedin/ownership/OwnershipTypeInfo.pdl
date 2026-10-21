@@ -6,7 +6,8 @@ import com.linkedin.common.AuditStamp
  * Information about an ownership type
  */
 @Aspect = {
-  "name": "ownershipTypeInfo"
+  "name": "ownershipTypeInfo",
+  "schemaVersion": 2
 }
 record OwnershipTypeInfo {
 
@@ -31,6 +32,18 @@ record OwnershipTypeInfo {
   /**
    * Description of the Ownership Type
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
    /**

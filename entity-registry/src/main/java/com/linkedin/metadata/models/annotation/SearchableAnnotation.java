@@ -37,7 +37,8 @@ public class SearchableAnnotation {
   String fieldName;
   // Type of the field. Defines how the field is indexed and matched
   FieldType fieldType;
-  // Whether we should match the field for the default search query
+  // Whether Search V2 matches the field in an unqualified query. Search V3 uses
+  // {@link #v3QueryByDefault} when that is set.
   boolean queryByDefault;
   // Whether we should use the field for default autocomplete
   boolean enableAutocomplete;
@@ -92,14 +93,30 @@ public class SearchableAnnotation {
 
   Optional<Boolean> v3IncludeSystemModifiedAt;
 
-  /** Search V3 override of {@link #queryByDefault}. Absent means V3 uses the top-level flag. */
-  Optional<Boolean> v3QueryByDefault;
-
   /**
    * Search V3 root and label subfields. Explicit {@code v3.mappings} replace the fallback derived
    * from {@link #fieldType}. {@code _aspects} does not read this list.
    */
   @Nonnull List<FieldMapping> v3Mappings;
+
+  /**
+   * Distance of this value from the entity. 0 is the value on the entity. A child or related copy
+   * is 1, and so on. The Search V3 field is the label at degree 0 and {@code <label>_<degree>}
+   * above that.
+   */
+  int degree;
+
+  /**
+   * Search V3 weight of this degree. Empty means V3 uses {@link #boostScore}. V2 always reads
+   * {@link #boostScore}.
+   */
+  Optional<Double> v3BoostScore;
+
+  /**
+   * Whether Search V3 matches the field in an unqualified query. Empty means V3 uses {@link
+   * #queryByDefault}. V2 always reads {@link #queryByDefault}.
+   */
+  Optional<Boolean> v3QueryByDefault;
 
   /**
    * Constructor for annotations with no V3 overlay. V3 searches the field with the top-level
@@ -152,8 +169,10 @@ public class SearchableAnnotation {
         true,
         Optional.empty(),
         Optional.empty(),
+        FieldMapping.fallback(fieldType, hasSearchDestination(searchLabel, entityFieldName)),
+        0,
         Optional.empty(),
-        FieldMapping.fallback(fieldType, hasSearchDestination(searchLabel, entityFieldName)));
+        Optional.empty());
   }
 
   /**
@@ -165,6 +184,7 @@ public class SearchableAnnotation {
     if (v3Searchable
         && v3SearchLabel.isEmpty()
         && v3IncludeSystemModifiedAt.isEmpty()
+        && v3BoostScore.isEmpty()
         && v3QueryByDefault.isEmpty()) {
       return this;
     }
@@ -178,7 +198,7 @@ public class SearchableAnnotation {
         addHasValuesToFilters,
         filterNameOverride,
         hasValuesFilterNameOverride,
-        boostScore,
+        v3BoostScore.orElse(boostScore),
         hasValuesFieldName,
         numValuesFieldName,
         weightsPerFieldValue,
@@ -194,8 +214,44 @@ public class SearchableAnnotation {
         v3Searchable,
         Optional.empty(),
         Optional.empty(),
+        v3Mappings,
+        degree,
         Optional.empty(),
-        v3Mappings);
+        Optional.empty());
+  }
+
+  /**
+   * The Search V3 field this label is indexed as. Degree 0 keeps the label. A higher degree is
+   * {@code <label>_<degree>}.
+   */
+  @Nonnull
+  public static String indexedFieldName(@Nonnull String label, int degree) {
+    if (degree < 0) {
+      throw new IllegalArgumentException("degree must be non-negative");
+    }
+    return degree == 0 ? label : label + "_" + degree;
+  }
+
+  /**
+   * The indexed field of {@link #searchLabel} at {@link #degree}, when this annotation has a label.
+   */
+  @Nonnull
+  public Optional<String> indexedFieldName() {
+    return searchLabel
+        .filter(label -> !label.isEmpty())
+        .map(label -> indexedFieldName(label, degree));
+  }
+
+  /**
+   * The Search V3 root boolean for this field. Degree 0 keeps the declared name ({@code
+   * hasDescription}). Degree n is {@code <name>_<n>} ({@code hasDescription_1}). V2 keeps the
+   * declared name.
+   */
+  @Nonnull
+  public Optional<String> indexedHasValuesFieldName() {
+    return hasValuesFieldName
+        .filter(name -> !name.isEmpty())
+        .map(name -> indexedFieldName(name, degree));
   }
 
   public enum FieldType {
@@ -286,6 +342,8 @@ public class SearchableAnnotation {
     final Optional<Boolean> v3IncludeSystemModifiedAt =
         v3Overlay.flatMap(
             overlay -> AnnotationUtils.getField(overlay, "includeSystemModifiedAt", Boolean.class));
+    final int degree = parseDegree(v3Overlay, context);
+    final Optional<Double> v3BoostScore = parseV3BoostScore(v3Overlay, context);
     final Optional<Boolean> v3QueryByDefault =
         v3Overlay.flatMap(
             overlay -> AnnotationUtils.getField(overlay, "queryByDefault", Boolean.class));
@@ -346,8 +404,48 @@ public class SearchableAnnotation {
         v3Searchable,
         v3SearchLabel,
         v3IncludeSystemModifiedAt,
-        v3QueryByDefault,
-        v3Mappings);
+        v3Mappings,
+        degree,
+        v3BoostScore,
+        v3QueryByDefault);
+  }
+
+  private static int parseDegree(@Nonnull Optional<Map> v3Overlay, @Nonnull String context) {
+    if (v3Overlay.isEmpty() || !v3Overlay.get().containsKey("degree")) {
+      return 0;
+    }
+    Object raw = v3Overlay.get().get("degree");
+    if (!(raw instanceof Number number) || number.doubleValue() != number.intValue()) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.degree must be a non-negative"
+                  + " integer",
+              ANNOTATION_NAME, context));
+    }
+    int degree = number.intValue();
+    if (degree < 0) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.degree must be a non-negative"
+                  + " integer, but was %s",
+              ANNOTATION_NAME, context, degree));
+    }
+    return degree;
+  }
+
+  private static Optional<Double> parseV3BoostScore(
+      @Nonnull Optional<Map> v3Overlay, @Nonnull String context) {
+    if (v3Overlay.isEmpty() || !v3Overlay.get().containsKey("boostScore")) {
+      return Optional.empty();
+    }
+    Object raw = v3Overlay.get().get("boostScore");
+    if (!(raw instanceof Number number)) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.boostScore must be a number",
+              ANNOTATION_NAME, context));
+    }
+    return Optional.of(number.doubleValue());
   }
 
   private static boolean hasSearchDestination(

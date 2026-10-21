@@ -696,6 +696,13 @@ public class ESUtils {
                 criterion.isNegated(),
                 criterion.hasValues() ? criterion.getValues() : null);
       } else {
+        List<String> hasValuesFields = v3FieldResolver.hasValuesFieldNames(criterion.getField());
+        if ((criterion.getCondition() == Condition.EXISTS
+                || criterion.getCondition() == Condition.IS_NULL)
+            && hasValuesFields.size() > 1) {
+          return buildHasValuesExistenceQuery(
+              criterion.getField(), hasValuesFields, criterion.getCondition() == Condition.IS_NULL);
+        }
         Criterion rewritten = unindexedV3Criterion(v3FieldResolver, criterion);
         if (rewritten == null) {
           return null;
@@ -774,6 +781,17 @@ public class ESUtils {
         criterion.getCondition(),
         criterion.getField());
     return null;
+  }
+
+  @Nonnull
+  private static QueryBuilder buildHasValuesExistenceQuery(
+      @Nonnull String queryName, @Nonnull List<String> fields, boolean missing) {
+    BoolQueryBuilder anyPresent = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    fields.forEach(field -> anyPresent.should(QueryBuilders.existsQuery(field)));
+    if (missing) {
+      return QueryBuilders.boolQuery().mustNot(anyPresent).queryName(queryName);
+    }
+    return anyPresent.queryName(queryName);
   }
 
   /**
@@ -938,8 +956,15 @@ public class ESUtils {
    */
   public static void buildNameSuggestions(
       @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable String textInput) {
+    buildNameSuggestions(searchSourceBuilder, textInput, ENTITY_NAME_FIELD);
+  }
+
+  public static void buildNameSuggestions(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nullable String textInput,
+      @Nonnull String field) {
     SuggestionBuilder<TermSuggestionBuilder> builder =
-        SuggestBuilders.termSuggestion(ENTITY_NAME_FIELD).text(textInput);
+        SuggestBuilders.termSuggestion(field).text(textInput);
     SuggestBuilder suggestBuilder = new SuggestBuilder();
     suggestBuilder.addSuggestion(NAME_SUGGESTION, builder);
     searchSourceBuilder.suggest(suggestBuilder);
