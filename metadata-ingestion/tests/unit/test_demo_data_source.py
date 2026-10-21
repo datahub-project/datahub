@@ -3,9 +3,13 @@
 import json
 import tempfile
 from pathlib import Path
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.cli.datapack.loader import IndexFileEntry
+from datahub.cli.datapack.models import DataPackInfo, TrustTier
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.source.demo_data import DemoDataConfig, DemoDataSource
 
 
@@ -46,8 +50,6 @@ class TestDemoDataSource:
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
         """Default config resolves 'bootstrap' pack from registry."""
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_pack = DataPackInfo(
             name="bootstrap",
             description="test",
@@ -61,7 +63,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
+            ctx = PipelineContext(run_id="demo-run")
             config = DemoDataConfig()
             source = DemoDataSource(ctx, config)
 
@@ -83,7 +85,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
+            ctx = PipelineContext(run_id="demo-run")
             config = DemoDataConfig(pack_url="https://example.com/custom.json")
             _source = DemoDataSource(ctx, config)
 
@@ -102,8 +104,6 @@ class TestDemoDataSource:
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
         """Time-shifting is invoked when no_time_shift=False and pack has reference_timestamp."""
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_pack = DataPackInfo(
             name="test",
             description="test",
@@ -118,8 +118,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
-            ctx.run_id = "test-run-id"
+            ctx = PipelineContext(run_id="test-run-id")
             config = DemoDataConfig(pack_name="test", no_time_shift=False)
             _source = DemoDataSource(ctx, config)
 
@@ -134,8 +133,6 @@ class TestDemoDataSource:
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
         """Default config (no_time_shift=True) skips time-shifting."""
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_pack = DataPackInfo(
             name="test",
             description="test",
@@ -150,7 +147,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
+            ctx = PipelineContext(run_id="demo-run")
             config = DemoDataConfig()  # default no_time_shift=True
             _source = DemoDataSource(ctx, config)
 
@@ -164,8 +161,6 @@ class TestDemoDataSource:
     def test_as_of_passed_to_ingest(
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_get_pack.return_value = DataPackInfo(
             name="test",
             description="test",
@@ -178,8 +173,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
-            ctx.run_id = "demo-run"
+            ctx = PipelineContext(run_id="demo-run")
             config = DemoDataConfig(as_of="2024-06-01T12:00:00+00:00")
             DemoDataSource(ctx, config)
 
@@ -196,8 +190,6 @@ class TestDemoDataSource:
     def test_server_and_token_passed_as_client_config(
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_get_pack.return_value = DataPackInfo(
             name="bootstrap",
             description="test",
@@ -210,7 +202,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
+            ctx = PipelineContext(run_id="demo-run")
             config = DemoDataConfig(
                 server="http://localhost:8080",
                 token="sample-token",
@@ -228,8 +220,6 @@ class TestDemoDataSource:
     def test_token_without_server_is_passed(
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_get_pack.return_value = DataPackInfo(
             name="bootstrap",
             description="test",
@@ -242,7 +232,7 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
+            ctx = PipelineContext(run_id="demo-run")
             DemoDataSource(ctx, DemoDataConfig(token="sample-token"))
 
             mock_ingest.assert_called_once()
@@ -256,8 +246,6 @@ class TestDemoDataSource:
     def test_get_workunits_and_report(
         self, mock_trust, mock_download, mock_get_pack, mock_ingest
     ):
-        from datahub.cli.datapack.models import DataPackInfo, TrustTier
-
         mock_get_pack.return_value = DataPackInfo(
             name="bootstrap",
             description="test",
@@ -270,8 +258,133 @@ class TestDemoDataSource:
             f.flush()
             mock_download.return_value = [IndexFileEntry(path=Path(f.name))]
 
-            ctx = MagicMock()
+            ctx = PipelineContext(run_id="demo-run")
             source = DemoDataSource(ctx, DemoDataConfig())
 
             assert list(source.get_workunits()) == []
             assert source.get_report() is not None
+
+
+def _recipe_ctx(
+    sink: Optional[Dict[str, Any]] = None,
+    datahub_api: Optional[Dict[str, Any]] = None,
+    dry_run: bool = False,
+) -> PipelineContext:
+    recipe: Dict[str, Any] = {"source": {"type": "demo-data", "config": {}}}
+    if sink is not None:
+        recipe["sink"] = sink
+    if datahub_api is not None:
+        recipe["datahub_api"] = datahub_api
+    return PipelineContext(
+        run_id="demo-run",
+        dry_run=dry_run,
+        pipeline_config=PipelineConfig.from_dict(recipe),
+    )
+
+
+@patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+@patch("datahub.cli.datapack.registry.get_pack")
+@patch("datahub.cli.datapack.loader.download_pack")
+@patch("datahub.cli.datapack.loader.check_trust")
+class TestDemoDataSourceRecipeTarget:
+    @staticmethod
+    def _setup(
+        tmp_path: Path, mock_download: MagicMock, mock_get_pack: MagicMock
+    ) -> None:
+        mock_get_pack.return_value = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        pack_file = tmp_path / "pack.json"
+        pack_file.write_text("[]")
+        mock_download.return_value = [IndexFileEntry(path=pack_file)]
+
+    def test_dry_run_skips_ingest(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest, tmp_path
+    ):
+        self._setup(tmp_path, mock_download, mock_get_pack)
+        ctx = _recipe_ctx(
+            sink={"type": "datahub-rest", "config": {"server": "http://gms:8080"}},
+            dry_run=True,
+        )
+
+        source = DemoDataSource(ctx, DemoDataConfig())
+
+        mock_ingest.assert_not_called()
+        assert list(source.get_workunits()) == []
+
+    def test_uses_rest_sink_target(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest, tmp_path
+    ):
+        self._setup(tmp_path, mock_download, mock_get_pack)
+        ctx = _recipe_ctx(
+            sink={
+                "type": "datahub-rest",
+                "config": {"server": "http://gms:8080", "token": "sink-token"},
+            }
+        )
+
+        DemoDataSource(ctx, DemoDataConfig())
+
+        client_config = mock_ingest.call_args.kwargs["client_config"]
+        assert client_config.server == "http://gms:8080"
+        assert client_config.token == "sink-token"
+
+    def test_datahub_api_preferred_over_sink(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest, tmp_path
+    ):
+        self._setup(tmp_path, mock_download, mock_get_pack)
+        ctx = _recipe_ctx(
+            sink={"type": "datahub-rest", "config": {"server": "http://sink:8080"}},
+            datahub_api={"server": "http://api:8080"},
+        )
+
+        DemoDataSource(ctx, DemoDataConfig())
+
+        assert mock_ingest.call_args.kwargs["client_config"].server == (
+            "http://api:8080"
+        )
+
+    def test_source_token_overrides_sink_token(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest, tmp_path
+    ):
+        self._setup(tmp_path, mock_download, mock_get_pack)
+        ctx = _recipe_ctx(
+            sink={
+                "type": "datahub-rest",
+                "config": {"server": "http://gms:8080", "token": "sink-token"},
+            }
+        )
+
+        DemoDataSource(ctx, DemoDataConfig(token="source-token"))
+
+        client_config = mock_ingest.call_args.kwargs["client_config"]
+        assert client_config.server == "http://gms:8080"
+        assert client_config.token == "source-token"
+
+    def test_source_server_overrides_sink(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest, tmp_path
+    ):
+        self._setup(tmp_path, mock_download, mock_get_pack)
+        ctx = _recipe_ctx(
+            sink={"type": "datahub-rest", "config": {"server": "http://sink:8080"}}
+        )
+
+        DemoDataSource(ctx, DemoDataConfig(server="http://source:8080"))
+
+        assert mock_ingest.call_args.kwargs["client_config"] is None
+        assert mock_ingest.call_args.kwargs["server"] == "http://source:8080"
+
+    def test_non_rest_sink_falls_back_to_default_resolution(
+        self, mock_trust, mock_download, mock_get_pack, mock_ingest, tmp_path
+    ):
+        self._setup(tmp_path, mock_download, mock_get_pack)
+        ctx = _recipe_ctx(
+            sink={"type": "file", "config": {"filename": str(tmp_path / "out.json")}}
+        )
+
+        DemoDataSource(ctx, DemoDataConfig())
+
+        assert mock_ingest.call_args.kwargs["client_config"] is None
