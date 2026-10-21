@@ -1746,6 +1746,58 @@ public class LineageSearchServiceTest {
     }
   }
 
+  @Test
+  public void testFailedLineageRequestsAreRecordedAsErrors() {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    _lineageSearchService.setMetricUtils(MetricUtils.builder().registry(registry).build());
+    List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+    Urn failingUrn = UrnUtils.getUrn("urn:li:dataset:failed-walk");
+    // Scoped to one urn because the graph mock is shared across the class
+    when(_graphService.getImpactLineage(any(), eq(failingUrn), any(), anyInt()))
+        .thenThrow(new IllegalStateException("graph unavailable"));
+    try {
+      // A rejected request: forced lightning cannot answer a text query
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              _lineageSearchService.searchAcrossLineage(
+                  _operationContext.withLineageFlags(
+                      f -> new LineageFlags().setForceLightningMode(true)),
+                  UrnUtils.getUrn("urn:li:dataset:rejected-search"),
+                  LineageDirection.DOWNSTREAM,
+                  entities,
+                  "some text",
+                  3,
+                  null,
+                  null,
+                  0,
+                  10));
+      // Any other exception, here from the graph walk
+      assertThrows(
+          IllegalStateException.class, () -> search(_operationContext, failingUrn, entities));
+
+      assertEquals(
+          registry
+              .find("datahub.lineage.duration")
+              .tags("status", "completed_with_errors", "search_path", "unknown")
+              .timer()
+              .count(),
+          2L);
+      assertEquals(
+          registry
+              .find("datahub.lineage.errors")
+              .tag("error_type", "invalid_request")
+              .counter()
+              .count(),
+          1.0);
+      assertEquals(
+          registry.find("datahub.lineage.errors").tag("error_type", "failure").counter().count(),
+          1.0);
+    } finally {
+      _lineageSearchService.setMetricUtils(null);
+    }
+  }
+
   private void search(OperationContext opContext, Urn sourceUrn, List<String> entities) {
     _lineageSearchService.searchAcrossLineage(
         opContext, sourceUrn, LineageDirection.DOWNSTREAM, entities, null, 3, null, null, 0, 10);

@@ -216,10 +216,10 @@ public class CascadeOperationContext implements AutoCloseable {
   }
 
   /**
-   * Add a low-cardinality dimension to the duration timer and to the slow and error log lines.
-   * Setting the same key again overwrites it, so callers can set a default at begin and refine it
-   * later. Prometheus requires every series of one meter name to carry the same tag keys, so every
-   * emitter of a given prefix must set the same keys on every path.
+   * Add a low-cardinality dimension to the duration timer and to the completion log line. Setting
+   * the same key again overwrites it, so callers can set a default at begin and refine it later.
+   * Prometheus requires every series of one meter name to carry the same tag keys, so every emitter
+   * of a given prefix must set the same keys on every path.
    */
   public CascadeOperationContext tag(String key, String value) {
     synchronized (tags) {
@@ -249,9 +249,9 @@ public class CascadeOperationContext implements AutoCloseable {
 
   /**
    * Record completion of one BFS hop that queried {@code frontierSize} entities. Only the largest
-   * frontier is kept, so the slow and error log lines stay one value long however deep the walk.
-   * There is deliberately no size-less variant, so every walk logs {@code maxPerHop} alongside
-   * {@code hops}.
+   * frontier is kept, so the completion log line stays one value long however deep the walk. There
+   * is deliberately no size-less variant, so every walk logs {@code maxPerHop} alongside {@code
+   * hops}.
    */
   public void recordHop(int frontierSize) {
     hopsCompleted.incrementAndGet();
