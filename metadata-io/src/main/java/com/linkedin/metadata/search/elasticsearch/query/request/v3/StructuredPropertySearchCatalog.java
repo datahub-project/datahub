@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -48,12 +47,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class StructuredPropertySearchCatalog {
 
-  private static final ConcurrentHashMap<
-          StructuredPropertyQueryConfiguration, Cache<SearchRetriever, List<IndexedProperty>>>
-      CACHES = new ConcurrentHashMap<>();
+  /**
+   * One definition snapshot per catalog. Search result caches key the query inputs that change a
+   * response; this list does not. The retriever only loads it.
+   */
+  private enum SnapshotKey {
+    DEFINITIONS
+  }
+
+  private static final ThreadLocal<Boolean> LOADING = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
   private final StructuredPropertyQueryConfiguration config;
-  private final Cache<SearchRetriever, List<IndexedProperty>> cache;
+  private final Cache<SnapshotKey, List<IndexedProperty>> cache;
 
   public StructuredPropertySearchCatalog(@Nullable StructuredPropertyQueryConfiguration config) {
     if (config == null) {
@@ -73,7 +78,7 @@ public final class StructuredPropertySearchCatalog {
           "elasticsearch.search.structuredProperties requires a positive page size, property limit, and cache TTL");
     }
     this.config = config;
-    this.cache = CACHES.computeIfAbsent(config, StructuredPropertySearchCatalog::newCache);
+    this.cache = newCache(config);
   }
 
   /**
@@ -101,19 +106,37 @@ public final class StructuredPropertySearchCatalog {
     return Integer.toHexString(all(opContext).hashCode());
   }
 
+  /**
+   * Loading the snapshot issues a search, and building that search reads this same snapshot
+   * (template binding stamps the cache identity, and default filters resolve lifecycle stages
+   * through another search). The load therefore runs outside the cache. A nested read returns no
+   * properties instead of starting another load; publishing the finished list is a separate write.
+   */
   @Nonnull
   private List<IndexedProperty> all(@Nonnull OperationContext opContext) {
-    SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
-    return cache
-        .asMap()
-        .computeIfAbsent(searchRetriever, ignored -> load(opContext, searchRetriever));
+    List<IndexedProperty> cached = cache.getIfPresent(SnapshotKey.DEFINITIONS);
+    if (cached != null) {
+      return cached;
+    }
+    if (Boolean.TRUE.equals(LOADING.get())) {
+      return List.of();
+    }
+    LOADING.set(Boolean.TRUE);
+    try {
+      List<IndexedProperty> loaded =
+          load(opContext, opContext.getRetrieverContext().getSearchRetriever());
+      cache.put(SnapshotKey.DEFINITIONS, loaded);
+      return loaded;
+    } finally {
+      LOADING.remove();
+    }
   }
 
   @Nonnull
-  private static Cache<SearchRetriever, List<IndexedProperty>> newCache(
+  private static Cache<SnapshotKey, List<IndexedProperty>> newCache(
       @Nonnull StructuredPropertyQueryConfiguration config) {
     return CacheBuilder.newBuilder()
-        .maximumSize(config.getMaxProperties())
+        .maximumSize(1)
         .expireAfterWrite(config.getCacheTtlSeconds(), TimeUnit.SECONDS)
         .build();
   }

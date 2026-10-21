@@ -43,7 +43,7 @@
   changeType: UPSERT
   aspect:
     name: Fulltext
-    description: "Complete text query. Matches analyzed fields, a name prefix, and an exact name, and adds clauses for synonyms, identifiers, dotted names, and long phrases."
+    description: "Complete text query. Matches analyzed fields, a name prefix, and an exact name, and adds clauses for synonyms, identifiers, dotted names, and long phrases. A query of four or more tokens also scores a description that contains every term and a description that contains a share of them."
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
@@ -173,6 +173,16 @@
                 }
               }
             }
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "OR",
+                  "minimum_should_match": "25%",
+                  "boost": 10.0
+                }
+              }
+            }
             {{/longPhrase}}
             {{#extraDisMaxQueries}}
             ,{{&extraDisMaxQueries}}
@@ -228,7 +238,7 @@
   changeType: UPSERT
   aspect:
     name: Light
-    description: "Cheaper text query for a relevance-sorted page that does not filter on a column. Keeps the result when it finds a hit, or when an empty result is an identifier or a long name. Otherwise continues to fulltext."
+    description: "Cheaper text query for a relevance-sorted page that does not filter on a column and has fewer than four tokens. A longer query skips this rung and continues to fulltext. Keeps the result when it finds a hit, or when an empty result is an identifier or a long name. Otherwise continues to fulltext."
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
@@ -320,7 +330,8 @@
       select:
         - scoreSort
         - pageSize
-        - notColumnFilter
+        - -columnFilter
+        - -longQuery
       stop:
         - minHits: 1
         - emptyWhen: spacelessIdentifier
@@ -375,7 +386,7 @@
   changeType: UPSERT
   aspect:
     name: Exact
-    description: "Quoted text query. Matches a name prefix, an exact name, and the URN, without the broader analyzed-text clauses."
+    description: "Quoted text query. Matches a name prefix, an exact name, and the URN, without the broader analyzed-text clauses. A query of four or more tokens also matches a description that contains every term."
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
@@ -419,6 +430,17 @@
                 }
               }
             }
+            {{#longPhrase}}
+            ,{
+              "match": {
+                "{{descriptionText}}": {
+                  "query": "{{alphanumericSplit}}",
+                  "operator": "AND",
+                  "boost": 100.0
+                }
+              }
+            }
+            {{/longPhrase}}
           ],
           "minimum_should_match": 1
         }

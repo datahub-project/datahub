@@ -220,7 +220,7 @@ public final class SearchTemplatePolicyChecks {
     }
     if (ladder.hasSelect() && ladder.getSelect() != null) {
       for (String name : ladder.getSelect()) {
-        if (!SearchTemplateLadderPredicates.SELECT.contains(name)) {
+        if (SearchTemplateLadderPredicates.base(name) == null) {
           throw new SearchTemplateException(
               "Search template select predicate is not valid: " + name);
         }
@@ -236,8 +236,7 @@ public final class SearchTemplatePolicyChecks {
         if (!minHits && !emptyWhen) {
           throw new SearchTemplateException("Search template stop condition is empty");
         }
-        if (emptyWhen
-            && !SearchTemplateLadderPredicates.SHAPES.contains(condition.getEmptyWhen())) {
+        if (emptyWhen && SearchTemplateLadderPredicates.base(condition.getEmptyWhen()) == null) {
           throw new SearchTemplateException(
               "Search template emptyWhen predicate is not valid: " + condition.getEmptyWhen());
         }

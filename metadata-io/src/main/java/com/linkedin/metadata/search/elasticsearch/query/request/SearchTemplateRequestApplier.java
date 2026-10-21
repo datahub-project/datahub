@@ -6,6 +6,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchedFields;
@@ -17,12 +18,12 @@ import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplat
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -173,29 +174,37 @@ public final class SearchTemplateRequestApplier {
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
   }
 
+  /**
+   * Matched fields of each hit of one response. The fetched paths and their labels depend only on
+   * the request, so they are resolved once rather than for every hit.
+   */
   @Nonnull
-  public SearchHitMatches matchFields(
-      @Nonnull OperationContext opContext,
-      @Nonnull SearchHit hit,
-      @Nullable RenderedSearchTemplate template) {
+  public Function<SearchHit, SearchHitMatches> matchedFieldsOf(
+      @Nonnull OperationContext opContext, @Nullable RenderedSearchTemplate template) {
     if (template == null) {
-      return SearchHitMatches.EMPTY;
+      return hit -> SearchHitMatches.EMPTY;
     }
     String query = template.originalQuery() == null ? "" : template.originalQuery();
+    MatchedFields matcher = new MatchedFields(query, v3MinWordLength);
+    // A query with no words, such as *, matches no field value
+    List<String> sources =
+        matcher.hasQueryWords() ? matchedFieldSources(opContext, template) : List.of();
+    Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
+    return hit -> matchFields(hit, template, query, matcher, sources, labels);
+  }
+
+  @Nonnull
+  private static SearchHitMatches matchFields(
+      @Nonnull SearchHit hit,
+      @Nonnull RenderedSearchTemplate template,
+      @Nonnull String query,
+      @Nonnull MatchedFields matcher,
+      @Nonnull List<String> sources,
+      @Nonnull Map<String, String> labels) {
     Map<String, Object> source = hit.getSourceAsMap();
     Map<String, Set<String>> matched = new LinkedHashMap<>();
     List<MatchEvidence> ordinary = List.of();
-    if (source != null && !query.isBlank()) {
-      Map<String, String> labels = new HashMap<>();
-      V3SearchFields.storedParsedNameFields(entitySpecs)
-          .forEach(
-              (label, paths) -> {
-                for (String path : paths) {
-                  labels.putIfAbsent(path, label);
-                }
-              });
-      List<String> sources = matchedFieldSources(opContext, template);
-      MatchedFields matcher = new MatchedFields(query, v3MinWordLength);
+    if (source != null && !sources.isEmpty()) {
       for (MatchedField field : matcher.find(source, sources, labels)) {
         matched
             .computeIfAbsent(field.getName(), ignored -> new LinkedHashSet<>())

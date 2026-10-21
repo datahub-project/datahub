@@ -62,7 +62,7 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   @Test
   public void testSelectIsAConjunctionAndStopIsADisjunction() {
     SearchTemplateLadder select = new SearchTemplateLadder();
-    select.setSelect(new StringArray("scoreSort", "pageSize", "notColumnFilter"));
+    select.setSelect(new StringArray("scoreSort", "pageSize", "-columnFilter"));
     assertTrue(SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 10));
     assertFalse(
         SearchTemplateLadderPredicates.selectMatches(
@@ -85,15 +85,37 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testPredicateEdges() {
+    assertNull(SearchTemplateLadderPredicates.base(null));
+    assertNull(SearchTemplateLadderPredicates.base(""));
+    assertEquals(SearchTemplateLadderPredicates.base("pageSize"), "pageSize");
+    assertFalse(SearchTemplateLadderPredicates.shape("-unknown", "orders", null, null, 10));
+
+    SearchTemplateLadder pageSize = new SearchTemplateLadder();
+    pageSize.setSelect(new StringArray("pageSize"));
+    assertTrue(SearchTemplateLadderPredicates.selectMatches(pageSize, "orders", null, null, null));
+
+    assertFalse(matches("singleTerm", " "));
+    assertTrue(matches("dotted", "a.b.c"));
+    assertFalse(matches("dotted", "orders"));
+    assertTrue(matches("identity", "urn:li:dataset:orders"));
+    assertFalse(matches("identity", "orders"));
+
+    assertThrows(
+        SearchTemplateException.class,
+        () -> SearchTemplatePolicyChecks.checkLadder(emptyWhen("-unknown"), null));
+  }
+
+  @Test
   public void testEmptyWhenUsesTheRequest() {
     Filter column =
         new Filter().setCriteria(new CriterionArray(new Criterion().setField("fieldPaths")));
     assertFalse(
         SearchTemplateLadderPredicates.stopMatches(
-            emptyWhen("notColumnFilter"), 0, "orders", column, null, 10));
+            emptyWhen("-columnFilter"), 0, "orders", column, null, 10));
     assertTrue(
         SearchTemplateLadderPredicates.stopMatches(
-            emptyWhen("notColumnFilter"), 0, "orders", null, null, 10));
+            emptyWhen("-columnFilter"), 0, "orders", null, null, 10));
     assertFalse(
         SearchTemplateLadderPredicates.stopMatches(
             emptyWhen("scoreSort"),
@@ -108,6 +130,59 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
     assertTrue(
         SearchTemplateLadderPredicates.stopMatches(
             emptyWhen("pageSize"), 0, "orders", null, null, 10));
+  }
+
+  @Test
+  public void testDashInvertsAPredicate() {
+    assertTrue(matches("-singleTerm", "customer orders"));
+    assertFalse(matches("-singleTerm", "orders"));
+    assertTrue(matches("-longQuery", "orders"));
+    assertTrue(matches("-longQuery", "customer orders"));
+    assertFalse(matches("-longQuery", "one two three four"));
+    assertTrue(matches("-columnFilter", "orders"));
+    assertThrows(SearchTemplateException.class, () -> accept("-unknown"));
+    assertThrows(SearchTemplateException.class, () -> accept("--longQuery"));
+    assertThrows(SearchTemplateException.class, () -> accept("-"));
+    assertThrows(SearchTemplateException.class, () -> accept("notColumnFilter"));
+    accept("-longQuery");
+  }
+
+  @Test
+  public void testLongQuerySkipsTheRungWithoutRunningIt() {
+    SearchTemplateProperties light = body("Light", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder ladder = stopLadder(1, "urn:li:searchTemplate:fulltext");
+    ladder.setSelect(new StringArray("-longQuery"));
+    light.setLadder(ladder);
+    store("urn:li:searchTemplate:light", light);
+    store("urn:li:searchTemplate:fulltext", body("Fulltext", "{ \"match_all\": {} }", null));
+
+    Set<String> called = ConcurrentHashMap.newKeySet();
+    SearchTemplateWalk.Served<SearchResult> skipped =
+        walk(
+            "urn:li:searchTemplate:light",
+            "one two three four",
+            null,
+            10,
+            urn -> {
+              called.add(urn);
+              return page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+            });
+    assertEquals(skipped.urn(), "urn:li:searchTemplate:fulltext");
+    assertEquals(called, Set.of("urn:li:searchTemplate:fulltext"));
+
+    called.clear();
+    SearchTemplateWalk.Served<SearchResult> kept =
+        walk(
+            "urn:li:searchTemplate:light",
+            "orders",
+            null,
+            10,
+            urn -> {
+              called.add(urn);
+              return page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+            });
+    assertEquals(kept.urn(), "urn:li:searchTemplate:light");
+    assertEquals(called, Set.of("urn:li:searchTemplate:light"));
   }
 
   @Test
@@ -658,6 +733,18 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                 item(
                     UrnUtils.getUrn("urn:li:searchTemplate:left"), SYSTEM, ChangeType.UPSERT, left))
             .isEmpty());
+  }
+
+  private static boolean matches(String predicate, String query) {
+    SearchTemplateLadder ladder = new SearchTemplateLadder();
+    ladder.setSelect(new StringArray(predicate));
+    return SearchTemplateLadderPredicates.selectMatches(ladder, query, null, null, 10);
+  }
+
+  private static void accept(String predicate) {
+    SearchTemplateLadder ladder = new SearchTemplateLadder();
+    ladder.setSelect(new StringArray(predicate));
+    SearchTemplatePolicyChecks.checkLadder(ladder, null);
   }
 
   private static SearchTemplateLadder emptyWhen(String shape) {

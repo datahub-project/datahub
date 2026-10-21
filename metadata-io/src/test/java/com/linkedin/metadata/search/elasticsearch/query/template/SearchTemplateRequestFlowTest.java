@@ -47,6 +47,7 @@ import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.PreparedSearchRequest;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchTemplateRequestApplier;
@@ -71,11 +72,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.core.CountRequest;
+import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
@@ -1117,6 +1121,47 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     assertEquals(source.sorts().size(), 2);
     assertEquals(((FieldSortBuilder) source.sorts().get(0)).getFieldName(), "name.keyword");
     assertEquals(((FieldSortBuilder) source.sorts().get(1)).getFieldName(), "urn");
+  }
+
+  @Test
+  public void testRequestApplierMatchesFieldsOnlyForQueryWords() {
+    SearchTemplateRequestApplier applier =
+        new SearchTemplateRequestApplier(
+            mock(AggregationQueryBuilder.class),
+            25,
+            List.of(opContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME)),
+            null,
+            3,
+            new V3SearchQueryBuilder(v3Config().getSearch(), null));
+    SearchHit hit = new SearchHit(1);
+    hit.sourceRef(
+        new BytesArray(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\"}"));
+
+    Function<SearchHit, SearchHitMatches> words =
+        applier.matchedFieldsOf(opContext, queriedNameTemplate("orders"));
+    Function<SearchHit, SearchHitMatches> matchAll =
+        applier.matchedFieldsOf(opContext, queriedNameTemplate("*"));
+
+    assertTrue(
+        words.apply(hit).matched().stream().anyMatch(field -> "name".equals(field.getName())),
+        words.apply(hit).toString());
+    assertTrue(matchAll.apply(hit).matched().isEmpty(), matchAll.apply(hit).toString());
+    assertTrue(matchAll.apply(hit).explain().isEmpty(), matchAll.apply(hit).toString());
+  }
+
+  private static RenderedSearchTemplate queriedNameTemplate(String query) {
+    return new RenderedSearchTemplate(
+        QueryBuilders.matchAllQuery(),
+        null,
+        null,
+        null,
+        List.of(),
+        List.of("name"),
+        query,
+        Map.of(),
+        1);
   }
 
   private static int occurrences(String value, String needle) {
