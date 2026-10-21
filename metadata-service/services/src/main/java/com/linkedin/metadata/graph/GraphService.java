@@ -173,7 +173,8 @@ public interface GraphService {
    * Counts the entities one hop away from any of {@code entityUrns} in the direction of {@code
    * graphFilters}, excluding the urns themselves. Passing a sibling group counts it as one entity:
    * a neighbour shared by several members is counted once. Implementations with a cheaper count
-   * than walking the edges override this; the default walks each urn one hop and merges.
+   * than walking the edges override this; the default reads every page of each urn's one-hop
+   * lineage and merges.
    *
    * @param sampleSize how many of the counted neighbours to return for post-processing
    */
@@ -185,9 +186,18 @@ public interface GraphService {
       int sampleSize) {
     Set<Urn> neighbours = new LinkedHashSet<>();
     for (Urn urn : entityUrns) {
-      getLineage(opContext, urn, graphFilters, 0, null, 1)
-          .getRelationships()
-          .forEach(relationship -> neighbours.add(relationship.getEntity()));
+      // getLineage returns one page (the backend's default size) while reporting the full count
+      // in total, so read every page; an empty page also ends the loop in case total is unset.
+      int offset = 0;
+      while (true) {
+        EntityLineageResult page = getLineage(opContext, urn, graphFilters, offset, null, 1);
+        List<LineageRelationship> relationships = page.getRelationships();
+        relationships.forEach(relationship -> neighbours.add(relationship.getEntity()));
+        offset += relationships.size();
+        if (relationships.isEmpty() || page.getTotal() == null || offset >= page.getTotal()) {
+          break;
+        }
+      }
     }
     neighbours.removeAll(entityUrns);
     return new LineageCountResult(
