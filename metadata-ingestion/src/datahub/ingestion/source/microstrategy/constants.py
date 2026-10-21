@@ -88,6 +88,11 @@ MSTR_DEFINITION_ENDPOINT_METRIC_MODEL = "metric_model"
 # report derived metric definitions, so they can be grepped out of an
 # executor debug log.
 MSTR_DERIVED_DEBUG_LOG_PREFIX = "[mstr-derived-debug]"
+# Same purpose for Report Services document definitions that yield no
+# visualizations: the documented shape carries them under
+# layouts[].visualizations[], so an empty result means the tenant answered
+# with a shape the parser does not know yet.
+MSTR_DOCUMENT_DEBUG_LOG_PREFIX = "[mstr-document-debug]"
 
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"

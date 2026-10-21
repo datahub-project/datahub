@@ -3051,3 +3051,63 @@ def test_report_sql_lineage_reuses_sql_read_for_a_document_dataset() -> None:
     # The extract_reports path shares the cache: no second execution.
     assert client.report_instances_created == ["rep-1"]
     assert dataset.warehouse_upstream_urns == [_warehouse_table_urn("fact_rep_1")]
+
+
+_DOCUMENT_DEBUG_PREFIX = "[mstr-document-debug]"
+
+
+def test_document_definition_without_visualizations_counts_and_logs_shape(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = _source(
+        {
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+        }
+    )
+    document = MicroStrategyObject.model_validate(
+        {"id": "doc-1", "name": "Daily Comp Sales", "subtype": "14081"}
+    )
+    dossier = MicroStrategyObject.model_validate(
+        {"id": "dash-1", "name": "Sales Dashboard", "subtype": "14080"}
+    )
+
+    class FakeClient:
+        def get_dossier_definition(
+            self, project_id: str, dossier_id: str
+        ) -> Dict[str, Any]:
+            raise MicroStrategyAPIError("not a dossier")
+
+        def get_document_definition(
+            self, project_id: str, document_id: str
+        ) -> Dict[str, Any]:
+            return {
+                "id": document_id,
+                "name": "Daily Comp Sales",
+                "datasets": [{"id": "ds-1", "name": "DCS - Dataset"}],
+                "prompts": [],
+            }
+
+    source.client = FakeClient()  # type: ignore[assignment]
+
+    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
+        first = source._get_dashboard_definition("project-1", document)
+        second = source._get_dashboard_definition("project-1", document)
+        plain = source._get_dashboard_definition("project-1", dossier)
+
+    assert first is not None and second is not None and plain is not None
+    assert [dataset.id for dataset in first.datasets] == ["ds-1"]
+    # Counted per document, logged once per project, never for dossiers.
+    assert source.report.document_definitions_without_visualizations == 2
+    debug_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith(_DOCUMENT_DEBUG_PREFIX)
+    ]
+    assert len(debug_lines) == 1
+    assert "document_id=doc-1 yielded no visualizations" in debug_lines[0]
+    assert "['datasets', 'id', 'name', 'prompts']" in debug_lines[0]
+    assert '"datasets":' in debug_lines[0]
+    # Structure only: no object names leak into the execution log.
+    assert "DCS - Dataset" not in debug_lines[0]

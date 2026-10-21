@@ -44,6 +44,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DERIVED_DEBUG_LOG_PREFIX,
+    MSTR_DOCUMENT_DEBUG_LOG_PREFIX,
     MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
     MSTR_FOLDER_TYPE_PROFILE_REPORTS,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
@@ -197,6 +198,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._execution_limited_projects: Set[str] = set()
         self._v2_definition_logged_projects: Set[str] = set()
         self._model_empty_logged_projects: Set[str] = set()
+        self._document_empty_logged_projects: Set[str] = set()
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -1158,6 +1160,34 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             payload_key_skeleton(payload),
         )
 
+    def _debug_document_definition_without_visualizations(
+        self,
+        project_id: str,
+        document_id: str,
+        payload: Dict[str, object],
+    ) -> None:
+        """A Report Services document whose definition yielded no
+        visualizations, so it is emitted with datasets only. The documented
+        shape carries them under layouts[].visualizations[]; an empty result
+        means the tenant answered with another shape. Count it per document
+        and log the top-level keys and key skeleton once per project so the
+        parser can be adjusted."""
+        self.report.report_document_definition_without_visualizations()
+        if project_id in self._document_empty_logged_projects:
+            return
+        self._document_empty_logged_projects.add(project_id)
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s document definition project_id=%s document_id=%s yielded no "
+            "visualizations; top-level keys: %s; payload skeleton: %s",
+            MSTR_DOCUMENT_DEBUG_LOG_PREFIX,
+            project_id,
+            document_id,
+            sorted(payload.keys()),
+            payload_key_skeleton(payload),
+        )
+
     def _debug_v2_definition_payload(
         self,
         project_id: str,
@@ -1398,6 +1428,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             response=response,
             report=self.report,
         )
+        if (
+            dashboard_object.subtype == MSTR_OBJECT_SUBTYPE_DOCUMENT
+            and not dashboard.visualizations
+        ):
+            self._debug_document_definition_without_visualizations(
+                project_id, dashboard_id, response
+            )
         if self.config.extract_lineage and self.config.extract_visualization_details:
             self._enrich_visualization_details(project_id, dashboard_object, dashboard)
         if self.config.extract_lineage:
