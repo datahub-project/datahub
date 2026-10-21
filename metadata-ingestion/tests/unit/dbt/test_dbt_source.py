@@ -3303,6 +3303,25 @@ def test_create_test_entity_mcps_respects_note_ownership():
     assert len(_note_mcps(source, test_node, model_node)) == 1
 
 
+def test_create_test_entity_mcps_clears_note_after_last_description_removed():
+    # No test in the project has a description any more; the note this pipeline
+    # wrote earlier must still be read and cleared.
+    test_node, model_node = _described_test_with_result()
+    test_node.description = ""
+    note = AssertionNoteClass(
+        content="Old text.",
+        lastModified=AuditStampClass(time=1, actor=mce_builder.SYSTEM_ACTOR),
+    )
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, note, "dbt-source")
+
+    cleared = _note_mcps(source, test_node, model_node)
+
+    assert len(cleared) == 1
+    assert isinstance(cleared[0].aspect, AssertionNoteClass)
+    assert cleared[0].aspect.content == ""
+
+
 def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
     source = create_mocked_dbt_source()
     source_node = _make_dbt_node(

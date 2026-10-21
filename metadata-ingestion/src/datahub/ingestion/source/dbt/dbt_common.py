@@ -2355,17 +2355,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         Notes need a graph, both to check the server has the assertionNote aspect
         (older servers reject it, which can fail neighbouring records in a batch)
         and to read existing notes so user edits are not overwritten.
+
+        This does not depend on any test having a description: notes this pipeline
+        wrote earlier must still be read so they can be cleared once their
+        descriptions are removed.
         """
-        if not any(node.description for node in test_nodes):
-            return False
+        has_descriptions = any(node.description for node in test_nodes)
         graph = self.ctx.graph
         if graph is None:
-            self.report.info(
-                title="dbt test descriptions not written as assertion notes",
-                message="No DataHub graph is available to check server support and "
-                "existing notes, so dbt test descriptions are not written as "
-                "assertion notes.",
-            )
+            if has_descriptions:
+                self.report.info(
+                    title="dbt test descriptions not written as assertion notes",
+                    message="No DataHub graph is available to check server support "
+                    "and existing notes, so dbt test descriptions are not written as "
+                    "assertion notes.",
+                )
             return False
         try:
             supported = graph.server_config.supports_feature(
@@ -2378,7 +2382,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 exc=e,
             )
             return False
-        if not supported:
+        if not supported and has_descriptions:
             self.report.info(
                 title="dbt test descriptions not written as assertion notes",
                 message="The DataHub server does not support assertion notes, so dbt "
