@@ -143,10 +143,10 @@ class BigQueryProfilingConfig(ProfilingConfig):
 
     profiling_row_limit: NonNegativeInt = Field(
         default=1000000,
-        description="Maximum number of rows to scan when profiling a table (applied as a LIMIT "
-        "on the generated profiling SQL); distinct from `sample_size`, which controls "
-        "row-level sampling. Set to 0 to disable this limit, though a safety LIMIT still "
-        "applies to unpartitioned tables above ~1M rows.",
+        description="Maximum number of rows returned to the profiler for a table (applied as a LIMIT "
+        "on generated profiling SQL); distinct from `sample_size`, which controls row-level "
+        "sampling. A LIMIT does not cap BigQuery bytes scanned. Set to 0 to disable this row "
+        "limit, though a safety LIMIT still applies to unpartitioned tables above ~1M rows.",
     )
 
     skip_stale_tables: bool = Field(

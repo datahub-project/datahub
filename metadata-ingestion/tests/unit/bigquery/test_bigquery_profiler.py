@@ -400,6 +400,51 @@ def test_profiler_extract_date_columns_from_filters():
     assert "user_id" not in result
 
 
+def test_profiler_extract_date_columns_uses_resolved_types():
+    # Resolved partition-column types are authoritative over the name heuristic: a
+    # non-temporal column with a date-like name (STRING `last_update_date`) is not
+    # windowed, and a temporal column with an unfamiliar name (DATE `foo`) is.
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
+    filters = ["`last_update_date` = 'v2024'", "`foo` = '2023-12-25'"]
+
+    result = profiler._extract_date_columns_from_filters(
+        filters, {"last_update_date": "STRING", "foo": "DATE"}
+    )
+
+    assert result == ["foo"]
+
+
+def test_resolved_partition_column_types_from_partition_info():
+    profiler = BigqueryProfiler(create_test_config(), BigQueryV2Report())
+    table = create_test_table(partitioned=True)
+    table.partition_info.columns = (  # type: ignore[union-attr]
+        SimpleNamespace(name="event_date", data_type="DATE"),
+        SimpleNamespace(name="region", data_type="STRING"),
+    )
+
+    assert profiler._resolved_partition_column_types(table) == {
+        "event_date": "DATE",
+        "region": "STRING",
+    }
+    # No resolved partition columns -> empty map, so windowing falls back to the heuristic.
+    assert profiler._resolved_partition_column_types(create_test_table()) == {}
+
+
+def test_partition_range_operator_re_ignores_not_equal():
+    # `<>` (not-equal) is not a range bound and must not be read as a `<` range, while a
+    # genuine range is detected and its column captured. Detection and column extraction
+    # share one grammar, so both behave identically.
+    from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+        PARTITION_RANGE_COLUMN_RE,
+        PARTITION_RANGE_OPERATOR_RE,
+    )
+
+    assert PARTITION_RANGE_OPERATOR_RE.search("`col` <> 'x'") is None
+    assert PARTITION_RANGE_OPERATOR_RE.search("`event_date` < '2024-01-01'") is not None
+    match = PARTITION_RANGE_COLUMN_RE.search("`event_date` >= '2024-01-01'")
+    assert match is not None and match.group(1) == "event_date"
+
+
 def test_profiler_should_skip_profiling_due_to_staleness():
     config = create_test_config()
     report = BigQueryV2Report()

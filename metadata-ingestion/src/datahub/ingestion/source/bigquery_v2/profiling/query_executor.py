@@ -73,7 +73,11 @@ class QueryExecutor:
             job_config.job_timeout_ms = timeout * 1000
             job_config.use_query_cache = False
 
-            query_job = self._get_client().query(query, job_config=job_config)
+            # Bound the job-submission RPC too: a stalled insert request could otherwise
+            # exceed the fetch timeout before result()'s own timeout is reached.
+            query_job = self._get_client().query(
+                query, job_config=job_config, timeout=timeout
+            )
             # job_timeout_ms bounds server-side execution, but result() with no client-side
             # timeout can still block on queue delay, a slow cancel, or a hung result
             # stream. Bound the wait so a stuck fetch can't stall sequential discovery or a
