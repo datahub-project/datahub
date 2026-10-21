@@ -434,3 +434,51 @@ def test_log_sql_covers_cursor_prepares_and_prepares_before_the_window() -> None
         in sql
     )
     assert "AND in_window = 1" in sql
+
+
+def test_temp_table_statements_keep_their_session() -> None:
+    """A statement that touches a #temp table comes back once per session; each
+    stays its own parser session so the temp table resolves within it, while
+    the SQL keeps other statements grouped across sessions."""
+    insert = "INSERT INTO tgt SELECT id FROM #stage"
+    rows = [
+        {
+            **_log_row("h1", insert, "alice", 1),
+            "session_key": "session:TestDB:51:alice:2026-01-01T00:00:00",
+        },
+        {
+            **_log_row("h1", insert, "alice", 1),
+            "session_key": "session:TestDB:52:alice:2026-01-01T00:00:00",
+        },
+    ]
+    extractor, _, _ = _extractor(
+        _config(query_history_source="audit_log", query_history_path="/a*.sqlaudit"),
+        [*_on_prem(), _result(rows)],
+    )
+
+    queries = extractor.extract_query_history()
+
+    sessions = {
+        observed.session_id
+        for query in queries
+        for observed in extractor._build_observed_queries(query)
+    }
+    assert sessions == {
+        "queryid:session:TestDB:51:alice:2026-01-01T00:00:00",
+        "queryid:session:TestDB:52:alice:2026-01-01T00:00:00",
+    }
+    sql = " ".join(
+        str(
+            MSSQLQuery.get_query_history_from_audit_log(
+                path="/a*.sqlaudit",
+                window=_WINDOW,
+                limit=10,
+                min_calls=1,
+                exclude_patterns=None,
+                statements_truncated=False,
+            )[0]
+        ).split()
+    )
+    assert (
+        "CASE WHEN stmt_key LIKE N'%#%' THEN session_id END AS temp_session_id" in sql
+    )

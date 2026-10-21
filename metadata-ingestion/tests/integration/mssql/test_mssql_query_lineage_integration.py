@@ -25,6 +25,7 @@ from datahub.metadata.schema_classes import (
     QueryPropertiesClass,
     QuerySubjectsClass,
     QueryUsageStatisticsClass,
+    UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from tests.integration.mssql.tls import prepare_mssql_tls
@@ -1613,6 +1614,8 @@ def _run_query_log(
     for table in (
         "lineage_test.lineage_test.source_customers",
         "lineage_test.lineage_test.source_orders",
+        "lineage_test.lineage_test.qh_orders_target",
+        "lineage_test.lineage_test.qh_customers_target",
         "lineage_test.dbo.qh_restricted",
     ):
         source.discovered_datasets.add(table)
@@ -1785,3 +1788,60 @@ def test_query_log_attributes_executes_of_statements_prepared_before_window(
     pooled = [count for s, (count, _) in usage.items() if "/* pooled */" in s]
     assert pooled == [3], usage
     assert source.report.num_query_log_unmapped_executions == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_resolves_temp_tables_within_a_session(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """A #temp table filled by one statement and read by the next one in the
+    same connection resolves to its real source. Two connections using the
+    same #temp name don't leak into each other's lineage."""
+    conn = mssql_connection
+    for target in ("qh_orders_target", "qh_customers_target"):
+        conn.execute(text(f"DROP TABLE IF EXISTS lineage_test.{target}"))
+        conn.execute(text(f"CREATE TABLE lineage_test.{target} (id INT)"))
+        conn.execute(text(f"GRANT INSERT ON lineage_test.{target} TO qh_analyst"))
+
+    analyst_engine = sa.create_engine(
+        f"mssql+pyodbc://qh_analyst:Analyst!Passw0rd@127.0.0.1:{mssql_runner}/lineage_test?"
+        "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
+        isolation_level="AUTOCOMMIT",
+    )
+    # Separate connections are separate sessions, each with its own #stage.
+    with analyst_engine.connect() as orders, analyst_engine.connect() as customers:
+        orders.exec_driver_sql(
+            "SELECT order_id AS id INTO #stage FROM lineage_test.source_orders"
+        )
+        customers.exec_driver_sql(
+            "SELECT customer_id AS id INTO #stage FROM lineage_test.source_customers"
+        )
+        orders.exec_driver_sql(
+            "INSERT INTO lineage_test.qh_orders_target (id) SELECT id FROM #stage"
+        )
+        customers.exec_driver_sql(
+            "INSERT INTO lineage_test.qh_customers_target (id) SELECT id FROM #stage"
+        )
+    analyst_engine.dispose()
+    time.sleep(3)
+
+    mcps, _ = _run_query_log(mssql_connection, mssql_runner, query_history_source)
+
+    def upstreams(table: str) -> Set[str]:
+        urn = f"urn:li:dataset:(urn:li:dataPlatform:mssql,lineage_test.lineage_test.{table},PROD)"
+        return {
+            upstream.dataset
+            for mcp in mcps
+            if mcp.entityUrn == urn and isinstance(mcp.aspect, UpstreamLineageClass)
+            for upstream in mcp.aspect.upstreams
+        }
+
+    source = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,lineage_test.lineage_test.{},PROD)"
+    )
+    assert upstreams("qh_orders_target") == {source.format("source_orders")}
+    assert upstreams("qh_customers_target") == {source.format("source_customers")}
+
+    for target in ("qh_orders_target", "qh_customers_target"):
+        conn.execute(text(f"DROP TABLE IF EXISTS lineage_test.{target}"))
