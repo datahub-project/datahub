@@ -3848,10 +3848,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean hardDelete,
       DeletePurpose deletePurpose,
       @Nullable DeleteCeiling ceiling) {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
+    // The caller's stamp, as on the delete changelog: the soft-delete status and the side-effect
+    // changelogs name who removed it, and the system only when the system runs it.
+    final AuditStamp auditStamp = opContext.getAuditStamp();
 
     // Validate pre-conditions before running queries
     Urn entityUrn = UrnUtils.getUrn(urn);
