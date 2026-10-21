@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMap
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -81,7 +82,8 @@ public class MultiEntityMappingsBuilderTest {
     // Note: operationContext is a real object, not a mock, so we can't mock its methods
     // We'll work with the real SearchContext it provides
 
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig);
+    mappingsBuilder =
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
   }
 
   @Test
@@ -92,7 +94,7 @@ public class MultiEntityMappingsBuilderTest {
   @Test
   public void testConstructorWithNullConfiguration() {
     try {
-      new MultiEntityMappingsBuilder(null);
+      new MultiEntityMappingsBuilder(null, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
       fail("Constructor should not accept null EntityIndexConfiguration");
     } catch (Exception e) {
       assertTrue(
@@ -120,7 +122,7 @@ public class MultiEntityMappingsBuilderTest {
   public void testGetIndexMappingsMergesMappingContributorRootFields() throws IOException {
     V3MappingContributor contributor =
         () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, null, 512, List.of(contributor));
 
     IndexMapping mapping = mappingsBuilder.getIndexMappings(operationContext).iterator().next();
     @SuppressWarnings("unchecked")
@@ -135,7 +137,7 @@ public class MultiEntityMappingsBuilderTest {
         () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
     V3MappingContributor second =
         () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(first, second));
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, null, 512, List.of(first, second));
 
     expectThrows(
         IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
@@ -150,7 +152,7 @@ public class MultiEntityMappingsBuilderTest {
       throws IOException {
     V3MappingContributor contributor =
         () -> Collections.singletonMap("testField", FieldTypeMapper.getMappingsForKeyword());
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, null, 512, List.of(contributor));
 
     expectThrows(
         IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
@@ -166,7 +168,8 @@ public class MultiEntityMappingsBuilderTest {
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     Collection<IndexMapping> mappings =
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext);
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext);
 
     assertFalse(mappings.isEmpty());
     for (IndexMapping mapping : mappings) {
@@ -190,7 +193,8 @@ public class MultiEntityMappingsBuilderTest {
     ObjectMapper objectMapper = new ObjectMapper();
 
     Collection<IndexMapping> mappings =
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext);
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext);
 
     assertFalse(mappings.isEmpty());
     for (IndexMapping mapping : mappings) {
@@ -224,7 +228,8 @@ public class MultiEntityMappingsBuilderTest {
 
     Map<String, Map<String, Object>> propertiesByIndex = new HashMap<>();
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       propertiesByIndex.put(mapping.getIndexName(), getProperties(mapping.getMappings()));
     }
 
@@ -280,7 +285,8 @@ public class MultiEntityMappingsBuilderTest {
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     Collection<IndexMapping> mappings =
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext);
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext);
 
     assertFalse(mappings.isEmpty());
     for (IndexMapping mapping : mappings) {
@@ -308,7 +314,8 @@ public class MultiEntityMappingsBuilderTest {
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Map<String, Map<String, Object>> propertiesByIndex = new HashMap<>();
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       propertiesByIndex.put(mapping.getIndexName(), getProperties(mapping.getMappings()));
     }
 
@@ -407,7 +414,8 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> datasetProperties = null;
     Map<String, Object> businessAttributeProperties = null;
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       Map<String, Object> properties = getProperties(mapping.getMappings());
       if (properties.containsKey("fieldTags")) {
         datasetProperties = properties;
@@ -523,7 +531,8 @@ public class MultiEntityMappingsBuilderTest {
 
     Map<String, Map<String, Object>> propertiesByIndex = new HashMap<>();
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       Map<String, Object> properties = getProperties(mapping.getMappings());
       propertiesByIndex.put(mapping.getIndexName(), properties);
       assertFalse(properties.containsKey("_search"), mapping.getIndexName());
@@ -686,7 +695,8 @@ public class MultiEntityMappingsBuilderTest {
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Map<String, Map<String, Object>> v3PropertiesByIndex = new HashMap<>();
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       v3PropertiesByIndex.put(mapping.getIndexName(), getProperties(mapping.getMappings()));
     }
 
@@ -919,7 +929,8 @@ public class MultiEntityMappingsBuilderTest {
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       Map<String, Object> root = mapping.getMappings();
       forEachAlias(
           root,
@@ -934,7 +945,7 @@ public class MultiEntityMappingsBuilderTest {
   public void testGetIndexMappingsRejectsReservedSystemField() throws IOException {
     V3MappingContributor contributor =
         () -> Collections.singletonMap("_system", FieldTypeMapper.getMappingsForKeyword());
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, null, 512, List.of(contributor));
 
     expectThrows(
         IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
@@ -957,7 +968,7 @@ public class MultiEntityMappingsBuilderTest {
             return Map.of();
           }
         };
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, null, 512, List.of(contributor));
     mappingsBuilder.getIndexMappings(operationContext);
     assertEquals(seenKey.get(), "testEntity");
   }
@@ -968,7 +979,8 @@ public class MultiEntityMappingsBuilderTest {
     when(mockV3Config.isEnabled()).thenReturn(false);
     when(mockConfig.getV3()).thenReturn(mockV3Config);
 
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig);
+    mappingsBuilder =
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
@@ -1379,7 +1391,8 @@ public class MultiEntityMappingsBuilderTest {
   @Test
   public void testGeneratedRootUrnIsKeywordCopiedToOtherSearchField() throws IOException {
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig);
+    mappingsBuilder =
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
 
     EntitySpec entitySpec = createMockEntitySpec("chart", "title", FieldType.WORD_GRAM);
     when(entitySpec.getSearchGroup()).thenReturn("primary");
@@ -1563,7 +1576,8 @@ public class MultiEntityMappingsBuilderTest {
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Map<String, Object> aspectBoolean = null;
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       Map<String, Object> properties = getProperties(mapping.getMappings());
       Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
       if (aspects == null) {
@@ -1590,7 +1604,8 @@ public class MultiEntityMappingsBuilderTest {
   @Test
   public void testProjectorRootKeysAreMappedFields() throws IOException {
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
-    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig);
+    mappingsBuilder =
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
 
     EntitySpec entitySpec = createMockEntitySpec("dataset", "name", FieldType.KEYWORD);
     when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
@@ -1734,7 +1749,7 @@ public class MultiEntityMappingsBuilderTest {
     when(mockConfig.getV3()).thenReturn(mockV3Config);
 
     try {
-      new MultiEntityMappingsBuilder(mockConfig);
+      new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
       fail("Constructor should fail with invalid mapping configuration");
     } catch (IOException e) {
       // Expected behavior - should throw IOException for invalid resource
@@ -1798,7 +1813,8 @@ public class MultiEntityMappingsBuilderTest {
     Set<String> allReferencedAnalyzers = new HashSet<>();
     Set<String> allReferencedNormalizers = new HashSet<>();
     for (IndexMapping mapping :
-        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
       Set<String> referencedAnalyzers = new HashSet<>();
       Set<String> referencedNormalizers = new HashSet<>();
       collectAnalysisReferences(mapping.getMappings(), referencedAnalyzers, referencedNormalizers);

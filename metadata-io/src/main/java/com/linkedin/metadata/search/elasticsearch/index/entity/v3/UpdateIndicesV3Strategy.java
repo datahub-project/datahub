@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentP
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.CatchUpBatchRebuilder;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
@@ -112,7 +113,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           new MultiEntityMappingsBuilder(
               com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
                   .v3(v3Config)
-                  .build());
+                  .build(),
+              null,
+              ESUtils.KEYWORD_MAXLENGTH,
+              List.of());
     } catch (IOException e) {
       throw new RuntimeException("Failed to initialize V3 mappings builder", e);
     }

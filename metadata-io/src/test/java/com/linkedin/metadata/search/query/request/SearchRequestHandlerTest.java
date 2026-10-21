@@ -1063,7 +1063,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .toString();
     assertTrue(missingDescription.contains("must_not"), missingDescription);
     assertTrue(missingDescription.contains("exists"), missingDescription);
-    assertFalse(missingDescription.contains("\"value\" : false"), missingDescription);
+    // A term query names hasDescription as the field key. Other clauses can also carry
+    // a false value, so the check stays on this field.
+    assertFalse(missingDescription.contains("\"hasDescription\" :"), missingDescription);
+    assertFalse(missingDescription.contains("hasDescription.keyword"), missingDescription);
 
     String unlabeledFalse =
         SearchRequestHandler.getFilterQuery(
