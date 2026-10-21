@@ -982,8 +982,9 @@ class SQLServerSource(SQLAlchemySource):
                 # Same predicate the stored-procedure path uses: `#temp` names,
                 # temporary_tables_pattern matches and anything outside the
                 # database/schema/table patterns that wasn't ingested. Those
-                # never become Query subjects, usage or lineage targets, and
-                # same-session temp tables resolve through to real upstreams.
+                # never become Query subjects, usage or lineage targets. Temp
+                # tables resolve through to real upstreams only within one
+                # session_key: a DMV batch, but a single Query Store statement.
                 # Only called during gen_metadata(), after discovery.
                 is_temp_table=lambda name: not self.is_discovered_table(name),
             )
