@@ -61,15 +61,7 @@ sink:
   # Your sink config
 ```
 
-##### Configuration Options
-
-| Option                     | Type         | Default | Description                                                       |
-| -------------------------- | ------------ | ------- | ----------------------------------------------------------------- |
-| `include_query_lineage`    | boolean      | `false` | Enable query-based lineage extraction                             |
-| `max_queries_to_extract`   | integer      | `1000`  | Maximum queries to analyze (range: 1-10000)                       |
-| `min_query_calls`          | integer      | `1`     | Minimum execution count to include query                          |
-| `query_exclude_patterns`   | list[string] | `[]`    | SQL LIKE patterns to exclude queries (max 100 patterns)           |
-| `include_usage_statistics` | boolean      | `false` | Extract usage statistics (requires `include_query_lineage: true`) |
+See the Config Details table above for defaults of these options, and "Configuration Validation Errors" under Troubleshooting for allowed ranges.
 
 ##### Query Extraction Methods
 
@@ -108,7 +100,9 @@ The source will automatically detect and use the appropriate method based on you
 `datahub recipe probe` checks a recipe against the server without running ingestion. For SQL
 Server it offers `databases`, `containers` (schemas), `tables`, `views`, `procedures`, `columns`,
 `foreign_keys`, `indexes`, `primary_key`, `table_comment` (the `MS_Description` ingestion reads),
-`view_definition` and `sql` (a read-only query over the catalog views ingestion reads):
+`view_definition` and `sql` (a read-only query over the catalog views ingestion reads).
+
+Examples:
 
 ```shell
 datahub recipe probe run databases --recipe mssql_recipe.yml
@@ -118,26 +112,38 @@ datahub recipe probe filter --recipe mssql_recipe.yml --kind "Stored Procedure" 
   --parent DemoData --parent dbo --name NewProc
 ```
 
-A recipe without `database` makes ingestion walk every database the login can see, except SQL
-Server's system databases, so every command except `databases` and `sql` needs `--database`; the
-probe refuses rather than answer from the login's default database, which ingestion never reads.
-`databases` lists the candidates, including ones `database_pattern` would exclude, so
-`probe filter --kind Database` can explain them. A recipe that sets `database` or
-`sqlalchemy_uri` reads exactly one database, and the probe answers only about that one. When the
-`sqlalchemy_uri` names no database, that one is the login's default, which cannot be named without
-connecting: `probe filter --kind Database` then includes every name with a warning, and reports
-every stored procedure excluded, because ingestion's procedure query needs the database name. Database,
-schema and table names are matched against the server's own listing before they are used, and
-`quote_schemas` is honoured as ingestion honours it. `probe filter --kind "Stored Procedure"`
-judges `procedure_pattern` against `database.schema.procedure`, as ingestion does, and reports
-every procedure excluded when `include_stored_procedures` is off. `sql` takes no `--database`: it
-runs on the recipe's own connection, so on a multi-database recipe an unqualified name such as
-`sys.tables` reads the login's default database (usually `master`), not one ingestion walks.
-Qualify it instead: `sql` admits three-part catalog names (`OtherDb.sys.tables`) for any database
-the login can read, including ones `database_pattern` excludes and system databases. The probe
-refuses any `sql` statement that reaches outside the catalog views. That check parses the SQL, so
-treat it as defense in depth, not an authorization boundary: run the probe under a read-only login
-whose grants cover catalog metadata only.
+How the probe picks a database:
+
+- **Recipe without `database`:** ingestion walks every database the login can see, except SQL
+  Server's system databases, so every command except `databases` and `sql` needs `--database`. The
+  probe refuses rather than answer from the login's default database, which ingestion never reads.
+- **`databases`** lists the candidates, including ones `database_pattern` would exclude, so
+  `probe filter --kind Database` can explain them.
+- **Recipe that sets `database` or `sqlalchemy_uri`:** reads exactly one database, and the probe
+  answers only about that one.
+- **`sqlalchemy_uri` that names no database:** that one is the login's default, which cannot be
+  named without connecting. `probe filter --kind Database` then includes every name with a warning,
+  and reports every stored procedure excluded, because ingestion's procedure query needs the
+  database name.
+
+How the probe matches ingestion:
+
+- Database, schema and table names are matched against the server's own listing before they are
+  used, and `quote_schemas` is honoured as ingestion honours it.
+- `probe filter --kind "Stored Procedure"` judges `procedure_pattern` against
+  `database.schema.procedure`, as ingestion does, and reports every procedure excluded when
+  `include_stored_procedures` is off.
+
+The `sql` command:
+
+- It takes no `--database`: it runs on the recipe's own connection, so on a multi-database recipe
+  an unqualified name such as `sys.tables` reads the login's default database (usually `master`),
+  not one ingestion walks.
+- Qualify it instead: `sql` admits three-part catalog names (`OtherDb.sys.tables`) for any database
+  the login can read, including ones `database_pattern` excludes and system databases.
+- The probe refuses any `sql` statement that reaches outside the catalog views. That check parses
+  the SQL, so treat it as defense in depth, not an authorization boundary: run the probe under a
+  read-only login whose grants cover catalog metadata only.
 
 ### Limitations
 
@@ -147,7 +153,66 @@ With `incremental_lineage: true`, stored-procedure lineage is emitted as a patch
 
 ### Troubleshooting
 
-#### Debug Mode
+#### General Checks
+
+If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+##### Permission Errors
+
+If you encounter permission errors:
+
+1. **RDS environments**: Ensure stored procedure execute permissions are granted
+2. **On-premises environments**: Verify both table select and stored procedure execute permissions
+3. **Mixed environments**: Grant all permissions listed above for maximum compatibility
+
+The DataHub source will automatically handle fallback between methods and provide detailed error messages with specific permission requirements if issues occur.
+
+#### Authentication or Connection Errors
+
+**Error message:**
+
+```
+Login failed for user 'datahub_user'
+Cannot open database "YourDatabase" requested by the login
+```
+
+**Solutions:**
+
+1. **Login failure:**
+
+   ```sql
+   -- Verify user exists and has correct password
+   SELECT name, type_desc, is_disabled
+   FROM sys.server_principals
+   WHERE name = 'datahub_user';
+   ```
+
+2. **Database access denied:**
+
+   ```sql
+   -- Grant database access
+   USE [YourDatabase];
+   CREATE USER [datahub_user] FOR LOGIN [datahub_user];
+   GRANT CONNECT TO [datahub_user];
+   ```
+
+3. **Connection timeout:**
+   - For source type `mssql`, increase the python-tds timeouts:
+     ```yaml
+     source:
+       type: mssql
+       config:
+         options:
+           connect_args:
+             login_timeout: 30
+             timeout: 30
+     ```
+
+#### Query-Based Lineage Issues
+
+The issues below apply when `include_query_lineage: true` is set.
+
+##### Debug Mode
 
 Enable debug logging to see detailed information about query extraction and parsing:
 
@@ -159,8 +224,6 @@ Look for these key log messages:
 
 - `INFO: Extracted X queries from query_store in X.XX seconds` - Confirms queries were fetched (`dmv` instead of `query_store` when falling back)
 - `INFO: Processed X queries for lineage extraction (X failed) in X.XX seconds` - Shows parsing results
-
-#### Common Issues and Solutions
 
 ##### Issue: "Query Store is not enabled"
 
@@ -256,47 +319,6 @@ datahub ingest -c recipe.yml --debug 2>&1 | grep -i "lineage\|parsing\|query"
 # - "Table X not found" - indicates missing base tables
 # - "Filtered table" - indicates pattern matching issues
 ```
-
-##### Issue: Authentication or Connection Errors
-
-**Error message:**
-
-```
-Login failed for user 'datahub_user'
-Cannot open database "YourDatabase" requested by the login
-```
-
-**Solutions:**
-
-1. **Login failure:**
-
-   ```sql
-   -- Verify user exists and has correct password
-   SELECT name, type_desc, is_disabled
-   FROM sys.server_principals
-   WHERE name = 'datahub_user';
-   ```
-
-2. **Database access denied:**
-
-   ```sql
-   -- Grant database access
-   USE [YourDatabase];
-   CREATE USER [datahub_user] FOR LOGIN [datahub_user];
-   GRANT CONNECT TO [datahub_user];
-   ```
-
-3. **Connection timeout:**
-   - For source type `mssql`, increase the python-tds timeouts:
-     ```yaml
-     source:
-       type: mssql
-       config:
-         options:
-           connect_args:
-             login_timeout: 30
-             timeout: 30
-     ```
 
 ##### Issue: Temporary Tables Not Recognized
 
@@ -490,7 +512,7 @@ Follow these steps to confirm everything is configured correctly:
    - Check the "Lineage" tab for upstream/downstream relationships
    - Check the "Queries" tab to see associated SQL queries
 
-##### Still Having Issues?
+#### Still Having Issues?
 
 If you've tried the above steps and still experiencing issues:
 
@@ -507,23 +529,9 @@ If you've tried the above steps and still experiencing issues:
 
 2. **Check DataHub GitHub issues:**
    - Search for similar problems: https://github.com/datahub-project/datahub/issues
-3. **Ask for help:**
+3. **Ask for help** in the `#troubleshoot` channel on the [DataHub Community Slack](https://datahub.com/slack):
    - Include your DataHub version
    - Include SQL Server version
    - Include sanitized config (remove passwords!)
    - Include relevant log excerpts
    - Describe expected vs actual behavior
-
-#### General Checks
-
-If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
-
-##### Troubleshooting Permissions
-
-If you encounter permission errors:
-
-1. **RDS environments**: Ensure stored procedure execute permissions are granted
-2. **On-premises environments**: Verify both table select and stored procedure execute permissions
-3. **Mixed environments**: Grant all permissions listed above for maximum compatibility
-
-The DataHub source will automatically handle fallback between methods and provide detailed error messages with specific permission requirements if issues occur.
