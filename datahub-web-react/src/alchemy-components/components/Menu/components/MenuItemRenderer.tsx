@@ -1,9 +1,11 @@
-import { Icon, Text, Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 import styled from 'styled-components';
 
+import { Icon } from '@components/components/Icon';
 import { MenuItemRendererProps } from '@components/components/Menu/types';
+import { Text } from '@components/components/Text';
+import { Tooltip } from '@components/components/Tooltip';
 import spacing from '@components/theme/foundations/spacing';
 
 const Wrapper = styled.div`

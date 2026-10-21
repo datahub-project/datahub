@@ -33,6 +33,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -263,7 +264,7 @@ public class ESUtilsTest {
             .setCriteria(
                 new CriterionArray(buildCriterion("_entityType", Condition.EQUAL, "CHART")));
 
-    Filter result = ESUtils.toV3EntityFilter(opContext, filter);
+    Filter result = EntityFilter.toEntityFilter(opContext, filter);
 
     CriterionArray and = result.getOr().get(0).getAnd();
     // V3 root fields keep the V2 .keyword subfield, so other criteria pass through unchanged
@@ -277,7 +278,7 @@ public class ESUtilsTest {
     assertFalse(and.get(2).hasValues());
     assertEquals(result.getCriteria().get(0).getValues(), List.of("chart"));
     // The search DAO and the request handlers both normalize, so a second pass changes nothing
-    assertEquals(ESUtils.toV3EntityFilter(opContext, result), result);
+    assertEquals(EntityFilter.toEntityFilter(opContext, result), result);
   }
 
   @Test

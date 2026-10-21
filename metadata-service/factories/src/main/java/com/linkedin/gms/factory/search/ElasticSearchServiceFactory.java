@@ -28,7 +28,7 @@ import com.linkedin.metadata.search.hybrid.HybridScoreCombiner;
 import com.linkedin.metadata.search.hybrid.HybridScoreMapBuilder;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
-import com.linkedin.metadata.search.hybrid.V3HybridKnnRequestBuilder;
+import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.ObjectMapperContext;

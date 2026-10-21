@@ -55,8 +55,8 @@ from langchain_aws import ChatBedrock  # pip install langchain-aws boto3
 bedrock_runtime = boto3.client(service_name="bedrock-runtime", region_name="us-west-2")
 llm = ChatBedrock(
     client=bedrock_runtime,
-    model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    model_kwargs={"max_tokens": 2048, "temperature": 0},
+    model_id="us.anthropic.claude-haiku-5-5",
+    model_kwargs={"max_tokens": 2048},
 )
 ```
 
@@ -65,7 +65,7 @@ Full working example: [simple_search.py](https://github.com/datahub-project/data
 ## Troubleshooting
 
 - **Tool execution errors?** Verify your DataHub connection with `client.test_connection()` and check token permissions.
-- **Agent not using tools?** Strengthen the system prompt, or try `temperature=0` for more deterministic tool use.
+- **Agent not using tools?** Strengthen the system prompt. On models that accept sampling parameters, `temperature=0` gives more deterministic tool use; current Claude models (such as Haiku 5.5) reject non-default `temperature`.
 - **Import errors?** Run `pip install "datahub-agent-context[langchain]" langchain-openai`.
 
 **Links:** [LangChain Agent Docs](https://docs.langchain.com/oss/python/langchain/agents) · [Agent Context Kit](./agent-context.md) · [MCP Server Guide](../../features/feature-guides/mcp.md)
