@@ -162,6 +162,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.server_config_util import ServiceFeature
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -2204,20 +2205,32 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             match_nested_props=True,
         )
 
-        existing_notes = (
-            self._prefetch_assertion_notes(test_nodes, all_nodes_map)
-            if self.config.entities_enabled.can_emit_test_definitions
-            else None
-        )
-
-        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
+        # Resolved once per test: both the note prefetch and the emission loop need them.
+        upstreams_by_test: Dict[str, Dict[str, str]] = {}
+        upstream_errors: Dict[str, Exception] = {}
+        for node in test_nodes:
             try:
-                upstreams = get_upstreams_for_test(
+                upstreams_by_test[node.dbt_name] = get_upstreams_for_test(
                     test_node=node,
                     all_nodes_map=all_nodes_map,
                     platform_instance=self._dbt_platform_instance,
                     environment=self.config.env,
                 )
+            except Exception as e:
+                upstream_errors[node.dbt_name] = e
+
+        existing_notes = (
+            self._prefetch_assertion_notes(test_nodes, upstreams_by_test)
+            if self.config.entities_enabled.can_emit_test_definitions
+            and self._can_emit_assertion_notes(test_nodes)
+            else None
+        )
+
+        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
+            try:
+                if node.dbt_name in upstream_errors:
+                    raise upstream_errors[node.dbt_name]
+                upstreams = upstreams_by_test[node.dbt_name]
 
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
@@ -2245,8 +2258,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             upstream_unique_ids=list(upstreams.keys()),
                         )
 
-                        # Without a successful read of the existing notes a user's
-                        # note could be overwritten, so notes are skipped for the run.
+                        # Notes are skipped for the run when the server cannot store
+                        # them or the existing notes could not be read, so a user's
+                        # note is never overwritten.
                         if existing_notes is not None:
                             note_mcp = make_assertion_note_from_test(
                                 node,
@@ -2324,47 +2338,71 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _note_written_by_ingestion(
         self, note: AssertionNoteClass, system_metadata: Optional[SystemMetadataClass]
     ) -> bool:
-        """Whether this ingestion wrote the stored note, so it may update or clear it.
+        """Whether this pipeline positively wrote the stored note, so it may update or clear it.
 
-        UI edits are stamped with the editing user. Any other writer could also use
-        the system actor, so when a pipeline name is set the note must also carry it.
+        Requires the system actor and the stored pipeline name to match this run's.
+        UI edits carry the editing user, and a note from any other writer (or one
+        written while no pipeline name was set) is treated as foreign.
         """
-        if note.lastModified.actor != mce_builder.SYSTEM_ACTOR:
+        return (
+            note.lastModified.actor == mce_builder.SYSTEM_ACTOR
+            and self._written_by_this_pipeline(system_metadata)
+        )
+
+    def _can_emit_assertion_notes(self, test_nodes: List[DBTNode]) -> bool:
+        """Whether assertion notes can be emitted for this run.
+
+        Notes need a graph, both to check the server has the assertionNote aspect
+        (older servers reject it, which can fail neighbouring records in a batch)
+        and to read existing notes so user edits are not overwritten.
+        """
+        if not any(node.description for node in test_nodes):
             return False
-        if self.ctx.pipeline_name:
-            return self._written_by_this_pipeline(system_metadata)
-        return True
+        graph = self.ctx.graph
+        if graph is None:
+            self.report.info(
+                title="dbt test descriptions not written as assertion notes",
+                message="No DataHub graph is available to check server support and "
+                "existing notes, so dbt test descriptions are not written as "
+                "assertion notes.",
+            )
+            return False
+        try:
+            supported = graph.server_config.supports_feature(
+                ServiceFeature.ASSERTION_NOTE_ASPECT
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Could not check server support for assertion notes",
+                message="Skipping assertion notes from dbt test descriptions for this run.",
+                exc=e,
+            )
+            return False
+        if not supported:
+            self.report.info(
+                title="dbt test descriptions not written as assertion notes",
+                message="The DataHub server does not support assertion notes, so dbt "
+                "test descriptions are not written as assertion notes.",
+            )
+        return supported
 
     def _prefetch_assertion_notes(
-        self, test_nodes: List[DBTNode], all_nodes_map: Dict[str, DBTNode]
+        self,
+        test_nodes: List[DBTNode],
+        upstreams_by_test: Dict[str, Dict[str, str]],
     ) -> Optional[Dict[str, ExistingAssertionNote]]:
         """Batch-read the stored notes of every test assertion.
 
-        Returns an empty dict without a graph: the notes cannot be read, so the dbt
-        description is written as-is. Returns None when the read fails, and the
-        caller then skips notes for the run instead of risking a user's note.
+        Returns None when the read fails, and the caller then skips notes for the
+        run instead of risking a user's note.
         """
         graph = self.ctx.graph
-        if graph is None:
-            if any(node.description for node in test_nodes):
-                self.report.info(
-                    title="dbt test descriptions written without checking for edits",
-                    message="No DataHub graph is available, so assertion notes are "
-                    "written from dbt test descriptions without checking for notes "
-                    "edited in DataHub.",
-                )
-            return {}
+        assert graph is not None
 
         urns: List[str] = []
         for node in test_nodes:
-            try:
-                upstreams = get_upstreams_for_test(
-                    test_node=node,
-                    all_nodes_map=all_nodes_map,
-                    platform_instance=self._dbt_platform_instance,
-                    environment=self.config.env,
-                )
-            except Exception:
+            upstreams = upstreams_by_test.get(node.dbt_name)
+            if upstreams is None:
                 # The emission loop reports this node's failure.
                 continue
             urns.extend(

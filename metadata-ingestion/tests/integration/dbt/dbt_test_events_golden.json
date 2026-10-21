@@ -3776,26 +3776,6 @@
         "entityType": "assertion",
         "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
         "changeType": "UPSERT",
-        "aspectName": "assertionNote",
-        "aspect": {
-            "json": {
-                "content": "Every staged order needs an id.",
-                "lastModified": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
-            }
-        },
-        "systemMetadata": {
-            "lastObserved": 1643871600000,
-            "runId": "dbt-2022_02_03-07_00_00-15bq99",
-            "lastRunId": "no-run-id-provided"
-        }
-    },
-    {
-        "entityType": "assertion",
-        "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
-        "changeType": "UPSERT",
         "aspectName": "assertionRunEvent",
         "aspect": {
             "json": {

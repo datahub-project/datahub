@@ -2340,6 +2340,17 @@ def _make_test_node(
             id="core-float-versioned-model-generated",
         ),
         pytest.param(
+            "accepted_values_orders_ordered_at__2024_01_01_00_00_00",
+            DBTTest(
+                "accepted_values",
+                "ordered_at",
+                {"column_name": "ordered_at", "values": ["2024-01-01T00:00:00"]},
+            ),
+            "model.pkg.orders",
+            False,
+            id="core-datetime-arg-generated",
+        ),
+        pytest.param(
             "not_null_orders_vbeta_id",
             DBTTest("not_null", "id", {"column_name": "id"}),
             "model.pkg.orders.vbeta",
@@ -3176,10 +3187,46 @@ def _described_test_with_result() -> Tuple[DBTNode, DBTNode]:
     return test_node, _make_dbt_node("model.project.my_model")
 
 
+def _note_mcps(
+    source: DBTCoreSource, test_node: DBTNode, model_node: DBTNode
+) -> List[MetadataChangeProposalWrapper]:
+    return [
+        mcp
+        for mcp in source.create_test_entity_mcps(
+            [test_node], {"model.project.my_model": model_node}
+        )
+        if isinstance(mcp.aspect, AssertionNoteClass)
+    ]
+
+
+def _graph_with_note(
+    source: DBTCoreSource, note: Optional[AssertionNoteClass], pipeline_name: str
+) -> mock.MagicMock:
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    graph.server_config.supports_feature.return_value = True
+
+    def get_entities(entity_name, urns, aspects, with_system_metadata):
+        if note is None:
+            return {}
+        return {
+            urn: {
+                AssertionNoteClass.ASPECT_NAME: (
+                    note,
+                    SystemMetadataClass(pipelineName=pipeline_name),
+                )
+            }
+            for urn in urns
+        }
+
+    graph.get_entities.side_effect = get_entities
+    return graph
+
+
 def test_create_test_entity_mcps_keeps_results_when_note_read_fails():
     source = create_mocked_dbt_source()
-    assert source.ctx.graph is not None
-    source.ctx.graph.get_entities.side_effect = RuntimeError("note read failed")  # type: ignore[attr-defined]
+    graph = _graph_with_note(source, None, "dbt-source")
+    graph.get_entities.side_effect = RuntimeError("note read failed")
     test_node, model_node = _described_test_with_result()
 
     mcps = list(
@@ -3200,43 +3247,60 @@ def test_create_test_entity_mcps_keeps_results_when_note_read_fails():
     )
 
 
+def test_create_test_entity_mcps_skips_notes_without_server_support():
+    test_node, model_node = _described_test_with_result()
+
+    unsupported = create_mocked_dbt_source()
+    graph = _graph_with_note(unsupported, None, "dbt-source")
+    graph.server_config.supports_feature.return_value = False
+    assert _note_mcps(unsupported, test_node, model_node) == []
+    graph.get_entities.assert_not_called()
+
+    no_graph = create_mocked_dbt_source()
+    no_graph.ctx.graph = None
+    assert _note_mcps(no_graph, test_node, model_node) == []
+    assert any(
+        "not written as assertion notes" in str(i) for i in no_graph.report.infos
+    )
+
+    supported = create_mocked_dbt_source()
+    _graph_with_note(supported, None, "dbt-source")
+    created = _note_mcps(supported, test_node, model_node)
+    assert len(created) == 1
+    assert isinstance(created[0].aspect, AssertionNoteClass)
+    assert created[0].aspect.content == "Every row needs an id."
+
+
 def test_create_test_entity_mcps_respects_note_ownership():
-    source = create_mocked_dbt_source()
-    assert source.ctx.graph is not None
     test_node, model_node = _described_test_with_result()
     note = AssertionNoteClass(
         content="Old text.",
         lastModified=AuditStampClass(time=1, actor=mce_builder.SYSTEM_ACTOR),
     )
 
-    def run(pipeline_name: str) -> List[MetadataChangeProposalWrapper]:
-        def get_entities(entity_name, urns, aspects, with_system_metadata):
-            return {
-                urn: {
-                    AssertionNoteClass.ASPECT_NAME: (
-                        note,
-                        SystemMetadataClass(pipelineName=pipeline_name),
-                    )
-                }
-                for urn in urns
-            }
-
-        source.ctx.graph.get_entities.side_effect = get_entities  # type: ignore[union-attr]
-        return [
-            mcp
-            for mcp in source.create_test_entity_mcps(
-                [test_node], {"model.project.my_model": model_node}
-            )
-            if isinstance(mcp.aspect, AssertionNoteClass)
-        ]
-
     # Written by this pipeline -> updated to the current dbt description.
-    own = run("dbt-source")
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, note, "dbt-source")
+    own = _note_mcps(source, test_node, model_node)
     assert len(own) == 1
     assert isinstance(own[0].aspect, AssertionNoteClass)
     assert own[0].aspect.content == "Every row needs an id."
-    # System-actor note from another writer (e.g. a migration) -> left alone.
-    assert run("other-writer") == []
+
+    # System-actor note from a different writer -> left alone.
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, note, "other-writer")
+    assert _note_mcps(source, test_node, model_node) == []
+
+    # No pipeline name -> an existing note can't be attributed, so it is left alone,
+    # but a note is still created where none exists.
+    source = create_mocked_dbt_source()
+    source.ctx.pipeline_name = None
+    _graph_with_note(source, note, "dbt-source")
+    assert _note_mcps(source, test_node, model_node) == []
+    source = create_mocked_dbt_source()
+    source.ctx.pipeline_name = None
+    _graph_with_note(source, None, "dbt-source")
+    assert len(_note_mcps(source, test_node, model_node)) == 1
 
 
 def test_create_freshness_assertion_mcps_does_not_copy_source_owner():

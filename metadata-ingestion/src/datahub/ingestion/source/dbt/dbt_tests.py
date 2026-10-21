@@ -321,8 +321,26 @@ class _GenericTestTarget:
         return f"{self.test_type}_{self.target_name}"
 
 
+def _test_arg_str(arg: Any, normalize_datetimes: bool) -> str:
+    """How dbt stringifies a test argument when it builds the test name.
+
+    YAML datetimes reach dbt as datetime objects (`str()` gives
+    `2024-01-01 00:00:00`), but the manifest stores them in ISO form
+    (`2024-01-01T00:00:00`). Converting back is only tried as a fallback, since a
+    plain string argument can look the same.
+    """
+    if normalize_datetimes and isinstance(arg, str) and "T" in arg:
+        try:
+            return str(datetime.fromisoformat(arg))
+        except ValueError:
+            pass
+    return str(arg)
+
+
 def _synthesize_generic_test_names(
-    target: _GenericTestTarget, kw_args: Dict[str, Any]
+    target: _GenericTestTarget,
+    kw_args: Dict[str, Any],
+    normalize_datetimes: bool = False,
 ) -> _GenericTestNames:
     """Port of dbt-core's synthesize_generic_test_names (parser/generic_test_builders.py)."""
     flat_args: List[str] = []
@@ -336,7 +354,7 @@ def _synthesize_generic_test_names(
             parts = list(arg_val)
         else:
             parts = [arg_val]
-        flat_args.extend(str(part) for part in parts)
+        flat_args.extend(_test_arg_str(part, normalize_datetimes) for part in parts)
 
     unique = "__".join(_TEST_ARG_UNSAFE_CHARS.sub("_", arg) for arg in flat_args)
     full_name = f"{target.identifier}_{unique}"
@@ -403,8 +421,15 @@ def _matches_generated_name(
         target = _generic_test_target(namespace, test_name, upstream_unique_id)
         if target is None:
             return None
-        names = _synthesize_generic_test_names(target, test_info.kw_args)
-        return node_name in (names.short_name, names.full_name)
+        return any(
+            node_name in (names.short_name, names.full_name)
+            for names in (
+                _synthesize_generic_test_names(target, test_info.kw_args),
+                _synthesize_generic_test_names(
+                    target, test_info.kw_args, normalize_datetimes=True
+                ),
+            )
+        )
 
     # dbt Cloud does not expose test kwargs, so only the generated prefix can be
     # checked. A generated full name is always `<identifier>_<args>`.
@@ -548,9 +573,9 @@ def make_assertion_from_test(
 class ExistingAssertionNote:
     """The assertion note currently stored in DataHub.
 
-    ``written_by_ingestion`` is True only when this ingestion wrote it on an
-    earlier run; any other note (a UI edit, or a note migrated from elsewhere)
-    is left untouched.
+    ``written_by_ingestion`` is True only when the note carries the system actor and
+    this pipeline's name. Any other note (a UI edit, another writer, or one written
+    while no pipeline name was set) is left untouched.
     """
 
     note: AssertionNoteClass
