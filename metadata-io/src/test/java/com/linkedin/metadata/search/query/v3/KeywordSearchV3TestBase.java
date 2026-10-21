@@ -473,12 +473,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       }
     }
 
-    new UpdateIndicesV3Strategy(
-            entityIndex.getV3(),
-            searchService,
-            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
-            mock(TimeseriesAspectService.class),
-            null)
+    UpdateIndicesV3Strategy.builder()
+        .v3Config(entityIndex.getV3())
+        .elasticSearchService(searchService)
+        .searchDocumentTransformer(
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+        .timeseriesAspectService(mock(TimeseriesAspectService.class))
+        .build()
         .processBatch(
             opContext,
             seedEvents(
@@ -1271,12 +1272,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   private UpdateIndicesV3Strategy longQueryIndexer() {
-    return new UpdateIndicesV3Strategy(
-        config.getEntityIndex().getV3(),
-        searchService,
-        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
-        mock(TimeseriesAspectService.class),
-        null);
+    return UpdateIndicesV3Strategy.builder()
+        .v3Config(config.getEntityIndex().getV3())
+        .elasticSearchService(searchService)
+        .searchDocumentTransformer(
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+        .timeseriesAspectService(mock(TimeseriesAspectService.class))
+        .build();
   }
 
   private void indexLongQueryVocabulary(UpdateIndicesV3Strategy indexer)

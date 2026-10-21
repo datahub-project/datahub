@@ -15,7 +15,11 @@ import {
     NO_FILTER_SELECTION,
     filterDocumentNodes,
 } from '@app/document/utils/documentTreeFilters';
-import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
+import {
+    DocumentSourceGroup,
+    partitionRootNodesByLayer,
+    resolveDocumentSourceSection,
+} from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
 import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
@@ -210,8 +214,9 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         const rootNode = getNode(rootUrn);
         if (!rootNode) return;
 
-        if (rootNode.isExternal && rootNode.platform?.urn) {
-            const platformUrn = rootNode.platform.urn;
+        const section = resolveDocumentSourceSection(rootNode);
+        if (section.kind === 'platform') {
+            const { platformUrn } = section;
             setCollapsedPlatformUrns((prev) => {
                 if (!prev.has(platformUrn)) return prev;
                 const next = new Set(prev);

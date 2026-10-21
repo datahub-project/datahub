@@ -488,6 +488,7 @@ export default function ContextSidebar({
                 suppressSelectionScroll={suppressSelectionScroll}
                 onCreateChild={canCreateDocuments ? (parentUrn) => handleCreateDocument(parentUrn) : undefined}
                 onSelect={handleDocumentClick}
+                onDocumentMovedBetweenGroups={handleRefreshGroupedDocuments}
             />
         );
     } else {

@@ -36,6 +36,7 @@ jobs:
       # Runs the single python-lint job if ANY Python module's files changed.
       python-lint: ${{ steps.filter.outputs.metadata-ingestion == 'true' || steps.filter.outputs.datahub-actions == 'true' || steps.filter.outputs.datahub-agent-context == 'true' || steps.filter.outputs.airflow-plugin == 'true' || steps.filter.outputs.gx-plugin == 'true' || steps.filter.outputs.dagster-plugin == 'true' || steps.filter.outputs.prefect-plugin == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      vitals-node: ${{ steps.filter.outputs.vitals-node == 'true' || steps.filter.outputs.lint-job == 'true' }}
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
       docs-website: ${{ steps.filter.outputs.docs-website == 'true' || steps.filter.outputs.lint-job == 'true' }}
       spotless: ${{ steps.filter.outputs.spotless == 'true' || steps.filter.outputs.lint-job == 'true' }}
@@ -533,3 +534,22 @@ jobs:
       - name: ESLint
         working-directory: e2e-test/ui/playwright
         run: yarn lint
+
+  vitals-unit:
+    name: Vitals unit tests
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.vitals-node == 'true'
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Run vitals unit tests
+        working-directory: e2e-test/perf/vitals
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+        run: |
+          npm ci
+          npm test

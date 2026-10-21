@@ -18,6 +18,7 @@ export const GroupAssets = ({ urn }: Props) => {
     return (
         <GroupAssetsWrapper>
             <EmbeddedListSearchSection
+                applyView
                 skipCache
                 fixedFilters={{
                     unionType: UnionType.AND,

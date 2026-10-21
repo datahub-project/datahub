@@ -6605,6 +6605,11 @@
       "name" : "timeseriesRows",
       "type" : "long",
       "optional" : true
+    }, {
+      "name" : "queued",
+      "type" : "boolean",
+      "doc" : "True when the delete was queued to run later. The counts are then what existed when it was\nqueued, not what was deleted.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -6636,6 +6641,11 @@
       "name" : "total",
       "type" : "int",
       "doc" : "Total number of relationships that an entity urn has."
+    }, {
+      "name" : "queued",
+      "type" : "boolean",
+      "doc" : "True when the delete was queued to run later. The counts are then what existed when it was\nqueued, not what was deleted.",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.run.RelatedAspect", {
     "type" : "record",

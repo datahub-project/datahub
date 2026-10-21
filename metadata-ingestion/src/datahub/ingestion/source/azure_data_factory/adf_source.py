@@ -173,6 +173,10 @@ class AzureDataFactoryContainerKey(ContainerKey):
         SourceCapabilityModifier.ADF_DATA_FACTORY,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class AzureDataFactorySource(StatefulIngestionSourceBase):
     """Extracts metadata and lineage from Azure Data Factory pipelines, activities, and datasets."""
 

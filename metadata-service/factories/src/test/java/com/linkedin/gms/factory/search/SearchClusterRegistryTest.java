@@ -15,13 +15,16 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import org.testng.annotations.Test;
 
@@ -218,6 +221,32 @@ public class SearchClusterRegistryTest {
             "primary", config, mock(SearchClientShim.class), null, mock(ESIndexBuilder.class)));
 
     assertThrows(IllegalStateException.class, () -> new SearchClusterRegistry(config, connections));
+  }
+
+  @Test
+  public void testBulkProcessorsAreOnePerDistinctCluster() {
+    ElasticSearchConfiguration config =
+        config(ComponentClusterConfiguration.builder().searchV3("secondary").build());
+    ESBulkProcessor primary = mock(ESBulkProcessor.class);
+    ESBulkProcessor secondary = mock(ESBulkProcessor.class);
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary", config, mock(SearchClientShim.class), primary, mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary",
+            config,
+            mock(SearchClientShim.class),
+            secondary,
+            mock(ESIndexBuilder.class)));
+
+    assertEquals(
+        Set.copyOf(new SearchClusterRegistry(config, connections).bulkProcessors()),
+        Set.of(primary, secondary));
+    assertEquals(Set.copyOf(SearchWriteAccess.fixed(primary).bulkProcessors()), Set.of(primary));
   }
 
   @Test

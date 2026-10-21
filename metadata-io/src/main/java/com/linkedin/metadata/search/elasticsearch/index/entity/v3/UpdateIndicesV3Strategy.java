@@ -16,7 +16,10 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.CatchUpBatchRebuilder;
+import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesUtil;
@@ -37,9 +40,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -62,84 +68,45 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
+  @Nullable private final IncrementalReindexWriteTargets incrementalReindexWriteTargets;
+  private final CatchUpBatchRebuilder catchUpBatchRebuilder;
 
-  public UpdateIndicesV3Strategy(
-      @Nonnull EntityIndexVersionConfiguration v3Config,
-      @Nonnull ElasticSearchService elasticSearchService,
-      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
-    this(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesThrottleCache,
-        new Sha256UrnEntityDocumentIdHasher(),
-        List.of(),
-        false);
-  }
+  /** Drains of a batch that mirrored deletes into a rebuild's index, before it is given up on. */
+  private static final int MIRRORED_DELETE_DRAIN_ATTEMPTS = 3;
 
+  /**
+   * Built through {@link #builder()}. Unset optional parts take their defaults: the URN hasher, no
+   * document contributors, V2 not dual-written, no semantic search configuration, no rollback
+   * targets, no timeseries throttle.
+   */
+  @Builder
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
-      @Nonnull List<V3SearchDocumentContributor> documentContributors) {
-    this(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesThrottleCache,
-        entityDocumentIdHasher,
-        documentContributors,
-        false);
-  }
-
-  public UpdateIndicesV3Strategy(
-      @Nonnull EntityIndexVersionConfiguration v3Config,
-      @Nonnull ElasticSearchService elasticSearchService,
-      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
-      @Nonnull List<V3SearchDocumentContributor> documentContributors,
-      boolean v2Enabled) {
-    this(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesThrottleCache,
-        entityDocumentIdHasher,
-        documentContributors,
-        v2Enabled,
-        null);
-  }
-
-  public UpdateIndicesV3Strategy(
-      @Nonnull EntityIndexVersionConfiguration v3Config,
-      @Nonnull ElasticSearchService elasticSearchService,
-      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
-      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
-      @Nonnull List<V3SearchDocumentContributor> documentContributors,
+      @Nullable EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nullable List<V3SearchDocumentContributor> documentContributors,
       boolean v2Enabled,
-      @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
+      @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
+      @Nullable IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
     this.timeseriesAspectService = timeseriesAspectService;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
-    this.entityDocumentIdHasher = entityDocumentIdHasher;
+    this.entityDocumentIdHasher =
+        entityDocumentIdHasher == null
+            ? new Sha256UrnEntityDocumentIdHasher()
+            : entityDocumentIdHasher;
+    this.catchUpBatchRebuilder =
+        new CatchUpBatchRebuilder(elasticSearchService, this.entityDocumentIdHasher);
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
+    this.incrementalReindexWriteTargets = incrementalReindexWriteTargets;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -166,20 +133,84 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     log.debug("Processing {} URN groups with V3 unified batch optimization", groupedEvents.size());
 
+    CatchUpBatchRebuilder.RebuiltBatches rebuilt =
+        catchUpBatchRebuilder.rebuild(opContext, groupedEvents);
+    List<Runnable> mirroredDeletes = new ArrayList<>();
     // Process each group of events for the same URN
-    for (Map.Entry<Urn, List<MCLItem>> entry : groupedEvents.entrySet()) {
+    for (Map.Entry<Urn, List<MCLItem>> entry : rebuilt.batches().entrySet()) {
       Urn urn = entry.getKey();
       List<MCLItem> urnEvents = entry.getValue();
 
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
       // V3 optimization: single operation per URN regardless of aspect count
-      processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
+      mirroredDeletes.addAll(
+          processUrnBatch(
+              opContext,
+              urn,
+              urnEvents,
+              rebuilt.removedAspects().getOrDefault(urn, Map.of()),
+              rebuilt.indexedFields().getOrDefault(urn, Map.of()),
+              structuredPropertiesHookEnabled,
+              throttleSummary));
     }
 
     if (throttleSummary != null) {
       throttleSummary.logIfSuppressed();
     }
+
+    // A backfill checkpoints what it has written once this returns, so its pages land before then.
+    // A delete mirrored into the index a rebuild is filling must land too, and nothing replays a
+    // hard delete, so such a batch is drained as well and a failed drain is retried. Any other
+    // live batch is appended and committed, as before.
+    boolean backfill =
+        groupedEvents.values().stream()
+            .flatMap(List::stream)
+            .anyMatch(UpdateIndicesV3Strategy::isBackfillEvent);
+    if (!mirroredDeletes.isEmpty()) {
+      drainMirroredDeletes(mirroredDeletes);
+    } else if (backfill) {
+      elasticSearchService.getEsWriteDAO().flushAndWait();
+    }
+  }
+
+  /**
+   * Waits for a batch that mirrored deletes into an index a rebuild is filling to land. A drain
+   * that reports failed writes has the mirrored deletes issued again and is repeated, a bounded
+   * number of times; deleting a document that is already gone is a no-op, so the repeats are safe.
+   * The last failure then propagates: the consumer records it and moves on, and the entity may
+   * return when the fill swaps. A drain that merely runs out of time is not a failure: the bulk
+   * processor is shared by every consumer thread and idles only when all of them pause, so the
+   * mirrors are left queued with the processor's own retries behind them.
+   */
+  private void drainMirroredDeletes(@Nonnull List<Runnable> mirroredDeletes) {
+    RuntimeException last = null;
+    for (int attempt = 1; attempt <= MIRRORED_DELETE_DRAIN_ATTEMPTS; attempt++) {
+      try {
+        elasticSearchService.getEsWriteDAO().flushAndWait();
+        return;
+      } catch (RuntimeException e) {
+        if (e.getCause() instanceof TimeoutException) {
+          log.warn(
+              "Draining a batch with {} deletes mirrored into a rebuild's index did not finish within"
+                  + " the bulk transfer timeout; leaving them queued",
+              mirroredDeletes.size());
+          return;
+        }
+        last = e;
+        log.warn(
+            "Draining a batch with {} deletes mirrored into a rebuild's index failed (attempt {} of"
+                + " {}); issuing the mirrored deletes again",
+            mirroredDeletes.size(),
+            attempt,
+            MIRRORED_DELETE_DRAIN_ATTEMPTS,
+            e);
+        if (attempt < MIRRORED_DELETE_DRAIN_ATTEMPTS) {
+          mirroredDeletes.forEach(Runnable::run);
+        }
+      }
+    }
+    throw last;
   }
 
   public void updateIndexMappings(
@@ -259,6 +290,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return v3Config.isEnabled();
   }
 
+  @Override
+  public boolean fillsNewIndicesFromPrimaryStorage() {
+    return true;
+  }
+
   /**
    * Processes all events for a single URN in V3 optimized fashion. Either deletes the entire entity
    * or performs a single upsert.
@@ -267,32 +303,58 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * @param urn the URN of the entity
    * @param events the events for this URN
    */
-  private void processUrnBatch(
+  /** Returns the deletes the batch mirrored into an index a rebuild is filling, re-issuable. */
+  @Nonnull
+  private List<Runnable> processUrnBatch(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
+      @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Map<String, Set<String>> indexedFields,
       boolean structuredPropertiesHookEnabled,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
     try {
-      processUrnBatchUnchecked(
-          opContext, urn, events, structuredPropertiesHookEnabled, throttleSummary);
+      return processUrnBatchUnchecked(
+          opContext,
+          urn,
+          events,
+          removedAspects,
+          indexedFields,
+          structuredPropertiesHookEnabled,
+          throttleSummary);
     } catch (RuntimeException e) {
-      if (v2Enabled) {
+      // Live dual-write: one URN's V3 failure must not stall V2, and the entity's next event
+      // rebuilds its document. A replay is different: nothing comes back for a URN it drops. A
+      // baseline fill is the only pass over the historical corpus, and a catch-up replay is the
+      // only pass over its window; the loader counts a URN as processed once this returns, and
+      // the system-update catch-up step checkpoints after producing the event, so neither sends
+      // it again. A replay's failure propagates instead: the loader retries the batch, splitting
+      // it down to the single event, and otherwise fails the run with its checkpoint intact. A
+      // removal's failure is skipped like any other live write's: the consumer records a failed
+      // batch and moves on without redelivering it, so failing the batch would only drop the
+      // other entities' writes with it. A mirror that could not be handed over is lost with the
+      // skip, and the entity may return when the fill swaps. What can be retried, a delete that
+      // was mirrored into an index a rebuild is filling, is retried when the batch is drained.
+      final boolean replay = events.stream().anyMatch(UpdateIndicesV3Strategy::isBackfillEvent);
+      if (v2Enabled && !replay) {
         log.error(
             "V3 search write failed for URN {} while V2 dual-write is enabled; skipping V3 document",
             urn,
             e);
-        return;
+        return List.of();
       }
       throw e;
     }
   }
 
-  private void processUrnBatchUnchecked(
+  @Nonnull
+  private List<Runnable> processUrnBatchUnchecked(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
+      @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Map<String, Set<String>> indexedFields,
       boolean structuredPropertiesHookEnabled,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
@@ -322,18 +384,40 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 });
 
     String docId = entityDocumentIdHasher.documentId(opContext, urn);
+    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
+    // A baseline fill rebuilding into a next physical index names it on every event; the alias
+    // keeps serving the old index until the fill swaps it.
+    String fillTarget = fillTarget(events);
     if (hasKeyAspectDeletion) {
-      String indexKey = v3IndexKey(events.get(0).getEntitySpec());
-      elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
+      if (fillTarget != null) {
+        elasticSearchService.deleteDocumentByIndexName(opContext, fillTarget, docId);
+      } else {
+        elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
+      }
       log.debug(
           "V3 deleted entire document for URN: {} from index key: {} due to key aspect deletion",
           urn,
           indexKey);
-      return;
+      rollbackCopy(
+          opContext,
+          indexKey,
+          oldBackingIndex ->
+              elasticSearchService.deleteDocumentByIndexName(opContext, oldBackingIndex, docId));
+      if (fillTarget == null) {
+        return mirrorIntoFillTarget(
+                opContext,
+                indexKey,
+                target -> elasticSearchService.deleteDocumentByIndexName(opContext, target, docId))
+            .map(List::of)
+            .orElse(List.of());
+      }
+      return List.of();
     }
 
     // Build the combined V3 document with _aspect structure
-    ObjectNode combinedDocument = buildV3SearchDocument(opContext, urn, events, throttleSummary);
+    ObjectNode combinedDocument =
+        buildV3SearchDocument(
+            opContext, urn, events, removedAspects, indexedFields, throttleSummary);
 
     // As on V2, the structured property mapping hook runs even when no aspect changed
     if (structuredPropertiesHookEnabled) {
@@ -360,20 +444,22 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     if (combinedDocument == null) {
       log.debug("V3 combined document is empty for URN: {}, skipping update", urn);
-      return;
+      return List.of();
     }
 
     // Write the combined document to Elasticsearch
     if (events.isEmpty()) {
       log.warn("V3 upsert attempted but no events available for URN: {}", urn);
-      return;
+      return List.of();
     }
-
-    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
 
     String finalDocument = combinedDocument.toString();
 
-    elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
+    if (fillTarget != null) {
+      elasticSearchService.upsertDocumentByIndexName(opContext, fillTarget, finalDocument, docId);
+    } else {
+      elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
+    }
     log.debug(
         "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
         urn,
@@ -388,8 +474,135 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             .distinct()
             .collect(Collectors.toList());
     for (String runId : distinctRunIds) {
-      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      if (fillTarget != null) {
+        elasticSearchService.appendRunIdByIndexName(opContext, fillTarget, docId, urn, runId);
+      } else {
+        elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
+      }
     }
+
+    // A removed aspect reaches the index a rebuild is filling the same way a removed entity does:
+    // the fill may already have written the aspect, and nothing replays its removal.
+    Optional<Runnable> mirrored =
+        fillTarget == null && carriesDelete(events)
+            ? mirrorIntoFillTarget(
+                opContext,
+                indexKey,
+                target ->
+                    elasticSearchService.upsertDocumentByIndexName(
+                        opContext, target, finalDocument, docId))
+            : Optional.empty();
+
+    rollbackCopy(
+        opContext,
+        indexKey,
+        oldBackingIndex -> {
+          elasticSearchService.upsertDocumentByIndexName(
+              opContext, oldBackingIndex, finalDocument, docId);
+          for (String runId : distinctRunIds) {
+            elasticSearchService.appendRunIdByIndexName(
+                opContext, oldBackingIndex, docId, urn, runId);
+          }
+        });
+    return mirrored.map(List::of).orElse(List.of());
+  }
+
+  /**
+   * Repeats a write on the swapped-out backing index of {@code indexKey}'s alias while one awaits
+   * rollback: same document, same hashed id, so the alias can be swapped back to a faithful copy.
+   * The copy never fails the live write; a missed copy only degrades rollback fidelity.
+   */
+  private void rollbackCopy(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexKey,
+      @Nonnull Consumer<String> write) {
+    if (incrementalReindexWriteTargets == null) {
+      return;
+    }
+    String alias =
+        opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
+    incrementalReindexWriteTargets
+        .oldBackingIndexFor(alias)
+        .ifPresent(
+            oldBackingIndex -> {
+              try {
+                write.accept(oldBackingIndex);
+                incrementalReindexWriteTargets.recordDualWriteStarted(alias);
+              } catch (RuntimeException e) {
+                log.error(
+                    "Rollback dual-write to '{}' failed for index '{}'", oldBackingIndex, alias, e);
+              }
+            });
+  }
+
+  /**
+   * Repeats a delete on the index a rebuild is filling for {@code indexKey}'s alias while that fill
+   * is in flight: the alias still serves the old index, and catch-up re-derives its window from
+   * primary storage, which holds nothing for a removed entity or aspect. Returns the mirrored
+   * write, so the batch can issue it again if its drain fails, and lets a failure to hand it to the
+   * bulk processor propagate: nothing replays a hard delete, so a mirror that does not land leaves
+   * the entity in the next index across the swap.
+   *
+   * <p>Known limitation: a page the fill read before the delete and writes after this mirror puts
+   * the entity, or the removed aspect's fields, back, since fill writes merge into the index and
+   * nothing orders the two. The window is one page drain per entity; the next write to the entity,
+   * or the orphan consistency check, repairs it.
+   */
+  @Nonnull
+  private Optional<Runnable> mirrorIntoFillTarget(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexKey,
+      @Nonnull Consumer<String> write) {
+    if (incrementalReindexWriteTargets == null) {
+      return Optional.empty();
+    }
+    String alias =
+        opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, indexKey);
+    return incrementalReindexWriteTargets
+        .fillTargetFor(alias)
+        .map(
+            target -> {
+              Runnable mirror = () -> write.accept(target);
+              mirror.run();
+              return mirror;
+            });
+  }
+
+  /**
+   * The physical index a baseline fill names on every event of {@code events}, or null when the
+   * batch is not such a fill and the write goes to the alias.
+   */
+  @Nullable
+  private static String fillTarget(@Nonnull List<MCLItem> events) {
+    String target = null;
+    for (MCLItem event : events) {
+      if (!BackfillHeaders.MODE_BASELINE.equalsIgnoreCase(backfillMode(event))) {
+        return null;
+      }
+      String named =
+          event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.TARGET_INDEX_HEADER_NAME);
+      if (named == null || named.isEmpty() || (target != null && !target.equals(named))) {
+        return null;
+      }
+      target = named;
+    }
+    return target;
+  }
+
+  private static boolean isBackfillEvent(@Nonnull MCLItem event) {
+    return backfillMode(event) != null;
+  }
+
+  private static boolean carriesDelete(@Nonnull List<MCLItem> events) {
+    return events.stream().anyMatch(event -> event.getChangeType() == ChangeType.DELETE);
+  }
+
+  /** The backfill mode stamped on a replayed event, or null for a live write. */
+  @Nullable
+  private static String backfillMode(@Nonnull MCLItem event) {
+    return event.getMetadataChangeLog() != null && event.getMetadataChangeLog().getHeaders() != null
+        ? event.getMetadataChangeLog().getHeaders().get(BackfillHeaders.MODE_HEADER_NAME)
+        : null;
   }
 
   /**
@@ -399,12 +612,18 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * @param opContext the operation context
    * @param urn the URN of the entity
    * @param events the events for this URN
+   * @param removedAspects aspects a catch-up replay found in the document but not in storage, as
+   *     aspect name to the field names the document holds for it; empty for a live write
+   * @param indexedFields the raw per-URN field map the index reported for a catch-up replay; empty
+   *     for a live write
    * @return the combined V3 document or null if no aspects to process
    */
   private ObjectNode buildV3SearchDocument(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
+      @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Map<String, Set<String>> indexedFields,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
     EntitySpec entitySpec = events.get(0).getEntitySpec();
@@ -493,7 +712,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       }
     }
 
-    if (!hasAnyAspects) {
+    if (!hasAnyAspects && removedAspects.isEmpty()) {
       return null;
     }
 
@@ -508,10 +727,204 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               : keepBatchRootValues(combinedDocument, projection.projected()));
     }
 
+    Set<String> timeseriesRootFields = timeseriesRootFields(entitySpec, indexedFields);
+    removeAspects(combinedDocument, removedAspects, timeseriesRootFields);
     liftSemanticEmbeddingsToRoot(opContext, urn, entityType, events, combinedDocument);
 
     applyDocumentContributors(opContext, urn, combinedDocument);
+    if (isCatchUpBatch(events)) {
+      clearStaleCatchUpFields(combinedDocument, events, indexedFields, timeseriesRootFields);
+    }
     return combinedDocument;
+  }
+
+  /**
+   * Nulls what the document holds for aspects primary storage no longer has, as a catch-up replay
+   * found them in the index: the entry under {@code _aspects} and the root fields the aspect
+   * projected, except a root field an aspect of this batch still sets, which keeps its value, a
+   * root field a timeseries aspect in the index still holds, and the fields the strategy itself
+   * owns. Structured properties are dotted root keys, so losing that aspect nulls those keys and
+   * leaves the parent key alone. The merge the document is written with then clears them.
+   */
+  private static void removeAspects(
+      @Nonnull ObjectNode document,
+      @Nonnull Map<String, Set<String>> removedAspects,
+      @Nonnull Set<String> timeseriesRootFields) {
+    if (removedAspects.isEmpty()) {
+      return;
+    }
+    JsonNode existing = document.get(MappingConstants.ASPECTS_FIELD_NAME);
+    ObjectNode aspects =
+        existing instanceof ObjectNode node
+            ? node
+            : document.putObject(MappingConstants.ASPECTS_FIELD_NAME);
+    removedAspects.forEach(
+        (aspectName, fields) -> {
+          if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
+            nullMissingStructuredPropertyKeys(document, fields);
+            return;
+          }
+          aspects.putNull(aspectName);
+          for (String field : fields) {
+            if (rootFieldKept(document, field, timeseriesRootFields)) {
+              continue;
+            }
+            nullIfAbsent(document, field);
+          }
+        });
+  }
+
+  /**
+   * After a catch-up document is fully built, nulls index fields the restate no longer sets. A
+   * child missing from a restated aspect is nulled under {@code _aspects} and, when the finished
+   * document has no value there, at the root. A key missing from an object field the document still
+   * has, such as {@code customProperties}, is nulled inside that object. A root field a timeseries
+   * aspect in the index still holds, or that the strategy owns, stays. Structured properties are
+   * dotted root keys the finished document does not set; the parent key is left alone. A leftover
+   * {@code _aspects.structuredProperties} entry is nulled without reading its children as those
+   * keys.
+   */
+  private static void clearStaleCatchUpFields(
+      @Nonnull ObjectNode document,
+      @Nonnull List<MCLItem> events,
+      @Nonnull Map<String, Set<String>> indexedFields,
+      @Nonnull Set<String> timeseriesRootFields) {
+    if (indexedFields.isEmpty()) {
+      return;
+    }
+    nullMissingStructuredPropertyKeys(
+        document,
+        indexedFields.getOrDefault(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME, Set.of()));
+    if (indexedFields.containsKey(ESSearchDAO.STALE_ASPECTS_STRUCTURED_PROPERTIES)) {
+      aspectsObject(document).putNull(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    }
+
+    Set<String> restated = new HashSet<>();
+    for (MCLItem event : events) {
+      if (event.getChangeType() == ChangeType.RESTATE && event.getRecordTemplate() != null) {
+        restated.add(event.getAspectName());
+      }
+    }
+    JsonNode aspectsNode = document.get(MappingConstants.ASPECTS_FIELD_NAME);
+    ObjectNode aspects = aspectsNode instanceof ObjectNode node ? node : null;
+    for (String aspectName : restated) {
+      if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
+        continue;
+      }
+      Set<String> fields = indexedFields.get(aspectName);
+      if (fields == null) {
+        continue;
+      }
+      JsonNode aspectNode = aspects == null ? null : aspects.get(aspectName);
+      ObjectNode aspect = aspectNode instanceof ObjectNode node ? node : null;
+      for (String field : fields) {
+        if (aspect != null && !STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)) {
+          nullIfAbsent(aspect, field);
+        }
+        if (rootFieldKept(document, field, timeseriesRootFields)) {
+          continue;
+        }
+        nullIfAbsent(document, field);
+      }
+    }
+  }
+
+  /** Dotted {@code structuredProperties.<name>} keys the document does not already set. */
+  private static void nullMissingStructuredPropertyKeys(
+      @Nonnull ObjectNode document, @Nonnull Set<String> fields) {
+    for (String field : fields) {
+      if (isStructuredPropertyKey(field) && !document.hasNonNull(field)) {
+        document.putNull(field);
+      }
+    }
+  }
+
+  private static boolean isStructuredPropertyKey(@Nonnull String field) {
+    return field.startsWith(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME + ".");
+  }
+
+  /**
+   * A root field the catch-up document already sets, that a timeseries aspect in the index holds,
+   * or that the strategy owns, is not nulled.
+   */
+  private static boolean rootFieldKept(
+      @Nonnull ObjectNode document,
+      @Nonnull String field,
+      @Nonnull Set<String> timeseriesRootFields) {
+    return STRATEGY_OWNED_DOCUMENT_FIELDS.contains(field)
+        || V3SearchDocumentProjector.SYSTEM_METADATA_FIELD.equals(field)
+        || timeseriesRootFields.contains(field)
+        || valuePresent(document, field);
+  }
+
+  /**
+   * Nulls {@code path} where the finished document does not already have it. A path with {@link
+   * ESSearchDAO#NESTED_FIELD_SEPARATOR} is a key inside an object field; the child is nulled only
+   * when that object is present, so a missing parent is cleared by its own top-level name rather
+   * than by inventing the object here.
+   */
+  private static void nullIfAbsent(@Nonnull ObjectNode root, @Nonnull String path) {
+    String[] parts = path.split(ESSearchDAO.NESTED_FIELD_SEPARATOR, -1);
+    ObjectNode node = root;
+    for (int i = 0; i < parts.length - 1; i++) {
+      JsonNode child = node.get(parts[i]);
+      if (!(child instanceof ObjectNode object)) {
+        return;
+      }
+      node = object;
+    }
+    if (!node.has(parts[parts.length - 1])) {
+      node.putNull(parts[parts.length - 1]);
+    }
+  }
+
+  private static boolean valuePresent(@Nonnull ObjectNode root, @Nonnull String path) {
+    String[] parts = path.split(ESSearchDAO.NESTED_FIELD_SEPARATOR, -1);
+    JsonNode node = root;
+    for (String part : parts) {
+      if (!(node instanceof ObjectNode object) || !object.has(part) || object.get(part).isNull()) {
+        return false;
+      }
+      node = object.get(part);
+    }
+    return true;
+  }
+
+  /**
+   * Root fields the timeseries aspects the index reports still hold. A catch-up replay rebuilds
+   * versioned aspects only, so neither a removed aspect nor a restate that no longer sets one of
+   * these fields may null it.
+   */
+  @Nonnull
+  private static Set<String> timeseriesRootFields(
+      @Nonnull EntitySpec entitySpec, @Nonnull Map<String, Set<String>> indexedFields) {
+    Set<String> fields = new HashSet<>();
+    indexedFields.forEach(
+        (aspectName, aspectFields) -> {
+          if (isTimeseriesAspect(entitySpec, aspectName)) {
+            fields.addAll(aspectFields);
+          }
+        });
+    return fields;
+  }
+
+  private static boolean isTimeseriesAspect(
+      @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    return Boolean.TRUE.equals(entitySpec.hasAspect(aspectName))
+        && entitySpec.getAspectSpec(aspectName).isTimeseries();
+  }
+
+  private static boolean isCatchUpBatch(@Nonnull List<MCLItem> events) {
+    return events.stream()
+        .anyMatch(event -> BackfillHeaders.MODE_CATCH_UP.equalsIgnoreCase(backfillMode(event)));
+  }
+
+  @Nonnull
+  private static ObjectNode aspectsObject(@Nonnull ObjectNode document) {
+    JsonNode existing = document.get(MappingConstants.ASPECTS_FIELD_NAME);
+    return existing instanceof ObjectNode node
+        ? node
+        : document.putObject(MappingConstants.ASPECTS_FIELD_NAME);
   }
 
   /**
@@ -544,7 +957,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    *
    * <p>Two aspects can project the same root field (e.g. corpuser displayName from CorpUserInfo and
    * CorpUserEditableInfo). Root fields are last-write-wins, so user-edited override aspects are
-   * applied after their ingested base aspect, as the fork does when it rebuilds a document.
+   * applied after their ingested base aspect.
    */
   @Nonnull
   private static List<CoalescedAspectEvent> coalesceAspectEvents(@Nonnull List<MCLItem> events) {

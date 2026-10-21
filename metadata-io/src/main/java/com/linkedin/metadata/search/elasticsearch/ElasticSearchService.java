@@ -367,6 +367,25 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
   }
 
+  /**
+   * For each of {@code documentIds} present in {@code searchGroup}'s V3 index, the aspects its
+   * document holds, as aspect name to the field names under it; see {@link
+   * ESSearchDAO#aspectFieldNamesByDocumentId}.
+   */
+  @Nonnull
+  public Map<String, Map<String, Set<String>>> aspectFieldNamesBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull Collection<String> documentIds) {
+    return esSearchDAO.aspectFieldNamesByDocumentId(
+        opContext,
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(opContext, searchGroup),
+        documentIds);
+  }
+
   @Override
   public void appendRunId(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
@@ -438,17 +457,48 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable String runId) {
     log.debug(
         "Appending run id for searchGroup '{}', docId='{}', runId='{}'", searchGroup, docId, runId);
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext,
+        searchGroup,
+        docId,
+        SCRIPT_SOURCE,
+        runIdScriptParams(runId),
+        runIdUpsert(urn, runId));
+  }
 
+  /**
+   * As {@link #appendRunIdBySearchGroup}, on an index named directly rather than through its search
+   * group's alias: a fill's next physical index, or the swapped-out backing index kept current for
+   * rollback.
+   */
+  public void appendRunIdByIndexName(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull Urn urn,
+      @Nullable String runId) {
+    log.debug("Appending run id for index '{}', docId='{}', runId='{}'", indexName, docId, runId);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext,
+        indexName,
+        docId,
+        SCRIPT_SOURCE,
+        runIdScriptParams(runId),
+        runIdUpsert(urn, runId));
+  }
+
+  private static Map<String, Object> runIdUpsert(@Nonnull Urn urn, @Nullable String runId) {
     Map<String, Object> upsert = new HashMap<>();
     upsert.put("urn", urn.toString());
     upsert.put("runId", Collections.singletonList(runId));
+    return upsert;
+  }
 
+  private static Map<String, Object> runIdScriptParams(@Nullable String runId) {
     Map<String, Object> scriptParams = new HashMap<>();
     scriptParams.put("runId", runId);
     scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
-
-    esWriteDAO.applyScriptUpdateBySearchGroup(
-        opContext, searchGroup, docId, SCRIPT_SOURCE, scriptParams, upsert);
+    return scriptParams;
   }
 
   @Nonnull

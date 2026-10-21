@@ -262,12 +262,13 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
               settingsBuilder.getSettings(config.getIndex(), indexName)));
       createdIndices.add(indexName);
     }
-    new UpdateIndicesV3Strategy(
-            entityIndex.getV3(),
-            searchService,
-            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
-            Mockito.mock(TimeseriesAspectService.class),
-            null)
+    UpdateIndicesV3Strategy.builder()
+        .v3Config(entityIndex.getV3())
+        .elasticSearchService(searchService)
+        .searchDocumentTransformer(
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+        .timeseriesAspectService(Mockito.mock(TimeseriesAspectService.class))
+        .build()
         .processBatch(opContext, events, true);
     syncAfterWrite(getBulkProcessor());
   }
