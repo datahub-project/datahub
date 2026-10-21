@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
-import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LINEAGE_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_STRUCTURED_URN;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
@@ -100,17 +99,10 @@ public class SearchTemplateSeamTest {
     assertEquals(SearchTemplateSurfaces.SEARCH_ENTITIES, "searchEntities");
     assertEquals(SearchTemplateSurfaces.SCROLL_ENTITIES, "scrollEntities");
     assertEquals(SearchTemplateSurfaces.AGGREGATE_ENTITIES, "aggregateEntities");
-    assertEquals(SearchTemplateSurfaces.BROWSE_ENTITIES, "browseEntities");
-    assertEquals(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE, "searchEntitiesLineage");
-    assertEquals(SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE, "scrollEntitiesLineage");
     assertNotEquals(SearchTemplateSurfaces.SEARCH_ENTITIES, SearchTemplateSurfaces.SCROLL_ENTITIES);
-    assertNotEquals(
-        SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
-        SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE);
     assertTrue(SearchTemplateRollout.scrollSurface(SearchTemplateSurfaces.SCROLL_ENTITIES));
-    assertTrue(SearchTemplateRollout.scrollSurface(SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE));
     assertFalse(SearchTemplateRollout.scrollSurface(SearchTemplateSurfaces.SEARCH_ENTITIES));
-    assertFalse(SearchTemplateRollout.scrollSurface(SearchTemplateSurfaces.BROWSE_ENTITIES));
+    assertFalse(SearchTemplateRollout.scrollSurface(null));
     assertFalse(SearchTemplateRollout.scrollSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES));
   }
 
@@ -127,13 +119,12 @@ public class SearchTemplateSeamTest {
             .getSearchContext()
             .getSearchSurface(),
         SearchTemplateSurfaces.SCROLL_ENTITIES);
-    OperationContext lineage =
-        plain.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE);
+    OperationContext aggregate = plain.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES);
     assertEquals(
-        SearchTemplateSurfaces.withDefault(lineage, SearchTemplateSurfaces.SEARCH_ENTITIES)
+        SearchTemplateSurfaces.withDefault(aggregate, SearchTemplateSurfaces.SEARCH_ENTITIES)
             .getSearchContext()
             .getSearchSurface(),
-        SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE);
+        SearchTemplateSurfaces.AGGREGATE_ENTITIES);
   }
 
   @Test
@@ -189,25 +180,13 @@ public class SearchTemplateSeamTest {
       assertEquals(
           resolve(coordinator, structuredRequest, false).getUrn(), SEARCH_TEMPLATE_STRUCTURED_URN);
 
-      OperationContext lineage =
-          capturePageSearch(
-              elastic,
-              dao,
-              harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE));
+      OperationContext untagged =
+          capturePageSearch(elastic, dao, harness.opContext.withSearchSurface(null));
       assertEquals(
-          lineage.getSearchContext().getSearchSurface(),
-          SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE);
-      assertEquals(resolve(coordinator, lineage, false).getUrn(), SEARCH_TEMPLATE_LINEAGE_URN);
-
-      OperationContext browse =
-          capturePageSearch(
-              elastic,
-              dao,
-              harness.opContext.withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES));
-      assertEquals(
-          browse.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.BROWSE_ENTITIES);
-      assertEquals(
-          resolve(coordinator, browse, false).getUrn(), "urn:li:searchTemplate:browseV2Fulltext");
+          untagged.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.SEARCH_ENTITIES);
+      ResolvedSearchTemplate untaggedResolved = resolve(coordinator, untagged, false);
+      assertEquals(untaggedResolved.getRouteChain().get(0), "urn:li:searchTemplate:searchLight");
+      assertEquals(untaggedResolved.getUrn(), "urn:li:searchTemplate:light");
 
       OperationContext aggregate =
           capturePageSearch(
@@ -264,23 +243,6 @@ public class SearchTemplateSeamTest {
         .templates
         .getSurfaces()
         .put(SearchTemplateSurfaces.AGGREGATE_ENTITIES, fulltextSeed(SEARCH_TEMPLATE_SEARCH_URN));
-    harness
-        .templates
-        .getSurfaces()
-        .put(
-            SearchTemplateSurfaces.BROWSE_ENTITIES, fulltextSeed("urn:li:searchTemplate:browseV2"));
-    harness
-        .templates
-        .getSurfaces()
-        .put(
-            SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
-            fulltextSeed(SEARCH_TEMPLATE_LINEAGE_URN));
-    harness
-        .templates
-        .getSurfaces()
-        .put(
-            SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE,
-            fulltextSeed(SEARCH_TEMPLATE_LINEAGE_URN));
   }
 
   private static Map<String, Map<String, Object>> fulltextSeed(String urn) {

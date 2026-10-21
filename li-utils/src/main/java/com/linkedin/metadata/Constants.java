@@ -581,7 +581,6 @@ public class Constants {
   public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
   public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
       "urn:li:searchTemplate:structuredExact";
-  public static final String SEARCH_TEMPLATE_LINEAGE_URN = "urn:li:searchTemplate:lineage";
   public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
   public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
   public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
@@ -592,13 +591,9 @@ public class Constants {
           "structured",
           "exact",
           "structuredExact",
-          "lineage",
           "identity",
           "search",
-          "searchLight",
-          "browseV2",
-          "browseV2List",
-          "browseV2Fulltext");
+          "searchLight");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";

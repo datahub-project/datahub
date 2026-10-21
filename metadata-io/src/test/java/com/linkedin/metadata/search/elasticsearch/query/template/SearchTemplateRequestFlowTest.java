@@ -586,8 +586,6 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     SearchTemplateFixtures.setShippedLimits(shipped);
     Map<String, Object> search = new HashMap<>();
     search.put("default", SEARCH_TEMPLATE_SEARCH_URN);
-    Map<String, Object> browse = new HashMap<>();
-    browse.put("default", "urn:li:searchTemplate:browseV2");
     Map<String, Object> structured = new HashMap<>();
     structured.put("default", SEARCH_TEMPLATE_STRUCTURED_URN);
     shipped.setDefaults(Map.of("fulltext", search, "structured", structured));
@@ -596,9 +594,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             SearchTemplateSurfaces.AGGREGATE_ENTITIES,
             Map.of("fulltext", search),
             SearchTemplateSurfaces.SCROLL_ENTITIES,
-            Map.of("fulltext", search),
-            SearchTemplateSurfaces.BROWSE_ENTITIES,
-            Map.of("fulltext", browse)));
+            Map.of("fulltext", search)));
     templates = shipped;
     try {
       ElasticSearchConfiguration elastic = v3Config();
@@ -616,19 +612,14 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       assertFalse(routeChain(aggregate, "orders").contains("urn:li:searchTemplate:light"));
 
       OperationContext browsing =
-          opContext
-              .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
-              .withResolvedSearchTemplate(null);
+          opContext.withSearchSurface(null).withResolvedSearchTemplate(null);
       assertEquals(
-          routeChain(browsing, "*"),
-          List.of("urn:li:searchTemplate:browseV2", "urn:li:searchTemplate:browseV2List"));
+          routeChain(browsing, "*"), List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_URN));
       assertEquals(
           routeChain(browsing, "orders"),
-          List.of("urn:li:searchTemplate:browseV2", "urn:li:searchTemplate:browseV2Fulltext"));
-      assertNull(
-          classpath.load(opContext, "urn:li:searchTemplate:browseV2List").getFunctionScore());
-      assertNull(
-          classpath.load(opContext, "urn:li:searchTemplate:browseV2Fulltext").getFunctionScore());
+          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
+      assertNotNull(classpath.load(opContext, SEARCH_TEMPLATE_LIST_URN).getFunctionScore());
+      assertNotNull(classpath.load(opContext, SEARCH_TEMPLATE_FULLTEXT_URN).getFunctionScore());
 
       SearchRequestHandler handler =
           SearchRequestHandler.getBuilder(
@@ -640,10 +631,10 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
               TEST_SEARCH_SERVICE_CONFIG);
       String star = handler.getQuery(browsing, "*", true).toString();
       assertTrue(star.contains("match_all"), star);
-      assertFalse(star.contains("function_score"), star);
+      assertTrue(star.contains("function_score"), star);
       String keyword = handler.getQuery(browsing, "orders", true).toString();
       assertTrue(keyword.contains("simple_query_string"), keyword);
-      assertFalse(keyword.contains("function_score"), keyword);
+      assertTrue(keyword.contains("function_score"), keyword);
 
       OperationContext counting =
           aggregate.withSearchFlags(
@@ -1028,9 +1019,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     String lineageQuery =
         handler
             .getQuery(
-                opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE),
-                "*",
-                true)
+                opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES), "*", true)
             .toString();
     String keywordQuery =
         handler

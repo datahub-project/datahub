@@ -24,10 +24,4 @@ public class SearchTemplateRolloutConfiguration {
   private int scrollEntitiesPercent = -1;
   private String aggregateEntities = "";
   private int aggregateEntitiesPercent = -1;
-  private String browseEntities = "";
-  private int browseEntitiesPercent = -1;
-  private String searchEntitiesLineage = "";
-  private int searchEntitiesLineagePercent = -1;
-  private String scrollEntitiesLineage = "";
-  private int scrollEntitiesLineagePercent = -1;
 }

@@ -7,7 +7,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -128,15 +127,10 @@ public class SearchTemplateBootstrapTest {
     Set<String> urns = SearchTemplateBootstrap.urns();
     assertTrue(urns.contains(STRUCTURED));
     assertTrue(urns.contains(ENTRY));
-    assertTrue(urns.contains("urn:li:searchTemplate:browseV2"));
-    assertTrue(urns.contains("urn:li:searchTemplate:browseV2List"));
-    assertTrue(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
-    assertNull(
-        loader.load(harness.opContext, "urn:li:searchTemplate:browseV2List").getFunctionScore());
-    assertNull(
-        loader
-            .load(harness.opContext, "urn:li:searchTemplate:browseV2Fulltext")
-            .getFunctionScore());
+    assertFalse(urns.contains("urn:li:searchTemplate:lineage"));
+    assertFalse(urns.contains("urn:li:searchTemplate:browseV2"));
+    assertFalse(urns.contains("urn:li:searchTemplate:browseV2List"));
+    assertFalse(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
     for (String urn : urns) {
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       SearchTemplateChecks.check(shipped, 1024);

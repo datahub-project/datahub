@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
-import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LINEAGE_URN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -46,14 +45,15 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
         """);
     fulltext.setParameters(new StringMap(Map.of("deprecatedBoost", "0.25")));
     store(SEARCH_TEMPLATE_FULLTEXT_URN, fulltext, 50L);
-    SearchTemplateProperties lineage = parentOf("Lineage", SEARCH_TEMPLATE_FULLTEXT_URN);
-    store(SEARCH_TEMPLATE_LINEAGE_URN, lineage, 20L);
+    String child = "urn:li:searchTemplate:mergeChild";
+    SearchTemplateProperties lineage = parentOf("Child", SEARCH_TEMPLATE_FULLTEXT_URN);
+    store(child, lineage, 20L);
 
     SearchTemplateRenderer renderer =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null);
     OperationContext bound =
         opContext.withResolvedSearchTemplate(
-            new ResolvedSearchTemplate(SEARCH_TEMPLATE_LINEAGE_URN, 50L, "fulltext", null));
+            new ResolvedSearchTemplate(child, 50L, "fulltext", null));
     String rendered =
         renderer.render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true).toString();
     assertTrue(rendered.contains("simple_query_string"));
@@ -62,14 +62,14 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     assertTrue(rendered.contains("multiply"));
     assertTrue(bound.getSearchContext().getResolvedSearchTemplate().getHighlightFields().isEmpty());
 
-    MergedSearchTemplate merged = loader.load(opContext, SEARCH_TEMPLATE_LINEAGE_URN);
+    MergedSearchTemplate merged = loader.load(opContext, child);
     assertTrue(merged.getChain().contains(SEARCH_TEMPLATE_FULLTEXT_URN));
     assertEquals(merged.getLastModified(), 50L);
     fulltext.setQuery("{ \"term\": { \"name\": \"{{query}}\" } }");
     store(SEARCH_TEMPLATE_FULLTEXT_URN, fulltext);
-    assertTrue(loader.load(opContext, SEARCH_TEMPLATE_LINEAGE_URN).getQuery().contains("bool"));
+    assertTrue(loader.load(opContext, child).getQuery().contains("bool"));
     expire();
-    assertTrue(loader.load(opContext, SEARCH_TEMPLATE_LINEAGE_URN).getQuery().contains("term"));
+    assertTrue(loader.load(opContext, child).getQuery().contains("term"));
   }
 
   @Test
