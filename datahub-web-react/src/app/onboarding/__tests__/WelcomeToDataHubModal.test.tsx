@@ -201,4 +201,32 @@ describe('WelcomeToDataHubModal slide advance', () => {
         expect(document.querySelector('video[src="/search.mp4"]')).not.toBeNull();
         expect(document.querySelector('video[src="/lineage.mp4"]')).toBeNull();
     });
+
+    it('keeps the prefetched video mounted when the next slide lands', async () => {
+        renderTour();
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        document.querySelectorAll('img').forEach((img) => fireEvent.load(img));
+
+        const search = document.querySelector('video[src="/search.mp4"]') as HTMLVideoElement;
+        expect(search).not.toBeNull();
+        Object.defineProperty(search, 'duration', { configurable: true, value: 10 });
+        Object.defineProperty(search, 'currentTime', { configurable: true, value: 9 });
+        fireEvent.timeUpdate(search);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        document.querySelectorAll('img').forEach((img) => fireEvent.load(img));
+
+        const lineage = document.querySelector('video[src="/lineage.mp4"]');
+        expect(lineage).not.toBeNull();
+
+        // slick fires afterChange from its own timer, outside a React event.
+        slideChange.current?.(1);
+
+        expect(document.querySelector('video[src="/lineage.mp4"]')).toBe(lineage);
+        expect(document.querySelector('video[src="/search.mp4"]')).toBeNull();
+    });
 });
