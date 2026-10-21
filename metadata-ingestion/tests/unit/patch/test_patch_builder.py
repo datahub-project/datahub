@@ -32,6 +32,7 @@ from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.specific.document import DocumentPatchBuilder
 from datahub.testing import mce_helpers
 
 TAG_PATCH_VALUE = {
@@ -215,6 +216,49 @@ def test_dataproduct_set_parent_data_product():
             "path": "/parentDataProduct",
             "value": parent_urn,
         }
+    ]
+
+
+def test_document_patch_builder_keys_related_entities_by_urn():
+    s3_dataset = "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/orders,PROD)"
+    patcher = (
+        DocumentPatchBuilder("urn:li:document:handbook")
+        .set_title("Handbook")
+        .add_related_asset(s3_dataset)
+        .remove_related_asset("urn:li:glossaryTerm:retired")
+        .add_related_document("urn:li:document:faq")
+        .remove_related_document("urn:li:document:old")
+        .remove_parent_document()
+    )
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    assert mcps[0].entityType == "document"
+    assert mcps[0].aspectName == "documentInfo"
+    payload = json.loads(mcps[0].aspect.value)  # type: ignore[union-attr]
+    assert payload == [
+        {"op": "add", "path": "/title", "value": "Handbook"},
+        {
+            "op": "add",
+            "path": "/relatedAssets/urn:li:dataset:(urn:li:dataPlatform:s3,bucket~1orders,PROD)",
+            "value": {"asset": s3_dataset},
+        },
+        {
+            "op": "remove",
+            "path": "/relatedAssets/urn:li:glossaryTerm:retired",
+            "value": {},
+        },
+        {
+            "op": "add",
+            "path": "/relatedDocuments/urn:li:document:faq",
+            "value": {"document": "urn:li:document:faq"},
+        },
+        {
+            "op": "remove",
+            "path": "/relatedDocuments/urn:li:document:old",
+            "value": {},
+        },
+        {"op": "remove", "path": "/parentDocument", "value": {}},
     ]
 
 

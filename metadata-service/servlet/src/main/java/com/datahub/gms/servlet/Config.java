@@ -49,6 +49,10 @@ public class Config extends HttpServlet {
           true,
           "patchCapable",
           true,
+          // documentInfo can be patched (DocumentInfoTemplate), so ingestion can update a
+          // Document without overwriting related entities that users added.
+          "documentInfoPatchCapable",
+          true,
           "timeZone",
           ZoneId.systemDefault().toString());
 

@@ -23,6 +23,9 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.document_info_patch import (
+    supports_document_info_patch,
+)
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_hierarchy import NotionHierarchyExtractor
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
@@ -317,6 +320,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             config=config.document_mapping,
             source_type="notion",
         )
+        self.patch_document_info = supports_document_info_patch(ctx.graph)
 
         # Initialize chunking/embedding sub-component
         from datahub.ingestion.source.unstructured.chunking_config import (
@@ -1843,7 +1847,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         document_urn = str(doc.urn)
 
         # Generate work units from Document entity
-        for wu in doc.as_workunits():
+        for wu in doc.as_workunits(patch_document_info=self.patch_document_info):
             yield wu
 
         # Generate embeddings inline using ChunkingSource.

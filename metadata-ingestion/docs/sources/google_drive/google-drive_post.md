@@ -78,7 +78,7 @@ When Google refuses a token, for example because domain-wide delegation is not a
 - Files in shared drives have no owners, so they are ingested without ownership.
 - Drive owners are added alongside any owners you assign in DataHub. When a Doc's Drive owner changes, only the owner this source added is removed.
 - Each run lists every folder in scope. Unchanged Docs are not exported again, and unchanged folders are not written again.
-- Re-ingesting a changed Doc or folder replaces its related assets and related documents, so links you add to them in DataHub are not kept.
+- Related assets and related documents you add to a Doc or folder in DataHub are kept when it is re-ingested. On older DataHub servers that cannot patch Documents, re-ingesting a changed Doc or folder replaces them.
 - Do not point two recipes at overlapping folders. With stateful ingestion enabled, one recipe can soft-delete Documents that the other still ingests.
 
 ### Troubleshooting

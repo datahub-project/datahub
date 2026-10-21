@@ -80,7 +80,11 @@ from datahub.sdk._shared import (
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.specific.document import DocumentPatchBuilder
 from datahub.utilities.urns.error import InvalidUrnError
+
+if TYPE_CHECKING:
+    from datahub.ingestion.api.workunit import MetadataWorkUnit
 
 # Type aliases for document-specific inputs
 RelatedAssetInputType = Union[str, Urn]
@@ -1262,3 +1266,66 @@ class Document(
     def is_external(self) -> bool:
         """Check if this is an external document reference."""
         return self.source_type == models.DocumentSourceTypeClass.EXTERNAL
+
+    def document_info_patch(self) -> DocumentPatchBuilder:
+        """Build a patch that writes this document's documentInfo field by field.
+
+        Unlike the full documentInfo upsert, the patch leaves related assets and
+        related documents that are not on this object in place, so links that
+        users added in DataHub survive re-ingestion. Related assets and documents
+        on this object are added by URN; ones removed at the source are not
+        removed from DataHub. Custom properties are replaced as a whole.
+
+        Requires a server that supports ``ServiceFeature.DOCUMENT_INFO_PATCH``.
+        """
+        info = self._ensure_document_info()
+        patch = DocumentPatchBuilder(self.urn)
+        if info.title is not None:
+            patch.set_title(info.title)
+        if info.source is not None:
+            patch.set_source(info.source)
+        patch.set_status(info.status)
+        patch.set_contents(info.contents)
+        patch.set_created(info.created)
+        patch.set_last_modified(info.lastModified)
+        patch.set_custom_properties(info.customProperties)
+        if info.parentDocument is not None:
+            patch.set_parent_document(info.parentDocument.document)
+        else:
+            patch.remove_parent_document()
+        for related_asset in info.relatedAssets or []:
+            patch.add_related_asset(related_asset.asset)
+        for related_document in info.relatedDocuments or []:
+            patch.add_related_document(related_document.document)
+        return patch
+
+    def as_workunits(
+        self, *, patch_document_info: bool = False
+    ) -> List[MetadataWorkUnit]:
+        """Convert the document's aspects to MetadataWorkUnits.
+
+        Args:
+            patch_document_info: Emit documentInfo as a patch (see
+                :meth:`document_info_patch`) instead of an upsert, keeping related
+                assets and related documents that users added in DataHub. Only
+                set this when the server supports
+                ``ServiceFeature.DOCUMENT_INFO_PATCH``.
+        """
+        if not patch_document_info or self._get_document_info() is None:
+            return super().as_workunits()
+
+        from datahub.ingestion.api.workunit import MetadataWorkUnit
+
+        workunits: List[MetadataWorkUnit] = []
+        for mcp in self.as_mcps():
+            if mcp.aspectName != models.DocumentInfoClass.ASPECT_NAME:
+                workunits.append(mcp.as_workunit())
+                continue
+            workunits.extend(
+                MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(patch_mcp),
+                    mcp_raw=patch_mcp,
+                )
+                for patch_mcp in self.document_info_patch().build()
+            )
+        return workunits

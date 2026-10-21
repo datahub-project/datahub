@@ -603,6 +603,37 @@ if doc:
 </TabItem>
 </Tabs>
 
+### Re-push Without Overwriting Links Added in DataHub
+
+Pushing a document again replaces its whole `documentInfo`, which removes related assets and related documents
+that users linked to it in DataHub. If you push documents from another system on a schedule, emit
+`documentInfo` as a patch instead. The patch updates the title, text, status, source, custom properties, and
+parent, and adds the related assets and documents you set, leaving the others in place.
+
+```python
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.sdk import Document
+from datahub.utilities.server_config_util import ServiceFeature
+
+graph = get_default_graph()
+# Older servers cannot patch documentInfo; fall back to replacing it.
+patch_document_info = graph.server_config.supports_feature(
+    ServiceFeature.DOCUMENT_INFO_PATCH
+)
+
+doc = Document.create_external_document(
+    id="notion-team-handbook",
+    title="Team Handbook",
+    platform="urn:li:dataPlatform:notion",
+    external_url="https://notion.so/team-handbook",
+    text="Updated handbook content...",
+)
+for workunit in doc.as_workunits(patch_document_info=patch_document_info):
+    graph.emit(workunit.metadata)
+```
+
+The Confluence, Notion, and GitHub document sources do this automatically when the server supports it.
+
 ## End-to-End: Push, Index, and Verify
 
 This workflow covers pushing pre-refined documents, triggering semantic indexing, and confirming
