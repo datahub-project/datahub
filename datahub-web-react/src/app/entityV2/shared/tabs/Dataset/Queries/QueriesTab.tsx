@@ -5,9 +5,9 @@ import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
-import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import {
     addQueryToListQueriesCache,
     removeQueryFromListQueriesCache,
@@ -22,6 +22,11 @@ import Loading from '@app/shared/Loading';
 import usePrevious from '@app/shared/usePrevious';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
+
+const QueryBuilderModal = lazyProfileComponent(
+    'QueryBuilderModal',
+    () => import('@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal'),
+);
 
 const Content = styled.div<{ $backgroundColor: string }>`
     height: 100%;

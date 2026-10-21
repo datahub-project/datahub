@@ -259,6 +259,7 @@ def get_sleep_info() -> Tuple[int, int]:
 
 def with_test_retry(
     max_attempts: Optional[int] = None,
+    retry: Optional[tenacity.retry_base] = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     Decorator that retries with environment-based sleep settings from get_sleep_info().
@@ -269,6 +270,8 @@ def with_test_retry(
     Args:
         max_attempts: Optional maximum number of retry attempts. If not provided,
                      uses DATAHUB_TEST_SLEEP_TIMES environment variable (default 3).
+        retry: Optional tenacity retry condition. If not provided, retries on any
+               exception.
 
     Usage:
         @with_test_retry()
@@ -286,6 +289,7 @@ def with_test_retry(
     return tenacity.retry(
         stop=tenacity.stop_after_attempt(retry_count),
         wait=tenacity.wait_fixed(sleep_sec),
+        retry=retry if retry is not None else tenacity.retry_if_exception_type(),
         reraise=True,
     )
 

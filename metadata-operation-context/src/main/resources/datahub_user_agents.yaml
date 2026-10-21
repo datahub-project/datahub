@@ -8,17 +8,20 @@ config:
         - 'agent.product.name="DataHub-Client"'
         - 'agent.(1)product.(1)comments.(1)entry="bot"'
       extract:
-        - 'DeviceClass : 200000:"Desktop"'
-        - 'AgentClass : 200000:"robot"'
-        - 'AgentName : 200000 :agent.(1)product.(1)comments.(2)entry'
+        - 'DeviceClass : 600000:"Desktop"'
+        - 'AgentClass : 600000:"robot"'
+        - 'AgentName : 600000 :agent.(1)product.(1)comments.(2)entry'
   - matcher:
       require:
         - 'agent.product.name="DataHub-Client"'
       extract:
         # Prefer Desktop over Robot so AgentName comes from comments.(2).
-        - 'DeviceClass : 1000:"Desktop"'
-        - 'AgentClass : 1000 :agent.(1)product.(1)comments.(1)entry'
-        - 'AgentName : 1000 :agent.(1)product.(1)comments.(2)entry'
+        # The Python client appends the requests library's own agent
+        # ("... python-requests/2.32.3"), which YAUAA classifies as Robot at confidence
+        # 400011; stay above it so the mode in comments.(1) wins.
+        - 'DeviceClass : 500000:"Desktop"'
+        - 'AgentClass : 500000 :agent.(1)product.(1)comments.(1)entry'
+        - 'AgentName : 500000 :agent.(1)product.(1)comments.(2)entry'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0.0 (sdk; datahub; 1.0.1)'
@@ -47,6 +50,13 @@ config:
         DeviceClass: 'Desktop'
         AgentClass: 'cli'
         AgentName: 'datahub/claude-code'
+  - test:
+      input:
+        user_agent_string: 'DataHub-Client/1.0 (sdk; datahub/unknown; 1.0.1) python-requests/2.32.3'
+      expected:
+        DeviceClass: 'Desktop'
+        AgentClass: 'sdk'
+        AgentName: 'datahub/unknown'
   - test:
       input:
         user_agent_string: 'DataHub-Client/1.0 (ingestion; airflow-plugin/github-actions; 1.0.1)'
