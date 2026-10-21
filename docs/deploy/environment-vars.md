@@ -516,17 +516,30 @@ URI, rather than deferring the error to the first query.
 | `ELASTICSEARCH_COMPONENT_CLUSTER_USAGE`           | `primary` | Cluster hosting usage event indices                    | GMS, MAE Consumer, MCE Consumer, System Update |
 
 Search V2 and Search V3 route independently, so a dual-write migration can keep both families on
-one cluster or split them. Reading V3 still requires V3 writes to be enabled
-(`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED` plus `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`);
-routing V3 to a second cluster does not by itself change which family is read. Semantic (kNN)
-search has its own read flag, `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` (default
-`false`): with V3 writes on, it reads document vectors from the V3 document index on the Search V3
-cluster instead of the semantic indices, independent of the keyword read flag. It needs OpenSearch
-3.5+ or Elasticsearch 8.18+ on the Search V3 cluster; services given it refuse to start on older OpenSearch.
-Hybrid search has its own flag too, `ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED` (default
-`false`): it reranks the documents among full-text keyword results with their V3 vectors. Services
-given it refuse to start unless V3 keyword and semantic reads are on, semantic search is enabled
-with an embedding provider, and the active embedding model has a mapping.
+one cluster or split them. Pointing Search V3 at a second cluster does not by itself change which
+family is read.
+
+#### Search V3 feature switches
+
+Each Search V3 feature has its own switch. The switches default off. The V2 entity index stays on,
+so keyword search keeps using V2 until an operator turns a V3 read on. A change takes effect on
+restart.
+
+| Environment Variable                                  | Default | Description                                                                                                                                                                                                                                               | Components                                     |
+| ----------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED`               | `true`  | Serve and maintain Search V2 entity indices (`*index_v2`).                                                                                                                                                                                                | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED`               | `false` | Write entity documents to Search V3 indices (`*index_v3`). Off ignores keyword read, semantic read, and hybrid, and search stays on V2.                                                                                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`  | `false` | Serve keyword search, browse, scroll, and lineage search from V3. Off, while V2 is still on, keeps those reads on V2. V3 writes can stay on.                                                                                                              | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` | `false` | Read document vectors from the V3 document index instead of the V2 semantic indices. Independent of keyword read. Requires V3 write. Needs OpenSearch 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster. Refuses to start on older OpenSearch.         | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED`   | `false` | Rerank full-text keyword results with V3 document vectors. Off leaves keyword ranking unchanged. On refuses to start unless V3 write, keyword read, semantic read, and semantic search are on, with an embedding provider and the active model's mapping. | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED`               | `false` | Enable semantic search. See [Semantic Search Configuration](../how-to/semantic-search-configuration.md).                                                                                                                                                  | GMS, MAE Consumer, MCE Consumer, System Update |
+| `SEARCH_V3_TEMPLATES_ENABLED`                         | `false` | Rank keyword search with Search V3 query templates. Off keeps the Java query builder even when keyword read is on. On serves templates only when keyword reads use V3. See [Search V3 query templates](../how/search.md#search-v3-query-templates).       | GMS                                            |
+
+With `ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED` set to `false` and V3 write on, keyword reads use V3
+even when `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED` is `false`, because no V2 index
+remains. Semantic search behavior is in
+[Semantic Search Configuration](../how-to/semantic-search-configuration.md#search-v3). Template
+ranking is in [Search](../how/search.md#search-v3-query-templates).
 
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 
