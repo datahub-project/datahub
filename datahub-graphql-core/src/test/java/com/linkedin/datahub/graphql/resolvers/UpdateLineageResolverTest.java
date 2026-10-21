@@ -194,6 +194,37 @@ public class UpdateLineageResolverTest {
             any());
   }
 
+  // Removing the edge to a hard-deleted repository must succeed: the removal is committed on the
+  // dataFlow, and a missing upstream that is only being removed has nothing left to update.
+  @Test
+  public void testRemoveEdgeToDeletedRepositorySucceeds() throws Exception {
+    List<LineageEdge> edgesToRemove =
+        Collections.singletonList(createLineageEdge(DATAFLOW_URN_1, REPOSITORY_URN_1));
+    mockInputAndContext(new ArrayList<>(), edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    // The dataFlow exists; the repository has been hard-deleted.
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(
+            args ->
+                ((Collection<com.linkedin.common.urn.Urn>) args.getArgument(1))
+                    .stream()
+                        .filter(urn -> !urn.toString().equals(REPOSITORY_URN_1))
+                        .collect(java.util.stream.Collectors.toSet()));
+
+    assertTrue(resolver.get(_mockEnv).get());
+
+    Mockito.verify(_lineageService)
+        .updateDataFlowUpstreamLineage(
+            any(),
+            eq(com.linkedin.common.urn.UrnUtils.getUrn(DATAFLOW_URN_1)),
+            eq(Collections.emptyList()),
+            eq(
+                Collections.singletonList(
+                    com.linkedin.common.urn.UrnUtils.getUrn(REPOSITORY_URN_1))),
+            any());
+  }
+
   @Test
   public void testFailUpdateLineageNoPermissions() throws Exception {
     List<LineageEdge> edgesToAdd =
