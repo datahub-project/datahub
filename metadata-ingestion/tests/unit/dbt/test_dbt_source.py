@@ -1,3 +1,4 @@
+import dataclasses
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 from unittest import mock
@@ -2351,6 +2352,13 @@ def _make_test_node(
             id="core-datetime-arg-generated",
         ),
         pytest.param(
+            "not_null_orders_id",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.v0",
+            False,
+            id="core-version-zero-model-generated",
+        ),
+        pytest.param(
             "not_null_orders_vbeta_id",
             DBTTest("not_null", "id", {"column_name": "id"}),
             "model.pkg.orders.vbeta",
@@ -3291,6 +3299,15 @@ def test_create_test_entity_mcps_respects_note_ownership():
     _graph_with_note(source, note, "other-writer")
     assert _note_mcps(source, test_node, model_node) == []
 
+    # Last edited by a user, even though the write carries this pipeline's name -> left alone.
+    user_note = AssertionNoteClass(
+        content="Page the owning team.",
+        lastModified=AuditStampClass(time=2, actor="urn:li:corpuser:jdoe"),
+    )
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, user_note, "dbt-source")
+    assert _note_mcps(source, test_node, model_node) == []
+
     # No pipeline name -> an existing note can't be attributed, so it is left alone,
     # but a note is still created where none exists.
     source = create_mocked_dbt_source()
@@ -3340,6 +3357,25 @@ def test_create_test_entity_mcps_server_check_failure_warns_only_with_descriptio
         for w in source.report.warnings
     )
     assert warned is has_description
+
+
+@pytest.mark.parametrize(
+    ("dbt_version", "reads_notes"),
+    [("1.8.7", False), ("1.9.0b1", True), ("1.10.2", True), ("unknown", True)],
+)
+def test_create_test_entity_mcps_skips_note_reads_before_dbt_1_9(
+    dbt_version: str, reads_notes: bool
+) -> None:
+    test_node, model_node = _described_test_with_result()
+    source = create_mocked_dbt_source()
+    source._current_project = dataclasses.replace(
+        source._project, artifact_props={"manifest_version": dbt_version}
+    )
+    graph = _graph_with_note(source, None, "dbt-source")
+
+    _note_mcps(source, test_node, model_node)
+
+    assert graph.get_entities.called is reads_notes
 
 
 def test_create_freshness_assertion_mcps_does_not_copy_source_owner():

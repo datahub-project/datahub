@@ -55,7 +55,7 @@ _REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES = {
 
 _REQUIRED_VERSION_ASSERTION_NOTE_ASPECT = {
     "cloud": (1, 0, 0, 0),
-    "core": (1, 8, 0, 0),
+    "core": (1, 7, 0, 1),
 }
 
 

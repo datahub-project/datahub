@@ -366,28 +366,37 @@ def _synthesize_generic_test_names(
     return _GenericTestNames(short_name=full_name, full_name=full_name)
 
 
-def _generic_test_target(
+def _generic_test_targets(
     namespace: str, test_name: str, upstream_unique_id: str
-) -> Optional[_GenericTestTarget]:
+) -> List[_GenericTestTarget]:
+    """The target(s) dbt may have built the test name from (empty if unknown)."""
     parts = upstream_unique_id.split(".")
     if not test_name or len(parts) < 3:
-        return None
+        return []
     if parts[0] == "source":
         if len(parts) < 4:
-            return None
+            return []
         test_type = f"source_{test_name}"
-        target_name = f"{parts[2]}_{parts[3]}"
+        target_names = [f"{parts[2]}_{parts[3]}"]
     else:
         test_type = test_name
         # A versioned model's unique id is `model.<pkg>.<name>.v<version>`, where the
         # version may itself contain dots (v1.5); dbt names the target `<name>_v<version>`.
         # dbt node names cannot contain dots, so everything after the name is the version.
-        target_name = (
-            "_".join([parts[2], ".".join(parts[3:])]) if parts[3:] else parts[2]
-        )
+        version_part = ".".join(parts[3:])
+        if not version_part:
+            target_names = [parts[2]]
+        elif version_part == "v0":
+            # dbt omits the suffix for a falsy version, so accept both spellings.
+            target_names = [parts[2], f"{parts[2]}_{version_part}"]
+        else:
+            target_names = [f"{parts[2]}_{version_part}"]
     if namespace:
         test_type = f"{namespace}_{test_type}"
-    return _GenericTestTarget(test_type=test_type, target_name=target_name)
+    return [
+        _GenericTestTarget(test_type=test_type, target_name=target_name)
+        for target_name in target_names
+    ]
 
 
 @dataclass(frozen=True)
@@ -418,11 +427,12 @@ def _matches_generated_name(
 ) -> Optional[bool]:
     if test_info.kw_args:
         namespace, _, test_name = test_info.qualified_test_name.rpartition(".")
-        target = _generic_test_target(namespace, test_name, upstream_unique_id)
-        if target is None:
+        targets = _generic_test_targets(namespace, test_name, upstream_unique_id)
+        if not targets:
             return None
         return any(
             node_name in (names.short_name, names.full_name)
+            for target in targets
             for names in (
                 _synthesize_generic_test_names(target, test_info.kw_args),
                 _synthesize_generic_test_names(
@@ -433,13 +443,13 @@ def _matches_generated_name(
 
     # dbt Cloud does not expose test kwargs, so only the generated prefix can be
     # checked. A generated full name is always `<identifier>_<args>`.
-    targets: List[_GenericTestTarget] = []
-    for candidate in _cloud_test_name_candidates(test_info.qualified_test_name):
-        target = _generic_test_target(
+    targets = [
+        target
+        for candidate in _cloud_test_name_candidates(test_info.qualified_test_name)
+        for target in _generic_test_targets(
             candidate.namespace, candidate.test_name, upstream_unique_id
         )
-        if target is not None:
-            targets.append(target)
+    ]
     if not targets:
         return None
     return any(

@@ -28,6 +28,7 @@ from typing import (
 import dateutil.parser
 import more_itertools
 import pydantic
+from packaging import version as packaging_version
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
@@ -200,6 +201,8 @@ _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
 ]
 _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE = 200
 _ASSERTION_NOTE_PREFETCH_CHUNK_SIZE = 200
+# dbt added a top-level `description:` on data tests in 1.9.
+_DBT_TEST_DESCRIPTION_MIN_VERSION = (1, 9)
 
 
 # (database, schema) as spelled in the dbt manifest, folded the same way the
@@ -2222,6 +2225,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         existing_notes = (
             self._prefetch_assertion_notes(test_nodes, upstreams_by_test)
             if self.config.entities_enabled.can_emit_test_definitions
+            and self._project_supports_test_descriptions()
             and self._can_emit_assertion_notes(test_nodes)
             else None
         )
@@ -2348,6 +2352,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             note.lastModified.actor == mce_builder.SYSTEM_ACTOR
             and self._written_by_this_pipeline(system_metadata)
         )
+
+    def _project_supports_test_descriptions(self) -> bool:
+        """False when the manifest's dbt version predates test `description:` (1.9).
+
+        Such a project cannot have test descriptions, so the note reads are skipped.
+        dbt Cloud does not record the dbt version in the project's artifact props,
+        so there (and for any unparseable version) this returns True.
+        """
+        dbt_version = self._project.artifact_props.get("manifest_version")
+        if not dbt_version:
+            return True
+        try:
+            release = packaging_version.parse(dbt_version).release
+        except packaging_version.InvalidVersion:
+            return True
+        return release[:2] >= _DBT_TEST_DESCRIPTION_MIN_VERSION
 
     def _can_emit_assertion_notes(self, test_nodes: List[DBTNode]) -> bool:
         """Whether assertion notes can be emitted for this run.

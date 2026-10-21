@@ -326,8 +326,8 @@ def test_supports_feature_semantic_model_entities_versions(sample_config):
 @pytest.mark.parametrize(
     ("server_env", "version", "expected"),
     [
-        ("core", "v1.7.0.1", False),
-        ("core", "v1.8.0rc1", True),
+        ("core", "v1.7.0", False),
+        ("core", "v1.7.0.1", True),
         ("cloud", "v0.3.16", False),
         ("cloud", "v1.0.0-cloud", True),
     ],
