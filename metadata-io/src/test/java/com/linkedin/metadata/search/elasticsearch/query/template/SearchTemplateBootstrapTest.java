@@ -175,6 +175,25 @@ public class SearchTemplateBootstrapTest {
     assertFalse(error.getMessage().contains("leaf clauses"));
   }
 
+  /** A quoted phrase of four or more tokens matches a description that contains every term. */
+  @Test
+  public void testQuotedLongPhraseMatchesDescription() throws Exception {
+    SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    JsonNode phrase =
+        SearchTemplateFixtures.JSON.readTree(
+            render(
+                loader, "urn:li:searchTemplate:exact", "\"basic information about a customer\""));
+    JsonNode description = descriptionMatch(phrase);
+    assertEquals(description.path("query").asText(), "basic information about a customer");
+    assertEquals(description.path("operator").asText().toLowerCase(Locale.ROOT), "and");
+    assertEquals(description.path("boost").asDouble(), 100.0d);
+
+    JsonNode name =
+        SearchTemplateFixtures.JSON.readTree(
+            render(loader, "urn:li:searchTemplate:exact", "\"pet_profiles\""));
+    assertFalse(name.toString().contains("description"));
+  }
+
   /** A compound synonym requires every word. The original one-token query stays lenient. */
   @Test
   public void testCompoundSynonymRequiresEveryToken() throws Exception {
@@ -203,6 +222,19 @@ public class SearchTemplateBootstrapTest {
     return new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
         .render(bound, List.of(TestEntitySpecBuilder.getSpec()), query, true)
         .toString();
+  }
+
+  private static JsonNode descriptionMatch(JsonNode node) {
+    for (JsonNode match : node.findValues("match")) {
+      var fields = match.fields();
+      while (fields.hasNext()) {
+        var field = fields.next();
+        if (field.getKey().contains("description")) {
+          return field.getValue();
+        }
+      }
+    }
+    throw new AssertionError(node.toString());
   }
 
   private static void assertClause(

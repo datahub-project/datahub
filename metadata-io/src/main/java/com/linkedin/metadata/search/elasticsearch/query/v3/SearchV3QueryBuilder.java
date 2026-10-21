@@ -8,13 +8,13 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
@@ -23,7 +23,6 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseB
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPropertySearchCatalog;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredQueryRouting;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
-import com.linkedin.metadata.search.elasticsearch.query.template.CustomSearchMigration;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDialects;
@@ -145,8 +144,6 @@ public class SearchV3QueryBuilder {
     }
 
     SearchFlags flags = opContext.getSearchContext().getSearchFlags();
-    QueryConfiguration matchedCustomQuery = keywordQueryBuilder.matchingQueryConfiguration(query);
-    CustomSearchMigration.note(opContext, flags, matchedCustomQuery);
 
     List<SearchFieldConfig> base =
         keywordQueryBuilder.templateBaseFieldConfigs(opContext, entitySpecs).stream()
@@ -361,8 +358,7 @@ public class SearchV3QueryBuilder {
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
     List<String> lightFields = shape.nameOnly ? identityFields : analyzed;
     SearchFieldResolver fieldResolver =
-        new SearchFieldResolver(
-            V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs));
+        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, analyzed);
     context.put(
@@ -934,8 +930,7 @@ public class SearchV3QueryBuilder {
       }
     }
     SearchFieldResolver resolver =
-        new SearchFieldResolver(
-            V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs));
+        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
     Optional<QueryBuilder> built =
         StructuredQueryRouting.build(query, shared, properties, resolver);
     return built.map(QueryBuilder::toString).orElse("{\"match_none\":{}}");

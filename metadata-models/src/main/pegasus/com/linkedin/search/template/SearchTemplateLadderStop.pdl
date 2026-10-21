@@ -13,8 +13,10 @@ record SearchTemplateLadderStop {
 
   /**
    * Keep an empty rung when the query has this shape. One of {@code scoreSort}, {@code pageSize},
-   * {@code notColumnFilter}, {@code singleTerm}, {@code multiWord}, {@code dotted},
-   * {@code spacelessIdentifier}, or {@code identity}.
+   * {@code columnFilter}, {@code singleTerm}, {@code multiWord}, {@code dotted},
+   * {@code spacelessIdentifier}, {@code identity}, or {@code longQuery}. A single leading
+   * {@code -} inverts the predicate. {@code columnFilter} is a column constraint.
+   * {@code longQuery} is four or more tokens after alphanumeric splitting.
    */
   emptyWhen: optional string
 }

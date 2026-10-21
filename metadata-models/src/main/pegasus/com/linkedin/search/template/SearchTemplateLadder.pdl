@@ -12,6 +12,7 @@ import com.linkedin.common.Urn
 record SearchTemplateLadder {
   /**
    * Predicates that must all match before this template is searched. Empty means always attempt.
+   * A single leading {@code -} inverts a predicate.
    */
   select: optional array[string]
 

@@ -46,6 +46,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettin
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
@@ -183,8 +184,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
     boolean readV3 = EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex());
     v3SearchFieldResolver =
         readV3
-            ? new SearchFieldResolver(
-                V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs))
+            ? V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs)
+                .resolver()
             : null;
     v3SearchQueryBuilder =
         readV3
@@ -794,7 +795,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
    */
   @Nonnull
   private List<String> expandStoredParsedNames(@Nonnull final List<String> fields) {
-    final Map<String, List<String>> stored = V3SearchFields.storedParsedNameFields(entitySpecs);
+    final Map<String, List<String>> stored =
+        V3SearchFieldModel.of(entitySpecs).storedParsedNameFields();
     if (stored.isEmpty()) {
       return fields;
     }
@@ -912,9 +914,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList =
         getRestrictedResults(
-            opContext,
-            searchResponse,
-            hit -> templateRequests.matchFields(opContext, hit, template));
+            opContext, searchResponse, templateRequests.matchedFieldsOf(opContext, template));
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
     return new SearchResult()
@@ -976,7 +976,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
         keepAlive,
         size,
         supportsPointInTime,
-        hit -> templateRequests.matchFields(opContext, hit, template));
+        templateRequests.matchedFieldsOf(opContext, template));
   }
 
   private ScrollResult extractScrollResult(
@@ -1136,14 +1136,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       return hit -> SearchHitMatches.EMPTY;
     }
     final MatchedFields matcher = new MatchedFields(input, v3MinWordLength);
-    final Map<String, String> labels = new HashMap<>();
-    V3SearchFields.storedParsedNameFields(entitySpecs)
-        .forEach(
-            (label, paths) -> {
-              for (String path : paths) {
-                labels.putIfAbsent(path, label);
-              }
-            });
+    final Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
     return hit -> {
       final Map<String, Object> source = hit.getSourceAsMap();
       if (source == null) {

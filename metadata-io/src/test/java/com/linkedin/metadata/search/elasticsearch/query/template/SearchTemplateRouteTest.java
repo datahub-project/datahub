@@ -183,6 +183,14 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         SearchTemplateLadderPredicates.stopMatches(light.getLadder(), 0, "a__b_c", null, null, 10));
     assertFalse(
         SearchTemplateLadderPredicates.stopMatches(light.getLadder(), 0, "orders", null, null, 10));
+    assertTrue(
+        SearchTemplateLadderPredicates.selectMatches(light.getLadder(), "orders", null, null, 10));
+    assertTrue(
+        SearchTemplateLadderPredicates.selectMatches(
+            light.getLadder(), "customer orders", null, null, 10));
+    assertFalse(
+        SearchTemplateLadderPredicates.selectMatches(
+            light.getLadder(), "one two three four", null, null, 10));
 
     SearchV3QueryBuilder builder =
         new SearchV3QueryBuilder(classpath, new SearchConfiguration(), null);
@@ -192,6 +200,31 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertFalse(
         render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "orderz_20240101").contains("orderz~"));
     assertTrue(render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "custmers").contains("custmers~"));
+  }
+
+  @Test
+  public void testLongQueryScoresAPartialDescriptionMatch() {
+    SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    SearchV3QueryBuilder builder =
+        new SearchV3QueryBuilder(classpath, new SearchConfiguration(), null);
+    String longQuery = "one two three four";
+    String fulltext = render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, longQuery);
+    assertTrue(fulltext.contains("\"boost\" : 100.0"), fulltext);
+    assertTrue(fulltext.contains("\"minimum_should_match\" : \"25%\""), fulltext);
+    assertTrue(fulltext.contains("\"operator\" : \"OR\""), fulltext);
+    assertTrue(fulltext.contains("\"boost\" : 10.0"), fulltext);
+
+    String shortQuery = render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "orders");
+    assertFalse(shortQuery.contains("\"minimum_should_match\" : \"25%\""), shortQuery);
+    assertFalse(shortQuery.contains("\"boost\" : 100.0"), shortQuery);
+
+    String light = render(builder, SEARCH_TEMPLATE_LIGHT_URN, longQuery);
+    assertTrue(light.contains("\"boost\" : 100.0"), light);
+    assertFalse(light.contains("\"minimum_should_match\" : \"25%\""), light);
+
+    String browse = render(builder, "urn:li:searchTemplate:browseV2Fulltext", longQuery);
+    assertTrue(browse.contains("\"minimum_should_match\" : \"25%\""), browse);
+    assertTrue(browse.contains("\"boost\" : 100.0"), browse);
   }
 
   private String render(SearchV3QueryBuilder builder, String template, String query) {
