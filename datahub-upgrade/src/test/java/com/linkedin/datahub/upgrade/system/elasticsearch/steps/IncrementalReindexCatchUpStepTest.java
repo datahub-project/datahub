@@ -1531,8 +1531,7 @@ public class IncrementalReindexCatchUpStepTest {
                         PartitionedStream.<EbeanAspectV2>builder()
                             .delegateStream(rows.stream())
                             .build()));
-    when(entityService.alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+    when(entityService.alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class)))
         .thenReturn(Pair.of(CompletableFuture.completedFuture(null), true));
 
     SystemAspect mockAspect = createMockSystemAspect("urn:li:dataset:ds0");
@@ -1554,8 +1553,7 @@ public class IncrementalReindexCatchUpStepTest {
         converted.stream().map(a -> a.getKey().getUrn()).toList(),
         List.of("urn:li:dataset:ds0", "urn:li:dataset:ds2"));
     verify(entityService, times(2))
-        .alwaysProduceMCLAsync(
-            any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+        .alwaysProduceMCLAsync(any(), any(), any(), any(MetadataChangeLog.class));
   }
 
   private PartitionedStream<EbeanAspectV2> streamWithPagedAspects(int totalAspects, int pageSize) {

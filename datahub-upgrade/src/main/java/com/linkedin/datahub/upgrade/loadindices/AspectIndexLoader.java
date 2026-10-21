@@ -55,6 +55,7 @@ public class AspectIndexLoader {
 
   /** Rows per partition when materialising the tail of one entity; far above any aspect count. */
   private static final int REST_OF_ENTITY_PARTITION = 1000;
+
   private static final UnknownDataGuard UNKNOWN_DATA =
       UnknownDataGuard.forSite(AspectIndexLoader.class, "row (left unindexed)");
 

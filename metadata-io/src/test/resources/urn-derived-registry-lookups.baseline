@@ -20,7 +20,9 @@ metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/sideeffects/Ve
 metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/sideeffects/VersionSetSideEffect.java 2
 metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/validation/VersionPropertiesValidator.java 1
 metadata-io/src/main/java/com/linkedin/metadata/graph/cache/snapshot/EntityGraphSnapshotBuilder.java 1
+metadata-io/src/main/java/com/linkedin/metadata/search/elasticsearch/index/entity/v3/UrnSearchIdentity.java 1
 metadata-io/src/main/java/com/linkedin/metadata/search/transformer/SearchDocumentTransformer.java 1
+metadata-io/src/main/java/com/linkedin/metadata/service/CatchUpBatchRebuilder.java 1
 metadata-io/src/main/java/com/linkedin/metadata/structuredproperties/hooks/PropertyDefinitionDeleteSideEffect.java 1
 metadata-io/src/main/java/com/linkedin/metadata/timeline/TimelineServiceImpl.java 1
 metadata-jobs/mae-consumer/src/main/java/com/linkedin/metadata/kafka/hook/HookUtils.java 1
@@ -33,6 +35,7 @@ metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/util/Re
 metadata-service/openapi-servlet/src/main/java/io/datahubproject/openapi/v3/controller/EntityController.java 2
 metadata-service/restli-client/src/main/java/com/linkedin/entity/client/RestliEntityClient.java 1
 metadata-service/restli-servlet-impl/src/main/java/com/linkedin/metadata/resources/entity/EntityResource.java 1
+metadata-service/services/src/main/java/com/linkedin/metadata/entity/DeleteEntityService.java 2
 metadata-service/services/src/main/java/com/linkedin/metadata/graph/GraphIndexUtils.java 2
 metadata-utils/src/main/java/com/linkedin/metadata/utils/EntityApiUtils.java 1
 metadata-utils/src/main/java/com/linkedin/metadata/utils/EntityKeyUtils.java 1
