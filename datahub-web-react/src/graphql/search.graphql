@@ -714,7 +714,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                         ...siblingSearchDatasetFields
                         structuredProperties {
                             properties {
-                                ...structuredPropertiesFields
+                                ...structuredPropertiesBadgeFields
                             }
                         }
                     }
@@ -726,7 +726,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
     }
@@ -852,7 +852,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         browsePathV2 {
@@ -935,7 +935,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -987,7 +987,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         subTypes {
@@ -1052,7 +1052,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1094,7 +1094,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1111,7 +1111,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1138,7 +1138,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...domainEntitiesFields
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1192,7 +1192,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1228,7 +1228,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1239,7 +1239,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...nonRecursiveMLFeature
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
     }
@@ -1250,7 +1250,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
     }
@@ -1275,7 +1275,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         properties {
@@ -1306,7 +1306,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         properties {
@@ -1331,7 +1331,7 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...dataProductSearchFields
         structuredProperties {
             properties {
-                ...structuredPropertiesFields
+                ...structuredPropertiesBadgeFields
             }
         }
         institutionalMemory {
@@ -1717,7 +1717,7 @@ fragment entityField on SchemaFieldEntity {
     fieldPath
     structuredProperties {
         properties {
-            ...structuredPropertiesFields
+            ...structuredPropertiesBadgeFields
         }
     }
     businessAttributes {

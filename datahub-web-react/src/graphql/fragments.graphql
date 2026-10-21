@@ -172,16 +172,9 @@ fragment glossaryTerm on GlossaryTerm {
     urn
     name
     type
-    hierarchicalName
     properties {
         name
         description
-        definition
-        termSource
-        customProperties {
-            key
-            value
-        }
     }
     displayProperties {
         ...displayPropertiesFields
@@ -1799,6 +1792,61 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
         ...structuredPropertyFields
+    }
+    values {
+        ... on StringValue {
+            stringValue
+        }
+        ... on NumberValue {
+            numberValue
+        }
+    }
+    valueEntities {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+    associatedUrn
+    attribution {
+        ...attributionFields
+    }
+}
+
+# Structured properties attached to search / preview results. Those surfaces only render the
+# asset badge (StructuredPropertyBadge / filterForAssetBadge), so this omits the definition
+# metadata that the profile Properties tab needs from structuredPropertiesFields.
+fragment structuredPropertiesBadgeFields on StructuredPropertiesEntry {
+    structuredProperty {
+        urn
+        type
+        exists
+        definition {
+            displayName
+            qualifiedName
+            valueType {
+                urn
+                type
+            }
+            allowedPlatforms {
+                urn
+                type
+            }
+            allowedValues {
+                value {
+                    ... on StringValue {
+                        stringValue
+                    }
+                    ... on NumberValue {
+                        numberValue
+                    }
+                }
+                description
+            }
+        }
+        settings {
+            isHidden
+            showAsAssetBadge
+        }
     }
     values {
         ... on StringValue {
