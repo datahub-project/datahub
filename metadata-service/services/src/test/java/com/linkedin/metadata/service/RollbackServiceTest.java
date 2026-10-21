@@ -231,25 +231,84 @@ public class RollbackServiceTest {
   @Test
   public void testRollbackReportsRowsLeftInPlace() throws AuthenticationException {
     // The run is still marked rolled back, so the response says how many rows it left for the
-    // newer version.
+    // newer version. A hard rollback deletes the entities the run created, and with them their
+    // rows of aspects this registry doesn't know, so only the others are left.
     List<AspectRowSummary> knownRows = createTestAspectRows(true);
+    List<AspectRowSummary> rows = withRowsFromNewerVersion(knownRows);
+    stubRollback(rows, true, knownRows);
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
+
+    assertEquals(response.getAspectsReverted(), 4);
+    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(2));
+  }
+
+  @Test
+  public void testSoftRollbackLeavesUnknownRowsOfEntitiesItHides() throws AuthenticationException {
+    // A soft rollback only marks the run's entities removed, so all their rows stay.
+    List<AspectRowSummary> knownRows = createTestAspectRows(true);
+    List<AspectRowSummary> rows = withRowsFromNewerVersion(knownRows);
+    stubRollback(rows, false, createTestAspectRows(false));
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, false, null);
+
+    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(3));
+  }
+
+  @Test
+  public void testHardDryRunDoesNotCountUnknownRowsOfEntitiesItWouldDelete()
+      throws AuthenticationException {
+    List<AspectRowSummary> rows = withRowsFromNewerVersion(createTestAspectRows(true));
+    stubRollback(rows, true, List.of());
+
+    RollbackResponse response =
+        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, true, true, null);
+
+    assertEquals(response.getEntitiesDeleted(), 2);
+    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(2));
+  }
+
+  /**
+   * The run's known rows plus rows a newer version wrote: an unknown aspect on an entity the run
+   * created, an unknown aspect on an entity it didn't create, and an entity of an unknown type.
+   */
+  private static List<AspectRowSummary> withRowsFromNewerVersion(List<AspectRowSummary> knownRows) {
     List<AspectRowSummary> rows = new ArrayList<>(knownRows);
-    AspectRowSummary unknownAspect = new AspectRowSummary();
-    unknownAspect.setUrn(TEST_URN_1);
-    unknownAspect.setAspectName("aspectFromNewerBuild");
-    unknownAspect.setRunId(TEST_RUN_ID);
-    unknownAspect.setKeyAspect(false);
-    rows.add(unknownAspect);
+    rows.add(row(TEST_URN_1, "aspectFromNewerBuild", false));
+    rows.add(
+        row(
+            "urn:li:dataset:(urn:li:dataPlatform:hive,keptByThisRun,PROD)",
+            "aspectFromNewerBuild",
+            false));
+    rows.add(row("urn:li:entityFromNewerBuild:x", "entityFromNewerBuildKey", true));
+    return rows;
+  }
+
+  private static AspectRowSummary row(String urn, String aspectName, boolean keyAspect) {
+    AspectRowSummary row = new AspectRowSummary();
+    row.setUrn(urn);
+    row.setAspectName(aspectName);
+    row.setRunId(TEST_RUN_ID);
+    row.setKeyAspect(keyAspect);
+    return row;
+  }
+
+  private void stubRollback(
+      List<AspectRowSummary> rows, boolean hardDelete, List<AspectRowSummary> rolledBack) {
     when(mockSystemMetadataService.findByRunIdAfter(
             any(OperationContext.class),
             eq(TEST_RUN_ID),
-            eq(true),
+            eq(hardDelete),
             isNull(),
             eq(MAX_SEARCH_RESULTS)))
         .thenReturn(rows);
-    when(mockEntityService.rollbackRun(eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(true)))
+    when(mockEntityService.rollbackRun(
+            eq(operationContext), anyList(), eq(TEST_RUN_ID), eq(hardDelete)))
+        // The rows exceed one page, so a second, empty page is rolled back too.
         .thenReturn(
-            new RollbackRunResult(new ArrayList<>(knownRows), 0, new ArrayList<>()),
+            new RollbackRunResult(new ArrayList<>(rolledBack), 0, new ArrayList<>()),
             new RollbackRunResult(new ArrayList<>(), 0, new ArrayList<>()));
     DeleteAspectValuesResult timeseriesResult = new DeleteAspectValuesResult();
     timeseriesResult.setNumDocsDeleted(0L);
@@ -259,12 +318,6 @@ public class RollbackServiceTest {
     when(mockSystemMetadataService.findByUrn(
             any(OperationContext.class), anyString(), eq(false), eq(0), eq(MAX_SEARCH_RESULTS)))
         .thenReturn(new ArrayList<>());
-
-    RollbackResponse response =
-        rollbackService.rollbackIngestion(operationContext, TEST_RUN_ID, false, true, null);
-
-    assertEquals(response.getAspectsReverted(), 4);
-    assertEquals(response.getAspectsLeftInPlace(), Long.valueOf(1));
   }
 
   @Test
