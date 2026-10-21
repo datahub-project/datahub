@@ -75,8 +75,10 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    ExistingAssertionNote,
     make_assertion_from_freshness,
     make_assertion_from_test,
+    make_assertion_note_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
 )
@@ -110,6 +112,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AssertionNoteClass,
     AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -195,6 +198,7 @@ _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
     DatasetPropertiesClass.ASPECT_NAME,
 ]
 _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE = 200
+_ASSERTION_NOTE_PREFETCH_CHUNK_SIZE = 200
 
 
 # (database, schema) as spelled in the dbt manifest, folded the same way the
@@ -457,6 +461,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Target-platform sibling browse path / display name statistics
     num_target_platform_aspect_prefetch_batches: int = 0
+    num_assertion_note_prefetch_batches: int = 0
     num_target_browse_paths_written: int = 0
     num_target_display_names_set: int = 0
     num_target_containers_inherited: int = 0
@@ -2199,6 +2204,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             match_nested_props=True,
         )
 
+        existing_notes = (
+            self._prefetch_assertion_notes(test_nodes, all_nodes_map)
+            if self.config.entities_enabled.can_emit_test_definitions
+            else None
+        )
+
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             try:
                 upstreams = get_upstreams_for_test(
@@ -2210,36 +2221,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
-                    guid_upstream_part = {}
-                    if len(upstreams) > 1:
-                        # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
-                        # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
-                        guid_upstream_part = {
-                            "on_dbt_upstream": upstream_node_name,
-                        }
-
-                    assertion_urn = mce_builder.make_assertion_urn(
-                        mce_builder.datahub_guid(
-                            {
-                                k: v
-                                for k, v in {
-                                    "platform": DBT_PLATFORM,
-                                    "name": node.dbt_name,
-                                    "instance": self._dbt_platform_instance,
-                                    # Ideally we'd include the env unconditionally. However, we started out
-                                    # not including env in the guid, so we need to maintain backwards compatibility
-                                    # with existing PROD assertions.
-                                    **(
-                                        {"env": self.config.env}
-                                        if self.config.env != mce_builder.DEFAULT_ENV
-                                        and self.config.include_env_in_assertion_guid
-                                        else {}
-                                    ),
-                                    **guid_upstream_part,
-                                }.items()
-                                if v is not None
-                            }
-                        )
+                    assertion_urn = self._make_test_assertion_urn(
+                        node, upstream_node_name, len(upstreams)
                     )
 
                     custom_props = {
@@ -2259,7 +2242,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             node,
                             assertion_urn,
                             upstream_urn,
+                            upstream_unique_ids=list(upstreams.keys()),
                         )
+
+                        # Without a successful read of the existing notes a user's
+                        # note could be overwritten, so notes are skipped for the run.
+                        if existing_notes is not None:
+                            note_mcp = make_assertion_note_from_test(
+                                node,
+                                assertion_urn,
+                                existing_note=existing_notes.get(assertion_urn),
+                            )
+                            if note_mcp:
+                                yield note_mcp
 
                         # This is ownership metadata on the dbt test node itself, not ownership
                         # inherited from the upstream dataset under test.
@@ -2290,6 +2285,129 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     message="Failed to emit test assertion metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
+
+    def _make_test_assertion_urn(
+        self, node: DBTNode, upstream_node_name: str, num_upstreams: int
+    ) -> str:
+        guid_upstream_part = {}
+        if num_upstreams > 1:
+            # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
+            # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
+            guid_upstream_part = {
+                "on_dbt_upstream": upstream_node_name,
+            }
+
+        return mce_builder.make_assertion_urn(
+            mce_builder.datahub_guid(
+                {
+                    k: v
+                    for k, v in {
+                        "platform": DBT_PLATFORM,
+                        "name": node.dbt_name,
+                        "instance": self._dbt_platform_instance,
+                        # Ideally we'd include the env unconditionally. However, we started out
+                        # not including env in the guid, so we need to maintain backwards compatibility
+                        # with existing PROD assertions.
+                        **(
+                            {"env": self.config.env}
+                            if self.config.env != mce_builder.DEFAULT_ENV
+                            and self.config.include_env_in_assertion_guid
+                            else {}
+                        ),
+                        **guid_upstream_part,
+                    }.items()
+                    if v is not None
+                }
+            )
+        )
+
+    def _note_written_by_ingestion(
+        self, note: AssertionNoteClass, system_metadata: Optional[SystemMetadataClass]
+    ) -> bool:
+        """Whether this ingestion wrote the stored note, so it may update or clear it.
+
+        UI edits are stamped with the editing user. Any other writer could also use
+        the system actor, so when a pipeline name is set the note must also carry it.
+        """
+        if note.lastModified.actor != mce_builder.SYSTEM_ACTOR:
+            return False
+        if self.ctx.pipeline_name:
+            return self._written_by_this_pipeline(system_metadata)
+        return True
+
+    def _prefetch_assertion_notes(
+        self, test_nodes: List[DBTNode], all_nodes_map: Dict[str, DBTNode]
+    ) -> Optional[Dict[str, ExistingAssertionNote]]:
+        """Batch-read the stored notes of every test assertion.
+
+        Returns an empty dict without a graph: the notes cannot be read, so the dbt
+        description is written as-is. Returns None when the read fails, and the
+        caller then skips notes for the run instead of risking a user's note.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            if any(node.description for node in test_nodes):
+                self.report.info(
+                    title="dbt test descriptions written without checking for edits",
+                    message="No DataHub graph is available, so assertion notes are "
+                    "written from dbt test descriptions without checking for notes "
+                    "edited in DataHub.",
+                )
+            return {}
+
+        urns: List[str] = []
+        for node in test_nodes:
+            try:
+                upstreams = get_upstreams_for_test(
+                    test_node=node,
+                    all_nodes_map=all_nodes_map,
+                    platform_instance=self._dbt_platform_instance,
+                    environment=self.config.env,
+                )
+            except Exception:
+                # The emission loop reports this node's failure.
+                continue
+            urns.extend(
+                self._make_test_assertion_urn(node, upstream_node_name, len(upstreams))
+                for upstream_node_name in upstreams
+            )
+
+        result: Dict[str, ExistingAssertionNote] = {}
+        try:
+            for chunk in more_itertools.chunked(
+                urns, _ASSERTION_NOTE_PREFETCH_CHUNK_SIZE
+            ):
+                entities = graph.get_entities(
+                    entity_name="assertion",
+                    urns=list(chunk),
+                    aspects=[AssertionNoteClass.ASPECT_NAME],
+                    with_system_metadata=True,
+                )
+                self.report.num_assertion_note_prefetch_batches += 1
+                for urn, aspects in entities.items():
+                    note = _get_prefetched_aspect(aspects, AssertionNoteClass)
+                    if note is None:
+                        continue
+                    result[urn] = ExistingAssertionNote(
+                        note=note,
+                        written_by_ingestion=self._note_written_by_ingestion(
+                            note,
+                            _get_prefetched_system_metadata(
+                                aspects, AssertionNoteClass
+                            ),
+                        ),
+                    )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read existing assertion notes",
+                message="Could not batch-read existing assertion notes; skipping "
+                "assertion notes from dbt test descriptions for this run. Test "
+                "definitions and results are not affected.",
+                exc=e,
+            )
+            return None
+
+        return result
 
     def create_freshness_assertion_mcps(
         self,
