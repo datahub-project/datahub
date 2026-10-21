@@ -1,0 +1,104 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "4ae70df05ada3bcd14c3a370ec84c1e552ee5e2a7c03c9f01e13364d60db111d",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "orderId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+                    "column": "orderId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`o`.`orderid` AS `orderid`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "customerId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+                    "column": "customerId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`o`.`customerid` AS `customerid`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "amountUsd",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DOUBLE"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)",
+                    "column": "amountUsd"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`p`.`amountusd` AS `amountusd`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)"
+            ],
+            "on_clause": "`o`.`orderid` = `p`.`orderid`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+                    "column": "orderId"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)",
+                    "column": "orderId"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT o.orderId, `customerId`, amountUsd FROM my_catalog.my_schema.orders AS o JOIN my_catalog.my_schema.payments AS p ON o.orderId = p.orderId"
+    }
+}
