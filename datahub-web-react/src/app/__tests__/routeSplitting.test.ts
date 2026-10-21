@@ -18,8 +18,6 @@ describe('route-level lazy loading', () => {
         expect(viteConfig).not.toMatch(/return\s+['"]phosphor-vendor['"]/);
         expect(viteConfig).not.toMatch(/manualChunks\s*\(/);
         expect(viteConfig).toMatch(/No manualChunks/);
-        // Tiny shared chunks are merged without a named manualChunks split.
-        expect(viteConfig).toMatch(/experimentalMinChunkSize:\s*20_000/);
     });
 
     it('lazy-loads the authenticated shell from Routes', () => {

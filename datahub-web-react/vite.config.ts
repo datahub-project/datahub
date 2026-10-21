@@ -311,17 +311,9 @@ export default defineConfig(async ({ mode }) => {
                     // landed in that chunk. Rollup's default splitting keeps those
                     // graphs async. authShellPreloadPlugin modulepreloads the logged-in
                     // provider graph when the actor cookie is set, so /login does not
-                    // download it.
-                    //
-                    // Default splitting still emits one chunk per shared module, and
-                    // almost all of them are under 10 KiB after minify. Each chunk is
-                    // its own request on the import() waterfall, which is what pushed
-                    // time to interactive later after route splitting. This limit is
-                    // pre-minify bytes. Rollup folds a small chunk into another only
-                    // when side effects still run at the same time, so it does not
-                    // bring back the manualChunks TDZ crashes or pull an async graph
-                    // onto the entry the way a named chunk does.
-                    experimentalMinChunkSize: 20_000,
+                    // download it. The same plugin preloads the current route's static
+                    // chunk graph so those requests are not discovered one import()
+                    // hop at a time.
                 },
             },
         },
