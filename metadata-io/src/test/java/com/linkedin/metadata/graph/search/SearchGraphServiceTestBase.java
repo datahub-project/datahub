@@ -103,6 +103,72 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   }
 
   @Test
+  public void testLineageCountCountsAViaThatIsAlsoADirectNeighbourOnce() throws Exception {
+    // The usual job-mediated shape: dataJobOne consumes dataset1 and produces dataset2, and the
+    // DownstreamOf edge between the datasets carries dataJobOne as its via. Downstream of
+    // dataset1 the walk reports dataset2 and dataJobOne once each.
+    for (Edge edge :
+        List.of(
+            new Edge(dataJobOneUrn, dataset1Urn, consumes, null, null, null, null, null),
+            new Edge(dataJobOneUrn, dataset2Urn, produces, null, null, null, null, null),
+            new Edge(
+                dataset2Urn,
+                dataset1Urn,
+                downstreamOf,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                dataJobOneUrn))) {
+      _client.addEdge(operationContext, edge);
+    }
+    syncAfterWrite();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            _client.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    LineageCountResult counted =
+        _client.getLineageCount(operationContext, Set.of(dataset1Urn), downstream, 10);
+    EntityLineageResult walked =
+        _client.getLineage(operationContext, dataset1Urn, downstream, 0, 10, 1);
+
+    assertEquals(walked.getTotal().intValue(), 2);
+    assertEquals(counted.getTotal(), 2);
+    assertEquals(new HashSet<>(counted.getSample()), Set.of(dataset2Urn, dataJobOneUrn));
+  }
+
+  @Test
+  public void testLineageCountExcludesGroupMembersUsedAsVia() throws Exception {
+    // dataset2 is downstream of dataset1 via dataset3, and dataset3 is in the counted group: the
+    // walk drops a group member wherever it appears, so it must not be counted as via either.
+    _client.addEdge(
+        operationContext,
+        new Edge(
+            dataset2Urn,
+            dataset1Urn,
+            downstreamOf,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            dataset3Urn));
+    syncAfterWrite();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            _client.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    LineageCountResult counted =
+        _client.getLineageCount(operationContext, Set.of(dataset1Urn, dataset3Urn), downstream, 10);
+
+    assertEquals(counted.getTotal(), 1);
+    assertEquals(counted.getSample(), List.of(dataset2Urn));
+  }
+
+  @Test
   public void testLineageCountSamplesViaEntities() throws Exception {
     // dataset2 is downstream of dataset1 through dataJobOne. The walk reports both dataset2 and
     // the via entity; the count must sample the via entity too, or a deleted or collapsed via

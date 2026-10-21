@@ -882,7 +882,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       return LineageCountResult.empty();
     }
     SearchRequest request = new SearchRequest(graphIndexName(opContext)).source(source);
-    return parseLineageCount(executeSearch(opContext, request));
+    return parseLineageCount(executeSearch(opContext, request), entityUrns, sampleSize);
   }
 
   /** The count request, or null when none of the urns' entity types has lineage edges. */
@@ -923,6 +923,9 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
               lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis()));
     }
 
+    // The walk fetches at most one default page of edges per hop; collect the same number of
+    // distinct values exactly. Beyond that the parse falls back to the cardinality estimates.
+    final int termsSize = ConfigUtils.applyLimit(graphServiceConfig, null);
     perDirection.forEach(
         (direction, directionClause) -> {
           String neighbourField =
@@ -947,24 +950,34 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                   .subAggregation(
                       AggregationBuilders.terms(SAMPLE_AGG)
                           .field(neighbourField)
-                          .size(Math.max(1, sampleSize)))
-                  // Via entities are counted into the total, so they must also reach the
-                  // caller's ghost and sibling filtering, as they do in the walk.
+                          .size(Math.max(sampleSize, termsSize)))
+                  // Via entities count as lineage just as the walk reports them, and a
+                  // via entity can also be a direct neighbour (a job that consumes the
+                  // dataset and is the via on its DownstreamOf edge): collect both sets so
+                  // the total counts each URN once.
                   .subAggregation(
                       AggregationBuilders.terms(VIA_SAMPLE_AGG)
                           .field(EDGE_FIELD_VIA)
-                          .size(Math.max(1, sampleSize))));
+                          .size(Math.max(sampleSize, termsSize))));
         });
     return source;
   }
 
+  /**
+   * Distinct neighbours and via entities across both directions, as the walk reports them: one
+   * entry per URN however many edges or roles reach it, and never a member of the group itself.
+   * Exact while every terms aggregation fits in a page; otherwise the total falls back to the
+   * cardinality estimates, which can count a URN that is both neighbour and via twice.
+   */
   @VisibleForTesting
-  LineageCountResult parseLineageCount(@Nonnull SearchResponse response) {
+  LineageCountResult parseLineageCount(
+      @Nonnull SearchResponse response, @Nonnull Set<Urn> groupUrns, int sampleSize) {
     if (response.getAggregations() == null) {
       return LineageCountResult.empty();
     }
-    long total = 0;
-    Set<Urn> sample = new LinkedHashSet<>();
+    Set<Urn> reached = new LinkedHashSet<>();
+    long estimated = 0;
+    boolean truncated = false;
     for (Aggregation aggregation : response.getAggregations()) {
       if (!aggregation.getName().startsWith(COUNT_AGG_PREFIX)
           || !(aggregation instanceof org.opensearch.search.aggregations.bucket.filter.Filter)) {
@@ -972,30 +985,32 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       }
       Aggregations sub =
           ((org.opensearch.search.aggregations.bucket.filter.Filter) aggregation).getAggregations();
-      Cardinality distinct = sub.get(DISTINCT_AGG);
-      if (distinct != null) {
-        total += distinct.getValue();
+      for (String cardinalityAgg : List.of(DISTINCT_AGG, VIA_AGG)) {
+        Cardinality cardinality = sub.get(cardinalityAgg);
+        if (cardinality != null) {
+          estimated += cardinality.getValue();
+        }
       }
-      Cardinality via = sub.get(VIA_AGG);
-      if (via != null) {
-        total += via.getValue();
-      }
-      for (String sampleAgg : List.of(SAMPLE_AGG, VIA_SAMPLE_AGG)) {
-        Terms terms = sub.get(sampleAgg);
+      for (String termsAgg : List.of(SAMPLE_AGG, VIA_SAMPLE_AGG)) {
+        Terms terms = sub.get(termsAgg);
         if (terms == null) {
           continue;
         }
+        truncated |= terms.getSumOfOtherDocCounts() > 0;
         for (Terms.Bucket bucket : terms.getBuckets()) {
           try {
-            sample.add(Urn.createFromString(bucket.getKeyAsString()));
+            reached.add(Urn.createFromString(bucket.getKeyAsString()));
           } catch (URISyntaxException e) {
             log.warn("Skipping unparseable lineage neighbour urn {}", bucket.getKeyAsString());
           }
         }
       }
     }
+    reached.removeAll(groupUrns);
+    long total = truncated ? Math.max(reached.size(), estimated) : reached.size();
     return new LineageCountResult(
-        (int) Math.min(total, Integer.MAX_VALUE), new ArrayList<>(sample));
+        (int) Math.min(total, Integer.MAX_VALUE),
+        reached.stream().limit(Math.max(0, sampleSize)).collect(Collectors.toList()));
   }
 
   /**
