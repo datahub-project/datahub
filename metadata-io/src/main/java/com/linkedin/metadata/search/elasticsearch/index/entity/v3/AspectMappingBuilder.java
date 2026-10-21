@@ -3,13 +3,16 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.ESUtils.BOOLEAN_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
+import static com.linkedin.metadata.search.utils.ESUtils.INDEX;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
+import static com.linkedin.metadata.search.utils.ESUtils.TEXT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,33 +39,58 @@ public class AspectMappingBuilder {
       @Nonnull EntitySpec entitySpec,
       @Nullable Map<String, Set<String>> fieldNameConflicts,
       @Nullable Map<String, Set<String>> fieldNameAliasConflicts) {
+    return createAspectMappings(
+        entitySpec, fieldNameConflicts, fieldNameAliasConflicts, List.of(entitySpec));
+  }
+
+  public static Map<String, Object> createAspectMappings(
+      @Nonnull EntitySpec entitySpec,
+      @Nullable Map<String, Set<String>> fieldNameConflicts,
+      @Nullable Map<String, Set<String>> fieldNameAliasConflicts,
+      @Nonnull Collection<EntitySpec> indexGroup) {
 
     Map<String, Object> aspectsMappings = new HashMap<>();
 
-    // Process searchable fields - they will be grouped under _aspects.aspectName
-    // Exception: structuredProperties aspect remains at root level
+    // Searchable fields are grouped under _aspects.aspectName. structuredProperties stays at the
+    // root; its parsed URN names still need an aspect source so a later update can clear them.
     entitySpec.getAspectSpecs().stream()
-        .filter(aspectSpec -> !STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()))
         .forEach(
             aspectSpec -> {
               String aspectName = aspectSpec.getName();
+              boolean rootOnly = STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName);
 
-              // Regular aspects go under _aspects
+              // Regular aspects go under _aspects. A root-only aspect keeps its searchable fields
+              // on the document root and stores only the parsed-name sources here.
               Map<String, Object> aspectFields = new HashMap<>();
 
-              aspectSpec
-                  .getSearchableFieldSpecs()
-                  .forEach(
-                      searchableFieldSpec -> {
-                        aspectFields.putAll(
-                            MultiEntityMappingsBuilder.getAspectMappingsForField(
-                                searchableFieldSpec, aspectName));
-                        copySharedHasValues(entitySpec, searchableFieldSpec, aspectFields);
-                      });
+              if (!rootOnly) {
+                aspectSpec
+                    .getSearchableFieldSpecs()
+                    .forEach(
+                        searchableFieldSpec -> {
+                          aspectFields.putAll(
+                              MultiEntityMappingsBuilder.getAspectMappingsForField(
+                                  searchableFieldSpec, aspectName));
+                          copySharedHasValues(searchableFieldSpec, aspectFields);
+                        });
+              }
 
-              // Add system metadata to each aspect using the projector's serialized field name.
-              aspectFields.put(
-                  V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
+              addParsedUrnFields(aspectSpec, aspectFields, indexGroup);
+
+              if (!rootOnly) {
+                // Add system metadata to each aspect using the projector's serialized field name.
+                aspectFields.put(
+                    V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
+              }
+              if (aspectSpec.getAspectAnnotation() != null
+                  && aspectSpec.getAspectAnnotation().isAspectJson()) {
+                // A string so doc_as_upsert replaces the aspect JSON. An object would merge, and
+                // a cleared field would stay in _source.
+                Map<String, Object> stored = new HashMap<>();
+                stored.put(TYPE, TEXT_FIELD_TYPE);
+                stored.put(INDEX, false);
+                aspectFields.put(V3SearchDocumentProjector.ASPECT_JSON_FIELD, stored);
+              }
 
               if (!aspectFields.isEmpty()) {
                 aspectsMappings.put(aspectName, ImmutableMap.of(PROPERTIES, aspectFields));
@@ -73,27 +101,54 @@ public class AspectMappingBuilder {
   }
 
   /**
-   * The aspect boolean copies onto the shared root name. Only a true is written, so the root field
-   * never holds both true and false.
+   * One indexed keyword per URN field. {@code copy_to} follows the field's degree-qualified label,
+   * or {@code other} when the URN is included in full text and has no label.
+   */
+  private static void addParsedUrnFields(
+      @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec,
+      @Nonnull Map<String, Object> aspectFields,
+      @Nonnull Collection<EntitySpec> indexGroup) {
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      if (!V3SearchFields.contributesParsedUrn(fieldSpec)) {
+        continue;
+      }
+      String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
+      List<String> destinations = V3SearchFields.parsedNameDestinations(fieldSpec, indexGroup);
+      aspectFields.put(
+          V3SearchFields.parsedUrnField(fieldName),
+          V3SearchFields.parsedUrnKeywordMapping(
+              destinations,
+              destinations.isEmpty() && V3SearchFields.contributesFullTextUrn(fieldSpec)));
+      List<String> fullUrnTargets = V3SearchFields.fullUrnCopyTargets(fieldSpec, indexGroup);
+      if (!fullUrnTargets.isEmpty() && aspectFields.get(fieldName) instanceof Map) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rawField = (Map<String, Object>) aspectFields.get(fieldName);
+        rawField.put(COPY_TO, fullUrnTargets);
+      }
+    }
+  }
+
+  /**
+   * The aspect boolean keeps the name the document writes and copies onto the degree's root name.
+   * Degree 0 copies {@code hasDescription} onto {@code hasDescription}. Degree 1 copies it onto
+   * {@code hasDescription_1}. Only a true is written, so the root field never holds both true and
+   * false.
    */
   private static void copySharedHasValues(
-      @Nonnull EntitySpec entitySpec,
-      @Nonnull SearchableFieldSpec fieldSpec,
-      @Nonnull Map<String, Object> aspectFields) {
+      @Nonnull SearchableFieldSpec fieldSpec, @Nonnull Map<String, Object> aspectFields) {
     final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-    if (!resolved.isV3Searchable()) {
+    if (!resolved.isV3Searchable() || resolved.indexedFieldName().isEmpty()) {
       return;
     }
     resolved
-        .getSearchLabel()
-        .filter(label -> !label.isEmpty())
-        .flatMap(label -> V3SearchFields.hasValuesFieldName(entitySpec, label))
+        .getHasValuesFieldName()
         .ifPresent(
-            booleanName -> {
+            declaredName -> {
+              String rootName = resolved.indexedHasValuesFieldName().orElse(declaredName);
               Map<String, Object> mapping = new HashMap<>();
               mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
-              mapping.put(COPY_TO, List.of(booleanName));
-              aspectFields.put(booleanName, mapping);
+              mapping.put(COPY_TO, List.of(rootName));
+              aspectFields.put(declaredName, mapping);
             });
   }
 

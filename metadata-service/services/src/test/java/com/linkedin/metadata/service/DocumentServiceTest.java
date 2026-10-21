@@ -682,6 +682,93 @@ public class DocumentServiceTest {
             eq(10));
   }
 
+  @Test
+  public void testSearchDocumentsKeepsCallerTemplateAndExplain() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    when(mockClient.searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyInt(),
+            any(),
+            anyList(),
+            anyList()))
+        .thenReturn(searchPage());
+    final DocumentService service = new DocumentService(mockClient);
+    final Urn template = UrnUtils.getUrn("urn:li:searchTemplate:structured");
+    final SearchFlags requested =
+        new SearchFlags().setSearchTemplate(template).setIncludeExplain(true);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, null, requested);
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10, List.of("entity"), requested);
+
+    final ArgumentCaptor<OperationContext> page = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            page.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    assertCallerTemplate(page.getValue(), template);
+
+    final ArgumentCaptor<OperationContext> facets = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .searchAcrossEntities(
+            facets.capture(),
+            eq(List.of(Constants.DOCUMENT_ENTITY_NAME)),
+            eq("tutorial"),
+            any(),
+            eq(0),
+            eq(Integer.valueOf(10)),
+            anyList(),
+            eq(List.of("entity")));
+    assertCallerTemplate(facets.getValue(), template);
+  }
+
+  @Test
+  public void testSearchDocumentsWithoutATemplateStaysFulltext() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithSearchResults();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.searchDocuments(opContext, "tutorial", null, null, 0, 10);
+
+    final ArgumentCaptor<OperationContext> captured =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockClient)
+        .search(
+            captured.capture(),
+            eq(Constants.DOCUMENT_ENTITY_NAME),
+            eq("tutorial"),
+            any(),
+            any(List.class),
+            eq(0),
+            eq(10));
+    final SearchFlags applied = captured.getValue().getSearchContext().getSearchFlags();
+    Assert.assertFalse(applied.hasSearchTemplate());
+    Assert.assertTrue(applied.isFulltext());
+  }
+
+  private static void assertCallerTemplate(OperationContext opContext, Urn template) {
+    final SearchFlags applied = opContext.getSearchContext().getSearchFlags();
+    Assert.assertEquals(applied.getSearchTemplate(), template);
+    Assert.assertTrue(applied.isIncludeExplain());
+    Assert.assertTrue(applied.isFulltext());
+  }
+
+  private static SearchResult searchPage() {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setFrom(0);
+    searchResult.setPageSize(10);
+    searchResult.setNumEntities(0);
+    searchResult.setEntities(new SearchEntityArray());
+    searchResult.setMetadata(new SearchResultMetadata());
+    return searchResult;
+  }
+
   // Helper methods to create mock EntityClients
 
   private SystemEntityClient createMockEntityClientWithInfo() throws Exception {

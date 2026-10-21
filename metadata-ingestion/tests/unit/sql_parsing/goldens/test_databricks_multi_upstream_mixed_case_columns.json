@@ -1,0 +1,95 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "d61f8a5e7ddb2492e0f3589369e566adcf7bc278490999ad45c33a792ffef4ab",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "orderId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+                    "column": "orderId"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)",
+                    "column": "orderId"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)",
+                    "column": "orderId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "COALESCE(`o`.`orderid`, `p`.`orderid`) AS `orderid`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "customerId",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "BIGINT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+                    "column": "customerId"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)",
+                    "column": "customerId"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`o`.`customerid` AS `customerid`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)"
+            ],
+            "on_clause": "`o`.`orderid` = `p`.`orderid`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)",
+                    "column": "orderId"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)",
+                    "column": "orderId"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT COALESCE(o.orderId, p.orderId) AS orderId, o.customerId FROM my_catalog.my_schema.orders AS o JOIN my_catalog.my_schema.payments AS p ON o.orderId = p.orderId UNION ALL SELECT orderId, customerId FROM my_catalog.my_schema.orders_archive"
+    }
+}

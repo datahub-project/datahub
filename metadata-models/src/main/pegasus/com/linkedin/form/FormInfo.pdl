@@ -7,7 +7,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "formInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record FormInfo {
   /**
@@ -30,6 +30,18 @@ record FormInfo {
   /**
    * Description of the form
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**

@@ -265,7 +265,7 @@ cube = [
 databricks = [
     "cachetools<6.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "greenlet<4.0.0",
     "requests<3.0.0",
@@ -482,7 +482,7 @@ fivetran = [
     "cachetools<6.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
@@ -1155,7 +1155,7 @@ trino = [
 unity-catalog = [
     "cachetools<6.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "greenlet<4.0.0",
     "requests<3.0.0",
@@ -1204,7 +1204,7 @@ all = [
     "confluent_kafka[avro,schemaregistry]>=2.15.1,!=2.8.1,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "datasketches>=5.0.0,<6.0.0",
     "db-dtypes",
@@ -1339,7 +1339,7 @@ dev = [
     "cryptography>=50.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "datasketches>=5.0.0,<6.0.0",
     "db-dtypes",
@@ -1536,7 +1536,7 @@ docs = [
     "cryptography>=50.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "datasketches>=5.0.0,<6.0.0",
     "db-dtypes",
@@ -2057,6 +2057,20 @@ constraint-dependencies = [
     # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
     # snippet: docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
+    # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
+    # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
+    # docker/snippets/ingestion/constraints.txt.
+    "aiohttp>=3.14.4,<4",
+    # multidict: CVE-2026-104874; fixed in 6.9.1. Transitive via aiohttp/yarl; not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "multidict>=6.9.1",
+    # Mako: CVE-2026-102991; fixed in 1.4.2. Transitive via alembic; not in setup.py.
+    # Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "mako>=1.4.2,<2",
+    # fsspec: CVE-2026-104851; fixed in 2026.6.0. Transitive via s3fs/adlfs/pyiceberg/
+    # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
+    # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "fsspec>=2026.6.0",
 ]
 
 [tool.ruff]

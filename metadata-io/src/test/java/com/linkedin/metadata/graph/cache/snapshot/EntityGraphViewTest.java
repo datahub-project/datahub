@@ -210,6 +210,26 @@ public class EntityGraphViewTest {
     assertEquals(view.orderedForwardAncestors(a, 10), List.of(b));
   }
 
+  @Test
+  public void ignoresSelfEdgesInLegacySnapshots() {
+    EntityGraphView view =
+        new EntityGraphView(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn(CHILD)
+                    .destinationUrn(CHILD)
+                    .relationshipType("IsPartOf")
+                    .build(),
+                DirectedEdge.builder()
+                    .sourceUrn(CHILD)
+                    .destinationUrn(ROOT)
+                    .relationshipType("IsPartOf")
+                    .build()));
+
+    assertEquals(view.orderedForwardAncestors(CHILD, 10), List.of(ROOT));
+    assertEquals(view.inducedComponentEdges(Set.of(CHILD)).size(), 1);
+  }
+
   private static final String USER = "urn:li:corpuser:alice";
   private static final String GROUP = "urn:li:corpGroup:eng";
   private static final String ROLE = "urn:li:dataHubRole:admin";

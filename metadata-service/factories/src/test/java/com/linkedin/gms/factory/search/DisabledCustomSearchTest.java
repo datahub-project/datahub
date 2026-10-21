@@ -39,9 +39,10 @@ import org.testng.annotations.Test;
 @Import(DisabledCustomSearchTest.TestConfig.class)
 public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
 
+  @MockitoBean public MetricUtils metricUtils;
+
   @TestConfiguration
   static class TestConfig {
-    @MockitoBean public MetricUtils metricUtils;
 
     @Bean(name = "settingsBuilder")
     @Primary

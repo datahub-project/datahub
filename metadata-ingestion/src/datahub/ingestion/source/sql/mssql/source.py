@@ -98,6 +98,7 @@ from datahub.ingestion.source.sql.mssql.job_models import (
 from datahub.ingestion.source.sql.mssql.query import (
     MSSQL_SYSTEM_DATABASES,
     MSSQLQuery,
+    is_mssql_system_object,
 )
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
@@ -431,6 +432,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         ),
     )
 
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Emit a Query entity for every extracted query executed in the "
+            "start_time/end_time window, including read-only queries that produce no "
+            "lineage, with per-query execution counts. Queries appear on each table's Queries tab. Only applies when "
+            "include_query_lineage is enabled. Query Store and DMVs do not record the "
+            "executing user, so queries have no user attribution."
+        ),
+    )
+
     include_usage_statistics: bool = Field(
         default=False,
         description=(
@@ -540,6 +552,19 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return _validate_string_list_limits(
             value, "query_exclude_patterns", max_count=100, max_item_length=500
         )
+
+    @model_validator(mode="after")
+    def warn_query_usage_statistics_without_query_lineage(self) -> "SQLServerConfig":
+        # Defaults to True, so only warn when the user set it explicitly.
+        if (
+            "include_query_usage_statistics" in self.model_fields_set
+            and self.include_query_usage_statistics
+            and not self.include_query_lineage
+        ):
+            logger.warning(
+                "include_query_usage_statistics has no effect unless include_query_lineage is enabled."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_usage_statistics_dependency(self) -> "SQLServerConfig":
@@ -777,6 +802,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         )
 
 
+def _is_user_object(name: str) -> bool:
+    return not is_mssql_system_object(name)
+
+
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.GA)
@@ -799,6 +828,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         SourceCapabilityModifier.STORED_PROCEDURE,
         SourceCapabilityModifier.VIEW,
     ],
+)
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Optionally enabled via `include_query_lineage` with `include_query_usage_statistics` (per-query) and `include_usage_statistics` (per-table)",
 )
 @capability(
     SourceCapability.PROBE,
@@ -886,10 +919,18 @@ class SQLServerSource(SQLAlchemySource):
                 generate_lineage=True,
                 generate_queries=True,
                 generate_usage_statistics=self.config.include_usage_statistics,
-                usage_config=self.config
-                if self.config.include_usage_statistics
-                else None,
+                generate_query_usage_statistics=self.config.include_query_usage_statistics,
+                usage_config=self.config,
                 eager_graph_load=False,
+                is_allowed_table=_is_user_object,
+                # Same predicate the stored-procedure path uses: `#temp` names,
+                # temporary_tables_pattern matches and anything outside the
+                # database/schema/table patterns that wasn't ingested. Those
+                # never become Query subjects, usage or lineage targets. Temp
+                # tables resolve through to real upstreams only within one
+                # session_key: a DMV batch, but a single Query Store statement.
+                # Only called during gen_metadata(), after discovery.
+                is_temp_table=lambda name: not self.is_discovered_table(name),
             )
         return super()._create_aggregator()
 

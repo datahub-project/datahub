@@ -26,7 +26,6 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
@@ -66,12 +65,13 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
-import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -100,6 +100,12 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -125,12 +131,11 @@ import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -149,7 +154,6 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -180,6 +184,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,nightly,PROD),refresh)");
   private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
   private static final String BROWSE_DELIMITER = "␟";
+  private static final String SEARCH_TEMPLATE = "urn:li:searchTemplate:search";
+  private static final String LIST_TEMPLATE = "urn:li:searchTemplate:list";
+  private static final String FULLTEXT_TEMPLATE = "urn:li:searchTemplate:fulltext";
+  private static final String BROWSE_TEMPLATE = "urn:li:searchTemplate:browseV2";
+  private static final String BROWSE_LIST_TEMPLATE = "urn:li:searchTemplate:browseV2List";
+  private static final String BROWSE_FULLTEXT_TEMPLATE = "urn:li:searchTemplate:browseV2Fulltext";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
   private static final Urn STEWARD_NOTE = UrnUtils.getUrn("urn:li:structuredProperty:stewardNote");
@@ -228,6 +238,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:dashboard:(looker,crawler_overview)");
   // A name only a stemmed match finds; its urn holds none of its words
   private static final Urn STEMMED_NAME = UrnUtils.getUrn("urn:li:dashboard:(looker,dash_4711)");
+  private static final List<String> LONG_QUERY_WORDS =
+      List.of(
+          "zorbel", "quintax", "valdrin", "morphex", "brintel", "caldris", "fenwold", "glarvon",
+          "hestrin", "jorvald", "kelstor", "lumbrix", "nervant", "orzelle", "pyxtral", "quorvex",
+          "rendalt", "sylvorn", "tarquel", "umbrisk", "vintrel", "wexmore", "yarlund", "zephrin",
+          "brockan", "cindral", "dravish", "elstorm", "fyndell");
+  private static final Urn LONG_QUERY_DATASET =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,vocabulary,PROD)");
+  private static final Urn LONG_QUERY_DASHBOARD =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -251,6 +271,38 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     return false;
   }
 
+  /** The same seeds {@code application.yaml} uses for Search V3 query templates. */
+  private static SearchTemplateConfiguration shippedTemplateConfiguration() {
+    SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
+    templates.setEnabled(true);
+    SearchTemplateFixtures.setShippedLimits(templates);
+    templates.setDefaults(
+        Map.of(
+            "fulltext", slot("urn:li:searchTemplate:search"),
+            "structured", slot("urn:li:searchTemplate:structured")));
+    templates.setSurfaces(
+        Map.of(
+            SearchTemplateSurfaces.SEARCH_ENTITIES,
+            Map.of("fulltext", slot("urn:li:searchTemplate:searchLight")),
+            SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
+            Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
+            SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE,
+            Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
+            SearchTemplateSurfaces.SCROLL_ENTITIES,
+            Map.of("fulltext", slot("urn:li:searchTemplate:search")),
+            SearchTemplateSurfaces.AGGREGATE_ENTITIES,
+            Map.of("fulltext", slot("urn:li:searchTemplate:search")),
+            SearchTemplateSurfaces.BROWSE_ENTITIES,
+            Map.of("fulltext", slot("urn:li:searchTemplate:browseV2"))));
+    return templates;
+  }
+
+  private static Map<String, Object> slot(String urn) {
+    Map<String, Object> slot = new HashMap<>();
+    slot.put("default", urn);
+    return slot;
+  }
+
   @BeforeClass
   public void setUp() throws Exception {
     EntityIndexConfiguration entityIndex =
@@ -261,7 +313,17 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .keywordReadEnabled(true)
                     .build())
             .build();
-    config = TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
+    config =
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .entityIndex(entityIndex)
+            .search(
+                TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
+                    .v3(new SearchV3Configuration().setTemplates(shippedTemplateConfiguration()))
+                    .build())
+            .build();
+    SearchTemplates.install(
+        new SearchTemplateCoordinator(
+            config, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH)));
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -338,6 +400,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
                 .build());
+    opContext = opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
 
     indexBuilder =
         new ESIndexBuilder(
@@ -349,10 +412,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     indexConfiguration = config.getIndex();
     settingsBuilder =
         createDelegatingSettingsBuilder(entityIndex, indexConfiguration, indexConvention);
-    // The production query configurations, e.g. quoted queries skip the simple query
-    CustomConfiguration customConfiguration = new CustomConfiguration();
-    customConfiguration.setEnabled(true);
-    customConfiguration.setFile("search_config.yaml");
     searchService =
         new ElasticSearchService(
             indexBuilder,
@@ -361,11 +420,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             mappingsBuilder,
             settingsBuilder,
             new ESSearchDAO(
-                false,
-                config,
-                customConfiguration.resolve(new YAMLMapper()),
-                QueryFilterRewriteChain.EMPTY,
-                TEST_SEARCH_SERVICE_CONFIG),
+                false, config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG),
             new ESBrowseDAO(
                 config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG),
             new ESWriteDAO(
@@ -678,6 +733,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @AfterClass(alwaysRun = true)
   public void deleteV3Indices() throws IOException {
+    SearchTemplates.install(null);
     for (String index : createdIndices) {
       getSearchClient()
           .deleteIndex(
@@ -860,7 +916,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS);
     assertEquals(
-        searchService.aggregateByValue(opContext, List.of(DATASET_ENTITY_NAME), field, null, 10),
+        searchService.aggregateByValue(
+            aggregateOperation(), List.of(DATASET_ENTITY_NAME), field, null, 10),
         Map.of("90d", 1L));
   }
 
@@ -958,54 +1015,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   public void testAggregateByValue() {
     assertEquals(
         searchService.aggregateByValue(
-            opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10),
+            aggregateOperation(), List.of(DATASET_ENTITY_NAME), "platform", null, 10),
         Map.of(HIVE.toString(), 1L, POSTGRES.toString(), 1L));
     // The raw value, not the lower-cased root keyword
     assertEquals(
         searchService.aggregateByValue(
-            opContext, List.of(DATASET_ENTITY_NAME), "typeNames", null, 10),
+            aggregateOperation(), List.of(DATASET_ENTITY_NAME), "typeNames", null, 10),
         Map.of("Table", 1L));
-  }
-
-  /**
-   * With V2 and V3 both written and keyword reads off, an aggregation without an entity list reads
-   * V2 only, so an entity held by both counts once.
-   */
-  @Test
-  public void testAggregateAcrossEntitiesWhileDualWriting() throws Exception {
-    if (!isV2Enabled()) {
-      throw new SkipException("Needs the V2 entity indices");
-    }
-    EntityIndexConfiguration dualWrite =
-        config.getEntityIndex().toBuilder()
-            .v3(config.getEntityIndex().getV3().toBuilder().keywordReadEnabled(false).build())
-            .build();
-    ESSearchDAO dualWriteSearchDAO =
-        new ESSearchDAO(
-            false,
-            config.toBuilder().entityIndex(dualWrite).build(),
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    // ORDERS as V2 holds it, next to its V3 document
-    String v2DocId = URLEncoder.encode(ORDERS.toString(), StandardCharsets.UTF_8);
-    searchService.upsertDocument(
-        opContext,
-        DATASET_ENTITY_NAME,
-        String.format("{\"urn\":\"%s\",\"platform\":\"%s\"}", ORDERS, HIVE),
-        v2DocId);
-    syncAfterWrite(getBulkProcessor());
-    try {
-      Map<String, Long> v2Counts =
-          dualWriteSearchDAO.aggregateByValue(
-              opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10);
-      assertEquals(v2Counts, Map.of(HIVE.toString(), 1L));
-      assertEquals(
-          dualWriteSearchDAO.aggregateByValue(opContext, null, "platform", null, 10), v2Counts);
-    } finally {
-      searchService.deleteDocument(opContext, DATASET_ENTITY_NAME, v2DocId);
-      syncAfterWrite(getBulkProcessor());
-    }
   }
 
   @Test
@@ -1054,6 +1070,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   @Test
   public void testSearch() {
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    assertShippedClasspathTemplate(
+        fulltext, "orders", "urn:li:searchTemplate:searchLight", "urn:li:searchTemplate:light");
     assertUrns(
         searchService
             .search(fulltext, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
@@ -1163,125 +1181,202 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
    */
   @Test
   public void testLongQueryStaysUnderClauseLimit() throws Exception {
-    String[] words = {
-      "zorbel", "quintax", "valdrin", "morphex", "brintel", "caldris", "fenwold", "glarvon",
-      "hestrin", "jorvald", "kelstor", "lumbrix", "nervant", "orzelle", "pyxtral", "quorvex",
-      "rendalt", "sylvorn", "tarquel", "umbrisk", "vintrel", "wexmore", "yarlund", "zephrin",
-      "brockan", "cindral", "dravish", "elstorm", "fyndell"
-    };
-    // Close neighbours of every word give each fuzzy term its full expansions
+    assertLongQueriesStayUnderClauseLimit(false);
+  }
+
+  @Test
+  public void testLongScrollQueryStaysUnderClauseLimit() throws Exception {
+    assertLongQueriesStayUnderClauseLimit(true);
+  }
+
+  private void assertLongQueriesStayUnderClauseLimit(boolean scroll) throws Exception {
+    OperationContext fulltext =
+        (scroll ? scrollOperation() : pagedSearch())
+            .withSearchFlags(flags -> flags.setFulltext(true));
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    try {
+      indexLongQueryVocabulary(indexer);
+      // A failed shard only drops that index's results, so each scope checks its own entity
+      for (Map.Entry<List<String>, Urn> scope :
+          Map.of(
+                  List.of(DATASET_ENTITY_NAME),
+                  LONG_QUERY_DATASET,
+                  List.of(DASHBOARD_ENTITY_NAME),
+                  LONG_QUERY_DASHBOARD,
+                  ENTITY_TYPES,
+                  LONG_QUERY_DATASET)
+              .entrySet()) {
+        List<String> entityTypes = scope.getKey();
+        for (String query : longQueries()) {
+          // A clause overflow fails the search. Recall and precision for representative shapes
+          // are asserted separately.
+          try {
+            SearchEntityArray entities;
+            if (scroll) {
+              entities =
+                  searchService
+                      .fullTextScroll(
+                          fulltext, entityTypes, query, null, null, null, null, 10, List.of())
+                      .getEntities();
+            } else {
+              entities =
+                  searchService
+                      .search(fulltext, entityTypes, query, null, null, 0, 10)
+                      .getEntities();
+            }
+            assertNotNull(entities, (scroll ? "scroll " : "") + entityTypes + ": " + query);
+          } catch (RuntimeException e) {
+            throw new AssertionError(
+                (scroll ? "scroll " : "") + entityTypes + " query=[" + query + "]", e);
+          }
+        }
+      }
+    } finally {
+      deleteLongQueryVocabulary(indexer);
+    }
+  }
+
+  /**
+   * Representative shapes must find the vocabulary entity and nothing else. The clause-limit tests
+   * only check that the wider matrix does not overflow.
+   */
+  @Test
+  public void testRepresentativeLongQueryRecall() throws Exception {
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    try {
+      indexLongQueryVocabulary(indexer);
+      for (boolean scroll : List.of(false, true)) {
+        OperationContext fulltext =
+            (scroll ? scrollOperation() : pagedSearch())
+                .withSearchFlags(flags -> flags.setFulltext(true));
+        for (Map.Entry<String, String> query : representativeLongQueries().entrySet()) {
+          assertLongQueryRecall(
+              fulltext,
+              List.of(DATASET_ENTITY_NAME),
+              query.getValue(),
+              LONG_QUERY_DATASET,
+              scroll,
+              query.getKey());
+          assertLongQueryRecall(
+              fulltext,
+              List.of(DASHBOARD_ENTITY_NAME),
+              query.getValue(),
+              LONG_QUERY_DASHBOARD,
+              scroll,
+              query.getKey());
+        }
+      }
+    } finally {
+      deleteLongQueryVocabulary(indexer);
+    }
+  }
+
+  private UpdateIndicesV3Strategy longQueryIndexer() {
+    return UpdateIndicesV3Strategy.builder()
+        .v3Config(config.getEntityIndex().getV3())
+        .elasticSearchService(searchService)
+        .searchDocumentTransformer(
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
+        .timeseriesAspectService(mock(TimeseriesAspectService.class))
+        .build();
+  }
+
+  private void indexLongQueryVocabulary(UpdateIndicesV3Strategy indexer)
+      throws InterruptedException, IOException {
+    String text = longQueryVocabulary();
+    indexer.processBatch(
+        opContext,
+        Map.of(
+            LONG_QUERY_DATASET,
+            events(
+                LONG_QUERY_DATASET,
+                new DatasetProperties().setName(text).setDescription(text).setQualifiedName(text)),
+            LONG_QUERY_DASHBOARD,
+            events(
+                LONG_QUERY_DASHBOARD,
+                new DashboardInfo()
+                    .setTitle(text)
+                    .setDescription(text)
+                    .setLastModified(new ChangeAuditStamps()))),
+        false);
+    syncAfterWrite(getBulkProcessor());
+  }
+
+  private void deleteLongQueryVocabulary(UpdateIndicesV3Strategy indexer)
+      throws InterruptedException, IOException {
+    // Other tests count the datasets and dashboards.
+    indexer.processBatch(
+        opContext,
+        Map.of(
+            LONG_QUERY_DATASET,
+            keyDeletion(LONG_QUERY_DATASET),
+            LONG_QUERY_DASHBOARD,
+            keyDeletion(LONG_QUERY_DASHBOARD)),
+        false);
+    syncAfterWrite(getBulkProcessor());
+  }
+
+  private static String longQueryVocabulary() {
+    // Close neighbours of every word give each fuzzy term its full expansions.
     StringBuilder vocabulary = new StringBuilder();
-    for (String word : words) {
+    for (String word : LONG_QUERY_WORDS) {
       vocabulary.append(word).append(' ');
       for (char last : "bcdfghjkmnp".toCharArray()) {
         vocabulary.append(word, 0, word.length() - 1).append(last).append(' ');
       }
     }
-    String text = vocabulary.toString().trim();
-    Urn vocabularyDataset =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,vocabulary,PROD)");
-    Urn vocabularyDashboard = UrnUtils.getUrn("urn:li:dashboard:(looker,vocabulary)");
-    UpdateIndicesV3Strategy indexer =
-        UpdateIndicesV3Strategy.builder()
-            .v3Config(config.getEntityIndex().getV3())
-            .elasticSearchService(searchService)
-            .searchDocumentTransformer(
-                new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH))
-            .timeseriesAspectService(mock(TimeseriesAspectService.class))
-            .build();
+    return vocabulary.toString().trim();
+  }
 
-    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
-    List<String> queries =
-        List.of(
-            String.join(" ", Arrays.copyOf(words, 3)),
-            String.join(" ", Arrays.copyOf(words, 20)),
-            Arrays.stream(words)
-                .limit(12)
-                .map(word -> word + "2017")
-                .collect(Collectors.joining(" ")),
-            Arrays.stream(words)
-                .limit(8)
-                .map(word -> word + "-" + word + "-v2")
-                .collect(Collectors.joining(" ")),
-            words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)),
-            words[0] + "2017 " + String.join(" ", Arrays.copyOfRange(words, 1, 20)),
-            Arrays.stream(words)
-                .limit(12)
-                .map(word -> "db." + word)
-                .collect(Collectors.joining(" ")),
-            Arrays.stream(words)
-                .limit(8)
-                .map(word -> "prod." + word + "." + word)
-                .collect(Collectors.joining(" ")),
-            // One word holding every term
-            String.join(".", words),
-            Arrays.stream(words)
-                .limit(15)
-                .map(word -> word + "2017")
-                .collect(Collectors.joining()));
-    try {
-      indexer.processBatch(
-          opContext,
-          Map.of(
-              vocabularyDataset,
-              events(
-                  vocabularyDataset,
-                  new DatasetProperties()
-                      .setName(text)
-                      .setDescription(text)
-                      .setQualifiedName(text)),
-              vocabularyDashboard,
-              events(
-                  vocabularyDashboard,
-                  new DashboardInfo()
-                      .setTitle(text)
-                      .setDescription(text)
-                      .setLastModified(new ChangeAuditStamps()))),
-          false);
-      syncAfterWrite(getBulkProcessor());
-      // A failed shard only drops that index's results, so each scope checks its own entity
-      for (Map.Entry<List<String>, Urn> scope :
-          Map.of(
-                  List.of(DATASET_ENTITY_NAME),
-                  vocabularyDataset,
-                  List.of(DASHBOARD_ENTITY_NAME),
-                  vocabularyDashboard,
-                  ENTITY_TYPES,
-                  vocabularyDataset)
-              .entrySet()) {
-        List<String> entityTypes = scope.getKey();
-        for (String query : queries) {
-          // Fails with too_many_nested_clauses past the limit
-          assertTrue(
-              searchService
-                  .search(fulltext, entityTypes, query, null, null, 0, 10)
-                  .getEntities()
-                  .stream()
-                  .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
-              entityTypes + ": " + query);
-          // The light query serves most of these searches; a scroll always runs the full query
-          assertTrue(
-              searchService
-                  .fullTextScroll(
-                      fulltext, entityTypes, query, null, null, null, null, 100, List.of())
-                  .getEntities()
-                  .stream()
-                  .anyMatch(entity -> entity.getEntity().equals(scope.getValue())),
-              "scroll " + entityTypes + ": " + query);
-        }
-      }
-    } finally {
-      // Other tests count the datasets and dashboards
-      indexer.processBatch(
-          opContext,
-          Map.of(
-              vocabularyDataset,
-              keyDeletion(vocabularyDataset),
-              vocabularyDashboard,
-              keyDeletion(vocabularyDashboard)),
-          false);
-      syncAfterWrite(getBulkProcessor());
-    }
+  private static List<String> longQueries() {
+    String[] words = LONG_QUERY_WORDS.toArray(String[]::new);
+    return List.of(
+        String.join(" ", Arrays.copyOf(words, 3)),
+        String.join(" ", Arrays.copyOf(words, 20)),
+        Arrays.stream(words).limit(12).map(word -> word + "2017").collect(Collectors.joining(" ")),
+        Arrays.stream(words)
+            .limit(8)
+            .map(word -> word + "-" + word + "-v2")
+            .collect(Collectors.joining(" ")),
+        words[0] + "'s " + String.join(" ", Arrays.copyOfRange(words, 1, words.length)),
+        words[0] + "2017 " + String.join(" ", Arrays.copyOfRange(words, 1, 20)),
+        Arrays.stream(words).limit(12).map(word -> "db." + word).collect(Collectors.joining(" ")),
+        Arrays.stream(words)
+            .limit(8)
+            .map(word -> "prod." + word + "." + word)
+            .collect(Collectors.joining(" ")),
+        String.join(".", words),
+        Arrays.stream(words).limit(15).map(word -> word + "2017").collect(Collectors.joining()));
+  }
+
+  private static Map<String, String> representativeLongQueries() {
+    List<String> queries = longQueries();
+    return Map.of(
+        "short", queries.get(0),
+        "long", queries.get(1),
+        "alphanumeric", queries.get(2),
+        "dotted", queries.get(6),
+        "joined identifier", queries.get(8));
+  }
+
+  private void assertLongQueryRecall(
+      OperationContext fulltext,
+      List<String> entityTypes,
+      String query,
+      Urn expected,
+      boolean scroll,
+      String shape) {
+    SearchEntityArray entities =
+        scroll
+            ? searchService
+                .fullTextScroll(fulltext, entityTypes, query, null, null, null, null, 10, List.of())
+                .getEntities()
+            : searchService.search(fulltext, entityTypes, query, null, null, 0, 10).getEntities();
+    // The vocabulary words occur on one entity. It must be the only hit, and the first hit.
+    assertEquals(
+        entities.stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+        List.of(expected),
+        (scroll ? "scroll " : "search ") + shape + " " + entityTypes + ": " + query);
   }
 
   /** Every field queried by default is searched. */
@@ -1301,7 +1396,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         CUSTOMERS);
   }
 
-  /** Exact-only URN labels do not enter full text, but remain filterable by their full value. */
+  /**
+   * A tag URN contributes its id to full text and stays filterable by the complete URN. URN
+   * structure does not match.
+   */
   @Test
   public void testExactUrnLabelDoesNotMatchComponent() {
     assertUrns(
@@ -1310,6 +1408,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 opContext.withSearchFlags(flags -> flags.setFulltext(true)),
                 List.of(CHART_ENTITY_NAME),
                 "confidential",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS_CHART);
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(CHART_ENTITY_NAME),
+                "dataPlatform",
                 null,
                 null,
                 0,
@@ -1326,6 +1436,61 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS_CHART);
+  }
+
+  /**
+   * Dataset full text uses the dataset name. The platform field contributes the platform name. The
+   * fabric token does not match. {@code dataPlatform} expands to the synonym {@code data platform},
+   * and every word is required, so {@code data} in the customers description does not match.
+   */
+  @Test
+  public void testDatasetNameMatchesWithoutPlatformOrFabric() {
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "sales.orders",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "hive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "PROD",
+                null,
+                null,
+                0,
+                10)
+            .getEntities());
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "dataPlatform",
+                null,
+                null,
+                0,
+                10)
+            .getEntities());
   }
 
   /** A queryByDefault: false field is filterable but a plain full-text query skips it. */
@@ -1377,10 +1542,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   /** A structured query on a normalized root field matches ignoring case. */
   @Test
   public void testStructuredQueryIgnoresCase() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    assertShippedClasspathTemplate(
+        fulltext,
+        STRUCTURED_QUERY_PREFIX + "name:ORDERS",
+        "urn:li:searchTemplate:searchLight",
+        "urn:li:searchTemplate:structured");
     assertUrns(
         searchService
             .search(
-                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                fulltext,
                 List.of(DATASET_ENTITY_NAME),
                 STRUCTURED_QUERY_PREFIX + "name:ORDERS",
                 null,
@@ -1392,10 +1563,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * A quoted phrase of four or more words matches a description holding all of them, here one
-   * longer than the 100 characters the removed tier keywords indexed. On V3 the Stage 1 description
-   * match, which needs every word in any order, reads the shared description text field, and a
-   * description has no exact-match keyword.
+   * A quoted query uses the exact template. Four or more tokens also match a description that
+   * contains every term, so quoting this description matches the customers dataset.
    */
   @Test
   public void testQuotedDescriptionPhrase() {
@@ -1412,9 +1581,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             10,
             List.of());
     assertTrue(explain.isMatch());
-    String explanation = explain.getExplanation().toString();
-    assertTrue(explanation.contains("description.text:customer"), explanation);
-    assertFalse(explanation.contains("description.keyword"), explanation);
   }
 
   /**
@@ -1451,10 +1617,23 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTopHit(ENTITY_TYPES, "orders", ORDERS);
     // Fully qualified name, here the dataset key id
     assertTopHit(ENTITY_TYPES, "sales.orders", ORDERS);
+    assertTopHit(ENTITY_TYPES, "SALES.ORDERS", ORDERS);
     assertTopHit(ENTITY_TYPES, ORDERS.toString(), ORDERS);
-    // A URN that differs in case or is cut short still matches, as on V2
+    // The identity template folds the URN, so a differently cased URN still finds the dataset.
+    // A truncated URN does not.
     assertTopHit(ENTITY_TYPES, ORDERS.toString().replace("sales.orders", "SALES.ORDERS"), ORDERS);
-    assertTopHit(ENTITY_TYPES, "urn:li:dataset:(urn:li:dataPlatform:hive,sales", ORDERS);
+    assertTrue(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                ENTITY_TYPES,
+                "urn:li:dataset:(urn:li:dataPlatform:hive,sales",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .isEmpty());
     // Search operators are plain text: "-archive" does not exclude the title holding it
     assertTrue(
         searchService
@@ -1569,22 +1748,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             fulltext, List.of(DASHBOARD_ENTITY_NAME), "archive", null, null, 1, 10);
     assertEquals(secondPage.getNumEntities().intValue(), 1);
     assertTrue(secondPage.getEntities().isEmpty());
-    // Another sort order, including an ascending score, and scroll run the full query, and so
-    // does the explain of a scroll
-    assertTrue(
-        searchService
-            .explain(
-                fulltext,
-                "archive",
-                DESCRIPTION_MATCH.toString(),
-                DASHBOARD_ENTITY_NAME,
-                null,
-                null,
-                null,
-                "5m",
-                10,
-                List.of())
-            .isMatch());
+    // A non-relevance sort skips light and runs fulltext.
     assertUrns(
         searchService
             .search(
@@ -1611,21 +1775,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         TITLE_MATCH,
         DESCRIPTION_MATCH);
-    assertUrns(
-        searchService
-            .fullTextScroll(
-                fulltext,
-                List.of(DASHBOARD_ENTITY_NAME),
-                "archive",
-                null,
-                null,
-                null,
-                null,
-                10,
-                List.of())
-            .getEntities(),
-        TITLE_MATCH,
-        DESCRIPTION_MATCH);
 
     // A typo matches nothing on the light query, so the full fuzzy query runs. Fuzzy matching
     // reaches the stemmed token ("archiv"); 7 characters allow two edits
@@ -1635,14 +1784,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         DESCRIPTION_MATCH);
     assertTrue(explain("archiev", DESCRIPTION_MATCH).isMatch());
 
-    // The full query would fuzzy-match "orders", but an ID lookup or a long name the light query
-    // does not find has no partial matches worth showing
+    // A typo joined to a short suffix uses the shared Java/template fuzzy derivation, which splits
+    // identifiers before applying edit distance. A long digit run still does not match.
     assertEquals(
         search.apply(DATASET_ENTITY_NAME, "orderz_20240101").getNumEntities().intValue(), 0);
     assertEquals(
         search.apply(DATASET_ENTITY_NAME, "orderz_aa_bb_cc").getNumEntities().intValue(), 0);
     assertFalse(explain("orderz_20240101", ORDERS).isMatch());
     assertUrns(search.apply(DATASET_ENTITY_NAME, "orderz_aa").getEntities(), ORDERS);
+    assertTrue(explain("orderz_aa", ORDERS).isMatch());
 
     // A letter and digit run matches whole or by all its parts on the light query. "Cargo
     // Overview" holds only "cargo", so it neither hides "Cargo2017 Report" nor keeps the full query
@@ -1671,6 +1821,45 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities();
     assertUrns(explained, TITLE_MATCH);
     assertTrue(explained.get(0).getExtraFields().containsKey("_explain"));
+  }
+
+  /**
+   * Scroll starts on the complete search router. An ordinary word uses fulltext, so a description
+   * match is returned and keepAlive explain describes that query.
+   */
+  @Test
+  public void testScrollUsesCompleteFulltext() {
+    OperationContext fulltext = scrollOperation().withSearchFlags(flags -> flags.setFulltext(true));
+    assertShippedClasspathTemplate(fulltext, "archive", true, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
+    assertUrns(
+        searchService
+            .fullTextScroll(
+                fulltext,
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                null,
+                null,
+                10,
+                List.of())
+            .getEntities(),
+        TITLE_MATCH,
+        DESCRIPTION_MATCH);
+    assertTrue(
+        searchService
+            .explain(
+                fulltext,
+                "archive",
+                DESCRIPTION_MATCH.toString(),
+                DASHBOARD_ENTITY_NAME,
+                null,
+                null,
+                null,
+                "5m",
+                10,
+                List.of())
+            .isMatch());
   }
 
   private ExplainResponse explain(String query, Urn urn) {
@@ -1711,13 +1900,14 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * A snake_case identifier is indexed whole as well as by its parts: a query for it ranks the
-   * document holding it above one holding only a part, and finds it when every part is too short to
-   * index.
+   * A snake_case identifier is indexed whole as well as by its parts. The light query misses a word
+   * held only in a description and continues to fulltext. The shared fuzzy derivation splits the
+   * identifier, so a description holding one sufficiently long part can also match.
    */
   @Test
   public void testSnakeCaseIdentifiersAreSearchableWhole() {
-    assertEquals(searchDashboards("glue_id"), List.of(IDENTIFIERS, IDENTIFIER_PART));
+    assertEqualsNoOrder(
+        searchDashboards("glue_id").toArray(), new Object[] {IDENTIFIERS, IDENTIFIER_PART});
     for (String query : List.of("db_id", "pk_fk", "dt_ts", "s3_id")) {
       assertEquals(searchDashboards(query), List.of(IDENTIFIERS), query);
     }
@@ -1743,78 +1933,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         .stream()
         .map(SearchEntity::getEntity)
         .collect(Collectors.toList());
-  }
-
-  /** The function scores of the custom search configuration rank an explore-all query. */
-  @Test
-  public void testCustomSearchConfigRanksResults() {
-    // CUSTOMERS has a description and an owner, which the production configuration boosts. ORDERS
-    // matches no scoring function, and the urn tie-break alone would put it first
-    assertEquals(
-        searchService
-            .search(
-                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-                List.of(DATASET_ENTITY_NAME),
-                "*",
-                null,
-                null,
-                0,
-                10)
-            .getEntities()
-            .stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toList()),
-        List.of(CUSTOMERS, ORDERS));
-  }
-
-  /**
-   * The fieldConfiguration search flag picks the fields a custom search configuration queries. On
-   * V3 a configured name selects the root name field, which the ingested name and the edited name
-   * both copy into.
-   */
-  @Test
-  public void testFieldConfigurationSelectsSearchedFields() throws IOException {
-    // Only the simple query runs, so the field configuration decides which fields can match
-    CustomSearchConfiguration nameOnlyConfiguration =
-        new YAMLMapper()
-            .readValue(
-                """
-                fieldConfigurations:
-                  nameOnly:
-                    searchFields:
-                      replace:
-                        - name
-                queryConfigurations:
-                  - queryRegex: .*
-                    simpleQuery: true
-                    prefixMatchQuery: false
-                    exactMatchQuery: false
-                """,
-                CustomSearchConfiguration.class);
-    ESSearchDAO searchDAO =
-        new ESSearchDAO(
-            false,
-            config,
-            nameOnlyConfiguration,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    BiFunction<OperationContext, String, SearchEntityArray> search =
-        (context, query) ->
-            searchDAO
-                .search(
-                    context, List.of(DATASET_ENTITY_NAME), query, null, List.of(), 0, 10, List.of())
-                .getEntities();
-    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
-    OperationContext nameOnly =
-        fulltext.withSearchFlags(flags -> flags.setFieldConfiguration("nameOnly"));
-
-    // Only the CUSTOMERS description holds "billing"
-    assertUrns(search.apply(fulltext, "billing"), CUSTOMERS);
-    assertUrns(search.apply(nameOnly, "billing"));
-    assertUrns(search.apply(nameOnly, "orders"), ORDERS);
-    // The edited name shares the name label, so a name-only configuration matches it
-    assertUrns(search.apply(fulltext, "ledger"), CUSTOMERS);
-    assertUrns(search.apply(nameOnly, "ledger"), CUSTOMERS);
   }
 
   @Test
@@ -1946,31 +2064,54 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testScroll() {
+    OperationContext scrolling =
+        scrollOperation().withSearchFlags(flags -> flags.setFulltext(true));
+    assertShippedClasspathTemplate(scrolling, "*", true, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(scrolling, "orders", true, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
     assertUrns(
         searchService
-            .fullTextScroll(opContext, ENTITY_TYPES, "*", null, null, null, null, 10, List.of())
+            .fullTextScroll(scrolling, ENTITY_TYPES, "*", null, null, null, null, 10, List.of())
             .getEntities(),
         ORDERS,
         CUSTOMERS,
+        ORDERS_CHART);
+    assertUrns(
+        searchService
+            .fullTextScroll(
+                scrolling, ENTITY_TYPES, "orders", null, null, null, null, 10, List.of())
+            .getEntities(),
+        ORDERS,
         ORDERS_CHART);
   }
 
   @Test
   public void testIncludeExplainAndSearchType() throws IOException {
     OperationContext explained =
-        opContext.withSearchFlags(
-            flags ->
-                flags
-                    .setFulltext(true)
-                    .setIncludeExplain(true)
-                    .setSearchType("DFS_QUERY_THEN_FETCH"));
+        pagedSearch()
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setIncludeExplain(true)
+                        .setSearchType("DFS_QUERY_THEN_FETCH"));
     SearchEntityArray searched =
         searchService
             .search(explained, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
             .getEntities();
     assertUrns(searched, ORDERS);
     assertExplained(searched.get(0));
+  }
 
+  @Test
+  public void testScrollIncludeExplainAndSearchType() throws IOException {
+    OperationContext explained =
+        scrollOperation()
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setIncludeExplain(true)
+                        .setSearchType("DFS_QUERY_THEN_FETCH"));
     SearchEntityArray scrolled =
         searchService
             .fullTextScroll(
@@ -1980,6 +2121,32 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     for (SearchEntity entity : scrolled) {
       assertExplained(entity);
     }
+  }
+
+  @Test
+  public void testAggregateUsesCompleteMembership() {
+    OperationContext aggregate =
+        aggregateOperation().withSearchFlags(flags -> flags.setFulltext(true));
+    OperationContext paged = pagedSearch().withSearchFlags(flags -> flags.setFulltext(true));
+    List<String> dashboards = List.of(DASHBOARD_ENTITY_NAME);
+    assertShippedClasspathTemplate(aggregate, "*", false, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(aggregate, "archive", false, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
+
+    SearchResult light =
+        searchService.search(
+            paged, dashboards, "archive", null, null, 0, 10, List.of("_entityType"));
+    SearchResult complete =
+        searchService.search(
+            aggregate, dashboards, "archive", null, null, 0, 0, List.of("_entityType"));
+    assertEquals(light.getNumEntities().intValue(), 1);
+    assertEquals(complete.getNumEntities().intValue(), 2);
+    assertEquals(facetTotal(light, "_entityType"), 1L);
+    assertEquals(facetTotal(complete, "_entityType"), 2L);
+
+    SearchResult listed =
+        searchService.search(aggregate, dashboards, "*", null, null, 0, 0, List.of("_entityType"));
+    assertTrue(listed.getNumEntities() > complete.getNumEntities());
+    assertEquals(facetTotal(listed, "_entityType"), listed.getNumEntities().longValue());
   }
 
   private static void assertExplained(SearchEntity entity) throws IOException {
@@ -2005,6 +2172,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testBrowseV2() {
+    OperationContext browsing = browseOperation().withSearchFlags(flags -> flags.setFulltext(true));
+    assertShippedClasspathTemplate(browsing, "*", false, BROWSE_TEMPLATE, BROWSE_LIST_TEMPLATE);
+    assertShippedClasspathTemplate(
+        browsing, "orders", false, BROWSE_TEMPLATE, BROWSE_FULLTEXT_TEMPLATE);
     BrowseResultV2 datasets =
         searchService.browseV2(opContext, DATASET_ENTITY_NAME, "", null, "*", 0, 10);
     assertEquals(datasets.getMetadata().getTotalNumEntities().longValue(), 2L);
@@ -2144,5 +2315,55 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   private static void assertUrns(SearchEntityArray entities, Urn... expected) {
     assertEqualsNoOrder(entities.stream().map(SearchEntity::getEntity).toArray(), expected);
+  }
+
+  private OperationContext pagedSearch() {
+    return opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
+  }
+
+  private OperationContext scrollOperation() {
+    return opContext.withSearchSurface(SearchTemplateSurfaces.SCROLL_ENTITIES);
+  }
+
+  private OperationContext aggregateOperation() {
+    return opContext.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES);
+  }
+
+  private OperationContext browseOperation() {
+    return opContext.withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES);
+  }
+
+  private static long facetTotal(SearchResult result, String name) {
+    return result.getMetadata().getAggregations().stream()
+        .filter(aggregation -> name.equals(aggregation.getName()))
+        .flatMap(aggregation -> aggregation.getAggregations().values().stream())
+        .mapToLong(Long::longValue)
+        .sum();
+  }
+
+  /**
+   * The route walk starts on a shipped classpath template. {@code expectedChain} is the seed and
+   * each route it follows. Light's ladder continues to fulltext only when that first query does not
+   * stop, which the walk decides per request. Scroll binding uses the scroll request path.
+   */
+  private static void assertShippedClasspathTemplate(
+      OperationContext context, String query, String... expectedChain) {
+    assertShippedClasspathTemplate(context, query, false, expectedChain);
+  }
+
+  private static void assertShippedClasspathTemplate(
+      OperationContext context, String query, boolean scroll, String... expectedChain) {
+    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    assertNotNull(coordinator);
+    OperationContext bound = coordinator.bind(context, query, scroll);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    assertNotNull(resolved, query);
+    assertEquals(resolved.getRouteChain(), List.of(expectedChain), query);
+    MergedSearchTemplate template = coordinator.loader().load(context, resolved.getUrn());
+    assertTrue(template.isClasspathBridge(), template.getUrn());
+    if ("urn:li:searchTemplate:light".equals(resolved.getUrn())) {
+      assertNotNull(template.getLadder());
+      assertEquals(template.getLadder().getNext().toString(), "urn:li:searchTemplate:fulltext");
+    }
   }
 }

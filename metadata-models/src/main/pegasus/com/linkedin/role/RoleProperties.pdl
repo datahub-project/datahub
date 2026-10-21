@@ -6,7 +6,8 @@ import com.linkedin.common.AuditStamp
  * Information about a ExternalRoleProperties
  */
 @Aspect = {
-  "name": "roleProperties"
+  "name": "roleProperties",
+  "schemaVersion": 2
 }
 record RoleProperties {
 
@@ -32,6 +33,18 @@ record RoleProperties {
   /**
    * Description of the IAM Role
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**

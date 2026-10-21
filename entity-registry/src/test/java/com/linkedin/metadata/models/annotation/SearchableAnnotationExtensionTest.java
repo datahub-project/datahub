@@ -714,6 +714,23 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
+  public void testV3OverlayOverridesQueryByDefault() {
+    DataMap overlay = new DataMap();
+    overlay.put("queryByDefault", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("queryByDefault", true);
+    annotationMap.put("v3", overlay);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "foreignKey", DataSchema.Type.STRING, "testField");
+
+    assertTrue(annotation.isQueryByDefault());
+    assertFalse(annotation.resolvedForV3().isQueryByDefault());
+  }
+
+  @Test
   public void testV3OverlayCanDisableSearch() {
     DataMap overlay = new DataMap();
     overlay.put("enabled", false);

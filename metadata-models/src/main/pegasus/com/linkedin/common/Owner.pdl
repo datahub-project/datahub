@@ -21,6 +21,7 @@ record Owner {
     "queryByDefault": false,
     "filterNameOverride": "Owned By",
     "v3": {
+
       "searchLabel": "owners",
       "mappings": [
         { "type": "URN" }

@@ -6443,6 +6443,11 @@
       "type" : "float",
       "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",
       "optional" : true
+    }, {
+      "name" : "searchTemplate",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Caller-selected search template URN. When set, selection skips classification, sub-intent,\nand engine lookup. The resolved template is not written back onto this field. The caller must\nhave the MANAGE_SYSTEM_OPERATIONS privilege.",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.query.SliceOptions", {
     "type" : "enum",
@@ -6736,6 +6741,31 @@
         }
       }
     } ]
+  }, {
+    "type" : "record",
+    "name" : "ExplainMatch",
+    "namespace" : "com.linkedin.metadata.search",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The same name a matched field reports: a logical field, or a structured property URN."
+    }, {
+      "name" : "value",
+      "type" : "string",
+      "doc" : "Matched text."
+    }, {
+      "name" : "subfield",
+      "type" : "string",
+      "doc" : "Indexed path that matched, such as {@code name.keyword} or {@code name.stemmed}."
+    }, {
+      "name" : "mode",
+      "type" : "string",
+      "doc" : "One of {@code exact}, {@code prefix}, {@code word}, {@code contains}, or {@code nameAndValue}."
+    }, {
+      "name" : "query",
+      "type" : "string",
+      "doc" : "Query text that produced the hit."
+    } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
     "name" : "LineageScrollResult",
@@ -6777,6 +6807,14 @@
               },
               "doc" : "Matched field name and values",
               "default" : [ ]
+            }, {
+              "name" : "explainMatches",
+              "type" : {
+                "type" : "array",
+                "items" : "ExplainMatch"
+              },
+              "doc" : "How each field matched. Set when the caller asks for an explanation.",
+              "optional" : true
             }, {
               "name" : "features",
               "type" : {
@@ -6898,6 +6936,14 @@
           },
           "doc" : "A list of search query suggestions based on the given query",
           "default" : [ ]
+        }, {
+          "name" : "routeChain",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Templates visited while choosing this result. Set when the caller asks for an explanation.",
+          "optional" : true
         } ]
       },
       "doc" : "Metadata specific to the browse result of the queried path"

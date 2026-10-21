@@ -1211,24 +1211,14 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
     assertNotNull(aspectsProperties, "_aspects should have properties");
 
-    // Verify that structuredProperties is NOT in _aspects (it should be at root level)
-    assertNull(
-        aspectsProperties.get("structuredProperties"),
-        "structuredProperties should not be in _aspects, it should be at root level");
+    // Values stay at the root. The aspect holds only parsed-name sources that copy_to can clear.
+    assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
 
     // Check that structuredProperties exists at root level
     @SuppressWarnings("unchecked")
     Map<String, Object> structuredProps =
         (Map<String, Object>) properties.get("structuredProperties");
     assertNotNull(structuredProps, "structuredProperties should exist at root level");
-
-    // Verify that other aspects are properly nested under _aspects
-    // This is a basic check - in a real scenario, you'd have actual aspect names
-    assertTrue(
-        aspectsProperties.isEmpty()
-            || aspectsProperties.keySet().stream()
-                .noneMatch(key -> "structuredProperties".equals(key)),
-        "No aspect in _aspects should be named 'structuredProperties'");
   }
 
   /**
@@ -1394,9 +1384,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       @SuppressWarnings("unchecked")
       Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
       if (aspectsProperties != null) {
-        assertNull(
-            aspectsProperties.get("structuredProperties"),
-            "structuredProperties should not be in _aspects");
+        assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
       }
     }
   }
@@ -1570,5 +1558,26 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 new GetIndexRequest(result.nextIndexName()),
                 RequestOptions.DEFAULT),
         "Next index should exist even when source is empty");
+  }
+
+  /**
+   * Structured-property values stay at the document root. Under {@code _aspects} the aspect, when
+   * present, stores only the parsed URN name keywords a later update clears.
+   */
+  @SuppressWarnings("unchecked")
+  private static void assertOnlyParsedUrnSources(Object structuredPropertiesAspect) {
+    if (structuredPropertiesAspect == null) {
+      return;
+    }
+    Map<String, Object> aspect = (Map<String, Object>) structuredPropertiesAspect;
+    Map<String, Object> properties = (Map<String, Object>) aspect.get("properties");
+    assertNotNull(properties, "structuredProperties aspect sources should declare properties");
+    assertFalse(properties.isEmpty(), "parsed URN sources should be present");
+    for (String fieldName : properties.keySet()) {
+      assertTrue(
+          fieldName.endsWith("__urn_name"),
+          "structuredProperties under _aspects should only store parsed URN names, found "
+              + fieldName);
+    }
   }
 }

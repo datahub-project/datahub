@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -225,18 +226,26 @@ public class SemanticSearchService {
     return CompletableFuture.supplyAsync(
         () ->
             cachingEntitySearchService.search(
-                opContext.withSearchFlags(
-                    flags -> {
-                      flags
-                          .setFulltext(true)
-                          .setSkipHighlighting(true)
-                          .setSkipAggregates(false)
-                          .setIncludeDefaultFacets(true);
-                      if (incomingFlags != null && incomingFlags.hasMaxAggValues()) {
-                        flags.setMaxAggValues(incomingFlags.getMaxAggValues());
-                      }
-                      return flags;
-                    }),
+                opContext
+                    .withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES)
+                    .withSearchFlags(
+                        flags -> {
+                          flags
+                              .setFulltext(true)
+                              .setSkipHighlighting(true)
+                              .setSkipAggregates(false)
+                              .setIncludeDefaultFacets(true);
+                          if (incomingFlags != null && incomingFlags.hasMaxAggValues()) {
+                            flags.setMaxAggValues(incomingFlags.getMaxAggValues());
+                          }
+                          if (incomingFlags != null && incomingFlags.hasSearchTemplate()) {
+                            flags.setSearchTemplate(incomingFlags.getSearchTemplate());
+                          }
+                          if (incomingFlags != null && incomingFlags.hasIncludeExplain()) {
+                            flags.setIncludeExplain(incomingFlags.isIncludeExplain());
+                          }
+                          return flags;
+                        }),
                 entityNames,
                 "*",
                 postFilters,
@@ -285,7 +294,10 @@ public class SemanticSearchService {
           "getNonEmptyEntities",
           // Apply entity filtering (hook for custom filtering logic)
           // Custom deployments can override filterEntitiesForSearch.
-          () -> filterEntitiesForSearch(entityDocCountCache.getNonEmptyEntities(opContext)),
+          () ->
+              filterEntitiesForSearch(
+                  entityDocCountCache.getNonEmptyEntities(
+                      opContext.withSkipTemplateExecution(true))),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }

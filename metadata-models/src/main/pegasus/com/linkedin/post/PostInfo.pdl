@@ -7,7 +7,8 @@ import com.linkedin.common.AuditStamp
  * Information about a DataHub Post.
  */
 @Aspect = {
-  "name": "postInfo"
+  "name": "postInfo",
+  "schemaVersion": 2
 }
 record PostInfo {
   /**

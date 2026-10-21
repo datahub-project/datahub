@@ -284,7 +284,9 @@ public class MultiEntityMappingsBuilderTest {
 
     assertFalse(mappings.isEmpty());
     for (IndexMapping mapping : mappings) {
-      Object aspects = getProperties(mapping.getMappings()).get("_aspects");
+      Object aspects =
+          withoutStoredAspectJsonFields(
+              withoutParsedUrnFields(getProperties(mapping.getMappings()).get("_aspects")));
       Set<String> analyzers = new HashSet<>();
       collectAnalysisReferences(aspects, analyzers, new HashSet<>());
       Set<String> types = new HashSet<>();
@@ -330,9 +332,12 @@ public class MultiEntityMappingsBuilderTest {
           String destination = sharedField.getKey();
           boolean feedsItself = source.equals(destination);
           assertTrue(
-              feedsItself
-                  ? properties.containsKey(destination)
-                  : copyTo(properties, source).contains(destination),
+              destination.startsWith("_aspects.")
+                  ? parsedAspectField(properties, destination) != null
+                  : feedsItself
+                      ? properties.containsKey(destination)
+                      : copyTo(properties, source).contains(destination)
+                          || parsedNameCopiesTo(properties, source, destination),
               entitySpec.getName() + " " + source + " -> " + destination);
           checked++;
         }
@@ -356,16 +361,147 @@ public class MultiEntityMappingsBuilderTest {
                     .anyMatch(destination -> !String.valueOf(destination).startsWith("_"));
             boolean isExactSharedField =
                 annotation.resolvedForV3().getSearchLabel().filter(fieldName::equals).isPresent();
+            SearchableAnnotation.FieldType fieldType = annotation.resolvedForV3().getFieldType();
+            boolean exactUrn =
+                fieldType == SearchableAnnotation.FieldType.URN
+                    || fieldType == SearchableAnnotation.FieldType.URN_PARTIAL;
             assertTrue(
                 copiesToSharedField
                     || isSharedSearchField(properties.get(fieldName))
-                    || isExactSharedField,
+                    || isExactSharedField
+                    || exactUrn,
                 entitySpec.getName() + " " + fieldName);
           }
         }
       }
     }
     assertTrue(checked > 100, String.valueOf(checked));
+  }
+
+  /** A URN's parsed-name keyword under {@code _aspects} copies into the shared field. */
+  @SuppressWarnings("unchecked")
+  private static boolean parsedNameCopiesTo(
+      Map<String, Object> properties, String source, String destination) {
+    if (!(properties.get("_aspects") instanceof Map<?, ?> aspects)
+        || !(aspects.get("properties") instanceof Map<?, ?> aspectProperties)) {
+      return false;
+    }
+    for (Object aspect : aspectProperties.values()) {
+      if (!(aspect instanceof Map<?, ?> aspectMapping)
+          || !(aspectMapping.get("properties") instanceof Map<?, ?> fields)) {
+        continue;
+      }
+      Object parsed = fields.get(source + V3SearchFields.PARSED_URN_SUFFIX);
+      if (parsed instanceof Map<?, ?> parsedMapping
+          && parsedMapping.get("copy_to") instanceof Collection<?> destinations
+          && destinations.contains(destination)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Test
+  public void testChildCopyAndSharedRecordUseTheirOwnDegree() throws IOException {
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Object> datasetProperties = null;
+    Map<String, Object> businessAttributeProperties = null;
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      Map<String, Object> properties = getProperties(mapping.getMappings());
+      if (properties.containsKey("fieldTags")) {
+        datasetProperties = properties;
+      } else if (properties.containsKey("editedFieldTags")) {
+        businessAttributeProperties = properties;
+      }
+    }
+
+    assertNotNull(datasetProperties);
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags__urn_name"),
+        List.of("tags_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags"),
+        List.of("tags_1_urn"));
+    assertFalse(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags").contains("tags"));
+    assertFalse(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldTags").contains("tags_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(
+            datasetProperties, "editableSchemaMetadata", "editedFieldTags__urn_name"),
+        List.of("tags_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "editableSchemaMetadata", "editedFieldTags"),
+        List.of("tags_1_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldGlossaryTerms__urn_name"),
+        List.of("glossaryTerms_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "fieldGlossaryTerms"),
+        List.of("glossaryTerms_1_urn"));
+    assertTrue(copyTo(datasetProperties, "fieldDescriptions").contains("description_1"));
+    assertFalse(copyTo(datasetProperties, "fieldDescriptions").contains("description"));
+    assertTrue(copyTo(datasetProperties, "editedFieldDescriptions").contains("description_1"));
+    assertFalse(copyTo(datasetProperties, "editedFieldDescriptions").contains("description"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "hasDescription"),
+        List.of("hasDescription_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "editableSchemaMetadata", "hasDescription"),
+        List.of("hasDescription_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "schemaMetadata", "hasTags"), List.of("hasTags_1"));
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "globalTags", "hasTags"), List.of("hasTags"));
+    assertEquals(
+        ((Map<String, Object>) datasetProperties.get("hasDescription_1")).get("type"), "boolean");
+    assertEquals(((Map<String, Object>) datasetProperties.get("hasTags_1")).get("type"), "boolean");
+    assertEquals(
+        ((Map<String, Object>) datasetProperties.get("hasGlossaryTerms_1")).get("type"), "boolean");
+
+    assertNotNull(businessAttributeProperties);
+    assertTrue(
+        copyTo(businessAttributeProperties, "editedFieldDescriptions").contains("description"));
+    assertFalse(
+        copyTo(businessAttributeProperties, "editedFieldDescriptions").contains("description_1"));
+    assertTrue(copyTo(businessAttributeProperties, "editedFieldTags").isEmpty());
+    assertEquals(
+        aspectBooleanCopyTo(
+            businessAttributeProperties, "businessAttributeInfo", "editedFieldTags"),
+        List.of("tags_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(
+            businessAttributeProperties, "businessAttributeInfo", "editedFieldTags__urn_name"),
+        List.of("tags"));
+    assertTrue(
+        aspectBooleanCopyTo(
+                businessAttributeProperties, "businessAttributeInfo", "editedFieldGlossaryTerms")
+            .contains("glossaryTerms_urn"));
+    assertTrue(
+        aspectBooleanCopyTo(
+                businessAttributeProperties,
+                "businessAttributeInfo",
+                "editedFieldGlossaryTerms__urn_name")
+            .contains("glossaryTerms"));
+    assertFalse(
+        aspectBooleanCopyTo(businessAttributeProperties, "businessAttributeInfo", "editedFieldTags")
+            .contains("tags_1_urn"));
+    assertEquals(
+        aspectBooleanCopyTo(businessAttributeProperties, "businessAttributeInfo", "hasDescription"),
+        List.of("hasDescription"));
+    assertFalse(businessAttributeProperties.containsKey("hasDescription_1"));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<?> aspectBooleanCopyTo(
+      Map<String, Object> properties, String aspect, String field) {
+    Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+    Map<String, Object> aspectProperties = (Map<String, Object>) aspects.get("properties");
+    Map<String, Object> aspectMapping = (Map<String, Object>) aspectProperties.get(aspect);
+    Map<String, Object> fields = (Map<String, Object>) aspectMapping.get("properties");
+    Object copyTo = ((Map<String, Object>) fields.get(field)).get("copy_to");
+    return copyTo instanceof List<?> destinations ? destinations : List.of();
   }
 
   @SuppressWarnings("unchecked")
@@ -418,7 +554,7 @@ public class MultiEntityMappingsBuilderTest {
     assertEquals(referencedName.get("copy_to"), List.of("other"), referencedName.toString());
     assertEquals(
         ((Map<String, Object>) businessAttributeRef.get("properties")).get("urn"),
-        Map.of("type", "keyword", "copy_to", List.of("other")));
+        Map.of("type", "keyword"));
     Map<String, Object> schemaFieldAspects =
         (Map<String, Object>)
             ((Map<String, Object>) propertiesByIndex.get("schemafieldindex_v3").get("_aspects"))
@@ -431,7 +567,78 @@ public class MultiEntityMappingsBuilderTest {
             "businessAttributeRef");
     assertEquals(
         ((Map<String, Object>) aspectBusinessAttributeRef.get("properties")).get("urn"),
-        Map.of("type", "keyword", "ignore_above", 255));
+        Map.of("type", "keyword"));
+    Map<String, Object> platform = (Map<String, Object>) datasetProperties.get("platform");
+    assertEquals(platform.get("type"), "keyword", platform.toString());
+    assertEquals(platform.get("normalizer"), "keyword_normalizer", platform.toString());
+    assertTrue(hasTextSubfield(platform), platform.toString());
+    assertFalse(platform.containsKey("ignore_above"), platform.toString());
+    Map<String, Object> platformUrn = (Map<String, Object>) datasetProperties.get("platform_urn");
+    assertEquals(platformUrn.get("type"), "keyword", platformUrn.toString());
+    assertFalse(platformUrn.containsKey("normalizer"), platformUrn.toString());
+    Map<String, Object> platformLowercase =
+        (Map<String, Object>) ((Map<String, Object>) platformUrn.get("fields")).get("lowercase");
+    assertEquals(platformLowercase.get("type"), "keyword", platformLowercase.toString());
+    assertEquals(
+        platformLowercase.get("normalizer"), "keyword_normalizer", platformLowercase.toString());
+    assertFalse(hasTextSubfield(platformUrn), platformUrn.toString());
+    assertFalse(datasetProperties.containsKey("urnName"), datasetProperties.toString());
+    Map<String, Object> documentUrn = (Map<String, Object>) datasetProperties.get("urn");
+    assertFalse(documentUrn.containsKey("normalizer"), documentUrn.toString());
+    assertFalse(documentUrn.containsKey("copy_to"), documentUrn.toString());
+    Map<String, Object> documentUrnLowercase =
+        (Map<String, Object>) ((Map<String, Object>) documentUrn.get("fields")).get("lowercase");
+    assertEquals(documentUrnLowercase.get("type"), "keyword", documentUrnLowercase.toString());
+    assertEquals(
+        documentUrnLowercase.get("normalizer"),
+        "keyword_normalizer",
+        documentUrnLowercase.toString());
+    assertFalse(hasTextSubfield(documentUrn), documentUrn.toString());
+    Map<String, Object> urnName = (Map<String, Object>) datasetProperties.get("urn_name");
+    assertEquals(urnName.get("type"), "keyword", urnName.toString());
+    assertFalse(urnName.containsKey("normalizer"), urnName.toString());
+    assertFalse(urnName.containsKey("copy_to"), urnName.toString());
+    Map<String, Object> urnNameLowercase =
+        (Map<String, Object>) ((Map<String, Object>) urnName.get("fields")).get("lowercase");
+    assertEquals(urnNameLowercase.get("type"), "keyword", urnNameLowercase.toString());
+    assertEquals(
+        urnNameLowercase.get("normalizer"), "keyword_normalizer", urnNameLowercase.toString());
+    assertFalse(hasTextSubfield(urnName), urnName.toString());
+    Map<String, Object> aspectPlatform =
+        getAspectFieldMapping(datasetProperties, "datasetKey", "platform");
+    assertEquals(aspectPlatform.get("copy_to"), List.of("platform_urn"), aspectPlatform.toString());
+    Map<String, Object> aspectPlatformName =
+        getAspectFieldMapping(datasetProperties, "datasetKey", "platform__urn_name");
+    assertEquals(aspectPlatformName.get("normalizer"), "keyword_normalizer");
+    assertEquals(
+        aspectPlatformName.get("copy_to"), List.of("platform"), aspectPlatformName.toString());
+    assertFalse(hasTextSubfield(aspectPlatformName), aspectPlatformName.toString());
+    assertFalse(aspectPlatformName.containsKey("ignore_above"), aspectPlatformName.toString());
+    Map<String, Object> aspectTagName =
+        getAspectFieldMapping(datasetProperties, "globalTags", "tags__urn_name");
+    assertEquals(aspectTagName.get("copy_to"), List.of("tags"));
+    assertEquals(aspectTagName.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> aspectTags = getAspectFieldMapping(datasetProperties, "globalTags", "tags");
+    assertEquals(aspectTags.get("copy_to"), List.of("tags_urn"), aspectTags.toString());
+    Map<String, Object> schemaFieldKey =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    ((Map<String, Object>)
+                            propertiesByIndex.get("schemafieldindex_v3").get("_aspects"))
+                        .get("properties"))
+                .get("schemaFieldKey");
+    Map<String, Object> schemaFieldKeyFields =
+        (Map<String, Object>) schemaFieldKey.get("properties");
+    Map<String, Object> parentName =
+        (Map<String, Object>) schemaFieldKeyFields.get("parent__urn_name");
+    assertEquals(parentName.get("normalizer"), "keyword_normalizer");
+    assertEquals(parentName.get("copy_to"), List.of("parent"), parentName.toString());
+    assertFalse(schemaFieldKeyFields.containsKey("urnName"), schemaFieldKeyFields.toString());
+    Map<String, Object> schemaFieldParent =
+        getAspectFieldMapping(
+            propertiesByIndex.get("schemafieldindex_v3"), "schemaFieldKey", "parent");
+    assertEquals(
+        schemaFieldParent.get("copy_to"), List.of("parent_urn"), schemaFieldParent.toString());
   }
 
   /**
@@ -448,8 +655,8 @@ public class MultiEntityMappingsBuilderTest {
     expectedDifferences.put("_entityName", "aliases name, which the name fields copy into");
     expectedDifferences.put(
         "urn",
-        "a keyword with ignore_above 512 from the base configuration; full-text search finds"
-            + " its parts in other");
+        "an exact keyword of the complete URN, with urn.lowercase for a case-insensitive match;"
+            + " full-text identity comes from key fields and annotated URN references");
     expectedDifferences.put(
         "businessAttributeRef",
         "a reference field keeps the referenced entity's fields unanalyzed; they never copy"
@@ -525,6 +732,7 @@ public class MultiEntityMappingsBuilderTest {
                             ? isKeywordStringRoot(v3Field)
                                 || isExactUrnRoot(v3Field)
                                 || isUnindexedStringRoot(v3Field)
+                                || isParsedUrnKeyword(v3Field)
                             : sorted(withoutIgnoreAbove(v2Field))
                                 .equals(sorted(withoutIgnoreAbove(v3Field))));
                 if (!expected) {
@@ -534,8 +742,11 @@ public class MultiEntityMappingsBuilderTest {
       v3Properties.forEach(
           (field, v3Field) -> {
             Set<String> analyzers = new HashSet<>();
-            collectAnalysisReferences(v3Field, analyzers, new HashSet<>());
-            if (!isSharedSearchField(v3Field) && !isBrowsePath(v3Field) && !analyzers.isEmpty()) {
+            collectAnalysisReferences(withoutParsedUrnFields(v3Field), analyzers, new HashSet<>());
+            if (!isSharedSearchField(v3Field)
+                && !isParsedUrnKeyword(v3Field)
+                && !isBrowsePath(v3Field)
+                && !analyzers.isEmpty()) {
               differences.add(v3Index + "." + field + " is analyzed: " + analyzers);
             }
           });
@@ -607,11 +818,28 @@ public class MultiEntityMappingsBuilderTest {
         && Boolean.FALSE.equals(mapping.get("doc_values"));
   }
 
+  /** A parsed URN root: normalized keyword, with text and stemmed only when it is full text. */
+  @SuppressWarnings("unchecked")
+  private static boolean isParsedUrnKeyword(Object v3Field) {
+    if (!(v3Field instanceof Map<?, ?> mapping) || !"keyword".equals(mapping.get("type"))) {
+      return false;
+    }
+    if (!"keyword_normalizer".equals(mapping.get("normalizer"))
+        || mapping.containsKey("ignore_above")) {
+      return false;
+    }
+    if (!(mapping.get("fields") instanceof Map<?, ?> fields)) {
+      return true;
+    }
+    return fields.keySet().stream().allMatch(key -> "text".equals(key) || "stemmed".equals(key));
+  }
+
   private static boolean isExactUrnRoot(Object v3Field) {
     return v3Field instanceof Map<?, ?> mapping
         && "keyword".equals(mapping.get("type"))
-        && Integer.valueOf(255).equals(mapping.get("ignore_above"))
-        && !mapping.containsKey("fields");
+        && !mapping.containsKey("fields")
+        && !mapping.containsKey("normalizer")
+        && !mapping.containsKey("analyzer");
   }
 
   /** Browse paths are text with a token count, which legacy browse reads for path depth. */
@@ -1144,9 +1372,9 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   /**
-   * Deliberate V3 change: the root urn is a plain keyword for exact match, and full-text search
-   * finds the urn's parts in other, which it copies into, instead of V2's delimited and ngram
-   * subfields.
+   * The root urn is a case-preserving keyword. Case-insensitive match reads urn.lowercase.
+   * Full-text identity comes from key-aspect fields and from annotated URN references, not from
+   * copying the raw urn into other.
    */
   @Test
   public void testGeneratedRootUrnIsKeywordCopiedToOtherSearchField() throws IOException {
@@ -1167,8 +1395,23 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> urn = (Map<String, Object>) properties.get("urn");
 
     assertEquals(urn.get("type"), "keyword");
-    assertFalse(urn.containsKey("fields"), urn.toString());
-    assertEquals(urn.get("copy_to"), List.of("other"));
+    assertFalse(urn.containsKey("normalizer"), urn.toString());
+    assertFalse(urn.containsKey("copy_to"), urn.toString());
+    assertFalse(urn.containsKey("ignore_above"), urn.toString());
+    @SuppressWarnings("unchecked")
+    Map<String, Object> lowercase =
+        (Map<String, Object>) ((Map<String, Object>) urn.get("fields")).get("lowercase");
+    assertEquals(lowercase.get("type"), "keyword", lowercase.toString());
+    assertEquals(lowercase.get("normalizer"), "keyword_normalizer", lowercase.toString());
+    @SuppressWarnings("unchecked")
+    Map<String, Object> urnName = (Map<String, Object>) properties.get("urn_name");
+    assertEquals(urnName.get("type"), "keyword", urnName.toString());
+    assertFalse(urnName.containsKey("normalizer"), urnName.toString());
+    @SuppressWarnings("unchecked")
+    Map<String, Object> urnNameLowercase =
+        (Map<String, Object>) ((Map<String, Object>) urnName.get("fields")).get("lowercase");
+    assertEquals(
+        urnNameLowercase.get("normalizer"), "keyword_normalizer", urnNameLowercase.toString());
 
     // _entityType must be explicitly keyword-mapped: the projector writes it on every document
     // and the entity-type facet aggregates on it, which fails on a dynamic text mapping.
@@ -1279,6 +1522,8 @@ public class MultiEntityMappingsBuilderTest {
     SearchableFieldSpec fieldSpec =
         entitySpec.getAspectSpecs().get(0).getSearchableFieldSpecs().get(0);
     when(fieldSpec.getSearchableAnnotation().getHasValuesFieldName())
+        .thenReturn(Optional.of("hasDescription"));
+    when(fieldSpec.getSearchableAnnotation().indexedHasValuesFieldName())
         .thenReturn(Optional.of("hasDescription"));
     when(fieldSpec.getSearchableAnnotation().getNumValuesFieldName())
         .thenReturn(Optional.of("numDescriptions"));
@@ -1630,6 +1875,72 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @SuppressWarnings("unchecked")
+  private static boolean hasTextSubfield(Map<String, Object> mapping) {
+    Object fields = mapping.get("fields");
+    return fields instanceof Map && ((Map<String, Object>) fields).containsKey("text");
+  }
+
+  /** Raw aspect copies stay unanalyzed. Parsed-name keywords may carry text and stemmed. */
+  @SuppressWarnings("unchecked")
+  private static Object withoutParsedUrnFields(Object value) {
+    if (!(value instanceof Map<?, ?> map)) {
+      return value;
+    }
+    Map<String, Object> copy = new HashMap<>();
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      String key = String.valueOf(entry.getKey());
+      if (key.endsWith(V3SearchFields.PARSED_URN_SUFFIX)) {
+        continue;
+      }
+      copy.put(key, withoutParsedUrnFields(entry.getValue()));
+    }
+    return copy;
+  }
+
+  /** The stored aspect body is intentionally an unindexed text field, not an analyzed copy. */
+  @SuppressWarnings("unchecked")
+  private static Object withoutStoredAspectJsonFields(Object value) {
+    if (!(value instanceof Map<?, ?> map)) {
+      return value;
+    }
+    Map<String, Object> copy = new HashMap<>();
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      String key = String.valueOf(entry.getKey());
+      if (V3SearchDocumentProjector.ASPECT_JSON_FIELD.equals(key)) {
+        continue;
+      }
+      copy.put(key, withoutStoredAspectJsonFields(entry.getValue()));
+    }
+    return copy;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> parsedAspectField(
+      Map<String, Object> properties, String path) {
+    String[] parts = path.split("\\.", 3);
+    if (parts.length != 3) {
+      return null;
+    }
+    Object aspects = properties.get("_aspects");
+    if (!(aspects instanceof Map)) {
+      return null;
+    }
+    Object aspectProperties = ((Map<String, Object>) aspects).get("properties");
+    if (!(aspectProperties instanceof Map)) {
+      return null;
+    }
+    Object aspect = ((Map<String, Object>) aspectProperties).get(parts[1]);
+    if (!(aspect instanceof Map)) {
+      return null;
+    }
+    Object fields = ((Map<String, Object>) aspect).get("properties");
+    if (!(fields instanceof Map)) {
+      return null;
+    }
+    Object field = ((Map<String, Object>) fields).get(parts[2]);
+    return field instanceof Map ? (Map<String, Object>) field : null;
+  }
+
   private Map<String, Object> getAspectFieldMapping(
       Map<String, Object> rootProperties, String aspectName, String fieldName) {
     Map<String, Object> aspects = (Map<String, Object>) rootProperties.get("_aspects");
@@ -1869,6 +2180,8 @@ public class MultiEntityMappingsBuilderTest {
     when(searchableAnnotation.getFieldNameAliases())
         .thenReturn(fieldNameAlias != null ? Collections.singletonList(fieldNameAlias) : null);
     when(searchableAnnotation.getSearchLabel()).thenReturn(searchLabel);
+    when(searchableAnnotation.indexedFieldName())
+        .thenReturn(searchLabel.filter(name -> !name.isEmpty()));
     when(searchableAnnotation.getEntityFieldName()).thenReturn(entityFieldName);
     when(searchableAnnotation.isV3Searchable()).thenReturn(true);
     when(searchableAnnotation.resolvedForV3()).thenReturn(searchableAnnotation);
