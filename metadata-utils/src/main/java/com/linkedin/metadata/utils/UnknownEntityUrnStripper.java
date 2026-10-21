@@ -32,13 +32,15 @@ import javax.annotation.Nullable;
  *
  * <p>After a rollback, the older build can meet aspects it knows whose values reference entity
  * types only a newer build registered (e.g. a data product asset of a new type). The older build
- * must not store, index or serve such references, but must not fail the whole aspect either, so
- * this runs on every write and every read. For each such urn the smallest enclosing removable
- * element is dropped: the array element or map entry holding it, or the optional record field
- * holding it. A urn held by required fields or union members all the way up to the aspect root is
- * left in place: a write of that aspect is still rejected by validation, and a read serves it
- * unchanged (only logged), since dropping it would make read-modify-write callers treat the aspect
- * as missing and overwrite the newer version's data.
+ * must not index or serve such references, but must not fail the whole aspect either, so this runs
+ * when an aspect is read and when it is indexed. Writes don't strip: {@link UnknownReferenceMerger}
+ * keeps the references the stored aspect holds and rejects new ones. For each such urn the smallest
+ * enclosing removable element is dropped: the array element or map entry holding it, or the
+ * optional record field holding it. A urn held by required fields or union members all the way up
+ * to the aspect root is left in place and not counted as removed: a read serves the aspect
+ * unchanged and marks it as written by a newer version ({@link #stripReporting}), and indexing it
+ * fails validation, so the event is skipped and counted. Dropping it would make read-modify-write
+ * callers treat the aspect as missing and overwrite the newer version's data.
  *
  * <p>The walk follows the schema and only descends into parts of it that can hold an urn, so
  * aspects without urn fields cost one cached lookup.
