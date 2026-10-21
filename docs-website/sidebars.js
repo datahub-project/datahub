@@ -112,6 +112,11 @@ module.exports = {
               id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "DataHub Cloud Plugins",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/plugins",
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,
