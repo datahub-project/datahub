@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
@@ -532,16 +533,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         from,
         size);
 
+    OperationContext searching =
+        SearchTemplateSurfaces.withDefault(
+            opContext.withSearchFlags(
+                flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            SearchTemplateSurfaces.SEARCH_ENTITIES);
     return esSearchDAO.search(
-        opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
-        entityNames,
-        input,
-        postFilters,
-        sortCriteria,
-        from,
-        size,
-        facets);
+        searching, entityNames, input, postFilters, sortCriteria, from, size, facets);
   }
 
   @Nonnull
@@ -669,10 +667,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+        browseContext(opContext, null),
         entityName,
         path,
         filter,
@@ -693,10 +688,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+        browseContext(opContext, input),
         entityNames,
         path,
         filter,
@@ -736,9 +728,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+            flags -> {
+              SearchFlags resolved =
+                  applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+              return opContext.getSearchContext().getResolvedSearchTemplate() == null
+                  ? resolved.setFulltext(true)
+                  : resolved;
+            }),
         entities,
         input,
         postFilters,
@@ -771,9 +767,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(false)),
+            flags -> {
+              SearchFlags resolved =
+                  applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
+              return opContext.getSearchContext().getResolvedSearchTemplate() == null
+                  ? resolved.setFulltext(false)
+                  : resolved;
+            }),
         entities,
         input,
         postFilters,
@@ -852,5 +852,21 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public ESIndexBuilder getIndexBuilder(@Nonnull String indexName) {
     return builderFor(indexName);
+  }
+
+  /**
+   * Browse always selects the browse router. A caller context already tagged for page search must
+   * not keep that surface or a template resolved for a different query.
+   */
+  @Nonnull
+  private OperationContext browseContext(
+      @Nonnull OperationContext opContext, @Nullable String input) {
+    return opContext
+        .withResolvedSearchTemplate(null)
+        .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
+        .withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true));
   }
 }

@@ -1,7 +1,8 @@
 namespace com.linkedin.datatype
 
 @Aspect = {
-    "name": "dataTypeInfo"
+    "name": "dataTypeInfo",
+    "schemaVersion": 2
 }
 record DataTypeInfo {
     /**
@@ -9,6 +10,7 @@ record DataTypeInfo {
      */
     @Searchable = {
       "fieldType": "KEYWORD",
+      "queryByDefault": true,
       "boostScore": 10.0,
       "v3": {
         "searchLabel": "qualifiedName",
@@ -24,10 +26,34 @@ record DataTypeInfo {
     /**
      * An optional display name for the data type.
      */
+    @Searchable = {
+      "fieldType": "WORD_GRAM",
+      "boostScore": 10.0,
+      "v3": {
+        "searchLabel": "name",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
+    }
     displayName: optional string
 
     /**
      * An optional description for the data type.
      */
+    @Searchable = {
+      "fieldType": "TEXT",
+      "hasValuesFieldName": "hasDescription",
+      "v3": {
+        "searchLabel": "description",
+        "mappings": [
+          { "type": "KEYWORD", "index": false, "docValues": false },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
+    }
     description: optional string
 }

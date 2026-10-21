@@ -25,6 +25,9 @@ import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -73,9 +76,10 @@ public class SearchQueryBuilder {
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration) {
-    this.exactMatchConfiguration = searchConfiguration.getExactMatch();
-    this.partialConfiguration = searchConfiguration.getPartial();
-    this.wordGramConfiguration = searchConfiguration.getWordGram();
+    SearchConfiguration resolved = SearchConfiguration.withSectionDefaults(searchConfiguration);
+    this.exactMatchConfiguration = resolved.getExactMatch();
+    this.partialConfiguration = resolved.getPartial();
+    this.wordGramConfiguration = resolved.getWordGram();
     this.searchValidationConfiguration =
         searchConfiguration.getValidation() != null
             ? searchConfiguration.getValidation()
@@ -91,6 +95,19 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    if (coordinator != null && coordinator.executes(opContext)) {
+      return buildPlan(opContext, entitySpecs, query, fulltext, null, false).query();
+    }
+    if (coordinator != null
+        && coordinator.effect(opContext) == SearchTemplateRollout.Effect.SHADOW) {
+      coordinator.shadow(
+          opContext,
+          entitySpecs,
+          query,
+          fulltext,
+          SearchTemplateRollout.scrollSurface(opContext.getSearchContext().getSearchSurface()));
+    }
     return buildQuery(opContext, entitySpecs, query, fulltext, false);
   }
 
@@ -121,6 +138,39 @@ public class SearchQueryBuilder {
       return null;
     }
     return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
+  }
+
+  @Nonnull
+  public SearchQueryPlan buildPlan(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext,
+      @Nullable String renderUrn,
+      boolean scroll) {
+    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    if (coordinator != null && coordinator.executes(opContext)) {
+      if (searchValidationConfiguration.isEnabled()) {
+        validateSearchQuery(query);
+      }
+      OperationContext bound =
+          opContext.getSearchContext().getResolvedSearchTemplate() != null
+              ? opContext
+              : coordinator.bind(
+                  opContext, query, scroll, entitySpecs.stream().map(EntitySpec::getName).toList());
+      var rendered =
+          coordinator.queryBuilder().render(bound, entitySpecs, query, fulltext, renderUrn, scroll);
+      return new SearchQueryPlan(rendered.query(), rendered);
+    }
+    if (coordinator != null
+        && coordinator.effect(opContext) == SearchTemplateRollout.Effect.SHADOW) {
+      coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
+    }
+    QueryBuilder queryBuilder = buildQuery(opContext, entitySpecs, query, fulltext, false);
+    if (queryBuilder == null) {
+      throw new IllegalStateException("Search query produced no clause");
+    }
+    return SearchQueryPlan.legacy(queryBuilder);
   }
 
   /**
@@ -253,6 +303,18 @@ public class SearchQueryBuilder {
   }
 
   /**
+   * The annotation an unqualified query uses for this field. Search V2 uses the annotation as
+   * written. Search V3 uses the resolved annotation, so a {@code v3} override replaces the
+   * top-level {@code queryByDefault} and {@code boostScore}.
+   */
+  @Nonnull
+  protected Optional<SearchableAnnotation> unqualifiedQueryAnnotation(
+      @Nonnull SearchableFieldSpec fieldSpec) {
+    SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+    return annotation.isQueryByDefault() ? Optional.of(annotation) : Optional.empty();
+  }
+
+  /**
    * Return query by default fields
    *
    * @param entityRegistry entity registry with search annotations
@@ -265,24 +327,24 @@ public class SearchQueryBuilder {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
-      if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
+      Optional<SearchableAnnotation> queryAnnotation = unqualifiedQueryAnnotation(fieldSpec);
+      if (queryAnnotation.isEmpty()) {
         continue;
       }
+      SearchableAnnotation annotation = queryAnnotation.get();
 
-      SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(fieldSpec);
+      SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(annotation);
       fields.add(searchFieldConfig);
 
-      if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasDelimitedSubfield()) {
-        final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
-
+      if (searchFieldConfig.hasDelimitedSubfield()) {
         fields.add(
             SearchFieldConfig.detectSubFieldType(
                 searchFieldConfig.fieldName() + ".delimited",
                 searchFieldConfig.boost() * partialConfiguration.getFactor(),
-                searchableAnnotation.getFieldType(),
-                searchableAnnotation.isQueryByDefault()));
+                annotation.getFieldType(),
+                true));
 
-        if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasWordGramSubfields()) {
+        if (searchFieldConfig.hasWordGramSubfields()) {
           addWordGramSearchConfig(fields, searchFieldConfig);
         }
       }

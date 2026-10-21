@@ -37,6 +37,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -54,6 +56,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -63,6 +66,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.action.search.CreatePitResponse;
@@ -678,13 +682,27 @@ public class ESUtils {
       Intent intent =
           RANGE_QUERY_CONDITIONS.contains(criterion.getCondition()) ? Intent.RANGE : Intent.FILTER;
       if (v3FieldResolver.supports(criterion.getField(), intent)) {
+        String path = v3FieldResolver.exactPath(criterion.getField(), intent);
+        if (criterion.getCondition() == Condition.IEQUAL) {
+          final String lowercase = v3FieldResolver.lowercaseFullUrnPath(criterion.getField());
+          if (!lowercase.isEmpty()) {
+            path = lowercase;
+          }
+        }
         effectiveCriterion =
             buildCriterion(
-                v3FieldResolver.exactPath(criterion.getField(), intent),
+                path,
                 criterion.getCondition(),
                 criterion.isNegated(),
                 criterion.hasValues() ? criterion.getValues() : null);
       } else {
+        List<String> hasValuesFields = v3FieldResolver.hasValuesFieldNames(criterion.getField());
+        if ((criterion.getCondition() == Condition.EXISTS
+                || criterion.getCondition() == Condition.IS_NULL)
+            && hasValuesFields.size() > 1) {
+          return buildHasValuesExistenceQuery(
+              criterion.getField(), hasValuesFields, criterion.getCondition() == Condition.IS_NULL);
+        }
         Criterion rewritten = unindexedV3Criterion(v3FieldResolver, criterion);
         if (rewritten == null) {
           return null;
@@ -735,7 +753,8 @@ public class ESUtils {
         criterion.getField(),
         opContext,
         queryFilterRewriteChain,
-        resolvedForV3);
+        resolvedForV3,
+        v3FieldResolver != null);
   }
 
   /**
@@ -762,6 +781,17 @@ public class ESUtils {
         criterion.getCondition(),
         criterion.getField());
     return null;
+  }
+
+  @Nonnull
+  private static QueryBuilder buildHasValuesExistenceQuery(
+      @Nonnull String queryName, @Nonnull List<String> fields, boolean missing) {
+    BoolQueryBuilder anyPresent = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    fields.forEach(field -> anyPresent.should(QueryBuilders.existsQuery(field)));
+    if (missing) {
+      return QueryBuilders.boolQuery().mustNot(anyPresent).queryName(queryName);
+    }
+    return anyPresent.queryName(queryName);
   }
 
   /**
@@ -926,8 +956,15 @@ public class ESUtils {
    */
   public static void buildNameSuggestions(
       @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable String textInput) {
+    buildNameSuggestions(searchSourceBuilder, textInput, ENTITY_NAME_FIELD);
+  }
+
+  public static void buildNameSuggestions(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nullable String textInput,
+      @Nonnull String field) {
     SuggestionBuilder<TermSuggestionBuilder> builder =
-        SuggestBuilders.termSuggestion(ENTITY_NAME_FIELD).text(textInput);
+        SuggestBuilders.termSuggestion(field).text(textInput);
     SuggestBuilder suggestBuilder = new SuggestBuilder();
     suggestBuilder.addSuggestion(NAME_SUGGESTION, builder);
     searchSourceBuilder.suggest(suggestBuilder);
@@ -1114,6 +1151,7 @@ public class ESUtils {
                   null,
                   opContext,
                   queryFilterRewriteChain,
+                  false,
                   false)
               .queryName(field));
     }
@@ -1124,6 +1162,73 @@ public class ESUtils {
     return condition == Condition.IEQUAL;
   }
 
+  /**
+   * A URN structured property, or its parsed {@code __urn_name} sibling. On a Search V3 index,
+   * case-insensitive match reads {@code .lowercase}. Search V2 has no such subfield.
+   */
+  private static boolean isStructuredPropertyUrnKeyword(
+      @Nullable final Object opContext,
+      @Nonnull final String criterionField,
+      @Nullable final AspectRetriever aspectRetriever,
+      @Nonnull final String keywordField) {
+    if (!keywordField.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      return false;
+    }
+    if (keywordField.endsWith(StructuredPropertyUrnIdentity.FIELD_SUFFIX)
+        || replaceSuffix(keywordField).endsWith(StructuredPropertyUrnIdentity.FIELD_SUFFIX)) {
+      return true;
+    }
+    Optional<LogicalValueType> fromPath =
+        StructuredPropertyUtils.getLogicalValueTypeFromFieldName(keywordField);
+    if (fromPath.isPresent()) {
+      return fromPath.get() == LogicalValueType.URN;
+    }
+    if (aspectRetriever == null) {
+      return false;
+    }
+    try {
+      return StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
+              opContext instanceof OperationFingerprint fingerprint ? fingerprint : null,
+              criterionField,
+              aspectRetriever)
+          .map(
+              definition ->
+                  StructuredPropertyUtils.getLogicalValueType(definition.getSecond())
+                      == LogicalValueType.URN)
+          .orElse(false);
+    } catch (RuntimeException ignored) {
+      return false;
+    }
+  }
+
+  /**
+   * Same token {@code keyword_normalizer} stores: lowercase, then ASCII folding. A {@code term}
+   * query does not run the normalizer, so the query value has to be folded first.
+   */
+  @Nonnull
+  private static BoolQueryBuilder lowercaseTerms(
+      @Nonnull final String field, @Nonnull final Criterion criterion) {
+    BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+    criterion
+        .getValues()
+        .forEach(
+            value ->
+                boolQuery.should(QueryBuilders.termQuery(field, keywordNormalize(value.trim()))));
+    if (!boolQuery.should().isEmpty()) {
+      boolQuery.minimumShouldMatch(1);
+    }
+    return boolQuery;
+  }
+
+  @Nonnull
+  public static String keywordNormalize(@Nonnull final String value) {
+    final String lower = value.toLowerCase(Locale.ROOT);
+    final char[] chars = lower.toCharArray();
+    final char[] folded = new char[chars.length * 4];
+    final int length = ASCIIFoldingFilter.foldToASCII(chars, 0, folded, 0, chars.length);
+    return new String(folded, 0, length);
+  }
+
   @Nonnull
   private static QueryBuilder getQueryBuilderFromCriterionForSingleField(
       @Nonnull Criterion criterion,
@@ -1132,7 +1237,8 @@ public class ESUtils {
       @Nullable String queryName,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     final Condition condition = criterion.getCondition();
     final AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     final String fieldName =
@@ -1161,7 +1267,8 @@ public class ESUtils {
                 opContext,
                 aspectRetriever,
                 enableCaseInsensitiveSearch,
-                resolvedForV3)
+                resolvedForV3,
+                v3Index)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (RANGE_QUERY_CONDITIONS.contains(condition)) {
         return buildRangeQueryFromCriterion(
@@ -1218,7 +1325,8 @@ public class ESUtils {
                     opContext,
                     aspectRetriever,
                     enableCaseInsensitiveSearch,
-                    resolvedForV3))
+                    resolvedForV3,
+                    v3Index))
             .queryName(queryName != null ? queryName : fieldName);
       }
     }
@@ -1333,7 +1441,8 @@ public class ESUtils {
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     return buildEqualsConditionFromCriterionWithValues(
         fieldName,
         criterion,
@@ -1342,7 +1451,8 @@ public class ESUtils {
         opContext,
         aspectRetriever,
         enableCaseInsensitiveSearch,
-        resolvedForV3);
+        resolvedForV3,
+        v3Index);
   }
 
   /**
@@ -1357,7 +1467,8 @@ public class ESUtils {
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     Set<String> fieldTypes =
         getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
     if (fieldTypes.size() > 1) {
@@ -1380,6 +1491,21 @@ public class ESUtils {
     }
 
     if (enableCaseInsensitiveSearch) {
+      String keywordField =
+          resolvedForV3
+              ? fieldName
+              : toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever);
+      if (v3Index
+          && !resolvedForV3
+          && isStructuredPropertyUrnKeyword(
+              opContext, criterion.getField(), aspectRetriever, keywordField)) {
+        return lowercaseTerms(keywordField + "." + V3SearchFields.LOWERCASE, criterion);
+      }
+      // A resolved URN IEQUAL already names <field>_urn.lowercase. Term queries do not run
+      // keyword_normalizer, and caseInsensitive does not ASCII-fold.
+      if (resolvedForV3 && keywordField.endsWith("." + V3SearchFields.LOWERCASE)) {
+        return lowercaseTerms(keywordField, criterion);
+      }
       BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
       criterion
           .getValues()

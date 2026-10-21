@@ -1,0 +1,1 @@
+[{"aspect":{"json":{"rowCount":68,"timestampMillis":1700000000000}},"aspectName":"datasetProfile","changeType":"UPSERT","entityType":"dataset","entityUrn":"urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.dogs_in_movies,PROD)"}]

@@ -1,0 +1,58 @@
+# Input catalog for search-template render tests. Goldens are rendered output, not this file.
+- urn: urn:li:structuredProperty:notes.internal
+  qualifiedName: notes.internal
+  valueType: string
+  entityTypes: [dataset]
+- urn: urn:li:structuredProperty:hidden.label
+  qualifiedName: hidden.label
+  valueType: string
+  entityTypes: [dataset]
+  queryByDefault: false
+  boostScore: 4.0
+- urn: urn:li:structuredProperty:certification.status
+  qualifiedName: certification.status
+  valueType: string
+  entityTypes: [dataset]
+  queryByDefault: true
+  boostScore: 3.0
+  displayName: Certification Status
+- urn: urn:li:structuredProperty:summary.notes
+  qualifiedName: summary.notes
+  valueType: rich_text
+  entityTypes: [dataset]
+  queryByDefault: true
+  boostScore: 2.0
+  displayName: Summary Notes
+- urn: urn:li:structuredProperty:owner.ref
+  qualifiedName: owner.ref
+  valueType: urn
+  entityTypes: [dataset]
+  queryByDefault: true
+  boostScore: 1.5
+- urn: urn:li:structuredProperty:priority.rank
+  qualifiedName: priority.rank
+  valueType: number
+  entityTypes: [dataset]
+  queryByDefault: true
+  boostScore: 1.0
+- urn: urn:li:structuredProperty:due.on
+  qualifiedName: due.on
+  valueType: date
+  entityTypes: [dataset]
+  queryByDefault: true
+  boostScore: 1.0
+- urn: urn:li:structuredProperty:contract.id
+  qualifiedName: contract.id
+  valueType: string
+  entityTypes: [dataset]
+  queryByDefault: true
+  boostScore: 5.0
+  displayName: Contract Id
+  version: "00000000000001"
+- urn: urn:li:structuredProperty:chart.only
+  qualifiedName: chart.only
+  valueType: string
+  entityTypes: [chart]
+  queryByDefault: true
+  boostScore: 6.0
+  displayName: Chart Only

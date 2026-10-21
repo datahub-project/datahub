@@ -37,7 +37,15 @@ record DataPlatformInfo {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   displayName: optional string
 

@@ -145,7 +145,7 @@ authorization:
     #   identity: corpuser, corpGroup
     #   platforms: dataPlatform, dataPlatformInstance
     #   metadata model: ownershipType, lifecycleStageType, entityType, dataType, structuredProperty, form, role, dataHubRole
-    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
+    #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post, searchTemplate
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
       value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
@@ -1279,6 +1279,93 @@ elasticsearch:
       add: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_ADD:}
       remove: ${SEARCH_PRIORITIZED_DATAHUB_ENTITY_TYPES_REMOVE:}
 
+    # Search V3 query templates. Off until keyword read and this flag are both on.
+    # Engine slots (elasticsearch8, opensearch3, elasticsearch9, opensearch2, postgres) are
+    # optional. An unset slot uses default. A URN is selected only when its dialect matches.
+    v3:
+      templates:
+        enabled: ${SEARCH_V3_TEMPLATES_ENABLED:false}
+        # Per-surface rollout. The flag above is the rollback to the Java V2.5 builder: false
+        # serves no template, on every surface, whatever the settings below say. mode applies
+        # when the flag is true and a surface is blank. off keeps that surface on the Java
+        # builder. shadow (render-only) renders the template and does not execute it. active
+        # (canary) serves it. percent is the active share, bucketed by actor and surface.
+        # The shipped flag stays false. Parity still records DSL differences, and the
+        # compatibility window has not elapsed, so templates are not the configured default.
+        rollout:
+          mode: ${SEARCH_V3_TEMPLATES_ROLLOUT:active}
+          percent: ${SEARCH_V3_TEMPLATES_ROLLOUT_PERCENT:100}
+          searchEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES:}
+          searchEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_PERCENT:-1}
+          scrollEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES:}
+          scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
+          aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
+          aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
+          browseEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_BROWSE_ENTITIES:}
+          browseEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_BROWSE_ENTITIES_PERCENT:-1}
+          searchEntitiesLineage: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_LINEAGE:}
+          searchEntitiesLineagePercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_LINEAGE_PERCENT:-1}
+          scrollEntitiesLineage: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_LINEAGE:}
+          scrollEntitiesLineagePercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_LINEAGE_PERCENT:-1}
+        # storage reads the aspect and fills a missing shipped template from the classpath.
+        # System update sets classpath and does not read stored templates.
+        # A merged template stays cached for cache.primary.ttlSeconds, the same TTL as entity
+        # search results.
+        source: ${SEARCH_V3_TEMPLATES_SOURCE:storage}
+        # Not repeated in Java. maxParentDepth and cacheMaximumSize must be positive: 0 is
+        # rejected when the loader starts. maxLeafClauses must be positive when templates are
+        # enabled. hybridKeywordScale must be positive too: 0 drops the keyword contribution of a
+        # document rerank.
+        hybridKeywordScale: ${SEARCH_V3_TEMPLATES_HYBRID_KEYWORD_SCALE:500}
+        maxParentDepth: ${SEARCH_V3_TEMPLATES_MAX_PARENT_DEPTH:5}
+        cacheMaximumSize: ${SEARCH_V3_TEMPLATES_CACHE_MAXIMUM_SIZE:500}
+        maxLeafClauses: ${SEARCH_V3_TEMPLATES_MAX_LEAF_CLAUSES:1024}
+        documentRerankTimeoutSeconds: ${SEARCH_V3_TEMPLATES_DOCUMENT_RERANK_TIMEOUT_SECONDS:2}
+        # Route ceilings, also not repeated in Java. 0 is rejected when a selector or loader starts.
+        # maxRoutes bounds how many RE2 patterns one template compiles. maxRoutePatternLength bounds
+        # each stored expression; raise it only for a pattern that cannot be expressed in 256
+        # characters. maxRouteHops counts the seed: each extra hop loads another template, so keep
+        # it near maxParentDepth rather than treating it as a search-depth limit.
+        maxRoutes: ${SEARCH_V3_TEMPLATES_MAX_ROUTES:32}
+        maxRoutePatternLength: ${SEARCH_V3_TEMPLATES_MAX_ROUTE_PATTERN_LENGTH:256}
+        maxRouteHops: ${SEARCH_V3_TEMPLATES_MAX_ROUTE_HOPS:5}
+        concurrency:
+          corePoolSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_CORE_POOL_SIZE:-1}
+          maxPoolSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_MAX_POOL_SIZE:0}
+          queueSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_QUEUE_SIZE:0}
+          keepAlive: ${SEARCH_V3_TEMPLATES_CONCURRENCY_KEEP_ALIVE_SECONDS:60}
+        defaults:
+          fulltext:
+            default: urn:li:searchTemplate:search
+            # elasticsearch8: urn:li:searchTemplate:searchEs8
+            # opensearch3: urn:li:searchTemplate:searchOs3
+            # postgres: urn:li:searchTemplate:searchPostgres
+          structured:
+            default: urn:li:searchTemplate:structured
+        surfaces:
+          # Entity search starts on searchLight, whose ordinary query is the light template.
+          # Scroll and aggregate both pin the complete search router, so a later global-default
+          # change cannot move one without the other. Browse uses its own router.
+          searchEntities:
+            fulltext:
+              default: urn:li:searchTemplate:searchLight
+          scrollEntities:
+            fulltext:
+              default: urn:li:searchTemplate:search
+          aggregateEntities:
+            fulltext:
+              default: urn:li:searchTemplate:search
+          browseEntities:
+            fulltext:
+              default: urn:li:searchTemplate:browseV2
+          searchEntitiesLineage:
+            fulltext:
+              default: urn:li:searchTemplate:lineage
+          scrollEntitiesLineage:
+            fulltext:
+              default: urn:li:searchTemplate:lineage
+              # opensearch3: urn:li:searchTemplate:lineageOs3
+
 
 # TODO: Kafka topic convention
 kafka:
@@ -2110,6 +2197,8 @@ cache:
           status: 300 # 5 min
           propertyDefinition: 300 # 5 min
           structuredPropertyKey: 86400 # 1 day
+        searchTemplate:
+          searchTemplateProperties: ${CACHE_TTL_SECONDS:600}
         chart:
           usageFeatures: 21600 # 6hrs
         dataset:

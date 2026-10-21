@@ -628,7 +628,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     EntitySpec entitySpec = events.get(0).getEntitySpec();
     String entityType = entitySpec.getName();
-    ObjectNode combinedDocument = searchDocumentProjector.newEntityDocument(urn, entitySpec);
+    ObjectNode combinedDocument =
+        searchDocumentProjector.newEntityDocument(urn, entitySpec, opContext.getEntityRegistry());
 
     boolean hasAnyAspects = false;
     List<BatchProjection> projections = new ArrayList<>();
