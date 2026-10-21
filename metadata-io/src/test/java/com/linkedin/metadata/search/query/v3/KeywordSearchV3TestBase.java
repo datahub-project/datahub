@@ -187,9 +187,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final String SEARCH_TEMPLATE = "urn:li:searchTemplate:search";
   private static final String LIST_TEMPLATE = "urn:li:searchTemplate:list";
   private static final String FULLTEXT_TEMPLATE = "urn:li:searchTemplate:fulltext";
-  private static final String BROWSE_TEMPLATE = "urn:li:searchTemplate:browseV2";
-  private static final String BROWSE_LIST_TEMPLATE = "urn:li:searchTemplate:browseV2List";
-  private static final String BROWSE_FULLTEXT_TEMPLATE = "urn:li:searchTemplate:browseV2Fulltext";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
   private static final Urn STEWARD_NOTE = UrnUtils.getUrn("urn:li:structuredProperty:stewardNote");
@@ -284,16 +281,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         Map.of(
             SearchTemplateSurfaces.SEARCH_ENTITIES,
             Map.of("fulltext", slot("urn:li:searchTemplate:searchLight")),
-            SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
-            Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
-            SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE,
-            Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
             SearchTemplateSurfaces.SCROLL_ENTITIES,
             Map.of("fulltext", slot("urn:li:searchTemplate:search")),
             SearchTemplateSurfaces.AGGREGATE_ENTITIES,
-            Map.of("fulltext", slot("urn:li:searchTemplate:search")),
-            SearchTemplateSurfaces.BROWSE_ENTITIES,
-            Map.of("fulltext", slot("urn:li:searchTemplate:browseV2"))));
+            Map.of("fulltext", slot("urn:li:searchTemplate:search"))));
     return templates;
   }
 
@@ -2174,9 +2165,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   @Test
   public void testBrowseV2() {
     OperationContext browsing = browseOperation().withSearchFlags(flags -> flags.setFulltext(true));
-    assertShippedClasspathTemplate(browsing, "*", false, BROWSE_TEMPLATE, BROWSE_LIST_TEMPLATE);
-    assertShippedClasspathTemplate(
-        browsing, "orders", false, BROWSE_TEMPLATE, BROWSE_FULLTEXT_TEMPLATE);
+    assertShippedClasspathTemplate(browsing, "*", false, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(browsing, "orders", false, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
     BrowseResultV2 datasets =
         searchService.browseV2(opContext, DATASET_ENTITY_NAME, "", null, "*", 0, 10);
     assertEquals(datasets.getMetadata().getTotalNumEntities().longValue(), 2L);
@@ -2331,7 +2321,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   private OperationContext browseOperation() {
-    return opContext.withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES);
+    return opContext.withSearchSurface(null);
   }
 
   private static long facetTotal(SearchResult result, String name) {

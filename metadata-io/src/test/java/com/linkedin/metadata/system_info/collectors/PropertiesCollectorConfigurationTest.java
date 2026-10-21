@@ -850,12 +850,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.v3.templates.rollout.scrollEntitiesPercent",
           "elasticsearch.search.v3.templates.rollout.aggregateEntities",
           "elasticsearch.search.v3.templates.rollout.aggregateEntitiesPercent",
-          "elasticsearch.search.v3.templates.rollout.browseEntities",
-          "elasticsearch.search.v3.templates.rollout.browseEntitiesPercent",
-          "elasticsearch.search.v3.templates.rollout.searchEntitiesLineage",
-          "elasticsearch.search.v3.templates.rollout.searchEntitiesLineagePercent",
-          "elasticsearch.search.v3.templates.rollout.scrollEntitiesLineage",
-          "elasticsearch.search.v3.templates.rollout.scrollEntitiesLineagePercent",
           // Additional DataHub services and features
           "businessAttribute.fetchRelatedEntitiesBatchSize",
           "businessAttribute.fetchRelatedEntitiesCount",

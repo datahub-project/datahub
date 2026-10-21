@@ -49,6 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
+- **(GMS / Search V3 templates)** The lineage and browse search templates and surfaces are gone. Lineage search uses the same seeds as entity search. Browse text uses the `search` router. `SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_LINEAGE`, `SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_LINEAGE_PERCENT`, `SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_LINEAGE`, `SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_LINEAGE_PERCENT`, `SEARCH_V3_TEMPLATES_ROLLOUT_BROWSE_ENTITIES`, and `SEARCH_V3_TEMPLATES_ROLLOUT_BROWSE_ENTITIES_PERCENT` are no longer read. **Action:** remove those environment variables. Copies of the old templates already stored from an earlier bootstrap are unused.
 - **(GMS / Search V3 templates)** With template reads on (`SEARCH_V3_TEMPLATES_ENABLED=true` and Search V3 keyword reads on), a request `fieldConfiguration` and a matching custom-search `queryConfigurations` entry are ignored. Each one that would have applied is logged and counted. Template field settings stay authoritative. **Action:** none until those flags are on.
 - [#20284](https://github.com/datahub-project/datahub/pull/20284) **(Ingestion / Airflow plugin)** Three changes to the datasets the plugin records. Lineage recorded under the old URNs stays on the old datasets.
 

@@ -32,7 +32,6 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -308,19 +307,15 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testBrowseV2RequestUsesBrowseTemplate() throws Exception {
+  public void testBrowseV2RequestUsesSearchRouter() throws Exception {
     SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
     templates.setEnabled(true);
     SearchTemplateFixtures.setShippedLimits(templates);
     Map<String, Object> search = new HashMap<>();
     search.put("default", "urn:li:searchTemplate:search");
-    Map<String, Object> browse = new HashMap<>();
-    browse.put("default", "urn:li:searchTemplate:browseV2");
     Map<String, Object> structured = new HashMap<>();
     structured.put("default", "urn:li:searchTemplate:structured");
     templates.setDefaults(Map.of("fulltext", search, "structured", structured));
-    templates.setSurfaces(
-        Map.of(SearchTemplateSurfaces.BROWSE_ENTITIES, Map.of("fulltext", browse)));
     ElasticSearchConfiguration elastic =
         v3Config(true).toBuilder()
             .search(
@@ -361,17 +356,15 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     route.setTemplate(UrnUtils.getUrn("urn:li:searchTemplate:browseHostile"));
     router.setDefaultRoute(route);
     Map<String, SearchTemplateProperties> catalog = new HashMap<>();
-    catalog.put("urn:li:searchTemplate:browseV2", router);
+    catalog.put("urn:li:searchTemplate:browseRouter", router);
     catalog.put("urn:li:searchTemplate:browseHostile", leaf);
 
     SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
     templates.setEnabled(true);
     SearchTemplateFixtures.setShippedLimits(templates);
     Map<String, Object> browse = new HashMap<>();
-    browse.put("default", "urn:li:searchTemplate:browseV2");
+    browse.put("default", "urn:li:searchTemplate:browseRouter");
     templates.setDefaults(Map.of("fulltext", browse));
-    templates.setSurfaces(
-        Map.of(SearchTemplateSurfaces.BROWSE_ENTITIES, Map.of("fulltext", browse)));
     ElasticSearchConfiguration elastic =
         v3Config(true).toBuilder()
             .search(
@@ -424,7 +417,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     TEST_SEARCH_SERVICE_CONFIG)
                 .browseV2(
                     opContext
-                        .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
+                        .withSearchSurface(null)
                         .withSearchFlags(flags -> flags.setGetSuggestions(true).setFulltext(true)),
                     "dataset",
                     path,
@@ -445,7 +438,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     TEST_SEARCH_SERVICE_CONFIG)
                 .browseV2(
                     opContext
-                        .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
+                        .withSearchSurface(null)
                         .withSearchFlags(flags -> flags.setGetSuggestions(true).setFulltext(true)),
                     List.of("dataset"),
                     path,
@@ -501,7 +494,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             TEST_SEARCH_SERVICE_CONFIG)
         .browseV2(
             opContext
-                .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
+                .withSearchSurface(null)
                 .withSearchFlags(flags -> flags.setGetSuggestions(true).setFulltext(true)),
             "dataset",
             path,
@@ -516,7 +509,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     SearchRequest request = requestCaptor.getValue();
     String query = request.source().query().toString();
     assertTrue(query.contains(lexicalClause), query);
-    assertFalse(query.contains("function_score"), query);
+    assertTrue(query.contains("function_score"), query);
     assertTrue(query.contains("\"browsePathV2.length\""), query);
     assertTrue(query.contains("removed"), query);
     if (path.isEmpty()) {

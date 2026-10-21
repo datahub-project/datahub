@@ -292,11 +292,7 @@ public class SearchTemplateParityTest {
                 SearchTemplateSurfaces.SCROLL_ENTITIES,
                 Map.of("fulltext", slot("urn:li:searchTemplate:search")),
                 SearchTemplateSurfaces.AGGREGATE_ENTITIES,
-                Map.of("fulltext", slot("urn:li:searchTemplate:search")),
-                SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
-                Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
-                SearchTemplateSurfaces.BROWSE_ENTITIES,
-                Map.of("fulltext", slot("urn:li:searchTemplate:browseV2")))));
+                Map.of("fulltext", slot("urn:li:searchTemplate:search")))));
   }
 
   private static Map<String, Object> slot(String urn) {
@@ -330,10 +326,11 @@ public class SearchTemplateParityTest {
             + "The structured template places that fragment in a bool should with the exact name and URN terms.";
     String light = "The light query drops fuzzy expansions on both paths.";
     String browse =
-        "Browse list matches every document and omits enrichment ranking. "
+        "Browse text uses the search router. An empty query resolves to list and keeps enrichment ranking. "
             + "Browse path, depth, and group aggregation stay in Java, so neither body names browsePathV2.";
     String lineage =
-        "Lineage renders the fulltext lexical body. The graph walk is outside both builders.";
+        "A lineage page uses the searchEntities seed. A short query starts on light. "
+            + "The graph walk's URN filter stays outside the template.";
     String scroll = "Scroll renders fulltext. Interactive search starts on light.";
     return List.of(
         shared(
@@ -435,15 +432,15 @@ public class SearchTemplateParityTest {
             "lineage",
             "lineage",
             "customer orders",
-            SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
+            SearchTemplateSurfaces.SEARCH_ENTITIES,
             false,
-            false,
-            "urn:li:searchTemplate:lineage",
-            List.of("simple_query_string", "dis_max"),
+            true,
+            "urn:li:searchTemplate:light",
+            List.of("multi_match", "1000"),
             List.of(),
             List.of(),
-            List.of(),
-            List.of(),
+            List.of("~"),
+            List.of("~"),
             lineage),
         different(
             "scroll",
@@ -477,14 +474,14 @@ public class SearchTemplateParityTest {
             "browse",
             "browse",
             "*",
-            SearchTemplateSurfaces.BROWSE_ENTITIES,
+            null,
             false,
             false,
-            "urn:li:searchTemplate:browseV2List",
+            "urn:li:searchTemplate:list",
             List.of("match_all"),
             List.of(),
             List.of(),
-            List.of("browsePathV2", "field_value_factor"),
+            List.of("browsePathV2"),
             List.of("browsePathV2"),
             browse));
   }

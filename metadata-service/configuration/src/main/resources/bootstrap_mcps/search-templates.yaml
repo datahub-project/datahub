@@ -586,28 +586,6 @@
     editable: false
     parent: urn:li:searchTemplate:structured
     routes: []
-- entityUrn: urn:li:searchTemplate:lineage
-  entityType: searchTemplate
-  aspectName: searchTemplateProperties
-  changeType: UPSERT
-  aspect:
-    name: Lineage
-    description: "Text search over the entities a lineage graph walk already returned. Uses the fulltext query. A DataHub URN or storage path, an empty query or *, /q, and a quoted query route the same way as search. An ordinary query stays here. The graph walk is separate from this template."
-    dialect: ELASTICSEARCH
-    apiVersion: 1
-    editable: false
-    parent: urn:li:searchTemplate:fulltext
-    routes:
-      - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
-        template: urn:li:searchTemplate:identity
-      - queryRegex: "^\\*?$"
-        template: urn:li:searchTemplate:list
-      - queryRegex: "^\\\\/q [\"'].+[\"']$"
-        template: urn:li:searchTemplate:structuredExact
-      - queryRegex: "^\\\\/q .*"
-        template: urn:li:searchTemplate:structured
-      - queryRegex: "^[\"'].+[\"']$"
-        template: urn:li:searchTemplate:exact
 - entityUrn: urn:li:searchTemplate:identity
   entityType: searchTemplate
   aspectName: searchTemplateProperties
@@ -718,51 +696,3 @@
       exactValue:
         enabled: true
     routes: []
-- entityUrn: urn:li:searchTemplate:browseV2
-  entityType: searchTemplate
-  aspectName: searchTemplateProperties
-  changeType: UPSERT
-  aspect:
-    name: Browse
-    description: "Router for browse. Same routes as search, except an empty query or * uses browseV2List and any other ordinary query uses browseV2Fulltext. Those leaves omit enrichment ranking. Browse path, depth, and group aggregation stay in Java."
-    dialect: ELASTICSEARCH
-    apiVersion: 1
-    editable: false
-    parent: urn:li:searchTemplate:search
-    routes:
-      - queryRegex: "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)"
-        template: urn:li:searchTemplate:identity
-      - queryRegex: "^\\*?$"
-        template: urn:li:searchTemplate:browseV2List
-      - queryRegex: "^\\\\/q [\"'].+[\"']$"
-        template: urn:li:searchTemplate:structuredExact
-      - queryRegex: "^\\\\/q .*"
-        template: urn:li:searchTemplate:structured
-      - queryRegex: "^[\"'].+[\"']$"
-        template: urn:li:searchTemplate:exact
-    defaultRoute:
-      template: urn:li:searchTemplate:browseV2Fulltext
-- entityUrn: urn:li:searchTemplate:browseV2List
-  entityType: searchTemplate
-  aspectName: searchTemplateProperties
-  changeType: UPSERT
-  aspect:
-    name: Browse list
-    description: "Every document for an empty browse query or *. Omits enrichment ranking so scores do not change browse groups."
-    dialect: ELASTICSEARCH
-    apiVersion: 1
-    editable: false
-    parent: urn:li:searchTemplate:list
-    functionScore: ""
-- entityUrn: urn:li:searchTemplate:browseV2Fulltext
-  entityType: searchTemplate
-  aspectName: searchTemplateProperties
-  changeType: UPSERT
-  aspect:
-    name: Browse fulltext
-    description: "Complete text query for browse. Omits enrichment ranking so scores do not change browse groups."
-    dialect: ELASTICSEARCH
-    apiVersion: 1
-    editable: false
-    parent: urn:li:searchTemplate:fulltext
-    functionScore: ""

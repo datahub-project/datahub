@@ -81,13 +81,11 @@ public class SearchTemplateRolloutTest {
     rollout.setSearchEntitiesPercent(100);
     rollout.setScrollEntities("render-only");
     rollout.setAggregateEntities("shadow");
-    rollout.setBrowseEntities("off");
     String key = SearchTemplateRollout.bucketKey("urn:li:corpuser:ada", "ignored");
     assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key), active());
     assertEquals(effect(true, rollout, SearchTemplateSurfaces.SCROLL_ENTITIES, key), shadow());
     assertEquals(effect(true, rollout, SearchTemplateSurfaces.AGGREGATE_ENTITIES, key), shadow());
-    assertEquals(effect(true, rollout, SearchTemplateSurfaces.BROWSE_ENTITIES, key), off());
-    assertEquals(effect(true, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE, key), off());
+    assertEquals(effect(true, rollout, null, key), off());
     assertEquals(effect(false, rollout, SearchTemplateSurfaces.SEARCH_ENTITIES, key), off());
     expectThrows(
         IllegalArgumentException.class,
@@ -225,13 +223,7 @@ public class SearchTemplateRolloutTest {
                 SearchTemplateSurfaces.SCROLL_ENTITIES,
                 Map.of("fulltext", slot("urn:li:searchTemplate:search")),
                 SearchTemplateSurfaces.AGGREGATE_ENTITIES,
-                Map.of("fulltext", slot("urn:li:searchTemplate:search")),
-                SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
-                Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
-                SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE,
-                Map.of("fulltext", slot("urn:li:searchTemplate:lineage")),
-                SearchTemplateSurfaces.BROWSE_ENTITIES,
-                Map.of("fulltext", slot("urn:li:searchTemplate:browseV2")))));
+                Map.of("fulltext", slot("urn:li:searchTemplate:search")))));
   }
 
   private static Map<String, Object> slot(String urn) {

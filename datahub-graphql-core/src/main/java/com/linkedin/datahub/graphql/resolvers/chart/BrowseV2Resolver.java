@@ -22,7 +22,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
@@ -92,10 +91,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
 
             BrowseResultV2 browseResults =
                 _entityClient.browseV2(
-                    context
-                        .getOperationContext()
-                        .withSearchFlags(flags -> searchFlags)
-                        .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES),
+                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     entityNames,
                     pathStr,
                     effectiveFilter,

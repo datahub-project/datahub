@@ -61,7 +61,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
@@ -1655,7 +1654,7 @@ public class LineageSearchServiceTest {
   }
 
   @Test
-  public void testGraphWalkSetsLineageSearchSurface() throws Exception {
+  public void testGraphWalkLeavesSearchSurfaceUnset() throws Exception {
     Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,pet_profiles,PROD)");
     EntityLineageResult lineageResult = new EntityLineageResult();
     lineageResult.setTotal(1);
@@ -1691,9 +1690,7 @@ public class LineageSearchServiceTest {
             nullable(List.class),
             anyInt(),
             nullable(Integer.class));
-    assertEquals(
-        captor.getValue().getSearchContext().getSearchSurface(),
-        SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE);
+    assertNull(captor.getValue().getSearchContext().getSearchSurface());
   }
 
   private EntityLineageResult createMockEntityLineageResult() {
