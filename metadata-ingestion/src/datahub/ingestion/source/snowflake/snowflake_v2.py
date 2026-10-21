@@ -416,7 +416,15 @@ class SnowflakeV2Source(
         while i < len(roles):
             role = roles[i]
             i = i + 1
-            cur = conn.query(f"show grants to role {role}")
+            try:
+                cur = conn.query(f"show grants to role {role}")
+            except Exception as e:
+                # A role hierarchy can be large, so one role we cannot inspect
+                # should not fail the whole capability check.
+                logger.warning(
+                    f"Skipping role {role} in capability check, failed to show its grants: {e}"
+                )
+                continue
             for row in cur:
                 privilege = SnowflakePrivilege(
                     privilege=row["privilege"],

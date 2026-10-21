@@ -1027,6 +1027,33 @@ def test_test_connection_raw_role_name_containing_quote_characters(mock_connect)
     assert '"""weird"""' in queried_roles
 
 
+@patch("snowflake.connector.connect")
+def test_test_connection_continues_past_role_whose_grants_fail(mock_connect):
+    def query_results(query):
+        if query == 'show grants to role "TEST_ROLE"':
+            return [
+                {"privilege": "USAGE", "granted_on": "ROLE", "name": "BROKEN_ROLE"},
+                {"privilege": "USAGE", "granted_on": "ROLE", "name": "DB_ROLE"},
+            ]
+        elif query == 'show grants to role "BROKEN_ROLE"':
+            raise Exception("SQL compilation error")
+        elif query == 'show grants to role "DB_ROLE"':
+            return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
+        raise MissingQueryMock(f"Unexpected query: {query}")
+
+    setup_mock_connect(mock_connect, query_results)
+
+    report = test_connection_helpers.run_test_connection(
+        SnowflakeV2Source, default_config_dict
+    )
+
+    assert not report.internal_failure, report.internal_failure_reason
+    test_connection_helpers.assert_capability_report(
+        capability_report=report.capability_report,
+        success_capabilities=[SourceCapability.CONTAINERS],
+    )
+
+
 def test_aws_cloud_region_from_snowflake_region_id():
     (
         cloud,
