@@ -70,6 +70,26 @@ public interface Authorizer extends Plugin {
   }
 
   /**
+   * Like {@link #authorizedActors}, but answered as if the resource did not exist: it is matched by
+   * its urn and type alone, without reading anything stored about it, so callers can answer for a
+   * resource the caller may not view exactly as for one that does not exist. Such callers must use
+   * it for nonexistent resources too: an authorizer that doesn't override it may answer differently
+   * from {@link #authorizedActors}.
+   *
+   * <p>Authorizers that don't override it grant no actors, since falling back to {@link
+   * #authorizedActors} would match the resource's stored owners, tags or domains.
+   */
+  default AuthorizedActors authorizedActorsForMissingResource(
+      final String privilege, @Nonnull final EntitySpec resourceSpec) {
+    return AuthorizedActors.builder()
+        .privilege(privilege)
+        .users(Collections.emptyList())
+        .roles(Collections.emptyList())
+        .groups(Collections.emptyList())
+        .build();
+  }
+
+  /**
    * Given the actor's urn retrieve the policies.
    *
    * @param actorUrn

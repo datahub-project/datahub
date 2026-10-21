@@ -375,7 +375,18 @@ public class DataHubAuthorizer
    */
   public AuthorizedActors authorizedActors(
       final String privilege, final Optional<EntitySpec> resourceSpec) {
+    return authorizedActorsForResolved(privilege, resourceSpec.map(entitySpecResolver::resolve));
+  }
 
+  @Override
+  public AuthorizedActors authorizedActorsForMissingResource(
+      final String privilege, @Nonnull final EntitySpec resourceSpec) {
+    return authorizedActorsForResolved(
+        privilege, Optional.of(DefaultEntitySpecResolver.resolveMissing(resourceSpec)));
+  }
+
+  private AuthorizedActors authorizedActorsForResolved(
+      final String privilege, final Optional<ResolvedEntitySpec> resolvedResourceSpec) {
     final List<Urn> authorizedUsers = new ArrayList<>();
     final List<Urn> authorizedGroups = new ArrayList<>();
     final List<Urn> authorizedRoles = new ArrayList<>();
@@ -384,9 +395,6 @@ public class DataHubAuthorizer
 
     // Step 1: Find policies granting the privilege.
     final List<DataHubPolicyInfo> policiesToEvaluate = getOrDefault(privilege, new ArrayList<>());
-
-    Optional<ResolvedEntitySpec> resolvedResourceSpec =
-        resourceSpec.map(entitySpecResolver::resolve);
 
     // Step 2: For each policy, determine whether the resource is a match.
     for (DataHubPolicyInfo policy : policiesToEvaluate) {

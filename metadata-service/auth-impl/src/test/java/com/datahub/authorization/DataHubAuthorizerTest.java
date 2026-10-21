@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
@@ -774,6 +775,60 @@ public class DataHubAuthorizerTest {
     assertEquals(
         new HashSet<>(actors.getRoles()),
         ImmutableSet.of(UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+  }
+
+  @Test
+  public void testAuthorizedActorsForMissingResourceMatchesANonexistentResource() throws Exception {
+    final Urn missingUrn = UrnUtils.getUrn("urn:li:dataset:missing");
+    when(_entityClient.getV2(any(OperationContext.class), any(), eq(missingUrn), any()))
+        .thenReturn(null);
+    final EntitySpec ownedResource = new EntitySpec("dataset", "urn:li:dataset:1");
+    final EntitySpec missingResource = new EntitySpec("dataset", missingUrn.toString());
+
+    for (String privilege : List.of("EDIT_ENTITY_TAGS", "EDIT_USER_PROFILE", "EDIT_ENTITY_DOCS")) {
+      final AuthorizedActors missing =
+          _dataHubAuthorizer.authorizedActors(privilege, Optional.of(missingResource));
+      clearInvocations(_entityClient);
+
+      assertEquals(
+          _dataHubAuthorizer.authorizedActorsForMissingResource(privilege, ownedResource),
+          missing,
+          privilege);
+      verifyNoInteractions(_entityClient);
+    }
+    // The owned resource's owners are granted through a resource-owners policy
+    assertNotEquals(
+        _dataHubAuthorizer.authorizedActors("EDIT_ENTITY_TAGS", Optional.of(ownedResource)),
+        _dataHubAuthorizer.authorizedActorsForMissingResource("EDIT_ENTITY_TAGS", ownedResource));
+  }
+
+  @Test
+  public void testAuthorizedActorsForMissingResourceMatchesDomainsByUrnAlone() {
+    final EntitySpec childDomain = new EntitySpec("domain", CHILD_DOMAIN_URN.toString());
+    final EntitySpec datasetInChildDomain =
+        new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
+
+    assertTrue(
+        _dataHubAuthorizer
+            .authorizedActorsForMissingResource("CHILD_DOMAIN_PRIVILEGE", childDomain)
+            .getUsers()
+            .contains(USER_WITH_DOMAIN_ACCESS));
+    // A missing domain has no stored parent, so a policy on its parent doesn't reach it
+    assertFalse(
+        _dataHubAuthorizer
+            .authorizedActorsForMissingResource("PARENT_DOMAIN_PRIVILEGE", childDomain)
+            .getUsers()
+            .contains(USER_WITH_DOMAIN_ACCESS));
+    assertTrue(
+        _dataHubAuthorizer
+            .authorizedActors("CHILD_DOMAIN_PRIVILEGE", Optional.of(datasetInChildDomain))
+            .getUsers()
+            .contains(USER_WITH_DOMAIN_ACCESS));
+    assertFalse(
+        _dataHubAuthorizer
+            .authorizedActorsForMissingResource("CHILD_DOMAIN_PRIVILEGE", datasetInChildDomain)
+            .getUsers()
+            .contains(USER_WITH_DOMAIN_ACCESS));
   }
 
   @Test
