@@ -32,7 +32,8 @@ import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
 import sqlglot.optimizer.unnest_subqueries
 from pydantic import field_serializer, field_validator
-from sqlglot.optimizer.scope import find_all_in_scope
+from sqlglot.helper import seq_get
+from sqlglot.optimizer.scope import find_all_in_scope, traverse_scope
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.env_vars import (
@@ -999,47 +1000,60 @@ class _ColumnResolver:
             return default_col_name
 
 
-def _statement_risks_unnest_resolver_recursion(
-    statement: sqlglot.exp.Expression,
-    dialect: sqlglot.Dialect,
-    schema: sqlglot.MappingSchema,
-) -> bool:
-    """Detect a statement that can send sqlglot's ``optimize()`` into a hang.
+# sqlglot<30.13.0 spends roughly 1us per path, so this caps the UNNEST type
+# lookup at a few seconds; past it, cost doubles with each reused CTE level.
+_MAX_UNNEST_TYPE_LOOKUP_PATHS = 2_000_000
 
-    In dialects where ``UNNEST`` takes a bare column (``UNNEST_COLUMN_ONLY``,
-    e.g. BigQuery), typing an *unqualified* unnested column builds a new
-    Resolver that enumerates every source's columns again, with no re-entrancy
-    guard. When a referenced table is missing from the schema, this can overflow
-    the stack or spin forever inside ``optimize()``, which the cooperative
-    timeout cannot interrupt. sqlglot (as of 30.12.0) only guards the
-    ``Lateral(Explode)`` path. We skip column-level lineage for this shape and
-    keep table-level lineage.
+
+def _unnest_type_lookup_paths(
+    statement: sqlglot.exp.Expression, dialect: sqlglot.Dialect
+) -> int:
+    """Estimate the work sqlglot's resolver does to type BigQuery UNNEST columns.
+
+    For ``UNNEST(<column>)`` in a scope with a parent, sqlglot<30.13.0
+    (``Resolver._get_column_type_from_scope``) searches the parent's sources as a
+    tree, without remembering visited scopes. A CTE reachable through many paths
+    is searched once per path, so when the column is not a base-table column
+    (e.g. an array built in a CTE) ``optimize()`` can run for days. Fixed upstream
+    in sqlglot 30.13.0; remove this check after upgrading.
+
+    Returns the largest number of paths such a lookup would walk.
     """
     if not getattr(dialect, "UNNEST_COLUMN_ONLY", False):
-        return False
+        return 0
 
-    mapping = getattr(schema, "mapping", None) or {}
-    if not mapping:
-        # No schema -> sqlglot skips the type-resolution path; safe.
-        return False
+    path_counts: Dict[int, int] = {}
 
-    cte_names = {cte.alias_or_name for cte in statement.find_all(sqlglot.exp.CTE)}
+    def _paths(source: Union[sqlglot.optimizer.Scope, sqlglot.exp.Table]) -> int:
+        if not isinstance(source, sqlglot.optimizer.Scope):
+            return 1
+        key = id(source)
+        if key not in path_counts:
+            path_counts[key] = 0  # guards against cycles
+            path_counts[key] = sum(_paths(s) for s in source.sources.values()) or 1
+        return path_counts[key]
 
-    def _is_unknown(table: sqlglot.exp.Table) -> bool:
-        if not table.args.get("db") and table.name in cte_names:
-            return False
-        try:
-            return not schema.column_names(table)
-        except Exception:
-            return True
+    try:
+        scopes = traverse_scope(statement)
+    except sqlglot.errors.SqlglotError:
+        # optimize() will surface the same error.
+        return 0
 
-    if not any(_is_unknown(table) for table in statement.find_all(sqlglot.exp.Table)):
-        return False
-
-    for unnest in statement.find_all(sqlglot.exp.Unnest):
-        if any(not col.table for col in unnest.find_all(sqlglot.exp.Column)):
-            return True
-    return False
+    max_paths = 0
+    for scope in scopes:
+        if not scope.parent:
+            continue
+        for source in scope.sources.values():
+            if (
+                isinstance(source, sqlglot.optimizer.Scope)
+                and isinstance(source.expression, sqlglot.exp.Unnest)
+                and isinstance(
+                    seq_get(source.expression.expressions, 0), sqlglot.exp.Column
+                )
+            ):
+                for parent_source in scope.parent.sources.values():
+                    max_paths = max(max_paths, _paths(parent_source))
+    return max_paths
 
 
 def _prepare_query_columns(
@@ -1118,14 +1132,12 @@ def _prepare_query_columns(
         # )
 
     if not is_create_ddl:
-        # optimize() can hang on this shape, so refuse it before optimizing.
-        if _statement_risks_unnest_resolver_recursion(
-            statement, dialect, sqlglot_db_schema
-        ):
+        unnest_paths = _unnest_type_lookup_paths(statement, dialect)
+        if unnest_paths > _MAX_UNNEST_TYPE_LOOKUP_PATHS:
             raise SqlUnderstandingError(
-                "Skipping column-level lineage: UNNEST of an unqualified column "
-                "with a referenced table missing from the schema can hang the "
-                "sqlglot optimizer. Table-level lineage is unaffected."
+                f"Skipping column-level lineage: typing an UNNEST column would walk "
+                f"{unnest_paths} CTE paths, which can hang the sqlglot optimizer. "
+                "Table-level lineage is unaffected."
             )
 
         # Optimize the statement + qualify column references.
