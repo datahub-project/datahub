@@ -481,39 +481,37 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         # Skip removes, whole-list replaces and wrapped patches: dropping an operation
         # would keep lineage the source deleted.
         if not isinstance(operations, list) or any(
-            operation.get("op") != "add"
+            not isinstance(operation, dict)
+            or operation.get("op") != "add"
             or operation.get("path") in ("/upstreams", "/fineGrainedLineages")
             for operation in operations
         ):
             return
-        sizes = [len(json.dumps(json.dumps(operation))) for operation in operations]
 
         # Adds to different fields are independent, so reordering them is safe.
         def is_upstream(operation: Dict[str, object]) -> bool:
             return str(operation.get("path", "")).startswith("/upstreams")
 
+        ordered = sorted(
+            operations, key=lambda op: (not is_upstream(op), str(op.get("path", "")))
+        )
         accepted = []
         total_size = 0
-        for i in sorted(
-            range(len(operations)),
-            key=lambda i: (
-                not is_upstream(operations[i]),
-                str(operations[i].get("path", "")),
-            ),
-        ):
-            if total_size + sizes[i] >= self.schema_size_constraint:
+        for operation in ordered:
+            size = len(json.dumps(json.dumps(operation)))
+            if total_size + size >= self.schema_size_constraint:
                 break
-            accepted.append(operations[i])
-            total_size += sizes[i]
+            accepted.append(operation)
+            total_size += size
 
-        num_upstreams = sum(map(is_upstream, operations))
-        num_accepted_upstreams = sum(map(is_upstream, accepted))
+        dropped = ordered[len(accepted) :]
+        num_dropped_upstreams = sum(map(is_upstream, dropped))
         self._maybe_warn_upstream_lineage(
-            entity_urn, num_upstreams - num_accepted_upstreams, "upstream datasets"
+            entity_urn, num_dropped_upstreams, "upstream datasets"
         )
         self._maybe_warn_upstream_lineage(
             entity_urn,
-            len(operations) - len(accepted) - num_upstreams + num_accepted_upstreams,
+            len(dropped) - num_dropped_upstreams,
             "fine-grained lineage edges",
         )
         self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
