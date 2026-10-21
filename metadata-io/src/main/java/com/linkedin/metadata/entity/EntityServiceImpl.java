@@ -3553,8 +3553,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               result.getNewValue(),
                               result.getOldSystemMetadata(),
                               result.getNewSystemMetadata(),
-                              // TODO: use properly attributed audit stamp.
-                              createSystemAuditStamp(),
+                              // The caller's stamp, so the changelog names who removed it.
+                              opContext.getAuditStamp(),
                               result.getChangeType())
                           .getFirst();
                     } else {
