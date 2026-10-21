@@ -172,6 +172,7 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
     MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_DOCUMENT = "Document"
     MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI

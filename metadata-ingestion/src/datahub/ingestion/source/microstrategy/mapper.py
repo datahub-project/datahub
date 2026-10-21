@@ -33,6 +33,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
+    MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
@@ -419,11 +420,29 @@ class MicroStrategyMapper:
         cubes (and datasets whose object info was unavailable) keep linking to
         the parent dossier/report that embeds them."""
         parent_url = f"{self.config.base_url}/app/{project_id}/{parent_id}"
-        if dataset_object is None:
-            return parent_url
-        if (dataset_object.subtype or "").strip() in MSTR_CUBE_SUBTYPES:
+        if dataset_object is None or _is_cube_object(dataset_object):
             return parent_url
         return f"{self.config.base_url}/app/{project_id}/{dataset.id}"
+
+    @staticmethod
+    def dataset_sub_type(dataset_object: Optional[MicroStrategyObject]) -> str:
+        """`Cube` for an intelligent or super cube, the vocabulary business
+        users know it by in Strategy Web; `MicroStrategy Dataset` for a
+        report used as a dataset, and for a dataset whose object info was
+        unavailable, since without the subtype a cube and a report cannot be
+        told apart."""
+        if dataset_object is not None and _is_cube_object(dataset_object):
+            return DatasetSubTypes.CUBE
+        return DatasetSubTypes.MICROSTRATEGY_DATASET
+
+    @staticmethod
+    def dashboard_sub_type(dashboard_object: MicroStrategyObject) -> str:
+        """`Document` for a Report Services document, `Dossier` for a dossier
+        (what Strategy now calls a dashboard); both share object type 55 and
+        only the subtype tells them apart."""
+        if (dashboard_object.subtype or "").strip() == MSTR_OBJECT_SUBTYPE_DOCUMENT:
+            return BIAssetSubTypes.MICROSTRATEGY_DOCUMENT
+        return BIAssetSubTypes.MICROSTRATEGY_DOSSIER
 
     def gen_dataset_workunits(
         self,
@@ -450,6 +469,7 @@ class MicroStrategyMapper:
             external_url=self.dataset_external_url(
                 project_id, dashboard.id, dataset, dataset_object
             ),
+            sub_type=self.dataset_sub_type(dataset_object),
         )
 
     def gen_report_source_dataset_workunits(
@@ -477,6 +497,7 @@ class MicroStrategyMapper:
             external_url=self.dataset_external_url(
                 project_id, report_object.id, dataset, dataset_object
             ),
+            sub_type=self.dataset_sub_type(dataset_object),
         )
 
     def _gen_dataset_entity_workunits(
@@ -488,6 +509,7 @@ class MicroStrategyMapper:
         custom_properties: Dict[str, str],
         include_coarse_lineage: bool,
         external_url: str,
+        sub_type: str,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dataset_scanned()
         dataset_urn = self.lineage.dataset_urn(project_id, parent_id, dataset)
@@ -505,7 +527,7 @@ class MicroStrategyMapper:
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.MICROSTRATEGY_DATASET]),
+            aspect=SubTypesClass(typeNames=[sub_type]),
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -784,7 +806,7 @@ class MicroStrategyMapper:
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
-            aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MICROSTRATEGY_DOSSIER]),
+            aspect=SubTypesClass(typeNames=[self.dashboard_sub_type(dashboard_object)]),
         ).as_workunit()
         if self.config.ingest_owner and dashboard_object.owner:
             yield self._ownership_workunit(dashboard_urn, dashboard_object.owner)
@@ -1619,6 +1641,11 @@ def _resolve_folder_name(
     if predefined_folders and part.id:
         return predefined_folders.labels.get(normalize_object_id(part.id), part.name)
     return part.name
+
+
+def _is_cube_object(dataset_object: MicroStrategyObject) -> bool:
+    """Intelligent or super cube, by object subtype (see MSTR_CUBE_SUBTYPES)."""
+    return (dataset_object.subtype or "").strip() in MSTR_CUBE_SUBTYPES
 
 
 def _is_hidden_folder(

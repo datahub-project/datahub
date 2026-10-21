@@ -1,6 +1,8 @@
 import json
 from typing import Dict, Iterable, Optional, Type, TypeVar
 
+import pytest
+
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
@@ -32,6 +34,7 @@ from datahub.metadata.schema_classes import (
     InputFieldsClass,
     SchemaFieldClass,
     SchemaMetadataClass,
+    SubTypesClass,
     UpstreamLineageClass,
     _Aspect,
 )
@@ -1836,6 +1839,106 @@ def test_dataset_external_url_falls_back_to_parent_for_cubes_and_unknowns() -> N
         DatasetPropertiesClass,
     )
     assert properties.externalUrl == parent_url
+
+
+@pytest.mark.parametrize(
+    ("subtype", "expected"),
+    [("14081", "Document"), ("14080", "Dossier"), (None, "Dossier")],
+)
+def test_dashboard_subtype_follows_microstrategy_object_subtype(
+    subtype: Optional[str], expected: str
+) -> None:
+    # Documents and dossiers share object type 55; the subtype is what tells
+    # a business user which kind of object they are looking at.
+    mapper = _mapper()
+    dashboard = _definition()
+    dashboard_object = MicroStrategyObject.model_validate(
+        {"id": dashboard.id, "name": dashboard.name, "type": "55", "subtype": subtype}
+    )
+
+    sub_types = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            dashboard_object,
+            dashboard,
+            mapper.project_key("project-1"),
+        ),
+        SubTypesClass,
+    )
+
+    assert sub_types.typeNames == [expected]
+
+
+@pytest.mark.parametrize(
+    ("subtype", "expected"),
+    [("776", "Cube"), ("779", "Cube"), ("768", "MicroStrategy Dataset")],
+)
+def test_dataset_subtype_is_cube_for_intelligent_and_super_cubes(
+    subtype: str, expected: str
+) -> None:
+    mapper = _mapper()
+    dashboard = _definition()
+    dataset_object = _dataset_object(subtype, [{"id": "f-1", "name": "Shared Reports"}])
+
+    sub_types = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+            dataset_object=dataset_object,
+        ),
+        SubTypesClass,
+    )
+
+    assert sub_types.typeNames == [expected]
+
+
+def test_dataset_subtype_stays_dataset_without_object_info() -> None:
+    # Without the subtype a cube and a report cannot be told apart, so the
+    # pre-lookup subtype is kept rather than guessed.
+    mapper = _mapper()
+    dashboard = _definition()
+
+    sub_types = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dashboard.datasets[0],
+            mapper.project_key("project-1"),
+        ),
+        SubTypesClass,
+    )
+
+    assert sub_types.typeNames == ["MicroStrategy Dataset"]
+
+
+def test_report_source_dataset_subtype_is_cube_when_the_report_reads_a_cube() -> None:
+    mapper = _mapper()
+    report_object = MicroStrategyObject.model_validate(
+        {"id": "report-1", "name": "Sales Report", "type": "3"}
+    )
+    source_dataset = DatasetObject.model_validate(
+        {
+            "id": "cube-1",
+            "name": "Sales Cube",
+            "availableObjects": {"metrics": [{"id": "metric-1", "name": "Revenue"}]},
+        }
+    )
+    cube = _dataset_object("776", [{"id": "f-1", "name": "Shared Reports"}])
+
+    sub_types = _aspect(
+        mapper.gen_report_source_dataset_workunits(
+            "project-1",
+            report_object,
+            source_dataset,
+            mapper.project_key("project-1"),
+            dataset_object=cube,
+        ),
+        SubTypesClass,
+    )
+
+    assert sub_types.typeNames == ["Cube"]
 
 
 def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> None:
