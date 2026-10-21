@@ -15,7 +15,13 @@ public final class SearchQualityPack {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final List<String> SURFACES = List.of("keyword", "semantic", "hybrid", "lineage");
   private static final List<String> GROUPS =
-      List.of("benchmark", "longtail", "ranking", "catalog-probe", "semantic-probe");
+      List.of(
+          "benchmark",
+          "longtail",
+          "ranking",
+          "catalog-probe",
+          "semantic-probe",
+          "structured-property");
 
   private SearchQualityPack() {}
 

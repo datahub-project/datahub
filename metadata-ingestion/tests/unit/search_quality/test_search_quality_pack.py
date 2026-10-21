@@ -81,6 +81,8 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "longtail-column-prefix",
         "longtail-extra-token",
         "longtail-business-label",
+        "longtail-structured-property-string",
+        "longtail-structured-property-boost",
     ]
     ranking = [item for item in judgments["judgments"] if item["group"] == "ranking"]
     assert [item["id"] for item in ranking] == [
