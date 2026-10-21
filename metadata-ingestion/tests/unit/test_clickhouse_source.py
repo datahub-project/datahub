@@ -5,7 +5,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 from unittest.mock import MagicMock
 
 import pytest
+from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.sql import sqltypes
+from sqlalchemy.sql.type_api import to_instance
 
 import datahub.ingestion.source.sql.clickhouse as clickhouse
 import datahub.sql_parsing.sqlglot_lineage as sqlglot_lineage
@@ -18,11 +21,14 @@ from datahub.ingestion.source.sql.clickhouse import (
     _XmlDictionary,
 )
 from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT_NAME
+from datahub.ingestion.source.sql.sql_common import get_column_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
     ContainerClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     EnumTypeClass,
+    MapTypeClass,
     NumberTypeClass,
     OperationClass,
     QueryPropertiesClass,
@@ -30,6 +36,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
     SubTypesClass,
+    UnionTypeClass,
     UpstreamLineageClass,
     _Aspect,
 )
@@ -235,6 +242,83 @@ def test_is_temp_table_custom_patterns():
     assert config.is_temp_table("test_table")
     # Default patterns no longer match with custom patterns
     assert not config.is_temp_table("_temp_table")
+
+
+@pytest.mark.parametrize(
+    "format_type, members",
+    [
+        ("Enum8('' = 1, 'a' = 2)", ["", "a"]),
+        ("Nullable(Enum8('' = 1, 'a' = 2))", ["", "a"]),
+        (
+            r"Enum16('mro' = 1, '_a_' = 2, '__init__' = 3, '__doc__' = 4, "
+            r"'_col_enum__x' = 5, '\'\'' = 6, '' = 7)",
+            ["mro", "_a_", "__init__", "__doc__", "_col_enum__x", "''", ""],
+        ),
+    ],
+)
+def test_column_info_keeps_enum_member_names(
+    format_type: str, members: List[str]
+) -> None:
+    column = ClickHouseDialect()._get_column_info(
+        name="col", format_type=format_type, comment=""
+    )
+    column_type = to_instance(column["type"])
+
+    field_type = get_column_type(SQLSourceReport(), "db.table", column_type)
+    assert isinstance(field_type.type, EnumTypeClass)
+    assert column_type.enums == members
+    assert column["full_type"] == format_type
+
+
+def test_column_info_keeps_enum_member_names_in_array() -> None:
+    column = ClickHouseDialect()._get_column_info(
+        name="col", format_type="Array(Enum8('' = 1, 'a' = 2))", comment=""
+    )
+
+    assert to_instance(column["type"]).item_type.enums == ["", "a"]
+
+
+def test_column_info_keeps_enum_values() -> None:
+    dialect = ClickHouseDialect()
+    column = dialect._get_column_info(
+        name="col", format_type="Enum8('a' = -1, 'b' = 5)", comment=""
+    )
+
+    assert to_instance(column["type"]).compile(dialect=dialect) == (
+        "Enum8('a' = -1, 'b' = 5)"
+    )
+
+
+@pytest.mark.parametrize(
+    "format_type, field_type_class",
+    [
+        ("Tuple(Enum8('a' = 1, 'b' = 2), String)", UnionTypeClass),
+        ("Tuple(String, Enum8('a' = 10, 'b' = 20))", UnionTypeClass),
+        ("Map(String, Tuple(Enum8('x' = 11, 'y' = 2), UInt8))", MapTypeClass),
+    ],
+)
+def test_column_info_keeps_outer_type_of_enum_split_by_comma(
+    format_type: str, field_type_class: Type[object]
+) -> None:
+    column = ClickHouseDialect()._get_column_info(
+        name="col", format_type=format_type, comment=""
+    )
+
+    field_type = get_column_type(
+        SQLSourceReport(), "db.table", to_instance(column["type"])
+    )
+    assert isinstance(field_type.type, field_type_class)
+
+
+@pytest.mark.parametrize("format_type", ["Enum8", "Enum8('a' = x)"])
+def test_column_info_falls_back_to_null_type_on_unparsable_type(
+    format_type: str,
+) -> None:
+    column = ClickHouseDialect()._get_column_info(
+        name="col", format_type=format_type, comment=""
+    )
+
+    assert isinstance(to_instance(column["type"]), sqltypes.NullType)
 
 
 class _FakeRow:

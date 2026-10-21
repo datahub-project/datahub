@@ -17,6 +17,7 @@ from typing import (
     Optional,
     Set,
     Tuple,
+    Type,
     TypeVar,
     Union,
 )
@@ -669,9 +670,10 @@ def _get_clickhouse_columns(self, connection, table_name, schema=None, **kw):
 def _get_column_info(self, name, format_type, comment):
     try:
         col_type = self._get_column_type(name, format_type)
-    except TypeError as e:
+    except (TypeError, ValueError) as e:
         # clickhouse_sqlalchemy can fail on complex types like Map with nested types
-        # that it doesn't fully support (e.g., Map(String, String) parsing issues).
+        # that it doesn't fully support (e.g., Map(String, String) parsing issues),
+        # or on values it can't parse (e.g., non-integer enum values).
         # Fall back to NullType to allow schema discovery to continue.
         logger.warning(
             f"Failed to parse column type for '{name}' with type '{format_type}': {e}. "
@@ -742,6 +744,34 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     return ""
 
 
+_base_get_column_type = ClickHouseDialect._get_column_type
+
+
+# Works around enum member names rejected by Python's enum.Enum; drop once
+# xzkostyan/clickhouse-sqlalchemy#337 is released.
+def _get_column_type(
+    self: ClickHouseDialect, name: str, spec: str
+) -> Union[TypeEngine, Type[TypeEngine]]:
+    if not spec.startswith("Enum"):
+        return _base_get_column_type(self, name, spec)
+
+    pos = spec.find("(")
+    if pos < 0 or not spec.endswith(")"):
+        return sqltypes.NullType
+
+    options: Dict[str, int] = self._parse_options(spec[pos + 1 : -1])
+    if not options:
+        return sqltypes.NullType
+    coltype = self.ischema_names[spec[:pos]]
+    try:
+        type_enum = Enum(f"{name}_enum", options)  # type: ignore[misc]
+    except (TypeError, ValueError):
+        return coltype(*options)
+    if len(type_enum.__members__) != len(options):
+        return coltype(*options)
+    return coltype(type_enum)
+
+
 # This monkey-patching enables us to batch fetch the table descriptions, rather than
 # fetching them one at a time.
 ClickHouseDialect._get_all_table_comments_and_properties = (
@@ -757,6 +787,7 @@ ClickHouseDialect._get_clickhouse_columns = _get_clickhouse_columns
 ClickHouseDialect._get_column_info = _get_column_info
 ClickHouseDialect.get_columns = get_columns
 ClickHouseDialect.get_view_definition = get_view_definition
+ClickHouseDialect._get_column_type = _get_column_type
 
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
@@ -1365,8 +1396,7 @@ ORDER BY event_time ASC
                 strict=False,
             )
         ]
-        # Simple types come back as classes and enums as factories; Inspector.get_columns
-        # instantiates them too.
+        # Simple types come back as classes; Inspector.get_columns instantiates them too.
         for column in columns:
             if not isinstance(column["type"], TypeEngine):
                 column["type"] = column["type"]()
