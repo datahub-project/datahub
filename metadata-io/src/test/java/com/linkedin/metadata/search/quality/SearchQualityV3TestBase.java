@@ -377,7 +377,9 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         if (!probe.passed()) {
           probeFailures.add(probe.message());
         }
-        if ("ranking".equals(group) || "catalog-probe".equals(group)) {
+        if ("ranking".equals(group)
+            || "catalog-probe".equals(group)
+            || "structured-property".equals(group)) {
           probes.add(probe);
         }
       }

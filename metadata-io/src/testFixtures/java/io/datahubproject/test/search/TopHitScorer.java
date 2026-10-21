@@ -74,6 +74,9 @@ public final class TopHitScorer {
         }
       }
     }
+    if (judgment.path("expectNoHits").asBoolean(false) && !result.getHits().isEmpty()) {
+      failures.add("expected no hits but found " + result.getHits().size());
+    }
     if (judgment.path("scoresStrictlyDescending").asBoolean(false)) {
       if (result.getHits().size() < 2
           || !(result.getHits().get(0).getScore() > result.getHits().get(1).getScore())) {
