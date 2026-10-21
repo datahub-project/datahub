@@ -107,7 +107,9 @@ usage_operations:
   lineage_query:
     description: >
       Upstream/downstream lineage and lineage scroll queries (Rest.li
-      searchAcrossLineage and scrollAcrossLineage, OpenAPI v3 lineage scroll).
+      searchAcrossLineage, scrollAcrossLineage and the getLineage action, OpenAPI v3
+      lineage scroll), and the UI lineage-graph operations, whose root fields are entity
+      lookups with nested lineage. Single-hop Rest.li Relationships GET is metadata_read.
     request_apis: [openapi, restli, graphql]
     activity_class: read
     default_cost_units: 1
@@ -116,6 +118,15 @@ usage_operations:
       names:
         - getLineage
         - scrollAcrossLineage
+        - getBulkEntityLineageV2
+        - getEntityLineage
+        - GetEntityLineage
+        - getLineageCounts
+        - getColumnLineageCounts
+        - getSearchAcrossLineageCounts
+        - getSearchResultLineageCounts
+        - GetScopedLineage
+        - GetEntityLineagePaths
 
   # GraphQL classification (GraphqlUsageClassificationRegistry):
   #   - Entity GraphQL queries (dataset, dashboard, getDataset, etc.) → metadata_query
