@@ -124,6 +124,7 @@ usage_operations:
         - getLineageCounts
         - getColumnLineageCounts
         - getSearchAcrossLineageCounts
+        - getSearchResultLineageCounts
         - GetScopedLineage
         - GetEntityLineagePaths
 

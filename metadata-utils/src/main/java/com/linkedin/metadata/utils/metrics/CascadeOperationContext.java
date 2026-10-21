@@ -325,15 +325,10 @@ public class CascadeOperationContext implements AutoCloseable {
 
       int hops = hopsCompleted.get();
 
+      // No trigger_urn_type on the timer: multiplied by the custom tags it splits every duration
+      // series by entity type. The counters below keep it.
       final List<String> timerTags =
-          new ArrayList<>(
-              List.of(
-                  "operation_type",
-                  operationType,
-                  "trigger_urn_type",
-                  triggerUrnType,
-                  "status",
-                  status));
+          new ArrayList<>(List.of("operation_type", operationType, "status", status));
       final StringBuilder logTags = new StringBuilder();
       int maxPerHop = maxFrontierSize.get();
       if (maxPerHop >= 0) {

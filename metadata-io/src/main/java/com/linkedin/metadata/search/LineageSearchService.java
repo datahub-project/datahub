@@ -122,8 +122,9 @@ public class LineageSearchService {
   private static final String CACHE_MISS = "miss";
   // Cache disabled, or the caller set skipCache
   private static final String CACHE_SKIP = "skip";
-  // error_type on datahub.lineage.errors: a rejected request, or anything else that threw
-  private static final String ERROR_INVALID_REQUEST = "invalid_request";
+  // A rejected request is an outcome on datahub.lineage.outcomes, not an error
+  private static final String OUTCOME_INVALID_REQUEST = "invalid_request";
+  // error_type on datahub.lineage.errors for anything else that threw
   private static final String ERROR_FAILURE = "failure";
   // Stages timed on the lineage log line only
   private static final String PHASE_WALK = "walk";
@@ -1336,8 +1337,13 @@ public class LineageSearchService {
   }
 
   private static void recordFailure(CascadeOperationContext cascade, RuntimeException e) {
-    cascade.recordError(
-        e instanceof IllegalArgumentException ? ERROR_INVALID_REQUEST : ERROR_FAILURE);
+    // Unsupported flags, an unservable forced-lightning query or a bad degree filter: the caller's
+    // mistake, not a backend failure
+    if (e instanceof IllegalArgumentException) {
+      cascade.recordOutcome(OUTCOME_INVALID_REQUEST);
+    } else {
+      cascade.recordError(ERROR_FAILURE);
+    }
   }
 
   /** Returns true if the cache should be used or skipped when fetching search results */

@@ -630,5 +630,10 @@ public class CascadeOperationContextTest {
             .counter();
     assertNotNull(hopsCounter, "hops counter should exist with trigger_urn_type=unknown");
     assertEquals(hopsCounter.count(), 1.0);
+
+    // The duration timer leaves the entity type to the counters
+    Timer timer = meterRegistry.find(prefix + ".duration").tag("operation_type", opType).timer();
+    assertNotNull(timer);
+    assertNull(timer.getId().getTag("trigger_urn_type"));
   }
 }

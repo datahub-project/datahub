@@ -212,5 +212,10 @@ public class GraphqlUsageClassificationRegistryTest {
           UsageOperation.LINEAGE_QUERY,
           operationName);
     }
+    // Lineage counts for a page of search results; its only root field is "entities"
+    assertEquals(
+        registry.resolve(
+            "getSearchResultLineageCounts", GraphQLOperationKind.QUERY, List.of("entities")),
+        UsageOperation.LINEAGE_QUERY);
   }
 }

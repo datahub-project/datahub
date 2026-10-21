@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -1747,7 +1748,7 @@ public class LineageSearchServiceTest {
   }
 
   @Test
-  public void testFailedLineageRequestsAreRecordedAsErrors() {
+  public void testFailedAndRejectedLineageRequests() {
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
     _lineageSearchService.setMetricUtils(MetricUtils.builder().registry(registry).build());
     List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
@@ -1776,20 +1777,30 @@ public class LineageSearchServiceTest {
       assertThrows(
           IllegalStateException.class, () -> search(_operationContext, failingUrn, entities));
 
+      // The rejection is an outcome, not an error
+      assertEquals(
+          registry
+              .find("datahub.lineage.duration")
+              .tags("status", "completed", "search_path", "unknown")
+              .timer()
+              .count(),
+          1L);
+      assertEquals(
+          registry
+              .find("datahub.lineage.outcomes")
+              .tag("outcome", "invalid_request")
+              .counter()
+              .count(),
+          1.0);
+      // The graph failure is an error
       assertEquals(
           registry
               .find("datahub.lineage.duration")
               .tags("status", "completed_with_errors", "search_path", "unknown")
               .timer()
               .count(),
-          2L);
-      assertEquals(
-          registry
-              .find("datahub.lineage.errors")
-              .tag("error_type", "invalid_request")
-              .counter()
-              .count(),
-          1.0);
+          1L);
+      assertEquals(registry.find("datahub.lineage.errors").counters().size(), 1);
       assertEquals(
           registry.find("datahub.lineage.errors").tag("error_type", "failure").counter().count(),
           1.0);
@@ -1823,6 +1834,7 @@ public class LineageSearchServiceTest {
                 cache)
             .timer();
     assertNotNull(timer, String.join("/", operationType, kind, searchPath, cache));
+    assertNull(timer.getId().getTag("trigger_urn_type"));
     return timer;
   }
 }
