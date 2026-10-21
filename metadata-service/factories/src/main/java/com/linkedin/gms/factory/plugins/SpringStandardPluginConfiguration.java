@@ -27,6 +27,7 @@ import com.linkedin.metadata.aspect.validation.CorpUserCredentialsAuthorizationV
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.DomainPropertiesParentValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
@@ -766,6 +767,28 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(DOMAINS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.domainProperties.parent.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator domainPropertiesParentValidator() {
+    return new DomainPropertiesParentValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DomainPropertiesParentValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DOMAIN_ENTITY_NAME)
+                            .aspectName(DOMAIN_PROPERTIES_ASPECT_NAME)
                             .build()))
                 .build());
   }

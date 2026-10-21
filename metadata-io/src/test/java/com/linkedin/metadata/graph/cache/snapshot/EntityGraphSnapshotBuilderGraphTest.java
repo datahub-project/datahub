@@ -215,6 +215,8 @@ public class EntityGraphSnapshotBuilderGraphTest {
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertNotNull(result.getSnapshot());
     assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), "urn:li:domain:child");
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), "urn:li:domain:root");
     assertEquals(
         result.getSnapshot().getCacheKey(),
         EntityGraphCacheKeys.fullCacheKey(GRAPH_ID, GraphSnapshotSource.GRAPH));
@@ -356,8 +358,12 @@ public class EntityGraphSnapshotBuilderGraphTest {
         new SearchEntity()
             .setEntity(UrnUtils.getUrn("urn:li:domain:child"))
             .setExtraFields(new StringMap(Map.of("parentDomain", "urn:li:domain:root")));
+    SearchEntity selfParent =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:domain:self-parent"))
+            .setExtraFields(new StringMap(Map.of("parentDomain", "urn:li:domain:self-parent")));
     when(searchRetriever.scroll(any(), any(), nullable(String.class), anyInt(), any(), any()))
-        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray(entity)));
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray(entity, selfParent)));
 
     EntityRegistry entityRegistry = new TestEntityRegistry();
     CachingAspectRetriever aspectRetriever = Mockito.mock(CachingAspectRetriever.class);
@@ -391,6 +397,8 @@ public class EntityGraphSnapshotBuilderGraphTest {
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertNotNull(result.getSnapshot());
     assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), "urn:li:domain:child");
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), "urn:li:domain:root");
     assertEquals(
         result.getSnapshot().getCacheKey(),
         EntityGraphCacheKeys.fullCacheKey(GRAPH_ID, GraphSnapshotSource.SEARCH));

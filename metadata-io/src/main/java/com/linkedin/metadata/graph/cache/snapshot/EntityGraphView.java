@@ -548,6 +548,9 @@ public class EntityGraphView {
       if (canonical == null) {
         continue;
       }
+      if (canonical.getSourceUrn().equals(canonical.getDestinationUrn())) {
+        continue;
+      }
       graph.addVertex(canonical.getSourceUrn());
       graph.addVertex(canonical.getDestinationUrn());
       if (!graph.containsEdge(canonical)) {
