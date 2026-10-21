@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import text
@@ -73,6 +73,10 @@ _EXECUTE_LIKE = (
     "OR statement LIKE N'%sp[_]cursorexecute [0-9]%'"
 )
 _PREPARE_LIKE = "statement LIKE N'%sp[_]prep%' OR statement LIKE N'%sp[_]cursorprep%'"
+# How far before start_time to look for the prepare of an in-window sp_execute.
+# Bounds the second log read; executes of older prepares stay unmapped (and are
+# reported) rather than rescanning the whole retained log.
+QUERY_LOG_PREPARE_LOOKBACK = timedelta(hours=24)
 
 
 @dataclass(frozen=True)
@@ -478,6 +482,8 @@ class MSSQLQuery:
                         ELSE q.statement
                     END AS stmt_key,
                     CASE WHEN f.inner_sql IS NOT NULL THEN 1 ELSE 0 END AS is_wrapper,
+                    f.inner_end,
+                    LEN(e.t) AS raw_len,
                     -- sp_prepare / sp_cursorprepare only prepare; their executions
                     -- arrive as sp_execute / sp_cursorexecute.
                     CASE WHEN p.prep_pos BETWEEN 1 AND 400
@@ -547,7 +553,12 @@ class MSSQLQuery:
                             THEN SUBSTRING(e.t, c.l2s + 1, d.l2e - c.l2s - 1)
                         WHEN c.lit1 IS NOT NULL AND c.lit1 NOT LIKE N'@%'
                             THEN c.lit1
-                    END AS inner_sql
+                    END AS inner_sql,
+                    CASE
+                        WHEN a.es_end > p.es_start THEN a.es_end
+                        WHEN c.lit1 LIKE N'@%' AND d.l2e > c.l2s THEN d.l2e
+                        WHEN c.lit1 IS NOT NULL AND c.lit1 NOT LIKE N'@%' THEN b.l1e
+                    END AS inner_end
                 ) AS f
                 CROSS APPLY (
                     SELECT
@@ -572,6 +583,15 @@ class MSSQLQuery:
                             AS exec_handle
                 ) AS h;
 
+            -- Azure truncates the raw record, but wrappers put the SQL literal
+            -- before the parameter values: a literal that closes before the end
+            -- of the record is complete.
+            ALTER TABLE #dh_query_norm ADD stmt_truncated INT;
+            UPDATE #dh_query_norm SET stmt_truncated =
+                CASE WHEN is_truncated = 1 AND COALESCE(inner_end, raw_len) >= raw_len
+                    THEN 1 ELSE 0
+                END;
+
             WITH mapped AS (
                 SELECT
                     n.event_time,
@@ -579,7 +599,9 @@ class MSSQLQuery:
                     n.user_name,
                     n.database_name,
                     n.is_rpc,
-                    n.is_truncated,
+                    CASE WHEN n.exec_handle IS NULL THEN n.stmt_truncated
+                        ELSE COALESCE(m.stmt_truncated, 0)
+                    END AS is_truncated,
                     n.is_prepare_only,
                     n.in_window,
                     CASE
@@ -593,7 +615,7 @@ class MSSQLQuery:
                         AS is_unmapped
                 FROM #dh_query_norm AS n
                 OUTER APPLY (
-                    SELECT TOP 1 pr.stmt_key
+                    SELECT TOP 1 pr.stmt_key, pr.stmt_truncated
                     FROM #dh_query_norm AS pr
                     WHERE
                         n.exec_handle IS NOT NULL
@@ -612,7 +634,8 @@ class MSSQLQuery:
                     AND LEN(stmt_key) > 0
                     AND (user_name IS NULL OR user_name <> SUSER_SNAME())
                     AND in_window = 1
-                    AND (is_rpc = 0 OR is_wrapper = 1)
+                    -- Truncated RPCs are kept so they're reported, not dropped.
+                    AND (is_rpc = 0 OR is_wrapper = 1 OR is_truncated = 1)
                     AND is_prepare_only = 0
                     {exclude_clause}
             ),
@@ -653,18 +676,23 @@ class MSSQLQuery:
                 SELECT
                     *,
                     SUM(bucket_execution_count)
-                        OVER (PARTITION BY database_name, statement_hash) AS execution_count
+                        OVER (PARTITION BY database_name, statement_hash) AS execution_count,
+                    MAX(is_truncated)
+                        OVER (PARTITION BY database_name, statement_hash) AS statement_truncated
                 FROM grouped
             ),
             ranked AS (
                 SELECT
                     *,
                     DENSE_RANK() OVER (
-                        PARTITION BY database_name, is_unmapped
+                        PARTITION BY database_name, is_unmapped, statement_truncated
                         ORDER BY execution_count DESC, statement_hash
                     ) AS statement_rank
                 FROM totals
-                WHERE is_unmapped = 1 OR execution_count >= :min_calls
+                WHERE
+                    is_unmapped = 1
+                    OR statement_truncated = 1
+                    OR execution_count >= :min_calls
             )
             SELECT
                 CONVERT(VARCHAR(64), statement_hash, 2) AS query_id,
@@ -686,7 +714,7 @@ class MSSQLQuery:
                 CAST(last_event_time AS DATETIME) AS last_execution_time_utc,
                 bucket_execution_count AS window_execution_count,
                 user_name,
-                is_truncated,
+                statement_truncated AS is_truncated,
                 is_unmapped,
                 wrapped_execution_count
             FROM ranked
@@ -710,9 +738,12 @@ class MSSQLQuery:
         `__TIME__` slot for the event-time predicate.
 
         Window rows are loaded first. When the window holds sp_execute /
-        sp_cursorexecute calls, the prepares those sessions made before the
-        window are loaded too (pooled connections prepare once and execute for
-        hours), only to resolve handles: they aren't counted.
+        sp_cursorexecute calls, the prepares those sessions made in the
+        QUERY_LOG_PREPARE_LOOKBACK before the window are loaded too (pooled
+        connections prepare once and execute for hours), only to resolve
+        handles: they aren't counted. `before_window_predicate` may use
+        :prepare_start_time and should filter to prepares as cheaply as the
+        log format allows.
         """
         columns = (
             "event_time, session_id, user_name, statement, is_rpc, "
@@ -747,6 +778,7 @@ class MSSQLQuery:
             exclude_patterns=exclude_patterns,
         )
         params["path"] = path
+        params["prepare_start_time"] = window.start_time - QUERY_LOG_PREPARE_LOOKBACK
         return query, params
 
     @staticmethod
@@ -818,7 +850,9 @@ class MSSQLQuery:
         return MSSQLQuery._get_log_query_history(
             log_rows_cte=log_rows_cte,
             window_predicate="event_time >= :start_time AND event_time < :end_time",
-            before_window_predicate="event_time < :start_time",
+            before_window_predicate=(
+                "event_time >= :prepare_start_time AND event_time < :start_time"
+            ),
             path=path,
             window=window,
             limit=limit,
@@ -906,7 +940,11 @@ class MSSQLQuery:
         return MSSQLQuery._get_log_query_history(
             log_rows_cte=log_rows_cte,
             window_predicate=f"{timestamp} >= :start_time AND {timestamp} < :end_time",
-            before_window_predicate=f"{timestamp} < :start_time",
+            # Filter on the raw event text before it is cast to XML and shredded.
+            before_window_predicate=(
+                f"{timestamp} >= :prepare_start_time AND {timestamp} < :start_time "
+                "AND (event_data LIKE N'%sp[_]prep%' OR event_data LIKE N'%sp[_]cursorprep%')"
+            ),
             path=path,
             window=window,
             limit=limit,

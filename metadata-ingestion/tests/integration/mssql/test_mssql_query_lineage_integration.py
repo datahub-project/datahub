@@ -1,7 +1,7 @@
 import os
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, Mock
 
@@ -14,7 +14,13 @@ from sqlalchemy.sql.elements import TextClause
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.mssql.query import MSSQLQuery, QueryHistoryWindow
+from datahub.ingestion.source.sql.mssql.query import (
+    AUDIT_STATEMENT_MAX_CHARS,
+    QUERY_LOG_PREPARE_LOOKBACK,
+    UNMAPPED_EXECUTE_KEY,
+    MSSQLQuery,
+    QueryHistoryWindow,
+)
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
@@ -1845,3 +1851,132 @@ def test_query_log_resolves_temp_tables_within_a_session(
 
     for target in ("qh_orders_target", "qh_customers_target"):
         conn.execute(text(f"DROP TABLE IF EXISTS lineage_test.{target}"))
+
+
+def _fake_log_row(
+    event_time: datetime,
+    statement: str,
+    session_id: int = 60,
+    is_rpc: int = 0,
+    is_truncated: int = 0,
+) -> Dict[str, object]:
+    return {
+        "event_time": event_time,
+        "session_id": session_id,
+        "user_name": "qh_fake",
+        "statement": statement,
+        "is_rpc": is_rpc,
+        "is_truncated": is_truncated,
+        "database_name": "lineage_test",
+    }
+
+
+@pytest.mark.integration
+def test_query_log_sql_handles_truncated_records_and_old_prepares(mssql_connection):
+    """Runs the shared audit / Extended Events SQL over fabricated log rows,
+    since a real SQL Server log can't produce Azure-truncated records.
+
+    A truncated wrapper whose SQL literal closed is a complete query; one cut
+    inside the literal is truncated. Truncated statements rank on their own,
+    so they can't push real queries out of the top-N. Prepares are looked up
+    only within QUERY_LOG_PREPARE_LOOKBACK before the window."""
+    start = datetime(2030, 1, 10)
+    at = datetime(2030, 1, 10, 12)
+    cap = AUDIT_STATEMENT_MAX_CHARS
+    rows = [
+        _fake_log_row(
+            at,
+            (
+                "exec sp_executesql N'SELECT a FROM t WHERE id = @P0 /* wrapped-long */',"
+                "N'@P0 nvarchar(max)',@P0=N'" + "x" * cap
+            )[:cap],
+            is_rpc=1,
+            is_truncated=1,
+        ),
+        _fake_log_row(
+            at,
+            ("exec sp_executesql N'SELECT a /* cut-literal */ " + "y" * cap)[:cap],
+            is_rpc=1,
+            is_truncated=1,
+        ),
+        *(
+            _fake_log_row(at, (f"SELECT /* trunc{i} */ " + "z" * cap)[:cap], is_truncated=1)
+            for i in range(3)
+            for _ in range(5)
+        ),
+        *(_fake_log_row(at, "SELECT b FROM t /* real */") for _ in range(3)),
+        _fake_log_row(
+            start - timedelta(hours=2),
+            "declare @p1 int set @p1=7 exec sp_prepare @p1 output,N'@P0 int',"
+            "N'SELECT c FROM t WHERE id = @P0 /* recent-prep */',1 select @p1",
+            session_id=51,
+            is_rpc=1,
+        ),
+        *(
+            _fake_log_row(at, "exec sp_execute 7,1", session_id=51, is_rpc=1)
+            for _ in range(2)
+        ),
+        _fake_log_row(
+            start - QUERY_LOG_PREPARE_LOOKBACK - timedelta(hours=1),
+            "declare @p1 int set @p1=8 exec sp_prepare @p1 output,N'@P0 int',"
+            "N'SELECT d FROM t WHERE id = @P0 /* old-prep */',1 select @p1",
+            session_id=52,
+            is_rpc=1,
+        ),
+        _fake_log_row(at, "exec sp_execute 8,1", session_id=52, is_rpc=1),
+    ]
+    mssql_connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))
+    mssql_connection.execute(
+        text(
+            "CREATE TABLE dbo.qh_fake_log (event_time DATETIME2(7), session_id INT, "
+            "user_name NVARCHAR(256), statement NVARCHAR(MAX), is_rpc INT, "
+            "is_truncated INT, database_name NVARCHAR(256))"
+        )
+    )
+    mssql_connection.execute(
+        text(
+            "INSERT INTO dbo.qh_fake_log VALUES (:event_time, :session_id, "
+            ":user_name, :statement, :is_rpc, :is_truncated, :database_name)"
+        ),
+        rows,
+    )
+
+    def run(limit: int) -> Dict[str, Tuple[int, int, int]]:
+        query, params = MSSQLQuery._get_log_query_history(
+            log_rows_cte="WITH log_rows AS (SELECT * FROM dbo.qh_fake_log WHERE __TIME__)",
+            window_predicate="event_time >= :start_time AND event_time < :end_time",
+            before_window_predicate=(
+                "event_time >= :prepare_start_time AND event_time < :start_time"
+            ),
+            path="unused",
+            window=QueryHistoryWindow(start_time=start, end_time=datetime(2030, 1, 11)),
+            limit=limit,
+            min_calls=1,
+            exclude_patterns=None,
+        )
+        return {
+            r["query_text"]: (r["execution_count"], r["is_truncated"], r["is_unmapped"])
+            for r in mssql_connection.execute(query, params).mappings()
+        }
+
+    try:
+        by_text = run(limit=10)
+        found = {
+            marker: counts
+            for marker in ("wrapped-long", "cut-literal", "real", "recent-prep")
+            for statement, counts in by_text.items()
+            if f"/* {marker} */" in statement
+        }
+        assert found == {
+            "wrapped-long": (1, 0, 0),
+            "cut-literal": (1, 1, 0),
+            "real": (3, 0, 0),
+            "recent-prep": (2, 0, 0),
+        }, by_text
+        assert by_text[UNMAPPED_EXECUTE_KEY] == (1, 0, 1)
+        assert not any("old-prep" in s for s in by_text)
+
+        top = run(limit=1)
+        assert any("/* real */" in s for s in top), top
+    finally:
+        mssql_connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))

@@ -77,6 +77,15 @@ def _framework_modules_loaded_by(
         "datahub.ingestion.source.tableau.tableau",
         "datahub.ingestion.source.powerbi.config",
         "datahub.ingestion.source.powerbi.powerbi",
+        # Pipeline sources: config, shared selection and source modules. Their
+        # probe modules load the framework by design and are imported lazily.
+        "datahub.ingestion.source.fivetran.config",
+        "datahub.ingestion.source.fivetran.fivetran_selection",
+        "datahub.ingestion.source.fivetran.fivetran",
+        "datahub.ingestion.source.kafka_connect.common",
+        "datahub.ingestion.source.kafka_connect.kafka_connect",
+        "datahub.ingestion.source.azure_data_factory.adf_config",
+        "datahub.ingestion.source.azure_data_factory.adf_source",
     ],
 )
 def test_sql_source_import_leaves_out_the_probe_framework(module: str) -> None:

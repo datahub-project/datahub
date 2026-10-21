@@ -220,7 +220,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     try (CascadeOperationContext cascade =
         CascadeOperationContext.beginWithoutMDC(
-            metricUtils, "getLineage", entityUrn, -1, "datahub.lineage.graph_walk")) {
+                metricUtils, "getLineage", entityUrn, -1, "datahub.lineage.graph_walk")
+            .logCompletionAtInfo()) {
       for (int i = 0; i < maxHops; i++) {
         if (currentLevel.isEmpty()) {
           break;
@@ -235,7 +236,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           break;
         }
 
-        cascade.recordHop();
+        cascade.recordHop(currentLevel.size());
         int sizeBefore = result.size();
         // Do one hop on the lineage graph
         Stream<Urn> intermediateStream =
@@ -1395,7 +1396,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     try (CascadeOperationContext cascade =
         CascadeOperationContext.beginWithoutMDC(
-            metricUtils, "getImpactLineage", entityUrn, -1, "datahub.lineage.graph_walk")) {
+                metricUtils, "getImpactLineage", entityUrn, -1, "datahub.lineage.graph_walk")
+            .logCompletionAtInfo()) {
       for (int i = 0; i < maxHops; i++) {
         if (currentLevel.isEmpty()) {
           break;
@@ -1428,7 +1430,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           }
         }
 
-        cascade.recordHop();
+        cascade.recordHop(currentLevel.size());
         // About to get lineage for `currentLevel`: annotate with `explored`
         currentLevel.forEach(
             urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));

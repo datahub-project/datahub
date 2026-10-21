@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest.mock import Mock
 
@@ -418,7 +418,7 @@ def test_log_sql_covers_cursor_prepares_and_prepares_before_the_window() -> None
     """Cursor prepares are unwrapped and sp_cursorexecute is attributed like
     sp_execute. Prepares from before the window are loaded, for sessions that
     executed in it, only to resolve handles; they aren't counted."""
-    query, _ = MSSQLQuery.get_query_history_from_extended_events(
+    query, params = MSSQLQuery.get_query_history_from_extended_events(
         path="/xe/x*.xel",
         window=_WINDOW,
         limit=10,
@@ -427,8 +427,14 @@ def test_log_sql_covers_cursor_prepares_and_prepares_before_the_window() -> None
         database_scoped=False,
     )
     sql = " ".join(str(query).split())
+    # The pre-window scan is bounded, not a read of the whole retained log.
+    assert params["prepare_start_time"] == _WINDOW.start_time - timedelta(hours=24)
     assert "sp[_]cursorprepexec" in sql and "sp[_]cursorexecute" in sql
-    assert "CAST(timestamp_utc AS DATETIME2(7)) < :start_time" in sql
+    assert (
+        "CAST(timestamp_utc AS DATETIME2(7)) >= :prepare_start_time "
+        "AND CAST(timestamp_utc AS DATETIME2(7)) < :start_time "
+        "AND (event_data LIKE N'%sp[_]prep%'"
+    ) in sql
     assert (
         "SELECT event_time, session_id, user_name, statement, is_rpc, is_truncated, database_name, 0 AS in_window"
         in sql

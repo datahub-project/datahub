@@ -24,6 +24,7 @@ const ENTRIES = [
     'app/searchV2/SearchPage.tsx',
     'app/entityV2/EntityPage.tsx',
     'app/entityV2/shared/containers/profile/EntityProfile.tsx',
+    'app/entityV2/summary/SummaryTab.tsx',
 ];
 
 function firstExisting(candidates: Array<string | undefined>): string | undefined {
@@ -86,6 +87,22 @@ function isHeavySyntaxImport(spec: string): boolean {
     return spec === 'react-syntax-highlighter' || spec === 'refractor' || spec === 'sql-formatter';
 }
 
+const PAGE_LIBRARY_PACKAGES = ['@monaco-editor/react', 'reactflow', 'react-syntax-highlighter'];
+
+const LAZY_SUMMARY_MODULES = [
+    '@app/entityV2/summary/modules/lineage/LineageModule',
+    '@app/entityV2/summary/modules/schemaTable/ColumnsModule',
+    '@app/entityV2/summary/modules/sql/MetricSqlModule',
+];
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isPageLibraryImport(spec: string): boolean {
+    return PAGE_LIBRARY_PACKAGES.some((name) => spec === name || spec.startsWith(`${name}/`));
+}
+
 function staticClosure(entry: string): Map<string, string[]> {
     const files = new Map<string, string[]>();
     const pending = [join(srcRoot, entry)];
@@ -127,8 +144,35 @@ describe('syntax highlighter chunks', () => {
         );
 
         expect(leaked).toEqual([]);
-        expect([...closure.keys()].some((file) => file.endsWith('CodeBlock/highlighter.ts'))).toBe(true);
+        const pageLibraries = [...closure.entries()].flatMap(([file, specs]) =>
+            specs.filter(isPageLibraryImport).map((spec) => `${file.slice(srcRoot.length + 1)} imports ${spec}`),
+        );
+        expect(pageLibraries).toEqual([]);
+        expect([...closure.keys()].some((file) => file.endsWith('CodeBlock/highlighter.ts'))).toBe(false);
         expect([...closure.keys()].some((file) => file.endsWith('Editor/editorCodeLanguages.ts'))).toBe(false);
+    });
+
+    it('still loads monaco, react flow, and the slim highlighter when those views open', () => {
+        const builder = readFileSync(
+            join(srcRoot, 'app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderForm.tsx'),
+            'utf8',
+        );
+        const graph = readFileSync(join(srcRoot, 'app/lineageV3/LineageVisualization.tsx'), 'utf8');
+        const queryCard = readFileSync(
+            join(srcRoot, 'app/entityV2/shared/tabs/Dataset/Queries/QueryCardQuery.tsx'),
+            'utf8',
+        );
+        const moduleSwitch = readFileSync(join(srcRoot, 'app/homeV3/module/Module.tsx'), 'utf8');
+
+        expect(staticImportSpecs(builder)).toContain('@monaco-editor/react');
+        expect(staticImportSpecs(graph)).toContain('reactflow');
+        expect(staticImportSpecs(queryCard)).toContain('@components/components/CodeBlock');
+
+        const moduleSwitchImports = staticImportSpecs(moduleSwitch);
+        LAZY_SUMMARY_MODULES.forEach((modulePath) => {
+            expect(moduleSwitch).toMatch(new RegExp(`import\\(\\s*['"]${escapeRegExp(modulePath)}['"]\\s*\\)`));
+            expect(moduleSwitchImports).not.toContain(modulePath);
+        });
     });
 
     it('loads the full grammar catalog from the lazy editor', () => {
