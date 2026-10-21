@@ -71,7 +71,9 @@ def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
 STRING_OPT_IN_DATASET = dataset_urn(
     "dbt", "long_tail_companions.analytics.dogs_in_movies"
 )
-URN_OPT_IN_DATASET = dataset_urn("catalogprobe", "urn_search_asset")
+URN_OPT_IN_DATASET = dataset_urn(
+    "snowflake", "long_tail_companions.analytics.b2c_ecommerce"
+)
 BOOSTED_PROPERTY_DATASET = dataset_urn(
     "dbt", "long_tail_companions.adoption.pet_profiles"
 )
@@ -376,7 +378,7 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         (
             URN_OPT_IN_DATASET,
             URN_OPT_IN_PROPERTY,
-            "urn:li:tag:pack_urn_opt_in",
+            "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,packurnoptin,PROD)",
         ),
         (
             BOOSTED_PROPERTY_DATASET,
@@ -431,6 +433,24 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "exactTopHit": STRING_OPT_IN_DATASET,
         },
         {
+            "id": "structured-property-urn-opt-in",
+            "group": "structured-property",
+            "query": "packurnoptin",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [{"urn": URN_OPT_IN_DATASET, "relevance": 1}],
+            "exactTopHit": URN_OPT_IN_DATASET,
+        },
+        {
+            "id": "structured-property-urn-opt-in-identity",
+            "group": "structured-property",
+            "query": "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,packurnoptin,PROD)",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [{"urn": URN_OPT_IN_DATASET, "relevance": 1}],
+            "exactTopHit": URN_OPT_IN_DATASET,
+        },
+        {
             "id": "structured-property-string-opt-out-fulltext",
             "group": "structured-property",
             "query": "packstringoptout",
@@ -472,7 +492,7 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "filter": {
                 "field": "structuredProperties.packUrnSearch",
                 "condition": "EQUAL",
-                "value": "urn:li:tag:pack_urn_opt_in",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,packurnoptin,PROD)",
             },
             "exactTopHit": URN_OPT_IN_DATASET,
         },
@@ -854,6 +874,11 @@ def longtail_judgments() -> list[dict[str, Any]]:
             "longtail-structured-property-string",
             "packstringoptin",
             [(STRING_OPT_IN_DATASET, 4)],
+        ),
+        catalog_query(
+            "longtail-structured-property-urn",
+            "packurnoptin",
+            [(URN_OPT_IN_DATASET, 4)],
         ),
         catalog_query(
             "longtail-structured-property-boost",
