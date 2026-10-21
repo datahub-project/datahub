@@ -176,7 +176,7 @@ catalogue==2.0.10 ; python_full_version >= '3.11' and python_full_version < '3.1
     #   thinc
 cattrs==26.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via looker-sdk
-certifi==2026.2.25 ; python_full_version >= '3.11' and python_full_version < '3.14'
+certifi==2026.10.19 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   confluent-kafka
     #   httpcore
@@ -297,7 +297,7 @@ databricks-sdk==0.97.0 ; python_full_version >= '3.11' and python_full_version <
     # via
     #   acryl-datahub
     #   mlflow-skinny
-databricks-sql-connector==4.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+databricks-sql-connector==4.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   databricks-sqlalchemy
@@ -840,7 +840,7 @@ numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   spacy
     #   thinc
     #   unstructured
-oauthlib==3.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+oauthlib==4.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   atlassian-python-api
     #   databricks-sql-connector
