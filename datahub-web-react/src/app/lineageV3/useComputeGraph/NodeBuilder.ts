@@ -1,11 +1,11 @@
 import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, Node } from 'reactflow';
 
+import { DataFlowLineageControlData } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
-import { DataFlowLineageControlData } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import {
     LINEAGE_TRANSFORMATION_NODE_NAME,
     TRANSFORMATION_NODE_SIZE,

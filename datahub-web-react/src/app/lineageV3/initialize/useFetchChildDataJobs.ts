@@ -1,5 +1,6 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     LineageEntity,
@@ -16,14 +17,20 @@ const DATA_FLOW_CHILD_JOBS_PAGE_SIZE = 50;
 
 export default function useFetchChildDataJobs(): boolean {
     const { rootUrn, nodes, edges, adjacencyList, setNodeVersion, showGhostEntities } = useContext(LineageNodesContext);
+    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const [start, setStart] = useState(0);
     const [initialized, setInitialized] = useState(false);
+
+    // A new time range resets the graph, so child jobs must be fetched again from the first page
+    useEffect(() => setStart(0), [startTimeMillis, endTimeMillis]);
 
     useGetDataFlowDagQuery({
         variables: {
             urn: rootUrn,
             count: DATA_FLOW_CHILD_JOBS_PAGE_SIZE,
             start,
+            startTimeMillis,
+            endTimeMillis,
             includeGhostEntities: showGhostEntities,
         },
         onCompleted: (data) => {

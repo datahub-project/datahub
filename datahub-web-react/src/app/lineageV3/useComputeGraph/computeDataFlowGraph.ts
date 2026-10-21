@@ -1,16 +1,17 @@
 import type { XYPosition } from '@reactflow/core/dist/esm/types';
 import { Edge, Node } from 'reactflow';
 
+import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import {
     BOUNDING_BOX_HANDLE_Y,
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
-import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { CUSTOM_SMOOTH_STEP_EDGE_NAME } from '@app/lineageV3/LineageEdge/CustomSmoothStepEdge';
 import { DATA_JOB_INPUT_OUTPUT_EDGE_NAME } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import {
     GraphStoreFields,
+    LINEAGE_HANDLE_OFFSET,
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
     LineageEdgeData,
@@ -20,7 +21,6 @@ import {
     NodeContext,
     VERTICAL_HANDLE,
     buildHighlightAdjacencyList,
-    LINEAGE_HANDLE_OFFSET,
 } from '@app/lineageV3/common';
 import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
@@ -36,16 +36,18 @@ const LINEAGE_NODE_HEIGHT = 80;
 const ROOT_SEPARATION = 50 + LINEAGE_NODE_HEIGHT;
 
 /**
- * Computes the data flow graph, in three sections:
+ * Computes the data flow graph, in four sections:
  * 1. All data jobs of the data flow are rendered, arranged vertically
  * 2. The data flow bounding box is added, which contains all data jobs
  * 3. For each data job, we can render its upstream and downstream entities left and right,
  *    based on normal expansion rules as determined by `computeImpactAnalysisGraph`
+ * 4. The data flow's own upstream and downstream entities are added beside the box
  * @param urn urn of the data flow
  * @param type type of the data flow
  * @param context LineageNodesContext that represents the current state of the graph
  * @param entityRegistry Resolves urns to entity types, to identify transformations and queries
  * @param ignoreSchemaFieldStatus Whether to ignore schema field status when computing the graph
+ * @param showFilterNodes Whether to render lineage filter nodes
  * @returns An object containing:
  *   flowNodes: Nodes for React Flow to render
  *   flowEdges: Edges for React Flow to render
@@ -123,8 +125,8 @@ export default function computeDataFlowGraph(
         });
 
     const isInDataFlowGraphInterior: Map<string, Map<LineageDirection, boolean>> = new Map();
-    // Render the box even before child jobs load: switching the flow's node from an entity node to the box
-    // under the same id crashes the entity node renderer, and the flow's own lineage can arrive first
+    // The flow's node must always be the box, even before child jobs load: React Flow can't switch a node
+    // id from an entity node to the box, and the flow's own lineage can arrive before its jobs
     const boundingBox = addBoundingBoxDataFlow(flowNodes, { urn, type, entity: nodes.get(urn)?.entity });
     const seenNodeIds = new Set(flowNodes.map((n) => n.id));
     newGraphStore.nodes.forEach((node) => {
@@ -168,9 +170,7 @@ export default function computeDataFlowGraph(
             );
             newLineageFilters.forEach((filter, id) => lineageFilters.set(id, filter));
             newFlowNodes
-                .filter(
-                    (n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn && !seenNodeIds.has(n.id),
-                )
+                .filter((n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn && !seenNodeIds.has(n.id))
                 .forEach((n) => {
                     seenNodeIds.add(n.id);
                     flowNodes.push(n);
@@ -184,29 +184,9 @@ export default function computeDataFlowGraph(
     });
 
     addFlowOwnLineage(
-        urn,
-        type,
-        context,
-        entityRegistry,
-        ignoreSchemaFieldStatus,
-        showFilterNodes,
-        boundingBox,
-        seenNodeIds,
-        { flowNodes, flowEdges, lineageFilters },
+        { urn, type, context, entityRegistry, ignoreSchemaFieldStatus, showFilterNodes },
+        { boundingBox, seenNodeIds, flowNodes, flowEdges, lineageFilters },
     );
-    Object.values(LineageDirection)
-        .filter((direction) => adjacencyList[direction].get(urn)?.size)
-        .forEach((direction) =>
-            flowNodes.push({
-                id: `${urn}-lineage-control-${direction}`,
-                type: DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
-                parentId: urn,
-                position: { x: 0, y: BOUNDING_BOX_HANDLE_Y },
-                data: { urn, type, direction },
-                selectable: false,
-                draggable: false,
-            }),
-        );
 
     const extraEdgeData = (source: string, target: string): Partial<LineageEdgeData> => {
         const upstream = nodes.get(source);
@@ -286,58 +266,46 @@ export default function computeDataFlowGraph(
     };
 }
 
-function computeFlowOwnLineage(
-    urn: string,
-    type: EntityType,
-    context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
-    entityRegistry: EntityRegistry,
-    ignoreSchemaFieldStatus: boolean,
-    showFilterNodes: boolean,
-) {
-    if (Object.values(LineageDirection).every((direction) => !context.adjacencyList[direction].get(urn)?.size)) {
-        return {
-            flowNodes: [],
-            flowEdges: [],
-            resetPositions: false,
-            lineageFilters: new Map<string, LineageFilter>(),
-            adjacencyList: buildHighlightAdjacencyList(context.edges, new Set<string>()),
-        };
-    }
-    return computeImpactAnalysisGraph(
-        urn,
-        type,
-        context,
-        entityRegistry,
-        ignoreSchemaFieldStatus,
-        undefined,
-        undefined,
-        (n) => n.urn === urn || n.parentDataJob !== urn,
-        undefined,
-        showFilterNodes,
-    );
-}
-
 /**
- * Adds the DataFlow's own lineage beside its bounding box, in the same columns as its jobs' lineage.
- * Each side is stacked above the job neighbors already on that side, so the two never overlap.
+ * Adds the DataFlow's own lineage beside its bounding box, in the same columns as its jobs' lineage,
+ * plus the box's expand and pagination controls for it. Each side is centered on the box's title,
+ * or placed above that side's job neighbors when centering would overlap them.
  */
 function addFlowOwnLineage(
-    urn: string,
-    type: EntityType,
-    context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
-    entityRegistry: EntityRegistry,
-    ignoreSchemaFieldStatus: boolean,
-    showFilterNodes: boolean,
-    boundingBox: Node,
-    seenNodeIds: Set<string>,
-    out: {
+    graph: {
+        urn: string;
+        type: EntityType;
+        context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>;
+        entityRegistry: EntityRegistry;
+        ignoreSchemaFieldStatus: boolean;
+        showFilterNodes: boolean;
+    },
+    layout: {
+        boundingBox: Node;
+        seenNodeIds: Set<string>;
         flowNodes: LineageVisualizationNode[];
         flowEdges: Edge<LineageTableEdgeData>[];
         lineageFilters: Map<string, LineageFilter>;
     },
 ) {
-    const own = computeFlowOwnLineage(urn, type, context, entityRegistry, ignoreSchemaFieldStatus, showFilterNodes);
-    own.lineageFilters.forEach((filter, id) => out.lineageFilters.set(id, filter));
+    const { urn, type, context } = graph;
+    const { boundingBox, seenNodeIds, flowNodes, flowEdges, lineageFilters } = layout;
+    const directions = Object.values(LineageDirection).filter((d) => context.adjacencyList[d].get(urn)?.size);
+    if (!directions.length) return;
+
+    const own = computeImpactAnalysisGraph(
+        urn,
+        type,
+        context,
+        graph.entityRegistry,
+        graph.ignoreSchemaFieldStatus,
+        undefined,
+        undefined,
+        (n) => n.urn === urn || n.parentDataJob !== urn,
+        undefined,
+        graph.showFilterNodes,
+    );
+    own.lineageFilters.forEach((filter, id) => lineageFilters.set(id, filter));
 
     const rootX = own.flowNodes.find((n) => n.id === urn)?.position.x ?? 0;
     const boxWidth = boundingBox.width ?? LINEAGE_NODE_WIDTH;
@@ -346,26 +314,39 @@ function addFlowOwnLineage(
         const side = external.filter((n) => n.position.x < rootX === isUpstream);
         if (!side.length) return;
 
-        const occupiedYs = out.flowNodes
+        const occupiedYs = flowNodes
             .filter((n) => n.id !== urn && !context.nodes.get(n.id)?.parentDataJob)
             .filter((n) => (isUpstream ? n.position.x < 0 : n.position.x >= boxWidth))
             .map((n) => n.position.y);
         const sideMinY = Math.min(...side.map((n) => n.position.y));
         const sideMaxY = Math.max(...side.map((n) => n.position.y));
         const dx = (isUpstream ? 0 : boxWidth - LINEAGE_NODE_WIDTH) - rootX;
+        const centeredDy = BOUNDING_BOX_HANDLE_Y - LINEAGE_HANDLE_OFFSET - (sideMaxY - sideMinY) / 2 - sideMinY;
         const dy = occupiedYs.length
-            ? Math.min(...occupiedYs) - ROOT_SEPARATION - sideMaxY
-            : BOUNDING_BOX_HANDLE_Y - LINEAGE_HANDLE_OFFSET - (sideMaxY - sideMinY) / 2 - sideMinY;
+            ? Math.min(centeredDy, Math.min(...occupiedYs) - ROOT_SEPARATION - sideMaxY)
+            : centeredDy;
         side.forEach((n) => {
             seenNodeIds.add(n.id);
             // eslint-disable-next-line no-param-reassign
             n.position = { x: n.position.x + dx, y: n.position.y + dy };
         });
-        out.flowNodes.push(...side);
+        flowNodes.push(...side);
     });
 
-    const edgeIds = new Set(out.flowEdges.map((e) => e.id));
-    out.flowEdges.push(...own.flowEdges.filter((e) => !edgeIds.has(e.id)));
+    const edgeIds = new Set(flowEdges.map((e) => e.id));
+    flowEdges.push(...own.flowEdges.filter((e) => !edgeIds.has(e.id)));
+
+    directions.forEach((direction) =>
+        flowNodes.push({
+            id: `${urn}-lineage-control-${direction}`,
+            type: DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+            parentId: urn,
+            position: { x: 0, y: BOUNDING_BOX_HANDLE_Y },
+            data: { urn, type, direction },
+            selectable: false,
+            draggable: false,
+        }),
+    );
 }
 
 function addBoundingBoxDataFlow(

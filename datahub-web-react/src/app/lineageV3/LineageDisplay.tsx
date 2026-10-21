@@ -2,8 +2,8 @@ import React, { useCallback, useContext, useEffect, useMemo, useState } from 're
 import { useOnSelectionChange, useReactFlow } from 'reactflow';
 
 import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
-import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
+import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';

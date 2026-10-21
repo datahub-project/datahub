@@ -38,8 +38,8 @@ function makeRootNode(): LineageEntity {
         type: EntityType.DataFlow,
         isExpanded: { [LineageDirection.Upstream]: true, [LineageDirection.Downstream]: true },
         fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Upstream]: FetchStatus.COMPLETE,
+            [LineageDirection.Downstream]: FetchStatus.COMPLETE,
         },
         filters: {
             [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
@@ -137,13 +137,38 @@ describe('computeDataFlowGraph', () => {
         expect(flowEdges.some((e) => e.source === REPO_URN && e.target === ROOT_URN)).toBe(true);
     });
 
-    it('renders nothing with no child jobs and no lineage of its own', () => {
+    it('renders just an empty box with no child jobs and no lineage of its own', () => {
         const { compute } = makeGraph([makeRootNode()]);
 
         const { flowNodes, flowEdges } = compute();
 
+        expect(flowNodes.map((n) => n.type)).toEqual([LINEAGE_BOUNDING_BOX_NODE_NAME]);
         expect(flowEdges).toHaveLength(0);
-        expect(flowNodes.some((n) => n.id === REPO_URN)).toBe(false);
+    });
+
+    it("keeps the DataFlow's own upstream level with the title when job lineage leaves room there", () => {
+        const jobs = [jobUrn('a'), jobUrn('b'), jobUrn('c')];
+        const jobUpstream = datasetUrn('bottom_input');
+        const jobNodes = jobs.map((job) => makeJobNode(job));
+        const { addUpstream, compute } = makeGraph([
+            makeRootNode(),
+            ...jobNodes,
+            makeUpstreamNode(jobUpstream),
+            makeUpstreamNode(REPO_URN),
+        ]);
+        addUpstream(ROOT_URN, REPO_URN);
+        const jobYs = compute().flowNodes.filter((n) => jobs.includes(n.id));
+        const bottomJob = jobYs.reduce((a, b) => (b.position.y > a.position.y ? b : a)).id;
+        addUpstream(bottomJob, jobUpstream);
+        const bottom = jobNodes.find((n) => n.urn === bottomJob);
+        if (bottom) bottom.isExpanded[LineageDirection.Upstream] = true;
+
+        const { flowNodes } = compute();
+
+        const repo = flowNodes.find((n) => n.id === REPO_URN);
+        expect((repo?.position.y ?? 0) + LINEAGE_HANDLE_OFFSET).toBe(BOUNDING_BOX_HANDLE_Y);
+        expect(flowNodes.some((n) => n.id === jobUpstream)).toBe(true);
+        expectNoOverlaps(flowNodes);
     });
 
     it("renders the DataFlow's own upstream outside the box when it also has child jobs", () => {
