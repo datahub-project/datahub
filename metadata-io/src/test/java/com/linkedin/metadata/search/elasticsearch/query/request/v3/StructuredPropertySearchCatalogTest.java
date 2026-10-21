@@ -43,6 +43,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -275,6 +276,63 @@ public class StructuredPropertySearchCatalogTest {
     assertEquals(
         properties.get(0).fullTextPath(),
         "structuredProperties.steward" + StructuredPropertyUrnIdentity.FIELD_SUFFIX);
+  }
+
+  /**
+   * Building the search that loads the catalog reads the catalog again, through template binding
+   * and the lifecycle stage filters. The nested read must not start a second load, and must leave
+   * the cache usable once the entry expires.
+   */
+  @Test
+  public void testReentrantReadDuringLoad() throws Exception {
+    StructuredPropertyQueryConfiguration shortTtl =
+        StructuredPropertyQueryConfiguration.builder()
+            .cacheTtlSeconds(1)
+            .defaultTextWeight(0.8f)
+            .stemmedFactor(0.5f)
+            .pageSize(17)
+            .maxProperties(1000)
+            .build();
+    StructuredPropertySearchCatalog reentrantCatalog =
+        new StructuredPropertySearchCatalog(shortTtl);
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:priority");
+    ScrollResult page =
+        new ScrollResult()
+            .setEntities(new SearchEntityArray(new SearchEntity().setEntity(propertyUrn)))
+            .setNumEntities(1)
+            .setPageSize(1);
+    AtomicInteger scrolls = new AtomicInteger();
+    when(searchRetriever.scroll(
+            anyList(), isNull(), isNull(), anyInt(), anyList(), any(SearchFlags.class)))
+        .thenAnswer(
+            invocation -> {
+              if (scrolls.getAndIncrement() == 0) {
+                reentrantCatalog.catalogStamp(opContext);
+              }
+              return page;
+            });
+    when(aspectRetriever.getLatestAspectObjects(
+            eq(opContext), anySet(), eq(Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                propertyUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(
+                        new DataMap(
+                            definition("priority", "string")
+                                .setSearchConfiguration(
+                                    new DataHubSearchConfig().setQueryByDefault(true))
+                                .data())))));
+
+    List<EntitySpec> targets = List.of(entityRegistry.getEntitySpec(DATASET_ENTITY_NAME));
+    assertEquals(reentrantCatalog.indexed(opContext, targets).size(), 1);
+    assertEquals(scrolls.get(), 1);
+
+    Thread.sleep(1_100);
+
+    assertEquals(reentrantCatalog.indexed(opContext, targets).size(), 1);
+    assertEquals(scrolls.get(), 2);
   }
 
   /** valueType is a string, so reading the definition throws instead of returning a type. */

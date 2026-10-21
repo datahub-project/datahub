@@ -8,6 +8,7 @@ import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
@@ -88,6 +89,23 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
     assertEquals(error.getMessage(), "Unauthorized access");
+    assertEquals(error.getErrorCode(), 403);
+  }
+
+  @Test
+  public void testHandleActorAccessExceptionUnauthorized()
+      throws ExecutionException, InterruptedException {
+    ActorAccessException exception =
+        new ActorAccessException("Selecting a search template requires MANAGE_SYSTEM_OPERATIONS");
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertNotNull(result);
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(
+        error.getMessage(), "Selecting a search template requires MANAGE_SYSTEM_OPERATIONS");
     assertEquals(error.getErrorCode(), 403);
   }
 

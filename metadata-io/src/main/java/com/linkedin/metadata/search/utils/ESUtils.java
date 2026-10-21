@@ -956,8 +956,15 @@ public class ESUtils {
    */
   public static void buildNameSuggestions(
       @Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable String textInput) {
+    buildNameSuggestions(searchSourceBuilder, textInput, ENTITY_NAME_FIELD);
+  }
+
+  public static void buildNameSuggestions(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nullable String textInput,
+      @Nonnull String field) {
     SuggestionBuilder<TermSuggestionBuilder> builder =
-        SuggestBuilders.termSuggestion(ENTITY_NAME_FIELD).text(textInput);
+        SuggestBuilders.termSuggestion(field).text(textInput);
     SuggestBuilder suggestBuilder = new SuggestBuilder();
     suggestBuilder.addSuggestion(NAME_SUGGESTION, builder);
     searchSourceBuilder.suggest(suggestBuilder);

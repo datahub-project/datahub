@@ -249,4 +249,31 @@ public class BootstrapMCPUtilTest {
             .readTree(
                 "{\"source\":{\"type\":\"datahub-gc\",\"config\":{\"cleanup_expired_tokens\":false,\"truncate_indices\":true,\"dataprocess_cleanup\":{\"retention_days\":10,\"delete_empty_data_jobs\":true,\"delete_empty_data_flows\":true,\"hard_delete_entities\":false,\"keep_last_n\":5},\"soft_deleted_entities_cleanup\":{\"retention_days\":10},\"execution_request_cleanup\":{\"keep_history_min_count\":10,\"keep_history_max_count\":1000,\"keep_history_max_days\":30,\"batch_read_size\":100,\"enabled\":false}}}}"));
   }
+
+  @Test
+  public void testSearchTemplatesKeepRendererPlaceholders() throws IOException {
+    BootstrapMCPConfigFile.MCPTemplate template =
+        BootstrapMCPConfigFile.MCPTemplate.builder()
+            .name("search-templates")
+            .version("v1")
+            .mcps_location("bootstrap_mcps/search-templates.yaml")
+            .build();
+    List<ObjectNode> mcps =
+        BootstrapMCPUtil.resolveMCPTemplate(OP_CONTEXT, template, TEST_AUDIT_STAMP);
+    String rendered = mcps.toString();
+    assertTrue(rendered.contains("{{alphanumericSplit}}"));
+    assertTrue(rendered.contains("{{fuzzy}}"));
+    assertTrue(rendered.contains("{{unquoted}}"));
+    assertTrue(rendered.contains("{{&defaultQueryFieldsJson}}"));
+    assertFalse(rendered.contains("keyword_weight"));
+    assertFalse(rendered.contains("<%"));
+    assertFalse(rendered.contains("{{="));
+    assertTrue(rendered.contains("urn:li:searchTemplate:search"));
+    assertTrue(rendered.contains("urn:li:searchTemplate:searchLight"));
+    assertTrue(rendered.contains("urn:li:searchTemplate:structured"));
+    assertTrue(rendered.contains("urn:li:searchTemplate:fulltext"));
+    assertTrue(rendered.contains("urn:li:searchTemplate:light"));
+    assertFalse(rendered.contains("lightQuery:"));
+    assertEquals(mcps.get(0).get("changeType").asText(), "UPSERT");
+  }
 }
