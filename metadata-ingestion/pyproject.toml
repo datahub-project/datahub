@@ -2057,6 +2057,20 @@ constraint-dependencies = [
     # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
     # snippet: docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
+    # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
+    # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
+    # docker/snippets/ingestion/constraints.txt.
+    "aiohttp>=3.14.4,<4",
+    # multidict: CVE-2026-104874; fixed in 6.9.1. Transitive via aiohttp/yarl; not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "multidict>=6.9.1",
+    # Mako: CVE-2026-102991; fixed in 1.4.2. Transitive via alembic; not in setup.py.
+    # Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "mako>=1.4.2,<2",
+    # fsspec: CVE-2026-104851; fixed in 2026.6.0. Transitive via s3fs/adlfs/pyiceberg/
+    # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
+    # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "fsspec>=2026.6.0",
 ]
 
 [tool.ruff]
