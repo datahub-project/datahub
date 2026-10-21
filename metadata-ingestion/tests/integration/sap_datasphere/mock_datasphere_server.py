@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Callable, List, Optional
 
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer
-    from werkzeug.wrappers import Request as WerkzeugRequest
+    from werkzeug.wrappers import (
+        Request as WerkzeugRequest,
+        Response as WerkzeugResponse,
+    )
 
 RECORDED_DIR = Path(__file__).parent / "fixtures" / "recorded"
 
@@ -43,6 +46,21 @@ SOURCE_OBJECT_VIEW_NAMES = [
 
 def _fixture_text(rel: str) -> str:
     return (RECORDED_DIR / rel).read_text()
+
+
+def _paged_list_handler(
+    payload: str,
+) -> Callable[["WerkzeugRequest"], "WerkzeugResponse"]:
+    # The dwaas-core list endpoints page via bare top/skip and end on an empty page.
+    # Fixtures fit in one page, so serve them at skip=0 and an empty list afterward.
+    from werkzeug.wrappers import Response as WerkzeugResponse
+
+    def handler(request: "WerkzeugRequest") -> "WerkzeugResponse":
+        skip = int(request.args.get("skip", "0"))
+        body = payload if skip == 0 else "[]"
+        return WerkzeugResponse(body, content_type="application/json")
+
+    return handler
 
 
 def _assets_payload_rewritten(base_url: str) -> str:
@@ -155,28 +173,29 @@ def register_handlers(
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/views",
         method="GET",
-    ).respond_with_data(
+    ).respond_with_handler(
         # A real tenant lists every design-time View, including ones not
         # exposed in the catalog.
-        json.dumps(
-            [{"technicalName": n} for n in VIEW_NAMES + SOURCE_OBJECT_VIEW_NAMES]
+        _paged_list_handler(
+            json.dumps(
+                [{"technicalName": n} for n in VIEW_NAMES + SOURCE_OBJECT_VIEW_NAMES]
+            )
         ),
-        content_type="application/json",
     )
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/analyticmodels",
         method="GET",
-    ).respond_with_data(
-        json.dumps([{"technicalName": n} for n in ANALYTIC_MODEL_NAMES]),
-        content_type="application/json",
+    ).respond_with_handler(
+        _paged_list_handler(
+            json.dumps([{"technicalName": n} for n in ANALYTIC_MODEL_NAMES])
+        ),
     )
 
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/localtables",
         method="GET",
-    ).respond_with_data(
-        _fixture_text("localtables.json"),
-        content_type="application/json",
+    ).respond_with_handler(
+        _paged_list_handler(_fixture_text("localtables.json")),
     )
 
     for name in LOCAL_TABLE_NAMES:

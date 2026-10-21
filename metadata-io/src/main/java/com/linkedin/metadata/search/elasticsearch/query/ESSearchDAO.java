@@ -98,6 +98,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
+import org.opensearch.common.document.DocumentField;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -105,6 +106,9 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
+import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -254,10 +258,154 @@ public class ESSearchDAO {
     return SearchClients.forEntityIndices(opContext, searchRequest, searchConfiguration);
   }
 
+  /** Script field under which {@link #aspectFieldNamesByDocumentId} reads a document's aspects. */
+  private static final String ASPECT_FIELD_NAMES = "aspectFieldNames";
+
+  /**
+   * Map key meaning the document still has {@code _aspects.structuredProperties}. Not an aspect
+   * name, and not the list of root structured-property keys.
+   */
+  public static final String STALE_ASPECTS_STRUCTURED_PROPERTIES = "_aspects.structuredProperties";
+
+  /**
+   * Separates an object field from a key inside it in the names this script reports ({@code
+   * customProperties<separator>oldKey}). A dot cannot do that: searchable field names contain dots,
+   * and a dotted {@code structuredProperties.*} key is a root field name, not a child of an object.
+   */
+  public static final String NESTED_FIELD_SEPARATOR = "\u001f";
+
+  /**
+   * Aspect names under {@code _aspects}, each with the field names under it. An object field also
+   * contributes each key inside it, joined with {@link #NESTED_FIELD_SEPARATOR}, so a catch-up can
+   * null a map entry the restate dropped. Structured properties live at the root as dotted keys
+   * ({@code structuredProperties.<name>}), so that entry is those keys: every top-level {@code
+   * _source} key with that prefix, plus each child when {@code _source.structuredProperties} is
+   * itself a map. A leftover {@code _aspects.structuredProperties} is reported under {@link
+   * #STALE_ASPECTS_STRUCTURED_PROPERTIES} and does not replace that list. Names only.
+   */
+  private static final String ASPECT_FIELD_NAMES_SCRIPT =
+      "Map names = new HashMap();"
+          + " def source = params['_source'];"
+          + " if (!(source instanceof Map)) { return names; }"
+          + " def sep = '"
+          + NESTED_FIELD_SEPARATOR
+          + "';"
+          + " def aspects = source['_aspects'];"
+          + " if (aspects instanceof Map) {"
+          + "   for (def entry : aspects.entrySet()) {"
+          + "     if ('structuredProperties'.equals(entry.getKey())) {"
+          + "       names['"
+          + STALE_ASPECTS_STRUCTURED_PROPERTIES
+          + "'] = new ArrayList();"
+          + "       continue;"
+          + "     }"
+          + "     def pending = new ArrayList();"
+          + "     def prefixes = new ArrayList();"
+          + "     pending.add(entry.getValue());"
+          + "     prefixes.add('');"
+          + "     def collected = new ArrayList();"
+          + "     while (!pending.isEmpty()) {"
+          + "       def current = pending.remove(pending.size() - 1);"
+          + "       def prefix = prefixes.remove(prefixes.size() - 1);"
+          + "       if (!(current instanceof Map)) { continue; }"
+          + "       for (def child : current.entrySet()) {"
+          + "         if (!(child.getKey() instanceof String)) { continue; }"
+          + "         def key = (String) child.getKey();"
+          + "         def path = prefix == '' ? key : prefix + sep + key;"
+          + "         collected.add(path);"
+          + "         if (child.getValue() instanceof Map) {"
+          + "           pending.add(child.getValue());"
+          + "           prefixes.add(path);"
+          + "         }"
+          + "       }"
+          + "     }"
+          + "     names[entry.getKey()] = collected;"
+          + "   }"
+          + " }"
+          + " def dotted = new ArrayList();"
+          + " for (def key : source.keySet()) {"
+          + "   if (key instanceof String && ((String) key).startsWith('structuredProperties.')) {"
+          + "     dotted.add(key);"
+          + "   }"
+          + " }"
+          + " def nested = source['structuredProperties'];"
+          + " if (nested instanceof Map) {"
+          + "   for (def child : nested.keySet()) {"
+          + "     def dottedKey = 'structuredProperties.' + child;"
+          + "     if (!dotted.contains(dottedKey)) { dotted.add(dottedKey); }"
+          + "   }"
+          + " }"
+          + " if (!dotted.isEmpty()) { names['structuredProperties'] = dotted; }"
+          + " return names;";
+
+  /** The painless source {@link #aspectFieldNamesByDocumentId} runs. Visible for its contract. */
+  static String aspectFieldNamesScript() {
+    return ASPECT_FIELD_NAMES_SCRIPT;
+  }
+
   @Nonnull
   private SearchClientShim<?> searchClient(
       @Nonnull OperationContext opContext, @Nullable String... indices) {
     return SearchClients.forEntityIndices(opContext, searchConfiguration, indices);
+  }
+
+  /**
+   * For each of {@code documentIds} present in {@code indexName}, the aspects its document holds,
+   * as aspect name to the field names the document holds for it: the entries under {@code
+   * _aspects}, each field inside an object field joined to its parent with {@link
+   * #NESTED_FIELD_SEPARATOR}, the structured properties aspect as the dotted root keys it owns, and
+   * a leftover {@code _aspects.structuredProperties} entry under {@link
+   * #STALE_ASPECTS_STRUCTURED_PROPERTIES}. One request for the whole set, and names only: the
+   * engine reads each document's source map in a script field and sends no document body back. A
+   * document that is not in the index has no entry.
+   */
+  @Nonnull
+  public Map<String, Map<String, Set<String>>> aspectFieldNamesByDocumentId(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull Collection<String> documentIds) {
+    if (documentIds.isEmpty()) {
+      return Map.of();
+    }
+    SearchSourceBuilder source =
+        new SearchSourceBuilder()
+            .query(QueryBuilders.idsQuery().addIds(documentIds.toArray(new String[0])))
+            .size(documentIds.size())
+            .fetchSource(false)
+            .scriptField(
+                ASPECT_FIELD_NAMES,
+                new Script(ScriptType.INLINE, "painless", ASPECT_FIELD_NAMES_SCRIPT, Map.of()));
+    SearchRequest request = new SearchRequest(indexName).source(source);
+    SearchResponse response;
+    try {
+      response =
+          searchClient(opContext, indexName).search(opContext, request, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      throw new ESQueryException("Failed to read aspect names from " + indexName, e);
+    }
+    Map<String, Map<String, Set<String>>> byDocumentId = new HashMap<>();
+    for (SearchHit hit : response.getHits().getHits()) {
+      byDocumentId.put(hit.getId(), aspectFieldNames(hit.getFields().get(ASPECT_FIELD_NAMES)));
+    }
+    return byDocumentId;
+  }
+
+  @Nonnull
+  @VisibleForTesting
+  static Map<String, Set<String>> aspectFieldNames(@Nullable DocumentField field) {
+    Map<String, Set<String>> byAspect = new HashMap<>();
+    Object value = field == null ? null : field.getValue();
+    if (!(value instanceof Map<?, ?> aspects)) {
+      return byAspect;
+    }
+    aspects.forEach(
+        (aspect, fields) ->
+            byAspect.put(
+                String.valueOf(aspect),
+                fields instanceof Collection<?> names
+                    ? names.stream().map(String::valueOf).collect(Collectors.toSet())
+                    : Set.of()));
+    return byAspect;
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {

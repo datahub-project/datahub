@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
 
+from datahub.utilities.urn_encoder import UrnEncoder
+
 # This file should not import any abs spectific modules as we import it in path_spec.py in datat_lake_common.py
 
 ABS_PREFIXES_REGEX = re.compile(
@@ -129,9 +131,9 @@ def make_abs_urn(abs_uri: str, env: str) -> str:
 
     if extension != "":
         extension = extension[1:]  # remove the dot
-        return f"urn:li:dataset:(urn:li:dataPlatform:abs,{name}_{extension},{env})"
+        abs_name = f"{name}_{extension}"
 
-    return f"urn:li:dataset:(urn:li:dataPlatform:abs,{abs_name},{env})"
+    return f"urn:li:dataset:(urn:li:dataPlatform:abs,{UrnEncoder.encode_string(abs_name)},{env})"
 
 
 def get_container_name(abs_uri: str) -> str:

@@ -22,11 +22,20 @@ pyasn1>=0.6.4
 protobuf>=6.33.5,<7.0.0
 # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; fixed in 3.13.3.
 # CVE-2026-59881 (fixed 3.14.2); CVE-2026-69243, CVE-2026-69244 (fixed 3.14.3).
+# CVE-2026-111064 / GHSA-2g87-pp6c-29x5 (fixed 3.14.4).
 # Note: Airflow 2.x constraints pin aiohttp==3.10.10 and 3.x pins 3.12.15, creating a
 # conflict when installing acryl-datahub with Airflow. The airflow-plugin CI accepts the
 # older version; this constraint is safe for Docker images which don't coexist with
 # Airflow's pinned dependencies.
-aiohttp>=3.14.3
+aiohttp>=3.14.4
+# multidict: CVE-2026-104874; fixed in 6.9.1. Transitive via aiohttp/yarl; not in
+# setup.py.
+multidict>=6.9.1
+# Mako: CVE-2026-102991; fixed in 1.4.2. Transitive via alembic; not in setup.py.
+mako>=1.4.2,<2
+# fsspec: CVE-2026-104851; fixed in 2026.6.0. Transitive via s3fs/adlfs/pyiceberg/dask;
+# not in setup.py. s3fs pins fsspec to its own version, so this also moves s3fs/adlfs.
+fsspec>=2026.6.0
 # anyio: CVE-2026-64847 (process-pool workers block indefinitely on undrained
 # stderr); fixed in 4.14.2. setup.py stays Airflow-satisfiable (>=4.10.0);
 # this Docker / lock-time floor is the CVE minimum.

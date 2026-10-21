@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
@@ -66,6 +68,33 @@ public class ESWriteDAO {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.writeAccess = writeAccess;
+  }
+
+  /** Every bulk processor a write through this DAO can land on, one per distinct cluster. */
+  @Nonnull
+  public Collection<ESBulkProcessor> bulkProcessors() {
+    return writeAccess.bulkProcessors();
+  }
+
+  /**
+   * Flushes every bulk processor a write can land on and waits for each tracked item to reach a
+   * terminal outcome. Fails when any item ended in an unrecovered failure, so a caller that
+   * checkpoints what it has written can trust the checkpoint.
+   */
+  public void flushAndWait() {
+    for (ESBulkProcessor bulkProcessor : bulkProcessors()) {
+      try {
+        bulkProcessor.flushAndWait(
+            Duration.ofSeconds(bulkProcessor.getAckAfterTransferTimeoutSeconds()));
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException("Interrupted while waiting for bulk transfer", e);
+      } catch (TimeoutException e) {
+        throw new RuntimeException("Timed out waiting for bulk transfer", e);
+      } catch (BulkTransferException e) {
+        throw new RuntimeException("Bulk transfer failed", e);
+      }
+    }
   }
 
   @Nonnull

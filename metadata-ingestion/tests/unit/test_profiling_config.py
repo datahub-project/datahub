@@ -12,6 +12,7 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     DEFAULT_MAX_DISTINCT_PER_STATEMENT,
+    MAX_QUERIES_TO_COMBINE_AT_ONCE,
 )
 
 
@@ -121,6 +122,20 @@ def test_max_distinct_per_statement_default_matches_combiner_constant() -> None:
     # the combiner, so the two must be kept in lockstep.
     config = ProfilingConfig()
     assert config.max_distinct_per_statement == DEFAULT_MAX_DISTINCT_PER_STATEMENT
+
+
+def test_max_queries_to_combine_default_matches_combiner_constant() -> None:
+    # Same drift guard as above: the config duplicates the literal.
+    assert ProfilingConfig().max_queries_to_combine == MAX_QUERIES_TO_COMBINE_AT_ONCE
+
+
+def test_query_timeout_seconds_rejects_a_value_the_server_cannot_hold() -> None:
+    # Postgres takes the limit as a signed 32-bit count of milliseconds, so a
+    # larger value is rejected by the SET -- which left the transaction aborted
+    # and cost the table every query that followed.
+    with pytest.raises(ValueError):
+        ProfilingConfig(query_timeout_seconds=2147484)
+    assert ProfilingConfig(query_timeout_seconds=2147483)
 
 
 def test_flatten_is_off_by_default() -> None:
