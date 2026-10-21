@@ -3424,3 +3424,16 @@ def test_document_definition_without_visualizations_counts_and_logs_shape(
     assert '"datasets":' in debug_lines[0]
     # Structure only: no object names leak into the execution log.
     assert "DCS - Dataset" not in debug_lines[0]
+    # The same shape is kept in the structured report, which is retained in
+    # full when the execution log is truncated.
+    infos = [
+        entry
+        for entry in source.report.infos
+        if entry.title == "Document definition without visualizations"
+    ]
+    assert len(infos) == 1
+    (context,) = infos[0].context
+    assert "document_id=doc-1" in context
+    assert "keys=['datasets', 'id', 'name', 'prompts']" in context
+    assert '"datasets":' in context
+    assert "DCS - Dataset" not in context

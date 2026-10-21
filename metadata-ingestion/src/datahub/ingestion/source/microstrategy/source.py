@@ -1232,6 +1232,24 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         if project_id in self._document_empty_logged_projects:
             return
         self._document_empty_logged_projects.add(project_id)
+        keys = sorted(payload.keys())
+        skeleton = payload_key_skeleton(payload)
+        # The structured report survives in full; the execution log keeps
+        # only its tail, so a line logged early in a long run is lost.
+        self.report.info(
+            title="Document definition without visualizations",
+            message=(
+                "A Report Services document definition carried no "
+                "visualizations, so the dashboard was emitted with datasets "
+                "only; the definition's top-level keys and key skeleton are "
+                "recorded (once per project) so the parser can be adjusted."
+            ),
+            context=(
+                f"project_id={project_id}, document_id={document_id}, "
+                f"keys={keys}, skeleton={skeleton}"
+            ),
+            log=False,
+        )
         if not logger.isEnabledFor(logging.DEBUG):
             return
         logger.debug(
@@ -1240,8 +1258,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             MSTR_DOCUMENT_DEBUG_LOG_PREFIX,
             project_id,
             document_id,
-            sorted(payload.keys()),
-            payload_key_skeleton(payload),
+            keys,
+            skeleton,
         )
 
     def _debug_v2_definition_payload(
