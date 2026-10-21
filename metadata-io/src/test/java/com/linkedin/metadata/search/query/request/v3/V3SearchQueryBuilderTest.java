@@ -111,6 +111,11 @@ public class V3SearchQueryBuilderTest {
     assertFalse(text.contains("name_1.text"), text.toString());
     assertFalse(text.contains("description_1.text"), text.toString());
     assertTrue(text.stream().allMatch(field -> field.endsWith(".text")), text.toString());
+    assertTrue(
+        fuzzy.values().stream()
+            .flatMap(Set::stream)
+            .allMatch(field -> field.endsWith(".text") || field.endsWith(".stemmed")),
+        fuzzy.toString());
     Set<String> stemmed = fuzzy.get(STEMMED_SEARCH_ANALYZER);
     assertNotNull(stemmed, fuzzy.toString());
     assertTrue(stemmed.contains("name.stemmed"), stemmed.toString());
@@ -927,7 +932,8 @@ public class V3SearchQueryBuilderTest {
   /**
    * A generated analyzer path is selected by its shared field. A dotted source path is selected by
    * the shared field its root feeds, which is {@code other} when the reference names no label. The
-   * keyword parent that exact match rewrites to {@code .keyword} stays with that source.
+   * keyword parent that exact match rewrites to {@code .keyword} stays with that source. A keyword
+   * root is left out of the fuzzy simple query; a structured query still lists it.
    */
   @Test
   public void testFieldConfigurationKeepsDottedSourcesThatFeedTheSelectedField() {
@@ -946,7 +952,7 @@ public class V3SearchQueryBuilderTest {
 
     Set<String> names = simpleFields(configured, withFieldConfiguration("names"), DATASET);
     assertTrue(names.contains("name.text"), names.toString());
-    assertTrue(names.contains("name"), names.toString());
+    assertFalse(names.contains("name"), names.toString());
     assertFalse(names.contains("description.text"), names.toString());
     assertFalse(names.contains("other.text"), names.toString());
     assertFalse(names.contains("customProperties"), names.toString());
@@ -955,13 +961,19 @@ public class V3SearchQueryBuilderTest {
 
     Set<String> other = simpleFields(configured, withFieldConfiguration("other"), DATASET);
     assertTrue(other.contains("other.text"), other.toString());
-    assertTrue(other.contains("customProperties"), other.toString());
+    assertFalse(other.contains("customProperties"), other.toString());
+    assertTrue(
+        structuredFields(configured, withFieldConfiguration("other"), DATASET)
+            .contains("customProperties"));
     assertFalse(other.contains("name.text"), other.toString());
     assertFalse(other.contains("description.text"), other.toString());
 
     Set<String> schemaOther =
         simpleFields(configured, withFieldConfiguration("other"), SCHEMA_FIELD);
-    assertTrue(schemaOther.contains("businessAttributeRef.name"), schemaOther.toString());
+    assertFalse(schemaOther.contains("businessAttributeRef.name"), schemaOther.toString());
+    assertTrue(
+        structuredFields(configured, withFieldConfiguration("other"), SCHEMA_FIELD)
+            .contains("businessAttributeRef.name"));
     assertTrue(schemaOther.contains("other.text"), schemaOther.toString());
     assertFalse(schemaOther.contains("tags.text"), schemaOther.toString());
 
@@ -1199,6 +1211,16 @@ public class V3SearchQueryBuilderTest {
       V3SearchQueryBuilder builder, OperationContext context, List<EntitySpec> entities) {
     return find(
             builder.buildQuery(context, entities, "orders", true), SimpleQueryStringBuilder.class)
+        .stream()
+        .flatMap(query -> query.fields().keySet().stream())
+        .collect(Collectors.toSet());
+  }
+
+  private static Set<String> structuredFields(
+      V3SearchQueryBuilder builder, OperationContext context, List<EntitySpec> entities) {
+    return find(
+            builder.buildQuery(context, entities, STRUCTURED_QUERY_PREFIX + "orders", true),
+            QueryStringQueryBuilder.class)
         .stream()
         .flatMap(query -> query.fields().keySet().stream())
         .collect(Collectors.toSet());

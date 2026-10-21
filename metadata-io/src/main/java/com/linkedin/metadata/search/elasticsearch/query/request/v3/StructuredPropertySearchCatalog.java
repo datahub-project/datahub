@@ -11,6 +11,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
@@ -34,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,14 +47,30 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class StructuredPropertySearchCatalog {
 
-  private static final ConcurrentHashMap<
-          StructuredPropertyQueryConfiguration, Cache<SearchRetriever, List<IndexedProperty>>>
-      CACHES = new ConcurrentHashMap<>();
+  /**
+   * One definition snapshot per catalog. Search result caches key the query inputs that change a
+   * response; this list does not. The retriever only loads it.
+   */
+  private enum SnapshotKey {
+    DEFINITIONS
+  }
+
+  private static final ThreadLocal<Boolean> LOADING = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
   private final StructuredPropertyQueryConfiguration config;
-  private final Cache<SearchRetriever, List<IndexedProperty>> cache;
+  private final Cache<SnapshotKey, List<IndexedProperty>> cache;
 
-  public StructuredPropertySearchCatalog(@Nonnull StructuredPropertyQueryConfiguration config) {
+  public StructuredPropertySearchCatalog(@Nullable StructuredPropertyQueryConfiguration config) {
+    if (config == null) {
+      config =
+          StructuredPropertyQueryConfiguration.builder()
+              .cacheTtlSeconds(300)
+              .defaultTextWeight(0.8f)
+              .stemmedFactor(0.5f)
+              .pageSize(500)
+              .maxProperties(1000)
+              .build();
+    }
     if (config.getPageSize() < 1
         || config.getMaxProperties() < 1
         || config.getCacheTtlSeconds() < 1) {
@@ -62,7 +78,7 @@ public final class StructuredPropertySearchCatalog {
           "elasticsearch.search.structuredProperties requires a positive page size, property limit, and cache TTL");
     }
     this.config = config;
-    this.cache = CACHES.computeIfAbsent(config, StructuredPropertySearchCatalog::newCache);
+    this.cache = newCache(config);
   }
 
   /**
@@ -78,17 +94,49 @@ public final class StructuredPropertySearchCatalog {
             .noneMatch(entitySpec -> entitySpec.hasAspect(STRUCTURED_PROPERTIES_ASPECT_NAME))) {
       return List.of();
     }
-    SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
-    List<IndexedProperty> all =
-        cache.asMap().computeIfAbsent(searchRetriever, ignored -> load(opContext, searchRetriever));
-    return all.stream().filter(property -> property.appliesTo(entitySpecs)).toList();
+    return all(opContext).stream().filter(property -> property.appliesTo(entitySpecs)).toList();
+  }
+
+  /** Stable request-cache identity for the currently loaded definitions. */
+  @Nonnull
+  public String catalogStamp(@Nullable OperationContext opContext) {
+    if (opContext == null) {
+      return "0";
+    }
+    return Integer.toHexString(all(opContext).hashCode());
+  }
+
+  /**
+   * Loading the snapshot issues a search, and building that search reads this same snapshot
+   * (template binding stamps the cache identity, and default filters resolve lifecycle stages
+   * through another search). The load therefore runs outside the cache. A nested read returns no
+   * properties instead of starting another load; publishing the finished list is a separate write.
+   */
+  @Nonnull
+  private List<IndexedProperty> all(@Nonnull OperationContext opContext) {
+    List<IndexedProperty> cached = cache.getIfPresent(SnapshotKey.DEFINITIONS);
+    if (cached != null) {
+      return cached;
+    }
+    if (Boolean.TRUE.equals(LOADING.get())) {
+      return List.of();
+    }
+    LOADING.set(Boolean.TRUE);
+    try {
+      List<IndexedProperty> loaded =
+          load(opContext, opContext.getRetrieverContext().getSearchRetriever());
+      cache.put(SnapshotKey.DEFINITIONS, loaded);
+      return loaded;
+    } finally {
+      LOADING.remove();
+    }
   }
 
   @Nonnull
-  private static Cache<SearchRetriever, List<IndexedProperty>> newCache(
+  private static Cache<SnapshotKey, List<IndexedProperty>> newCache(
       @Nonnull StructuredPropertyQueryConfiguration config) {
     return CacheBuilder.newBuilder()
-        .maximumSize(config.getMaxProperties())
+        .maximumSize(1)
         .expireAfterWrite(config.getCacheTtlSeconds(), TimeUnit.SECONDS)
         .build();
   }
@@ -183,6 +231,11 @@ public final class StructuredPropertySearchCatalog {
             : fieldPath;
     return Optional.of(
         new IndexedProperty(
+            propertyUrn,
+            definition.getQualifiedName(),
+            definition.hasDisplayName() ? definition.getDisplayName() : null,
+            definition.getVersion(GetMode.NULL),
+            logicalValueType,
             fieldPath,
             definition.getEntityTypes(),
             config.isQueryByDefault(),
@@ -213,6 +266,11 @@ public final class StructuredPropertySearchCatalog {
    * and the identity sibling for a URN. Weights are before the partial factor.
    */
   public record IndexedProperty(
+      @Nonnull Urn propertyUrn,
+      @Nonnull String qualifiedName,
+      @Nullable String displayName,
+      @Nullable String version,
+      @Nonnull LogicalValueType valueType,
       @Nonnull String fieldPath,
       @Nonnull Collection<Urn> entityTypes,
       boolean queryByDefault,

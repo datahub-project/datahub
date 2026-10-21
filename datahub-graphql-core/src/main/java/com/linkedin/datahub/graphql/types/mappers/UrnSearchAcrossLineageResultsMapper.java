@@ -40,6 +40,9 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         searchResultMetadata.getAggregations().stream()
             .map(f -> MapperUtils.mapFacet(context, f))
             .collect(Collectors.toList()));
+    if (searchResultMetadata.hasRouteChain()) {
+      result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
+    }
 
     if (input.hasFreshness()) {
       FreshnessStats outputFreshness = new FreshnessStats();
@@ -70,6 +73,10 @@ public class UrnSearchAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setEntity(UrnToEntityMapper.map(context, searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(context, searchEntity.getMatchedFields()))
+        .setExplainMatches(
+            searchEntity.hasExplainMatches()
+                ? getExplainMatches(searchEntity.getExplainMatches())
+                : null)
         .setPaths(
             searchEntity.getPaths().stream()
                 .map(p -> mapPath(context, p))
