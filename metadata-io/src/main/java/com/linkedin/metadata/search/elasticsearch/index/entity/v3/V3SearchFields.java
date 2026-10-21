@@ -14,6 +14,8 @@ import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TEXT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -32,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -268,36 +272,12 @@ public final class V3SearchFields {
    */
   @Nonnull
   public static Set<String> parsedKeywordLabels(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Map<String, Boolean> urnOnly = new LinkedHashMap<>();
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
-            continue;
-          }
-          final boolean parsedUrn = contributesParsedUrn(fieldSpec);
-          for (String label : labels(fieldSpec)) {
-            urnOnly.merge(label, parsedUrn, (left, right) -> left && right);
-          }
-        }
-      }
-    }
-    final Set<String> labels = new LinkedHashSet<>();
-    urnOnly.forEach(
-        (label, onlyParsedUrns) -> {
-          if (onlyParsedUrns) {
-            labels.add(label);
-          }
-        });
-    return labels;
+    return new LinkedHashSet<>(UrnRoots.of(entitySpecs).parsedKeywordLabels());
   }
 
   public static boolean isParsedKeywordLabel(
       @Nonnull final String label, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    return parsedKeywordLabels(entitySpecs).contains(label);
+    return UrnRoots.of(entitySpecs).parsedKeywordLabels().contains(label);
   }
 
   /**
@@ -307,37 +287,13 @@ public final class V3SearchFields {
    */
   public static boolean isUrnObjectField(
       @Nonnull final String fieldName, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    boolean saw = false;
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          final SearchableAnnotation annotation =
-              fieldSpec.getSearchableAnnotation().resolvedForV3();
-          if (!annotation.isV3Searchable() || !fieldName.equals(annotation.getFieldName())) {
-            continue;
-          }
-          saw = true;
-          if (!isExactUrn(fieldSpec)) {
-            return false;
-          }
-          for (String label : labels(fieldSpec)) {
-            if (isParsedKeywordLabel(label, entitySpecs) && !label.equals(fieldName)) {
-              return false;
-            }
-          }
-        }
-      }
-    }
-    return saw;
+    return UrnRoots.of(entitySpecs).isUrnObjectField(fieldName);
   }
 
   /** A logical field whose value is the parsed URN name, with the complete URN on {@code _urn}. */
   public static boolean isParsedUrnRoot(
       @Nonnull final String name, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    return isParsedKeywordLabel(name, entitySpecs) || isUrnObjectField(name, entitySpecs);
+    return UrnRoots.of(entitySpecs).isParsedUrnRoot(name);
   }
 
   /**
@@ -346,61 +302,146 @@ public final class V3SearchFields {
    */
   public static boolean urnRootHasAnalyzers(
       @Nonnull final String name, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    if (isParsedKeywordLabel(name, entitySpecs)) {
-      return parsedKeywordHasAnalyzers(name, entitySpecs);
-    }
-    if (!isUrnObjectField(name, entitySpecs)) {
-      return false;
-    }
-    boolean saw = false;
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          final SearchableAnnotation annotation =
-              fieldSpec.getSearchableAnnotation().resolvedForV3();
-          if (!annotation.isV3Searchable() || !name.equals(annotation.getFieldName())) {
-            continue;
-          }
-          saw = true;
-          if (!contributesFullTextUrn(fieldSpec)) {
-            return false;
-          }
-        }
-      }
-    }
-    return saw;
+    return UrnRoots.of(entitySpecs).hasAnalyzers(name);
   }
 
   /** URN roots whose parsed name full text reads. */
   @Nonnull
   private static Set<String> analyzedUrnRoots(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<String> names = parsedUrnRoots(entitySpecs);
-    names.removeIf(name -> !urnRootHasAnalyzers(name, entitySpecs));
-    return names;
+    return UrnRoots.of(entitySpecs).analyzedRoots();
   }
 
   /** Logical fields that store a parsed URN name. */
   @Nonnull
   private static Set<String> parsedUrnRoots(@Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<String> names = new LinkedHashSet<>(parsedKeywordLabels(entitySpecs));
+    return new LinkedHashSet<>(UrnRoots.of(entitySpecs).parsedRoots());
+  }
+
+  /**
+   * The parsed-URN facts of one entity list. The registry's specs do not change while GMS runs, and
+   * the projector asks for them for every field of every document, so they are built once per list
+   * of spec instances. {@link EntitySpec} has identity equality, so a different spec with the same
+   * name is a different key.
+   */
+  private static final Cache<List<EntitySpec>, UrnRoots> URN_ROOTS =
+      Caffeine.newBuilder().maximumSize(256).build();
+
+  private record UrnRoots(
+      Set<String> parsedKeywordLabels,
+      Map<String, Boolean> labelFullText,
+      Map<String, Boolean> objectFields,
+      Map<String, Boolean> objectFullText,
+      Set<String> parsedRoots) {
+
+    @Nonnull
+    static UrnRoots of(@Nonnull final Collection<EntitySpec> entitySpecs) {
+      return URN_ROOTS.get(List.copyOf(entitySpecs), UrnRoots::build);
+    }
+
+    @Nonnull
+    private static UrnRoots build(@Nonnull final Collection<EntitySpec> entitySpecs) {
+      final Map<String, Boolean> urnOnly = new LinkedHashMap<>();
+      final Map<String, Boolean> labelFullText = new HashMap<>();
+      forEachFieldSpec(
+          entitySpecs,
+          (aspectSpec, fieldSpec) -> {
+            if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
+              return;
+            }
+            final boolean parsedUrn = contributesParsedUrn(fieldSpec);
+            final boolean fullText = contributesFullTextUrn(fieldSpec);
+            for (String label : labels(fieldSpec)) {
+              urnOnly.merge(label, parsedUrn, Boolean::logicalAnd);
+              labelFullText.merge(label, fullText, Boolean::logicalAnd);
+            }
+          });
+      final Set<String> parsedKeywordLabels = new LinkedHashSet<>();
+      urnOnly.forEach(
+          (label, onlyParsedUrns) -> {
+            if (onlyParsedUrns) {
+              parsedKeywordLabels.add(label);
+            }
+          });
+
+      final Map<String, Boolean> objectFields = new HashMap<>();
+      final Map<String, Boolean> objectFullText = new HashMap<>();
+      final Set<String> parsedRoots = new LinkedHashSet<>(parsedKeywordLabels);
+      forEachFieldSpec(
+          entitySpecs,
+          (aspectSpec, fieldSpec) -> {
+            final SearchableAnnotation annotation =
+                fieldSpec.getSearchableAnnotation().resolvedForV3();
+            if (!annotation.isV3Searchable()) {
+              return;
+            }
+            final String fieldName = annotation.getFieldName();
+            final boolean exact =
+                isExactUrn(fieldSpec)
+                    && labels(fieldSpec).stream()
+                        .noneMatch(
+                            label ->
+                                parsedKeywordLabels.contains(label) && !label.equals(fieldName));
+            objectFields.merge(fieldName, exact, Boolean::logicalAnd);
+            objectFullText.merge(fieldName, contributesFullTextUrn(fieldSpec), Boolean::logicalAnd);
+          });
+      // Every field is visited, searchable or not, so the roots keep their declaration order
+      forEachFieldSpec(
+          entitySpecs,
+          (aspectSpec, fieldSpec) -> {
+            final String fieldName =
+                fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
+            if (Boolean.TRUE.equals(objectFields.get(fieldName))) {
+              parsedRoots.add(fieldName);
+            }
+          });
+      return new UrnRoots(
+          Collections.unmodifiableSet(parsedKeywordLabels),
+          Map.copyOf(labelFullText),
+          Map.copyOf(objectFields),
+          Map.copyOf(objectFullText),
+          Collections.unmodifiableSet(parsedRoots));
+    }
+
+    boolean isUrnObjectField(@Nonnull final String fieldName) {
+      return Boolean.TRUE.equals(objectFields.get(fieldName));
+    }
+
+    boolean isParsedUrnRoot(@Nonnull final String name) {
+      return parsedKeywordLabels.contains(name) || isUrnObjectField(name);
+    }
+
+    boolean parsedKeywordHasAnalyzers(@Nonnull final String label) {
+      return parsedKeywordLabels.contains(label) && Boolean.TRUE.equals(labelFullText.get(label));
+    }
+
+    boolean hasAnalyzers(@Nonnull final String name) {
+      if (parsedKeywordLabels.contains(name)) {
+        return parsedKeywordHasAnalyzers(name);
+      }
+      return isUrnObjectField(name) && Boolean.TRUE.equals(objectFullText.get(name));
+    }
+
+    @Nonnull
+    Set<String> analyzedRoots() {
+      final Set<String> names = new LinkedHashSet<>(parsedRoots);
+      names.removeIf(name -> !hasAnalyzers(name));
+      return names;
+    }
+  }
+
+  private static void forEachFieldSpec(
+      @Nonnull final Collection<EntitySpec> entitySpecs,
+      @Nonnull final BiConsumer<AspectSpec, SearchableFieldSpec> consumer) {
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
         continue;
       }
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          final String fieldName =
-              fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
-          if (isUrnObjectField(fieldName, entitySpecs)) {
-            names.add(fieldName);
-          }
+          consumer.accept(aspectSpec, fieldSpec);
         }
       }
     }
-    return names;
   }
 
   /**
@@ -447,28 +488,7 @@ public final class V3SearchFields {
    */
   public static boolean parsedKeywordHasAnalyzers(
       @Nonnull final String label, @Nonnull final Collection<EntitySpec> entitySpecs) {
-    if (!isParsedKeywordLabel(label, entitySpecs)) {
-      return false;
-    }
-    boolean saw = false;
-    for (EntitySpec entitySpec : entitySpecs) {
-      if (entitySpec.getAspectSpecs() == null) {
-        continue;
-      }
-      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
-        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          if (!fieldSpec.getSearchableAnnotation().isV3Searchable()
-              || !labels(fieldSpec).contains(label)) {
-            continue;
-          }
-          saw = true;
-          if (!contributesFullTextUrn(fieldSpec)) {
-            return false;
-          }
-        }
-      }
-    }
-    return saw;
+    return UrnRoots.of(entitySpecs).parsedKeywordHasAnalyzers(label);
   }
 
   /**
@@ -480,20 +500,26 @@ public final class V3SearchFields {
   public static List<String> parsedNameDestinations(
       @Nonnull final SearchableFieldSpec fieldSpec,
       @Nonnull final Collection<EntitySpec> entitySpecs) {
+    return parsedNameDestinations(fieldSpec, UrnRoots.of(entitySpecs));
+  }
+
+  @Nonnull
+  private static List<String> parsedNameDestinations(
+      @Nonnull final SearchableFieldSpec fieldSpec, @Nonnull final UrnRoots roots) {
     if (!contributesParsedUrn(fieldSpec)) {
       return List.of();
     }
     final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
     final Set<String> declared = labels(fieldSpec);
     final List<String> destinations = new ArrayList<>();
-    if (isParsedUrnRoot(fieldName, entitySpecs)) {
+    if (roots.isParsedUrnRoot(fieldName)) {
       destinations.add(parsedKeywordField(fieldName));
     }
     for (String label : declared) {
       if (label.equals(fieldName)) {
         continue;
       }
-      if (isParsedKeywordLabel(label, entitySpecs)) {
+      if (roots.parsedKeywordLabels().contains(label)) {
         destinations.add(parsedKeywordField(label));
       } else if (contributesFullTextUrn(fieldSpec)) {
         destinations.add(label);
@@ -514,13 +540,14 @@ public final class V3SearchFields {
       @Nonnull final SearchableFieldSpec fieldSpec,
       @Nonnull final Collection<EntitySpec> entitySpecs) {
     final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
+    final UrnRoots roots = UrnRoots.of(entitySpecs);
     final Set<String> targets = new LinkedHashSet<>();
-    if (isExactUrn(fieldSpec) && isParsedUrnRoot(fieldName, entitySpecs)) {
+    if (isExactUrn(fieldSpec) && roots.isParsedUrnRoot(fieldName)) {
       targets.add(fullUrnField(fieldName));
     }
     if (contributesParsedUrn(fieldSpec)) {
       for (String label : labels(fieldSpec)) {
-        if (isParsedKeywordLabel(label, entitySpecs)) {
+        if (roots.parsedKeywordLabels().contains(label)) {
           targets.add(fullUrnField(label));
         }
       }
@@ -581,6 +608,7 @@ public final class V3SearchFields {
   @Nonnull
   public static List<String> directParsedFullTextFields(
       @Nonnull final Collection<EntitySpec> entitySpecs) {
+    final UrnRoots roots = UrnRoots.of(entitySpecs);
     final List<String> paths = new ArrayList<>();
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
@@ -589,7 +617,7 @@ public final class V3SearchFields {
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
           if (!contributesFullTextUrn(fieldSpec)
-              || !parsedNameDestinations(fieldSpec, entitySpecs).isEmpty()) {
+              || !parsedNameDestinations(fieldSpec, roots).isEmpty()) {
             continue;
           }
           final String fieldName =
@@ -608,7 +636,8 @@ public final class V3SearchFields {
   @Nonnull
   public static Map<String, List<String>> storedParsedNameFields(
       @Nonnull final Collection<EntitySpec> entitySpecs) {
-    final Set<String> labels = analyzedUrnRoots(entitySpecs);
+    final UrnRoots roots = UrnRoots.of(entitySpecs);
+    final Set<String> labels = roots.analyzedRoots();
     final Map<String, List<String>> stored = new LinkedHashMap<>();
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
@@ -622,7 +651,7 @@ public final class V3SearchFields {
           final String fieldName =
               fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
           final String path = aspectParsedName(aspectSpec.getName(), fieldName);
-          for (String destination : parsedNameDestinations(fieldSpec, entitySpecs)) {
+          for (String destination : parsedNameDestinations(fieldSpec, roots)) {
             if (!labels.contains(destination)) {
               continue;
             }
@@ -897,9 +926,22 @@ public final class V3SearchFields {
     if (configured == null || configured.isEmpty()) {
       return List.of();
     }
-    final Set<String> fullText = fullTextFields(entitySpecs).keySet();
-    final Map<String, List<SearchableFieldSpec>> roots = rootSourceFieldSpecs(entitySpecs);
-    final Set<SearchableFieldSpec> fallbacks = entityNameFallbacks(entitySpecs);
+    return copyDestinations(
+        fullTextFields(entitySpecs).keySet(),
+        rootSourceFieldSpecs(entitySpecs),
+        entityNameFallbacks(entitySpecs),
+        configured);
+  }
+
+  @Nonnull
+  static List<String> copyDestinations(
+      @Nonnull final Set<String> fullText,
+      @Nonnull final Map<String, List<SearchableFieldSpec>> roots,
+      @Nonnull final Set<SearchableFieldSpec> fallbacks,
+      @Nullable final Collection<String> configured) {
+    if (configured == null || configured.isEmpty()) {
+      return List.of();
+    }
     final Set<String> destinations = new LinkedHashSet<>();
     for (String entry : configured) {
       if (entry == null || entry.isBlank()) {

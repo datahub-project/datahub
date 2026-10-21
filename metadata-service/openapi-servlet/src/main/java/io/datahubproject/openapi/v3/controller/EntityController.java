@@ -66,6 +66,7 @@ import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.datahubproject.openapi.v3.models.AspectItem;
 import io.datahubproject.openapi.v3.models.FacetMetadata;
 import io.datahubproject.openapi.v3.models.Filter;
@@ -204,6 +205,17 @@ public class EntityController
                   "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
           @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
           String pitKeepAlive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Caller-selected search template URN (urn:li:searchTemplate:<id>).")
+          @RequestParam(value = "searchTemplate", required = false)
+          String searchTemplate,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "When true, the response includes the templates visited while choosing the result.")
+          @RequestParam(value = "includeExplain", required = false)
+          Boolean includeExplain,
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
@@ -262,15 +274,18 @@ public class EntityController
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
                 .withSearchFlags(
                     flags ->
-                        flags
-                            .setSkipCache(skipCache)
-                            .setSkipAggregates(skipAggregation)
-                            .setIncludeSoftDeleted(includeSoftDelete)
-                            .setSliceOptions(
-                                sliceId != null && sliceMax != null
-                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                    : null,
-                                SetMode.IGNORE_NULL)),
+                        SearchTemplateFlags.apply(
+                            flags
+                                .setSkipCache(skipCache)
+                                .setSkipAggregates(skipAggregation)
+                                .setIncludeSoftDeleted(includeSoftDelete)
+                                .setSliceOptions(
+                                    sliceId != null && sliceMax != null
+                                        ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                        : null,
+                                    SetMode.IGNORE_NULL),
+                            searchTemplate,
+                            includeExplain)),
             resolvedEntityNames,
             query,
             Optional.ofNullable(entityAspectsBody.getFilter())
@@ -699,6 +714,10 @@ public class EntityController
         .scrollId(scrollId)
         .facets(facets)
         .totalCount(totalCount)
+        .routeChain(
+            searchResultMetadata != null && searchResultMetadata.hasRouteChain()
+                ? new ArrayList<>(searchResultMetadata.getRouteChain())
+                : null)
         .build();
   }
 

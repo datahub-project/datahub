@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityPath;
+import com.linkedin.datahub.graphql.generated.ExplainMatch;
 import com.linkedin.datahub.graphql.generated.ExtraProperty;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
@@ -38,11 +39,36 @@ public class MapperUtils {
 
   public static SearchResult mapResult(
       @Nullable final QueryContext context, SearchEntity searchEntity) {
-    return new SearchResult(
-        UrnToEntityMapper.map(context, searchEntity.getEntity()),
-        getInsightsFromFeatures(searchEntity.getFeatures()),
-        getMatchedFieldEntry(context, searchEntity.getMatchedFields()),
-        getExtraProperties(searchEntity.getExtraFields()));
+    return SearchResult.builder()
+        .setEntity(UrnToEntityMapper.map(context, searchEntity.getEntity()))
+        .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
+        .setMatchedFields(getMatchedFieldEntry(context, searchEntity.getMatchedFields()))
+        .setExtraProperties(getExtraProperties(searchEntity.getExtraFields()))
+        .setExplainMatches(
+            searchEntity.hasExplainMatches()
+                ? getExplainMatches(searchEntity.getExplainMatches())
+                : null)
+        .build();
+  }
+
+  @Nullable
+  public static List<ExplainMatch> getExplainMatches(
+      @Nullable com.linkedin.metadata.search.ExplainMatchArray matches) {
+    if (matches == null) {
+      return null;
+    }
+    return matches.stream()
+        .map(
+            match -> {
+              ExplainMatch evidence = new ExplainMatch();
+              evidence.setField(match.getField());
+              evidence.setValue(match.getValue());
+              evidence.setSubfield(match.getSubfield());
+              evidence.setMode(match.getMode());
+              evidence.setQuery(match.getQuery());
+              return evidence;
+            })
+        .collect(Collectors.toList());
   }
 
   private static List<ExtraProperty> getExtraProperties(@Nullable StringMap extraFields) {

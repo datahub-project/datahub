@@ -10,6 +10,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuild
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -71,7 +72,7 @@ public class SearchTemplateSelector {
               : opContext.authorize(
                   PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.getType(), null);
       if (!systemActor && authorization.getType() != AuthorizationResult.Type.ALLOW) {
-        throw new SearchTemplateException(
+        throw new ActorAccessException(
             "Selecting a search template requires MANAGE_SYSTEM_OPERATIONS");
       }
       ResolvedSearchTemplate resolved =

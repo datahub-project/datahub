@@ -1561,8 +1561,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * A quoted query uses the exact template: a name prefix, an exact name, and the URN. A
-   * description is not one of those fields, so quoting a description does not match it.
+   * A quoted query uses the exact template. Four or more tokens also match a description that
+   * contains every term, so quoting this description matches the customers dataset.
    */
   @Test
   public void testQuotedDescriptionPhrase() {
@@ -1578,7 +1578,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             null,
             10,
             List.of());
-    assertFalse(explain.isMatch());
+    assertTrue(explain.isMatch());
   }
 
   /**

@@ -6,9 +6,6 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -30,12 +27,14 @@ import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-/** Template-owned property clauses, /q routing, normalization, and custom-search migration. */
+/**
+ * Template-owned property clauses, /q routing, normalization, and unused custom search
+ * configuration.
+ */
 public class SearchTemplatePolicyTest {
   private static final String PARENT = "urn:li:searchTemplate:policyParent";
   private static final String CHILD = "urn:li:searchTemplate:policyChild";
@@ -191,7 +190,7 @@ public class SearchTemplatePolicyTest {
   }
 
   @Test
-  public void testDeprecatedCustomSearchFlagsWarnAndStayUnused() {
+  public void testDeprecatedCustomSearchFlagsStayUnused() {
     harness.installShippedTemplates();
     CustomSearchConfiguration custom =
         CustomSearchConfiguration.builder()
@@ -214,34 +213,21 @@ public class SearchTemplatePolicyTest {
             .withSearchFlags(flags -> flags.setFulltext(true).setFieldConfiguration("narrow"))
             .withResolvedSearchTemplate(
                 new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 1L, "fulltext", null));
-    Logger logger = (Logger) LoggerFactory.getLogger(CustomSearchMigration.class);
-    ListAppender<ILoggingEvent> appender = new ListAppender<>();
-    appender.start();
-    logger.addAppender(appender);
-    try {
-      String withFlags =
-          new SearchV3QueryBuilder(harness.loader, new SearchConfiguration(), custom)
-              .render(flagged, List.of(dataset), "orders", true)
-              .toString();
-      OperationContext plainContext =
-          harness
-              .opContext
-              .withSearchFlags(flags -> flags.setFulltext(true))
-              .withResolvedSearchTemplate(
-                  new ResolvedSearchTemplate(
-                      "urn:li:searchTemplate:fulltext", 1L, "fulltext", null));
-      String plain =
-          new SearchV3QueryBuilder(harness.loader, new SearchConfiguration(), null)
-              .render(plainContext, List.of(dataset), "orders", true)
-              .toString();
-      assertEquals(withFlags, plain);
-    } finally {
-      logger.detachAppender(appender);
-    }
-    String warnings =
-        appender.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", (a, b) -> a + b);
-    assertTrue(warnings.contains("fieldConfiguration 'narrow'"), warnings);
-    assertTrue(warnings.contains("queryConfiguration '.*'"), warnings);
+    String withFlags =
+        new SearchV3QueryBuilder(harness.loader, new SearchConfiguration(), custom)
+            .render(flagged, List.of(dataset), "orders", true)
+            .toString();
+    OperationContext plainContext =
+        harness
+            .opContext
+            .withSearchFlags(flags -> flags.setFulltext(true))
+            .withResolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 1L, "fulltext", null));
+    String plain =
+        new SearchV3QueryBuilder(harness.loader, new SearchConfiguration(), null)
+            .render(plainContext, List.of(dataset), "orders", true)
+            .toString();
+    assertEquals(withFlags, plain);
   }
 
   private String render(String urn, String query) {

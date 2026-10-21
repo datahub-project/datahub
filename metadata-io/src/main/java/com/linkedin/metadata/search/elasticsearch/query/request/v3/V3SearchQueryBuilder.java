@@ -11,9 +11,6 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3Searc
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.TEXT;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.TEXT_SUFFIX;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.analyzerSubfields;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.fullTextFields;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.indexGroupSpecs;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.path;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.weight;
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.isQuoted;
@@ -37,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldRes
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
@@ -59,7 +57,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -1633,12 +1630,6 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   private static final Set<String> IDENTITY_TEXT_FIELDS =
       Set.of(textField(ENTITY_NAME), textField(QUALIFIED_NAME));
 
-  // The shared fields of each searched entity list, derived once from the same annotations that
-  // build the mapping
-  private final Map<List<String>, Map<String, List<String>>> fullTextFieldsByEntities =
-      new ConcurrentHashMap<>();
-  private final Map<List<String>, Map<String, Set<String>>> analyzerSubfieldsByEntities =
-      new ConcurrentHashMap<>();
   private final StructuredPropertySearchCatalog structuredPropertySearchCatalog;
   @Nullable private final SearchFieldResolver v3SearchFieldResolver;
 
@@ -1668,10 +1659,10 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
     final Set<String> searched = searchedFields(opContext, entitySpecs).keySet();
     final List<String> fields = new ArrayList<>();
+    final V3SearchFieldModel model = V3SearchFieldModel.of(entitySpecs);
     for (StructuredPropertySearchCatalog.IndexedProperty property :
         structuredPropertySearchCatalog.indexed(opContext, entitySpecs)) {
-      if (V3SearchFields.copyDestinations(entitySpecs, property.copyTo()).stream()
-          .anyMatch(searched::contains)) {
+      if (model.copyDestinations(property.copyTo()).stream().anyMatch(searched::contains)) {
         fields.add(property.fullTextPath());
       }
     }
@@ -1723,11 +1714,6 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
    * Stage 1 {@code queryByDefault} fields a template starts from. The template's add, remove, and
    * replace choose the rest. A {@code fieldConfiguration} search flag is not applied.
    */
-  @Nullable
-  public QueryConfiguration matchingQueryConfiguration(@Nonnull String query) {
-    return customizedQueryHandler.lookupQueryConfig(query).orElse(null);
-  }
-
   @Nonnull
   public List<SearchFieldConfig> templateBaseFieldConfigs(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
@@ -1849,9 +1835,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   private Map<String, List<String>> cachedFullTextFields(
       @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
-    return fullTextFieldsByEntities.computeIfAbsent(
-        entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()),
-        key -> fullTextFields(indexGroupSpecs(entityRegistry, entitySpecs)));
+    return V3SearchFieldModel.forIndexGroup(entityRegistry, entitySpecs).fullTextFields();
   }
 
   /**
@@ -1921,16 +1905,14 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   private Map<String, Set<String>> cachedAnalyzerSubfields(
       @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
-    return analyzerSubfieldsByEntities.computeIfAbsent(
-        entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList()),
-        key -> analyzerSubfields(indexGroupSpecs(entityRegistry, entitySpecs)));
+    return V3SearchFieldModel.forIndexGroup(entityRegistry, entitySpecs).analyzerSubfields();
   }
 
   @Nonnull
   private SearchFieldResolver resolver(@Nonnull Collection<EntitySpec> entitySpecs) {
     return v3SearchFieldResolver != null
         ? v3SearchFieldResolver
-        : new SearchFieldResolver(entitySpecs);
+        : V3SearchFieldModel.of(entitySpecs).resolver();
   }
 
   @Nonnull
