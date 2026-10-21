@@ -37,6 +37,13 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+
+  /**
+   * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
+   * to SQL. A string, so a partial document update replaces it.
+   */
+  public static final String ASPECT_JSON_FIELD = "_aspectJson";
+
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
 
   private final SearchDocumentTransformer searchDocumentTransformer;
@@ -98,6 +105,7 @@ public class V3SearchDocumentProjector {
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
     omitV3ExcludedFields(aspectSpec, projectedFields);
+    storeAspectJson(event, aspectSpec, projectedFields);
     final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
     final EntityRegistry entityRegistry = opContext.getEntityRegistry();
     final List<EntitySpec> indexGroup =
@@ -336,6 +344,37 @@ public class V3SearchDocumentProjector {
     return !value.isArray() || !value.isEmpty();
   }
 
+  private static void storeAspectJson(
+      @Nonnull final MCLItem event,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields) {
+    if (aspectSpec.getAspectAnnotation() == null
+        || !aspectSpec.getAspectAnnotation().isAspectJson()) {
+      return;
+    }
+    if (ChangeType.DELETE.equals(event.getChangeType()) || event.getRecordTemplate() == null) {
+      projectedFields.putNull(ASPECT_JSON_FIELD);
+      return;
+    }
+    projectedFields.put(ASPECT_JSON_FIELD, RecordUtils.toJsonString(event.getRecordTemplate()));
+  }
+
+  /**
+   * Aspect JSON from an {@code _aspects.<aspect>} object. A string is the stored value. An object
+   * is accepted so a caller can still parse a value that was written as JSON.
+   */
+  @Nullable
+  public static String aspectJson(@Nullable final JsonNode aspectNode) {
+    if (aspectNode == null || aspectNode.isNull() || aspectNode.isMissingNode()) {
+      return null;
+    }
+    JsonNode stored = aspectNode.get(ASPECT_JSON_FIELD);
+    if (stored == null || stored.isNull() || stored.isMissingNode()) {
+      return null;
+    }
+    return stored.isTextual() ? stored.asText() : stored.toString();
+  }
+
   private static ProjectedAspect buildProjectedAspect(
       @Nonnull final String aspectName,
       @Nonnull final ObjectNode projectedFields,
@@ -347,6 +386,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final OperationContext opContext) {
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
+    rootFields.remove(ASPECT_JSON_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);

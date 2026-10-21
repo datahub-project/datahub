@@ -1,0 +1,25 @@
+namespace com.linkedin.search.template
+
+/**
+ * A queried field and its boost, used by a search template's field overrides.
+ */
+record SearchFieldBoost {
+  /**
+   * Indexed field name, or a structured-property definition URN. A subfield is separate.
+   * A nested contribution uses its degree-suffixed indexed name, such as {@code tags_1} for tags
+   * that live one relationship away from the entity. {@code tags} is the direct contribution.
+   * Each degree has its own boost.
+   */
+  fieldName: string
+
+  /**
+   * Boost applied to this field. Matches {@code boostScore} on {@code @Searchable}.
+   */
+  boost: double
+
+  /**
+   * Subfield appended after a structured-property field. Valid values are {@code keyword} and
+   * {@code text}.
+   */
+  subfield: optional string
+}

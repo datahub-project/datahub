@@ -54,6 +54,12 @@ bootstrap:
       async: false
       mcps_location: "bootstrap_mcps/page-templates.yaml"
 
+    - name: search-templates
+      version: v4
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/search-templates.yaml"
+
     # Ingestion Recipes
     - name: ingestion-datahub-gc
       version: v8

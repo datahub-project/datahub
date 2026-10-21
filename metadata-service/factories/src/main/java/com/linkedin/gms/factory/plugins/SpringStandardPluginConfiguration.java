@@ -38,6 +38,7 @@ import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.MetricUpstreamsValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.StructuredPropertyPrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
@@ -51,6 +52,9 @@ import com.linkedin.metadata.aspect.validation.VersionPropertiesAuthorizationVal
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.domains.sideeffects.DomainReferenceDetachSideEffect;
@@ -63,7 +67,10 @@ import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateStampHook;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
@@ -85,6 +92,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -1123,6 +1131,78 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
                             .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public SearchTemplateLoader searchTemplateLoader(ConfigurationProvider configProvider) {
+    SearchTemplateConfiguration templates = null;
+    if (configProvider.getElasticSearch() != null
+        && configProvider.getElasticSearch().getSearch() != null
+        && configProvider.getElasticSearch().getSearch().getV3() != null) {
+      templates = configProvider.getElasticSearch().getSearch().getV3().getTemplates();
+    }
+    if (templates == null) {
+      throw new IllegalStateException(
+          "elasticsearch.search.v3.templates is required; see application.yaml");
+    }
+    if (templates.isEnabled() && templates.getMaxLeafClauses() <= 0) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.maxLeafClauses must be positive when templates are enabled");
+    }
+    SearchTemplateSource source =
+        templates.getSource() == null ? SearchTemplateSource.STORAGE : templates.getSource();
+    return new SearchTemplateLoader(
+        configProvider.getCache().getPrimary().getTtlSeconds(),
+        source,
+        null,
+        templates.getMaxParentDepth(),
+        templates.getCacheMaximumSize(),
+        templates.getMaxRoutes(),
+        templates.getMaxRoutePatternLength());
+  }
+
+  @Bean
+  public AspectPayloadValidator searchTemplateValidator(
+      SearchTemplateLoader searchTemplateLoader,
+      ConfigurationProvider configProvider,
+      @Qualifier("entityRegistry") EntityRegistry entityRegistry) {
+    SearchConfiguration searchConfiguration =
+        configProvider.getElasticSearch() == null
+                || configProvider.getElasticSearch().getSearch() == null
+            ? new SearchConfiguration()
+            : configProvider.getElasticSearch().getSearch();
+    return new SearchTemplateValidator(
+            searchTemplateLoader, searchConfiguration, entityRegistry.getEntitySpecs().values())
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SearchTemplateValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of(CREATE, CREATE_ENTITY, DELETE, UPDATE, UPSERT, PATCH, RESTATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SEARCH_TEMPLATE_ENTITY_NAME)
+                            .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MutationHook searchTemplateStampHook() {
+    return new SearchTemplateStampHook()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SearchTemplateStampHook.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, RESTATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(SEARCH_TEMPLATE_ENTITY_NAME)
+                            .aspectName(SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME)
                             .build()))
                 .build());
   }

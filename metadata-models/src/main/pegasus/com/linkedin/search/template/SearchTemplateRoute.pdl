@@ -1,0 +1,18 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * One ordered route. The pattern is RE2 and must match the whole trimmed query.
+ */
+record SearchTemplateRoute {
+  /**
+   * RE2 pattern matched against the whole trimmed query.
+   */
+  queryRegex: string
+
+  /**
+   * Template to run when the pattern matches.
+   */
+  template: Urn
+}

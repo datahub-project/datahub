@@ -1,11 +1,16 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_ENTITY_NAME;
+
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
+import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -84,6 +89,23 @@ public class SearchFlagsInputMapper
     if (searchFlags.getMinScore() != null) {
       result.setMinScore(searchFlags.getMinScore());
     }
+    if (searchFlags.getSearchTemplate() != null && !searchFlags.getSearchTemplate().isBlank()) {
+      result.setSearchTemplate(requireSearchTemplate(searchFlags.getSearchTemplate()));
+    }
     return result;
+  }
+
+  @Nonnull
+  private static Urn requireSearchTemplate(@Nonnull String value) {
+    final Urn urn;
+    try {
+      urn = Urn.createFromString(value);
+    } catch (URISyntaxException e) {
+      throw new ValidationException("Invalid searchTemplate URN: " + value, e);
+    }
+    if (!SEARCH_TEMPLATE_ENTITY_NAME.equals(urn.getEntityType())) {
+      throw new ValidationException("searchTemplate must be a searchTemplate URN: " + value);
+    }
+    return urn;
   }
 }

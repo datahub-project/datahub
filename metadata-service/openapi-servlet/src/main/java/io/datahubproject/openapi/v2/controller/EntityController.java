@@ -151,6 +151,10 @@ public class EntityController
         .results(
             toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata, true))
         .scrollId(scrollId)
+        .routeChain(
+            searchResultMetadata != null && searchResultMetadata.hasRouteChain()
+                ? new ArrayList<>(searchResultMetadata.getRouteChain())
+                : null)
         .build();
   }
 
