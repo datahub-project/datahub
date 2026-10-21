@@ -3322,6 +3322,26 @@ def test_create_test_entity_mcps_clears_note_after_last_description_removed():
     assert cleared[0].aspect.content == ""
 
 
+@pytest.mark.parametrize("has_description", [True, False])
+def test_create_test_entity_mcps_server_check_failure_warns_only_with_descriptions(
+    has_description: bool,
+) -> None:
+    test_node, model_node = _described_test_with_result()
+    if not has_description:
+        test_node.description = ""
+    source = create_mocked_dbt_source()
+    graph = _graph_with_note(source, None, "dbt-source")
+    graph.server_config.supports_feature.side_effect = ValueError("bad version")
+
+    assert _note_mcps(source, test_node, model_node) == []
+    graph.get_entities.assert_not_called()
+    warned = any(
+        "Could not check server support for assertion notes" in str(w)
+        for w in source.report.warnings
+    )
+    assert warned is has_description
+
+
 def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
     source = create_mocked_dbt_source()
     source_node = _make_dbt_node(

@@ -2376,11 +2376,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 ServiceFeature.ASSERTION_NOTE_ASPECT
             )
         except Exception as e:
-            self.report.warning(
-                title="Could not check server support for assertion notes",
-                message="Skipping assertion notes from dbt test descriptions for this run.",
-                exc=e,
-            )
+            # Only worth surfacing when there are descriptions to write; otherwise the
+            # skipped run can at most delay clearing a stale note.
+            if has_descriptions:
+                self.report.warning(
+                    title="Could not check server support for assertion notes",
+                    message="Skipping assertion notes from dbt test descriptions for this run.",
+                    exc=e,
+                )
+            else:
+                logger.debug(
+                    "Could not check server support for assertion notes", exc_info=e
+                )
             return False
         if not supported and has_descriptions:
             self.report.info(
