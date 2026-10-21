@@ -157,31 +157,29 @@ datahub ingest -c recipe.yml --debug
 
 Look for these key log messages:
 
-- `INFO: Extracted X queries from query_store` - Confirms queries were fetched
-- `INFO: Processed X queries for lineage extraction (X failed)` - Shows parsing results
-- `INFO: Generated X lineage workunits from queries` - Confirms lineage generation
-- `DEBUG: Query extraction completed in X.XX seconds` - Performance metrics
+- `INFO: Extracted X queries from query_store in X.XX seconds` - Confirms queries were fetched (`dmv` instead of `query_store` when falling back)
+- `INFO: Processed X queries for lineage extraction (X failed) in X.XX seconds` - Shows parsing results
 
 #### Common Issues and Solutions
 
-#### Issue: "Query Store is not enabled"
+##### Issue: "Query Store is not enabled"
 
 **Solution:**
 Follow the Query Store setup instructions above (see "Enable Query Store" section).
 
-#### Issue: "VIEW SERVER STATE permission denied"
+##### Issue: "VIEW SERVER STATE permission denied"
 
 **Solution:**
 Follow the permission grant instructions above (see "Permission Requirements" section).
 
-#### Issue: "SQL Server version 2014 detected, but 2016+ is required"
+##### Issue: "SQL Server version 12 detected. Query Store requires SQL Server 2016+ (version 13)"
 
 **Solution:**
 
 - Upgrade to SQL Server 2016 or later for Query Store support
 - The DMV fallback method has limited query history and is not recommended as the primary method
 
-#### Issue: Query Store Returns No Results
+##### Issue: Query Store Returns No Results
 
 **Possible causes:**
 
@@ -219,12 +217,12 @@ Follow the permission grant instructions above (see "Permission Requirements" se
      -- Should return > 0
      ```
 
-#### Issue: Queries Extracted but No Lineage Appears
+##### Issue: Queries Extracted but No Lineage Appears
 
 **Symptoms:**
 
-- Logs show "Extracted X queries" but "Generated 0 lineage workunits"
-- Or many queries show parsing failures
+- Logs show "Extracted X queries" but no lineage appears in DataHub
+- Or "Processed X queries for lineage extraction" reports many failed
 
 **Possible causes:**
 
@@ -259,7 +257,7 @@ datahub ingest -c recipe.yml --debug 2>&1 | grep -i "lineage\|parsing\|query"
 # - "Filtered table" - indicates pattern matching issues
 ```
 
-#### Issue: Authentication or Connection Errors
+##### Issue: Authentication or Connection Errors
 
 **Error message:**
 
@@ -289,16 +287,18 @@ Cannot open database "YourDatabase" requested by the login
    ```
 
 3. **Connection timeout:**
-   - Increase timeout in connection string:
+   - For source type `mssql`, increase the python-tds timeouts:
      ```yaml
      source:
+       type: mssql
        config:
-         uri_args:
-           connect_timeout: 30
-           timeout: 30
+         options:
+           connect_args:
+             login_timeout: 30
+             timeout: 30
      ```
 
-#### Issue: Temporary Tables Not Recognized
+##### Issue: Temporary Tables Not Recognized
 
 **Symptoms:**
 
@@ -307,35 +307,25 @@ Cannot open database "YourDatabase" requested by the login
 
 **Solution:**
 
-MSSQL temp tables (starting with `#`) are automatically filtered by default. If you see temp tables in lineage:
+SQL Server temp tables (names starting with `#`) are filtered automatically, so you don't need a pattern for them. `temporary_tables_pattern` is for other staging tables, and its defaults cover tables created by known ETL tools (Fivetran, dbt, Segment, Stitch, Great Expectations).
 
-1. **Verify temp table patterns are configured:**
+To filter your own staging tables, add patterns. Setting `temporary_tables_pattern` replaces the defaults, so copy any you still need from the Config Details table above:
 
-   ```yaml
-   source:
-     config:
-       temporary_tables_pattern:
-         - ".*#.*" # Built-in default pattern
-   ```
+```yaml
+source:
+  config:
+    temporary_tables_pattern:
+      - '.*\.temp_.*' # Custom naming pattern
+      - '.*\.staging_.*' # ETL staging tables
+```
 
-2. **Add custom temp table patterns:**
-   ```yaml
-   source:
-     config:
-       temporary_tables_pattern:
-         - ".*#.*"  # Standard SQL Server temp tables
-         - ".*\.temp_.*"  # Custom naming pattern
-         - ".*\.staging_.*"  # ETL staging tables
-   ```
-
-#### Issue: Performance Problems (Slow Extraction or Hit Query Limit)
+##### Issue: Performance Problems (Slow Extraction or Hit Query Limit)
 
 **Symptoms:**
 
 - Query extraction takes >30 seconds
 - Ingestion times out or hangs during query extraction
 - Ingestion report shows exactly `max_queries_to_extract` queries processed
-- Warning in logs: "Reached max_queries_to_extract limit"
 
 **Understanding the Problem:**
 
@@ -392,7 +382,7 @@ When you hit the limit, only the top N queries by execution time are extracted. 
 - Adjust based on your requirements and performance constraints
 - Use exclude patterns to filter unnecessary queries before hitting the limit
 
-#### Issue: DMV Fallback But Empty Results
+##### Issue: DMV Fallback But Empty Results
 
 **Symptoms:**
 
@@ -426,7 +416,7 @@ DMVs only contain queries currently in the plan cache. The cache clears on:
    WHERE type = 'CACHESTORE_SQLCP';
    ```
 
-#### Issue: Configuration Validation Errors
+##### Issue: Configuration Validation Errors
 
 **Error messages:**
 
@@ -441,26 +431,22 @@ ValidationError: query_exclude_patterns cannot exceed 100 patterns
 - `min_query_calls`: 0 to any positive integer
 - `query_exclude_patterns`: Maximum 100 patterns, each up to 500 characters
 
-#### Issue: SQL Aggregator Initialization Failed
+##### Issue: Usage Statistics Require a DataHub Connection
 
 **Error message:**
 
 ```
-RuntimeError: Failed to initialize SQL aggregator for query-based lineage,
-but include_query_lineage: true was explicitly enabled
+ValueError: Usage statistics generation requires a DataHub graph connection (ctx.graph).
 ```
 
-**Possible causes:**
-
-- Graph connection missing when `include_usage_statistics: true`
-- Invalid platform instance configuration
+**Cause:** `include_usage_statistics: true` is set, but the ingestion run has no connection to DataHub.
 
 **Solution:**
 
-- If using `include_usage_statistics`, ensure your sink is configured with a DataHub GMS connection
-- Verify your source configuration is valid
+- Configure your sink with a DataHub GMS connection (`datahub-rest`), or
+- Set `include_usage_statistics: false`
 
-#### How to Verify Query Lineage is Working End-to-End
+##### How to Verify Query Lineage is Working End-to-End
 
 Follow these steps to confirm everything is configured correctly:
 
@@ -497,7 +483,6 @@ Follow these steps to confirm everything is configured correctly:
    ```bash
    grep -i "extracted.*queries" ingestion.log
    grep -i "processed.*queries" ingestion.log
-   grep -i "generated.*lineage workunits" ingestion.log
    ```
 
 6. **Verify in DataHub UI:**
@@ -505,7 +490,7 @@ Follow these steps to confirm everything is configured correctly:
    - Check the "Lineage" tab for upstream/downstream relationships
    - Check the "Queries" tab to see associated SQL queries
 
-#### Still Having Issues?
+##### Still Having Issues?
 
 If you've tried the above steps and still experiencing issues:
 
@@ -529,7 +514,7 @@ If you've tried the above steps and still experiencing issues:
    - Include relevant log excerpts
    - Describe expected vs actual behavior
 
-#### Troubleshooting
+#### General Checks
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
 

@@ -6,9 +6,9 @@ The `mssql` module ingests metadata from Mssql into DataHub. It is intended for 
 
 Two source types are available:
 
-- `mssql`: Uses python-tds library (pure Python, easier to install)
-- `mssql-odbc`: Uses pyodbc library (required for encryption, Azure managed services)
-- If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
+- `mssql`: Uses python-tds library (pure Python, easier to install). Supports encrypted connections through `options.connect_args`, as shown in the starter recipe.
+- `mssql-odbc`: Uses pyodbc library. Use it when you need ODBC driver settings (for example, for Azure SQL), and configure them in `uri_args`. `uri_args` is only accepted by `mssql-odbc`.
+- `mssql-odbc` needs the Microsoft ODBC Driver for SQL Server installed wherever ingestion runs. The full `acryldata/datahub-actions` image includes it, but the `-slim` image used by `datahub docker quickstart` does not. For local quickstart, run the recipe with the CLI on a machine that has the driver installed.
 
 :::
 
