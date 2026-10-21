@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.GraphQLContext;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -591,6 +592,175 @@ public class ListExecutionRequestsResolverTest {
     assertEquals(
         result.getExecutionRequests().stream().map(r -> r.getUrn()).toList(),
         List.of("urn:li:executionRequest:other-run"));
+  }
+
+  @Test
+  public void testIngestionSourceUrnsMemoizedAcrossInvocationsInSameRequest() throws Exception {
+    EntityClient mockClient = getTestEntityClient(null);
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    // A shared GraphQLContext simulates a single GraphQL request that invokes the resolver
+    // several times.
+    GraphQLContext sharedContext = GraphQLContext.newContext().build();
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(sharedContext);
+
+    resolver.get(mockEnv).get();
+    resolver.get(mockEnv).get();
+
+    // Ingestion sources are enumerated only once for the whole request, despite two invocations...
+    Mockito.verify(mockClient, Mockito.times(1))
+        .search(
+            any(),
+            Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            Mockito.eq("*"),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(0),
+            Mockito.eq(1000));
+    // ...while each invocation still issues its own execution-request search.
+    Mockito.verify(mockClient, Mockito.times(2))
+        .search(
+            any(),
+            Mockito.eq(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+            Mockito.eq("*"),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(0),
+            Mockito.eq(20));
+  }
+
+  @Test
+  public void testIngestionSourceUrnsNotMemoizedWithoutGraphQLContext() throws Exception {
+    EntityClient mockClient = getTestEntityClient(null);
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    // No request-scoped store available (the fallback path, exercised by older callers and tests
+    // that don't stub getGraphQlContext()). Each invocation must re-scan independently.
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(null);
+
+    resolver.get(mockEnv).get();
+    resolver.get(mockEnv).get();
+
+    // Without a shared context to memoize on, both invocations enumerate ingestion sources.
+    Mockito.verify(mockClient, Mockito.times(2))
+        .search(
+            any(),
+            Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            Mockito.eq("*"),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(0),
+            Mockito.eq(1000));
+  }
+
+  @Test
+  public void testFailedIngestionSourceScanIsEvictedAndRetriedInSameRequest() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    // The first ingestion-source scan fails; a second invocation in the same request must
+    // re-attempt
+    // it (the failed entry is evicted from the request cache) rather than inherit the memoized
+    // failure.
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq("*"),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(1000)))
+        .thenThrow(new RemoteInvocationException("boom"));
+
+    GraphQLContext sharedContext = GraphQLContext.newContext().build();
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(sharedContext);
+
+    // Both invocations surface the underlying failure rather than completing successfully.
+    assertThrows(() -> resolver.get(mockEnv).join());
+    assertThrows(() -> resolver.get(mockEnv).join());
+
+    // The failed scan was evicted after the first invocation, so the second invocation re-attempts
+    // it instead of reusing a memoized failure.
+    Mockito.verify(mockClient, Mockito.times(2))
+        .search(
+            any(),
+            Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+            Mockito.eq("*"),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.eq(0),
+            Mockito.eq(1000));
+  }
+
+  @Test
+  public void testIngestionSourceUrnsMemoizedSeparatelyPerRequestedSources() throws Exception {
+    // Invocations in the same request that select different ingestion sources must not share the
+    // memoized source list, or one would be filtered by the other's sources.
+    String source1 = "urn:li:dataHubIngestionSource:source-1";
+    String source2 = "urn:li:dataHubIngestionSource:source-2";
+    EntityClient mockClient =
+        getFakeEntityClient(
+            List.of(source1, source2),
+            Map.of(
+                "urn:li:executionRequest:run-1", source1,
+                "urn:li:executionRequest:run-2", source2));
+    ListExecutionRequestsResolver resolver = new ListExecutionRequestsResolver(mockClient);
+
+    GraphQLContext sharedContext = GraphQLContext.newContext().build();
+    QueryContext mockContext = getMockAllowContext();
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getGraphQlContext()).thenReturn(sharedContext);
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(
+            new ListExecutionRequestsInput(
+                0,
+                20,
+                "*",
+                List.of(
+                    new FacetFilterInput(
+                        "ingestionSource", List.of(source1), false, FilterOperator.EQUAL)),
+                null,
+                null));
+    var result1 = resolver.get(mockEnv).get();
+
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(
+            new ListExecutionRequestsInput(
+                0,
+                20,
+                "*",
+                List.of(
+                    new FacetFilterInput(
+                        "ingestionSource", List.of(source2), false, FilterOperator.EQUAL)),
+                null,
+                null));
+    var result2 = resolver.get(mockEnv).get();
+
+    assertEquals(
+        result1.getExecutionRequests().stream().map(r -> r.getUrn()).toList(),
+        List.of("urn:li:executionRequest:run-1"));
+    assertEquals(
+        result2.getExecutionRequests().stream().map(r -> r.getUrn()).toList(),
+        List.of("urn:li:executionRequest:run-2"));
   }
 
   /** Returns the values of the accessible-source filter of the (single) execution search. */

@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import graphql.GraphQLContext;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -28,6 +29,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +57,15 @@ public class ListExecutionRequestsResolver
   // search backend, so ingestion sources are only collected up to this many.
   private static final int INGESTION_SOURCE_MAX_RESULT_WINDOW = 10_000;
 
+  // Request-scoped cache key prefix for the accessible ingestion-source URN list. A single GraphQL
+  // request can invoke this resolver several times (e.g. once per item of a list it is nested
+  // under), and each invocation would otherwise re-scan every ingestion source in the instance. The
+  // list depends only on the actor, the system-source filter and the requested ingestion sources;
+  // the actor is constant within a request and the rest is part of the key, so we memoize it on
+  // the GraphQLContext.
+  private static final String ACCESSIBLE_INGESTION_SOURCE_URNS_CACHE_KEY =
+      "ListExecutionRequestsResolver.accessibleIngestionSourceUrns:";
+
   private final EntityClient _entityClient;
 
   @Override
@@ -70,13 +82,15 @@ public class ListExecutionRequestsResolver
     final List<FacetFilterInput> filters =
         input.getFilters() == null ? new ArrayList<>() : input.getFilters();
     final SortCriterion sortCriterion = buildSortCriterion(input.getSort());
+    final GraphQLContext graphQLContext = environment.getGraphQlContext();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             List<Urn> sourceUrns =
-                fetchAccessibleIngestionSourceUrns(
+                getUrnsOfIngestionSources(
                     context.getOperationContext(),
+                    graphQLContext,
                     input.getSystemSources(),
                     getRequestedIngestionSourceUrns(filters));
             SearchResult searchResult =
@@ -193,6 +207,67 @@ public class ListExecutionRequestsResolver
         .filter(values -> values != null && !values.isEmpty())
         .findFirst()
         .orElse(null);
+  }
+
+  /**
+   * Returns the URNs of ingestion sources accessible to the caller, memoized for the lifetime of
+   * the GraphQL request. When the resolver is invoked once per item of a list, without memoization
+   * each call would paginate through every ingestion source in the instance, making the cost scale
+   * with items × ingestion sources. The result depends only on the actor, {@code systemSources} and
+   * {@code requestedSourceUrns}; the actor is constant within a request and the rest is part of the
+   * cache key.
+   */
+  private List<Urn> getUrnsOfIngestionSources(
+      final OperationContext context,
+      @Nullable final GraphQLContext graphQLContext,
+      @Nullable final Boolean systemSources,
+      @Nullable final List<String> requestedSourceUrns)
+      throws Exception {
+    if (graphQLContext == null) {
+      // No request-scoped store available (e.g. unit tests); fetch directly.
+      return fetchAccessibleIngestionSourceUrns(context, systemSources, requestedSourceUrns);
+    }
+
+    final String cacheKey =
+        ACCESSIBLE_INGESTION_SOURCE_URNS_CACHE_KEY
+            + systemSources
+            + ":"
+            + (requestedSourceUrns == null
+                ? "*"
+                : String.join(",", requestedSourceUrns.stream().sorted().toList()));
+    final AtomicBoolean isCreator = new AtomicBoolean(false);
+    final CompletableFuture<List<Urn>> future =
+        graphQLContext.computeIfAbsent(
+            cacheKey,
+            k -> {
+              isCreator.set(true);
+              return new CompletableFuture<>();
+            });
+
+    // Only the thread that created the entry performs the fetch; concurrent callers await it. The
+    // fetch runs inline on the creating thread (not a new pool task) to avoid blocking-on-submit
+    // deadlocks when the GraphQL executor is saturated.
+    if (isCreator.get()) {
+      try {
+        future.complete(
+            fetchAccessibleIngestionSourceUrns(context, systemSources, requestedSourceUrns));
+      } catch (Exception e) {
+        // Evict the failed entry before completing it exceptionally so a sibling invocation can
+        // re-attempt the scan within the same request, rather than inheriting a memoized failure.
+        graphQLContext.delete(cacheKey);
+        future.completeExceptionally(e);
+      }
+    }
+
+    try {
+      return future.join();
+    } catch (CompletionException e) {
+      final Throwable cause = e.getCause();
+      if (cause instanceof Exception) {
+        throw (Exception) cause;
+      }
+      throw e;
+    }
   }
 
   /**
