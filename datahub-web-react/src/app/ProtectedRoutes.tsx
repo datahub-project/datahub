@@ -1,9 +1,10 @@
 import { Layout } from 'antd';
 import React, { Suspense, useEffect } from 'react';
-import { Route, Switch, useHistory, useLocation } from 'react-router-dom';
+import { Redirect, Route, Switch, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import DataHubTitle from '@app/DataHubTitle';
+import { getDefaultLandingPage } from '@app/defaultLandingPage';
 import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
@@ -36,6 +37,7 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     const showHomepageRedesign = useShowHomePageRedesign();
     const FinalHomePage = showHomepageRedesign ? HomePageV3 : HomePageV2;
+    const defaultLandingPage = getDefaultLandingPage(import.meta.env.REACT_APP_DEFAULT_LANDING_PAGE);
 
     const location = useLocation();
     const history = useHistory();
@@ -53,7 +55,14 @@ export const ProtectedRoutes = (): JSX.Element => {
             <StyledLayout className="themeV2">
                 <Suspense fallback={<SuspenseGlobal />}>
                     <Switch>
-                        <Route exact path="/" render={() => <FinalHomePage />} />
+                        <Route exact path={PageRoutes.HOME} render={() => <FinalHomePage />} />
+                        <Route
+                            exact
+                            path={PageRoutes.ROOT}
+                            render={() =>
+                                defaultLandingPage ? <Redirect to={defaultLandingPage} /> : <FinalHomePage />
+                            }
+                        />
                         <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
                         <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
                         <Route path="/*" component={SearchRoutes} />
