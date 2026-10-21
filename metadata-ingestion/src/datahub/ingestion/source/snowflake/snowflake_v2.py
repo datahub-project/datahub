@@ -87,7 +87,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
-    split_quoted_name_list,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -385,18 +384,17 @@ class SnowflakeV2Source(
             [row["CURRENT_SECONDARY_ROLES()"] for row in cur][0]
         )["roles"]
         secondary_roles = (
-            []
-            if secondary_roles_str == ""
-            else split_quoted_name_list(secondary_roles_str)
+            [] if secondary_roles_str == "" else secondary_roles_str.split(",")
         )
 
         roles: List[str] = []
         seen_roles: Set[str] = set()
 
         def add_role(role_name: str, *, already_rendered: bool = False) -> None:
-            # Roles are tracked in their quoted form. current_role() reports names
-            # bare while `show grants` reports them quoted, so without normalizing
-            # the same role would be visited once under each spelling.
+            # Roles are tracked in their quoted form. current_role() and
+            # current_secondary_roles() report raw names while `show grants` reports
+            # them quoted, so without normalizing the same role would be visited
+            # once under each spelling.
             quoted = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role(
                 role_name, already_rendered=already_rendered
             )
@@ -406,8 +404,10 @@ class SnowflakeV2Source(
 
         add_role(current_role)
         for secondary_role in secondary_roles:
-            # The secondary role list preserves Snowflake's own quoting.
-            add_role(secondary_role, already_rendered=True)
+            # Names are raw and joined by commas without quoting, so a role whose
+            # name contains a comma cannot be recovered here. Its fragments fail
+            # to resolve and are skipped below.
+            add_role(secondary_role)
         # PUBLIC role is automatically granted to every role
         add_role("PUBLIC")
 

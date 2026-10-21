@@ -963,7 +963,9 @@ def test_test_connection_role_visited_once_across_quoting_forms(mock_connect):
 
 
 @patch("snowflake.connector.connect")
-def test_test_connection_secondary_role_name_containing_comma(mock_connect):
+def test_test_connection_raw_secondary_role_name_containing_quote_characters(
+    mock_connect,
+):
     queried_roles = []
 
     def query_results(query):
@@ -972,19 +974,15 @@ def test_test_connection_secondary_role_name_containing_comma(mock_connect):
             queried_roles.append(query[len(prefix) :])
 
         if query == "select current_secondary_roles()":
-            # The role list is comma delimited, so a role name containing a comma
-            # is reported quoted and must not be split on its inner commas.
+            # Like current_role(), the secondary role list holds raw names, so
+            # these quotes are part of the role name rather than SQL quoting.
             return [
-                {
-                    "CURRENT_SECONDARY_ROLES()": '{"roles":"\\"Role,With,Commas\\",PLAIN_ROLE","value":"ALL"}'
-                }
+                {"CURRENT_SECONDARY_ROLES()": '{"roles":"\\"weird\\"","value":"ALL"}'}
             ]
         elif query == 'show grants to role "TEST_ROLE"':
             return []
-        elif query == 'show grants to role "Role,With,Commas"':
+        elif query == 'show grants to role """weird"""':
             return [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB1"}]
-        elif query == 'show grants to role "PLAIN_ROLE"':
-            return []
         raise MissingQueryMock(f"Unexpected query: {query}")
 
     setup_mock_connect(mock_connect, query_results)
@@ -994,8 +992,8 @@ def test_test_connection_secondary_role_name_containing_comma(mock_connect):
     )
 
     assert not report.internal_failure, report.internal_failure_reason
-    assert '"Role,With,Commas"' in queried_roles
-    assert '"PLAIN_ROLE"' in queried_roles
+    assert '"""weird"""' in queried_roles
+    assert '"weird"' not in queried_roles
 
 
 @patch("snowflake.connector.connect")
