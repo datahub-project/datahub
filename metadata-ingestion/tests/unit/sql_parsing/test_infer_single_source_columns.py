@@ -53,6 +53,18 @@ def _qualify(sql: str, schema: Optional[dict] = None) -> str:
             "SELECT t.a + 1 AS x FROM t AS t ORDER BY x",
             id="order_by_projection_alias",
         ),
+        pytest.param(
+            "SELECT s.f, a FROM t",
+            "SELECT t.s.f AS f, t.a AS a FROM t AS t",
+            id="struct_field",
+        ),
+        pytest.param(
+            # t1.k in the subquery is the outer table's column, not a struct path.
+            "SELECT a FROM t1 WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.k = t1.k)",
+            "SELECT t1.a AS a FROM t1 AS t1 "
+            'WHERE EXISTS(SELECT 1 AS "1" FROM t2 AS t2 WHERE t2.k = t1.k)',
+            id="correlated_outer_column",
+        ),
     ],
 )
 def test_infers_sole_schemaless_source(sql: str, expected: str) -> None:

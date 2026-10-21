@@ -37,11 +37,15 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
                     "column": "col_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+                    "column": "default.my_dict"
                 }
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "DICTGET(\"default\".\"my_dict\", 'type', \"events\".\"col_id\") AS \"dict_type\""
+                "column_logic": "DICTGET(\"events\".\"default\".\"my_dict\", 'type', \"events\".\"col_id\") AS \"dict_type\""
             }
         },
         {
@@ -55,11 +59,15 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
                     "column": "col_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db1.events,PROD)",
+                    "column": "default.my_dict"
                 }
             ],
             "logic": {
                 "is_direct_copy": false,
-                "column_logic": "DICTGET(\"default\".\"my_dict\", 'domain', \"events\".\"col_id\") AS \"dict_domain\""
+                "column_logic": "DICTGET(\"events\".\"default\".\"my_dict\", 'domain', \"events\".\"col_id\") AS \"dict_domain\""
             }
         }
     ],

@@ -45,9 +45,7 @@ FROM mytable
 
 
 def test_select_max_with_schema() -> None:
-    # `this_will_not_resolve` is not in the schema. Up to sqlglot 30.21 it was dropped from
-    # the result; since 30.22, lineage() attributes an unqualified column to the sole
-    # source in scope, so it shows up as an upstream of mytable.
+    # Note that `this_will_not_resolve` will be dropped from the result because it's not in the schema.
 
     # With sqlglot v27: When it sees MAX(DECIMAL, DECIMAL, UNKNOWN), it was "smart" enough to infer the result as DECIMAL
     # With sqlglot v28: Same input → returns UNKNOWN (more conservative behavior)
@@ -1880,6 +1878,157 @@ SELECT col_a, CURRENT_TIMESTAMP FROM my_db.my_schema.my_source
         dialect="snowflake",
         expected_file=RESOURCE_DIR
         / "test_snowflake_unaliased_expression_column_name.json",
+    )
+
+
+def test_snowflake_explicit_synthetic_alias() -> None:
+    # A user-written `_col_5` alias looks like a name sqlglot generates (it names the
+    # unaliased CURRENT_TIMESTAMP `_COL_1`), but must keep its name.
+    assert_sql_result(
+        """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a AS _col_5, CURRENT_TIMESTAMP FROM my_db.my_schema.my_source
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_explicit_synthetic_alias.json",
+    )
+
+
+_TABLE_A_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_a,PROD)"
+)
+_TABLE_B_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_b,PROD)"
+)
+_TABLE_B_SCHEMA = {_TABLE_B_URN: {"id": "NUMBER", "col_b": "VARCHAR"}}
+_IMPORT_CTES_SQL = """\
+WITH orders AS (SELECT * FROM my_db.my_schema.orders),
+customers AS (SELECT * FROM my_db.my_schema.customers),
+payments AS (SELECT * FROM my_db.my_schema.payments)
+SELECT orders.order_id, customers.first_name, payments.amount
+FROM orders
+JOIN customers ON orders.customer_id = customers.id
+JOIN payments ON payments.order_id = orders.order_id
+"""
+_ORDERS_SCHEMA = {
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)": {
+        "order_id": "NUMBER",
+        "customer_id": "NUMBER",
+    }
+}
+
+
+@pytest.mark.parametrize(
+    "shape, sql, partial_schema",
+    [
+        pytest.param(
+            "non_first_star_cte",
+            """\
+WITH b AS (SELECT id, col_b FROM my_db.my_schema.table_b),
+a AS (SELECT * FROM my_db.my_schema.table_a)
+SELECT a.col_a, b.col_b FROM a JOIN b ON a.id = b.id
+""",
+            _TABLE_B_SCHEMA,
+            id="non_first_star_cte",
+        ),
+        pytest.param("import_ctes", _IMPORT_CTES_SQL, _ORDERS_SCHEMA, id="import_ctes"),
+        pytest.param(
+            "insert_import_ctes",
+            f"INSERT INTO my_db.my_schema.my_target\n{_IMPORT_CTES_SQL}",
+            _ORDERS_SCHEMA,
+            id="insert_import_ctes",
+        ),
+        pytest.param(
+            "nested_stars",
+            """\
+SELECT x.col_a, b.col_b
+FROM (SELECT * FROM (SELECT * FROM my_db.my_schema.table_a) y) x
+JOIN my_db.my_schema.table_b b ON x.id = b.id
+""",
+            _TABLE_B_SCHEMA,
+            id="nested_stars",
+        ),
+        pytest.param(
+            "chained_star_ctes",
+            """\
+WITH c1 AS (SELECT * FROM my_db.my_schema.table_a),
+c2 AS (SELECT * FROM c1)
+SELECT c2.col_a, b.col_b FROM c2 JOIN my_db.my_schema.table_b b ON c2.id = b.id
+""",
+            _TABLE_B_SCHEMA,
+            id="chained_star_ctes",
+        ),
+        pytest.param(
+            "star_over_join",
+            """\
+SELECT x.col_a, x.col_b
+FROM (
+    SELECT * FROM my_db.my_schema.table_a a
+    JOIN my_db.my_schema.table_b b ON a.id = b.id
+) x
+""",
+            _TABLE_B_SCHEMA,
+            id="star_over_join",
+        ),
+    ],
+)
+@pytest.mark.parametrize("with_partial_schema", [False, True])
+def test_star_without_schema_keeps_column_lineage(
+    shape: str,
+    sql: str,
+    partial_schema: dict,
+    with_partial_schema: bool,
+) -> None:
+    # Each star is over a table without schema info, so only the vendored 30.20
+    # pushdown_projections can narrow it, attributing the columns the outer query reads
+    # to that table. A partial schema must not change that.
+    variant = "partial_schema" if with_partial_schema else "no_schema"
+    assert_sql_result(
+        sql,
+        dialect="snowflake",
+        schemas=partial_schema if with_partial_schema else None,
+        expected_file=RESOURCE_DIR / f"test_star_without_schema_{shape}_{variant}.json",
+    )
+
+
+def test_partial_schema_drops_unknown_column() -> None:
+    # new_col is not in table_a's known schema. sqlglot.lineage attributes it to the
+    # sole source anyway, which would emit a schemaField that doesn't exist.
+    assert_sql_result(
+        """\
+SELECT col_a, new_col FROM my_db.my_schema.table_a
+""",
+        dialect="snowflake",
+        schemas={_TABLE_A_URN: {"col_a": "NUMBER"}},
+        expected_file=RESOURCE_DIR / "test_partial_schema_drops_unknown_column.json",
+    )
+
+
+def test_inferred_column_takes_schema_case() -> None:
+    # MySQL column names are case-insensitive, but sqlglot qualifies them by exact
+    # name. The column lineage() infers must still name the declared column.
+    assert_sql_result(
+        """\
+SELECT COLUMNA FROM my_db.table_a
+""",
+        dialect="mysql",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.table_a,PROD)": {
+                "columnA": "INT",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_inferred_column_takes_schema_case.json",
+    )
+
+
+def test_bigquery_struct_field_without_schema() -> None:
+    # Without schema info, `s.f` is field f of struct column s of the only source.
+    assert_sql_result(
+        """\
+SELECT s.f, col_a FROM my_project.my_dataset.table_a
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_struct_field_without_schema.json",
     )
 
 

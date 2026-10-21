@@ -9,17 +9,32 @@ became ``SELECT x.a FROM (SELECT t.a AS a FROM t) AS x``, which is what lets us
 trace column lineage without a schema.
 
 ``sqlglot_lineage`` runs the upstream rule first and only falls back to this copy
-when it raises. Upstream raises before mutating the tree, so the fallback always
-sees an untouched expression.
+when it rejects an unexpandable star. It reverts whatever upstream mutated before
+falling back, so this copy always sees the tree as ``qualify`` left it.
 
-Changes from upstream: this docstring, the ``Resolver`` import (moved to
-``sqlglot.optimizer.resolver`` in 30.21.0), and a ``noqa: C901`` on
-``pushdown_projections``. ``_remove_unused_selections`` stays untyped as upstream
-has it; setup.cfg exempts this module from ``disallow_untyped_defs``. Keep the rest identical so it can be diffed against
-upstream. Delete this module once upstream can skip unexpandable stars.
+The code below this docstring is upstream's file byte for byte, apart from the
+changes marked ``DataHub:``
+
+- ``Resolver`` is imported from ``sqlglot.optimizer.resolver``, where it moved in
+  30.21.0.
+- A narrowed star column that ``Resolver.get_table`` cannot place goes to the one
+  source in its scope without schema info. In 30.20.0, ``get_table`` did that itself
+  (``infer_schema`` defaulted to true); 30.22.0 removed the inference. Without it the
+  column stays unqualified, and lineage loses it in any scope that sees more than
+  one source, such as a star CTE that isn't the first CTE.
+
+The module opts out of ruff (the directives below) and of ``disallow_untyped_defs``
+(setup.cfg), so it stays diffable against
+``sqlglot/optimizer/pushdown_projections.py`` at v30.20.0. Delete it once upstream
+can skip unexpandable stars.
 
 sqlglot is MIT licensed: https://github.com/tobymao/sqlglot/blob/main/LICENSE
 """
+
+# In-file rather than a pyproject.toml exclude: pre-commit runs ruff from the repo
+# root, where per-project excludes don't apply to the file names it passes.
+# ruff: noqa
+# fmt: off
 
 from __future__ import annotations
 
@@ -27,23 +42,23 @@ import typing as t
 from collections import defaultdict
 
 from sqlglot import alias, exp
-from sqlglot.errors import OptimizeError
-from sqlglot.helper import seq_get
 from sqlglot.optimizer.helpers import projection_has_aggregate
 from sqlglot.optimizer.journal import Journal, record, revert
-from sqlglot.optimizer.resolver import Resolver
-from sqlglot.optimizer.scope import (
-    Scope,
-    find_all_in_scope,
-    find_in_scope,
-    traverse_scope,
-)
+from sqlglot.optimizer.resolver import Resolver  # DataHub: moved in 30.21.0
+from sqlglot.optimizer.scope import Scope, find_all_in_scope, find_in_scope, traverse_scope
 from sqlglot.schema import ensure_schema
+from sqlglot.errors import OptimizeError
+from sqlglot.helper import seq_get
+
+from datahub.sql_parsing._infer_single_source_columns import (  # DataHub
+    sole_source_without_schema,
+    source_identifier,
+)
 
 if t.TYPE_CHECKING:
     from sqlglot._typing import E
-    from sqlglot.dialects.dialect import DialectType
     from sqlglot.schema import Schema
+    from sqlglot.dialects.dialect import DialectType
 
 # Sentinel value that means an outer query selecting ALL columns
 SELECT_ALL = object()
@@ -74,11 +89,7 @@ def _output_column_refs(expression: exp.Expr, scoped: bool) -> set[str]:
     for arg in ("order", "sort", "distribute", "cluster"):
         node = expression.args.get(arg)
         if node:
-            columns = (
-                find_all_in_scope(node, exp.Column)
-                if scoped
-                else node.find_all(exp.Column)
-            )
+            columns = find_all_in_scope(node, exp.Column) if scoped else node.find_all(exp.Column)
             refs.update(c.name for c in columns if not c.table)
 
     return refs
@@ -99,12 +110,10 @@ def _is_self_referencing_cte(scope: Scope) -> bool:
 
 # Selection to use if selection list is empty
 def default_selection(is_agg: bool) -> exp.Alias:
-    return alias(exp.Max(this=exp.Literal.number(1)) if is_agg else "1", "_").assert_is(
-        exp.Alias
-    )
+    return alias(exp.Max(this=exp.Literal.number(1)) if is_agg else "1", "_").assert_is(exp.Alias)
 
 
-def pushdown_projections(  # noqa: C901
+def pushdown_projections(
     expression: E,
     schema: dict[str, object] | Schema | None = None,
     dialect: DialectType = None,
@@ -152,9 +161,7 @@ def pushdown_projections(  # noqa: C901
     for scope in reversed(traverse_scope(expression)):
         scope_expression = scope.expression
         parent_selections = referenced_columns.get(scope, {SELECT_ALL})
-        alias_count = max(
-            source_column_alias_count.get(scope, 0), len(scope.outer_columns)
-        )
+        alias_count = max(source_column_alias_count.get(scope, 0), len(scope.outer_columns))
         widened = False
 
         # Do not optimize this set operation if it's using the BigQuery-specific kind / side
@@ -173,17 +180,12 @@ def pushdown_projections(  # noqa: C901
                 pruning_journal.clear()
 
         if pruning_stack:
-            if (
-                isinstance(scope_expression, exp.SetOperation)
-                and not scope.is_set_operation
-            ):
+            if isinstance(scope_expression, exp.SetOperation) and not scope.is_set_operation:
                 # This set operation is a source of a branch, e.g. the inner union in
                 # SELECT s.a FROM (... UNION ...) AS s UNION ALL SELECT b FROM z, so its branches can
                 # widen without affecting the width of the outer union's branches. A separate frame
                 # keeps such a rollback from undoing the outer union's pruning
-                pruning_stack.append(
-                    PruningFrame({scope}, set(), False, len(pruning_journal))
-                )
+                pruning_stack.append(PruningFrame({scope}, set(), False, len(pruning_journal)))
             else:
                 pruning_stack[-1].scopes.add(scope)
 
@@ -204,14 +206,9 @@ def pushdown_projections(  # noqa: C901
             widened = SELECT_ALL not in parent_selections
             parent_selections = {SELECT_ALL}
 
-        if (
-            isinstance(scope_expression, exp.SetOperation)
-            and not unsupported_set_operation
-        ):
+        if isinstance(scope_expression, exp.SetOperation) and not unsupported_set_operation:
             if not pruning_stack and SELECT_ALL not in parent_selections:
-                pruning_stack.append(
-                    PruningFrame({scope}, set(), False, len(pruning_journal))
-                )
+                pruning_stack.append(PruningFrame({scope}, set(), False, len(pruning_journal)))
 
             left, right = scope.set_operation_scopes
             le = left.expression
@@ -229,9 +226,7 @@ def pushdown_projections(  # noqa: C901
 
             if not by_name and len(le.selects) != len(re.selects):
                 scope_sql = scope_expression.sql(dialect=dialect)
-                raise OptimizeError(
-                    f"Invalid set operation due to column mismatch: {scope_sql}."
-                )
+                raise OptimizeError(f"Invalid set operation due to column mismatch: {scope_sql}.")
 
             # Columns referenced by ORDER BY and friends need to be kept too
             if SELECT_ALL not in parent_selections:
@@ -255,10 +250,7 @@ def pushdown_projections(  # noqa: C901
                         if select.alias_or_name in parent_selections
                     }
 
-        if (
-            isinstance(scope_expression, exp.Select)
-            and SELECT_ALL not in parent_selections
-        ):
+        if isinstance(scope_expression, exp.Select) and SELECT_ALL not in parent_selections:
             widened = _remove_unused_selections(
                 scope,
                 parent_selections,
@@ -292,9 +284,7 @@ def pushdown_projections(  # noqa: C901
 
             # Push the selected columns down to the next scope
             for name, (node, source) in scope.selected_sources.items():
-                if isinstance(source, Scope) and isinstance(
-                    source.expression, exp.Selectable
-                ):
+                if isinstance(source, Scope) and isinstance(source.expression, exp.Selectable):
                     if pruning_stack:
                         pruning_stack[-1].sources.add(source)
 
@@ -305,9 +295,7 @@ def pushdown_projections(  # noqa: C901
                     else:
                         unqualified = selects.get("", set())
                         columns = (
-                            {SELECT_ALL}
-                            if name in unqualified
-                            else (selects.get(name) or set())
+                            {SELECT_ALL} if name in unqualified else (selects.get(name) or set())
                         )
 
                     referenced_columns[source].update(columns)
@@ -315,16 +303,13 @@ def pushdown_projections(  # noqa: C901
                     column_aliases = node.alias_column_names
                     if column_aliases:
                         source_column_alias_count[source] = max(
-                            source_column_alias_count.get(source, 0),
-                            len(column_aliases),
+                            source_column_alias_count.get(source, 0), len(column_aliases)
                         )
 
     return expression
 
 
-def _remove_unused_selections(
-    scope, parent_selections, schema, alias_count, journal=None
-):
+def _remove_unused_selections(scope, parent_selections, schema, alias_count, journal=None):
     expression = scope.expression
     windows = expression.args.get("windows")
     output_refs = _output_column_refs(expression, scoped=False)
@@ -346,9 +331,9 @@ def _remove_unused_selections(
     for selection in expression.selects:
         name = selection.alias_or_name
         referenced = name in parent_selections
-        is_agg_selection = (
-            implicit_group_by_all or not is_agg
-        ) and projection_has_aggregate(selection, windows)
+        is_agg_selection = (implicit_group_by_all or not is_agg) and projection_has_aggregate(
+            selection, windows
+        )
 
         if (
             referenced
@@ -379,11 +364,7 @@ def _remove_unused_selections(
         for name in sorted(parent_selections):
             if name not in names:
                 new_selections.append(
-                    alias(
-                        exp.column(name, table=resolver.get_table(name)),
-                        name,
-                        copy=False,
-                    )
+                    alias(exp.column(name, table=_get_table(resolver, scope, schema, name)), name, copy=False)  # DataHub
                 )
 
     # If there are no remaining selections, just select a single constant
@@ -454,3 +435,15 @@ def _group_by_ordinal_refs(
     collect(group.iter_expressions())
 
     return refs
+
+
+# DataHub: restores the single-source inference 30.22.0 removed from Resolver.get_table.
+def _get_table(
+    resolver: Resolver, scope: Scope, schema: Schema, name: str
+) -> exp.Identifier | None:
+    table = resolver.get_table(name)
+    if table is None:
+        source = sole_source_without_schema(scope, schema)
+        if source is not None:
+            table = source_identifier(scope, source)
+    return table

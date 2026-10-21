@@ -77,7 +77,7 @@
     ],
     "joins": [
         {
-            "join_type": "JOIN",
+            "join_type": "NATURAL JOIN",
             "left_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)"
             ],

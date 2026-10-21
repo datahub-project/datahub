@@ -22,7 +22,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "userdetail.`user_id` AS `user_id`"
+                "column_logic": "`userdetail`.`user_id` AS `user_id`"
             }
         },
         {
@@ -40,7 +40,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "userdetail.`source` AS `source`"
+                "column_logic": "`userdetail`.`source` AS `source`"
             }
         },
         {
@@ -58,7 +58,7 @@
             ],
             "logic": {
                 "is_direct_copy": true,
-                "column_logic": "userdetail.`user_source` AS `user_source`"
+                "column_logic": "`userdetail`.`user_source` AS `user_source`"
             }
         }
     ],
