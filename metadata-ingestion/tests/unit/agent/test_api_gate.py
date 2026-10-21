@@ -187,9 +187,9 @@ def test_an_encoded_separator_cannot_hide_inside_a_placeholder():
 
 
 def test_a_provider_with_no_base_gets_the_same_resolution():
-    """The fallback used to be `decoded.split("?")[0]` -- the original buggy
-    form -- so a provider declaring no api_base_url kept both the %3F and %2F
-    holes. There is one resolution path now, via a synthetic base."""
+    """A provider declaring no api_base_url resolves a path the one way a
+    declared base does, against a synthetic base, so an encoded `?` or `/`
+    is refused there too."""
     with pytest.raises(ApiScopeError):
         check_api_request("GET", "/reports/x%3F/../../admin", ALLOWLIST)
     with pytest.raises(ApiScopeError):
@@ -326,3 +326,32 @@ def test_a_semicolon_cannot_smuggle_an_undeclared_parameter():
     check_api_request(
         "GET", "/projects?include=1;limit=2", ("GET /projects?include&limit",)
     )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # Each is sent as "/spaces", so a provider branching on the caller's
+        # string would see a different path than the one requested.
+        "/space%73",
+        "/./spaces",
+        "/spaces/./abc/reports",
+        # Sent as "%2C": lower-case hex is rewritten too.
+        "/spaces/a%2cb/reports",
+        "/spaces/a b/reports",
+        "/spaces/é/reports",
+    ],
+)
+def test_a_path_the_client_would_rewrite_is_refused(path):
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", path, ALLOWLIST, base_url=_BASE)
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", path, ALLOWLIST)
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/spaces/a%20b/reports", "/spaces/%C3%A9/reports", "/spaces/a%25b/reports"],
+)
+def test_properly_encoded_names_stay_usable(path):
+    check_api_request("GET", path, ALLOWLIST, base_url=_BASE)

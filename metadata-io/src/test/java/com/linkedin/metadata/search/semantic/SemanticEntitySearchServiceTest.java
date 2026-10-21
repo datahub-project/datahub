@@ -620,7 +620,7 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testV3SemanticReadFiltersKeywordFieldsWithoutKeywordSuffix() throws IOException {
+  public void testV3SemanticReadFiltersKeywordSubfields() throws IOException {
     SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();
     stubEntitySpec("document", null);
@@ -641,14 +641,13 @@ public class SemanticEntitySearchServiceTest {
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
         ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
-    // V3 maps keyword and URN fields without the .keyword subfield V2 filters target
+    // V3 root fields carry the .keyword subfields V2 filters target
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
-    assertTrue(filter.contains("domains=[urn:li:domain:engineering]"), filter);
-    assertFalse(filter.contains("domains.keyword"), filter);
+    assertTrue(filter.contains("domains.keyword=[urn:li:domain:engineering]"), filter);
   }
 
   @Test
-  public void testV3SemanticReadDropsExplicitKeywordSuffix() throws IOException {
+  public void testV3SemanticReadKeepsExplicitKeywordSuffix() throws IOException {
     SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();
     stubEntitySpec("document", null);
@@ -671,8 +670,7 @@ public class SemanticEntitySearchServiceTest {
         ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
-    assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
-    assertFalse(filter.contains("platform.keyword"), filter);
+    assertTrue(filter.contains("platform.keyword=[urn:li:dataPlatform:notion]"), filter);
   }
 
   @Test
@@ -689,12 +687,17 @@ public class SemanticEntitySearchServiceTest {
             .setField("platform.keyword")
             .setCondition(Condition.EQUAL)
             .setValues(new StringArray(List.of("urn:li:dataPlatform:notion")));
+    Criterion entityType =
+        new Criterion()
+            .setField("_entityType")
+            .setCondition(Condition.EQUAL)
+            .setValues(new StringArray(List.of("DOCUMENT")));
 
     v3Service.search(
         mockOpContext,
         List.of("document"),
         TEST_QUERY,
-        new Filter().setCriteria(new CriterionArray(platform)),
+        new Filter().setCriteria(new CriterionArray(platform, entityType)),
         null,
         0,
         10);
@@ -703,7 +706,9 @@ public class SemanticEntitySearchServiceTest {
         ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
-    assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
+    assertTrue(filter.contains("platform.keyword=[urn:li:dataPlatform:notion]"), filter);
+    // The entity type criterion of the deprecated form is rewritten to the V3 index too
+    assertTrue(filter.contains("_index=[documentindex_v3]"), filter);
   }
 
   @Test

@@ -1,5 +1,5 @@
-import { PartitionOutlined } from '@ant-design/icons';
 import { Pagination } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
@@ -43,7 +43,7 @@ const OnlyColumnsWrapper = styled.div`
 `;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
+const FilterLineageIcon = styled(TreeStructure)<{ count: number; selected: boolean }>`
     ${(props) => (props.selected ? `color: ${props.theme.colors.iconSelected};` : '')};
     padding-right: 4px;
 

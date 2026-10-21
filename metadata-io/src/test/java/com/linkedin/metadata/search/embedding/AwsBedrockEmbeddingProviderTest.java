@@ -5,6 +5,9 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -281,5 +284,23 @@ public class AwsBedrockEmbeddingProviderTest {
     assertEquals(embedding1[0], 0.1f, 0.001);
     assertEquals(embedding2[0], 0.3f, 0.001);
     verify(mockBedrockClient, times(2)).invokeModel(any(InvokeModelRequest.class));
+  }
+
+  @Test
+  public void testEmbedWithTimeoutBoundsTheWholeCall() {
+    String responseJson = "{\"embeddings\": [[0.1, 0.2, 0.3]]}";
+    ArgumentCaptor<InvokeModelRequest> request = ArgumentCaptor.forClass(InvokeModelRequest.class);
+    when(mockBedrockClient.invokeModel(request.capture()))
+        .thenReturn(
+            InvokeModelResponse.builder()
+                .body(SdkBytes.fromString(responseJson, StandardCharsets.UTF_8))
+                .build());
+
+    provider.embed("revenue", null, EmbeddingTaskType.QUERY, Duration.ofMillis(1_500));
+
+    // The SDK's retries count against the same timeout
+    assertEquals(
+        request.getValue().overrideConfiguration().get().apiCallTimeout(),
+        Optional.of(Duration.ofMillis(1_500)));
   }
 }

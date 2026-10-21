@@ -107,6 +107,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, partition keys and clustering keys are supported.",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
@@ -351,6 +355,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             include_operations=self.config.usage.include_operational_stats,
             include_queries=self.config.include_queries,
             include_query_usage_statistics=self.config.include_query_usage_statistics,
+            capture_job_labels_as_query_properties=self.config.capture_job_labels_as_query_properties,
             top_n_queries=self.config.usage.top_n_queries,
             format_sql_queries=self.config.usage.format_sql_queries,
             include_top_n_queries=self.config.usage.include_top_n_queries,

@@ -1,5 +1,6 @@
-import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Button, Select } from 'antd';
 import * as React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -8,7 +9,6 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { ImpactAnalysisIcon } from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import updateQueryParams from '@app/shared/updateQueryParams';
 
@@ -19,9 +19,17 @@ const StyledSelect = styled(Select)`
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`
-    transition: color 0s;
-    display: flex;
-    align-items: center;
+    && {
+        transition: color 0s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: auto;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 16px;
+    }
 
     ${(props) =>
         props.$isSelected &&
@@ -31,10 +39,6 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
             color: ${props.theme.colors.textBrand};
         }
     `};
-`;
-
-const TextWrapper = styled.span`
-    margin-left: 8px;
 `;
 
 interface Props {
@@ -114,11 +118,9 @@ export default function ColumnsLineageSelect({
                     data-testid="column-lineage-toggle"
                     $isSelected={isColumnLevelLineage}
                 >
-                    <ImpactAnalysisIcon />
-                    <TextWrapper>
-                        <Trans i18nKey="lineage:columnLineage.buttonLabel" components={{ b: <b /> }} />
-                        <CaretDownOutlined style={{ fontSize: '10px', marginLeft: 4 }} />
-                    </TextWrapper>
+                    <TreeStructure size={16} />
+                    <Trans i18nKey="lineage:columnLineage.buttonLabel" components={{ b: <b /> }} />
+                    <CaretDown size={12} />
                 </StyledButton>
             </Tooltip>
         </>

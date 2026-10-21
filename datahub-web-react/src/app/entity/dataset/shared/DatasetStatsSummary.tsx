@@ -1,5 +1,9 @@
-import { ClockCircleOutlined, ConsoleSqlOutlined, HddOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { TerminalWindow } from '@phosphor-icons/react/dist/csr/TerminalWindow';
+import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
@@ -58,7 +62,7 @@ export const DatasetStatsSummary = ({
                 disabled={isTooltipMode || !needsFormatting(rowCount)}
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
-                        <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
+                        <Table style={{ marginRight: 8, color: displayedColor }} />
                         {columnCount
                             ? t('dataset.rowsColumnsCount', {
                                   count: rowCount,
@@ -81,13 +85,13 @@ export const DatasetStatsSummary = ({
         ),
         !!sizeInBytes && (
             <StatText color={displayedColor}>
-                <HddOutlined style={{ marginRight: 8, color: displayedColor }} />
+                <HardDrives style={{ marginRight: 8, color: displayedColor }} />
                 <FormattedBytesStat bytes={sizeInBytes} />
             </StatText>
         ),
         (!!queryCountLast30Days || !!totalSqlQueries) && (
             <StatText color={displayedColor}>
-                <ConsoleSqlOutlined style={{ marginRight: 8, color: displayedColor }} />
+                <TerminalWindow style={{ marginRight: 8, color: displayedColor }} />
                 {queryCountLast30Days
                     ? t('dataset.queriesLastMonthCount', {
                           count: queryCountLast30Days,
@@ -101,7 +105,7 @@ export const DatasetStatsSummary = ({
         ),
         !!uniqueUserCountLast30Days && (
             <StatText color={displayedColor}>
-                <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
+                <Users style={{ marginRight: 8, color: displayedColor }} />
                 {t('dataset.uniqueUsersCount', {
                     count: uniqueUserCountLast30Days,
                     formattedCount: formatNumberWithoutAbbreviation(uniqueUserCountLast30Days),
@@ -122,7 +126,7 @@ export const DatasetStatsSummary = ({
                 }
             >
                 <StatText color={displayedColor}>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
+                    <Clock style={{ marginRight: 8, color: theme.colors.textTertiary }} />
                     {tt('lastUpdated.updatedRelative', { relativeTime: toRelativeTimeString(lastUpdatedMs) })}
                 </StatText>
             </Popover>

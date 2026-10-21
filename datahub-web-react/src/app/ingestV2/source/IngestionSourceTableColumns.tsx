@@ -302,6 +302,7 @@ export function ActionsColumn({
             return (
                 <Icon
                     icon={Stop}
+                    size="lg"
                     weight="fill"
                     color="iconBrand"
                     onClick={(e) => {
@@ -315,6 +316,7 @@ export function ActionsColumn({
         return (
             <Icon
                 icon={Play}
+                size="lg"
                 weight="fill"
                 color="iconBrand"
                 onClick={(e) => {

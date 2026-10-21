@@ -1,7 +1,20 @@
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Set, Type, Union
+from typing import (
+    Callable,
+    ClassVar,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import requests
 
@@ -37,6 +50,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
 from datahub.ingestion.source.sap_common.models import (
     EdmxParseResult,
     UnknownColumnType,
@@ -58,6 +72,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES,
     CSN_ANN_AGGREGATION_DEFAULT,
     CSN_ANN_MEASURE_TYPE,
+    CSN_ATTR_LABEL,
     CSN_KEY_BUSINESS_LAYER,
     CSN_KEY_DEFINITIONS,
     CSN_KEY_ELEMENTS,
@@ -114,6 +129,7 @@ from datahub.ingestion.source.sap_datasphere.lineage import (
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     AssetCsn,
+    CatalogListing,
     ColumnLineageContext,
     ColumnLineagePair,
     CsnSchemaResult,
@@ -188,7 +204,10 @@ _FLOW_EMITTED_ATTR: Dict[str, str] = {
 }
 
 
-def _chunked(iterable: Iterable[Dict], size: int) -> Iterator[List[Dict]]:
+_T = TypeVar("_T")
+
+
+def _chunked(iterable: Iterable[_T], size: int) -> Iterator[List[_T]]:
     # Lazy chunking keeps peak memory bounded: only the current chunk is materialized.
     iterator = iter(iterable)
     while True:
@@ -219,7 +238,10 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
     "Per-connection platform_instance via connection_to_platform_map",
 )
 @capability(SourceCapability.CONTAINERS, "Spaces emitted as containers")
-@capability(SourceCapability.SCHEMA_METADATA, "Columns from OData EDMX")
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Columns from OData EDMX; CSN elements when an asset has no consumption URL",
+)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Field descriptions from EDMX Common.Label annotations",
@@ -321,12 +343,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 context=str(e),
             )
 
-    def _safe_list_assets(self, space_name: str) -> Iterator[Dict]:
+    def _safe_list_assets(
+        self, space_name: str, listing: CatalogListing
+    ) -> Iterator[Dict]:
         # Soften transport errors into a warning so one space's outage doesn't
         # abort the run.
         try:
-            yield from self._client.list_assets(space_name)
+            for asset in self._client.list_assets(space_name):
+                if isinstance(asset, dict) and asset.get(CATALOG_FIELD_NAME):
+                    listing.dataset_names.add(
+                        self._build_dataset_name(space_name, asset[CATALOG_FIELD_NAME])
+                    )
+                yield asset
         except requests.RequestException as e:
+            listing.failed = True
             self.report.warning(
                 title="Failed to list assets in space",
                 message=(
@@ -387,7 +417,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
             try:
                 yield from self._emit_space(space_name, space_label)
-                yield from self._emit_assets_in_space(space_name)
+                catalog = CatalogListing()
+                yield from self._emit_assets_in_space(space_name, catalog)
+
+                if (
+                    self.config.discover_unexposed_views
+                    and not self.config.expose_for_consumption_only
+                    and not catalog.failed
+                ):
+                    yield from self._emit_non_consumption_views_for_space(
+                        space_name, catalog.dataset_names
+                    )
 
                 if self.config.include_local_tables:
                     yield from self._emit_local_tables_for_space(space_name)
@@ -409,7 +449,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # overwrites between flows writing the same target.
         yield from self._emit_flow_downstream_lineage()
 
-    def _emit_assets_in_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
+    def _emit_assets_in_space(
+        self, space_name: str, catalog: CatalogListing
+    ) -> Iterable[MetadataWorkUnit]:
         def _emit_asset_with_isolation(
             asset: JsonDict,
         ) -> Iterable[MetadataWorkUnit]:
@@ -433,20 +475,77 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
                 )
 
+        yield from self._run_asset_workers(
+            _emit_asset_with_isolation,
+            ((asset,) for asset in self._safe_list_assets(space_name, catalog)),
+        )
+
+    def _run_asset_workers(
+        self,
+        worker_func: Callable[..., Iterable[MetadataWorkUnit]],
+        args_list: Iterable[tuple],
+    ) -> Iterable[MetadataWorkUnit]:
         if self.config.max_workers_assets > 1:
             # Bounded chunks cap peak memory at ~asset_batch_size live tasks
             # (ThreadedIteratorExecutor otherwise submits every task up front).
-            for chunk in _chunked(
-                self._safe_list_assets(space_name), self.config.asset_batch_size
-            ):
+            for chunk in _chunked(args_list, self.config.asset_batch_size):
                 yield from ThreadedIteratorExecutor.process(
-                    worker_func=_emit_asset_with_isolation,
-                    args_list=((asset,) for asset in chunk),
+                    worker_func=worker_func,
+                    args_list=chunk,
                     max_workers=self.config.max_workers_assets,
                 )
         else:
-            for asset in self._safe_list_assets(space_name):
-                yield from _emit_asset_with_isolation(asset)
+            for args in args_list:
+                yield from worker_func(*args)
+
+    def _emit_non_consumption_views_for_space(
+        self, space_name: str, catalog_dataset_names: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit design-time Views / Analytic Models missing from the catalog."""
+        # Skip by catalog dataset name, not emitted URN: a federated catalog View
+        # lives on its remote platform's URN, and skipped catalog assets have none.
+        # Neither may be re-emitted here as non-consumption. Routing (and any
+        # unmapped-connection skip) is decided per object by _emit_asset.
+        pending: List[Tuple[str, str, bool]] = []
+        for object_type, is_analytic in (
+            (OBJECT_TYPE_VIEWS, False),
+            (OBJECT_TYPE_ANALYTIC_MODELS, True),
+        ):
+            entries = self._safe_list_objects(
+                space_name,
+                object_type,
+                entity_label=object_type,
+                impact=(
+                    f"unexposed {object_type} in this space will remain "
+                    f"dangling lineage targets."
+                ),
+            )
+            for technical_name in self._iter_allowed_technical_names(entries or []):
+                dataset_name = self._build_dataset_name(space_name, technical_name)
+                if dataset_name not in catalog_dataset_names:
+                    pending.append((object_type, technical_name, is_analytic))
+
+        def _emit_design_time_object(
+            object_type: str, technical_name: str, is_analytic: bool
+        ) -> Iterable[MetadataWorkUnit]:
+            asset: JsonDict = {
+                CATALOG_FIELD_NAME: technical_name,
+                CATALOG_FIELD_LABEL: technical_name,
+                CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: is_analytic,
+            }
+            # _emit_asset yields nothing when it skips, so any workunit means the
+            # dataset was emitted. Tracked per worker, not via a shared counter.
+            emitted = False
+            for wu in self._isolate(
+                f"{space_name}.{object_type}.{technical_name}",
+                self._emit_asset(space_name, asset),
+            ):
+                emitted = True
+                yield wu
+            if emitted:
+                self.report.non_consumption_views_emitted += 1
+
+        yield from self._run_asset_workers(_emit_design_time_object, pending)
 
     def _emit_local_tables_for_space(
         self, space_name: str
@@ -1298,13 +1397,22 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         return fields
 
     def _fetch_asset_csn(
-        self, space_name: str, asset: JsonDict, asset_name: str
+        self,
+        space_name: str,
+        asset: JsonDict,
+        asset_name: str,
+        *,
+        require_csn: bool = False,
     ) -> AssetCsn:
-        # Fetch the View / Analytic Model CSN (for lineage, view definitions, or
-        # @remote.source detection) and resolve the routing connection.
+        # CSN is used for lineage, view definitions, schema without EDMX, and
+        # @remote.source routing.
         csn_obj: Optional[JsonDict] = None
         csn_def: Optional[JsonDict] = None
-        if self.config.include_lineage or self.config.include_view_definitions:
+        if (
+            require_csn
+            or self.config.include_lineage
+            or self.config.include_view_definitions
+        ):
             object_type = (
                 OBJECT_TYPE_ANALYTIC_MODELS
                 if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES)
@@ -1370,6 +1478,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
         asset_name: str = asset_name_opt
+        # Display name: the catalog's own label, falling back to the technical name.
         asset_label: str = asset.get(CATALOG_FIELD_LABEL) or asset_name
         self.report.assets_scanned += 1
 
@@ -1382,7 +1491,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_filtered += 1
             return
 
-        asset_csn = self._fetch_asset_csn(space_name, asset, asset_name)
+        asset_csn = self._fetch_asset_csn(
+            space_name,
+            asset,
+            asset_name,
+            require_csn=not bool(metadata_url),
+        )
         csn_obj = asset_csn.csn_obj
         csn_def = asset_csn.csn_def
         connection_name = asset_csn.connection_name
@@ -1403,14 +1517,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if metadata_url:
             parse_result = self._parse_schema(space_name, asset_name, metadata_url)
 
-        description: Optional[str] = None
         custom_properties = self._base_asset_custom_properties(
             space_name, asset_name, asset, metadata_url
         )
         if parse_result is not None:
-            if parse_result.entity_label:
-                description = parse_result.entity_label
             custom_properties.update(parse_result.entity_custom_props)
+
+        source_label = (
+            parse_result.entity_label if parse_result is not None else None
+        ) or (csn_def.get(CSN_ATTR_LABEL) if csn_def is not None else None)
+        # The display name is the catalog label (or the technical name when the catalog
+        # has none); the EDMX/CSN business label is the dataset's description, suppressed
+        # when it just repeats that name. Keeping the label out of the name avoids
+        # surfacing SAP's auto-generated projection labels as the asset title.
+        description = description_from_source_label(source_label, asset_label)
 
         if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES):
             sub_type: str = DatasetSubTypes.SAP_ANALYTICAL_MODEL

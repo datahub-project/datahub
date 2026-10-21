@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Søk i visninger...",
     "viewSelect.searchPlaceholderLegacy": "Søk",
     "viewSelect.selectYourView": "Velg visningen din",
+    "viewSelect.buttonLabel": "Visninger",
+    "viewSelect.clearView": "Tøm visning",
     "viewType.privateDescription": "<bold>Privat</bold> – bare synlig for deg.",
     "viewType.publicDescription": "<bold>Offentlig</bold> – synlig for alle."
 }

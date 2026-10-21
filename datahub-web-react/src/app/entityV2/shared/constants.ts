@@ -103,25 +103,6 @@ export const ANTD_GRAY = {
     11: '#262626',
 };
 
-export const ANTD_GRAY_V2 = {
-    1: '#F8F9Fa',
-    2: '#F3F5F6',
-    5: '#DDE0E4',
-    6: '#B2B8BD',
-    8: '#5E666E',
-    10: '#1B1E22',
-    11: '#6C6B88',
-    12: '#52596c',
-    13: '#ababab',
-    14: '#f7f7f7',
-};
-
-export const LINEAGE_COLORS = {
-    BLUE_1: '#0958D9',
-    BLUE_2: '#1890FF',
-    NODE_BORDER: ANTD_GRAY[6],
-};
-
 export const EMPTY_MESSAGES = {
     documentation: {
         get title() {
@@ -249,6 +230,47 @@ export enum EntityProfileTab {
     DOCUMENTATION_TAB = 'DOCUMENTATION_TAB',
     DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
     SUMMARY_TAB = 'SUMMARY_TAB',
+}
+
+/**
+ * Stable URL segments that identify entity profile tabs (`EntityTab.path`). Tab display names are
+ * translated, so always link to a tab by one of these values, never by its name.
+ */
+export enum EntityTabPath {
+    ACCESS = 'Access',
+    ASSETS = 'Assets',
+    COLUMNS = 'Columns',
+    CONTENTS = 'Contents',
+    DASHBOARDS = 'Dashboards',
+    DATASETS = 'Datasets',
+    DATA_PRODUCTS = 'Data Products',
+    DEFINITION = 'Definition',
+    DOCUMENTATION = 'Documentation',
+    FEATURES = 'Features',
+    FEATURE_TABLES = 'Feature Tables',
+    FIELDS = 'Fields',
+    GOVERNANCE = 'Governance',
+    GROUP = 'Group',
+    INCIDENTS = 'Incidents',
+    LINEAGE = 'Lineage',
+    MODELS = 'Models',
+    OUTPUT_PORTS = 'Output Ports',
+    PIPELINE = 'Pipeline',
+    PREVIEW = 'Preview',
+    PROPERTIES = 'Properties',
+    QUALITY = 'Quality',
+    QUERIES = 'Queries',
+    RELATED_ASSETS = 'Related Assets',
+    RELATED_ENTITIES = 'Related Entities',
+    RELATED_TERMS = 'Related Terms',
+    RUNS = 'Runs',
+    SCHEMA = 'Schema',
+    SIGNATURE = 'Signature',
+    SOURCES = 'Sources',
+    STATS = 'Stats',
+    SUMMARY = 'Summary',
+    TASKS = 'Tasks',
+    VIEW_DEFINITION = 'View Definition',
 }
 
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';

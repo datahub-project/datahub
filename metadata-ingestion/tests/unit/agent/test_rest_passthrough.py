@@ -16,6 +16,7 @@ from datahub.ingestion.agent.rest_passthrough import (
     DEFAULT_API_TIMEOUT_SECONDS,
     RestApiPassthrough,
 )
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 
 class _Response:
@@ -78,15 +79,14 @@ def test_the_gate_uses_the_mixing_class_allowlist_not_the_mixins():
 
 
 def test_a_provider_that_forgets_its_allowlist_is_reported_as_the_provider_bug():
-    # The mixin annotates api_allowlist without assigning it, so an unset list
-    # reads as None. Defaulting to () would refuse every path with "not in this
+    # The mixin defaults api_allowlist to None, so an unset list reads as
+    # absent. Defaulting to () would refuse every path with "not in this
     # connector's allowlist" -- blaming the caller for a list nobody wrote.
     class Forgetful(RestApiPassthrough):
         api_base_url = "https://api.example.com"
 
-    with pytest.raises(ValueError, match="no api_allowlist") as caught:
+    with pytest.raises(ProbeInternalError, match="no api_allowlist"):
         _enforce_gates(_api_spec(Forgetful), Forgetful(), {"path": "/projects"})
-    assert not isinstance(caught.value, ApiScopeError)
 
 
 def test_the_request_carries_the_connectors_headers_and_an_explicit_timeout():

@@ -1,0 +1,31 @@
+source:
+  type: google-drive
+  config:
+    # Service account key fields. Omit `credential` to use Application Default Credentials.
+    credential:
+      project_id: my-project
+      private_key_id: "${GDRIVE_PRIVATE_KEY_ID}"
+      private_key: "${GDRIVE_PRIVATE_KEY}"
+      client_email: datahub-ingest@my-project.iam.gserviceaccount.com
+      client_id: "123456789012345678901"
+
+    # Optional: read Drive as this Workspace user (requires domain-wide delegation).
+    # delegated_user: docs-reader@example.com
+
+    # Folder IDs, shared drive IDs, or folder URLs.
+    root_folder_ids:
+      - "https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUv"
+
+    folder_pattern:
+      deny:
+        - ".*/Archive$"
+    document_pattern:
+      deny:
+        - "^Copy of "
+
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  # sink configs
