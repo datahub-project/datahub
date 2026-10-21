@@ -108,6 +108,19 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     sql_view_rows_unmatched: int = 0
     sql_view_rows_without_context: int = 0
     sql_views_without_statement: int = 0
+    # Report Services document datasets read through report instances
+    # (extract_document_dataset_sql_lineage): datasets given a SQL view, those
+    # whose view parsed into at least one warehouse upstream, datasets served
+    # from the per-run cache because another document already read the same
+    # report (counted in scanned/parsed too), reports whose instance or SQL
+    # view failed (once per report, not per document), and datasets skipped
+    # because they are not grid reports (cubes, unknown subtypes, failed
+    # object lookups).
+    document_dataset_sql_views_scanned: int = 0
+    document_dataset_sql_views_parsed: int = 0
+    document_dataset_sql_views_reused: int = 0
+    document_dataset_sql_view_failures: int = 0
+    document_datasets_skipped_not_grid_report: int = 0
     reports_skipped_not_dashboard_linked: int = 0
     failed_metric_model_ids: LossyList[str] = field(default_factory=LossyList)
     semantic_models_emitted: int = 0
@@ -321,6 +334,21 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_sql_view_without_statement(self) -> None:
         self.sql_views_without_statement += 1
+
+    def report_document_dataset_sql_view_scanned(self) -> None:
+        self.document_dataset_sql_views_scanned += 1
+
+    def report_document_dataset_sql_view_parsed(self) -> None:
+        self.document_dataset_sql_views_parsed += 1
+
+    def report_document_dataset_sql_view_reused(self) -> None:
+        self.document_dataset_sql_views_reused += 1
+
+    def report_document_dataset_sql_view_failure(self) -> None:
+        self.document_dataset_sql_view_failures += 1
+
+    def report_document_dataset_skipped_not_grid_report(self) -> None:
+        self.document_datasets_skipped_not_grid_report += 1
 
     def report_reports_skipped_not_dashboard_linked(self) -> None:
         self.reports_skipped_not_dashboard_linked += 1

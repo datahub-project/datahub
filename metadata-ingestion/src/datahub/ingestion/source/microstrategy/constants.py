@@ -463,6 +463,12 @@ MSTR_USAGE_USER_FORM_NAMES = ("Login", "Name")
 # opened in Library (reports can, cubes cannot).
 MSTR_CUBE_SUBTYPES = frozenset({"776", "779"})
 MSTR_USAGE_CUBE_SUBTYPES = MSTR_CUBE_SUBTYPES
+# Grid report subtype (EnumDSSXMLObjectSubTypes DssXmlSubTypeReportGrid). A
+# Report Services document's datasets are grid reports, and only a report has
+# a report SQL view, so the document SQL-lineage path opens report instances
+# for datasets of this subtype alone; cubes and other subtypes are skipped and
+# counted. The only subtype observed as a document dataset so far.
+MSTR_OBJECT_SUBTYPE_REPORT_GRID = "768"
 
 # Date form values are rendered strings whose format follows the Intelligence
 # Server locale; month-first is the shipped default.

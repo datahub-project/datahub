@@ -81,6 +81,34 @@ def test_dataset_field_order_accepts_alphabetical() -> None:
     assert config.dataset_field_order == "alphabetical"
 
 
+def test_document_dataset_sql_lineage_defaults_to_false() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+
+    assert config.extract_document_dataset_sql_lineage is False
+
+
+def test_document_dataset_sql_lineage_requires_warehouse_lineage() -> None:
+    with pytest.raises(ValidationError, match="extract_warehouse_lineage"):
+        MicroStrategyConfig.model_validate(
+            {
+                "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+                "extract_document_dataset_sql_lineage": True,
+            }
+        )
+
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "extract_warehouse_lineage": True,
+            "extract_document_dataset_sql_lineage": True,
+        }
+    )
+
+    assert config.extract_document_dataset_sql_lineage is True
+
+
 def test_dataset_field_order_rejects_unknown_values() -> None:
     with pytest.raises(ValidationError):
         MicroStrategyConfig.model_validate(

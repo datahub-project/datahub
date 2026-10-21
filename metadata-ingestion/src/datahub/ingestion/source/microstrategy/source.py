@@ -47,6 +47,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
     MSTR_FOLDER_TYPE_PROFILE_REPORTS,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
+    MSTR_OBJECT_SUBTYPE_REPORT_GRID,
     MSTR_OBJECT_TYPE_FOLDER,
     MSTR_OBJECT_TYPE_REPORT,
     MSTR_PERSONAL_FOLDER_NAMES,
@@ -58,6 +59,7 @@ from datahub.ingestion.source.microstrategy.constants import (
 )
 from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
+    SqlViewLineage,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
     ensure_sql_lineage_dependencies,
@@ -172,6 +174,10 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._dataset_object_cache: Dict[
             Tuple[str, str], Optional[MicroStrategyObject]
         ] = {}
+        # (project id, report id) -> the SQL _report_sql_statement returned
+        # (None once a read failed), so a grid report shared by many documents
+        # is executed once per run and a failed one is not retried.
+        self._report_sql_cache: Dict[Tuple[str, str], Optional[str]] = {}
         # (project id, report id) -> derived metric definitions, or None once
         # every definition endpoint failed for it.
         self._report_derived_metric_cache: Dict[
@@ -1811,6 +1817,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if not dashboard.datasets:
             return
+        if dashboard_object.subtype == MSTR_OBJECT_SUBTYPE_DOCUMENT:
+            # The dossier SQL-view endpoint answers a document instance with
+            # views that carry no SQL (or a 406), so calling it would only
+            # spend an execution; a document's datasets are read through
+            # report instances instead, when enabled.
+            if self.config.extract_document_dataset_sql_lineage:
+                self._enrich_document_warehouse_lineage(project_id, dashboard, context)
+            return
         if self._execution_limit_reached(project_id):
             return
         try:
@@ -1844,6 +1858,84 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.report.report_warehouse_lineage_sql_views_scanned(len(sql_view_rows))
         self._attach_dataset_warehouse_upstreams(sql_view_rows, dashboard, context)
 
+    def _enrich_document_warehouse_lineage(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+        context: Optional[WarehouseLineageContext],
+    ) -> None:
+        """Warehouse lineage for a Report Services document's datasets. They
+        are grid reports, so each one's SQL is read through its own report
+        instance (the create / sqlView / delete sequence of
+        extract_report_sql_lineage, one execution per distinct report per
+        run) and attached to the document-scoped dataset. Cubes and datasets
+        of unknown type have no report SQL view and are skipped and counted."""
+        for dataset in dashboard.datasets:
+            dataset_object = self._dataset_object_info(project_id, dataset.id)
+            subtype = (dataset_object.subtype or "").strip() if dataset_object else ""
+            if subtype != MSTR_OBJECT_SUBTYPE_REPORT_GRID:
+                self.report.report_document_dataset_skipped_not_grid_report()
+                logger.debug(
+                    "Document dataset %s (subtype=%r) is not a grid report; "
+                    "no report SQL view to read for document %s",
+                    dataset.id,
+                    subtype,
+                    dashboard.id,
+                )
+                continue
+            dataset_context = self._dataset_warehouse_context(dataset, context)
+            if dataset_context is None:
+                self.report.report_sql_view_row_without_context()
+                continue
+            cache_key = (project_id, normalize_object_id(dataset.id))
+            if cache_key in self._report_sql_cache:
+                # Dataset URNs are document-scoped but the report's SQL is
+                # not, so a report shared by many documents is read once and
+                # its lineage attached to each; a remembered failure is not
+                # retried and not counted again.
+                sql_statement = self._report_sql_cache[cache_key]
+                self.report.report_document_dataset_sql_view_reused()
+            else:
+                if self._execution_limit_reached(project_id):
+                    continue
+                sql_statement = self._report_sql_statement(
+                    project_id,
+                    dataset.id,
+                    context=(
+                        f"project_id={project_id}, document_id={dashboard.id}, "
+                        f"dataset_id={dataset.id}"
+                    ),
+                )
+                self._report_sql_cache[cache_key] = sql_statement
+                if sql_statement is None:
+                    self.report.report_document_dataset_sql_view_failure()
+            if not sql_statement:
+                continue
+            self.report.report_document_dataset_sql_view_scanned()
+            self.report.report_warehouse_lineage_sql_views_scanned(1)
+            lineage = self._attach_sql_view_lineage(
+                sql_statement, dataset, dataset_context
+            )
+            if lineage.upstream_urns:
+                self.report.report_document_dataset_sql_view_parsed()
+
+    def _dataset_warehouse_context(
+        self,
+        dataset: DatasetObject,
+        context: Optional[WarehouseLineageContext],
+    ) -> Optional[WarehouseLineageContext]:
+        """The dataset's own source warehouse when its definition names one,
+        else the project-level context."""
+        if dataset.source_warehouse:
+            dataset_context = warehouse_context_from_datasource(
+                dataset.source_warehouse,
+                self.config.env,
+                self.config.datasource_platform_mapping,
+            )
+            if dataset_context is not None:
+                return dataset_context
+        return context
+
     def _attach_dataset_warehouse_upstreams(
         self,
         sql_view_rows: List[Dict[str, object]],
@@ -1873,15 +1965,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-            dataset_context = (
-                warehouse_context_from_datasource(
-                    dataset.source_warehouse,
-                    self.config.env,
-                    self.config.datasource_platform_mapping,
-                )
-                if dataset.source_warehouse
-                else None
-            ) or context
+            dataset_context = self._dataset_warehouse_context(dataset, context)
             if dataset_context is None:
                 self.report.report_sql_view_row_without_context()
                 continue
@@ -1898,7 +1982,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         sql_statement: str,
         dataset: DatasetObject,
         context: WarehouseLineageContext,
-    ) -> None:
+    ) -> SqlViewLineage:
         # Callers are already gated by extract_report_sql_lineage /
         # extract_warehouse_lineage. A single parse yields both the table-level
         # upstreams and the column-level edges on top of them.
@@ -1912,6 +1996,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dataset.warehouse_upstream_urns = result.upstream_urns
         if result.field_upstreams:
             dataset.field_warehouse_upstreams = result.field_upstreams
+        return result
 
     def _enrich_report_sql_lineage(
         self,
@@ -1920,30 +2005,58 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dataset: DatasetObject,
         context: WarehouseLineageContext,
     ) -> None:
-        if self._execution_limit_reached(project_id):
-            return
-        try:
-            instance_id = self.client.create_report_instance(
+        cache_key = (project_id, normalize_object_id(report_object.id))
+        if cache_key in self._report_sql_cache:
+            # Already read this run as the dataset of a document.
+            sql_statement = self._report_sql_cache[cache_key]
+        else:
+            if self._execution_limit_reached(project_id):
+                return
+            sql_statement = self._report_sql_statement(
                 project_id,
                 report_object.id,
+                context=f"project_id={project_id}, report_id={report_object.id}",
             )
+            self._report_sql_cache[cache_key] = sql_statement
+        if not sql_statement:
+            return
+
+        self.report.report_warehouse_lineage_sql_views_scanned(1)
+        self._attach_sql_view_lineage(sql_statement, dataset, context)
+
+    def _report_sql_statement(
+        self,
+        project_id: str,
+        report_id: str,
+        context: str,
+    ) -> Optional[str]:
+        """One report's SQL, read through a report execution instance that is
+        deleted again afterwards. None when the instance could not be created
+        or its SQL view not read (counted in report_sql_view_api_failures and
+        warned with `context`); otherwise the statement, empty (and counted
+        in sql_views_without_statement) when the view carried none. The
+        instance creation is the call that may execute the report, and the
+        one that counts towards max_consecutive_execution_timeouts. Callers
+        memoize the result in _report_sql_cache."""
+        try:
+            instance_id = self.client.create_report_instance(project_id, report_id)
         except MicroStrategyAPIError as error:
             self._record_execution(project_id, error)
             self.report.report_report_sql_view_api_failure()
             self.report.warning(
                 title="Failed to Create Report Instance for Warehouse Lineage",
                 message="Skipping SQL-view warehouse lineage for this report.",
-                context=f"project_id={project_id}, report_id={report_object.id}",
+                context=context,
                 exc=error,
             )
-            return
+            return None
 
         self._record_execution(project_id, None)
 
         try:
             sql_view = self.client.get_report_sql_view(
                 project_id=project_id,
-                report_id=report_object.id,
+                report_id=report_id,
                 instance_id=instance_id,
             )
         except MicroStrategyAPIError as error:
@@ -1951,20 +2064,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.warning(
                 title="Failed to Fetch Report SQL View",
                 message="Skipping source warehouse lineage for this report.",
-                context=f"project_id={project_id}, report_id={report_object.id}",
+                context=context,
                 exc=error,
             )
-            return
+            return None
         finally:
-            self._delete_report_instance(project_id, report_object.id, instance_id)
+            self._delete_report_instance(project_id, report_id, instance_id)
 
         sql_statement = sql_view.get_statement()
         if not sql_statement:
             self.report.report_sql_view_without_statement()
-            return
-
-        self.report.report_warehouse_lineage_sql_views_scanned(1)
-        self._attach_sql_view_lineage(sql_statement, dataset, context)
+        return sql_statement
 
     def _dashboard_instance(
         self,

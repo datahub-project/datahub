@@ -526,6 +526,12 @@ class MicroStrategyClient:
         return {}
 
     def create_report_instance(self, project_id: str, report_id: str) -> str:
+        """POST /api/v2/reports/{id}/instances: the execution instance that
+        get_report_sql_view reads from, for report source datasets and for the
+        grid reports backing a Report Services document. This is the one call
+        that may run the report against the warehouse; the execution stage
+        requested here is the single place to adjust if the SQL view turns out
+        to be readable without a full execution."""
         response = self._get_json(
             f"/api/v2/reports/{report_id}/instances",
             project_id=project_id,

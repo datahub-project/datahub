@@ -2,7 +2,7 @@ import builtins
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 from unittest import mock
 
 import pytest
@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
+    UpstreamLineageClass,
 )
 
 
@@ -2708,3 +2709,345 @@ def test_timeout_limit_zero_disables_it() -> None:
 
     assert len(client.created) == 4
     assert source.report.executions_skipped_after_timeouts == 0
+
+
+_DOCUMENT_SOURCE_WAREHOUSE = {
+    "id": "source-1",
+    "name": "Sales Warehouse",
+    "database": {"type": "snow_flake", "name": "SALES_DB", "schema": "SALES"},
+}
+
+
+_DOCUMENT_DATASET_NAMES = {
+    "rep-1": "Daily Sales",
+    "rep-2": "Daily Returns",
+    "cube-1": "Sales Cube",
+}
+
+
+class _DocumentClient:
+    """Report Services documents read through the document definition
+    endpoint, by default one over two grid-report datasets and one cube; a
+    report instance can be made to fail fast or time out per report."""
+
+    def __init__(
+        self,
+        documents: Optional[Dict[str, List[str]]] = None,
+        failing_report_ids: Optional[Set[str]] = None,
+        timing_out_report_ids: Optional[Set[str]] = None,
+    ) -> None:
+        # Document id -> the ids of its datasets.
+        self.documents = documents or {"doc-1": ["rep-1", "rep-2", "cube-1"]}
+        self.failing_report_ids = failing_report_ids or set()
+        self.timing_out_report_ids = timing_out_report_ids or set()
+        self.report_instances_created: List[str] = []
+        self.report_sql_view_instances: List[str] = []
+        self.report_instances_deleted: List[str] = []
+        self.dashboard_instances_created: List[str] = []
+        self.dossier_sql_view_calls: List[str] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": document_id,
+                        "name": f"Document {document_id}",
+                        "type": "55",
+                        "subtype": "14081",
+                        "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+                    }
+                )
+                for document_id in self.documents
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        raise MicroStrategyAPIError("not a dossier", status_code=400)
+
+    def get_document_definition(
+        self, project_id: str, document_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [
+                        {
+                            "id": dataset_id,
+                            "name": _DOCUMENT_DATASET_NAMES.get(dataset_id, dataset_id),
+                            "sourceWarehouse": _DOCUMENT_SOURCE_WAREHOUSE,
+                        }
+                        for dataset_id in self.documents[document_id]
+                    ]
+                }
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": object_id,
+                "type": "3",
+                "subtype": "776" if object_id.startswith("cube") else "768",
+                "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+            }
+        )
+
+    def create_dossier_instance(self, project_id: str, dossier_id: str) -> str:
+        self.dashboard_instances_created.append(dossier_id)
+        return f"inst-{dossier_id}"
+
+    def create_document_instance(self, project_id: str, document_id: str) -> str:
+        self.dashboard_instances_created.append(document_id)
+        return f"inst-{document_id}"
+
+    def get_dossier_datasets_sql(
+        self, project_id: str, dossier_id: str, instance_id: str
+    ) -> List[Dict[str, object]]:
+        self.dossier_sql_view_calls.append(instance_id)
+        return []
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        self.report_instances_created.append(report_id)
+        if report_id in self.timing_out_report_ids:
+            error = MicroStrategyAPIError("Read timed out (180s)")
+            error.__cause__ = requests.ReadTimeout()
+            raise error
+        if report_id in self.failing_report_ids:
+            raise MicroStrategyAPIError("500 Server Error", status_code=500)
+        return f"inst-{report_id}"
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        self.report_sql_view_instances.append(instance_id)
+        table = report_id.replace("-", "_")
+        return SqlView(sql_statement=f"select * from fact_{table}")
+
+    def delete_report_instance(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> bool:
+        self.report_instances_deleted.append(instance_id)
+        return True
+
+
+def _document_source(extra_config: dict | None = None) -> MicroStrategySource:
+    config = {
+        "extract_visualization_details": False,
+        "extract_dashboard_dependencies": False,
+        "extract_metric_expressions": False,
+        "extract_model_lineage": False,
+        "extract_derived_metrics": False,
+    }
+    config.update(extra_config or {})
+    return _source(config)
+
+
+def _document_dataset_urn(
+    source: MicroStrategySource, dataset_id: str, document_id: str = "doc-1"
+) -> str:
+    return source.lineage.dataset_urn(
+        "project-1",
+        document_id,
+        DatasetObject.model_validate({"id": dataset_id, "name": dataset_id}),
+    )
+
+
+def _warehouse_table_urn(table: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.{table},PROD)"
+
+
+def _dataset_upstreams(workunits: List[Any]) -> Dict[str, List[str]]:
+    upstreams: Dict[str, List[str]] = {}
+    for workunit in workunits:
+        lineage = workunit.get_aspect_of_type(UpstreamLineageClass)
+        if lineage is not None:
+            upstreams[workunit.get_urn()] = [
+                upstream.dataset for upstream in lineage.upstreams
+            ]
+    return upstreams
+
+
+def test_document_datasets_get_sql_lineage_through_report_instances() -> None:
+    source = _document_source({"extract_document_dataset_sql_lineage": True})
+    client = _DocumentClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # One report instance per grid-report dataset, each read and released;
+    # the document itself is never executed and the dossier SQL view, which
+    # carries no SQL for a document instance, is never requested.
+    assert client.report_instances_created == ["rep-1", "rep-2"]
+    assert client.report_sql_view_instances == ["inst-rep-1", "inst-rep-2"]
+    assert client.report_instances_deleted == ["inst-rep-1", "inst-rep-2"]
+    assert client.dashboard_instances_created == []
+    assert client.dossier_sql_view_calls == []
+    assert _dataset_upstreams(workunits) == {
+        _document_dataset_urn(source, "rep-1"): [_warehouse_table_urn("fact_rep_1")],
+        _document_dataset_urn(source, "rep-2"): [_warehouse_table_urn("fact_rep_2")],
+    }
+    assert source.report.document_dataset_sql_views_scanned == 2
+    assert source.report.document_dataset_sql_views_parsed == 2
+    assert source.report.document_dataset_sql_view_failures == 0
+    assert source.report.document_datasets_skipped_not_grid_report == 1
+    assert source.report.warehouse_lineage_sql_views_scanned == 2
+    assert source.report.warehouse_lineage_edges == 2
+
+
+def test_document_datasets_are_left_alone_unless_enabled() -> None:
+    source = _document_source()
+    client = _DocumentClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # Neither a report instance nor a document instance is created and the
+    # dossier SQL view is not requested; the datasets are still emitted,
+    # without warehouse lineage.
+    assert client.report_instances_created == []
+    assert client.dashboard_instances_created == []
+    assert client.dossier_sql_view_calls == []
+    assert _dataset_upstreams(workunits) == {}
+    dataset_urns = {
+        workunit.get_urn()
+        for workunit in workunits
+        if workunit.get_urn().startswith("urn:li:dataset:")
+    }
+    assert dataset_urns == {
+        _document_dataset_urn(source, dataset_id)
+        for dataset_id in ("rep-1", "rep-2", "cube-1")
+    }
+    assert source.report.document_dataset_sql_views_scanned == 0
+    assert source.report.document_datasets_skipped_not_grid_report == 0
+
+
+def test_document_dataset_failure_is_counted_and_the_rest_still_emitted() -> None:
+    source = _document_source({"extract_document_dataset_sql_lineage": True})
+    client = _DocumentClient(failing_report_ids={"rep-1"})
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    assert client.report_instances_created == ["rep-1", "rep-2"]
+    assert client.report_instances_deleted == ["inst-rep-2"]
+    assert _dataset_upstreams(workunits) == {
+        _document_dataset_urn(source, "rep-2"): [_warehouse_table_urn("fact_rep_2")],
+    }
+    assert source.report.document_dataset_sql_view_failures == 1
+    assert source.report.document_dataset_sql_views_scanned == 1
+    assert source.report.document_dataset_sql_views_parsed == 1
+    assert source.report.report_sql_view_api_failures == 1
+    assert any(
+        warning.title == "Failed to Create Report Instance for Warehouse Lineage"
+        for warning in source.report.warnings
+    )
+
+
+def test_document_dataset_timeouts_count_towards_the_execution_limit() -> None:
+    source = _document_source(
+        {
+            "extract_document_dataset_sql_lineage": True,
+            "max_consecutive_execution_timeouts": 1,
+        }
+    )
+    client = _DocumentClient(timing_out_report_ids={"rep-1"})
+    source.client = client  # type: ignore[assignment]
+
+    _run_dashboards(source)
+
+    # The first dataset's timeout trips the project limit, so the second
+    # grid report is not executed; the cube was never a candidate.
+    assert client.report_instances_created == ["rep-1"]
+    assert source.report.execution_timeouts == 1
+    assert source.report.executions_skipped_after_timeouts == 1
+    assert list(source.report.execution_timeout_limit_projects) == ["project-1"]
+    assert source.report.document_dataset_sql_view_failures == 1
+
+
+def test_grid_report_shared_by_documents_is_executed_once() -> None:
+    source = _document_source({"extract_document_dataset_sql_lineage": True})
+    client = _DocumentClient(documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]})
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # Dataset URNs are document-scoped but the report's SQL is not: one
+    # instance, one SQL view, one delete, lineage on both datasets.
+    assert client.report_instances_created == ["rep-1"]
+    assert client.report_sql_view_instances == ["inst-rep-1"]
+    assert client.report_instances_deleted == ["inst-rep-1"]
+    assert _dataset_upstreams(workunits) == {
+        _document_dataset_urn(source, "rep-1", "doc-1"): [
+            _warehouse_table_urn("fact_rep_1")
+        ],
+        _document_dataset_urn(source, "rep-1", "doc-2"): [
+            _warehouse_table_urn("fact_rep_1")
+        ],
+    }
+    assert source.report.document_dataset_sql_views_reused == 1
+    assert source.report.document_dataset_sql_views_scanned == 2
+    assert source.report.document_dataset_sql_views_parsed == 2
+    assert source.report.document_dataset_sql_view_failures == 0
+    assert source.report.warehouse_lineage_edges == 2
+
+
+def test_failed_shared_report_is_not_retried_for_the_next_document() -> None:
+    source = _document_source({"extract_document_dataset_sql_lineage": True})
+    client = _DocumentClient(
+        documents={"doc-1": ["rep-1"], "doc-2": ["rep-1"]},
+        failing_report_ids={"rep-1"},
+    )
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # The remembered failure is served to the second document without a
+    # second instance attempt, and is counted once.
+    assert client.report_instances_created == ["rep-1"]
+    assert _dataset_upstreams(workunits) == {}
+    assert source.report.document_dataset_sql_view_failures == 1
+    assert source.report.document_dataset_sql_views_reused == 1
+    assert source.report.document_dataset_sql_views_scanned == 0
+    assert source.report.report_sql_view_api_failures == 1
+
+
+def test_report_sql_lineage_reuses_sql_read_for_a_document_dataset() -> None:
+    source = _document_source(
+        {
+            "extract_document_dataset_sql_lineage": True,
+            "extract_report_sql_lineage": True,
+        }
+    )
+    client = _DocumentClient(documents={"doc-1": ["rep-1"]})
+    source.client = client  # type: ignore[assignment]
+    _run_dashboards(source)
+    dataset = DatasetObject.model_validate({"id": "source", "name": "Daily Sales"})
+
+    source._enrich_report_sql_lineage(
+        project_id="project-1",
+        report_object=MicroStrategyObject.model_validate(
+            {"id": "rep-1", "name": "Daily Sales", "type": "3"}
+        ),
+        dataset=dataset,
+        context=WarehouseLineageContext(
+            platform="snowflake",
+            env="PROD",
+            database="SALES_DB",
+            schema="SALES",
+        ),
+    )
+
+    # The extract_reports path shares the cache: no second execution.
+    assert client.report_instances_created == ["rep-1"]
+    assert dataset.warehouse_upstream_urns == [_warehouse_table_urn("fact_rep_1")]

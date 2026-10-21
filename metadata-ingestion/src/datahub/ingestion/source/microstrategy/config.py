@@ -288,6 +288,27 @@ class MicroStrategyConfig(
             "known warehouse upstreams."
         ),
     )
+    extract_document_dataset_sql_lineage: bool = Field(
+        default=False,
+        description=(
+            "Whether to emit dataset-to-warehouse lineage for the datasets of "
+            "Report Services documents. A document's datasets are grid reports, "
+            "and the dossier SQL-view API answers a document instance with views "
+            "that carry no SQL, so each report-backed dataset's SQL is read "
+            "through a report instance instead (`POST "
+            "/api/v2/reports/{id}/instances`, `GET "
+            "/api/v2/reports/{id}/instances/{instance}/sqlView`, then `DELETE` "
+            "of the instance) and parsed like a dossier SQL view. Creating a "
+            "report instance may execute the report against the warehouse: one "
+            "execution per distinct report per run (a report shared by several "
+            "documents is read once), subject to "
+            "`warehouse_lineage_sql_timeout_seconds` and "
+            "`max_consecutive_execution_timeouts`. Cube datasets have no report "
+            "SQL view and are skipped. Requires `extract_warehouse_lineage`. "
+            "Off by default, so documents keep their previous behaviour: "
+            "datasets emitted without warehouse lineage."
+        ),
+    )
     resolve_report_metrics_via_instance: bool = Field(
         default=False,
         description=(
@@ -473,6 +494,25 @@ class MicroStrategyConfig(
                 "extract_metric_formula_lineage requires "
                 "extract_metric_expressions: metric formulas are the only "
                 "source of formula references."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _document_dataset_sql_requires_warehouse_lineage(
+        self,
+    ) -> "MicroStrategyConfig":
+        # The document path branches off the dashboard SQL-view path, and the
+        # mapper only emits coarse dataset lineage under
+        # extract_warehouse_lineage: without it the reports would be executed
+        # and their SQL parsed for lineage that is never emitted.
+        if (
+            self.extract_document_dataset_sql_lineage
+            and not self.extract_warehouse_lineage
+        ):
+            raise ValueError(
+                "extract_document_dataset_sql_lineage requires "
+                "extract_warehouse_lineage: document dataset SQL lineage is "
+                "emitted through the dashboard warehouse lineage path."
             )
         return self
 
