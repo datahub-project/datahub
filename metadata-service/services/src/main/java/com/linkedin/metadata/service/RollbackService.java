@@ -175,6 +175,15 @@ public class RollbackService {
         if (hardDelete) {
           entitiesDeleted -= unsafeEntitiesCount;
         }
+        final Set<String> unsafeUrns =
+            affectedAspectsList.stream().map(AspectRowSummary::getUrn).collect(Collectors.toSet());
+        final Set<String> deletedUrns =
+            hardDelete
+                ? keyAspects.stream()
+                    .map(AspectRowSummary::getUrn)
+                    .filter(urn -> !unsafeUrns.contains(urn))
+                    .collect(Collectors.toSet())
+                : Set.of();
 
         final List<UnsafeEntityInfo> unsafeEntityInfos =
             affectedAspectsList.stream()
@@ -201,7 +210,7 @@ public class RollbackService {
                 .setUnsafeEntitiesCount(unsafeEntitiesCount)
                 .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
                 .setAspectRowSummaries(rowSummaries),
-            aspectRowsToDelete.size() - revertibleRows.size());
+            leftInPlace(unknownToRegistryByUrn(opContext, aspectRowsToDelete), deletedUrns));
       }
 
       if (dispatcher != null) {
@@ -219,7 +228,7 @@ public class RollbackService {
       final List<AspectRowSummary> deletedRows = rollbackRunResult.getRowsRolledBack();
       // rollbackRun skips rows of entity types or aspects this registry doesn't know; they stay in
       // place for the newer version and are reported, since the run is still marked rolled back.
-      long aspectsLeftInPlace = countUnknownToRegistry(opContext, aspectRowsToDelete);
+      final Map<String, Long> unknownByUrn = unknownToRegistryByUrn(opContext, aspectRowsToDelete);
       int rowsDeletedFromEntityDeletion = rollbackRunResult.getRowsDeletedFromEntityDeletion();
       recordRollbackPage(metrics, rollbackRunResult);
 
@@ -249,7 +258,8 @@ public class RollbackService {
         rollbackRunResult =
             entityService.rollbackRun(opContext, aspectRowsToDelete, runId, hardDelete);
         deletedRows.addAll(rollbackRunResult.getRowsRolledBack());
-        aspectsLeftInPlace += countUnknownToRegistry(opContext, aspectRowsToDelete);
+        unknownToRegistryByUrn(opContext, aspectRowsToDelete)
+            .forEach((urn, rows) -> unknownByUrn.merge(urn, rows, Long::sum));
         rowsDeletedFromEntityDeletion += rollbackRunResult.getRowsDeletedFromEntityDeletion();
         aspectRowsToDelete.stream()
             .filter(row -> row.isKeyAspect() && !isUnknownToRegistry(opContext, row))
@@ -284,6 +294,15 @@ public class RollbackService {
               .collect(Collectors.groupingBy(AspectRowSummary::getUrn))
               .keySet()
               .size();
+      final long aspectsLeftInPlace =
+          leftInPlace(
+              unknownByUrn,
+              hardDelete
+                  ? deletedRows.stream()
+                      .filter(AspectRowSummary::isKeyAspect)
+                      .map(AspectRowSummary::getUrn)
+                      .collect(Collectors.toSet())
+                  : Set.of());
 
       final AspectRowSummaryArray rowSummaries =
           new AspectRowSummaryArray(
@@ -436,9 +455,25 @@ public class RollbackService {
             .collect(Collectors.toSet()));
   }
 
-  private static long countUnknownToRegistry(
+  /** Rows of entity types or aspects this registry doesn't know, counted per urn. */
+  @Nonnull
+  private static Map<String, Long> unknownToRegistryByUrn(
       @Nonnull OperationContext opContext, @Nonnull List<AspectRowSummary> rows) {
-    return rows.stream().filter(row -> isUnknownToRegistry(opContext, row)).count();
+    return rows.stream()
+        .filter(row -> isUnknownToRegistry(opContext, row))
+        .collect(Collectors.groupingBy(AspectRowSummary::getUrn, Collectors.counting()));
+  }
+
+  /**
+   * The unknown rows a rollback leaves. Deleting an entity removes every row of it, those of
+   * aspects this registry doesn't know included, so the rows of {@code deletedUrns} aren't left.
+   */
+  private static long leftInPlace(
+      @Nonnull Map<String, Long> unknownByUrn, @Nonnull Set<String> deletedUrns) {
+    return unknownByUrn.entrySet().stream()
+        .filter(entry -> !deletedUrns.contains(entry.getKey()))
+        .mapToLong(Map.Entry::getValue)
+        .sum();
   }
 
   /** Set only when rows were left, so a response without any is unchanged. */
