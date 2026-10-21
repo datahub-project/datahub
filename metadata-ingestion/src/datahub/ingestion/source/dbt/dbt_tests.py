@@ -386,11 +386,10 @@ def _generic_test_targets(
         version_part = ".".join(parts[3:])
         if not version_part:
             target_names = [parts[2]]
-        elif version_part == "v0":
-            # dbt omits the suffix for a falsy version, so accept both spellings.
-            target_names = [parts[2], f"{parts[2]}_{version_part}"]
         else:
-            target_names = [f"{parts[2]}_{version_part}"]
+            # A test written against an unpinned ref() depends on the latest version
+            # but is named after the plain model, so accept both spellings.
+            target_names = [f"{parts[2]}_{version_part}", parts[2]]
     if namespace:
         test_type = f"{namespace}_{test_type}"
     return [

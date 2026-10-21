@@ -2354,9 +2354,23 @@ def _make_test_node(
         pytest.param(
             "not_null_orders_id",
             DBTTest("not_null", "id", {"column_name": "id"}),
-            "model.pkg.orders.v0",
+            "model.pkg.orders.v1",
             False,
-            id="core-version-zero-model-generated",
+            id="core-unpinned-ref-to-versioned-model-generated",
+        ),
+        pytest.param(
+            "not_null_orders_id",
+            DBTTest("not_null", "id", {}),
+            "model.pkg.orders.v1",
+            False,
+            id="cloud-unpinned-ref-to-versioned-model-generated",
+        ),
+        pytest.param(
+            "orders_id_present",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.v1",
+            True,
+            id="core-versioned-model-custom",
         ),
         pytest.param(
             "not_null_orders_vbeta_id",
