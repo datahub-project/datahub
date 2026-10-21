@@ -495,7 +495,11 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         accepted = []
         total_size = 0
         for i in sorted(
-            range(len(operations)), key=lambda i: not is_upstream(operations[i])
+            range(len(operations)),
+            key=lambda i: (
+                not is_upstream(operations[i]),
+                str(operations[i].get("path", "")),
+            ),
         ):
             if total_size + sizes[i] >= self.schema_size_constraint:
                 break

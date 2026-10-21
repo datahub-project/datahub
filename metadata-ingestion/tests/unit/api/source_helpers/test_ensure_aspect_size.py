@@ -1605,7 +1605,7 @@ def upstream_lineage_patch_workunit(num_columns: int) -> MetadataWorkUnit:
     upstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream,PROD)"
     builder = DatasetPatchBuilder(downstream)
     # Column lineage first, so table lineage surviving shows it is prioritized.
-    for i in range(num_columns):
+    for i in reversed(range(num_columns)):
         builder.add_fine_grained_lineage(
             FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -1640,7 +1640,8 @@ def test_oversized_upstream_lineage_patch_is_truncated(processor):
     assert 1 < len(kept) < len(operations)
     assert kept[0]["path"].startswith("/upstreams/")
     assert all(op["path"].startswith("/fineGrainedLineages/") for op in kept[1:])
-    assert kept[1:] == operations[: len(kept) - 1]
+    fine_grained = sorted(operations[:-1], key=lambda op: op["path"])
+    assert kept[1:] == fine_grained[: len(kept) - 1]
     assert (
         len(json.dumps(pre_json_transform(result.metadata.to_obj())))
         <= processor.payload_constraint
