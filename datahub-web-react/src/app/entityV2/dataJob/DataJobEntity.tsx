@@ -14,6 +14,7 @@ import { DataFlowEntity } from '@app/entityV2/dataFlow/DataFlowEntity';
 import { Preview } from '@app/entityV2/dataJob/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -116,27 +117,32 @@ export class DataJobEntity implements Entity<DataJob> {
             tabs={[
                 {
                     name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
                     name: i18next.t('entity.types:dataFlow.name'),
+                    path: EntityTabPath.PIPELINE,
                     component: DataJobFlowTab,
                     icon: Share,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
+                    path: EntityTabPath.LINEAGE,
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
                     name: i18next.t('entity.types:tab.runs'),
+                    path: EntityTabPath.RUNS,
                     component: RunsTab,
                     icon: ArrowsClockwise,
                     display: {
@@ -146,6 +152,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
+                    path: EntityTabPath.INCIDENTS,
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, dataJob) => {

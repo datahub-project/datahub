@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
@@ -15,9 +16,6 @@ import dayjs from '@utils/dayjs';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
-
-/* eslint-disable-next-line i18next/no-literal-string -- route identifier, not UI text */
-const QUERIES_TAB = 'Queries';
 
 interface Props {
     properties: {
@@ -189,7 +187,7 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 <SeeAllButton
                     onClick={() => {
                         routeToTab({
-                            tabName: QUERIES_TAB,
+                            tabName: EntityTabPath.QUERIES,
                             tabParams: { column: schemaFieldUrn, siblingColumn: siblingSchemaFieldUrn },
                         });
                     }}

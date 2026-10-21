@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 // Import the mocked modules
-import { validateFile } from '@components/components/Editor/extensions/fileDragDrop';
+import { validateFile } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import useFileUpload from '@app/shared/hooks/useFileUpload';
@@ -20,7 +20,7 @@ vi.mock('@components', () => ({
     },
 }));
 
-vi.mock('@components/components/Editor/extensions/fileDragDrop', () => ({
+vi.mock('@components/components/Editor/extensions/fileDragDrop/fileUtils', () => ({
     validateFile: vi.fn(),
 }));
 

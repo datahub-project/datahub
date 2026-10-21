@@ -52,7 +52,8 @@ export type EntityTabProps = {
 };
 
 export type EntityTab = {
-    name: string;
+    name: string; // Display label; may be translated, so never use it to identify the tab.
+    path: string; // Stable, language-independent URL segment that identifies the tab.
     component: React.FunctionComponent<EntityTabProps>;
     icon?: React.FunctionComponent<any>;
     display?: {

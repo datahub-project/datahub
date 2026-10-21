@@ -1,7 +1,6 @@
 import { Heading, Text } from '@components';
 import { Spin } from 'antd';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { typography } from '@components/theme';
@@ -84,51 +83,20 @@ export const StyledDocsLink = styled.a`
     }
 `;
 
-/**
- * Styled video element for visible videos
- */
 const StyledVideo = styled.video<{ width: string }>`
     width: ${(props) => props.width};
+    aspect-ratio: 1208 / 720;
+    object-fit: contain;
 `;
 
-/**
- * Styled video element for hidden preload videos
- */
-const HiddenPreloadVideo = styled.video<{ width: string }>`
-    width: ${(props) => props.width};
-    opacity: 0;
-    position: absolute;
-    pointer-events: none;
-    top: 0;
-    left: 0;
-`;
-
-/**
- * Reusable video slide component that handles loading states
- */
 interface VideoSlideProps {
     videoSrc?: string;
-    isReady: boolean;
-    onVideoLoad: () => void;
+    posterSrc: string;
     width: string;
 }
 
-export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, isReady, onVideoLoad, width }) => {
-    const { t } = useTranslation('onboarding');
-    return (
-        <>
-            {isReady ? (
-                <StyledVideo width={width} autoPlay loop muted playsInline>
-                    <source src={videoSrc} type="video/mp4" />
-                </StyledVideo>
-            ) : (
-                <LoadingContainer width={width}>{t('welcome.loadingVideo')}</LoadingContainer>
-            )}
-            {videoSrc && !isReady && (
-                <HiddenPreloadVideo width={width} autoPlay loop muted playsInline onCanPlay={onVideoLoad}>
-                    <source src={videoSrc} type="video/mp4" />
-                </HiddenPreloadVideo>
-            )}
-        </>
-    );
-};
+// src on the video element restarts resource selection when the MP4 URL arrives.
+// A <source> child inserted after the first pass does not, so autoplay never starts.
+export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, posterSrc, width }) => (
+    <StyledVideo width={width} poster={posterSrc} src={videoSrc || undefined} autoPlay loop muted playsInline />
+);

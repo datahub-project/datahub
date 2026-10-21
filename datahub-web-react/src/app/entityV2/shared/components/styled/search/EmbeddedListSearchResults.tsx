@@ -231,7 +231,7 @@ export const EmbeddedListSearchResults = ({
                 )}
 
                 <ResultContainer data-testid="embedded-list-search-results">
-                    {view && (
+                    {applyView && view && (
                         <ViewsContainer>
                             <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>

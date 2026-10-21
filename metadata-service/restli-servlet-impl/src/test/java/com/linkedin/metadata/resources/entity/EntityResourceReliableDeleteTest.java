@@ -53,7 +53,8 @@ import org.testng.annotations.Test;
 
 /**
  * The Rest.li deletes run through {@link HardDeleteService}: with nothing handed over the response
- * is today's; handed over, the same response type with zero counts.
+ * is today's; handed over, the response carries the counts that existed when the delete was queued
+ * and {@code queued} true.
  */
 public class EntityResourceReliableDeleteTest {
   private static final Urn URN =
@@ -77,6 +78,8 @@ public class EntityResourceReliableDeleteTest {
     deleteEntityService = mock(DeleteEntityService.class);
     timeseriesAspectService = mock(TimeseriesAspectService.class);
     dispatcher = mock(HardDeleteDispatcher.class);
+    // offer() reads dispatch(), as the interface's default does.
+    when(dispatcher.offer(any(), any())).thenCallRealMethod();
     final Authorizer authorizer = mock(Authorizer.class);
     when(authorizer.authorize(any(AuthorizationRequest.class)))
         .thenAnswer(
@@ -161,11 +164,16 @@ public class EntityResourceReliableDeleteTest {
     assertEquals(response.getTimeseriesRows().longValue(), (long) timeseriesAspects().size());
   }
 
-  /** Handed over: the request carries the aspects and the window; zero counts come back. */
+  /**
+   * Handed over: the request carries the aspects and the window; what exists comes back, queued.
+   */
   @Test
-  public void wholeEntityDeleteTakenReturnsZeroCountsAndDeletesNothingHere() throws Exception {
+  public void wholeEntityDeleteTakenReturnsWhatExistsAndDeletesNothingHere() throws Exception {
     use(true, dispatcher);
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(7);
+    when(timeseriesAspectService.countByFilter(any(), anyString(), anyString(), any()))
+        .thenReturn(2L);
 
     final DeleteEntityResponse response =
         await(resource.deleteEntity(URN.toString(), null, 10L, 20L));
@@ -176,10 +184,11 @@ public class EntityResourceReliableDeleteTest {
             eq(HardDeleteRequest.entityAndTimeseries(URN, CEILING, timeseriesAspects(), 10L, 20L)));
     verify(entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
     verify(entityService, never()).deleteUrn(any(), any(), any(DeleteCeiling.class));
-    verifyNoInteractions(timeseriesAspectService);
+    verify(timeseriesAspectService, never()).deleteAspectValues(any(), any(), any(), any());
     assertEquals(response.getUrn(), URN.toString());
-    assertEquals(response.getRows().longValue(), 0L);
-    assertEquals(response.getTimeseriesRows().longValue(), 0L);
+    assertEquals(response.getRows().longValue(), 7L);
+    assertEquals(response.getTimeseriesRows().longValue(), 2L * timeseriesAspects().size());
+    assertTrue(response.isQueued());
   }
 
   /** Deleting one timeseries aspect deletes no entity, so nothing is offered. */
@@ -208,7 +217,7 @@ public class EntityResourceReliableDeleteTest {
   }
 
   @Test
-  public void deleteReferencesTakenReturnsAnEmptyResponse() throws Exception {
+  public void deleteReferencesTakenReturnsTheDryRunCountAsQueued() throws Exception {
     use(false, dispatcher);
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
 
@@ -216,9 +225,10 @@ public class EntityResourceReliableDeleteTest {
         await(resource.deleteReferencesTo(URN.toString(), false));
 
     verify(dispatcher).dispatch(any(), eq(HardDeleteRequest.references(URN)));
-    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), anyBoolean());
-    assertEquals(response.getTotal().intValue(), 0);
-    assertTrue(response.getRelatedAspects().isEmpty());
+    verify(deleteEntityService).deleteReferencesTo(any(), eq(URN), eq(true));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), eq(false));
+    assertEquals(response.getTotal().intValue(), 3);
+    assertTrue(response.isQueued());
   }
 
   /** A dry run is a read: it is never offered. */

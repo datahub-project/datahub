@@ -1,6 +1,6 @@
 import { EmptyState } from '@components';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -9,9 +9,11 @@ import useDocumentGroupRoots from '@app/document/hooks/useDocumentGroupRoots';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import {
     resolveActiveDocumentDomainGroup,
+    shouldRefetchDocumentDomainGroups,
     toDocumentGroupingEntityData,
 } from '@app/document/utils/documentSidebarGrouping';
 import { DocumentSidebarSortValue } from '@app/document/utils/documentSidebarSort';
+import Loading from '@app/shared/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
@@ -32,6 +34,12 @@ type Props = {
     suppressSelectionScroll?: boolean;
     onCreateChild?: (parentUrn: string) => void;
     onSelect: (urn: string) => void;
+    /**
+     * Open document moved between domain groups. Parent remounts this tree
+     * (`domainGroupsRefreshKey`) so expanded group searches refetch. The
+     * selected-document overlay only hides the move while that doc stays open.
+     */
+    onDocumentMovedBetweenGroups?: () => void;
 };
 
 export default function GroupedDocumentsTree({
@@ -40,6 +48,7 @@ export default function GroupedDocumentsTree({
     suppressSelectionScroll = false,
     onCreateChild,
     onSelect,
+    onDocumentMovedBetweenGroups,
 }: Props) {
     const { t } = useTranslation('misc');
     const entityRegistry = useEntityRegistry();
@@ -53,7 +62,9 @@ export default function GroupedDocumentsTree({
         variables: { urn: selectedUrn ?? '', includeParentDocuments: true },
         fetchPolicy: 'cache-first',
     });
-    const selectedDocument = (selectedData?.document ?? null) as Document | null;
+    // cache-first can still hold the previous URL's document while the next one loads.
+    const loadedDocument = (selectedData?.document ?? null) as Document | null;
+    const selectedDocument = loadedDocument?.urn === selectedUrn ? loadedDocument : null;
 
     const activeGroup = useMemo(
         () =>
@@ -66,7 +77,22 @@ export default function GroupedDocumentsTree({
         [entityRegistry, selectedDocument, selectedUrn, t],
     );
 
-    const { groups, loading } = useDocumentGroupRoots(t('context.groupBy.unassigned'), activeGroup, viewUrn);
+    const { groups, loading, refetch } = useDocumentGroupRoots(t('context.groupBy.unassigned'), activeGroup, viewUrn);
+    const previousActiveGroupRef = useRef<{ urn: string | null; groupKey: string | null } | undefined>(undefined);
+
+    useEffect(() => {
+        const next = { urn: selectedDocument?.urn ?? null, groupKey: activeGroup?.key ?? null };
+        const previous = previousActiveGroupRef.current;
+        previousActiveGroupRef.current = next;
+        if (!shouldRefetchDocumentDomainGroups(previous?.urn, previous?.groupKey, next.urn, next.groupKey)) {
+            return;
+        }
+        refetch();
+        // Header refetch is not enough: expanded group pages stay cached by group
+        // key. Remount only when this same document changed domains, so selecting
+        // another document cannot put the moved doc back in the group it left.
+        onDocumentMovedBetweenGroups?.();
+    }, [activeGroup, onDocumentMovedBetweenGroups, refetch, selectedDocument]);
 
     /**
      * Groups start collapsed: each expanded group runs its own paginated search,
@@ -80,6 +106,10 @@ export default function GroupedDocumentsTree({
             return new Set(current).add(activeGroup.key);
         });
     }, [activeGroup]);
+
+    if (loading && groups.length === 0) {
+        return <Loading height={16} marginTop={0} />;
+    }
 
     if (!loading && groups.length === 0) {
         return (

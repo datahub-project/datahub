@@ -423,7 +423,11 @@ datahub:
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
-  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Writes of one reference removal during a hard delete, the first included, before a failure caused by concurrent edits is reported (reliableHardDelete only); at least 1
+  # Writes of one reference removal during a hard delete (graph phase, search-phase formInfo/forms
+  # rewrites) or of one member in the native group membership sweep, the first included, before a
+  # failure caused by concurrent edits is reported (graph/search phase) or counted (group sweep).
+  # Applies only when reliableHardDelete is on; at least 1.
+  deleteReferenceWriteLimit: ${ENTITY_SERVICE_DELETE_REFERENCE_WRITE_LIMIT:3} # Write attempts per reference removal; at least 1
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
@@ -1180,6 +1184,8 @@ elasticsearch:
     incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
     reconcileInPlaceMappingUpdates: ${ELASTICSEARCH_BUILD_INDICES_RECONCILE_IN_PLACE_MAPPING_UPDATES:false} # opt-in incremental rebuild when first applying live mapping parameter updates
     rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
+    maxBackfillHours: ${ELASTICSEARCH_BUILD_INDICES_MAX_BACKFILL_HOURS:0} # wall-clock budget per run of the non-blocking entity index fill; <= 0 - no budget; a run that reaches it ends successfully with the fill still in progress and the next non-blocking run resumes from the checkpoint
+    backfillBatchSize: ${ELASTICSEARCH_BUILD_INDICES_BACKFILL_BATCH_SIZE:5000} # aspect rows per SQL page and write batch during the non-blocking entity index fill; each page is one bounded query plus one bulk drain and holds whole entities, so it must exceed the largest entity type's aspect count
     catchUpSqlPageSize: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_SQL_PAGE_SIZE:50} # SQL page size for incremental reindex catch-up MCL emission
     catchUpFlushInterval: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_INTERVAL:500} # rows between producer flush and checkpoint during catch-up
     catchUpFlushBytesThreshold: ${ELASTICSEARCH_BUILD_INDICES_CATCH_UP_FLUSH_BYTES_THRESHOLD:134217728} # metadata-column char proxy for early flush (128 MiB); 0 disables
@@ -1202,6 +1208,15 @@ elasticsearch:
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
       factor: ${ELASTICSEARCH_QUERY_PARTIAL_FACTOR:0.4} # multiplier on possible non-Urn token match
+    # Search V3 catalog of structured properties included in full-text search.
+    structuredProperties:
+      # Same duration as cache.client.entityClient.entityAspectTTLSeconds.structuredProperty.propertyDefinition.
+      cacheTtlSeconds: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_CACHE_TTL_SECONDS:300}
+      defaultTextWeight: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_DEFAULT_TEXT_WEIGHT:0.8}
+      stemmedFactor: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_STEMMED_FACTOR:0.5}
+      pageSize: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_PAGE_SIZE:500}
+      # How many definitions the catalog keeps. Follows the search-document object key limit.
+      maxProperties: ${ELASTICSEARCH_SEARCH_STRUCTURED_PROPERTIES_MAX:${elasticsearch.index.maxObjectKeys}}
     custom:
       enabled: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED:true}
       file: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:search_config.yaml}
