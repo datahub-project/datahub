@@ -12,7 +12,7 @@ DataHub Skills give your AI agent the **instructions** to work with your data ca
 **Skills vs. Tools**: The [MCP Server](../../features/feature-guides/mcp.md) gives agents _tools_ — discrete actions like searching a catalog or reading a schema. Skills give agents _instructions_ — how to chain those tools into multi-step workflows with the right judgment at each step. You need both.
 
 :::tip On DataHub Cloud with Claude or ChatGPT?
-Use the [DataHub Cloud plugin](./plugins.md) instead. It includes the core skills and the MCP server. This page covers `datahub-skills`, which also has developer skills, like building connectors, and works with DataHub Core.
+The [DataHub Cloud plugin](./plugins.md) includes the MCP server and the search, lineage, quality, SQL, and setup skills. For metadata curation (`datahub-enrich`), developer skills like building connectors, or DataHub Core, use `datahub-skills` from this page.
 :::
 
 ## Prerequisites
