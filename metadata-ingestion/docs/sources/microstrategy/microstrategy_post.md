@@ -18,7 +18,7 @@ dashboard_pattern:
 
 #### Reports
 
-Set `extract_reports: true` to ingest MicroStrategy reports as DataHub chart entities with the `Report` subtype. Report extraction is disabled by default because report libraries can be much larger than curated dossiers. Use `report_pattern` to scope report extraction.
+Set `extract_reports: true` to ingest MicroStrategy reports as DataHub chart entities with the `Report` subtype. Report extraction is disabled by default because report libraries can be much larger than curated dossiers. Use `report_pattern` (by name) or `folder_path_pattern` (by folder path) to scope report extraction.
 
 When dashboards are also extracted, only reports referenced by an ingested dashboard are ingested by default, so scoping dashboards with `dashboard_pattern` scopes reports too. Linked reports are fetched directly by id rather than by enumerating the project's report library, so large report libraries do not slow down scoped runs. Set `extract_independent_reports: true` to also ingest reports not used by any dashboard (every report matching `report_pattern`); this enumerates the full report library. This scoping relies on `extract_dashboard_dependencies` for the dashboard-to-report linkage; without it, or without dashboard extraction, all matching reports are ingested.
 
@@ -82,7 +82,23 @@ Personal folders -- each user's profile folder tree under the project's "Profile
 
 Personal content is identified by folder id where possible. `GET /api/folders/preDefined` with EnumDSSXMLFolderNames types 19 (the logged-in principal's profile folder) and 20 (its "My Reports") returns the principal's own folders; the profile folder's immediate parent -- read from `GET /api/objects/{id}?type=8` -- is the project's Profiles system folder, and any object whose ancestor chain passes through that folder is personal, whichever user owns it. This is one extra predefined-folder call and one object lookup per project (`personal_folder_roots_resolved` counts the projects where it succeeded). When that resolution fails (an older server, a principal without a profile folder, insufficient privilege), the connector reports an info entry and falls back to ancestor folder names: an ancestor named "Profiles" or "My Reports" (case-insensitive, plus the type-20 folder's label when it was returned) marks an object as personal. The fallback is exact on default-language installations but cannot recognise renamed or localized folders, and would also match a public folder that happens to carry one of those names.
 
-Note that `folder_pattern` cannot exclude content: a denied folder re-parents its children to the nearest allowed ancestor, so a `deny: ["^My Reports$"]` rule removes the folder container but still ingests everything in it under the user's folder.
+Note that `folder_pattern` cannot exclude content: a denied folder re-parents its children to the nearest allowed ancestor, so a `deny: ["^My Reports$"]` rule removes the folder container but still ingests everything in it under the user's folder. To scope ingestion by location, use `folder_path_pattern` instead.
+
+#### Scoping by Folder Path
+
+Business users navigate Strategy Web by folder, and `folder_path_pattern` scopes ingestion the same way: each dashboard, document and report is matched against its folder path, which is the project name, then each folder from the project root down to the object's own folder, joined with `/`. The folder names are exactly the ones the browse path shows, built from the same ancestry and the same predefined-folder resolution: with `use_predefined_folder_names: true` the project root folder and "Public Objects" are omitted and "Shared Reports" carries its MicroStrategy-assigned label; with it `false`, the raw hierarchy is the path. `folder_pattern` plays no part in the path. For a dossier in project `Adhoc_RMA` filed under `Shared Reports/Corporate P&A/_Company Reporting`, the path is `Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting`, so
+
+```yaml
+folder_path_pattern:
+  allow:
+    - "^Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting(/|$)"
+```
+
+ingests that folder and everything beneath it, and nothing else. Patterns match from the start of the path, so the trailing `(/|$)` is what stops a sibling such as `_Company Reporting Archive` from matching too; `deny` wins over `allow`.
+
+Unlike `folder_pattern`, a denied path excludes the object. It is skipped right after the name patterns (`dashboard_pattern`, `report_pattern`), before any definition is fetched or instance executed, so it costs no further API calls, and its visualizations and datasets are not emitted. Reports are filtered on their own path, whether enumerated via `extract_independent_reports` or fetched because an ingested dashboard links to them; the dashboard's chart edge to a linked report is not affected by the report's folder, so a dashboard in an allowed folder can still reference a report chart that was not ingested. Skips are counted in `dashboards_filtered_by_folder_path` and `reports_filtered_by_folder_path`, with the object name and path sampled in `folder_path_filtered_samples`.
+
+An object whose search result carries no folder ancestry has no path to match and is counted in `folder_paths_unresolved`. Under the default allow-all pattern it is ingested and a `Folder path unresolved` warning is recorded, so the catalog never silently shrinks; once a pattern is configured it is skipped and counted with the other skips, so the scope never silently widens.
 
 #### Metric and Attribute Tags
 
@@ -151,4 +167,4 @@ MicroStrategy can invalidate the session token at any time (idle or absolute tim
 
 #### Empty or incomplete results
 
-If little or no metadata is ingested, verify that the principal has Library API access and project-scoped metadata search, and check that `project_pattern` (and `dashboard_pattern` / `report_pattern`, if set) are not filtering out the content you expect. Guest authentication works for public demo exploration but does not expose all modeling APIs.
+If little or no metadata is ingested, verify that the principal has Library API access and project-scoped metadata search, and check that `project_pattern` (and `dashboard_pattern` / `report_pattern` / `folder_path_pattern`, if set) are not filtering out the content you expect; `folder_path_filtered_samples` in the report shows the paths that were denied. Guest authentication works for public demo exploration but does not expose all modeling APIs.

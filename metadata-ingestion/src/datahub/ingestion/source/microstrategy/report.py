@@ -98,6 +98,14 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     personal_folder_objects_skipped_samples: LossyList[str] = field(
         default_factory=LossyList
     )
+    # folder_path_pattern: dashboards/documents and reports skipped because
+    # their folder path did not match (name and path sampled), and objects
+    # whose folder path could not be resolved because their search result
+    # carried no folder ancestry.
+    dashboards_filtered_by_folder_path: int = 0
+    reports_filtered_by_folder_path: int = 0
+    folder_path_filtered_samples: LossyList[str] = field(default_factory=LossyList)
+    folder_paths_unresolved: int = 0
     dataset_object_lookups: int = 0
     dataset_object_lookup_failures: int = 0
     api_errors: int = 0
@@ -312,6 +320,17 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     def report_personal_folder_object_skipped(self, context: str) -> None:
         self.personal_folder_objects_skipped += 1
         self.personal_folder_objects_skipped_samples.append(context)
+
+    def report_dashboard_filtered_by_folder_path(self, context: str) -> None:
+        self.dashboards_filtered_by_folder_path += 1
+        self.folder_path_filtered_samples.append(context)
+
+    def report_report_filtered_by_folder_path(self, context: str) -> None:
+        self.reports_filtered_by_folder_path += 1
+        self.folder_path_filtered_samples.append(context)
+
+    def report_folder_path_unresolved(self) -> None:
+        self.folder_paths_unresolved += 1
 
     def report_dataset_object_lookup(self) -> None:
         self.dataset_object_lookups += 1

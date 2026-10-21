@@ -33,6 +33,7 @@ from datahub.ingestion.source.microstrategy.source import (
     _LazyProjectLineage,
 )
 from datahub.metadata.schema_classes import (
+    ChartInfoClass,
     ContainerClass,
     ContainerPropertiesClass,
     DatasetPropertiesClass,
@@ -50,6 +51,9 @@ def _source(extra_config: dict | None = None) -> MicroStrategySource:
         config_dict.update(extra_config)
     config = MicroStrategyConfig.model_validate(config_dict)
     return MicroStrategySource(config, PipelineContext(run_id="test"))
+
+
+_PROJECT = Project.model_validate({"id": "project-1", "name": "Sales Analytics"})
 
 
 def _dashboard(source_warehouse: dict | None = None) -> DashboardDefinition:
@@ -437,10 +441,18 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
     )
     dashboards = [
         MicroStrategyObject.model_validate(
-            {"id": "dash-1", "name": "Broken Dashboard"}
+            {
+                "id": "dash-1",
+                "name": "Broken Dashboard",
+                "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+            }
         ),
         MicroStrategyObject.model_validate(
-            {"id": "dash-2", "name": "Healthy Dashboard"}
+            {
+                "id": "dash-2",
+                "name": "Healthy Dashboard",
+                "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+            }
         ),
     ]
 
@@ -464,7 +476,7 @@ def test_per_dashboard_error_boundary_continues_with_next_dashboard() -> None:
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1",
+            _PROJECT,
             _LazyProjectLineage(source, "project-1", []),
         )
     )
@@ -527,7 +539,7 @@ def test_reports_scoped_to_dashboard_linked_by_default() -> None:
 
     workunits = list(
         source._process_project_reports(
-            "project-1",
+            _PROJECT,
             _LazyProjectLineage(source, "project-1", []),
             {"REPORT-1"},
         )
@@ -558,7 +570,7 @@ def test_linked_report_fetch_failure_skips_that_report() -> None:
 
     workunits = list(
         source._process_project_reports(
-            "project-1",
+            _PROJECT,
             _LazyProjectLineage(source, "project-1", []),
             {"REPORT-1", "REPORT-3"},
         )
@@ -585,7 +597,7 @@ def test_report_enumeration_skipped_when_no_dashboard_links() -> None:
 
     workunits = list(
         source._process_project_reports(
-            "project-1",
+            _PROJECT,
             _LazyProjectLineage(source, "project-1", []),
             set(),
         )
@@ -604,7 +616,7 @@ def test_reports_not_scoped_when_independent_reports_enabled() -> None:
 
     workunits = list(
         source._process_project_reports(
-            "project-1",
+            _PROJECT,
             _LazyProjectLineage(source, "project-1", []),
             {"REPORT-1"},
         )
@@ -663,7 +675,7 @@ def test_reports_not_scoped_without_dashboard_extraction() -> None:
 
     workunits = list(
         source._process_project_reports(
-            "project-1",
+            _PROJECT,
             _LazyProjectLineage(source, "project-1", []),
             set(),
         )
@@ -1040,7 +1052,7 @@ def test_project_lineage_apis_skipped_when_all_dashboards_filtered() -> None:
         {"id": "source-1", "name": "Warehouse", "database": {"type": "snowflake"}}
     )
     lineage_context = _LazyProjectLineage(source, "project-1", [datasource])
-    workunits = list(source._process_project_dashboards("project-1", lineage_context))
+    workunits = list(source._process_project_dashboards(_PROJECT, lineage_context))
 
     assert workunits == []
     assert list(source.report.filtered_dashboards) == ["Filtered Out"]
@@ -1154,7 +1166,7 @@ def test_extract_derived_metrics_flag_gates_attachment(flag: bool) -> None:
     with mock.patch.object(source.mapper, "attach_derived_metrics") as attach:
         list(
             source._process_project_dashboards(
-                "project-1",
+                _PROJECT,
                 _LazyProjectLineage(source, "project-1", []),
             )
         )
@@ -1247,7 +1259,7 @@ def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> No
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1269,7 +1281,7 @@ def test_dataset_object_lookup_failure_falls_back_to_dossier_folder() -> None:
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1310,7 +1322,17 @@ class _ReportDerivedClient(_DatasetLookupClient):
         self.v2_calls: List[str] = []
 
     def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
-        return iter([MicroStrategyObject.model_validate({"id": "dash-1", "name": "D"})])
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-1",
+                        "name": "D",
+                        "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+                    }
+                )
+            ]
+        )
 
     def get_dossier_definition(
         self, project_id: str, dossier_id: str
@@ -1463,7 +1485,7 @@ def test_report_derived_metrics_come_from_model_report_definition() -> None:
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1484,7 +1506,7 @@ def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1550,7 +1572,7 @@ def test_model_definition_failure_is_counted_per_report_and_warned_once() -> Non
 
     list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1613,7 +1635,7 @@ def test_model_definition_without_expressions_counts_and_logs_payload_shape(
     with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
         workunits = list(
             source._process_project_dashboards(
-                "project-1", _LazyProjectLineage(source, "project-1", [])
+                _PROJECT, _LazyProjectLineage(source, "project-1", [])
             )
         )
 
@@ -1683,7 +1705,7 @@ def test_model_definition_empty_counts_and_logs_payload_shape(
     with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
         workunits = list(
             source._process_project_dashboards(
-                "project-1", _LazyProjectLineage(source, "project-1", [])
+                _PROJECT, _LazyProjectLineage(source, "project-1", [])
             )
         )
 
@@ -1832,7 +1854,7 @@ def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1865,7 +1887,7 @@ def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() ->
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1890,7 +1912,7 @@ def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> 
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1908,7 +1930,7 @@ def test_report_derived_metrics_skip_cube_datasets() -> None:
 
     list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -1998,7 +2020,7 @@ def test_configuration_error_escapes_the_dashboard_boundary(
     with pytest.raises(ConfigurationError):
         list(
             source._process_project_dashboards(
-                "project-1", _LazyProjectLineage(source, "project-1", [])
+                _PROJECT, _LazyProjectLineage(source, "project-1", [])
             )
         )
 
@@ -2207,7 +2229,7 @@ def _container_names(workunits: List[Any]) -> set:
 def _run_dashboards(source: MicroStrategySource) -> List[Any]:
     return list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2334,7 +2356,7 @@ def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
 
     workunits = list(
         source._process_project_reports(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2344,6 +2366,297 @@ def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
     urns = {workunit.get_urn() for workunit in workunits}
     assert source.mapper.report_urn("project-1", "REPORT-SHARED") in urns
     assert source.mapper.report_urn("project-1", "REPORT-PERSONAL") not in urns
+
+
+_ADHOC_PROJECT = Project.model_validate({"id": "project-1", "name": "Adhoc_RMA"})
+_COMPANY_ANCESTORS = [
+    {"id": "project-root-id", "name": "Adhoc_RMA"},
+    {"id": "public-objects-id", "name": "Public Objects"},
+    {"id": "reports-folder-id", "name": "Reports"},
+    {"id": "f-pa", "name": "Corporate P&A"},
+    {"id": "f-company", "name": "_Company Reporting"},
+]
+_OTHER_ANCESTORS = [
+    {"id": "project-root-id", "name": "Adhoc_RMA"},
+    {"id": "public-objects-id", "name": "Public Objects"},
+    {"id": "reports-folder-id", "name": "Reports"},
+    {"id": "f-other", "name": "Other Team"},
+]
+_COMPANY_PATTERN = "^Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting$"
+_UNRESOLVED_TITLE = "Folder path unresolved"
+
+
+def _adhoc_predefined_folders(folder_types: List[int]) -> List[PredefinedFolder]:
+    if folder_types == [19, 20]:
+        return []
+    return [
+        PredefinedFolder.model_validate(
+            {"id": "project-root-id", "name": "Adhoc_RMA", "folderType": 39}
+        ),
+        PredefinedFolder.model_validate(
+            {"id": "public-objects-id", "name": "Public Objects", "folderType": 1}
+        ),
+        PredefinedFolder.model_validate(
+            {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+        ),
+    ]
+
+
+class _FolderPathClient:
+    """Three dossiers: one under the customer's reporting folder, one under a
+    sibling folder, and one whose search result carries no ancestry."""
+
+    def __init__(self) -> None:
+        self.definition_calls: List[str] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-company",
+                        "name": "Company P&L",
+                        "ancestors": _COMPANY_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-other",
+                        "name": "Other Team KPIs",
+                        "ancestors": _OTHER_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {"id": "dash-unknown", "name": "Unfiled"}
+                ),
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return _adhoc_predefined_folders(folder_types)
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        self.definition_calls.append(dossier_id)
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [{"id": f"ds-{dossier_id}", "name": "Dataset"}],
+                    "chapters": [
+                        {
+                            "key": "ch-1",
+                            "name": "Chapter",
+                            "pages": [
+                                {
+                                    "key": "pg-1",
+                                    "name": "Page",
+                                    "visualizations": [
+                                        {"key": f"viz-{dossier_id}", "name": "Grid"}
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Dataset",
+                "type": "3",
+                "subtype": "768",
+                "ancestors": _OTHER_ANCESTORS,
+            }
+        )
+
+
+def _run_adhoc_dashboards(source: MicroStrategySource) -> List[Any]:
+    return list(
+        source._process_project_dashboards(
+            _ADHOC_PROJECT, _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+
+def test_folder_path_pattern_allows_only_the_matching_nested_path() -> None:
+    source = _personal_folder_source(
+        {"folder_path_pattern": {"allow": [_COMPANY_PATTERN]}}
+    )
+    client = _FolderPathClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_adhoc_dashboards(source)
+
+    # Denied dossiers cost no definition fetch; the unfiled one cannot be
+    # matched, and a configured pattern treats that as not matching.
+    assert client.definition_calls == ["dash-company"]
+    assert source.report.dashboards_filtered_by_folder_path == 2
+    assert list(source.report.folder_path_filtered_samples) == [
+        "Other Team KPIs (Adhoc_RMA/Shared Reports/Other Team)",
+        "Unfiled (unresolved)",
+    ]
+    assert source.report.folder_paths_unresolved == 1
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.dashboard_urn("project-1", "dash-company") in urns
+    assert source.mapper.dashboard_urn("project-1", "dash-other") not in urns
+    assert source.mapper.dashboard_urn("project-1", "dash-unknown") not in urns
+    # Charts and datasets follow their dashboard: one of each, for the
+    # allowed dossier only.
+    assert (
+        source.mapper.chart_urn("project-1", "dash-company", "viz-dash-company") in urns
+    )
+    assert sum(1 for w in workunits if w.get_aspect_of_type(ChartInfoClass)) == 1
+    assert (
+        sum(1 for w in workunits if w.get_aspect_of_type(DatasetPropertiesClass)) == 1
+    )
+
+
+def test_folder_path_pattern_deny_wins_over_allow() -> None:
+    source = _personal_folder_source(
+        {
+            "folder_path_pattern": {
+                "allow": ["^Adhoc_RMA/Shared Reports/"],
+                "deny": ["^Adhoc_RMA/Shared Reports/Corporate P&A/"],
+            }
+        }
+    )
+    client = _FolderPathClient()
+    source.client = client  # type: ignore[assignment]
+
+    _run_adhoc_dashboards(source)
+
+    assert client.definition_calls == ["dash-other"]
+    assert source.report.dashboards_filtered_by_folder_path == 2
+
+
+def test_folder_path_pattern_default_ingests_everything() -> None:
+    source = _personal_folder_source()
+    client = _FolderPathClient()
+    source.client = client  # type: ignore[assignment]
+
+    _run_adhoc_dashboards(source)
+
+    # Default allow-all: no behaviour change, and the unfiled dossier is let
+    # through rather than silently dropped, with the gap recorded.
+    assert client.definition_calls == ["dash-company", "dash-other", "dash-unknown"]
+    assert source.report.dashboards_filtered_by_folder_path == 0
+    assert source.report.folder_paths_unresolved == 1
+    assert [w.title for w in source.report.warnings] == [_UNRESOLVED_TITLE]
+
+
+def test_folder_path_unresolved_is_skipped_once_a_pattern_is_set() -> None:
+    source = _personal_folder_source(
+        {"folder_path_pattern": {"allow": ["^Adhoc_RMA/"]}}
+    )
+    client = _FolderPathClient()
+    source.client = client  # type: ignore[assignment]
+
+    _run_adhoc_dashboards(source)
+
+    # Both filed dossiers match; the unfiled one cannot be shown to, so it
+    # is skipped and counted rather than widening the scope.
+    assert client.definition_calls == ["dash-company", "dash-other"]
+    assert source.report.folder_paths_unresolved == 1
+    assert source.report.dashboards_filtered_by_folder_path == 1
+    assert list(source.report.folder_path_filtered_samples) == ["Unfiled (unresolved)"]
+    assert [w.title for w in source.report.warnings] == [_UNRESOLVED_TITLE]
+
+
+class _FolderPathReportClient(_ReportSearchClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.definition_calls: List[str] = []
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return _adhoc_predefined_folders(folder_types)
+
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        self.search_calls += 1
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "REPORT-COMPANY",
+                        "name": "Company Detail",
+                        "type": "3",
+                        "ancestors": _COMPANY_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "REPORT-OTHER",
+                        "name": "Other Detail",
+                        "type": "3",
+                        "ancestors": _OTHER_ANCESTORS,
+                    }
+                ),
+            ]
+        )
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.definition_calls.append(report_id)
+        return {}
+
+
+def test_folder_path_pattern_scopes_reports_before_definition_fetch() -> None:
+    source = _report_scope_source(
+        {
+            "extract_independent_reports": True,
+            "extract_report_definitions": True,
+            "folder_path_pattern": {"allow": [_COMPANY_PATTERN]},
+        }
+    )
+    client = _FolderPathReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            _ADHOC_PROJECT, _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.definition_calls == ["REPORT-COMPANY"]
+    assert source.report.reports_filtered_by_folder_path == 1
+    assert list(source.report.folder_path_filtered_samples) == [
+        "Other Detail (Adhoc_RMA/Shared Reports/Other Team)"
+    ]
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.report_urn("project-1", "REPORT-COMPANY") in urns
+    assert source.mapper.report_urn("project-1", "REPORT-OTHER") not in urns
+
+
+def test_folder_path_pattern_applies_to_dashboard_linked_reports() -> None:
+    # A report an allowed dashboard links to is still filtered on its own
+    # path. _ReportSearchClient resolves no predefined folders, so the raw
+    # ancestor name is the path.
+    source = _report_scope_source(
+        {"folder_path_pattern": {"deny": ["^Sales Analytics/Shared Reports"]}}
+    )
+    client = _ReportSearchClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            _PROJECT, _LazyProjectLineage(source, "project-1", []), {"REPORT-1"}
+        )
+    )
+
+    assert client.object_info_calls == ["REPORT-1"]
+    assert source.report.reports_filtered_by_folder_path == 1
+    assert list(source.report.folder_path_filtered_samples) == [
+        "Linked Report (Sales Analytics/Shared Reports)"
+    ]
+    assert workunits == []
 
 
 class _InstanceModelClient(_ModelEmbeddedClient):
@@ -2429,7 +2742,7 @@ def test_report_metrics_read_statically_unless_instance_option_is_on() -> None:
 
     list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2447,7 +2760,7 @@ def test_instance_option_executes_report_and_releases_the_instance() -> None:
 
     list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2469,7 +2782,7 @@ def test_instance_failure_falls_back_to_the_static_definition() -> None:
 
     list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2518,7 +2831,7 @@ def test_document_derived_metrics_are_not_read_unless_instance_option_is_on() ->
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2536,7 +2849,7 @@ def test_document_derived_metric_formula_read_from_static_model_document() -> No
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 
@@ -2566,7 +2879,7 @@ def test_model_document_failure_is_counted_and_skipped() -> None:
 
     workunits = list(
         source._process_project_dashboards(
-            "project-1", _LazyProjectLineage(source, "project-1", [])
+            _PROJECT, _LazyProjectLineage(source, "project-1", [])
         )
     )
 

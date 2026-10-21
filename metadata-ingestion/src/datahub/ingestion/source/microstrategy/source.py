@@ -14,7 +14,7 @@ from typing import (
 import requests
 from pydantic import ValidationError
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -405,13 +405,13 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         )
         if self.config.extract_dashboards:
             yield from self._process_project_dashboards(
-                project.id,
+                project,
                 lineage_context,
                 linked_report_ids,
             )
         if self.config.extract_reports:
             yield from self._process_project_reports(
-                project.id,
+                project,
                 lineage_context,
                 linked_report_ids,
             )
@@ -538,13 +538,20 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_project_dashboards(
         self,
-        project_id: str,
+        project: Project,
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        project_id = project.id
         for dashboard_object in self.client.search_dashboards(project_id):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
                 self.report.filtered_dashboards.append(dashboard_object.name)
+                continue
+            if self._skip_by_folder_path(
+                project,
+                dashboard_object,
+                self.report.report_dashboard_filtered_by_folder_path,
+            ):
                 continue
             if self._skip_personal_object(project_id, dashboard_object):
                 continue
@@ -728,6 +735,55 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             mstr_object.name,
             mstr_object.id,
             project_id,
+        )
+        return True
+
+    def _skip_by_folder_path(
+        self,
+        project: Project,
+        mstr_object: MicroStrategyObject,
+        on_skip: Callable[[str], None],
+    ) -> bool:
+        """Apply folder_path_pattern before any definition is fetched, so a
+        denied dashboard or report costs no further API calls and nothing
+        under it (visualizations, datasets) is emitted. The path comes from
+        the same ancestry and relabelling as the browse path, so the two
+        always agree. An object whose ancestry is unknown cannot be matched:
+        under the default allow-all pattern it is let through with a warning,
+        since dropping it would silently shrink the catalog; under a
+        configured pattern it is skipped and counted, since letting it
+        through would silently widen the scope."""
+        pattern = self.config.folder_path_pattern
+        folder_path = self.mapper.folder_path(
+            project.name, mstr_object, self._predefined_folders(project.id)
+        )
+        if folder_path is None:
+            self.report.report_folder_path_unresolved()
+            self.report.warning(
+                title="Folder path unresolved",
+                message=(
+                    "The search result carried no folder ancestry, so "
+                    "folder_path_pattern could not be matched against the "
+                    "object; it is ingested under the default pattern and "
+                    "skipped once a pattern is configured."
+                ),
+                context=(
+                    f"project_id={project.id}, object_id={mstr_object.id}, "
+                    f"object_name={mstr_object.name}"
+                ),
+                log=False,
+            )
+            if _is_default_pattern(pattern):
+                return False
+        elif pattern.allowed(folder_path):
+            return False
+        on_skip(f"{mstr_object.name} ({folder_path or 'unresolved'})")
+        logger.debug(
+            "Skipping %r (%s) in project %s: folder path %r not allowed",
+            mstr_object.name,
+            mstr_object.id,
+            project.id,
+            folder_path,
         )
         return True
 
@@ -1212,10 +1268,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_project_reports(
         self,
-        project_id: str,
+        project: Project,
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Optional[Set[str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        project_id = project.id
         # Scope reports to those referenced by ingested dashboards when linkage exists;
         # otherwise there's nothing to scope by, so all matching reports are ingested.
         scope_to_dashboards = (
@@ -1237,7 +1294,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 )
                 return
             yield from self._process_linked_reports(
-                project_id,
+                project,
                 lineage_context,
                 linked_report_ids,
             )
@@ -1245,6 +1302,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         for report_object in self.client.search_reports(project_id):
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
+                continue
+            if self._skip_by_folder_path(
+                project,
+                report_object,
+                self.report.report_report_filtered_by_folder_path,
+            ):
                 continue
             if self._skip_personal_object(project_id, report_object):
                 continue
@@ -1256,10 +1319,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
 
     def _process_linked_reports(
         self,
-        project_id: str,
+        project: Project,
         lineage_context: "_LazyProjectLineage",
         linked_report_ids: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
+        project_id = project.id
         # Dashboard-linked reports are fetched directly by id: enumerating the library
         # to find a handful means paginating tens of thousands of objects (minutes per
         # project) and was the largest exposure window to mid-run session loss.
@@ -1281,6 +1345,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 continue
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
+                continue
+            if self._skip_by_folder_path(
+                project,
+                report_object,
+                self.report.report_report_filtered_by_folder_path,
+            ):
                 continue
             if self._skip_personal_object(project_id, report_object):
                 continue
@@ -2393,6 +2463,12 @@ def _metric_items(available_objects: Dict[str, object]) -> Iterable[Dict[str, ob
         for metric in metrics:
             if isinstance(metric, dict):
                 yield metric
+
+
+def _is_default_pattern(pattern: AllowDenyPattern) -> bool:
+    """The field default: everything allowed, nothing denied."""
+    default = AllowDenyPattern.allow_all()
+    return pattern.allow == default.allow and pattern.deny == default.deny
 
 
 def _is_report_dependency(dependency: MicroStrategyObject) -> bool:

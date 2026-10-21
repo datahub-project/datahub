@@ -340,19 +340,50 @@ class MicroStrategyMapper:
             external_url=f"{self.config.base_url}/app/{project.id}",
         )
 
+    @staticmethod
+    def folder_path_names(
+        mstr_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
+    ) -> List[str]:
+        """The folders an object is filed under, top down, named as the
+        browse path shows them: system containers Strategy Web never
+        displays are omitted and predefined folders carry their
+        MicroStrategy-assigned label. The single source for folder
+        containers and for `folder_path_pattern`, so the two cannot drift."""
+        return [
+            _resolve_folder_name(part, predefined_folders)
+            for part in extract_folder_parts(mstr_object.model_dump())
+            if not _is_hidden_folder(part, predefined_folders)
+        ]
+
+    def folder_path(
+        self,
+        project_name: str,
+        mstr_object: MicroStrategyObject,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
+    ) -> Optional[str]:
+        """The path a user navigates to reach the object in Strategy Web, for
+        `folder_path_pattern`: the project name, then the folders the browse
+        path shows, joined with '/'. `folder_pattern` plays no part: it
+        re-parents containers, it does not move objects. None when the object
+        carries no folder ancestry at all, which is distinct from an object
+        filed in the (hidden) project root, whose path is the bare project
+        name."""
+        if not extract_folder_parts(mstr_object.model_dump()):
+            return None
+        return "/".join(
+            [project_name, *self.folder_path_names(mstr_object, predefined_folders)]
+        )
+
     def gen_folder_containers(
         self,
         project_id: str,
         dashboard_object: MicroStrategyObject,
         predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        parts = extract_folder_parts(dashboard_object.model_dump())
         parent_key: Optional[ProjectKey] = self.project_key(project_id)
         current_path = ""
-        for part in parts:
-            if _is_hidden_folder(part, predefined_folders):
-                continue
-            name = _resolve_folder_name(part, predefined_folders)
+        for name in self.folder_path_names(dashboard_object, predefined_folders):
             if not self.config.folder_pattern.allowed(name):
                 continue
             current_path = f"{current_path}/{name}" if current_path else name
@@ -372,14 +403,9 @@ class MicroStrategyMapper:
         dashboard_object: MicroStrategyObject,
         predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> ProjectKey:
-        parts = extract_folder_parts(dashboard_object.model_dump())
         allowed_names = [
             name
-            for name in (
-                _resolve_folder_name(part, predefined_folders)
-                for part in parts
-                if not _is_hidden_folder(part, predefined_folders)
-            )
+            for name in self.folder_path_names(dashboard_object, predefined_folders)
             if self.config.folder_pattern.allowed(name)
         ]
         if not allowed_names:

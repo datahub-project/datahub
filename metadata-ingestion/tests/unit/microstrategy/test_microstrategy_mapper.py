@@ -1941,6 +1941,45 @@ def test_report_source_dataset_subtype_is_cube_when_the_report_reads_a_cube() ->
     assert sub_types.typeNames == ["Cube"]
 
 
+def test_folder_path_is_the_project_then_the_visible_folders() -> None:
+    # The path a user navigates in Strategy Web: the project, then the
+    # folders the browse path shows. folder_pattern re-parents containers;
+    # it must not move an object's path.
+    mapper = _mapper(folder_pattern={"deny": ["^Shared Reports$"]})
+    filed = _dataset_object(
+        "768",
+        [
+            {"id": "project-root-id", "name": "Adhoc_RMA"},
+            {"id": "public-objects-id", "name": "Public Objects"},
+            {"id": "reports-folder-id", "name": "Reports"},
+            {"id": "f-pa", "name": "Corporate P&A"},
+            {"id": "f-company", "name": "_Company Reporting"},
+        ],
+    )
+    resolution = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"},
+        hidden_ids={"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"},
+    )
+
+    assert (
+        mapper.folder_path("Adhoc_RMA", filed, resolution)
+        == "Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting"
+    )
+    # Without predefined-folder resolution the raw hierarchy is the path,
+    # exactly as the browse path then shows it.
+    assert (
+        mapper.folder_path("Adhoc_RMA", filed, None)
+        == "Adhoc_RMA/Adhoc_RMA/Public Objects/Reports/Corporate P&A/_Company Reporting"
+    )
+    # Filed in the hidden project root: the bare project name. No ancestry
+    # at all: no path, so a caller can tell the two apart.
+    in_root = _dataset_object("768", [{"id": "project-root-id", "name": "Adhoc_RMA"}])
+    assert mapper.folder_path("Adhoc_RMA", in_root, resolution) == "Adhoc_RMA"
+    assert (
+        mapper.folder_path("Adhoc_RMA", _dataset_object("768", []), resolution) is None
+    )
+
+
 def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> None:
     # The dataset's own ancestry (one folder deeper than the dossier) drives
     # its browse path, with the same predefined-folder relabelling and

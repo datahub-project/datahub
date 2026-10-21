@@ -122,7 +122,33 @@ class MicroStrategyConfig(
             "intermediate folder is denied, its children re-parent to the "
             "nearest allowed ancestor rather than being dropped, so this "
             "cannot exclude content; personal folders are excluded by "
-            "`include_personal_folders` instead."
+            "`include_personal_folders` instead. To scope by location use "
+            "`folder_path_pattern`."
+        ),
+    )
+    folder_path_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description=(
+            "Regex patterns to filter dashboards, documents and reports by the "
+            "folder path they are filed under. The path is the project name, "
+            "then each folder from the project root down to the object's own "
+            "folder, joined with `/`, for example "
+            "`Adhoc_RMA/Shared Reports/Corporate P&A/_Company Reporting`. "
+            "Folder names are the ones the browse path shows: with "
+            "`use_predefined_folder_names` the project root folder and 'Public "
+            "Objects' are omitted and 'Shared Reports' carries its "
+            "MicroStrategy-assigned label; `folder_pattern` plays no part. "
+            "Patterns match from the start of the path, so anchor with `$` or "
+            "`(/|$)` to stop a folder matching its similarly named siblings. "
+            "Unlike `folder_pattern`, a denied path excludes the object: it is "
+            "skipped before any definition is fetched or instance executed, so "
+            "its visualizations and datasets are not emitted either, and the "
+            "skip is counted in `dashboards_filtered_by_folder_path` / "
+            "`reports_filtered_by_folder_path`. Dashboard-linked reports are "
+            "filtered on their own path. An object whose folder ancestry the "
+            "search result does not carry cannot be matched (counted in "
+            "`folder_paths_unresolved`): it is ingested with a warning under "
+            "the default allow-all pattern and skipped once a pattern is set."
         ),
     )
     include_personal_folders: bool = Field(

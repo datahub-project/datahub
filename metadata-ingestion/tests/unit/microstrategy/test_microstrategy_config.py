@@ -117,3 +117,17 @@ def test_dataset_field_order_rejects_unknown_values() -> None:
                 "dataset_field_order": "grid",
             }
         )
+
+
+def test_folder_path_pattern_defaults_to_allow_all() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+
+    assert config.folder_path_pattern.allowed("Adhoc_RMA/Shared Reports/Anything")
+    assert not MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "folder_path_pattern": {"deny": ["^Adhoc_RMA/Shared Reports/Archive"]},
+        }
+    ).folder_path_pattern.allowed("Adhoc_RMA/Shared Reports/Archive/Old")
