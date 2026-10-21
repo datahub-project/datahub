@@ -125,3 +125,54 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
 def test_cranfield_grades_invert_onto_a_gain_scale() -> None:
     assert cranfield_relevance(1) > cranfield_relevance(4) > 0
     assert cranfield_relevance(-1) == 0
+
+
+def test_structured_property_judgments_cover_fulltext_probes() -> None:
+    judgments = json.loads((pack_dir() / "judgments.json").read_text())
+    structured = [
+        item
+        for item in judgments["judgments"]
+        if item["group"] == "structured-property"
+    ]
+    assert [item["id"] for item in structured] == [
+        "structured-property-string-opt-in",
+        "structured-property-urn-opt-in",
+        "structured-property-urn-opt-in-identity",
+        "structured-property-string-opt-out-fulltext",
+        "structured-property-urn-opt-out-fulltext",
+        "structured-property-string-opt-out-filter",
+        "structured-property-urn-opt-in-filter",
+        "structured-property-urn-opt-out-filter",
+        "structured-property-boosted-ranking",
+        "structured-property-fulltext-token",
+        "structured-property-fulltext-stem",
+        "structured-property-fulltext-phrase",
+        "structured-property-fulltext-case",
+    ]
+    by_id = {item["id"]: item for item in structured}
+    for query_id in (
+        "structured-property-string-opt-out-fulltext",
+        "structured-property-urn-opt-out-fulltext",
+    ):
+        assert by_id[query_id]["expectNoHits"] is True
+    filtered = by_id["structured-property-string-opt-out-filter"]
+    assert filtered["query"] == "*"
+    assert filtered["filter"] == {
+        "field": "structuredProperties.packStringFilter",
+        "condition": "EQUAL",
+        "value": "packstringoptout",
+    }
+    assert filtered["exactTopHit"] == filtered["grades"][0]["urn"]
+    for query_id in (
+        "structured-property-fulltext-token",
+        "structured-property-fulltext-stem",
+        "structured-property-fulltext-phrase",
+        "structured-property-fulltext-case",
+    ):
+        item = by_id[query_id]
+        assert item["surfaces"] == ["keyword"]
+        assert item["exactTopHit"]
+        assert item["matchedFieldContains"] == {
+            "value": "structuredProperties.catalogProbeTier",
+            "hits": 1,
+        }

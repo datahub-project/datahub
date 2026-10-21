@@ -18,6 +18,14 @@ ACTOR = "urn:li:corpuser:datahub"
 CRANFIELD_PLATFORM = "urn:li:dataPlatform:cranfield"
 PROBE_PLATFORM = "urn:li:dataPlatform:catalogprobe"
 PROBE_PROPERTY = "urn:li:structuredProperty:catalogProbeTier"
+# Nonce words. A real word such as "tier" is already a dataset name, and that
+# name outranks the property, so the light rung would stop on the wrong hit.
+FULLTEXT_PROBE_VALUE = "Zephyrical Quorvane Plinth"
+FULLTEXT_PROBE_TOKENS = ("zephyrical", "quorvane", "plinth")
+FULLTEXT_PROBE_FIELD = "structuredProperties.catalogProbeTier"
+SEARCHABLE_TEXT_FIELDS = frozenset(
+    {"name", "qualifiedName", "description", "title", "displayName", "text"}
+)
 STRING_OPT_IN_PROPERTY = "urn:li:structuredProperty:packStringSearch"
 STRING_OPT_OUT_PROPERTY = "urn:li:structuredProperty:packStringFilter"
 URN_OPT_IN_PROPERTY = "urn:li:structuredProperty:packUrnSearch"
@@ -267,6 +275,7 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     urn_opt_in = URN_OPT_IN_DATASET
     urn_opt_out = dataset_urn("catalogprobe", "urn_filter_asset")
     description_competitor = dataset_urn("catalogprobe", "boosted_description_asset")
+    fulltext = dataset_urn("catalogprobe", "analyzer_asset")
     entities = [
         (
             exact,
@@ -322,6 +331,12 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "catalogprobe.boosted_description_asset",
             "Dataset whose description contains the boosted property phrase: packboostalpha packboostbravo.",
         ),
+        (
+            fulltext,
+            "Catalogprobe Analyzer Asset",
+            "catalogprobe.analyzer_asset",
+            "Dataset carrying a mixed-case structured property for analyzer probes.",
+        ),
     ]
     proposals: list[dict[str, Any]] = []
     for urn, name, qualified, description in entities:
@@ -345,6 +360,24 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     {
                         "propertyUrn": PROBE_PROPERTY,
                         "values": [{"string": "catalogprobegold"}],
+                        "created": stamp(),
+                        "lastModified": stamp(),
+                    }
+                ]
+            },
+        )
+    )
+    # The phrase below is not this whole value, so the case-sensitive keyword
+    # term cannot explain it. A stem of the last word matches only .stemmed.
+    proposals.append(
+        mcp(
+            fulltext,
+            "structuredProperties",
+            {
+                "properties": [
+                    {
+                        "propertyUrn": PROBE_PROPERTY,
+                        "values": [{"string": FULLTEXT_PROBE_VALUE}],
                         "created": stamp(),
                         "lastModified": stamp(),
                     }
@@ -519,6 +552,20 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "grades": [{"urn": BOOSTED_PROPERTY_DATASET, "relevance": 1}],
             "exactTopHit": BOOSTED_PROPERTY_DATASET,
         },
+        fulltext_property_probe(
+            "structured-property-fulltext-token", "zephyrical", fulltext
+        ),
+        fulltext_property_probe(
+            "structured-property-fulltext-stem", "plinths", fulltext
+        ),
+        fulltext_property_probe(
+            "structured-property-fulltext-phrase", '"zephyrical quorvane"', fulltext
+        ),
+        fulltext_property_probe(
+            "structured-property-fulltext-case",
+            "zephyrical quorvane plinth",
+            fulltext,
+        ),
     ]
     return proposals, judgments
 
@@ -539,6 +586,19 @@ def catalog_query(
         "surfaces": ["keyword"],
         "entityTypes": KEYWORD_ENTITY_TYPES,
         "grades": [{"urn": urn, "relevance": relevance} for urn, relevance in grades],
+    }
+
+
+def fulltext_property_probe(query_id: str, query: str, urn: str) -> dict[str, Any]:
+    return {
+        "id": query_id,
+        "group": "structured-property",
+        "query": query,
+        "surfaces": ["keyword"],
+        "entityTypes": ["dataset"],
+        "grades": [{"urn": urn, "relevance": 1}],
+        "exactTopHit": urn,
+        "matchedFieldContains": {"value": FULLTEXT_PROBE_FIELD, "hits": 1},
     }
 
 
@@ -1108,6 +1168,40 @@ def load_mcps(directory: Path) -> dict[str, list[dict[str, Any]]]:
     return loaded
 
 
+def iter_searchable_text(payload: Any) -> Iterable[str]:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key in SEARCHABLE_TEXT_FIELDS and isinstance(value, str):
+                yield value
+            else:
+                yield from iter_searchable_text(value)
+    elif isinstance(payload, list):
+        for item in payload:
+            yield from iter_searchable_text(item)
+
+
+def assert_fulltext_probe_tokens_absent(
+    loaded: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Probe tokens must not appear in a name or description.
+
+    Name fields outrank a structured property, so a shared word would make
+    exactTopHit a name hit and the light rung would stop there.
+    """
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                folded = text.casefold()
+                for token in FULLTEXT_PROBE_TOKENS:
+                    if token not in folded:
+                        continue
+                    raise AssertionError(
+                        f"{token} appears in {path} {proposal.get('aspectName')} "
+                        f"on {proposal.get('entityUrn')}"
+                    )
+
+
 def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
     allowed_groups = {
         "benchmark",
@@ -1181,6 +1275,7 @@ def validate_pack(directory: Path) -> None:
     ]
     if len(benchmark) != 225:
         raise AssertionError(f"Expected 225 benchmark queries, found {len(benchmark)}")
+    assert_fulltext_probe_tokens_absent(loaded)
 
 
 def generate(root: Path | None = None) -> Path:
@@ -1292,6 +1387,7 @@ def generate(root: Path | None = None) -> Path:
         f"Wrote search-quality pack to {directory} "
         f"mcps={sum(len(items) for items in shards.values()) + kept} judgments={counts}"
     )
+    validate_pack(directory)
     return directory
 
 
