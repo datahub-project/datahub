@@ -397,3 +397,28 @@ class TestServerUrlNormalization:
         ):
             config = load_client_config()
             assert config.server == "https://abc.acryl.io/gms"
+
+    def test_custom_hostname_is_untouched(self):
+        # The rewrite keys on acryl.io; a Cloud tenant on a vanity domain, or a
+        # self-hosted instance on a real hostname, is passed through as typed.
+        config = DatahubClientConfig(server="https://datahub.example.com")
+        assert config.server == "https://datahub.example.com"
+
+    def test_load_client_config_from_file_normalizes_cloud_url(self):
+        test_config = {"gms": {"server": "https://abc.acryl.io", "token": "t"}}
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=False),
+            patch.object(config_utils, "_ensure_datahub_config"),
+            patch.object(
+                config_utils, "get_raw_client_config", return_value=test_config
+            ),
+        ):
+            config = load_client_config()
+            assert config.server == "https://abc.acryl.io/gms"
+
+    def test_rest_sink_config_inherits_normalization(self):
+        from datahub.ingestion.sink.datahub_rest import DatahubRestSinkConfig
+
+        config = DatahubRestSinkConfig(server="https://abc.acryl.io")
+        assert config.server == "https://abc.acryl.io/gms"
