@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import {
-    downgradeV2FieldPath,
     getParentPath,
     groupByFieldPath,
     hasNestedSchemaRows,
     normalizeFieldPathKey,
     pathMatchesInsensitiveToV2,
 } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 
 import { SchemaField, SchemaFieldDataType } from '@types';
 

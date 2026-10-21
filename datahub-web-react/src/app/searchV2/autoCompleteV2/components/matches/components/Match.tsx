@@ -6,7 +6,7 @@ import { FontColorLevelOptions, FontColorOptions } from '@components/theme/confi
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { isChart } from '@app/entityV2/chart/utils';
 import { isDashboard } from '@app/entityV2/dashboard/utils';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { matchedInputFieldParams } from '@app/search/matches/matchedInputFieldRenderer';
 import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';

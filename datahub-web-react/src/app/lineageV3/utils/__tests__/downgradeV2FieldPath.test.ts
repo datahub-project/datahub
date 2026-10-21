@@ -19,8 +19,14 @@ describe('downgradeV2FieldPath', () => {
         expect(downgradeV2FieldPath(null)).toBeNull();
     });
 
-    // Unlike the schema utils version, this one keeps bracket suffixes inside a segment.
-    it('keeps bracket suffixes that are part of a segment', () => {
-        expect(downgradeV2FieldPath('[version=2.0].[type=array].addresses[0].city')).toBe('addresses[0].city');
+    it('strips bracket suffixes attached to a name', () => {
+        expect(downgradeV2FieldPath('[version=2.0].[type=array].addresses[0].city')).toBe('addresses.city');
+        expect(downgradeV2FieldPath('data[0][1].value')).toBe('data.value');
+        expect(downgradeV2FieldPath('event.custom_fields[user_id]')).toBe('event.custom_fields');
+    });
+
+    it('keeps brackets that are part of a column name', () => {
+        expect(downgradeV2FieldPath('DOC [mg/L C]')).toBe('DOC [mg/L C]');
+        expect(downgradeV2FieldPath('Temp [C]')).not.toBe(downgradeV2FieldPath('Temp [F]'));
     });
 });

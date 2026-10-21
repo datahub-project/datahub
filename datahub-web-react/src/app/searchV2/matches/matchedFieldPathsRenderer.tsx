@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 
 import { MatchedField } from '@types';
 
