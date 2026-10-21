@@ -130,6 +130,29 @@ public class UnknownEntityUrnStripperTest {
     assertEquals(data.getDataMap("byName"), new DataMap(Map.of("a", nestedKnown)));
   }
 
+  @Test
+  public void testNestedUrnsAreTheKeyPartsTheUrnGrammarDefines() {
+    // Nested urns are found the way the urn parser splits a key, not by searching the text.
+    DataMap data =
+        new DataMap(
+            Map.of(
+                "owner",
+                KNOWN,
+                "byName",
+                new DataMap(
+                    Map.of(
+                        // Text inside a key part is not a nested urn, whatever it contains.
+                        "fieldText", "urn:li:dataset:(" + KNOWN + ",f(" + UNKNOWN + "))",
+                        // A single-part key that is itself a urn is a nested urn.
+                        "singlePart", "urn:li:dataset:" + UNKNOWN,
+                        "singlePartInTuple", "urn:li:dataset:(urn:li:dataset:" + UNKNOWN + ",col)",
+                        // An empty entity type in one part doesn't hide an unknown one later.
+                        "afterMalformed", "urn:li:dataset:(urn:li::x," + UNKNOWN + ")"))));
+
+    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 3);
+    assertEquals(data.getDataMap("byName").keySet(), java.util.Set.of("fieldText"));
+  }
+
   private static RecordTemplate record(DataMap data) {
     return new RecordTemplate(data, SCHEMA) {};
   }
