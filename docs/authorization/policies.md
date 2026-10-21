@@ -73,6 +73,33 @@ The associations in the list above are an _intersection_ or an _AND_ operation. 
 `1. resource type: dataset` and `3. resources tagged: 'myTag'`, it will apply to datasets that are tagged with tag 'myTag'.
 :::
 
+##### Match Conditions
+
+Each resource filter has a match condition that controls how its values are compared against the asset. You can set the condition for each filter in the policy builder UI, or through the `condition` field of a criterion in the API.
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies/policy-match-condition.png"/>
+</p>
+
+| Condition     | UI label    | The filter matches an asset when...                                                           |
+| ------------- | ----------- | --------------------------------------------------------------------------------------------- |
+| `EQUALS`      | Equals      | The asset has at least one of the selected values. This is the default.                       |
+| `NOT_EQUALS`  | Not Equals  | The asset has none of the selected values.                                                    |
+| `STARTS_WITH` | Starts With | At least one of the asset's values starts with the entered prefix (for example a URN prefix). |
+
+For example, a policy with resource type `Equals dataset` and domain `Not Equals Finance` applies to every dataset that is not in the Finance domain.
+
+Keep the following in mind when using conditions:
+
+- **Hierarchies are respected.** Domain and container filters compare against the asset's full parent chain. `Not Equals`
+  on a domain or container therefore also excludes assets in its nested child domains or containers.
+- **`Starts With` compares raw values.** For resource URNs, tags, domains, containers, and glossary terms, the prefix is
+  matched against the URN, for example `urn:li:tag:pii_` matches `urn:li:tag:pii_email` and `urn:li:tag:pii_phone`.
+- **Resource types do not offer `Starts With` in the UI.** The privileges you can choose depend on the selected resource
+  types, so a prefix would leave no privileges to select. Use `Equals` or `Not Equals` instead.
+- **Changing to or from `Starts With` clears the filter's values**, because a prefix and a list of selected assets are
+  not interchangeable. Switching between `Equals` and `Not Equals` keeps your selections.
+
 ##### Domain-Based Policy Targeting
 
 Policies can be targeted to assets based on **Domains**. This allows you to apply permissions to all assets within a specific business domain.

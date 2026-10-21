@@ -12,7 +12,8 @@ import com.linkedin.common.Edge
  * Information about a chart
  */
 @Aspect = {
-  "name": "chartInfo"
+  "name": "chartInfo",
+  "schemaVersion": 2
 }
 record ChartInfo includes CustomProperties, ExternalReference {
 
@@ -24,8 +25,14 @@ record ChartInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   title: string
 
@@ -33,7 +40,15 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Detailed description about the chart
    */
   @Searchable = {
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: string
 
@@ -41,9 +56,25 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Captures information about who created/last modified/deleted this chart and when
    */
   @Searchable = {
+    "/created/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
+    },
     "/lastModified/time": {
       "fieldName": "lastModifiedAt",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: ChangeAuditStamps
@@ -52,8 +83,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
   @Searchable = {
-    "fieldType": "KEYWORD",
-    "searchTier": 4
+    "fieldType": "KEYWORD"
   }
   chartUrl: optional Url
 
@@ -94,8 +124,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Chart Type",
-    "searchTier": 3
+    "filterNameOverride": "Chart Type"
   }
   type: optional ChartType
 
@@ -105,8 +134,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Access Level",
-    "searchTier": 4
+    "filterNameOverride": "Access Level"
   }
   access: optional AccessLevel
 

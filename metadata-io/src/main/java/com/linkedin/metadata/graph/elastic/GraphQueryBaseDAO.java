@@ -35,6 +35,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -154,7 +156,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.GRAPH,
+                () ->
+                    graphClient(opContext)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -213,7 +220,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     try (CascadeOperationContext cascade =
         CascadeOperationContext.beginWithoutMDC(
-            metricUtils, "getLineage", entityUrn, -1, "datahub.lineage.graph_walk")) {
+                metricUtils, "getLineage", entityUrn, -1, "datahub.lineage.graph_walk")
+            .logCompletionAtInfo()) {
       for (int i = 0; i < maxHops; i++) {
         if (currentLevel.isEmpty()) {
           break;
@@ -228,7 +236,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           break;
         }
 
-        cascade.recordHop();
+        cascade.recordHop(currentLevel.size());
         int sizeBefore = result.size();
         // Do one hop on the lineage graph
         Stream<Urn> intermediateStream =
@@ -508,7 +516,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     try {
       if (metricUtils != null)
         metricUtils.increment(this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-      return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.time(
+          metricUtils,
+          SearchOperation.GRAPH,
+          () -> graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -718,7 +729,12 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.GRAPH,
+                () ->
+                    graphClient(opContext)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1290,7 +1306,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             if (metricUtils != null)
               metricUtils.increment(
                   this.getClass(), GraphQueryConstants.SEARCH_EXECUTIONS_METRIC, 1);
-            return graphClient(opContext).search(opContext, request, RequestOptions.DEFAULT);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.GRAPH,
+                () -> graphClient(opContext).search(opContext, request, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);
@@ -1377,7 +1396,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
     try (CascadeOperationContext cascade =
         CascadeOperationContext.beginWithoutMDC(
-            metricUtils, "getImpactLineage", entityUrn, -1, "datahub.lineage.graph_walk")) {
+                metricUtils, "getImpactLineage", entityUrn, -1, "datahub.lineage.graph_walk")
+            .logCompletionAtInfo()) {
       for (int i = 0; i < maxHops; i++) {
         if (currentLevel.isEmpty()) {
           break;
@@ -1410,7 +1430,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           }
         }
 
-        cascade.recordHop();
+        cascade.recordHop(currentLevel.size());
         // About to get lineage for `currentLevel`: annotate with `explored`
         currentLevel.forEach(
             urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));

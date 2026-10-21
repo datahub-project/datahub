@@ -58,6 +58,9 @@ const datasetWithViewPermission = {
 const queryWithProperties = {
     type: EntityType.Query,
     urn: 'urn:li:query:1',
+    privileges: {
+        canViewQueries: true,
+    },
     properties: {
         statement: {
             value: 'SELECT * FROM my_table WHERE id = 123',
@@ -565,6 +568,44 @@ describe('Sidebar Logic Components', () => {
                 'noopener,noreferrer',
             );
             openSpy.mockRestore();
+        });
+
+        it('does not render when canViewQueries is false', () => {
+            const queryWithoutViewPermission = {
+                ...queryWithProperties,
+                privileges: {
+                    canViewQueries: false,
+                },
+            };
+
+            const { container } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithoutViewPermission,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithoutViewPermission },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(container.firstChild).toBeNull();
         });
 
         it('does not render when no query properties are present', () => {

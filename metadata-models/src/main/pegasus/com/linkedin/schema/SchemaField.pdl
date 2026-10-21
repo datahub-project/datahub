@@ -17,7 +17,17 @@ record SchemaField {
     "fieldName": "fieldPaths",
     "fieldType": "TEXT",
     "boostScore": 1.0,
-    "queryByDefault": "true"
+    "queryByDefault": "true",
+    "v3": {
+      "searchLabel": "name",
+      "degree": 1,
+      "queryByDefault": false,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   fieldPath: SchemaFieldPath
 
@@ -38,8 +48,20 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldDescriptions",
     "fieldType": "TEXT",
-    "boostScore": 0.1,
-    "sanitizeRichText": true
+    "boostScore": 1.0,
+    "sanitizeRichText": true,
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "degree": 1,
+      "boostScore": 0.5,
+      "queryByDefault": false,
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -53,7 +75,17 @@ record SchemaField {
   @Searchable = {
     "fieldName": "fieldLabels",
     "fieldType": "TEXT",
-    "boostScore": 0.2
+    "boostScore": 1.0,
+    "v3": {
+      "searchLabel": "name",
+      "degree": 1,
+      "queryByDefault": false,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   @Deprecated
   label: optional string
@@ -96,7 +128,17 @@ record SchemaField {
     "/tags/*/tag": {
       "fieldName": "fieldTags",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "hasValuesFieldName": "hasTags",
+      "v3": {
+        "searchLabel": "tags",
+        "degree": 1,
+        "boostScore": 0.25,
+        "queryByDefault": false,
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     },
     "/tags/*/attribution/time": {
         "fieldName": "fieldTagAttributionDates",
@@ -129,7 +171,17 @@ record SchemaField {
     "/terms/*/urn": {
       "fieldName": "fieldGlossaryTerms",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "hasValuesFieldName": "hasGlossaryTerms",
+      "v3": {
+        "searchLabel": "glossaryTerms",
+        "degree": 1,
+        "boostScore": 0.25,
+        "queryByDefault": false,
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     },
     "/terms/*/attribution/time": {
         "fieldName": "fieldTermAttributionDates",

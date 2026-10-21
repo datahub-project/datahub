@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -568,6 +569,36 @@ public class Constants {
   public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
       "dataHubPageTemplateProperties";
   public static final String DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME = "dataHubPageTemplateKey";
+
+  // Search query templates
+  public static final String SEARCH_TEMPLATE_ENTITY_NAME = "searchTemplate";
+  public static final String SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME = "searchTemplateProperties";
+  public static final String SEARCH_TEMPLATE_KEY_ASPECT_NAME = "searchTemplateKey";
+  public static final String SEARCH_TEMPLATE_FULLTEXT_URN = "urn:li:searchTemplate:fulltext";
+  public static final String SEARCH_TEMPLATE_LIGHT_URN = "urn:li:searchTemplate:light";
+  public static final String SEARCH_TEMPLATE_LIST_URN = "urn:li:searchTemplate:list";
+  public static final String SEARCH_TEMPLATE_STRUCTURED_URN = "urn:li:searchTemplate:structured";
+  public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
+  public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
+      "urn:li:searchTemplate:structuredExact";
+  public static final String SEARCH_TEMPLATE_LINEAGE_URN = "urn:li:searchTemplate:lineage";
+  public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
+  public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
+  public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
+      Set.of(
+          "fulltext",
+          "light",
+          "list",
+          "structured",
+          "exact",
+          "structuredExact",
+          "lineage",
+          "identity",
+          "search",
+          "searchLight",
+          "browseV2",
+          "browseV2List",
+          "browseV2Fulltext");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";

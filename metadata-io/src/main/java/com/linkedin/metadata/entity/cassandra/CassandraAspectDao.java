@@ -649,6 +649,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn) {
+    // Not implemented
+    return -1;
+  }
+
+  @Override
   @Nullable
   public <R> R streamAspectBatches(
       @Nonnull final OperationContext operationContext,

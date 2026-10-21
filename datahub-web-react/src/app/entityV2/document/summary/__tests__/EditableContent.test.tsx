@@ -12,6 +12,32 @@ const { updateContents, updateRelatedEntities } = vi.hoisted(() => ({
     updateRelatedEntities: vi.fn().mockResolvedValue(true),
 }));
 
+vi.mock('@components/components/Editor', () => ({
+    Editor: ({
+        content,
+        onChange,
+        readOnly,
+        belowToolbar,
+        ...rest
+    }: {
+        content?: string;
+        onChange?: (value: string) => void;
+        readOnly?: boolean;
+        belowToolbar?: React.ReactNode;
+        'data-testid'?: string;
+    }) => (
+        <>
+            <textarea
+                data-testid={rest['data-testid']}
+                readOnly={readOnly}
+                value={content ?? ''}
+                onChange={(event) => onChange?.(event.target.value)}
+            />
+            {belowToolbar}
+        </>
+    ),
+}));
+
 vi.mock('@components', async () => {
     const actual = await vi.importActual<typeof import('@components')>('@components');
     return {

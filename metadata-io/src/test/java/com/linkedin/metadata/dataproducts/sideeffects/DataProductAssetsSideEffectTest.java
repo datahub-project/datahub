@@ -87,9 +87,14 @@ public class DataProductAssetsSideEffectTest {
     mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObjects(any(), any(), any())).thenReturn(Map.of());
+    SearchRetriever searchRetriever = mock(SearchRetriever.class);
+    ScrollResult emptyScroll = new ScrollResult();
+    emptyScroll.setEntities(new SearchEntityArray());
+    emptyScroll.setNumEntities(0);
+    when(searchRetriever.scroll(any(), any(), any(), any(), any(), any())).thenReturn(emptyScroll);
     retrieverContext =
         RetrieverContext.builder()
-            .searchRetriever(mock(SearchRetriever.class))
+            .searchRetriever(searchRetriever)
             .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
@@ -292,8 +297,8 @@ public class DataProductAssetsSideEffectTest {
                             .equals(item)));
   }
 
-  @Test
-  public void testSystemUpdateEmitsAddsWhenStaleMirrorScrollFails() {
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testSystemUpdateFailsWhenStaleMirrorScrollFails() {
     SearchRetriever mockSearchRetriever = mock(SearchRetriever.class);
     when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
         .thenThrow(new RuntimeException("search unavailable"));
@@ -312,20 +317,8 @@ public class DataProductAssetsSideEffectTest {
 
     ChangeItemImpl change =
         changeItem(propsWith(DATASET_1, DATASET_2), ChangeType.UPSERT, systemMetadata);
-    List<MCPItem> output = run(change, propsWith(DATASET_1, DATASET_2));
-
-    assertEquals(
-        output.size(),
-        2,
-        "Scroll failure should still emit ADD patches for current members: " + output);
-    assertTrue(
-        output.stream()
-            .allMatch(
-                item ->
-                    expectedAssetPatch(item.getUrn(), PatchOperationType.ADD, false, change)
-                        .equals(item)));
-    assertTrue(output.stream().anyMatch(item -> DATASET_1.equals(item.getUrn())));
-    assertTrue(output.stream().anyMatch(item -> DATASET_2.equals(item.getUrn())));
+    // A scroll failure must fail the batch so resync does not advance LAST_URN.
+    run(change, propsWith(DATASET_1, DATASET_2));
   }
 
   @Test

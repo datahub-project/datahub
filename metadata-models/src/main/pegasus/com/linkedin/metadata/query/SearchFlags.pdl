@@ -1,5 +1,7 @@
 namespace com.linkedin.metadata.query
 
+import com.linkedin.common.Urn
+
 /**
  * Set of flags to control search behavior
  */
@@ -129,4 +131,11 @@ record SearchFlags {
    * suitable floor must be calibrated per deployment rather than assumed.
    */
   minScore: optional float
+
+  /**
+   * Caller-selected search template URN. When set, selection skips classification, sub-intent,
+   * and engine lookup. The resolved template is not written back onto this field. The caller must
+   * have the MANAGE_SYSTEM_OPERATIONS privilege.
+   */
+  searchTemplate: optional Urn
 }

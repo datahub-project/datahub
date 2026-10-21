@@ -1,8 +1,9 @@
-import { Button, Editor } from '@components';
+import { Button } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';
@@ -38,7 +39,8 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean; $isEmpty?: boolean
             padding: 0px 0;
             ${(props) => props.$isEmpty && `min-height: 460px;`}
         }
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             font-size: 15px;
             line-height: 1.7;
             color: ${(props) => props.theme.colors.text};

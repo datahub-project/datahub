@@ -39,16 +39,20 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
     const theme = useTheme();
     const { t } = useTranslation('common.actions');
     const [count, setCount] = useState(INITIAL_VISIBLE_COUNT);
-    const { data, loading } = useGetAssertionRunsQuery({
+    // runEvents.total is the size of the returned page rather than a global count, so request one
+    // extra event as a lookahead to decide whether another page exists.
+    const { data, previousData, loading } = useGetAssertionRunsQuery({
         variables: {
             assertionUrn: assertion.urn,
-            limit: count,
+            limit: count + 1,
         },
         fetchPolicy: 'cache-first',
     });
-    const visibleRuns = data?.assertion?.runEvents?.runEvents || [];
-    const total = data?.assertion?.runEvents?.total || 0;
-    const showMore = count < total;
+    // Keep the already-loaded runs on screen while the next page loads instead of flashing the skeleton.
+    const fetchedRuns = (data ?? previousData)?.assertion?.runEvents?.runEvents || [];
+    const visibleRuns = fetchedRuns.slice(0, count);
+    const showMore = !loading && fetchedRuns.length > count;
+    const showLoadingSkeleton = loading && fetchedRuns.length === 0;
 
     const timelineItems = visibleRuns.map((run) => {
         return {
@@ -66,7 +70,7 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
     return (
         <Container>
             <StyledTimeline>
-                {loading ? (
+                {showLoadingSkeleton ? (
                     <AssertionResultsLoadingItems />
                 ) : (
                     timelineItems.map((item) => (

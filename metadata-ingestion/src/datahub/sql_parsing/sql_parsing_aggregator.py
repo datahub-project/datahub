@@ -81,6 +81,16 @@ QueryId = str
 UrnStr = str
 
 
+def strip_platform_instance(name: str, platform_instance: Optional[str]) -> str:
+    """Return a dataset URN name without its platform_instance prefix.
+
+    This is the name form is_allowed_table and is_temp_table receive.
+    """
+    if platform_instance and name.startswith(platform_instance):
+        return name[len(platform_instance) + 1 :]
+    return name
+
+
 class QueryLogSetting(enum.Enum):
     DISABLED = "DISABLED"
     STORE_ALL = "STORE_ALL"
@@ -719,13 +729,9 @@ class SqlParsingAggregator(Closeable):
             # If this is external (e.g. s3), we don't know the name.
             return None
 
-        name = urn_obj.name
-        if (
-            platform_instance := self._schema_resolver.platform_instance
-        ) and name.startswith(platform_instance):
-            # Remove the platform instance from the name.
-            name = name[len(platform_instance) + 1 :]
-        return name
+        return strip_platform_instance(
+            urn_obj.name, self._schema_resolver.platform_instance
+        )
 
     def is_temp_table(self, urn: UrnStr) -> bool:
         if self._is_temp_table is None:

@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
@@ -53,7 +52,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
 
     const onOk = async () => {
         if (!tagName) {
-            message.error(t('tags.nameRequiredError'));
+            toast.error(t('tags.nameRequiredError'));
             return;
         }
 
@@ -73,7 +72,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
             const newTagUrn = createTagResult.data?.createTag;
 
             if (!newTagUrn) {
-                message.error(t('tags.createError'));
+                toast.error(t('tags.createError'));
                 setIsLoading(false);
                 return;
             }
@@ -112,15 +111,15 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
                 });
             }
 
-            message.success(t('tags.createSuccess', { name: tagName }));
+            toast.success(t('tags.createSuccess', { name: tagName }));
             onClose();
             setTagName('');
             setTagDescription('');
             setTagColor(defaultTagColor);
             setSelectedOwnerUrns([]);
         } catch (e: any) {
-            message.destroy();
-            message.error(t('tags.createErrorDetail', { error: e.message }));
+            toast.destroy();
+            toast.error(t('tags.createErrorDetail', { error: e.message }));
         } finally {
             setIsLoading(false);
         }

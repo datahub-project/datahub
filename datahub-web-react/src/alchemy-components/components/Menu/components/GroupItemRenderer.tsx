@@ -1,7 +1,7 @@
-import { Text } from '@components';
 import React from 'react';
 
 import { GroupItemRendererProps } from '@components/components/Menu/types';
+import { Text } from '@components/components/Text';
 
 export default function GroupItemRenderer({ item }: GroupItemRendererProps) {
     return (

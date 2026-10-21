@@ -30,7 +30,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const isDomainEntity = entityType === EntityType.Domain;
 
-    const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
+    const { onDeleteEntity, hasBeenDeleted, DeleteConfirmationModal } = useDeleteEntity(
         urn,
         entityType,
         entityData,
@@ -67,6 +67,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
             >
                 <Trash size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
+            {DeleteConfirmationModal}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </Tooltip>
     );
