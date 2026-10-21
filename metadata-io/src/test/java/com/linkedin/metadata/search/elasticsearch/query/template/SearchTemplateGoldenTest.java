@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMap
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchFieldBoost;
 import com.linkedin.search.template.SearchFieldBoostArray;
@@ -463,7 +464,8 @@ public class SearchTemplateGoldenTest {
     EntityIndexConfiguration index = harness.elastic().getEntityIndex();
     index.getV3().setMappingConfig("search_entity_mapping_config.yaml");
     Map<String, Object> generated =
-        new MultiEntityMappingsBuilder(index).getIndexMappings(harness.registry, dataset);
+        new MultiEntityMappingsBuilder(index, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(harness.registry, dataset);
     Map<String, Object> merged =
         MultiEntityMappingsUtils.mergeMappings(
             generated,
@@ -539,7 +541,8 @@ public class SearchTemplateGoldenTest {
     EntityIndexConfiguration index = harness.elastic().getEntityIndex();
     index.getV3().setMappingConfig("search_entity_mapping_config.yaml");
     for (MappingsBuilder.IndexMapping mapping :
-        new MultiEntityMappingsBuilder(index).getIndexMappings(harness.opContext, List.of())) {
+        new MultiEntityMappingsBuilder(index, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(harness.opContext, List.of())) {
       Object properties = mapping.getMappings().get("properties");
       if (properties instanceof Map<?, ?> map && map.containsKey("qualifiedName")) {
         return (Map<String, Object>) map;

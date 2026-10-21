@@ -114,51 +114,20 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   @Nonnull private final List<V3MappingContributor> mappingContributors;
 
   /**
-   * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
+   * Constructs a new MultiEntityMappingsBuilder.
    *
-   * <p>This constructor initializes the builder and optionally loads base mapping configuration
-   * from a resource file if specified in the configuration. The base configuration is merged with
-   * generated mappings to provide system-level field definitions.
+   * <p>Optionally loads base mapping configuration from a resource file if specified in the
+   * configuration. The base configuration is merged with generated mappings. Callers pass {@code
+   * null} for the search client, {@link ESUtils#KEYWORD_MAXLENGTH}, or {@link List#of()} when they
+   * have no engine-specific ngram config, keyword limit, or extra mapping contributor.
    *
    * @param entityIndexConfiguration the configuration containing v3 search settings and optional
    *     mapping configuration resource path
+   * @param searchClientShim engine client used for partial-ngram mapping, or null for the default
+   * @param keywordMaxLength maximum keyword length, or a non-positive value for the default
+   * @param mappingContributors extra V3 mapping contributors
    * @throws IOException if there's an error loading the mapping configuration resource
-   * @throws IllegalArgumentException if the configuration is null
    */
-  public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
-      throws IOException {
-    this(entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim)
-      throws IOException {
-    this(entityIndexConfiguration, searchClientShim, ESUtils.KEYWORD_MAXLENGTH, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
-      throws IOException {
-    this(entityIndexConfiguration, null, keywordMaxLength, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      int keywordMaxLength,
-      @Nonnull List<V3MappingContributor> mappingContributors)
-      throws IOException {
-    this(entityIndexConfiguration, null, keywordMaxLength, mappingContributors);
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim,
-      int keywordMaxLength)
-      throws IOException {
-    this(entityIndexConfiguration, searchClientShim, keywordMaxLength, List.of());
-  }
-
   public MultiEntityMappingsBuilder(
       @Nonnull EntityIndexConfiguration entityIndexConfiguration,
       @Nullable SearchClientShim<?> searchClientShim,
@@ -1078,7 +1047,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     final List<SearchableFieldSpec> sourceFieldSpecs =
         findSearchableFieldSpecsForPaths(entitySpecs, allPaths);
     final Map<String, Object> rootFieldMapping =
-        resolveProjectedRootFieldMapping(rootFieldName, sourceFieldSpecs, entitySpecs);
+        resolveProjectedRootFieldMapping(rootFieldName, sourceFieldSpecs, entitySpecs, allPaths);
 
     addSearchCopyToDestinations(
         rootFieldMapping, sharedFieldSources, rootFieldName, entityNameFallbacks);
@@ -1131,10 +1100,70 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return sourceFieldSpecs;
   }
 
+  private static String describeProjectedRootContributor(
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull SearchableFieldSpec fieldSpec,
+      @Nonnull FieldMapping root) {
+    SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+    return String.format(
+        "%s.%s %s fieldName=%s fieldType=%s %s index=%s docValues=%s",
+        entitySpec.getName(),
+        aspectSpec.getName(),
+        fieldSpec.getPath(),
+        annotation.getFieldName(),
+        annotation.getFieldType(),
+        root.getType(),
+        root.isIndex(),
+        root.isDocValues());
+  }
+
+  private static List<String> describeProjectedRootContributors(
+      @Nonnull Collection<EntitySpec> entitySpecs, @Nonnull Set<String> allPaths) {
+    final List<String> contributors = new ArrayList<>();
+    FieldMapping reference = null;
+    String referenceDescription = null;
+    for (String path : allPaths) {
+      final String[] pathParts = path.split("\\.", 3);
+      if (pathParts.length < 3) {
+        continue;
+      }
+      final String aspectName = pathParts[1];
+      final String fieldName = pathParts[2];
+      for (EntitySpec entitySpec : entitySpecs) {
+        for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+          if (!aspectName.equals(aspectSpec.getName())) {
+            continue;
+          }
+          for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+            if (!fieldName.equals(fieldSpec.getSearchableAnnotation().getFieldName())) {
+              continue;
+            }
+            FieldMapping root =
+                FieldMapping.rootOf(FieldMapping.of(fieldSpec.getSearchableAnnotation()));
+            String description =
+                describeProjectedRootContributor(entitySpec, aspectSpec, fieldSpec, root);
+            if (reference == null) {
+              reference = root;
+              referenceDescription = description;
+            } else if (!reference.sameRoot(root)) {
+              contributors.add(description);
+            }
+          }
+        }
+      }
+    }
+    if (referenceDescription != null && !contributors.isEmpty()) {
+      contributors.add(0, referenceDescription);
+    }
+    return contributors;
+  }
+
   private static Map<String, Object> resolveProjectedRootFieldMapping(
       @Nonnull String rootFieldName,
       @Nonnull List<SearchableFieldSpec> sourceFieldSpecs,
-      @Nonnull Collection<EntitySpec> entitySpecs) {
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull Set<String> allPaths) {
     if (sourceFieldSpecs.isEmpty()) {
       log.warn(
           "Could not find source fields for V3 root projection '{}', defaulting to keyword",
@@ -1152,8 +1181,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     if (roots.stream().anyMatch(other -> !root.sameRoot(other))) {
       throw new IllegalArgumentException(
           String.format(
-              "Projected root field '%s' contributors must resolve to the same V3 root",
-              rootFieldName));
+              "Projected root field '%s' contributors must resolve to the same V3 root: %s",
+              rootFieldName,
+              String.join("; ", describeProjectedRootContributors(entitySpecs, allPaths))));
     }
     if (sourceFieldSpecs.stream().allMatch(MultiEntityMappingsBuilder::isExactUrnValue)
         && V3SearchFields.isParsedUrnRoot(rootFieldName, entitySpecs)) {

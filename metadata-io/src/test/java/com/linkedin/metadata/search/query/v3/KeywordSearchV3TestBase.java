@@ -332,7 +332,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
     // Built as MappingsBuilderFactory builds it, with the engine's own mapping details
-    engineV3MappingsBuilder = new MultiEntityMappingsBuilder(entityIndex);
+    engineV3MappingsBuilder =
+        new MultiEntityMappingsBuilder(entityIndex, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
     // Both the document transformer and the filter resolver look the definition up
     DataHubSearchConfig searched = new DataHubSearchConfig().setQueryByDefault(true);
     StructuredPropertyDefinition retentionPolicy =

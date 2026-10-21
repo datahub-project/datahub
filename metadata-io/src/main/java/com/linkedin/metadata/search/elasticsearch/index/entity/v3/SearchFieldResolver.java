@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Value;
 
 /**
@@ -46,57 +47,42 @@ public final class SearchFieldResolver {
     Map<String, MutableField> byName = new LinkedHashMap<>();
     Map<String, MutableField> sources = new LinkedHashMap<>();
     Map<String, List<SearchableFieldSpec>> byLabel = new LinkedHashMap<>();
+    Map<String, List<String>> labelContributors = new LinkedHashMap<>();
     Set<String> sharedHasValuesNames = new LinkedHashSet<>();
     Set<String> splitSourceNames = new LinkedHashSet<>();
     Map<String, MutableField> aliasedTo = new LinkedHashMap<>();
 
-    entitySpecs.stream()
-        .flatMap(entity -> entity.getSearchableFieldSpecs().stream())
-        .filter(spec -> spec.getSearchableAnnotation().isV3Searchable())
-        .forEach(
-            spec -> {
-              SearchableAnnotation annotation = spec.getSearchableAnnotation().resolvedForV3();
-              FieldMapping root = FieldMapping.rootOf(FieldMapping.of(annotation));
-              MutableField source =
-                  byName.computeIfAbsent(
-                      annotation.getFieldName(),
-                      ignored -> new MutableField(annotation.getFieldName()));
-              source.addRoot(root);
-              source.addSource(annotation.getFieldName());
-              annotation.getHasValuesFieldName().ifPresent(source::setHasValues);
-              sources.put(annotation.getFieldName(), source);
-              Optional.ofNullable(annotation.getFieldNameAliases())
-                  .orElse(List.of())
-                  .forEach(
-                      alias ->
-                          byName
-                              .computeIfAbsent(
-                                  alias, ignored -> new MutableField(annotation.getFieldName()))
-                              .merge(source));
-              annotation
-                  .indexedHasValuesFieldName()
-                  .ifPresent(
-                      field ->
-                          byName
-                              .computeIfAbsent(field, ignored -> new MutableField(field))
-                              .addRoot(FieldMapping.root(Type.BOOLEAN)));
-              annotation
-                  .getNumValuesFieldName()
-                  .ifPresent(
-                      field ->
-                          byName
-                              .computeIfAbsent(field, ignored -> new MutableField(field))
-                              .addRoot(FieldMapping.root(Type.COUNT)));
-              annotation
-                  .indexedFieldName()
-                  .ifPresent(
-                      indexedName -> {
-                        byLabel
-                            .computeIfAbsent(indexedName, ignored -> new ArrayList<>())
-                            .add(spec);
-                        annotation.indexedHasValuesFieldName().ifPresent(sharedHasValuesNames::add);
-                      });
-            });
+    for (EntitySpec entity : entitySpecs) {
+      List<AspectSpec> aspects = entity.getAspectSpecs();
+      if (aspects == null || aspects.isEmpty()) {
+        // Specs built without aspects, including resolver tests, expose fields directly.
+        for (SearchableFieldSpec spec : entity.getSearchableFieldSpecs()) {
+          indexSearchableField(
+              entity,
+              null,
+              spec,
+              byName,
+              sources,
+              byLabel,
+              labelContributors,
+              sharedHasValuesNames);
+        }
+      } else {
+        for (AspectSpec aspect : aspects) {
+          for (SearchableFieldSpec spec : aspect.getSearchableFieldSpecs()) {
+            indexSearchableField(
+                entity,
+                aspect,
+                spec,
+                byName,
+                sources,
+                byLabel,
+                labelContributors,
+                sharedHasValuesNames);
+          }
+        }
+      }
+    }
 
     byLabel.forEach(
         (label, contributors) -> {
@@ -104,7 +90,19 @@ public final class SearchFieldResolver {
               contributors.stream().map(V3SearchFields::labelMappings).toList();
           FieldMapping.Resolved resolved = FieldMapping.union(label, mappings);
           MutableField field = byName.computeIfAbsent(label, MutableField::new);
-          field.addRoot(resolved.getRoot());
+          field.addRoot(
+              resolved.getRoot(),
+              "indexedField="
+                  + label
+                  + " "
+                  + resolved.getRoot().getType()
+                  + " index="
+                  + resolved.getRoot().isIndex()
+                  + " docValues="
+                  + resolved.getRoot().isDocValues()
+                  + " ["
+                  + String.join("; ", labelContributors.getOrDefault(label, List.of()))
+                  + "]");
           resolved.getSubfields().forEach(field::addSubfield);
           contributors.stream()
               .map(SearchableFieldSpec::getSearchableAnnotation)
@@ -133,7 +131,7 @@ public final class SearchFieldResolver {
       if (!byName.containsKey(field)) {
         MutableField direct = new MutableField(field);
         // System keyword fields have no case-preserving .keyword multi-field.
-        direct.addRoot(FieldMapping.root(Type.URN));
+        direct.addRoot(FieldMapping.root(Type.URN), "system keyword " + field);
         byName.put(field, direct);
       }
     }
@@ -145,7 +143,8 @@ public final class SearchFieldResolver {
                       name,
                       key -> {
                         MutableField created = new MutableField(key);
-                        created.addRoot(FieldMapping.root(Type.KEYWORD, false, false));
+                        created.addRoot(
+                            FieldMapping.root(Type.KEYWORD, false, false), "parsed keyword " + key);
                         created.addSubfield(FieldMapping.subfield(V3SearchFields.TEXT, Type.TEXT));
                         created.addSubfield(
                             FieldMapping.subfield(V3SearchFields.STEMMED, Type.STEMMED));
@@ -432,9 +431,90 @@ public final class SearchFieldResolver {
     }
   }
 
+  private static void indexSearchableField(
+      EntitySpec entity,
+      @Nullable AspectSpec aspect,
+      SearchableFieldSpec spec,
+      Map<String, MutableField> byName,
+      Map<String, MutableField> sources,
+      Map<String, List<SearchableFieldSpec>> byLabel,
+      Map<String, List<String>> labelContributors,
+      Set<String> sharedHasValuesNames) {
+    if (!spec.getSearchableAnnotation().isV3Searchable()) {
+      return;
+    }
+    SearchableAnnotation annotation = spec.getSearchableAnnotation().resolvedForV3();
+    FieldMapping root = FieldMapping.rootOf(FieldMapping.of(annotation));
+    String described = contributor(entity, aspect, spec, annotation, root);
+    MutableField source =
+        byName.computeIfAbsent(
+            annotation.getFieldName(), ignored -> new MutableField(annotation.getFieldName()));
+    source.addRoot(root, described);
+    source.addSource(annotation.getFieldName());
+    annotation.getHasValuesFieldName().ifPresent(source::setHasValues);
+    sources.put(annotation.getFieldName(), source);
+    Optional.ofNullable(annotation.getFieldNameAliases())
+        .orElse(List.of())
+        .forEach(
+            alias ->
+                byName
+                    .computeIfAbsent(alias, ignored -> new MutableField(annotation.getFieldName()))
+                    .merge(source));
+    annotation
+        .indexedHasValuesFieldName()
+        .ifPresent(
+            field ->
+                byName
+                    .computeIfAbsent(field, ignored -> new MutableField(field))
+                    .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
+    annotation
+        .getNumValuesFieldName()
+        .ifPresent(
+            field ->
+                byName
+                    .computeIfAbsent(field, ignored -> new MutableField(field))
+                    .addRoot(FieldMapping.root(Type.COUNT), described + " numValues=" + field));
+    annotation
+        .indexedFieldName()
+        .ifPresent(
+            indexedName -> {
+              byLabel.computeIfAbsent(indexedName, ignored -> new ArrayList<>()).add(spec);
+              labelContributors
+                  .computeIfAbsent(indexedName, ignored -> new ArrayList<>())
+                  .add(described);
+              annotation.indexedHasValuesFieldName().ifPresent(sharedHasValuesNames::add);
+            });
+  }
+
+  private static String contributor(
+      EntitySpec entity,
+      @Nullable AspectSpec aspect,
+      SearchableFieldSpec spec,
+      SearchableAnnotation annotation,
+      FieldMapping root) {
+    String owner =
+        aspect == null
+            ? String.valueOf(entity.getName())
+            : entity.getName() + "." + aspect.getName();
+    return owner
+        + " "
+        + spec.getPath()
+        + " fieldName="
+        + annotation.getFieldName()
+        + " fieldType="
+        + annotation.getFieldType()
+        + " "
+        + root.getType()
+        + " index="
+        + root.isIndex()
+        + " docValues="
+        + root.isDocValues();
+  }
+
   private static final class MutableField {
     private final String path;
     private FieldMapping root;
+    private String rootContributor;
     private boolean parsedKeywordLabel;
     private final List<String> parsedExactPaths = new ArrayList<>();
     private final Set<String> subfields = new LinkedHashSet<>();
@@ -446,12 +526,20 @@ public final class SearchFieldResolver {
       this.path = path;
     }
 
-    private void addRoot(FieldMapping candidate) {
+    private void addRoot(FieldMapping candidate, @Nullable String contributor) {
       if (root != null && !root.sameRoot(candidate)) {
         throw new IllegalArgumentException(
-            "Search V3 field '" + path + "' resolves to incompatible exact roots");
+            "Search V3 field '"
+                + path
+                + "' resolves to incompatible exact roots: "
+                + rootContributor
+                + " vs "
+                + contributor);
       }
       root = candidate;
+      if (contributor != null) {
+        rootContributor = contributor;
+      }
     }
 
     private void addSubfield(FieldMapping subfield) {
@@ -488,7 +576,7 @@ public final class SearchFieldResolver {
 
     private void merge(MutableField source) {
       if (source.root != null) {
-        addRoot(source.root);
+        addRoot(source.root, source.rootContributor);
       }
       subfields.addAll(source.subfields);
       sources.addAll(source.sources);
