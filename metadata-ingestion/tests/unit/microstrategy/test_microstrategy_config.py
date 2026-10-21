@@ -109,6 +109,21 @@ def test_document_dataset_sql_lineage_requires_warehouse_lineage() -> None:
     assert config.extract_document_dataset_sql_lineage is True
 
 
+def test_document_dataset_edges_default_on_independently_of_dashboard_edges() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+
+    assert config.emit_dashboard_dataset_edges is False
+    assert config.emit_document_dataset_edges is True
+    assert not MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "emit_document_dataset_edges": False,
+        }
+    ).emit_document_dataset_edges
+
+
 def test_dataset_field_order_rejects_unknown_values() -> None:
     with pytest.raises(ValidationError):
         MicroStrategyConfig.model_validate(

@@ -677,6 +677,53 @@ def test_visualization_outside_any_page_has_no_placement() -> None:
     assert visualization.page_index is None
 
 
+def test_document_definition_keeps_layout_names_in_order() -> None:
+    # A Report Services document lists its layouts as chapters without pages.
+    definition = DashboardDefinition.from_api_response(
+        object_id="doc-1",
+        object_name="Weekly Sales Report",
+        response={
+            "chapters": [
+                {"key": "ch-1", "name": "Summary", "filters": [], "pages": []},
+                {"key": "ch-2", "filters": [], "pages": []},
+                {"key": "ch-3", "name": "Appendix", "filters": [], "pages": []},
+            ],
+            "datasets": [{"id": "ds-1", "name": "Sales Report"}],
+        },
+    )
+
+    assert definition.layouts == ["Summary", "Appendix"]
+    assert definition.visualizations == []
+
+
+def test_dossier_definition_has_no_layouts() -> None:
+    definition = DashboardDefinition.from_api_response(
+        object_id="dash-1",
+        object_name="Executive Sales",
+        response={
+            "chapters": [
+                {"key": "ch-1", "name": "Overview", "pages": []},
+                {
+                    "key": "ch-2",
+                    "name": "Detail",
+                    "pages": [
+                        {
+                            "key": "pg-1",
+                            "name": "By Region",
+                            "visualizations": [{"key": "viz-1", "name": "Grid"}],
+                        }
+                    ],
+                },
+            ]
+        },
+    )
+
+    assert definition.layouts == []
+    assert [visualization.key for visualization in definition.visualizations] == [
+        "viz-1"
+    ]
+
+
 def test_extract_embedded_metric_definitions_follow_data_template_order() -> None:
     from datahub.ingestion.source.microstrategy.models import (
         extract_embedded_metric_definitions,

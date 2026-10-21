@@ -466,7 +466,7 @@ class MicroStrategyMapper:
         """`Document` for a Report Services document, `Dossier` for a dossier
         (what Strategy now calls a dashboard); both share object type 55 and
         only the subtype tells them apart."""
-        if (dashboard_object.subtype or "").strip() == MSTR_OBJECT_SUBTYPE_DOCUMENT:
+        if _is_document_object(dashboard_object):
             return BIAssetSubTypes.MICROSTRATEGY_DOCUMENT
         return BIAssetSubTypes.MICROSTRATEGY_DOSSIER
 
@@ -801,14 +801,29 @@ class MicroStrategyMapper:
             custom_properties["unresolvedVisualizationDatasetIds"] = json.dumps(
                 unresolved, sort_keys=True
             )
+        if dashboard.layouts:
+            custom_properties["microstrategyLayoutCount"] = str(len(dashboard.layouts))
+            custom_properties["microstrategyLayouts"] = "; ".join(dashboard.layouts)
 
+        # A document exposes no visualizations through the REST API, so no
+        # chart carries its dataset lineage the way a dossier's do; its
+        # datasets are linked here under their own setting, leaving the
+        # dossier fallback opt-in.
+        is_document = _is_document_object(dashboard_object)
         dashboard_dataset_edges = (
             self.lineage.dashboard_dataset_urns(project_id, dashboard)
-            if self.config.emit_dashboard_dataset_edges
+            if (
+                self.config.emit_document_dataset_edges
+                if is_document
+                else self.config.emit_dashboard_dataset_edges
+            )
             else None
         )
         if dashboard_dataset_edges:
-            self.report.report_dashboard_dataset_edges(len(dashboard_dataset_edges))
+            if is_document:
+                self.report.report_document_dataset_edges(len(dashboard_dataset_edges))
+            else:
+                self.report.report_dashboard_dataset_edges(len(dashboard_dataset_edges))
 
         yield self._platform_instance_workunit(dashboard_urn)
         yield MetadataChangeProposalWrapper(
@@ -1672,6 +1687,11 @@ def _resolve_folder_name(
 def _is_cube_object(dataset_object: MicroStrategyObject) -> bool:
     """Intelligent or super cube, by object subtype (see MSTR_CUBE_SUBTYPES)."""
     return (dataset_object.subtype or "").strip() in MSTR_CUBE_SUBTYPES
+
+
+def _is_document_object(dashboard_object: MicroStrategyObject) -> bool:
+    """Report Services document, by object subtype; a dossier otherwise."""
+    return (dashboard_object.subtype or "").strip() == MSTR_OBJECT_SUBTYPE_DOCUMENT
 
 
 def _is_hidden_folder(

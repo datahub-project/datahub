@@ -532,6 +532,11 @@ class DashboardDefinition(MicroStrategyBaseModel):
     datasets: List[DatasetObject] = Field(default_factory=list)
     visualizations: List[Visualization] = Field(default_factory=list)
     dependencies: List[MicroStrategyObject] = Field(default_factory=list)
+    # Layout names of a Report Services document, in definition order. A
+    # document definition lists its layouts as chapters that carry no pages
+    # (and so no visualizations); a dossier's chapters carry pages, which
+    # are recorded on each visualization instead, so this stays empty.
+    layouts: List[str] = Field(default_factory=list)
 
     @classmethod
     def from_api_response(
@@ -556,6 +561,7 @@ class DashboardDefinition(MicroStrategyBaseModel):
             description=description,
             datasets=datasets,
             visualizations=visualizations,
+            layouts=_extract_layouts(definition),
         )
 
 
@@ -856,6 +862,27 @@ def _page_visualizations(chapters: List[object]) -> List[MicroStrategyDict]:
                 annotated["pageIndex"] = page_index
                 found.append(annotated)
     return found
+
+
+def _extract_layouts(definition: MicroStrategyDict) -> List[str]:
+    """Names of the chapters when none of them carries a page: the shape a
+    Report Services document definition takes, with one chapter per layout.
+    Empty for a dossier, whose chapters carry the pages its visualizations
+    sit on. Unnamed chapters are skipped."""
+    chapters = definition.get("chapters")
+    if not isinstance(chapters, list):
+        return []
+    names: List[str] = []
+    for chapter in chapters:
+        if not isinstance(chapter, dict):
+            continue
+        pages = chapter.get("pages")
+        if isinstance(pages, list) and pages:
+            return []
+        name = _first_str(chapter, MSTR_KEYS_NAME)
+        if name:
+            names.append(name)
+    return names
 
 
 def _extract_visualizations(definition: MicroStrategyDict) -> List[MicroStrategyDict]:

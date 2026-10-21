@@ -134,8 +134,38 @@ def _definition() -> DashboardDefinition:
     )
 
 
+def _document_definition() -> DashboardDefinition:
+    # The shape a production tenant returns for a Report Services document:
+    # layouts as chapters without pages, no visualizations anywhere.
+    return DashboardDefinition.from_api_response(
+        object_id="doc-1",
+        object_name="Weekly Sales Report",
+        response={
+            "id": "doc-1",
+            "name": "Weekly Sales Report",
+            "currentChapter": "ch-1",
+            "chapters": [
+                {"key": "ch-1", "name": "Summary", "filters": [], "pages": []},
+                {"key": "ch-2", "name": "Detail", "filters": [], "pages": []},
+                {"key": "ch-3", "name": "Appendix", "filters": [], "pages": []},
+            ],
+            "datasets": [
+                {"id": "ds-1", "name": "Sales Report"},
+                {"id": "ds-2", "name": "Inventory Report"},
+            ],
+        },
+    )
+
+
+def _document_object(dashboard: DashboardDefinition) -> MicroStrategyObject:
+    return MicroStrategyObject.model_validate(
+        {"id": dashboard.id, "name": dashboard.name, "type": "55", "subtype": "14081"}
+    )
+
+
 def _mapper(
     emit_dashboard_dataset_edges: bool = False,
+    emit_document_dataset_edges: bool = True,
     extract_warehouse_lineage: bool = False,
     extract_report_sql_lineage: bool = False,
     metric_glossary_term_mapping: Optional[Dict[str, str]] = None,
@@ -149,6 +179,7 @@ def _mapper(
             "platform_instance": "prod",
             "dataset_field_order": dataset_field_order,
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
+            "emit_document_dataset_edges": emit_document_dataset_edges,
             "extract_warehouse_lineage": extract_warehouse_lineage,
             "extract_report_sql_lineage": extract_report_sql_lineage,
             "metric_glossary_term_mapping": metric_glossary_term_mapping or {},
@@ -466,6 +497,85 @@ def test_dashboard_dataset_edges_are_opt_in() -> None:
     assert [edge.destinationUrn for edge in dashboard_info.datasetEdges] == [
         mapper.lineage.dataset_urn("project-1", dashboard.id, dashboard.datasets[0])
     ]
+
+
+def test_document_links_its_datasets_and_records_layouts_by_default() -> None:
+    # A document has no visualizations to carry dataset lineage, so with the
+    # dossier fallback off it would otherwise be an empty page.
+    mapper = _mapper()
+    dashboard = _document_definition()
+
+    dashboard_info = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            _document_object(dashboard),
+            dashboard,
+            mapper.project_key("project-1"),
+        ),
+        DashboardInfoClass,
+    )
+
+    assert dashboard_info.chartEdges == []
+    assert dashboard_info.datasetEdges is not None
+    assert [edge.destinationUrn for edge in dashboard_info.datasetEdges] == [
+        mapper.lineage.dataset_urn("project-1", dashboard.id, dataset)
+        for dataset in dashboard.datasets
+    ]
+    assert dashboard_info.customProperties["microstrategyLayoutCount"] == "3"
+    assert (
+        dashboard_info.customProperties["microstrategyLayouts"]
+        == "Summary; Detail; Appendix"
+    )
+    assert dashboard_info.customProperties["visualizationCount"] == "0"
+    assert mapper.report.document_dataset_edges == 2
+    assert mapper.report.dashboard_dataset_edges == 0
+
+
+def test_document_dataset_edges_can_be_disabled() -> None:
+    mapper = _mapper(emit_document_dataset_edges=False)
+    dashboard = _document_definition()
+
+    dashboard_info = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            _document_object(dashboard),
+            dashboard,
+            mapper.project_key("project-1"),
+        ),
+        DashboardInfoClass,
+    )
+
+    assert dashboard_info.datasetEdges is None
+    assert dashboard_info.customProperties["microstrategyLayouts"] == (
+        "Summary; Detail; Appendix"
+    )
+    assert mapper.report.document_dataset_edges == 0
+
+
+def test_dossier_dataset_edges_stay_opt_in_beside_document_edges() -> None:
+    # The document setting must not leak into dossiers, whose charts already
+    # carry the dataset lineage.
+    mapper = _mapper(emit_document_dataset_edges=True)
+    dashboard = _definition()
+    dashboard_object = MicroStrategyObject.model_validate(
+        {"id": dashboard.id, "name": dashboard.name, "type": "55", "subtype": "14080"}
+    )
+
+    dashboard_info = _aspect(
+        mapper.gen_dashboard_workunits(
+            "project-1",
+            dashboard_object,
+            dashboard,
+            mapper.project_key("project-1"),
+        ),
+        DashboardInfoClass,
+    )
+
+    assert dashboard_info.datasetEdges is None
+    assert dashboard_info.chartEdges is not None
+    assert len(dashboard_info.chartEdges) == 1
+    assert "microstrategyLayouts" not in dashboard_info.customProperties
+    assert "microstrategyLayoutCount" not in dashboard_info.customProperties
 
 
 def test_chart_and_dashboard_descriptions_default_to_empty_string() -> None:

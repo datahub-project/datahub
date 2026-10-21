@@ -389,7 +389,22 @@ class MicroStrategyConfig(
         default=False,
         description=(
             "Emit DashboardInfo.datasetEdges as a fallback. Disabled by default "
-            "because BI dashboards with many datasets make lineage views noisy."
+            "because BI dashboards with many datasets make lineage views noisy. "
+            "Governs dossiers only; see `emit_document_dataset_edges` for "
+            "Report Services documents."
+        ),
+    )
+    emit_document_dataset_edges: bool = Field(
+        default=True,
+        description=(
+            "Whether to record a Report Services document's datasets as "
+            "DashboardInfo.datasetEdges, so the document lists its datasets "
+            "and lineage reads dataset -> document. The REST API exposes no "
+            "visualizations for a document (its definition lists layouts as "
+            "chapters without pages), so unlike a dossier it has no charts to "
+            "carry dataset lineage; without these edges the document is an "
+            "empty page. Independent of `emit_dashboard_dataset_edges`, which "
+            "keeps governing dossiers."
         ),
     )
     extract_usage_statistics: bool = Field(

@@ -32,6 +32,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     temporal_fields_scanned: int = 0
     chart_lineage_edges: int = 0
     dashboard_dataset_edges: int = 0
+    # Report Services documents' dataset edges (emit_document_dataset_edges),
+    # counted apart from the opt-in dossier fallback above.
+    document_dataset_edges: int = 0
     sessions_reauthenticated: int = 0
     usage_rows_scanned: int = 0
     usage_buckets_emitted: int = 0
@@ -212,6 +215,9 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_dashboard_dataset_edges(self, count: int) -> None:
         self.dashboard_dataset_edges += count
+
+    def report_document_dataset_edges(self, count: int) -> None:
+        self.document_dataset_edges += count
 
     def report_unresolved_visualization(self) -> None:
         self.unresolved_visualizations += 1
