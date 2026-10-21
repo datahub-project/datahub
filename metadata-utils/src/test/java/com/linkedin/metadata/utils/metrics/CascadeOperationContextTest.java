@@ -13,6 +13,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.testng.annotations.AfterMethod;
@@ -482,6 +483,43 @@ public class CascadeOperationContextTest {
       String deleteLine =
           lines.stream().filter(l -> l.contains("type=deleteTest")).findFirst().orElseThrow();
       assertTrue(deleteLine.endsWith("ms"), "no hops and no tags keep the old line: " + deleteLine);
+    } finally {
+      logger.detachAppender(appender);
+    }
+  }
+
+  @Test
+  public void testPhasesReachLogLineButNotTimer() {
+    Urn triggerUrn = UrnUtils.getUrn("urn:li:tag:testTag");
+    Logger logger = (Logger) LoggerFactory.getLogger(CascadeOperationContext.class);
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    try {
+      try (CascadeOperationContext ctx =
+          CascadeOperationContext.begin(
+              metricUtils, "phaseTest", triggerUrn, -1, "datahub.lineage")) {
+        ctx.tag("kind", "impact");
+        ctx.recordPhase("walk", TimeUnit.MILLISECONDS.toNanos(2));
+        ctx.recordPhase("search", TimeUnit.MILLISECONDS.toNanos(7));
+        // Repeated phases add up
+        ctx.recordPhase("walk", TimeUnit.MILLISECONDS.toNanos(3));
+        ctx.recordError("timeout");
+      }
+
+      String line =
+          appender.list.stream()
+              .map(ILoggingEvent::getFormattedMessage)
+              .filter(l -> l.startsWith("Cascade completed") && l.contains("type=phaseTest"))
+              .findFirst()
+              .orElseThrow();
+      assertTrue(line.endsWith("kind=impact, walkMs=5, searchMs=7"), line);
+
+      Timer timer =
+          meterRegistry.find("datahub.lineage.duration").tag("operation_type", "phaseTest").timer();
+      assertNotNull(timer);
+      assertNull(timer.getId().getTag("walkMs"));
+      assertNull(timer.getId().getTag("walk"));
     } finally {
       logger.detachAppender(appender);
     }

@@ -16,6 +16,11 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.turbo.TurboFilter;
+import ch.qos.logback.core.read.ListAppender;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -56,6 +61,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
@@ -74,6 +80,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.BeforeClass;
@@ -1698,6 +1705,44 @@ public class LineageSearchServiceTest {
           1L);
     } finally {
       _lineageSearchService.setMetricUtils(null);
+    }
+  }
+
+  @Test
+  public void testLineageLogLineCarriesStageTimes() {
+    Logger logger = (Logger) LoggerFactory.getLogger(CascadeOperationContext.class);
+    Level previousLevel = logger.getLevel();
+    ListAppender<ILoggingEvent> appender = new ListAppender<>();
+    appender.start();
+    logger.addAppender(appender);
+    logger.setLevel(Level.DEBUG);
+    // A Spring Boot test earlier in the same JVM can leave its deny-all TurboFilter installed,
+    // which
+    // drops every event before it reaches the appender; set the filters aside while capturing.
+    List<TurboFilter> turboFilters =
+        new ArrayList<>(logger.getLoggerContext().getTurboFilterList());
+    logger.getLoggerContext().getTurboFilterList().clear();
+    try {
+      Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:stage-times");
+      List<String> entities = Collections.singletonList(DATASET_ENTITY_NAME);
+      // Cache miss, then a hit that skips the walk
+      search(_operationContext, sourceUrn, entities);
+      search(_operationContext, sourceUrn, entities);
+
+      List<String> lines =
+          appender.list.stream()
+              .map(ILoggingEvent::getFormattedMessage)
+              .filter(l -> l.startsWith("Cascade completed") && l.contains("searchAcrossLineage"))
+              .toList();
+      assertEquals(lines.size(), 2, lines.toString());
+      assertTrue(
+          lines.get(0).matches(".*cache=miss, walkMs=\\d+, filterMs=\\d+, searchMs=\\d+$"),
+          lines.get(0));
+      assertTrue(lines.get(1).matches(".*cache=hit, filterMs=\\d+, searchMs=\\d+$"), lines.get(1));
+    } finally {
+      logger.getLoggerContext().getTurboFilterList().addAll(turboFilters);
+      logger.setLevel(previousLevel);
+      logger.detachAppender(appender);
     }
   }
 

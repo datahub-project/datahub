@@ -122,6 +122,10 @@ public class LineageSearchService {
   private static final String CACHE_MISS = "miss";
   // Cache disabled, or the caller set skipCache
   private static final String CACHE_SKIP = "skip";
+  // Stages timed on the lineage log line only
+  private static final String PHASE_WALK = "walk";
+  private static final String PHASE_FILTER = "filter";
+  private static final String PHASE_SEARCH = "search";
 
   /** Filter fields the graph-only path can answer from a urn, without the entity index. */
   private static final Set<String> LIGHTNING_FILTER_FIELDS =
@@ -221,7 +225,9 @@ public class LineageSearchService {
       EntityLineageResult lineageResult;
       FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
       if (cachedLineageResult == null) {
+        long walkStart = System.nanoTime();
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+        cascade.recordPhase(PHASE_WALK, System.nanoTime() - walkStart);
 
         if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
           try {
@@ -266,6 +272,7 @@ public class LineageSearchService {
         }
       }
 
+      long filterStart = System.nanoTime();
       if (SearchUtils.convertSchemaFieldToDataset(
           finalOpContext.getSearchContext().getSearchFlags())) {
         // Copy so the cached graph result keeps its original schemaField URNs
@@ -278,6 +285,7 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships =
           filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
       log.debug("Lineage relationships found: {}", lineageRelationships);
+      cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
       cascade.recordEntitiesProcessed(lineageRelationships.size());
 
       String codePath = null;
@@ -294,12 +302,14 @@ public class LineageSearchService {
           lineageRelationships, finalInput, reducedFilters, sortCriteria, forceLightningMode)) {
         codePath = "lightning";
         cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_LIGHTNING);
+        long searchStart = System.nanoTime();
         // use lightning approach to return lineage search results
         List<LineageRelationship> countable =
             dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
         LineageSearchResult lineageSearchResult =
             getLightningSearchResult(
                 finalOpContext, countable, reducedFilters, from, size, new HashSet<>(entities));
+        cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
               "Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0));
@@ -319,6 +329,7 @@ public class LineageSearchService {
       } else {
         codePath = "tortoise";
         cascade.tag(TAG_SEARCH_PATH, SEARCH_PATH_TORTOISE);
+        long searchStart = System.nanoTime();
         LineageSearchResult lineageSearchResult =
             getSearchResultInBatches(
                 finalOpContext,
@@ -328,6 +339,7 @@ public class LineageSearchService {
                 sortCriteria,
                 from,
                 size);
+        cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
               "Lineage entity results number -> {}; first -> {}",
@@ -1104,7 +1116,9 @@ public class LineageSearchService {
       }
       EntityLineageResult lineageResult;
       if (cachedLineageResult == null) {
+        long walkStart = System.nanoTime();
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+        cascade.recordPhase(PHASE_WALK, System.nanoTime() - walkStart);
         if (enableCache(opContext.getSearchContext().getSearchFlags())) {
           cache.put(
               cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
@@ -1117,6 +1131,7 @@ public class LineageSearchService {
         }
       }
 
+      long filterStart = System.nanoTime();
       lineageResult = copyEntityLineageResult(lineageResult);
       lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
 
@@ -1124,11 +1139,13 @@ public class LineageSearchService {
       // to search
       List<LineageRelationship> lineageRelationships =
           filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+      cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
       cascade.recordEntitiesProcessed(lineageRelationships.size());
 
       Filter reducedFilters =
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
+      long searchStart = System.nanoTime();
       LineageScrollResult scrollResult =
           getScrollResultInBatches(
               opContext,
@@ -1139,6 +1156,7 @@ public class LineageSearchService {
               scrollId,
               keepAlive,
               ConfigUtils.applyLimit(appConfig.getGraphService(), size));
+      cascade.recordPhase(PHASE_SEARCH, System.nanoTime() - searchStart);
       if (lineageResult.hasPartial()) {
         scrollResult.setIsPartial(lineageResult.isPartial());
       }

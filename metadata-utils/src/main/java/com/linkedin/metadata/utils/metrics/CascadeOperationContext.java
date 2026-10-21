@@ -76,6 +76,9 @@ public class CascadeOperationContext implements AutoCloseable {
   private volatile String lastErrorType;
   // Insertion-ordered so log lines are stable; guarded by itself.
   private final Map<String, String> tags = new LinkedHashMap<>();
+  // Log-only stage durations; never timer tags, since per-request values would each be a series.
+  // Insertion-ordered and guarded by itself, like tags.
+  private final Map<String, Long> phaseNanos = new LinkedHashMap<>();
   private volatile boolean logCompletionAtInfo = false;
 
   // Saved MDC state for restore-on-close (supports nesting)
@@ -226,6 +229,16 @@ public class CascadeOperationContext implements AutoCloseable {
   }
 
   /**
+   * Add time spent in a named stage to the log lines as {@code <phase>Ms=N}. Repeated calls for the
+   * same phase add up.
+   */
+  public void recordPhase(String phase, long durationNanos) {
+    synchronized (phaseNanos) {
+      phaseNanos.merge(phase, durationNanos, Long::sum);
+    }
+  }
+
+  /**
    * Log completions under the slow threshold at INFO instead of DEBUG, so every operation of this
    * kind leaves a line. Opt-in because cascades and query rewrites run far more often than walks.
    */
@@ -333,6 +346,15 @@ public class CascadeOperationContext implements AutoCloseable {
               timerTags.add(value);
               logTags.append(", ").append(key).append('=').append(value);
             });
+      }
+      synchronized (phaseNanos) {
+        phaseNanos.forEach(
+            (phase, nanos) ->
+                logTags
+                    .append(", ")
+                    .append(phase)
+                    .append("Ms=")
+                    .append(TimeUnit.NANOSECONDS.toMillis(nanos)));
       }
 
       // Emit metrics (always, regardless of log level)
