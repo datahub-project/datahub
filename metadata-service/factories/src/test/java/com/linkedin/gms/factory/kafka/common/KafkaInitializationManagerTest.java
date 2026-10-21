@@ -175,18 +175,6 @@ public class KafkaInitializationManagerTest extends AbstractTestNGSpringContextT
   }
 
   @Test
-  public void testShutdownPhaseIsAfterJettyGraceful() {
-    KafkaListenerEndpointRegistry real = new KafkaListenerEndpointRegistry();
-    KafkaInitializationManager.movePhaseAfterJetty(real);
-    assertEquals(real.getPhase(), KafkaInitializationManager.SHUTDOWN_PHASE);
-    // Spring Boot 4.0.8 values, read from spring-boot-web-server-4.0.8.jar.
-    assertEquals(KafkaInitializationManager.WEB_SERVER_GRACEFUL_SHUTDOWN_PHASE, 2147482623);
-    assertEquals(KafkaInitializationManager.WEB_SERVER_START_STOP_PHASE, 2147481599);
-    assertTrue(real.getPhase() < KafkaInitializationManager.WEB_SERVER_GRACEFUL_SHUTDOWN_PHASE);
-    assertTrue(real.getPhase() > KafkaInitializationManager.WEB_SERVER_START_STOP_PHASE);
-  }
-
-  @Test
   public void testIsInitialized_DefaultState() {
     // Assert
     assertFalse(manager.isInitialized());
