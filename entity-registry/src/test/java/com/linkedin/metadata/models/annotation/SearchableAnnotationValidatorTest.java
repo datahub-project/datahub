@@ -656,6 +656,140 @@ public class SearchableAnnotationValidatorTest {
         annotationMap, "field", DataSchema.Type.STRING, "test");
   }
 
+  @Test
+  public void testPartialDegreeKeepsTheFieldNameAndLowersOnlyTheV3Score() {
+    SearchableAnnotation columnTags = degreeAnnotation("fieldTags", "URN", "tags", 1, 0.25, 0.5);
+    assertEquals(columnTags.getFieldName(), "fieldTags");
+    assertEquals(columnTags.getBoostScore(), 0.5);
+    assertEquals(columnTags.getDegree(), 1);
+    SearchableAnnotation resolved = columnTags.resolvedForV3();
+    assertEquals(resolved.indexedFieldName().orElseThrow(), "tags_1");
+    assertEquals(resolved.getBoostScore(), 0.25);
+    assertEquals(resolved.getDegree(), 1);
+
+    SearchableAnnotation columnTerms =
+        degreeAnnotation("fieldGlossaryTerms", "URN", "glossaryTerms", 1, 0.25, 0.5);
+    assertEquals(columnTerms.resolvedForV3().indexedFieldName().orElseThrow(), "glossaryTerms_1");
+    assertEquals(columnTerms.getBoostScore(), 0.5);
+  }
+
+  @Test
+  public void testSameIndexedNameRejectsDifferentResolvedScores() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(annotated(degreeAnnotation("fieldTags", "URN", "tags", 1, 0.25, 0.5), "schema"));
+    fields.add(
+        annotated(degreeAnnotation("editedFieldTags", "URN", "tags", 1, 0.5, 0.5), "editable"));
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
+  }
+
+  @Test
+  public void testFartherDegreeMustScoreLower() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(annotated(degreeAnnotation("tags", "URN", "tags", 0, 0.5, 0.5), "dataset.tags"));
+    fields.add(
+        annotated(degreeAnnotation("fieldTags", "URN", "tags", 1, 0.25, 0.5), "schema.fieldTags"));
+
+    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields);
+  }
+
+  @Test
+  public void testEqualScoreAcrossDegreesFails() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(
+        annotated(
+            degreeAnnotation("glossaryTerms", "URN", "glossaryTerms", 0, 1.0, 1.0),
+            "dataset.glossaryTerms"));
+    fields.add(
+        annotated(
+            degreeAnnotation("fieldGlossaryTerms", "URN", "glossaryTerms", 1, 1.0, 1.0),
+            "schema.fieldGlossaryTerms"));
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
+  }
+
+  @Test
+  public void testSameDegreeRejectsDifferentQueryByDefault() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(
+        annotated(degreeAnnotation("tags", "URN", "tags", 0, 0.5, 0.5, true), "dataset.tags"));
+    fields.add(
+        annotated(
+            degreeAnnotation("editedTags", "URN", "tags", 0, 0.5, 0.5, false), "entity.tags"));
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
+  }
+
+  @Test
+  public void testDegreesMayDivergeOnQueryByDefault() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(
+        annotated(degreeAnnotation("tags", "URN", "tags", 0, 0.5, 0.5, true), "dataset.tags"));
+    fields.add(
+        annotated(
+            degreeAnnotation("fieldTags", "URN", "tags", 1, 0.25, 0.5, false), "schema.fieldTags"));
+
+    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields);
+  }
+
+  @Test
+  public void testScoreCannotRiseWithDegree() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(annotated(degreeAnnotation("owners", "URN", "owners", 0, 0.5, 0.5), "entity"));
+    fields.add(annotated(degreeAnnotation("fieldOwners", "URN", "owners", 1, 1.0, 0.5), "child"));
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
+  }
+
+  private SearchableAnnotationValidator.AnnotatedField annotated(
+      SearchableAnnotation annotation, String context) {
+    return new SearchableAnnotationValidator.AnnotatedField(
+        annotation, DataSchema.Type.STRING, context);
+  }
+
+  private SearchableAnnotation degreeAnnotation(
+      String fieldName,
+      String fieldType,
+      String searchLabel,
+      int degree,
+      double v3BoostScore,
+      double boostScore) {
+    return degreeAnnotation(
+        fieldName, fieldType, searchLabel, degree, v3BoostScore, boostScore, null);
+  }
+
+  private SearchableAnnotation degreeAnnotation(
+      String fieldName,
+      String fieldType,
+      String searchLabel,
+      int degree,
+      double v3BoostScore,
+      double boostScore,
+      Boolean queryByDefault) {
+    DataMap overlay = new DataMap();
+    overlay.put("searchLabel", searchLabel);
+    overlay.put("degree", degree);
+    overlay.put("boostScore", v3BoostScore);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldName", fieldName);
+    annotationMap.put("fieldType", fieldType);
+    annotationMap.put("boostScore", boostScore);
+    if (queryByDefault != null) {
+      annotationMap.put("queryByDefault", queryByDefault);
+    }
+    annotationMap.put("v3", overlay);
+    return SearchableAnnotation.fromPegasusAnnotationObject(
+        annotationMap, fieldName, DataSchema.Type.STRING, "test");
+  }
+
   private SearchableAnnotation createAnnotation(String fieldType, Optional<String> searchLabel) {
     return createAnnotation(fieldType, searchLabel, Optional.empty(), 1.0);
   }

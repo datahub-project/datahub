@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.COLUMNS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.DESCRIPTION;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.ENTITY_NAME;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields.OTHER;
@@ -37,27 +36,48 @@ public class V3SearchFieldsTest {
   public void testDatasetFullTextFieldsAndTheirSources() {
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(dataset()));
 
-    assertEquals(fields.keySet(), Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, COLUMNS, OTHER));
+    assertEquals(
+        fields.keySet(),
+        Set.of(
+            ENTITY_NAME,
+            QUALIFIED_NAME,
+            DESCRIPTION,
+            OTHER,
+            "tags",
+            "glossaryTerms",
+            "platform",
+            "container",
+            "domains",
+            "dataProduct",
+            "platformInstance",
+            "applications"));
     // Matched fields follow this order, so the catch-all comes last
     assertEquals(List.copyOf(fields.keySet()).get(fields.size() - 1), OTHER);
+    assertTrue(fields.get(ENTITY_NAME).contains("name"), fields.toString());
     assertTrue(
-        fields.get(ENTITY_NAME).containsAll(List.of("name", "editedName")), fields.toString());
-    assertEquals(fields.get(QUALIFIED_NAME), List.of("qualifiedName"));
-    assertTrue(
-        fields
-            .get(DESCRIPTION)
-            .containsAll(
-                List.of(
-                    "description",
-                    "editedDescription",
-                    "fieldDescriptions",
-                    "editedFieldDescriptions")),
+        fields.get(ENTITY_NAME).contains("_aspects.editableDatasetProperties.editedName"),
         fields.toString());
+    assertEquals(fields.get(QUALIFIED_NAME), List.of("qualifiedName"));
+    assertTrue(fields.get(DESCRIPTION).contains("description"), fields.toString());
     assertTrue(
-        fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
-    assertFalse(fields.containsKey("tags"), fields.toString());
-    assertFalse(fields.containsKey("glossaryTerms"), fields.toString());
-    assertTrue(fields.get(OTHER).contains("platform"), fields.toString());
+        fields.get(DESCRIPTION).contains("_aspects.editableDatasetProperties.editedDescription"),
+        fields.toString());
+    assertFalse(fields.get(DESCRIPTION).contains("fieldDescriptions"), fields.toString());
+    assertFalse(fields.containsKey("description_1"), fields.toString());
+    assertFalse(fields.containsKey("name_1"), fields.toString());
+    assertFalse(fields.containsKey("columns"), fields.toString());
+    assertEquals(fields.get("tags"), List.of("tags"), fields.toString());
+    assertTrue(
+        V3SearchFields.storedParsedNameFields(List.of(dataset()))
+            .get("tags")
+            .contains("_aspects.globalTags.tags__urn_name"),
+        V3SearchFields.storedParsedNameFields(List.of(dataset())).toString());
+    assertEquals(fields.get("glossaryTerms"), List.of("glossaryTerms"), fields.toString());
+    assertEquals(fields.get("platform"), List.of("platform"), fields.toString());
+    assertEquals(fields.get("container"), List.of("container"), fields.toString());
+    assertEquals(fields.get("domains"), List.of(), fields.toString());
+    assertFalse(fields.containsKey("owners"), fields.toString());
+    assertFalse(fields.get(OTHER).contains("platform"), fields.toString());
     assertFalse(fields.get(OTHER).contains("tags"), fields.toString());
     // A field that feeds a named shared field does not also land in other
     assertTrue(
@@ -66,12 +86,37 @@ public class V3SearchFieldsTest {
         fields.toString());
   }
 
-  /** A dataset search reads the columns' arrays, but matched fields never fetch them. */
+  /**
+   * A search that includes both entities still skips column text. The business attribute's own
+   * description opts in {@code description}; that does not opt in {@code description_1}.
+   */
+  @Test
+  public void testSharedSourceNameDoesNotOptInAnotherDegree() {
+    Map<String, List<String>> fields =
+        V3SearchFields.fullTextFields(
+            List.of(dataset(), REGISTRY.getEntitySpec("businessAttribute")));
+
+    assertTrue(fields.containsKey(DESCRIPTION), fields.toString());
+    assertTrue(fields.get(DESCRIPTION).contains("description"), fields.toString());
+    assertTrue(
+        fields.get(DESCRIPTION).contains("_aspects.editableDatasetProperties.editedDescription"),
+        fields.toString());
+    assertTrue(
+        V3SearchFields.omitsSourceRoot(
+            "editedFieldDescriptions",
+            List.of(dataset(), REGISTRY.getEntitySpec("businessAttribute"))),
+        fields.toString());
+    assertFalse(fields.containsKey("description_1"), fields.toString());
+    assertFalse(fields.containsKey("name_1"), fields.toString());
+    assertFalse(fields.containsKey("tags_1"), fields.toString());
+    assertFalse(fields.containsKey("glossaryTerms_1"), fields.toString());
+  }
+
+  /** An unqualified dataset search does not read column fields, and never fetches their arrays. */
   @Test
   public void testMatchedFieldSourcesLeaveOutTheColumnArrays() {
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(dataset()));
-    assertTrue(
-        fields.get(COLUMNS).containsAll(List.of("fieldPaths", "fieldLabels")), fields.toString());
+    assertFalse(fields.containsKey("name_1"), fields.toString());
 
     List<String> sources = V3SearchFields.matchedFieldSources(fields);
 
@@ -81,7 +126,12 @@ public class V3SearchFieldsTest {
     // Nor wherever a label sends one
     assertEquals(
         V3SearchFields.matchedFieldSources(
-            Map.of(DESCRIPTION, List.of("description", "fieldDescriptions"))),
+            Map.of(
+                DESCRIPTION,
+                List.of(
+                    "description",
+                    "fieldDescriptions",
+                    "_aspects.editableSchemaMetadata.editedFieldDescriptions"))),
         List.of("description"));
   }
 
@@ -93,13 +143,13 @@ public class V3SearchFieldsTest {
   public void testMatchedFieldSourcesKeepOnlyNamesAndTagsOfOther() {
     List<String> datasetSources =
         V3SearchFields.matchedFieldSources(V3SearchFields.fullTextFields(List.of(dataset())));
+    assertTrue(datasetSources.contains("name"), datasetSources.toString());
+    assertFalse(datasetSources.contains("editedName"), datasetSources.toString());
+    assertTrue(datasetSources.contains("tags"), datasetSources.toString());
+    assertTrue(datasetSources.contains("glossaryTerms"), datasetSources.toString());
+    assertTrue(datasetSources.contains("platform"), datasetSources.toString());
     assertTrue(
-        datasetSources.containsAll(List.of("name", "editedName")), datasetSources.toString());
-    assertFalse(datasetSources.contains("tags"), datasetSources.toString());
-    assertFalse(datasetSources.contains("glossaryTerms"), datasetSources.toString());
-    assertTrue(
-        datasetSources.stream()
-            .noneMatch(List.of("customProperties", "platform", "domains")::contains),
+        datasetSources.stream().noneMatch(List.of("customProperties", "domains")::contains),
         datasetSources.toString());
 
     Map<String, List<String>> documentFields =
@@ -107,8 +157,31 @@ public class V3SearchFieldsTest {
     List<String> freeText = List.of("text", "semanticText", "customProperties");
     assertTrue(documentFields.get(OTHER).containsAll(freeText), documentFields.toString());
     List<String> documentSources = V3SearchFields.matchedFieldSources(documentFields);
-    assertTrue(documentSources.contains("title"), documentSources.toString());
+    assertTrue(documentSources.contains("_aspects.documentInfo.title"), documentSources.toString());
+    assertFalse(documentSources.contains("title"), documentSources.toString());
+    assertFalse(documentSources.contains("name"), documentSources.toString());
     assertTrue(documentSources.stream().noneMatch(freeText::contains), documentSources.toString());
+    assertTrue(
+        datasetSources.stream().noneMatch(V3SearchFields.COLUMN_ARRAY_FIELDS::contains),
+        datasetSources.toString());
+    assertTrue(
+        datasetSources.stream()
+            .noneMatch(
+                source ->
+                    V3SearchFields.COLUMN_ARRAY_FIELDS.contains(
+                        source.substring(source.lastIndexOf('.') + 1))),
+        datasetSources.toString());
+  }
+
+  /** Chart and dashboard title share a spec by value and live on different aspects. */
+  @Test
+  public void testRelabeledFieldKeepsTheAspectThatDeclaresIt() {
+    List<String> sources =
+        V3SearchFields.fullTextFields(
+                List.of(REGISTRY.getEntitySpec("chart"), REGISTRY.getEntitySpec("dashboard")))
+            .get(ENTITY_NAME);
+    assertTrue(sources.contains("_aspects.chartInfo.title"), sources.toString());
+    assertTrue(sources.contains("_aspects.dashboardInfo.title"), sources.toString());
   }
 
   /**
@@ -154,15 +227,18 @@ public class V3SearchFieldsTest {
         Set.of());
   }
 
-  /** The service entity labels no name, so the field its _entityName alias names is the name. */
+  /**
+   * Service displayName is labeled name, so full text reads name and omits the displayName root.
+   */
   @Test
   public void testEntityWithoutNameLabelSendsItsEntityNameAliasToEntityName() {
     EntitySpec service = REGISTRY.getEntitySpec("service");
 
     Map<String, List<String>> fields = V3SearchFields.fullTextFields(List.of(service));
 
-    assertEquals(fields.get(ENTITY_NAME), List.of("displayName"));
+    assertEquals(fields.get(ENTITY_NAME), List.of("_aspects.serviceProperties.displayName"));
     assertFalse(fields.get(OTHER).contains("displayName"), fields.toString());
+    assertTrue(V3SearchFields.omitsSourceRoot("displayName", List.of(service)));
   }
 
   @Test
@@ -235,7 +311,13 @@ public class V3SearchFieldsTest {
     Map<String, List<String>> fields =
         V3SearchFields.fullTextFields(List.of(TestEntitySpecBuilder.getSpec()));
 
-    assertTrue(fields.get(ENTITY_NAME).contains("textFieldOverride"), fields.toString());
+    assertTrue(
+        fields.get(ENTITY_NAME).stream().anyMatch(source -> source.endsWith(".textFieldOverride")),
+        fields.toString());
+    assertFalse(fields.get(OTHER).contains("textFieldOverride"), fields.toString());
+    assertTrue(
+        V3SearchFields.omitsSourceRoot(
+            "textFieldOverride", List.of(TestEntitySpecBuilder.getSpec())));
     assertEquals(
         V3SearchFields.analyzerSubfields(List.of(TestEntitySpecBuilder.getSpec())).get(ENTITY_NAME),
         Set.of("text", "stemmed"));
@@ -277,6 +359,22 @@ public class V3SearchFieldsTest {
         declared.stream().filter(name -> !searchableFieldNames.contains(name)).toList().toString());
   }
 
+  @Test
+  public void testIndexedFieldWeightFollowsTheResolvedScore() {
+    List<EntitySpec> specs = List.of(dataset(), REGISTRY.getEntitySpec("businessAttribute"));
+
+    assertEquals(V3SearchFields.weight(specs, "name"), 10f);
+    assertEquals(V3SearchFields.weight(specs, "name_1"), 1f);
+    assertEquals(V3SearchFields.weight(specs, "qualifiedName"), 10f);
+    assertEquals(V3SearchFields.weight(specs, "description"), 1f);
+    assertEquals(V3SearchFields.weight(specs, "description_1"), 0.5f);
+    assertEquals(V3SearchFields.weight(specs, "tags"), 0.5f);
+    assertEquals(V3SearchFields.weight(specs, "tags_1"), 0.25f);
+    assertEquals(V3SearchFields.weight(specs, "glossaryTerms"), 0.5f);
+    assertEquals(V3SearchFields.weight(specs, "glossaryTerms_1"), 0.25f);
+    assertEquals(V3SearchFields.weight(specs, OTHER), 0.5f);
+  }
+
   private static EntitySpec dataset() {
     return REGISTRY.getEntitySpec("dataset");
   }
@@ -287,6 +385,11 @@ public class V3SearchFieldsTest {
     when(annotation.getFieldName()).thenReturn("title");
     when(annotation.getFieldType()).thenReturn(fieldType);
     when(annotation.getSearchLabel()).thenReturn(Optional.ofNullable(searchLabel));
+    when(annotation.indexedFieldName())
+        .thenReturn(
+            searchLabel == null || searchLabel.isEmpty()
+                ? Optional.empty()
+                : Optional.of(searchLabel));
     when(annotation.getEntityFieldName()).thenReturn(Optional.empty());
     when(annotation.isV3Searchable()).thenReturn(true);
     when(annotation.resolvedForV3()).thenReturn(annotation);

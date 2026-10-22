@@ -4,6 +4,8 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.search.MatchedField;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
+import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,6 +61,8 @@ public final class MatchedFields {
   private final Set<String> queryStems;
   // The forms of the query's last word, which match as a prefix
   private final List<String> lastQueryForms;
+  private final List<String> queryTokens;
+  private final List<List<String>> queryWordForms;
 
   /**
    * @param minWordLength words shorter than this are dropped, as the analyzers' {@code min_length}
@@ -68,42 +72,92 @@ public final class MatchedFields {
     this.query = query;
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
+    final List<String> tokens = new ArrayList<>();
     final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
-      final List<String> forms = forms(matcher.group());
-      if (!forms.isEmpty()) {
-        queryWords.add(forms);
+      final List<String> wordForms = forms(matcher.group());
+      if (!wordForms.isEmpty()) {
+        queryWords.add(wordForms);
+        tokens.add(matcher.group());
       }
     }
     this.queryStems =
         queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
+    this.queryWordForms = List.copyOf(queryWords);
+    this.queryTokens = List.copyOf(tokens);
   }
 
   /** The fields among {@code fields}, in that order, whose value in {@code source} matches. */
   @Nonnull
   public List<MatchedField> find(
       @Nonnull final Map<String, Object> source, @Nonnull final Collection<String> fields) {
+    return find(source, fields, Map.of());
+  }
+
+  /**
+   * {@code names} reports a fetched path under another name. A nulled URN label is fetched from the
+   * aspect field that stores its parsed name.
+   */
+  @Nonnull
+  public List<MatchedField> find(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names) {
     final List<MatchedField> matchedFields = new ArrayList<>();
     if (lastQueryForms.isEmpty()) {
       return matchedFields;
     }
     for (String field : fields) {
+      final String reported = names.getOrDefault(field, field);
       final List<?> fieldValues = values(at(source, field));
       if (StructuredPropertyUtils.isStructuredPropertyField(field)) {
-        addStrongest(matchedFields, field, fieldValues);
+        addStrongest(matchedFields, reported, fieldValues);
         continue;
       }
       for (Object value : fieldValues) {
         final String text = String.valueOf(value);
         final int match = firstMatch(text);
         if (match >= 0) {
-          matchedFields.add(new MatchedField().setName(field).setValue(fragment(text, match)));
+          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
           break;
         }
       }
     }
     return matchedFields;
+  }
+
+  /**
+   * The same matches as {@link #find}, with the subfield, match kind, and query word. Shared {@code
+   * copy_to} fields are not stored, so the subfield is inferred: an exact value or a prefix is the
+   * keyword subfield, and a stem or word match is the stemmed subfield.
+   */
+  @Nonnull
+  public List<MatchEvidence> explain(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names) {
+    final List<MatchEvidence> evidence = new ArrayList<>();
+    if (lastQueryForms.isEmpty()) {
+      return evidence;
+    }
+    for (String field : fields) {
+      final String reported = names.getOrDefault(field, field);
+      final List<?> fieldValues = values(at(source, field));
+      if (StructuredPropertyUtils.isStructuredPropertyField(field)) {
+        addStrongestEvidence(evidence, reported, fieldValues);
+        continue;
+      }
+      for (Object value : fieldValues) {
+        final String text = String.valueOf(value);
+        final int match = firstMatch(text);
+        if (match >= 0) {
+          evidence.add(evidence(reported, text, match));
+          break;
+        }
+      }
+    }
+    return evidence;
   }
 
   /**
@@ -133,6 +187,76 @@ public final class MatchedFields {
     if (bestText != null) {
       matchedFields.add(new MatchedField().setName(field).setValue(fragment(bestText, bestMatch)));
     }
+  }
+
+  private void addStrongestEvidence(
+      @Nonnull final List<MatchEvidence> evidence,
+      @Nonnull final String field,
+      @Nonnull final List<?> fieldValues) {
+    String bestText = null;
+    int bestMatch = -1;
+    int bestRank = Integer.MAX_VALUE;
+    for (Object value : fieldValues) {
+      final String text = String.valueOf(value);
+      final int match = firstMatch(text);
+      if (match < 0) {
+        continue;
+      }
+      final int rank = matchRank(text, match);
+      if (rank < bestRank) {
+        bestRank = rank;
+        bestMatch = match;
+        bestText = text;
+      }
+    }
+    if (bestText != null) {
+      evidence.add(evidence(field, bestText, bestMatch));
+    }
+  }
+
+  @Nonnull
+  private MatchEvidence evidence(
+      @Nonnull final String field, @Nonnull final String text, final int match) {
+    final int rank = matchRank(text, match);
+    final String mode =
+        rank == 0 ? MatchEvidence.EXACT : rank == 1 ? MatchEvidence.PREFIX : MatchEvidence.WORD;
+    final String subfield = subfield(field, mode);
+    final String matchedQuery = MatchEvidence.WORD.equals(mode) ? queryWord(text) : query.trim();
+    return new MatchEvidence(field, fragment(text, match), subfield, mode, matchedQuery);
+  }
+
+  @Nonnull
+  private static String subfield(@Nonnull final String field, @Nonnull final String mode) {
+    if (field.endsWith(ESUtils.KEYWORD_SUFFIX)
+        || field.endsWith(V3SearchFields.STEMMED_SUFFIX)
+        || field.endsWith(V3SearchFields.TEXT_SUFFIX)) {
+      return field;
+    }
+    return MatchEvidence.WORD.equals(mode)
+        ? field + V3SearchFields.STEMMED_SUFFIX
+        : field + ESUtils.KEYWORD_SUFFIX;
+  }
+
+  /** The query token whose stem or prefix matched, or the whole query when none is found. */
+  @Nonnull
+  private String queryWord(@Nonnull final String text) {
+    final Matcher matcher = WORD.matcher(text);
+    while (matcher.find()) {
+      for (String form : forms(matcher.group())) {
+        if (lastQueryForms.stream().anyMatch(form::startsWith) && !queryTokens.isEmpty()) {
+          return queryTokens.get(queryTokens.size() - 1);
+        }
+        final String stemmed = stem(form);
+        for (int i = 0; i < queryWordForms.size(); i++) {
+          for (String queryForm : queryWordForms.get(i)) {
+            if (queryForm.equals(form) || stem(queryForm).equals(stemmed)) {
+              return queryTokens.get(i);
+            }
+          }
+        }
+      }
+    }
+    return query.trim();
   }
 
   /** Exact, then a value that starts with the query, then the earliest word match. */

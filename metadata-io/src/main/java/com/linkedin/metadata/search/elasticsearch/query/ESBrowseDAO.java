@@ -622,6 +622,9 @@ public class ESBrowseDAO {
     final String indexName = entityIndexName(opContext, entityName);
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    // The browse template owns lexical routing and ranking. Path, depth, authorization filters,
+    // the groups aggregation, the result limit, and execution stay here, so a stored aggregation
+    // or rescore cannot replace group counts.
     searchSourceBuilder.size(0);
     searchSourceBuilder.query(
         buildQueryStringV2(
@@ -656,6 +659,8 @@ public class ESBrowseDAO {
 
     final SearchRequest searchRequest = new SearchRequest(indexArray);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    // Same boundary as a single-entity browse: the template query, then Java path, depth,
+    // filters, and the groups aggregation.
     searchSourceBuilder.size(0);
     searchSourceBuilder.query(
         buildQueryStringBrowseAcrossEntities(

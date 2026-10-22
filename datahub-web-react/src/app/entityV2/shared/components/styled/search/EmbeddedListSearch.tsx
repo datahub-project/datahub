@@ -26,7 +26,7 @@ import {
     DownloadSearchResultsParams,
 } from '@app/search/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { SearchCfg } from '@src/conf';
 

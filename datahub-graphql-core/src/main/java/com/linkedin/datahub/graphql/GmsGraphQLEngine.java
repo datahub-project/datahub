@@ -430,6 +430,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -3583,6 +3584,55 @@ public class GmsGraphQLEngine {
                     "lineage",
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
+    // Schema-by-reference on the signature: hydrate the input/output Dataset
+    // stubs (Consumes / Produces edges) so the signature can show the datasets'
+    // names, platforms and schemas. Empty list (not null) when absent — the
+    // batch resolver NPEs on a null provider result.
+    builder.type(
+        "ApiSignature",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "inputDatasets",
+                    omitMissingEntities(
+                        new LoadableTypeBatchResolver<>(
+                            datasetType,
+                            (env) -> {
+                              final ApiSignature signature = env.getSource();
+                              return signature.getInputDatasets() == null
+                                  ? new ArrayList<String>()
+                                  : signature.getInputDatasets().stream()
+                                      .map(datasetType.getKeyProvider())
+                                      .collect(Collectors.toList());
+                            })))
+                .dataFetcher(
+                    "outputDatasets",
+                    omitMissingEntities(
+                        new LoadableTypeBatchResolver<>(
+                            datasetType,
+                            (env) -> {
+                              final ApiSignature signature = env.getSource();
+                              return signature.getOutputDatasets() == null
+                                  ? new ArrayList<String>()
+                                  : signature.getOutputDatasets().stream()
+                                      .map(datasetType.getKeyProvider())
+                                      .collect(Collectors.toList());
+                            }))));
+  }
+
+  /**
+   * Drops batch-loaded entries that resolved to null (the referenced entity no longer exists) so a
+   * dangling edge is omitted from a {@code [Entity!]} list instead of failing the whole field.
+   */
+  private static <T> DataFetcher<CompletableFuture<List<T>>> omitMissingEntities(
+      final LoadableTypeBatchResolver<T, ?> resolver) {
+    return env -> {
+      final CompletableFuture<List<T>> loaded = resolver.get(env);
+      return loaded == null
+          ? null
+          : loaded.thenApply(
+              entities -> entities.stream().filter(Objects::nonNull).collect(Collectors.toList()));
+    };
   }
 
   private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {

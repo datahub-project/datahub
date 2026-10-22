@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
-import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+import { getLocaleTimezone } from '@app/sharedV2/time/timeUtils';
 
 import { Assertion } from '@types';
 

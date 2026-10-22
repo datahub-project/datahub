@@ -154,6 +154,21 @@ type ApiSignature {
   The output shape the API returns, modeled as schema fields.
   """
   outputFields: [SchemaField!]
+
+  """
+  Datasets whose schema defines the API's input, by reference (e.g. the protobuf
+  request message of a gRPC method, modeled as a Dataset). Backed by the Consumes
+  lineage edge: the input dataset is upstream of the API. Prefer these over
+  inputFields when the payload type is cataloged in its own right.
+  """
+  inputDatasets: [Dataset!]
+
+  """
+  Datasets whose schema defines the API's output, by reference (e.g. the protobuf
+  response message of a gRPC method, modeled as a Dataset). Backed by the Produces
+  lineage edge: the API is upstream of the output dataset.
+  """
+  outputDatasets: [Dataset!]
 }
 
 """
