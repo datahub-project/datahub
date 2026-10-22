@@ -72,6 +72,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -143,6 +144,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -373,6 +376,32 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 verify(mockEntityService)
                     .deleteAspect(
                         any(), eq(TEST_URN.toString()), eq(aspectName), anyMap(), eq(true)));
+  }
+
+  /** A whole-entity delete goes through the hard delete service, with the same response. */
+  @Test
+  public void testDeleteEntityDelegatesToTheHardDeleteService() throws Exception {
+    reset(authorizerChain, mockEntityService);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,5,PROD)");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
+    // The context is shared by every test here, so the controller gets its own field back.
+    Object controller = AopTestUtils.getUltimateTargetObject(entityController);
+    Object previous = ReflectionTestUtils.getField(controller, "hardDeleteService");
+    ReflectionTestUtils.setField(controller, "hardDeleteService", hardDeleteService);
+    try {
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.delete(
+                      String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful());
+    } finally {
+      ReflectionTestUtils.setField(controller, "hardDeleteService", previous);
+    }
+
+    verify(hardDeleteService).deleteEntity(any(), eq(TEST_URN));
+    verify(mockEntityService, never()).deleteUrn(any(), any(Urn.class));
   }
 
   @Test
@@ -1144,6 +1173,164 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(status().is2xxSuccessful())
         .andExpect(
             MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()));
+  }
+
+  @Test
+  public void testScrollEntitiesPassesTemplateAndReturnsRouteChain() throws Exception {
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(
+                testSearchResultMetadata()
+                    .setRouteChain(new StringArray("urn:li:searchTemplate:list")))
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urns.get(0)))));
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "urn:li:searchTemplate:list")
+                .param("includeExplain", "true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.routeChain[0]").value("urn:li:searchTemplate:list"));
+
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertEquals(flags.getSearchTemplate().toString(), "urn:li:searchTemplate:list");
+    assertTrue(flags.isIncludeExplain());
+  }
+
+  @Test
+  public void testEntityScrollReturnsTheRouteChainWithoutFacets() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(
+                testSearchResultMetadata()
+                    .setRouteChain(new StringArray("urn:li:searchTemplate:list")))
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urn))));
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset")
+                .param("includeExplain", "true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.routeChain[0]").value("urn:li:searchTemplate:list"))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.facets").isEmpty());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsANonUrnTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "not-a-urn")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsADatasetTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param(
+                    "searchTemplate",
+                    "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsABlankTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesAcceptsSearchTemplate() throws Exception {
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urns.get(0)))));
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "urn:li:searchTemplate:search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertEquals(flags.getSearchTemplate().toString(), "urn:li:searchTemplate:search");
   }
 
   @Test

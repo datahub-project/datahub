@@ -28,7 +28,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -123,7 +123,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         status {
@@ -175,7 +175,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         parentContainers {
@@ -229,7 +229,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         parentContainers {
             ...parentContainersFields
@@ -305,6 +305,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 ...structuredPropertiesFields
             }
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         exists
@@ -349,6 +352,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLModel {
@@ -406,6 +412,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLFeatureTable {
         ...nonRecursiveMLFeatureTable
@@ -446,7 +455,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -491,7 +500,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -544,6 +553,27 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         glossaryTerms {
             ...glossaryTerms
+        }
+    }
+    ... on Api {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
         }
     }
     ... on Restricted {
@@ -848,6 +878,11 @@ fragment entityLineageV2 on Entity {
             ...platformFields
         }
     }
+    ... on Api {
+        properties {
+            name
+        }
+    }
     ... on DataProcessInstance {
         ...dataProcessInstanceFields
     }
@@ -871,7 +906,7 @@ fragment entityLineageV2 on Entity {
             description
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
     }
 }
@@ -975,6 +1010,25 @@ query getLineageCounts(
             ) @skip(if: $excludeDownstream) {
                 filtered
                 total
+            }
+        }
+    }
+}
+
+# Counts only, for the URNs already on screen. Search results render from a query that skips
+# lineage; this runs afterward so the page is not blocked on a lookup per card. `count: 100`
+# matches the search fragment so ghost entities are filtered the same way.
+query getSearchResultLineageCounts($urns: [String!]!) {
+    entities(urns: $urns) {
+        urn
+        ... on EntityWithRelationships {
+            upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
+            }
+            downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+                total
+                filtered
             }
         }
     }

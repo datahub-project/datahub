@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -35,7 +35,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: t('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
+                    toast.success(t('deprecation.markedUnDeprecatedSuccess'), { duration: 2 });
                     refetch?.();
                     analytics.event({
                         type: EventType.SetDeprecation,
@@ -45,13 +45,12 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('deprecation.markUnDeprecatedError', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(urns, e, {
+                    content: t('deprecation.markUnDeprecatedError', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 

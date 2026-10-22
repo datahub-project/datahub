@@ -7,12 +7,14 @@ import Cookies from 'js-cookie';
 import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
+import { StyleSheetManager } from 'styled-components';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
 import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
+import { injectGlobalSearchVariables } from '@app/appConfig/injectedOperationVariables';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
@@ -54,17 +56,16 @@ const errorLink = onError((error) => {
     //     const { extensions } = firstError;
     //     const errorCode = extensions && (extensions.code as number);
     //     // Fallback in case the calling component does not handle.
-    //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
+    //     toast.error(`${firstError.message} (code ${errorCode})`, { duration: 3 }); // TODO: Decide if we want this back.
     // }
 });
 
 const injectVariablesLink = new ApolloLink((operation, forward) => {
     // eslint-disable-next-line no-param-reassign
-    operation.variables = {
-        ...operation.variables,
-        skipSiblingsSearch: showSeparateSiblingsRef.current,
-        skipLineage: hideLineageInSearchCardsRef.current,
-    };
+    operation.variables = injectGlobalSearchVariables(operation.variables, {
+        showSeparateSiblings: showSeparateSiblingsRef.current,
+        hideLineageInSearchCards: hideLineageInSearchCardsRef.current,
+    });
 
     return forward(operation);
 });
@@ -85,6 +86,14 @@ const client = new ApolloClient({
                         },
                     },
                     entity: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
+                    // getGlossaryTerm and getRelatedTerms select different fields of the same term.
+                    // GlossaryTerm is not normalized, so without a merge the second write replaces
+                    // the first and the profile query refetches the whole term from the network.
+                    glossaryTerm: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
                         },
@@ -118,26 +127,30 @@ export const InnerApp: React.VFC = () => {
     const isDarkMode = loadIsDarkMode();
 
     return (
-        <HelmetProvider>
-            <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
-                <GlobalStyles />
-                {/* ToastRenderer translates its own labels and sits above the router's boundary,
-                    so it needs one of its own while the locale bundle loads. */}
-                <Suspense fallback={null}>
-                    <ToastRenderer />
-                </Suspense>
-                <FilesUploadingDownloadingLatencyTracker />
-
-                <Helmet>
-                    <title>{useCustomTheme().theme?.content?.title}</title>
-                </Helmet>
-                <Router basename={getRuntimeBasePath()}>
-                    <Suspense fallback={<SuspenseGlobal />}>
-                        <Routes />
+        // Lazy route chunks add library CSS to <head> after styled-components' tag. Keeping our styles in
+        // <body> puts them after every stylesheet, so they win at equal specificity however late a chunk loads.
+        <StyleSheetManager target={document.body}>
+            <HelmetProvider>
+                <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
+                    <GlobalStyles />
+                    {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                        so it needs one of its own while the locale bundle loads. */}
+                    <Suspense fallback={null}>
+                        <ToastRenderer />
                     </Suspense>
-                </Router>
-            </CustomThemeProvider>
-        </HelmetProvider>
+                    <FilesUploadingDownloadingLatencyTracker />
+
+                    <Helmet>
+                        <title>{useCustomTheme().theme?.content?.title}</title>
+                    </Helmet>
+                    <Router basename={getRuntimeBasePath()}>
+                        <Suspense fallback={<SuspenseGlobal />}>
+                            <Routes />
+                        </Suspense>
+                    </Router>
+                </CustomThemeProvider>
+            </HelmetProvider>
+        </StyleSheetManager>
     );
 };
 

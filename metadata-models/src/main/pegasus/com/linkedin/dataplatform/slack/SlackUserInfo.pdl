@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Information about a Slack user.
  */
 @Aspect = {
-  "name": "slackUserInfo"
+  "name": "slackUserInfo",
+  "schemaVersion": 2
 }
 record SlackUserInfo {
 
@@ -37,6 +38,19 @@ record SlackUserInfo {
   /**
    * The display name of the Slack member.
    */
+  @Searchable = {
+    "fieldName": "slackDisplayName",
+    "fieldType": "WORD_GRAM",
+    "boostScore": 10.0,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   displayName: string
 
   /**

@@ -23,16 +23,24 @@ const Container = styled.div`
     display: flex;
     width: 100%;
     gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 const LeftSection = styled.div`
     flex: 6;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const RightSection = styled.div`
     flex: 4;
     width: calc(40% - 20px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const VerticalDivider = styled.div`
@@ -49,10 +57,14 @@ const ResultsContainer = styled.div`
     position: relative;
     max-height: 300px;
     padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const ScrollableResultsContainer = styled.div`
-    max-height: inherit;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
 `;
 

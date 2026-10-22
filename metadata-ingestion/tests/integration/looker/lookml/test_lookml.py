@@ -912,6 +912,16 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
     )
 
     assert manifest
+    assert manifest["project_name"] == "complex-manifest-project"
+    assert [c["name"] for c in manifest["constants"]] == [
+        "CONNECTION_NAME",
+        "other_variable",
+    ]
+    assert manifest["local_dependencies"] == [{"project": "looker-hub"}]
+    assert [dep["name"] for dep in manifest["remote_dependencies"]] == [
+        "remote-proj-1",
+        "remote-proj-2",
+    ]
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

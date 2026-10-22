@@ -7,7 +7,6 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.Customize
 import static com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler.unquote;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -26,19 +25,19 @@ import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -57,47 +56,30 @@ import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 
+/**
+ * Builds the keyword query of the V2 entity indices: per-analyzer simple query strings with AND
+ * semantics plus exact and prefix matches, summed under a bool query. Search V3 keyword reads use
+ * {@link com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder}.
+ */
 @Slf4j
 public class SearchQueryBuilder {
   public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
-  // Search V3 keeps analyzed text only in the _search.tier_N copy_to targets. These names must
-  // match the effective V3 mapping: the bundled search_entity_mapping_config.yaml (tier_N with
-  // full, full_stemmed and full_removed_sep text subfields, urn copied to tier 4) as
-  // MultiEntityMappingsUtils.buildSearchSection extends it (_search.entityName)
-  private static final String V3_TIER_FIELD_PREFIX = "_search.tier_";
-  private static final String V3_ENTITY_NAME_FIELD = "_search.entityName";
-  // urn copies to _search.tier_4 in the V3 base mapping, not through a searchTier annotation
-  private static final int V3_URN_SEARCH_TIER = 4;
-  private final ExactMatchConfiguration exactMatchConfiguration;
-  private final PartialConfiguration partialConfiguration;
+
+  protected final ExactMatchConfiguration exactMatchConfiguration;
+  protected final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
-  private final SearchValidationConfiguration searchValidationConfiguration;
+  protected final SearchValidationConfiguration searchValidationConfiguration;
   private final Pattern validationRegex;
 
-  private final CustomizedQueryHandler customizedQueryHandler;
+  protected final CustomizedQueryHandler customizedQueryHandler;
 
-  /**
-   * Search V3 entity indices have no per-field text subfields, so full-text queries target the
-   * {@code _search.tier_N} fields instead.
-   */
-  private final boolean v3KeywordReadEnabled;
-
-  /** V2 queries only; production passes the V3 read decision through the other constructor. */
-  @VisibleForTesting
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration) {
-    this(searchConfiguration, customSearchConfiguration, false);
-  }
-
-  public SearchQueryBuilder(
-      @Nonnull SearchConfiguration searchConfiguration,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
-      final boolean v3KeywordReadEnabled) {
-    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
-    this.exactMatchConfiguration = searchConfiguration.getExactMatch();
-    this.partialConfiguration = searchConfiguration.getPartial();
-    this.wordGramConfiguration = searchConfiguration.getWordGram();
+    SearchConfiguration resolved = SearchConfiguration.withSectionDefaults(searchConfiguration);
+    this.exactMatchConfiguration = resolved.getExactMatch();
+    this.partialConfiguration = resolved.getPartial();
+    this.wordGramConfiguration = resolved.getWordGram();
     this.searchValidationConfiguration =
         searchConfiguration.getValidation() != null
             ? searchConfiguration.getValidation()
@@ -113,12 +95,82 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    if (coordinator != null && coordinator.executes(opContext)) {
+      return buildPlan(opContext, entitySpecs, query, fulltext, null, false).query();
+    }
+    if (coordinator != null
+        && coordinator.effect(opContext) == SearchTemplateRollout.Effect.SHADOW) {
+      coordinator.shadow(
+          opContext,
+          entitySpecs,
+          query,
+          fulltext,
+          SearchTemplateRollout.scrollSurface(opContext.getSearchContext().getSearchSurface()));
+    }
+    return buildQuery(opContext, entitySpecs, query, fulltext, false);
+  }
+
+  /**
+   * Builds the query, optionally the light Stage 1 query.
+   *
+   * @param skipExpensiveClauses on Search V3, build the light query: one multi_match instead of the
+   *     fuzzy simple queries, and no wildcard, synonym-priority or full exact/prefix clauses.
+   *     Callers run the full query (false) when the light query matches nothing. V2 queries ignore
+   *     it.
+   * @return the query, or null for a light query that a custom configuration leaves without any
+   *     clause
+   */
+  @Nullable
+  public QueryBuilder buildQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext,
+      boolean skipExpensiveClauses) {
     QueryConfiguration customQueryConfig =
         customizedQueryHandler.lookupQueryConfig(query).orElse(null);
 
+    // V2 ignores skipExpensiveClauses; the Search V3 builder overrides this method and uses it.
     final QueryBuilder queryBuilder =
         buildInternalQuery(opContext, customQueryConfig, entitySpecs, query, fulltext);
+    if (queryBuilder == null) {
+      return null;
+    }
     return buildScoreFunctions(opContext, customQueryConfig, entitySpecs, query, queryBuilder);
+  }
+
+  @Nonnull
+  public SearchQueryPlan buildPlan(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<EntitySpec> entitySpecs,
+      @Nonnull String query,
+      boolean fulltext,
+      @Nullable String renderUrn,
+      boolean scroll) {
+    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    if (coordinator != null && coordinator.executes(opContext)) {
+      if (searchValidationConfiguration.isEnabled()) {
+        validateSearchQuery(query);
+      }
+      OperationContext bound =
+          opContext.getSearchContext().getResolvedSearchTemplate() != null
+              ? opContext
+              : coordinator.bind(
+                  opContext, query, scroll, entitySpecs.stream().map(EntitySpec::getName).toList());
+      var rendered =
+          coordinator.queryBuilder().render(bound, entitySpecs, query, fulltext, renderUrn, scroll);
+      return new SearchQueryPlan(rendered.query(), rendered);
+    }
+    if (coordinator != null
+        && coordinator.effect(opContext) == SearchTemplateRollout.Effect.SHADOW) {
+      coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
+    }
+    QueryBuilder queryBuilder = buildQuery(opContext, entitySpecs, query, fulltext, false);
+    if (queryBuilder == null) {
+      throw new IllegalStateException("Search query produced no clause");
+    }
+    return SearchQueryPlan.legacy(queryBuilder);
   }
 
   /**
@@ -151,30 +203,17 @@ public class SearchQueryBuilder {
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
       getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
-      getPrefixAndExactMatchQuery(
-              opContext,
-              opContext.getEntityRegistry(),
-              customQueryConfig,
-              entitySpecs,
-              sanitizedQuery,
-              opContext.getAspectRetriever())
+      getPrefixAndExactMatchQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
     } else {
       final String withoutQueryPrefix =
           query.startsWith(STRUCTURED_QUERY_PREFIX)
               ? query.substring(STRUCTURED_QUERY_PREFIX.length())
               : query;
-      getStructuredQuery(
-              opContext.getEntityRegistry(), customQueryConfig, entitySpecs, withoutQueryPrefix)
+      getStructuredQuery(opContext, customQueryConfig, entitySpecs, withoutQueryPrefix)
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
-        getPrefixAndExactMatchQuery(
-                opContext,
-                opContext.getEntityRegistry(),
-                customQueryConfig,
-                entitySpecs,
-                withoutQueryPrefix,
-                opContext.getAspectRetriever())
+        getPrefixAndExactMatchQuery(opContext, customQueryConfig, entitySpecs, withoutQueryPrefix)
             .ifPresent(finalQuery::should);
       }
     }
@@ -212,14 +251,15 @@ public class SearchQueryBuilder {
 
   /**
    * Gets searchable fields from all entities in the input collection. De-duplicates fields across
-   * entities.
+   * entities. V2 and V2.5 list these fields from the entity specs. Search V3 also uses {@code
+   * opContext} to list structured properties.
    *
    * @param entitySpecs: Entity specs to extract searchable fields from
    * @return A set of SearchFieldConfigs containing the searchable fields from the input entities.
    */
   @VisibleForTesting
   public Set<SearchFieldConfig> getStandardFields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
+      @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     // Always present
     final float urnBoost =
@@ -236,7 +276,7 @@ public class SearchQueryBuilder {
             true));
 
     entitySpecs.stream()
-        .map(spec -> getFieldsFromEntitySpec(entityRegistry, spec))
+        .map(spec -> getFieldsFromEntitySpec(opContext.getEntityRegistry(), spec))
         .flatMap(Set::stream)
         .collect(Collectors.groupingBy(SearchFieldConfig::fieldName))
         .forEach(
@@ -263,6 +303,18 @@ public class SearchQueryBuilder {
   }
 
   /**
+   * The annotation an unqualified query uses for this field. Search V2 uses the annotation as
+   * written. Search V3 uses the resolved annotation, so a {@code v3} override replaces the
+   * top-level {@code queryByDefault} and {@code boostScore}.
+   */
+  @Nonnull
+  protected Optional<SearchableAnnotation> unqualifiedQueryAnnotation(
+      @Nonnull SearchableFieldSpec fieldSpec) {
+    SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+    return annotation.isQueryByDefault() ? Optional.of(annotation) : Optional.empty();
+  }
+
+  /**
    * Return query by default fields
    *
    * @param entityRegistry entity registry with search annotations
@@ -275,24 +327,24 @@ public class SearchQueryBuilder {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
-      if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
+      Optional<SearchableAnnotation> queryAnnotation = unqualifiedQueryAnnotation(fieldSpec);
+      if (queryAnnotation.isEmpty()) {
         continue;
       }
+      SearchableAnnotation annotation = queryAnnotation.get();
 
-      SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(fieldSpec);
+      SearchFieldConfig searchFieldConfig = SearchFieldConfig.detectSubFieldType(annotation);
       fields.add(searchFieldConfig);
 
-      if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasDelimitedSubfield()) {
-        final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
-
+      if (searchFieldConfig.hasDelimitedSubfield()) {
         fields.add(
             SearchFieldConfig.detectSubFieldType(
                 searchFieldConfig.fieldName() + ".delimited",
                 searchFieldConfig.boost() * partialConfiguration.getFactor(),
-                searchableAnnotation.getFieldType(),
-                searchableAnnotation.isQueryByDefault()));
+                annotation.getFieldType(),
+                true));
 
-        if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasWordGramSubfields()) {
+        if (searchFieldConfig.hasWordGramSubfields()) {
           addWordGramSearchConfig(fields, searchFieldConfig);
         }
       }
@@ -365,8 +417,9 @@ public class SearchQueryBuilder {
             .build());
   }
 
-  private Set<SearchFieldConfig> getStandardFields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
+  /** The fields one entity searches, with the urn. */
+  protected Set<SearchFieldConfig> getStandardFields(
+      @Nonnull OperationContext opContext, @Nonnull EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
 
     // Always present
@@ -383,18 +436,29 @@ public class SearchQueryBuilder {
             SearchableAnnotation.FieldType.URN,
             true));
 
-    fields.addAll(getFieldsFromEntitySpec(entityRegistry, entitySpec));
+    fields.addAll(getFieldsFromEntitySpec(opContext.getEntityRegistry(), entitySpec));
 
     return fields;
   }
 
-  private Optional<QueryBuilder> getSimpleQuery(
+  /**
+   * The fields of these entities that the field configuration {@code label} keeps, or {@code
+   * fields} when it names none.
+   */
+  protected Set<SearchFieldConfig> applySearchFieldConfiguration(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull Set<SearchFieldConfig> fields,
+      @Nullable String label) {
+    return customizedQueryHandler.applySearchFieldConfiguration(fields, label);
+  }
+
+  protected Optional<QueryBuilder> getSimpleQuery(
       @Nonnull OperationContext operationContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
     Optional<QueryBuilder> result = Optional.empty();
-    EntityRegistry entityRegistry = operationContext.getEntityRegistry();
 
     final boolean executeSimpleQuery;
     if (customQueryConfig != null) {
@@ -403,25 +467,20 @@ public class SearchQueryBuilder {
       executeSimpleQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
     }
 
-    if (executeSimpleQuery && v3KeywordReadEnabled) {
-      // No analyzer: each tier subfield applies its own search analyzer
-      SimpleQueryStringBuilder simpleBuilder =
-          QueryBuilders.simpleQueryStringQuery(sanitizedQuery).defaultOperator(Operator.AND);
-      getV3TierTextFields(entitySpecs).forEach(simpleBuilder::field);
-      // Grouped like V2's per-analyzer queries: the search config export reads this shape
-      result = Optional.of(QueryBuilders.boolQuery().should(simpleBuilder).minimumShouldMatch(1));
-    } else if (executeSimpleQuery) {
+    if (executeSimpleQuery) {
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
 
       // Get base fields
       Set<SearchFieldConfig> baseFields =
           entitySpecs.stream()
-              .map(spec -> getStandardFields(entityRegistry, spec))
+              .map(spec -> getStandardFields(operationContext, spec))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
 
       Set<SearchFieldConfig> configuredFields =
-          customizedQueryHandler.applySearchFieldConfiguration(
+          applySearchFieldConfiguration(
+              operationContext,
+              entitySpecs,
               baseFields,
               customizedQueryHandler.resolveFieldConfiguration(
                   operationContext.getSearchContext().getSearchFlags(),
@@ -473,11 +532,9 @@ public class SearchQueryBuilder {
 
   private Optional<QueryBuilder> getPrefixAndExactMatchQuery(
       @Nonnull OperationContext opContext,
-      @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
-      String query,
-      @Nullable AspectRetriever aspectRetriever) {
+      String query) {
 
     final boolean isPrefixQuery =
         customQueryConfig == null
@@ -485,14 +542,10 @@ public class SearchQueryBuilder {
             : customQueryConfig.isPrefixMatchQuery();
     final boolean isExactQuery = customQueryConfig == null || customQueryConfig.isExactMatchQuery();
 
-    if (v3KeywordReadEnabled) {
-      return getV3PrefixAndExactMatchQuery(entitySpecs, query, isPrefixQuery, isExactQuery);
-    }
-
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
-    getStandardFields(entityRegistry, entitySpecs)
+    getStandardFields(opContext, entitySpecs)
         .forEach(
             searchFieldConfig -> {
               boolean caseSensitivityEnabled =
@@ -521,7 +574,10 @@ public class SearchQueryBuilder {
                   finalQuery.should(
                       QueryBuilders.termQuery(
                               ESUtils.toKeywordField(
-                                  opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
+                                  opContext,
+                                  searchFieldConfig.fieldName(),
+                                  false,
+                                  opContext.getAspectRetriever()),
                               unquotedQuery)
                           .caseInsensitive(false)
                           .boost(
@@ -533,7 +589,10 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.termQuery(
                             ESUtils.toKeywordField(
-                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext,
+                                searchFieldConfig.fieldName(),
+                                false,
+                                opContext.getAspectRetriever()),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
@@ -547,7 +606,10 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
                             ESUtils.toKeywordField(
-                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext,
+                                searchFieldConfig.fieldName(),
+                                false,
+                                opContext.getAspectRetriever()),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()
@@ -561,87 +623,8 @@ public class SearchQueryBuilder {
         : Optional.empty();
   }
 
-  /**
-   * A phrase prefix on every tier's text, plus exact matches on the tier 1 keyword, entity name and
-   * urn. The tier keywords and the entity name are normalized, so only the urn, which keeps case,
-   * gets V2's case-sensitive exact boost.
-   */
-  private Optional<QueryBuilder> getV3PrefixAndExactMatchQuery(
-      @Nonnull Collection<EntitySpec> entitySpecs,
-      String query,
-      boolean isPrefixQuery,
-      boolean isExactQuery) {
-    final boolean caseSensitivityEnabled =
-        exactMatchConfiguration.getCaseSensitivityFactor() > 0.0f;
-    final float caseSensitivityFactor =
-        caseSensitivityEnabled ? exactMatchConfiguration.getCaseSensitivityFactor() : 1.0f;
-    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    if (isPrefixQuery) {
-      for (int tier : getV3Tiers(entitySpecs)) {
-        finalQuery.should(
-            QueryBuilders.matchPhrasePrefixQuery(V3_TIER_FIELD_PREFIX + tier + ".full", query)
-                .boost(
-                    getV3TierBoost(tier)
-                        * exactMatchConfiguration.getPrefixFactor()
-                        * caseSensitivityFactor));
-      }
-    }
-    if (isExactQuery) {
-      String unquotedQuery = unquote(query);
-      float exactBoost = getV3TierBoost(1) * exactMatchConfiguration.getExactFactor();
-      for (String field : List.of(V3_TIER_FIELD_PREFIX + "1", V3_ENTITY_NAME_FIELD)) {
-        finalQuery.should(
-            QueryBuilders.termQuery(field, unquotedQuery).caseInsensitive(true).boost(exactBoost));
-      }
-      // Named so an exact urn hit shows as matched on the urn
-      if (caseSensitivityEnabled) {
-        finalQuery.should(
-            QueryBuilders.termQuery("urn", unquotedQuery)
-                .caseInsensitive(false)
-                .boost(exactBoost)
-                .queryName("urn"));
-      }
-      finalQuery.should(
-          QueryBuilders.termQuery("urn", unquotedQuery)
-              .caseInsensitive(true)
-              .boost(exactBoost * caseSensitivityFactor)
-              .queryName("urn"));
-    }
-    return finalQuery.should().isEmpty()
-        ? Optional.empty()
-        : Optional.of(finalQuery.minimumShouldMatch(1));
-  }
-
-  /** Tiers the entities' {@code searchTier} annotations copy into, plus the urn's tier. */
-  private static SortedSet<Integer> getV3Tiers(@Nonnull Collection<EntitySpec> entitySpecs) {
-    SortedSet<Integer> tiers =
-        entitySpecs.stream()
-            .flatMap(spec -> spec.getSearchableFieldSpecs().stream())
-            .map(fieldSpec -> fieldSpec.getSearchableAnnotation().getSearchTier())
-            .flatMap(Optional::stream)
-            .collect(Collectors.toCollection(TreeSet::new));
-    tiers.add(V3_URN_SEARCH_TIER);
-    return tiers;
-  }
-
-  /** Text subfields of every V3 tier. Boost descends with the tier number (1/N). */
-  private static Map<String, Float> getV3TierTextFields(
-      @Nonnull Collection<EntitySpec> entitySpecs) {
-    Map<String, Float> fields = new LinkedHashMap<>();
-    for (int tier : getV3Tiers(entitySpecs)) {
-      for (String subfield : List.of("full", "full_stemmed", "full_removed_sep")) {
-        fields.put(V3_TIER_FIELD_PREFIX + tier + "." + subfield, getV3TierBoost(tier));
-      }
-    }
-    return fields;
-  }
-
-  private static float getV3TierBoost(int tier) {
-    return 1.0f / tier;
-  }
-
   private Optional<QueryBuilder> getStructuredQuery(
-      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       List<EntitySpec> entitySpecs,
       String sanitizedQuery) {
@@ -657,18 +640,14 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      if (v3KeywordReadEnabled) {
-        getV3TierTextFields(entitySpecs).forEach(queryBuilder::field);
-      } else {
-        getStandardFields(entityRegistry, entitySpecs)
-            .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
-      }
+      getStandardFields(opContext, entitySpecs)
+          .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       result = Optional.of(queryBuilder);
     }
     return result;
   }
 
-  static FunctionScoreQueryBuilder buildScoreFunctions(
+  protected static FunctionScoreQueryBuilder buildScoreFunctions(
       @Nonnull OperationContext opContext,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,

@@ -19,6 +19,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -81,6 +82,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       "estest_datasetindex_v2"; // Use v2 as default for backward compatibility
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
   protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
+  private static final String OBJECT_ROUNDTRIP_INDEX = "estest_objectroundtripindex_v2";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -118,6 +120,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .numReplicas(0)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     testDefaultBuilder =
@@ -133,6 +136,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                     .numReplicas(REPLICASTEST)
                     .numRetries(3)
                     .refreshIntervalSeconds(0)
+                    .refreshIntervals(RefreshIntervals.allServices(0))
                     .build())
             .build();
     testReplicasBuilder =
@@ -200,9 +204,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
 
     // Clean up all test indices
-    String[] testIndices = {
-      TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, TEST_V2_INDEX_NAME + "_object_roundtrip"
-    };
+    String[] testIndices = {TEST_V2_INDEX_NAME, TEST_V3_INDEX_NAME, OBJECT_ROUNDTRIP_INDEX};
 
     for (String indexName : testIndices) {
       try {
@@ -424,6 +426,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(1)
                         .numRetries(1)
                         .refreshIntervalSeconds(1)
+                        .refreshIntervals(RefreshIntervals.allServices(1))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -459,6 +462,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(2)
                         .numRetries(2)
                         .refreshIntervalSeconds(2)
+                        .refreshIntervals(RefreshIntervals.allServices(2))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -503,6 +507,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(0)
                         .numRetries(0)
                         .refreshIntervalSeconds(0)
+                        .refreshIntervals(RefreshIntervals.allServices(0))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -671,8 +676,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 noReindexConfig.toBuilder()
                     .index(
                         noReindexConfig.getIndex().toBuilder()
-                            .refreshIntervalSeconds(
-                                10) // testDefaultBuilder.getRefreshIntervalSeconds() + 10
+                            .refreshIntervalSeconds(10)
+                            .refreshIntervals(RefreshIntervals.allServices(10))
                             .build())
                     .build(),
                 TEST_ES_STRUCT_PROPS_DISABLED,
@@ -743,6 +748,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                         .numReplicas(0)
                         .numRetries(0)
                         .refreshIntervalSeconds(0)
+                        .refreshIntervals(RefreshIntervals.allServices(0))
                         .build())
                 .build(),
             TEST_ES_STRUCT_PROPS_DISABLED,
@@ -981,7 +987,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       throw new SkipException("ES8 mapping round-trip reindex loop test");
     }
 
-    String indexName = TEST_V2_INDEX_NAME + "_object_roundtrip";
+    String indexName = OBJECT_ROUNDTRIP_INDEX;
     Map<String, Object> implicitObjectMappings =
         ImmutableMap.of(
             "properties",
@@ -1205,24 +1211,14 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
     assertNotNull(aspectsProperties, "_aspects should have properties");
 
-    // Verify that structuredProperties is NOT in _aspects (it should be at root level)
-    assertNull(
-        aspectsProperties.get("structuredProperties"),
-        "structuredProperties should not be in _aspects, it should be at root level");
+    // Values stay at the root. The aspect holds only parsed-name sources that copy_to can clear.
+    assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
 
     // Check that structuredProperties exists at root level
     @SuppressWarnings("unchecked")
     Map<String, Object> structuredProps =
         (Map<String, Object>) properties.get("structuredProperties");
     assertNotNull(structuredProps, "structuredProperties should exist at root level");
-
-    // Verify that other aspects are properly nested under _aspects
-    // This is a basic check - in a real scenario, you'd have actual aspect names
-    assertTrue(
-        aspectsProperties.isEmpty()
-            || aspectsProperties.keySet().stream()
-                .noneMatch(key -> "structuredProperties".equals(key)),
-        "No aspect in _aspects should be named 'structuredProperties'");
   }
 
   /**
@@ -1388,9 +1384,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
       @SuppressWarnings("unchecked")
       Map<String, Object> aspectsProperties = (Map<String, Object>) aspects.get("properties");
       if (aspectsProperties != null) {
-        assertNull(
-            aspectsProperties.get("structuredProperties"),
-            "structuredProperties should not be in _aspects");
+        assertOnlyParsedUrnSources(aspectsProperties.get("structuredProperties"));
       }
     }
   }
@@ -1564,5 +1558,26 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 new GetIndexRequest(result.nextIndexName()),
                 RequestOptions.DEFAULT),
         "Next index should exist even when source is empty");
+  }
+
+  /**
+   * Structured-property values stay at the document root. Under {@code _aspects} the aspect, when
+   * present, stores only the parsed URN name keywords a later update clears.
+   */
+  @SuppressWarnings("unchecked")
+  private static void assertOnlyParsedUrnSources(Object structuredPropertiesAspect) {
+    if (structuredPropertiesAspect == null) {
+      return;
+    }
+    Map<String, Object> aspect = (Map<String, Object>) structuredPropertiesAspect;
+    Map<String, Object> properties = (Map<String, Object>) aspect.get("properties");
+    assertNotNull(properties, "structuredProperties aspect sources should declare properties");
+    assertFalse(properties.isEmpty(), "parsed URN sources should be present");
+    for (String fieldName : properties.keySet()) {
+      assertTrue(
+          fieldName.endsWith("__urn_name"),
+          "structuredProperties under _aspects should only store parsed URN names, found "
+              + fieldName);
+    }
   }
 }

@@ -27,8 +27,10 @@ import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.search.StructuredPropertyQueryConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
@@ -42,6 +44,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.DocumentIdSchemeStampingMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.NoOpMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
@@ -49,7 +52,10 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettin
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -117,6 +123,14 @@ public class SearchTestUtils {
                   .exactMatch(testExactMatchConfiguration())
                   .wordGram(testWordGramConfiguration())
                   .partial(testPartialConfiguration())
+                  .structuredProperties(
+                      StructuredPropertyQueryConfiguration.builder()
+                          .cacheTtlSeconds(300)
+                          .defaultTextWeight(0.8f)
+                          .stemmedFactor(0.5f)
+                          .pageSize(500)
+                          .maxProperties(1000)
+                          .build())
                   .graph(
                       GraphQueryConfiguration.builder()
                           .batchSize(1000)
@@ -156,6 +170,7 @@ public class SearchTestUtils {
                   .numReplicas(1)
                   .numRetries(3)
                   .refreshIntervalSeconds(3)
+                  .refreshIntervals(RefreshIntervals.allServices(3))
                   .maxArrayLength(1000)
                   .maxObjectKeys(1000)
                   .maxValueLength(4096)
@@ -581,7 +596,12 @@ public class SearchTestUtils {
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
-        builders.add(new MultiEntityMappingsBuilder(entityIndexConfiguration));
+        // As the factory wires it: every V3 index is created with the document-id scheme stamp.
+        builders.add(
+            new DocumentIdSchemeStampingMappingsBuilder(
+                new MultiEntityMappingsBuilder(
+                    entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of()),
+                new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher())));
       } catch (IOException e) {
         throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);
       }

@@ -23,6 +23,7 @@ import {
 import { createMemberNodeId } from '@app/lineageV3/useComputeGraph/boundingBoxes/boundingBoxes.utils';
 import computeConnectedComponents from '@app/lineageV3/useComputeGraph/computeConnectedComponents';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { LineageDirection } from '@types';
 
@@ -41,6 +42,7 @@ const COMPONENT_SEPARATION = 24 + LINEAGE_NODE_HEIGHT;
 export default function layoutBoundingBoxInterior(
     group: BoundingBoxGroup,
     graphStore: GraphStore,
+    entityRegistry: EntityRegistry,
     ignoreSchemaFieldStatus: boolean,
 ): BoxLayout | undefined {
     const config: HideNodesConfig = {
@@ -53,6 +55,7 @@ export default function layoutBoundingBoxInterior(
         ...hideNodes(
             group.urn,
             graphStore.rootType,
+            entityRegistry,
             config,
             graphStore,
             (node) => group.memberUrns.has(node.urn) || group.queryUrns.has(node.urn),

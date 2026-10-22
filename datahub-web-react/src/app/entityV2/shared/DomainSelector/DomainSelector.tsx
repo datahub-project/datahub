@@ -47,6 +47,7 @@ type DomainSelectorProps = {
     renderCustomOptionText?: CustomOptionRenderer<NestedSelectOption>;
     renderCustomSelectedValue?: (option: NestedSelectOption) => React.ReactNode;
     isRequired?: boolean;
+    isDisabled?: boolean;
 };
 
 /**
@@ -70,6 +71,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     renderCustomOptionText = (option) => <DomainOptionLabel option={option} />,
     renderCustomSelectedValue,
     isRequired = false,
+    isDisabled = false,
 }) => {
     const { t } = useTranslation(['entity.shared.selectors', 'common.feedback']);
     const resolvedPlaceholder =
@@ -269,6 +271,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             width="full"
             isMultiSelect={isMultiSelect}
             isRequired={isRequired}
+            isDisabled={isDisabled}
             showSearch
             implicitlySelectChildren={false}
             selectChildrenWithParent={selectChildrenWithParent}

@@ -13,7 +13,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -32,9 +31,10 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
-import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterSearchType;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -212,47 +212,6 @@ public class ESUtilsTest {
         "Expected each condition to reach the rewrite chain unchanged");
   }
 
-  /**
-   * Search V3 entity indices keep keyword fields at the root: skipping the .keyword subfield must
-   * not switch the rewrite chain to its timeseries mode.
-   */
-  @Test
-  public void testBuildFilterQuerySkipsKeywordSuffixWithoutTimeseriesRewrites() {
-    QueryFilterRewriteChain chain = mock(QueryFilterRewriteChain.class);
-    when(chain.rewrite(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
-    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    Filter filter =
-        new Filter()
-            .setOr(
-                new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                buildCriterion(
-                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive"),
-                                buildCriterion(
-                                    "container",
-                                    Condition.ANCESTORS_INCL,
-                                    "urn:li:container:foo")))));
-
-    String rootFields =
-        ESUtils.buildFilterQuery(filter, false, true, new HashMap<>(), opContext, chain).toString();
-    String keywordSubfields =
-        ESUtils.buildFilterQuery(filter, false, new HashMap<>(), opContext, chain).toString();
-
-    assertFalse(rootFields.contains(".keyword"), rootFields);
-    assertTrue(rootFields.contains("\"platform\""), rootFields);
-    assertTrue(keywordSubfields.contains("platform.keyword"), keywordSubfields);
-    ArgumentCaptor<QueryFilterRewriterContext> contexts =
-        ArgumentCaptor.forClass(QueryFilterRewriterContext.class);
-    verify(chain, Mockito.times(2)).rewrite(any(), contexts.capture(), any());
-    contexts
-        .getAllValues()
-        .forEach(
-            context ->
-                assertNotEquals(context.getSearchType(), QueryFilterRewriterSearchType.TIMESERIES));
-  }
-
   /** Unfiltered searches must hide non-latest versions just like filtered ones. */
   @Test
   public void testBuildFilterQueryNullFilterAppliesLatestVersionFlag() {
@@ -295,38 +254,32 @@ public class ESUtilsTest {
                                     true,
                                     "urn:li:dataPlatform:hive"),
                                 buildCriterion(
-                                    "structuredProperties.retention.keyword",
-                                    Condition.EQUAL,
-                                    "90"),
-                                buildCriterion(
                                     "_entityType",
                                     Condition.EQUAL,
                                     "DATA_PRODUCT",
                                     "dataset",
                                     "NOT_AN_ENTITY"),
                                 new Criterion()
-                                    .setField("owners.keyword")
+                                    .setField("_entityType.keyword")
                                     .setCondition(Condition.EQUAL)))))
             .setCriteria(
-                new CriterionArray(
-                    buildCriterion("domains.keyword", Condition.EQUAL, "urn:li:domain:a")));
+                new CriterionArray(buildCriterion("_entityType", Condition.EQUAL, "CHART")));
 
-    Filter result = ESUtils.toV3EntityFilter(opContext, filter);
+    Filter result = EntityFilter.toEntityFilter(opContext, filter);
 
     CriterionArray and = result.getOr().get(0).getAnd();
+    // V3 root fields keep the V2 .keyword subfield, so other criteria pass through unchanged
     assertEquals(
-        and.get(0), buildCriterion("platform", Condition.EQUAL, true, "urn:li:dataPlatform:hive"));
-    // Structured property names resolve through the property definition
-    assertEquals(and.get(1).getField(), "structuredProperties.retention.keyword");
+        and.get(0),
+        buildCriterion("platform.keyword", Condition.EQUAL, true, "urn:li:dataPlatform:hive"));
     // UI and GraphQL send entity type enum names; V3 stores the registry entity name
-    assertEquals(and.get(2).getValues(), List.of("dataProduct", "dataset", "NOT_AN_ENTITY"));
+    assertEquals(and.get(1).getValues(), List.of("dataProduct", "dataset", "NOT_AN_ENTITY"));
     // A criterion without values stays without values, so it is still skipped as on V2
-    assertEquals(and.get(3).getField(), "owners");
-    assertFalse(and.get(3).hasValues());
-    assertEquals(result.getCriteria().get(0).getField(), "domains");
-    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+    assertEquals(and.get(2).getField(), "_entityType");
+    assertFalse(and.get(2).hasValues());
+    assertEquals(result.getCriteria().get(0).getValues(), List.of("chart"));
     // The search DAO and the request handlers both normalize, so a second pass changes nothing
-    assertEquals(ESUtils.toV3EntityFilter(opContext, result), result);
+    assertEquals(EntityFilter.toEntityFilter(opContext, result), result);
   }
 
   @Test
@@ -1119,6 +1072,103 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropCaseInsensitiveValue() {
+    // Search V2 has no .lowercase subfield. IEQUAL stays a case-insensitive term on the keyword.
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward", Condition.IEQUAL, "urn:li:corpuser:jdoe");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    String expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"term\" : {\n"
+            + "          \"structuredProperties.steward\" : {\n"
+            + "            \"value\" : \"urn:li:corpuser:jdoe\",\n"
+            + "            \"case_insensitive\" : true,\n"
+            + "            \"boost\" : 1.0\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.steward\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropCaseInsensitiveValueOnV3() {
+    // A term query does not run keyword_normalizer, so the value is lowercased and ASCII-folded.
+    final Criterion singleValueCriterion =
+        buildCriterion(
+            "structuredProperties.steward", Condition.IEQUAL, "URN:LI:CORPUSER:JOS\u00c9");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            mock(
+                com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver
+                    .class));
+    assertTrue(
+        result.toString().contains("structuredProperties.steward.lowercase"), result.toString());
+    assertTrue(result.toString().contains("urn:li:corpuser:jose"), result.toString());
+    assertFalse(result.toString().contains("case_insensitive"), result.toString());
+  }
+
+  @Test
+  public void testResolvedUrnCaseInsensitiveValueIsAsciiFolded() {
+    SearchFieldResolver resolver = mock(SearchFieldResolver.class);
+    when(resolver.contains("tags")).thenReturn(true);
+    when(resolver.supports(eq("tags"), any())).thenReturn(true);
+    when(resolver.exactPath(eq("tags"), any())).thenReturn("tags_urn");
+    when(resolver.lowercaseFullUrnPath("tags")).thenReturn("tags_urn.lowercase");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            buildCriterion("tags", Condition.IEQUAL, "URN:LI:TAG:JOS\u00c9"),
+            false,
+            new HashMap<>(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            resolver);
+    assertTrue(result.toString().contains("tags_urn.lowercase"), result.toString());
+    assertTrue(result.toString().contains("urn:li:tag:jose"), result.toString());
+    assertFalse(result.toString().contains("case_insensitive"), result.toString());
+  }
+
+  @Test
+  public void testGetQueryBuilderFromParsedUrnStructPropCaseInsensitiveValue() {
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward__urn_name", Condition.IEQUAL, "Confidential");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    assertTrue(result.toString().contains("structuredProperties.steward__urn_name"));
+    assertTrue(result.toString().contains("case_insensitive"));
+    assertFalse(result.toString().contains(".lowercase"));
   }
 
   @Test

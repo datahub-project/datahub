@@ -1,11 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Pill, Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Spin } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position, useNodeId } from 'reactflow';
-import styled, { useTheme } from 'styled-components';
+import styled, { keyframes, useTheme } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -30,6 +31,7 @@ import {
     isGhostEntity,
     onClickPreventSelect,
 } from '@app/lineageV3/common';
+import HorizontalHandle from '@app/lineageV3/components/HorizontalHandle';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
@@ -42,8 +44,14 @@ import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/Depr
 
 import { DataProcessRunStatus, EntityType, LineageDirection } from '@types';
 
-import LinkOut from '@images/link-out.svg?react';
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
 
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 export const LoadingWrapper = styled.div`
     color: ${({ theme }) => theme.colors.iconBrand};
     font-size: 32px;
@@ -52,12 +60,6 @@ export const LoadingWrapper = styled.div`
     position: absolute;
     top: 10px;
     transform: translateY(-50%);
-`;
-
-const HorizontalHandle = styled(Handle)<{ position: Position }>`
-    background: initial;
-    border: initial;
-    ${({ position }) => (position === Position.Left ? 'left: 0;' : 'right: 0;')}
 `;
 
 const VerticalHandle = styled(Handle)<{ position: Position }>`
@@ -303,7 +305,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             rel="noopener noreferrer"
                         >
                             <Tooltip title={t('node.exploreParentLineage.tooltip')} mouseEnterDelay={0.5}>
-                                <LinkOut />
+                                <ArrowSquareOut size={12} />
                             </Tooltip>
                         </LinkOutWrapper>
                     )}
@@ -451,12 +453,18 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                 )}
                             {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
                                 <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                                    <Spin
+                                        delay={urn === rootUrn ? undefined : 500}
+                                        indicator={<SpinningCircleNotch />}
+                                    />
                                 </LoadingWrapper>
                             )}
                             {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
                                 <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                                    <Spin
+                                        delay={urn === rootUrn ? undefined : 500}
+                                        indicator={<SpinningCircleNotch />}
+                                    />
                                 </LoadingWrapper>
                             )}
                         </>

@@ -8,12 +8,14 @@ Extracts lineage and usage statistics by analyzing SQL queries:
 
 - **Table-level lineage**: Tables read from and written to
 - **Column-level lineage**: Data flow between columns
-- **Usage patterns**: Frequently accessed tables and user activity
-- **Query performance**: Execution counts and timing
+- **Query entities**: Every extracted query executed in the `start_time`/`end_time` window, including read-only `SELECT` statements, is emitted as a Query entity and shown on each referenced table's **Queries** tab. Queries that reference only SQL Server system objects (`sys`, `INFORMATION_SCHEMA`, system databases) are skipped. Queries that only touch `#temp` tables, `temporary_tables_pattern` matches or tables outside `database_pattern` / `schema_pattern` / `table_pattern` are skipped too. With the DMV fallback, a temp table filled and read within one batch resolves through to its real sources. `max_queries_to_extract` applies per database, so a server with many databases can emit many more Query entities
+- **Usage patterns**: Per-query and per-table execution counts for the ingestion time window
 
 ##### Known Limitations
 
 - **User attribution not supported**: SQL Server Query Store and DMVs do not preserve historical user session context. Query extraction focuses on query content, frequency, and performance metrics.
+- **Temp tables with Query Store**: Query Store records each statement on its own, without the batch or session it ran in, so a `#temp` table filled by one statement and read by another does not resolve to its real source in lineage.
+- **DMV execution counts are approximate**: The plan cache only records a running total and the last execution time per plan. With the DMV fallback, a query is counted at its last execution with its full total if the plan was cached inside the window, and as a single execution otherwise. Enable Query Store for exact per-window counts.
 
 ##### Configuration
 
@@ -54,7 +56,13 @@ source:
       - "%SELECT @@%" # Driver metadata queries
       - "%ReportServer%" # SSRS system tables
 
-    # Enable usage statistics (requires graph connection)
+    # Emit a Query entity for every extracted query, including SELECTs (default: true)
+    include_query_usage_statistics: true
+
+    # Time window for execution counts (default: the last day)
+    # start_time: "-7 days"
+
+    # Enable table-level usage statistics (requires graph connection)
     # include_usage_statistics: true
 
 sink:
@@ -63,13 +71,15 @@ sink:
 
 ##### Configuration Options
 
-| Option                     | Type         | Default | Description                                                       |
-| -------------------------- | ------------ | ------- | ----------------------------------------------------------------- |
-| `include_query_lineage`    | boolean      | `false` | Enable query-based lineage extraction                             |
-| `max_queries_to_extract`   | integer      | `1000`  | Maximum queries to analyze (range: 1-10000)                       |
-| `min_query_calls`          | integer      | `1`     | Minimum execution count to include query                          |
-| `query_exclude_patterns`   | list[string] | `[]`    | SQL LIKE patterns to exclude queries (max 100 patterns)           |
-| `include_usage_statistics` | boolean      | `false` | Extract usage statistics (requires `include_query_lineage: true`) |
+| Option                           | Type         | Default  | Description                                                                                                                          |
+| -------------------------------- | ------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `include_query_lineage`          | boolean      | `false`  | Enable query-based lineage extraction                                                                                                |
+| `max_queries_to_extract`         | integer      | `1000`   | Maximum queries to analyze (range: 1-10000)                                                                                          |
+| `min_query_calls`                | integer      | `1`      | Minimum execution count to include query                                                                                             |
+| `query_exclude_patterns`         | list[string] | `[]`     | SQL LIKE patterns to exclude queries (max 100 patterns)                                                                              |
+| `include_query_usage_statistics` | boolean      | `true`   | Emit Query entities for all queries executed in the window, with per-query execution counts (requires `include_query_lineage: true`) |
+| `include_usage_statistics`       | boolean      | `false`  | Extract usage statistics (requires `include_query_lineage: true`)                                                                    |
+| `start_time` / `end_time`        | datetime     | last day | Window used for execution counts; queries outside it still contribute lineage                                                        |
 
 ##### Query Extraction Methods
 
@@ -78,6 +88,7 @@ DataHub automatically selects the best available method:
 1. **Query Store (Preferred)** - SQL Server 2016+
 
    - Provides comprehensive query history
+   - Execution counts per usage bucket (`bucket_duration`) within `start_time`/`end_time`, at the granularity of Query Store's runtime-stats interval (60 minutes by default): each interval's executions are counted at its last execution time. Queries that ran in the window are prioritized for `max_queries_to_extract`
    - Better performance and reliability
    - Requires Query Store to be enabled
 
@@ -102,6 +113,42 @@ The source will automatically detect and use the appropriate method based on you
 - **Extraction Performance**: Query Store typically performs better than DMV method
 - **Storage**: Query Store storage usage depends on retention settings and query volume
 - **Parsing Time**: Scales with query complexity and volume; monitor debug logs for timing
+
+#### Probe support
+
+`datahub recipe probe` checks a recipe against the server without running ingestion. For SQL
+Server it offers `databases`, `containers` (schemas), `tables`, `views`, `procedures`, `columns`,
+`foreign_keys`, `indexes`, `primary_key`, `table_comment` (the `MS_Description` ingestion reads),
+`view_definition` and `sql` (a read-only query over the catalog views ingestion reads):
+
+```shell
+datahub recipe probe run databases --recipe mssql_recipe.yml
+datahub recipe probe run tables --recipe mssql_recipe.yml --database DemoData --schema dbo
+datahub recipe probe run procedures --recipe mssql_recipe.yml --database DemoData --schema dbo
+datahub recipe probe filter --recipe mssql_recipe.yml --kind "Stored Procedure" \
+  --parent DemoData --parent dbo --name NewProc
+```
+
+A recipe without `database` makes ingestion walk every database the login can see, except SQL
+Server's system databases, so every command except `databases` and `sql` needs `--database`; the
+probe refuses rather than answer from the login's default database, which ingestion never reads.
+`databases` lists the candidates, including ones `database_pattern` would exclude, so
+`probe filter --kind Database` can explain them. A recipe that sets `database` or
+`sqlalchemy_uri` reads exactly one database, and the probe answers only about that one. When the
+`sqlalchemy_uri` names no database, that one is the login's default, which cannot be named without
+connecting: `probe filter --kind Database` then includes every name with a warning, and reports
+every stored procedure excluded, because ingestion's procedure query needs the database name. Database,
+schema and table names are matched against the server's own listing before they are used, and
+`quote_schemas` is honoured as ingestion honours it. `probe filter --kind "Stored Procedure"`
+judges `procedure_pattern` against `database.schema.procedure`, as ingestion does, and reports
+every procedure excluded when `include_stored_procedures` is off. `sql` takes no `--database`: it
+runs on the recipe's own connection, so on a multi-database recipe an unqualified name such as
+`sys.tables` reads the login's default database (usually `master`), not one ingestion walks.
+Qualify it instead: `sql` admits three-part catalog names (`OtherDb.sys.tables`) for any database
+the login can read, including ones `database_pattern` excludes and system databases. The probe
+refuses any `sql` statement that reaches outside the catalog views. That check parses the SQL, so
+treat it as defense in depth, not an authorization boundary: run the probe under a read-only login
+whose grants cover catalog metadata only.
 
 ### Limitations
 

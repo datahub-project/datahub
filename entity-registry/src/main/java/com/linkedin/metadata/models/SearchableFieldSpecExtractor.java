@@ -214,12 +214,18 @@ public class SearchableFieldSpecExtractor implements SchemaVisitor {
                 annotation.isIncludeQueryEmptyAggregation(),
                 annotation.isIncludeSystemModifiedAt(),
                 annotation.getSystemModifiedAtFieldName(),
-                annotation.getSearchTier(),
                 annotation.getSearchLabel(),
                 annotation.getSearchIndexed(),
                 annotation.getEntityFieldName(),
                 annotation.getEagerGlobalOrdinals(),
-                annotation.isSanitizeRichText());
+                annotation.isSanitizeRichText(),
+                annotation.isV3Searchable(),
+                annotation.getV3SearchLabel(),
+                annotation.getV3IncludeSystemModifiedAt(),
+                annotation.getV3Mappings(),
+                annotation.getDegree(),
+                annotation.getV3BoostScore(),
+                annotation.getV3QueryByDefault());
       }
     }
     log.debug("Searchable annotation for field: {} : {}", schemaPathSpec, annotation);

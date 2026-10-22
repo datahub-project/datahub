@@ -255,6 +255,8 @@ The connector will produce the following things:
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
 
+A test's custom `name:` is used as the assertion's title; tests with dbt's generated names keep the default title. A test's `description:` (dbt 1.9+) is written as the assertion note, which is shown in DataHub Cloud. Notes need a connection to a DataHub server that supports them (DataHub 1.7.0.1+, or DataHub Cloud 1.0.0+); otherwise they are skipped. The source reads existing notes first and never overwrites a note edited in DataHub. It only updates a note it wrote earlier, or clears it once the description is removed, when `pipeline_name` is set (with the default `set_system_metadata_pipeline_name: true`) and unchanged between runs.
+
 ##### How dbt test statuses map to DataHub assertion results
 
 Each dbt test result is translated into a DataHub `AssertionResult` with a `type` (SUCCESS, FAILURE, or ERROR) and, on failures, an optional `severity` (LOW, MEDIUM, HIGH).
@@ -418,9 +420,14 @@ entities_enabled:
 #### Multiple dbt projects
 
 In more complex dbt setups, you may have multiple dbt projects, where models from one project are used as sources in another project.
-DataHub supports this setup natively.
+DataHub supports this setup natively, and a `source()` in one project that points at another project's model is connected through the shared warehouse dataset.
 
-Each dbt project should have its own dbt ingestion recipe, and the `platform_instance` field in the recipe should be set to the dbt project name.
+There are two ways to ingest several dbt projects:
+
+- **One recipe per project.** Choose this when a project's identity in DataHub must not change if the project is renamed, when projects need different settings (`target_platform`, `git_info`, filters, schedules), or when the artifacts come from a dbt version older than 1.6.
+- **One recipe with a globbed `manifest_path`.** Choose this when there are many projects, new projects should be picked up without writing a new recipe, the artifacts share a common layout, and the projects can share one configuration. Each project's `platform_instance` is then its dbt project name. See [Multi-Project Ingestion (glob patterns)](#multi-project-ingestion-glob-patterns) for how it works and what a project rename or a duplicate project name means.
+
+With one recipe per project, set `platform_instance` in each recipe to the dbt project name. That is the value a glob recipe would derive, so you can switch between the two approaches without changing dataset, assertion or semantic model URNs. Query entities from `meta.queries` are the exception: under a glob their URNs also include the project name, so they are re-created on the switch.
 
 For example, if you have two dbt projects `analytics` and `data_mart`, you would have two ingestion recipes.
 If you have models in the `data_mart` project that are used as sources in the `analytics` project, the lineage will be automatically captured.
@@ -446,6 +453,17 @@ source:
     target_platform: postgres
     manifest_path: data_mart/target/manifest.json
     catalog_path: data_mart/target/catalog.json
+    # ... other configs
+```
+
+The same two projects with one recipe, assuming both write their artifacts under `dbt-artifacts/<project>/`:
+
+```yaml
+source:
+  type: dbt
+  config:
+    target_platform: postgres
+    manifest_path: dbt-artifacts/*/manifest.json
     # ... other configs
 ```
 

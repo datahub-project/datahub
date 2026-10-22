@@ -1,0 +1,30 @@
+namespace com.linkedin.search.template
+
+/**
+ * One structured-property clause. The template decides that the clause runs.
+ * Java resolves the current property definitions and keeps the clause on fields
+ * the template already selected. {@code enabled} false keeps the clause in an
+ * inherited section and does not run it.
+ */
+record StructuredPropertyClause {
+  /**
+   * When false, this clause does not run. Unset means the clause runs.
+   */
+  enabled: optional boolean = true
+
+  /**
+   * How analyzed tokens combine. Exact and name-and-value clauses ignore this.
+   * Unset means OR.
+   */
+  operator: optional enum StructuredPropertyOperator {
+    AND
+    OR
+  }
+
+  /**
+   * Positive multiplier. Analyzed and exact clauses multiply the field weight by
+   * this value; unset means 1. Name-and-value uses this value as the term weight
+   * and requires it when the clause runs.
+   */
+  weight: optional float
+}

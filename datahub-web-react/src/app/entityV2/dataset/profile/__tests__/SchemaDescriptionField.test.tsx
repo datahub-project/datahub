@@ -25,7 +25,7 @@ describe('SchemaDescriptionField', () => {
     });
 
     it('renders editable description', async () => {
-        const { getByText, getByRole, queryByText } = render(
+        const { getByText, queryByText, container } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <SchemaDescriptionField
@@ -38,13 +38,13 @@ describe('SchemaDescriptionField', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByRole('img')).toBeInTheDocument();
+        expect(container.querySelector('svg')).toBeInTheDocument();
         expect(getByText('test description updated')).toBeInTheDocument();
         expect(queryByText('Update description')).not.toBeInTheDocument();
     }, 10_000);
 
     it('renders update description modal', async () => {
-        const { getByText, getByRole, queryByText } = render(
+        const { getByText, queryByText, container } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <SchemaDescriptionField
@@ -59,7 +59,9 @@ describe('SchemaDescriptionField', () => {
             </MockedProvider>,
         );
         expect(queryByText('Update description')).not.toBeInTheDocument();
-        fireEvent.click(getByRole('img'));
+        const editIcon = container.querySelector('svg');
+        expect(editIcon).toBeTruthy();
+        fireEvent.click(editIcon!);
         await waitFor(() => expect(getByText('Update description')).toBeInTheDocument());
         expect(getByText('Cancel')).toBeInTheDocument();
         expect(getByText('Publish')).toBeInTheDocument();

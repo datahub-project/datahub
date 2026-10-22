@@ -1,4 +1,4 @@
-import { DeleteOutlined } from '@ant-design/icons';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,7 +18,7 @@ export const DeleteViewItem = ({ key, onClick }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     return (
         <MenuItemStyle key={key} onClick={onClick} data-testid="view-dropdown-delete">
-            <IconItemTitle tip={t('menu.deleteTooltip')} title={tc('delete')} icon={<DeleteOutlined />} />
+            <IconItemTitle tip={t('menu.deleteTooltip')} title={tc('delete')} icon={<Trash />} />
         </MenuItemStyle>
     );
 };

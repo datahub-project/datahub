@@ -1,5 +1,6 @@
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -81,14 +82,14 @@ const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     }
 `;
 
-const StyledArrowDownOutlined = styled(ArrowDownOutlined)`
+const StyledArrowDownOutlined = styled(ArrowDown)`
     && {
         margin-right: 4px;
         font-size: 10px;
     }
 `;
 
-const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
+const StyledArrowUpOutlined = styled(ArrowUp)`
     && {
         margin-right: 4px;
         font-size: 10px;

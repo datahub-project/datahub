@@ -13,6 +13,7 @@ import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -80,6 +81,8 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(index.getNumShards()).thenReturn(2);
     Mockito.when(index.getNumReplicas()).thenReturn(1);
     Mockito.when(index.getFinalPrefix()).thenReturn("test_");
+    Mockito.when(index.getRefreshIntervals())
+        .thenReturn(RefreshIntervals.builder().usageSeconds(30).build());
 
     Mockito.when(upgradeContext.opContext()).thenReturn(opContext);
 
@@ -128,7 +131,7 @@ public class CreateUsageEventIndicesStepTest {
             });
 
     Mockito.when(rawResponse.getEntity())
-        .thenReturn(new StringEntity("{}", ContentType.APPLICATION_JSON));
+        .thenAnswer(invocation -> new StringEntity("{}", ContentType.APPLICATION_JSON));
     Mockito.when(
             searchClient.performLowLevelRequest(
                 Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
@@ -634,6 +637,8 @@ public class CreateUsageEventIndicesStepTest {
     Mockito.when(usageIndex.getFinalPrefix()).thenReturn("test_");
     Mockito.when(usageIndex.getNumShards()).thenReturn(7);
     Mockito.when(usageIndex.getNumReplicas()).thenReturn(3);
+    Mockito.when(usageIndex.getRefreshIntervals())
+        .thenReturn(RefreshIntervals.builder().usageSeconds(30).build());
     ElasticSearchConfiguration usageConfig = Mockito.mock(ElasticSearchConfiguration.class);
     Mockito.when(usageConfig.getIndex()).thenReturn(usageIndex);
 
@@ -815,5 +820,111 @@ public class CreateUsageEventIndicesStepTest {
             Mockito.any(OperationFingerprint.class),
             Mockito.argThat(
                 request -> request.getEndpoint().equals("/_data_stream/test_datahub_usage_event")));
+  }
+
+  @Test
+  public void testExecutable_TemplateAndLiveIndexUseConfiguredRefresh() throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    java.util.List<Request> writes = new java.util.ArrayList<>();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              if ("PUT".equals(request.getMethod())) {
+                writes.add(request);
+              }
+              if ("GET".equals(request.getMethod())
+                  && request.getEndpoint().equals("/test_datahub_usage_event/_settings")) {
+                return json(
+                    "{\".ds-test-000001\":{\"settings\":{\"index\":{\"refresh_interval\":\"1s\"}}}}");
+              }
+              return json("{}");
+            });
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    Assert.assertTrue(templateBody(writes).contains("\"index.refresh_interval\": \"30s\""));
+    Assert.assertTrue(
+        writes.stream()
+            .anyMatch(
+                request ->
+                    request.getEndpoint().equals("/test_datahub_usage_event/_settings")
+                        && requestBody(request).contains("\"refresh_interval\":\"30s\"")));
+  }
+
+  @Test
+  public void testOpenSearchTemplateIncludesConfiguredRefresh() throws Exception {
+    java.util.List<Request> writes = new java.util.ArrayList<>();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              writes.add(invocation.getArgument(1));
+              return json("{}");
+            });
+
+    com.linkedin.datahub.upgrade.system.elasticsearch.util.UsageEventIndexUtils
+        .createOpenSearchIndexTemplate(
+            opContext, esComponents, "datahub_usage_event_index_template", 1, 1, "test_", "30s");
+
+    Assert.assertTrue(templateBody(writes).contains("\"index.refresh_interval\": \"30s\""));
+  }
+
+  private static String templateBody(java.util.List<Request> writes) {
+    return writes.stream()
+        .filter(request -> request.getEndpoint().contains("_index_template"))
+        .findFirst()
+        .map(CreateUsageEventIndicesStepTest::requestBody)
+        .orElse("");
+  }
+
+  @Test
+  public void testExecutable_SkipsRefreshPutWhenDurationMatches() throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    java.util.concurrent.atomic.AtomicInteger settingsPuts =
+        new java.util.concurrent.atomic.AtomicInteger();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              if ("PUT".equals(request.getMethod())
+                  && request.getEndpoint().equals("/test_datahub_usage_event/_settings")) {
+                settingsPuts.incrementAndGet();
+              }
+              if ("GET".equals(request.getMethod())
+                  && request.getEndpoint().equals("/test_datahub_usage_event/_settings")) {
+                return json(
+                    "{\".ds-test-000001\":{\"settings\":{\"index\":{\"refresh_interval\":\"30000ms\"}}}}");
+              }
+              return json("{}");
+            });
+
+    Assert.assertEquals(
+        step.executable().apply(upgradeContext).result(), DataHubUpgradeState.SUCCEEDED);
+    Assert.assertEquals(settingsPuts.get(), 0);
+  }
+
+  @Test
+  public void testExecutable_MissingUsageSecondsFails() {
+    Mockito.when(index.getRefreshIntervals()).thenReturn(RefreshIntervals.builder().build());
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+
+    Assert.assertEquals(
+        step.executable().apply(upgradeContext).result(), DataHubUpgradeState.FAILED);
+  }
+
+  private static String requestBody(Request request) {
+    try {
+      return new String(
+          request.getEntity().getContent().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -1,4 +1,5 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +13,6 @@ import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { DatasetFieldProfile, SchemaField } from '@types';
 
 import NoStatsAvailble from '@images/no-stats-available.svg?react';
-import TrendingDownIcon from '@images/trending-down-icon.svg?react';
-import TrendingUpIcon from '@images/trending-up-icon.svg?react';
 
 const maxLabelWidth = 150;
 
@@ -77,10 +76,19 @@ const Section = styled.div`
     line-height: 24px;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
+`;
+
+const StyledTrendUp = styled(TrendUp).attrs({ size: 14 })`
+    color: ${(props) => props.theme.colors.iconSuccess};
+`;
+
+const StyledTrendDown = styled(TrendDown).attrs({ size: 14 })`
+    color: ${(props) => props.theme.colors.iconError};
 `;
 interface Props {
     properties: {
@@ -106,9 +114,9 @@ export function StatsSidebarContent({ properties }: Props) {
         if (currentValue === null || currentValue === undefined || lastValue === null || lastValue === undefined)
             return null;
         if (currentValue > lastValue) {
-            trendLine = <TrendingUpIcon />;
+            trendLine = <StyledTrendUp />;
         } else if (currentValue < lastValue) {
-            trendLine = <TrendingDownIcon />;
+            trendLine = <StyledTrendDown />;
         }
         const isDecreasing = currentValue < lastValue;
 
@@ -118,7 +126,7 @@ export function StatsSidebarContent({ properties }: Props) {
     if (!fieldProfile) {
         return (
             <NoDataContainer>
-                <StyledIcon component={NoStatsAvailble} />
+                <NoStatsIcon />
                 <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
             </NoDataContainer>
         );

@@ -276,6 +276,11 @@ public class OpenApiEntitiesUtil {
 
   public static <T, S> Optional<S> convertToScrollResponse(
       Class<S> scrollRespClazz, String scrollId, List<T> entityResults) {
+    return convertToScrollResponse(scrollRespClazz, scrollId, entityResults, null);
+  }
+
+  public static <T, S> Optional<S> convertToScrollResponse(
+      Class<S> scrollRespClazz, String scrollId, List<T> entityResults, List<String> routeChain) {
     if (entityResults != null) {
       try {
         Pair<Class<?>, Object> builderPair = REFLECT.getBuilder(scrollRespClazz);
@@ -285,6 +290,13 @@ public class OpenApiEntitiesUtil {
         REFLECT
             .lookupMethod(builderPair.getFirst(), "entities", List.class)
             .invoke(builderPair.getSecond(), entityResults);
+        if (routeChain != null) {
+          java.lang.reflect.Method routeChainMethod =
+              REFLECT.lookupMethod(builderPair.getFirst(), "routeChain", List.class);
+          if (routeChainMethod != null) {
+            routeChainMethod.invoke(builderPair.getSecond(), routeChain);
+          }
+        }
 
         return Optional.of(
             scrollRespClazz.cast(
