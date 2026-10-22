@@ -1369,6 +1369,28 @@ class SigmaAPI:
             self.report.column_formulas_fetch_partial += 1
         return result, col_ids
 
+    def get_workbook_schema(self, workbook_id: str) -> Optional[Dict[str, Any]]:
+        """GET /workbooks/{id}/schema: each column's formula as a tree whose
+        ``nameRef`` leaves name other columns by id, not by display name.
+
+        Deprecated by Sigma (2023-12) but still served, and nothing else
+        returns formula refs by id, so a failure only means no recovery.
+        """
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/workbooks/{workbook_id}/schema"
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception:
+            self._log_http_error(
+                message=f"Unable to fetch schema for workbook {workbook_id}.",
+                report_warning=False,
+            )
+            self.report.workbook_schema_fetch_failed += 1
+            return None
+        return payload if isinstance(payload, dict) else None
+
     def get_page_elements(
         self,
         workbook: Workbook,

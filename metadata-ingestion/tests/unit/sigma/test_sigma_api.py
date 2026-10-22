@@ -5195,3 +5195,27 @@ class TestMalformedPageShape:
         context = _contexts(api.report.failures)
         assert "did not have the shape" not in context
         assert "likely a bug in this connector" in context or "Transient" in context
+
+
+class TestGetWorkbookSchema:
+    def test_returns_the_document(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"sheets": {}}
+
+        with patch.object(api, "_get_api_call", return_value=response) as mock_get:
+            assert api.get_workbook_schema("wb-1") == {"sheets": {}}
+
+        assert mock_get.call_args.args[0].endswith("/workbooks/wb-1/schema")
+        assert api.report.workbook_schema_fetch_failed == 0
+
+    def test_a_failure_is_counted_not_raised(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=500)
+        response.raise_for_status.side_effect = requests.HTTPError(response=response)
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert api.report.api_call_failures_by_status_or_error == {"500": 1}

@@ -224,6 +224,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # that inherited their upstreams. Moves to resolved from skipped_sibling, or
     # from self_ref_fallback when its formula also has parameters.
     chart_input_fields_sibling_inherited: int = 0
+    # Sub-category of chart_input_fields_resolved: no formula ref resolved by
+    # name, but /workbooks/{id}/schema named another chart's column by id.
+    chart_input_fields_recovered_from_schema: int = 0
+    # /workbooks/{id}/schema failed; that workbook's charts keep their
+    # self-referential columns.
+    workbook_schema_fetch_failed: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
