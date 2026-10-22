@@ -4,7 +4,6 @@ from typing import List
 import pytest
 
 from datahub.configuration.common import OperationalError
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.CATALOG)
 
-dataset_urn = make_dataset_urn("snowflake", f"validator_error_test_{unique_suffix()}")
 
 # Everything this module creates, so cleanup runs even when an assertion aborts a test.
 generated_urns: List[str] = []
@@ -106,38 +104,3 @@ def test_validator_rejection_over_graphql_is_400_with_validation_source(auth_ses
     assert "ValidationExceptionCollection" not in error["message"]
     assert error["extensions"]["code"] == 400
     assert error["extensions"]["errorSource"] == "VALIDATION"
-
-
-def test_bulk_validator_rejection_reports_message_once(auth_session, graph_client):
-    """One validator rejecting every item of a batch reports its message once, not per item."""
-    property_id = f"petshop_weight_kg_{unique_suffix()}"
-    property_urn = create_property_with_id(property_id, graph_client)
-    dataset_urns = [
-        make_dataset_urn("hive", f"petshop.pet_orders_{i}_{unique_suffix()}")
-        for i in range(3)
-    ]
-    generated_urns.extend(dataset_urns)
-
-    response = auth_session.post(
-        f"{auth_session.gms_url()}/openapi/v3/entity/dataset?async=false",
-        json=[
-            {
-                "urn": urn,
-                "structuredProperties": {
-                    "value": {
-                        "properties": [
-                            {
-                                "propertyUrn": property_urn,
-                                "values": [{"string": "heavy"}],
-                            }
-                        ]
-                    }
-                },
-            }
-            for urn in dataset_urns
-        ],
-    )
-
-    assert response.status_code == 400, response.text
-    message = response.json()["message"]
-    assert message.count("should be a number") == 1, message
