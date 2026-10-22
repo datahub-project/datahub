@@ -2047,7 +2047,7 @@ constraint-dependencies = [
     # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
     # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
     # as datahub/constraints.txt and constrains every executor-built venv.
-    "pip>=26.2",
+    "pip>=26.2.2",  # 26.2.1 vendors certifi 2026.6.17 (GHSA-6q48-6c7w-9gw2); 26.2.2 fixes
     # anyio: CVE-2026-64847 (process-pool workers block on undrained stderr);
     # fixed in 4.14.2. setup.py floors at >=4.10.0 (Airflow 3.0 pin); >=4.14.2
     # is enforced here at lock time only.
