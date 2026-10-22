@@ -1,5 +1,5 @@
-import { PartitionOutlined } from '@ant-design/icons';
 import { Avatar, Popover } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React from 'react';
 import { Trans } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
 
-const LineageIcon = styled(PartitionOutlined)`
+const LineageIcon = styled(TreeStructure)`
     font-size: 16px;
     margin-right: 4px;
 `;

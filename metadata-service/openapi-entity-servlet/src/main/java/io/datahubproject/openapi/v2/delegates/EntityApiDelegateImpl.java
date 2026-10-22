@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v2.delegates;
 
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -60,9 +61,11 @@ import io.datahubproject.openapi.generated.SortOrder;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -631,10 +634,15 @@ public class EntityApiDelegateImpl<I, O, S> {
       @Valid String scrollId,
       @Valid List<String> sort,
       @Valid SortOrder sortOrder,
-      @Valid String query) {
+      @Valid String query,
+      @Valid String searchTemplate,
+      @Valid Boolean includeExplain) {
 
     SearchFlags searchFlags =
-        new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
+        SearchTemplateFlags.apply(
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true),
+            searchTemplate,
+            includeExplain);
     com.linkedin.metadata.models.EntitySpec entitySpec =
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
 
@@ -682,16 +690,34 @@ public class EntityApiDelegateImpl<I, O, S> {
             null,
             count);
 
-    if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
-    }
+    List<Urn> resultUrns =
+        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
-    String[] urns =
-        result.getEntities().stream()
-            .map(SearchEntity::getEntity)
-            .map(Urn::toString)
-            .toArray(String[]::new);
+    String[] urns;
+    if (QUERY_ENTITY_NAME.equals(entitySpec.getName())) {
+      // Query visibility varies per entity (subject-dataset scoped), so a mixed page must keep
+      // the queries the actor IS authorized to see rather than rejecting the whole page.
+      //
+      // Known limitation, accepted and documented rather than implemented: this v2 scroll
+      // response has no total/count field, but the returned page can still come back with fewer
+      // than `count` entities relative to what was requested, since denied queries are dropped
+      // here rather than backfilled by scrolling further. Backfilling would require scrolling to
+      // exhaustion and authorizing per batch — the pattern ListQueriesResolver uses for GraphQL —
+      // out of scope for this REST surface.
+      Set<Urn> viewableQueryUrns =
+          EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, resultUrns);
+      urns =
+          resultUrns.stream()
+              .filter(viewableQueryUrns::contains)
+              .map(Urn::toString)
+              .toArray(String[]::new);
+    } else {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+      }
+      urns = resultUrns.stream().map(Urn::toString).toArray(String[]::new);
+    }
     String[] requestedAspects =
         Optional.ofNullable(aspects)
             .map(asp -> asp.stream().distinct().toArray(String[]::new))
@@ -705,7 +731,12 @@ public class EntityApiDelegateImpl<I, O, S> {
 
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertToScrollResponse(
-            _scrollRespClazz, result.getScrollId(), entities));
+            _scrollRespClazz,
+            result.getScrollId(),
+            entities,
+            result.hasMetadata() && result.getMetadata().hasRouteChain()
+                ? new ArrayList<>(result.getMetadata().getRouteChain())
+                : null));
   }
 
   public ResponseEntity<DatasetPropertiesAspectResponseV2> createDatasetProperties(

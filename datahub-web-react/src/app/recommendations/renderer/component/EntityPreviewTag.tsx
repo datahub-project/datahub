@@ -57,6 +57,7 @@ const DisplayNameContainer = styled.span`
 `;
 
 const ColumnName = styled.span`
+    color: ${(props) => props.theme.colors.textSecondary};
     font-family: 'Roboto Mono', monospace;
     font-weight: bold;
 `;

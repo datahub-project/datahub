@@ -1,4 +1,5 @@
-import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { Cron } from 'react-js-cron';
@@ -52,7 +53,7 @@ const AdvancedCheckBox = styled(Typography.Text)`
     margin-right: 10px;
 `;
 
-const CronSuccessCheck = styled(CheckCircleOutlined)`
+const CronSuccessCheck = styled(CheckCircle)`
     color: ${({ theme }) => theme.colors.iconSuccess};
     margin-right: 4px;
 `;
@@ -76,7 +77,7 @@ const WarningContainer = styled.div`
     color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
-const StyledWarningOutlined = styled(WarningOutlined)`
+const StyledWarningOutlined = styled(Warning)`
     margin-right: 4px;
     margin-top: 12px;
 `;

@@ -258,8 +258,7 @@ WHERE
             schema=db_name,  # <project>
             table=f"{schema_name}.{table.name}",  # <dataset>.<table>
             # Pass the row count the crawl already collected so the SQLAlchemy
-            # profiler's sampling decision avoids a COUNT(*). The GE profiler
-            # ignores it (it has **kwargs and recomputes rowCount itself).
+            # profiler's sampling decision avoids a COUNT(*).
             row_count=table.rows_count,
         )
 
@@ -275,10 +274,9 @@ WHERE
         # 1. Skip profile if partition profiling is disabled.
         # 2. Else update `profile_request.batch_kwargs` with partition and custom_sql
         #
-        # NOTE: unlike Snowflake (where #18253 gated custom_sql to the GE path),
-        # this partition custom_sql feeds BOTH the GE and SQLAlchemy profilers,
-        # so its shape must stay valid for both engines. Once GE is removed, this
-        # partition selection should move down into the SQLAlchemy adapter.
+        # TODO: now that SQLAlchemy is the only profiler, this partition
+        # selection should move down into the SQLAlchemy adapter — it only lives
+        # here because the shape had to stay valid for a second profiler engine.
 
         bq_table = cast(BigqueryTable, table)
         (partition, custom_sql) = self.generate_partition_profiler_query(
@@ -289,7 +287,7 @@ WHERE
         # something went wrong with the partition detection. However, if it's a pseudo-partition
         # (column=None), we should allow profiling to proceed.
         # Note: If partition is None but partition_info exists and it's a pseudo-partition or
-        # the table has no rows, we still profile the entire table (matching GE profiler behavior).
+        # the table has no rows, we still profile the entire table.
         if (
             partition is None
             and bq_table.partition_info

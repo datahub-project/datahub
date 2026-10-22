@@ -173,6 +173,10 @@ class AzureDataFactoryContainerKey(ContainerKey):
         SourceCapabilityModifier.ADF_DATA_FACTORY,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class AzureDataFactorySource(StatefulIngestionSourceBase):
     """Extracts metadata and lineage from Azure Data Factory pipelines, activities, and datasets."""
 
@@ -1301,8 +1305,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if pipeline_run.message:
             properties["message"] = pipeline_run.message[:MAX_RUN_MESSAGE_LENGTH]
         if pipeline_run.invoked_by:
-            invoker_name = pipeline_run.invoked_by.get("name", "")
-            invoker_type = pipeline_run.invoked_by.get("invokedByType", "")
+            invoker_name = pipeline_run.invoked_by.name or ""
+            invoker_type = pipeline_run.invoked_by.invoked_by_type or ""
             if invoker_name:
                 properties["invoked_by"] = invoker_name
             if invoker_type:

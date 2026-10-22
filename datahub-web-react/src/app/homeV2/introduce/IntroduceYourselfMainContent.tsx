@@ -1,10 +1,10 @@
 import { Tooltip } from '@components';
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import CheckIcon from '@mui/icons-material/Check';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import { Button, Select, message } from 'antd';
-import { orderBy } from 'lodash';
+import orderBy from 'lodash/orderBy';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -69,6 +69,7 @@ const Subtitle = styled.div`
     text-align: center;
     font: 400 13px Mulish;
     line-height: 21px;
+    opacity: 0.6;
     margin-bottom: 28px;
 `;
 
@@ -122,7 +123,7 @@ const SelectWrapper = styled.div`
         position: absolute;
         left: 10px;
         z-index: 99;
-        fill: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 
     .ant-select-arrow {
@@ -268,6 +269,7 @@ export const IntroduceYourselfMainContent = () => {
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
     const [updateUserViewSettingMutation] = useUpdateCorpUserViewsSettingsMutation();
+
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
@@ -463,10 +465,10 @@ export const IntroduceYourselfMainContent = () => {
                 <Title>{t('introduceYourself.mainTitle')}</Title>
                 <Subtitle>{t('introduceYourself.mainSubtitle')}</Subtitle>
                 <SelectWrapper>
-                    <AccountCircleOutlinedIcon />
+                    <UserCircle />
                     <Select
                         placeholder={t('introduceYourself.rolePlaceholder')}
-                        suffixIcon={<KeyboardArrowDownOutlinedIcon />}
+                        suffixIcon={<CaretDown />}
                         data-testid="introduce-role-select"
                         size="large"
                         style={selectStyles}
@@ -482,12 +484,13 @@ export const IntroduceYourselfMainContent = () => {
                     </Select>
                 </SelectWrapper>
                 <SelectWrapper>
-                    <SettingsOutlinedIcon />
+                    <Gear />
                     <Select
                         placeholder={t('introduceYourself.dataToolsPlaceholder')}
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
+                        data-testid="introduce-data-source-select"
                         options={platforms.map((platform) => {
                             const { urn } = platform.platform;
                             const isChecked = !!selectedPlatforms.includes(urn);
@@ -496,13 +499,15 @@ export const IntroduceYourselfMainContent = () => {
                                 EntityType.DataPlatform,
                                 platform.platform,
                             );
+                            const platformNameForTestId =
+                                platform.platform.name?.toLowerCase().replace(/\s+/g, '-') || '';
                             return {
                                 value: platform.platform.urn,
                                 label: (
-                                    <SelectOption>
+                                    <SelectOption data-testid={`platform-option-${platformNameForTestId}`}>
                                         <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
                                             <PsuedoCheckBox checked={isChecked}>
-                                                {isChecked && <CheckIcon />}
+                                                {isChecked && <Check />}
                                             </PsuedoCheckBox>
                                             <PlatformIcon
                                                 platform={platform.platform}

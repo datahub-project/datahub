@@ -12,7 +12,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "incidentInfo",
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record IncidentInfo {
   /**
@@ -39,6 +39,14 @@ record IncidentInfo {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "boostScore": 10.0,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   title: optional string
 
@@ -47,6 +55,15 @@ record IncidentInfo {
   */
   @Searchable = {
     "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -98,18 +115,28 @@ record IncidentInfo {
   @Searchable = {
     "/time": {
         "fieldName": "startedAt",
-        "fieldType": "COUNT"
+        "fieldType": "DATETIME",
+        "v3": {
+          "searchLabel": "sourceCreatedAt",
+          "mappings": [
+            { "type": "DATETIME" }
+          ]
+        }
       }
   }
   startedAt: optional Time
 
   /**
-   * The time at which the request was initially created
+   * When this incident was raised in DataHub.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
         "fieldName": "created",
-        "fieldType": "COUNT"
+        "fieldType": "DATETIME",
+        "v3": { "enabled": false }
       }
   }
   created: AuditStamp

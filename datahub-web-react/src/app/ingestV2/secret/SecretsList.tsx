@@ -1,4 +1,4 @@
-import { Icon, Pagination, SearchBar, Table } from '@components';
+import { Button, Pagination, SearchBar, Table } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Typography, message } from 'antd';
@@ -31,24 +31,8 @@ import {
 const ButtonsContainer = styled.div`
     display: flex;
     justify-content: end;
-    gap: 8px;
-
-    button {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 20px;
-        width: 24px;
-        height: 24px;
-        padding: 3px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        color: ${(props) => props.theme.colors.textTertiary};
-
-        :hover {
-            cursor: pointer;
-        }
-    }
+    align-items: center;
+    gap: 4px;
 `;
 
 const SecretsContainer = styled.div`
@@ -297,23 +281,23 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             render: (record: TableDataType) => (
                 <>
                     <ButtonsContainer>
-                        <button
-                            type="button"
-                            onClick={() => onEditSecret(record)}
+                        <Button
+                            variant="text"
+                            isCircle
+                            icon={{ icon: PencilSimpleLine, size: 'lg' }}
                             aria-label={t('secret.editAriaLabel')}
-                        >
-                            <Icon icon={PencilSimpleLine} />
-                        </button>
-                        <button
-                            type="button"
-                            className="delete-action"
-                            onClick={() => setSecretUrnToDelete(record.urn)}
+                            onClick={() => onEditSecret(record)}
+                        />
+                        <Button
+                            variant="text"
+                            isCircle
+                            color="red"
+                            icon={{ icon: Trash, size: 'lg' }}
                             aria-label={t('secret.deleteAriaLabel')}
                             data-testid="delete-secret-action"
                             data-icon="delete"
-                        >
-                            <Icon icon={Trash} color="red" />
-                        </button>
+                            onClick={() => setSecretUrnToDelete(record.urn)}
+                        />
                     </ButtonsContainer>
                 </>
             ),

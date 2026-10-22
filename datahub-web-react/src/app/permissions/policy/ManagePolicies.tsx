@@ -32,13 +32,15 @@ import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import PolicyBuilderModal from '@app/permissions/policy/PolicyBuilderModal';
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { useAppConfig } from '@app/useAppConfig';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useGetPolicyPrivilegesQuery } from '@graphql/app.generated';
 import { useListPoliciesQuery } from '@graphql/policy.generated';
 import { AndFilterInput, EntityType, FilterOperator, Policy, PolicyState } from '@types';
 
@@ -128,10 +130,6 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
 
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
-    const {
-        config: { policiesConfig },
-    } = useAppConfig();
-
     const [page, setPage] = useState(1);
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -158,6 +156,14 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
+    const {
+        data: policyPrivilegesData,
+        loading: policyPrivilegesLoading,
+        error: policyPrivilegesError,
+    } = useGetPolicyPrivilegesQuery({
+        fetchPolicy: 'cache-first',
+    });
+    const policyPrivileges: PolicyPrivilegesConfig | undefined = policyPrivilegesData?.appConfig?.policiesConfig;
 
     const totalPolicies = policiesData?.listPolicies?.total || 0;
     const policies = useMemo(() => policiesData?.listPolicies?.policies || [], [policiesData]);
@@ -226,8 +232,11 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
         onToggleActiveDuplicate,
         onRemovePolicy,
         getPrivilegeNames,
+        policyToDelete,
+        handleDeleteConfirm,
+        handleDeleteCancel,
     } = usePolicy(
-        policiesConfig,
+        policyPrivileges,
         focusPolicyUrn,
         policiesRefetch,
         setShowViewPolicyModal,
@@ -238,10 +247,10 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
     useEffect(() => {
-        if (policiesError) {
+        if (policiesError || policyPrivilegesError) {
             toast.error(t('loadError'));
         }
-    }, [policiesError, t]);
+    }, [policiesError, policyPrivilegesError, t]);
 
     useEffect(() => {
         if (updateError) {
@@ -508,7 +517,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                             data={tableData || []}
                             rowKey="urn"
                             isScrollable
-                            isLoading={policiesLoading}
+                            isLoading={policiesLoading || policyPrivilegesLoading}
                             style={{ tableLayout: 'fixed' }}
                             onRowClick={(record: any) => onViewPolicy(record.policy)}
                             data-testid="policies-table-body"
@@ -532,6 +541,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     open={showPolicyBuilderModal}
                     onClose={onClosePolicyBuilder}
                     onSave={onSavePolicy}
+                    policyPrivileges={policyPrivileges}
                 />
             )}
             {showViewPolicyModal && (
@@ -540,8 +550,16 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     open={showViewPolicyModal}
                     onClose={onCancelViewPolicy}
                     privileges={getPrivilegeNames(focusPolicy)}
+                    resourcePrivileges={policyPrivileges?.resourcePrivileges}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!policyToDelete}
+                modalTitle={t('deletePolicyTitle', { name: policyToDelete?.name })}
+                modalText={t('deletePolicyText')}
+                handleConfirm={handleDeleteConfirm}
+                handleClose={handleDeleteCancel}
+            />
         </>
     );
 };

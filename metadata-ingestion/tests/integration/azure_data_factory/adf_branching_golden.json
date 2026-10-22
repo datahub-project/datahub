@@ -42,7 +42,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.BranchingPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.BranchingPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.BranchingPipeline,DEV)"
                 }
             ]
@@ -284,7 +284,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.BranchingPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.BranchingPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.BranchingPipeline,DEV)"
                 }
             ]
@@ -459,7 +459,7 @@
                     "urn": "urn:li:container:7f68411fe6779dae7f37506c1e9bacfe"
                 },
                 {
-                    "id": "complex-data-factory.BranchingPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.BranchingPipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,complex-data-factory.BranchingPipeline,DEV)"
                 }
             ]

@@ -84,7 +84,7 @@ export default function LinkModule(props: ModuleProps) {
                 </LeftSection>
                 <RightSection>
                     <a href={safeUrl(linkParams?.linkUrl)} target="_blank" rel="noopener noreferrer">
-                        <Icon icon={ArrowUpRight} size="lg" />
+                        <Icon icon={ArrowUpRight} size="lg" color="icon" />
                     </a>
                 </RightSection>
             </Container>

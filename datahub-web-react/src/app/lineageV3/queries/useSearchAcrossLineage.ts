@@ -17,6 +17,7 @@ import {
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
@@ -51,12 +52,15 @@ export default function useSearchAcrossLineage(
     processed: boolean;
 } {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+    const entityRegistry = useEntityRegistryV2();
     const { nodes, edges, adjacencyList, rootUrn, rootType, setNodeVersion, setDisplayVersion } = context;
 
     const input: SearchAcrossLineageInput = {
         urn,
         direction,
-        types: type === EntityType.SchemaField ? [EntityType.SchemaField] : undefined,
+        // Column lineage is other columns plus the metrics reading the column, matching the backend's
+        // schema field walk; charts and dashboards it also returns are left out for now
+        types: type === EntityType.SchemaField ? [EntityType.SchemaField, EntityType.Metric] : undefined,
         start: 0,
         count: 10000,
         orFilters: [
@@ -123,7 +127,7 @@ export default function useSearchAcrossLineage(
             }
 
             if (data) {
-                pruneAllDuplicateEdges(urn, direction, smallContext);
+                pruneAllDuplicateEdges(urn, direction, smallContext, entityRegistry);
                 processed.add(urn);
                 if (addedNode) setNodeVersion((version) => version + 1);
 

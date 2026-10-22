@@ -18,9 +18,17 @@ record EditableSchemaFieldInfo {
   @Searchable = {
     "fieldName": "editedFieldDescriptions",
     "fieldType": "TEXT",
-    "boostScore": 0.1,
-    "searchTier": 2,
-    "sanitizeRichText": true
+    "boostScore": 1.0,
+    "sanitizeRichText": true,
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -37,7 +45,14 @@ record EditableSchemaFieldInfo {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
       "fieldType": "URN",
-      "boostScore": 0.5
+      "boostScore": 0.5,
+      "hasValuesFieldName": "hasTags",
+      "v3": {
+        "searchLabel": "tags",
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     },
     "/tags/*/attribution/time": {
         "fieldName": "editedFieldTagAttributionDates",
@@ -71,7 +86,15 @@ record EditableSchemaFieldInfo {
       "fieldType": "URN",
       "boostScore": 0.5,
       "includeSystemModifiedAt": true,
-      "systemModifiedAtFieldName": "schemaFieldTermsModifiedAt"
+      "systemModifiedAtFieldName": "schemaFieldTermsModifiedAt",
+      "hasValuesFieldName": "hasGlossaryTerms",
+      "v3": {
+        "includeSystemModifiedAt": false,
+        "searchLabel": "glossaryTerms",
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     },
     "/terms/*/attribution/time": {
         "fieldName": "editedFieldTermAttributionDates",

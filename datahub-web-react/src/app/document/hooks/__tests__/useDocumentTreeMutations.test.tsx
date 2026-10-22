@@ -2,6 +2,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import { message } from 'antd';
+import { GraphQLError } from 'graphql';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +14,7 @@ import {
     useMoveDocumentTreeMutation,
     useUpdateDocumentTitleMutation,
 } from '@app/document/hooks/useDocumentTreeMutations';
+import { ErrorCodes } from '@app/shared/constants';
 
 import {
     CreateDocumentDocument,
@@ -219,6 +221,58 @@ describe('useDocumentTreeMutations', () => {
                 // Verify no nodes remain in tree (temp node was rolled back)
                 const rootNodes = result.current.tree.getRootNodes();
                 expect(rootNodes).toHaveLength(0);
+            });
+        });
+
+        it('shows the server message when create is rejected as a bad request', async () => {
+            const parentUrn = 'urn:li:document:missing';
+            const serverMessage = `Parent Document with URN ${parentUrn} does not exist`;
+            const input = {
+                title: 'Child Document',
+                parentDocument: parentUrn,
+            };
+
+            const mocks = [
+                {
+                    request: {
+                        query: CreateDocumentDocument,
+                        variables: {
+                            input: {
+                                title: 'Child Document',
+                                parentDocument: parentUrn,
+                                subType: undefined,
+                                state: DocumentState.Published,
+                                contents: { text: '' },
+                                settings: { showInGlobalContext: true },
+                            },
+                        },
+                    },
+                    result: {
+                        errors: [
+                            new GraphQLError(serverMessage, undefined, undefined, undefined, undefined, undefined, {
+                                code: ErrorCodes.BadRequest,
+                            }),
+                        ],
+                    },
+                },
+            ];
+
+            const { result } = renderHook(
+                () => ({
+                    createMutation: useCreateDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
+            );
+
+            const newUrn = await result.current.createMutation.createDocument(input);
+
+            await waitFor(() => {
+                expect(newUrn).toBe(null);
+                expect(message.error).toHaveBeenCalledWith(serverMessage);
+                expect(result.current.tree.getRootNodes()).toHaveLength(0);
             });
         });
 
@@ -575,6 +629,61 @@ describe('useDocumentTreeMutations', () => {
                 // Verify parent was rolled back
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node?.parentUrn).toBe(oldParentUrn);
+            });
+        });
+
+        it('shows the server message when move is rejected as a bad request', async () => {
+            const mockUrn = 'urn:li:document:child';
+            const oldParentUrn = 'urn:li:document:oldParent';
+            const newParentUrn = 'urn:li:document:missing';
+            const serverMessage = `Parent Document with URN ${newParentUrn} does not exist`;
+
+            const mocks = [
+                {
+                    request: {
+                        query: MoveDocumentDocument,
+                        variables: {
+                            input: {
+                                urn: mockUrn,
+                                parentDocument: newParentUrn,
+                            },
+                        },
+                    },
+                    result: {
+                        errors: [
+                            new GraphQLError(serverMessage, undefined, undefined, undefined, undefined, undefined, {
+                                code: ErrorCodes.BadRequest,
+                            }),
+                        ],
+                    },
+                },
+            ];
+
+            const { result } = renderHook(
+                () => ({
+                    moveMutation: useMoveDocumentTreeMutation(),
+                    tree: useDocumentTree(),
+                }),
+                {
+                    wrapper: createWrapper(mocks),
+                },
+            );
+
+            const initialNode: DocumentTreeNode = {
+                urn: mockUrn,
+                title: 'Child Document',
+                parentUrn: oldParentUrn,
+                hasChildren: false,
+                children: [],
+            };
+            result.current.tree.addNode(initialNode);
+
+            const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
+
+            await waitFor(() => {
+                expect(success).toBe(false);
+                expect(message.error).toHaveBeenCalledWith(serverMessage);
+                expect(result.current.tree.getNode(mockUrn)?.parentUrn).toBe(oldParentUrn);
             });
         });
 

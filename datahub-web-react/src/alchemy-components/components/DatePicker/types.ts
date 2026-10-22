@@ -12,6 +12,8 @@ export type DatePickerProps = {
     placeholder?: string;
     'data-testid'?: string;
     label?: string;
+    showTime?: boolean | Record<string, any>;
+    format?: string;
 };
 
 type DatePickerState = {

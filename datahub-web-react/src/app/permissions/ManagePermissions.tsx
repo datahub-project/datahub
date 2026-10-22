@@ -37,9 +37,9 @@ const HeaderRight = styled.div`
 `;
 
 const Content = styled.div`
-    flex: 1;
     min-height: 0;
     display: flex;
+    flex: 1;
     flex-direction: column;
     overflow: hidden;
 

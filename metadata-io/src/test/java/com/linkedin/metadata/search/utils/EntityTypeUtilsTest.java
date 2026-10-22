@@ -165,22 +165,32 @@ public class EntityTypeUtilsTest {
   }
 
   @Test
-  public void testViewUnrestrictedAddOverlaysRegistryBaseline() {
+  public void testViewUnrestrictedAddMutatesEffectiveDefaultsWithoutDuplicates() {
     EntityRegistry registry = Mockito.mock(EntityRegistry.class);
     EntitySpec userSpec = viewUnrestrictedSpec("corpuser");
+    EntitySpec policySpec = namedSpec("dataHubPolicy");
     EntitySpec appSpec = namedSpec("application");
+    Mockito.when(policySpec.isViewUnrestricted()).thenReturn(false);
     Mockito.when(appSpec.isViewUnrestricted()).thenReturn(false);
     Mockito.when(registry.getEntitySpecs())
-        .thenReturn(Map.of("corpuser", userSpec, "application", appSpec));
+        .thenReturn(
+            Map.of(
+                "corpuser", userSpec,
+                "datahubpolicy", policySpec,
+                "application", appSpec));
 
     ViewUnrestrictedEntityTypes config =
-        ViewUnrestrictedEntityTypes.builder().add("application").build();
+        ViewUnrestrictedEntityTypes.builder()
+            .value("dataHubPolicy")
+            .add("dataHubPolicy,application,DATAHUBPOLICY")
+            .build();
     Assert.assertEquals(
-        EntityTypeUtils.resolve(config, registry), Set.of("corpuser", "application"));
+        EntityTypeUtils.resolve(config, registry),
+        Set.of("corpuser", "dataHubPolicy", "application"));
   }
 
   @Test
-  public void testViewUnrestrictedValueReplacesRegistryBaseline() {
+  public void testViewUnrestrictedValueMergesWithRegistryBaseline() {
     EntityRegistry registry = Mockito.mock(EntityRegistry.class);
     EntitySpec userSpec = viewUnrestrictedSpec("corpuser");
     EntitySpec groupSpec = namedSpec("corpGroup");
@@ -190,15 +200,15 @@ public class EntityTypeUtilsTest {
 
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder().value("corpGroup").build();
-    Assert.assertEquals(EntityTypeUtils.resolve(config, registry), Set.of("corpGroup"));
+    Assert.assertEquals(EntityTypeUtils.resolve(config, registry), Set.of("corpuser", "corpGroup"));
   }
 
   @Test
-  public void testViewUnrestrictedRemove() {
+  public void testViewUnrestrictedRemoveMutatesEffectiveDefaultsAndIgnoresAbsentTypes() {
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder()
             .value("corpuser,corpGroup,container,actionRequest")
-            .remove("container,actionRequest")
+            .remove("container,actionRequest,notPresent")
             .build();
     Assert.assertEquals(EntityTypeUtils.resolve(config, null), Set.of("corpuser", "corpgroup"));
   }

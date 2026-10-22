@@ -5,6 +5,7 @@ import Cron from 'react-js-cron';
 import styled from 'styled-components';
 
 import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
+import { cronBuilderStyles } from '@app/shared/cron/cronBuilderStyles';
 
 const CronText = styled.div`
     margin-top: 8px;
@@ -28,6 +29,8 @@ const AdvancedSchedule = styled.div`
 `;
 
 const ScheduleContainer = styled.div`
+    ${cronBuilderStyles}
+
     .cron-builder {
         color: ${(props) => props.theme.colors.textTertiary};
         font-size: 14px;
@@ -57,7 +60,7 @@ const CronFormat = styled.div`
 
 interface Props {
     scheduleCronInterval: string;
-    setScheduleCronInterval: React.Dispatch<React.SetStateAction<string>>;
+    setScheduleCronInterval: (interval: string) => void;
     cronAsText: {
         text: string | undefined;
         error: boolean;
@@ -99,7 +102,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
             </Schedule>
             <CronText>
                 {cronAsText.error && (
-                    <Text color="red" size="sm">
+                    <Text color="textError" size="sm">
                         {t('multiStep.schedule.invalidCron')}
                     </Text>
                 )}
@@ -109,7 +112,7 @@ export default function CronField({ scheduleCronInterval, setScheduleCronInterva
                     </CronFormat>
                 )}
                 {cronAsText.text && (
-                    <Text color="gray" size="sm">
+                    <Text color="textSecondary" size="sm">
                         {cronAsText.text}
                     </Text>
                 )}

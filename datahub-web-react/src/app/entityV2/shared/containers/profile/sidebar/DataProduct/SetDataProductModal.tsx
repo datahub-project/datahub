@@ -1,11 +1,11 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Empty, Select, message } from 'antd';
-import { debounce } from 'lodash';
-import React, { useMemo, useRef, useState } from 'react';
+import { Loader, Modal, SimpleSelect, Text, toast } from '@components';
+import debounce from 'lodash/debounce';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
@@ -15,8 +15,7 @@ import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useR
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal, Text } from '@src/alchemy-components';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
 
@@ -30,6 +29,11 @@ const LoadingWrapper = styled.div`
     margin: 5px;
 `;
 
+const OptionContent = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
+
 interface Props {
     urns: string[];
     currentDataProducts: DataProduct[];
@@ -37,6 +41,10 @@ interface Props {
     titleOverride?: string;
     onOkOverride?: (result: string) => void;
     setDataProducts?: (dataProducts: DataProduct[]) => void;
+}
+
+interface DataProductOption extends SelectOption {
+    entity?: DataProduct;
 }
 
 export default function SetDataProductModal({
@@ -54,9 +62,10 @@ export default function SetDataProductModal({
     const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchAddToDataProductsMutation] = useBatchAddToDataProductsMutation();
-
-    const [selectedDataProducts, setSelectedDataProducts] = useState<DataProduct[]>(currentDataProducts);
-    const inputEl = useRef(null);
+    const [selectedDataProducts, setSelectedDataProducts] = useState<DataProduct[]>(
+        isMultipleDataProductsEnabled ? [] : currentDataProducts,
+    );
+    const { isInFormContext } = useEntityFormContext();
 
     const [getSearchResults, { data, loading: searchLoading }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { recommendedData: recommendedDataProducts, loading: recommendationsLoading } = useGetRecommendations([
@@ -107,8 +116,17 @@ export default function SetDataProductModal({
     };
 
     const handleMutationSuccess = (successMessage: string) => {
-        message.success({ content: successMessage, duration: 3 });
-        setDataProducts?.(selectedDataProducts);
+        toast.success(successMessage, { duration: 3 });
+        if (isMultipleDataProductsEnabled) {
+            // Combine with current data products to correcly show them together in entity sidebar
+            const existingDataProductUrns = currentDataProducts.map((dp) => dp.urn);
+            setDataProducts?.([
+                ...currentDataProducts,
+                ...selectedDataProducts.filter((dp) => !existingDataProductUrns.includes(dp.urn)),
+            ]);
+        } else {
+            setDataProducts?.(selectedDataProducts);
+        }
         sendAnalytics();
         onModalClose();
         setSelectedDataProducts([]);
@@ -119,13 +137,12 @@ export default function SetDataProductModal({
     };
 
     const handleMutationError = (e: any, errorMessage: string) => {
-        message.destroy();
-        message.error(
-            handleBatchError(urns, e, {
-                content: `${errorMessage} \n ${e.message || ''}`,
-                duration: 3,
-            }),
-        );
+        toast.destroy();
+        const { content, duration } = handleBatchError(urns, e, {
+            content: `${errorMessage} \n ${e.message || ''}`,
+            duration: 3,
+        });
+        toast.error(content, { duration });
     };
 
     function onOk() {
@@ -164,57 +181,36 @@ export default function SetDataProductModal({
         }
     }
 
-    function onSelectDataProduct(urn: string) {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-        const dataProduct = displayedDataProducts?.find((entity) => entity.urn === urn);
-        if (dataProduct) {
-            if (isMultipleDataProductsEnabled) {
-                setSelectedDataProducts((prev) => [...prev, dataProduct as DataProduct]);
-            } else {
-                setSelectedDataProducts([dataProduct as DataProduct]);
-            }
-        }
-    }
-
-    function onDeselect(urn: string) {
-        setSelectedDataProducts((prev) => prev.filter((dp) => dp.urn !== urn));
-    }
-
     // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#setDataProductButton',
     });
 
-    const selectValue = selectedDataProducts.map((dp) => entityRegistry.getDisplayName(EntityType.DataProduct, dp));
+    const options: DataProductOption[] = useMemo(
+        () =>
+            displayedDataProducts.map((result) => ({
+                value: result.urn,
+                label: entityRegistry.getDisplayName(EntityType.DataProduct, result),
+                entity: result as DataProduct,
+            })),
+        [displayedDataProducts, entityRegistry],
+    );
 
-    const loadingOption = {
-        label: (
-            <LoadingWrapper>
-                <LoadingOutlined />
-            </LoadingWrapper>
-        ),
-        value: 'loading',
-    };
+    const selectedOptions: DataProductOption[] = useMemo(() => {
+        const byUrn = new Map(options.map((option) => [option.value, option]));
+        selectedDataProducts.forEach((dp) => {
+            if (!byUrn.has(dp.urn)) {
+                byUrn.set(dp.urn, {
+                    value: dp.urn,
+                    label: entityRegistry.getDisplayName(EntityType.DataProduct, dp),
+                    entity: dp,
+                });
+            }
+        });
+        return Array.from(byUrn.values());
+    }, [options, selectedDataProducts, entityRegistry]);
 
-    const options = displayedDataProducts.map((result) => {
-        return {
-            label: (
-                <>
-                    <Text size="md">{entityRegistry.getDisplayName(EntityType.DataProduct, result)}</Text>
-                    <ContextPath
-                        entityType={EntityType.DataProduct}
-                        displayedEntityType={t('sidebar.dataProduct.entityTypeName')}
-                        parentEntities={getParentEntities(result as DataProduct, EntityType.DataProduct)}
-                        entityTitleWidth={200}
-                        numVisible={3}
-                    />
-                </>
-            ),
-            value: result.urn,
-        };
-    });
+    const values = selectedDataProducts.map((dp) => dp.urn);
 
     return (
         <Modal
@@ -226,7 +222,7 @@ export default function SetDataProductModal({
             }
             open
             onCancel={onModalClose}
-            getContainer={getModalDomContainer}
+            getContainer={!isInFormContext ? getModalDomContainer : undefined} // if filling out form in full page modal, don't change container as this modal gets hidden
             buttons={[
                 {
                     text: tc('cancel'),
@@ -242,29 +238,56 @@ export default function SetDataProductModal({
                 },
             ]}
         >
-            <Select
-                autoFocus
+            <SimpleSelect
                 showSearch
                 defaultOpen
-                filterOption={false}
-                mode={isMultipleDataProductsEnabled ? 'multiple' : undefined}
-                defaultActiveFirstOption={false}
+                filterResultsByQuery={false}
+                isMultiSelect={isMultipleDataProductsEnabled}
                 placeholder={t('sidebar.dataProduct.searchPlaceholder')}
-                onSelect={(urn: string) => onSelectDataProduct(urn)}
-                onDeselect={(urn: string) => onDeselect(urn)}
-                onSearch={handleSearch}
-                style={{ width: '100%' }}
-                ref={inputEl}
-                value={selectValue}
-                options={loading ? [loadingOption] : options}
-                notFoundContent={
-                    !loading ? (
-                        <Empty
-                            description={t('sidebar.dataProduct.emptyText')}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            style={{ color: ANTD_GRAY[7] }}
-                        />
-                    ) : null
+                values={values}
+                onUpdate={(next) => {
+                    if (!isMultipleDataProductsEnabled) {
+                        const urn = next[0];
+                        const match = selectedOptions.find((option) => option.value === urn)?.entity;
+                        setSelectedDataProducts(match ? [match] : []);
+                        return;
+                    }
+                    const nextProducts = next
+                        .map((urn) => selectedOptions.find((option) => option.value === urn)?.entity)
+                        .filter((entity): entity is DataProduct => !!entity);
+                    setSelectedDataProducts(nextProducts);
+                }}
+                onSearchChange={handleSearch}
+                onClear={() => setSelectedDataProducts([])}
+                options={options}
+                combinedSelectedAndSearchOptions={selectedOptions}
+                isLoading={loading}
+                width="full"
+                showClear
+                renderCustomOptionText={(option) => (
+                    <OptionContent>
+                        <Text size="md">{option.label}</Text>
+                        {option.entity && (
+                            <ContextPath
+                                entityType={EntityType.DataProduct}
+                                displayedEntityType={t('sidebar.dataProduct.entityTypeName')}
+                                parentEntities={getParentEntities(option.entity, EntityType.DataProduct)}
+                                entityTitleWidth={200}
+                                numVisible={3}
+                            />
+                        )}
+                    </OptionContent>
+                )}
+                emptyState={
+                    loading ? (
+                        <LoadingWrapper>
+                            <Loader size="sm" />
+                        </LoadingWrapper>
+                    ) : (
+                        <Text size="sm" color="textSecondary">
+                            {t('sidebar.dataProduct.emptyText')}
+                        </Text>
+                    )
                 }
             />
         </Modal>

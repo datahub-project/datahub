@@ -7,12 +7,18 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import org.json.JSONObject;
@@ -56,6 +62,11 @@ public class DailyReportTest {
     // Set up the operation context chain
     when(mockOperationContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
+    SearchClusterAccess clusterAccess = SearchClusterAccess.fixed(mockElasticClient);
+    when(mockSearchContext.getSearchClusterAccess()).thenReturn(clusterAccess);
+    when(mockSearchContext.requireSearchClusterAccess()).thenReturn(clusterAccess);
+    when(mockOperationContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
     // A distinct index per entity name, mirroring the real convention. AnalyticsService
     // de-duplicates the batch's target indices, so stubbing one shared name for every type would
     // collapse the batch to a single index and hide whether it spans all reported types.
@@ -181,11 +192,7 @@ public class DailyReportTest {
    */
   private DailyReport createDailyReportForTesting() {
     return new DailyReport(
-        mockOperationContext,
-        mockElasticClient,
-        mockConfigurationProvider,
-        mockEntityService,
-        mockGitVersion);
+        mockOperationContext, mockConfigurationProvider, mockEntityService, mockGitVersion);
   }
 
   @Test
@@ -282,6 +289,53 @@ public class DailyReportTest {
     int result = (int) getServiceAccountCountMethod.invoke(dailyReport);
 
     assertEquals(result, 5, "getServiceAccountCount should return the total hits count");
+  }
+
+  @Test
+  public void testGetTotalUserCountReadsV3WhenKeywordReadEnabled() throws Exception {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .v3(
+                EntityIndexVersionConfiguration.builder()
+                    .enabled(true)
+                    .keywordReadEnabled(true)
+                    .build())
+            .build();
+    ElasticSearchConfiguration elasticSearch = mock(ElasticSearchConfiguration.class);
+    when(elasticSearch.getEntityIndex()).thenReturn(entityIndex);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(elasticSearch);
+    when(mockIndexConvention.getEntityIndexNameV3(
+            any(OperationFingerprint.class), eq(Constants.CORP_USER_ENTITY_NAME)))
+        .thenReturn("corpuserindex_v3");
+
+    SearchResponse mockSearchResponse = mock(SearchResponse.class);
+    SearchHits mockSearchHits = mock(SearchHits.class);
+    org.apache.lucene.search.TotalHits mockTotalHits =
+        new org.apache.lucene.search.TotalHits(
+            3, org.apache.lucene.search.TotalHits.Relation.EQUAL_TO);
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(mockSearchHits.getTotalHits()).thenReturn(mockTotalHits);
+    when(mockElasticClient.search(
+            any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenReturn(mockSearchResponse);
+
+    DailyReport dailyReport = createDailyReportForTesting();
+    java.lang.reflect.Method getTotalUserCountMethod =
+        DailyReport.class.getDeclaredMethod("getTotalUserCount");
+    getTotalUserCountMethod.setAccessible(true);
+    int result = (int) getTotalUserCountMethod.invoke(dailyReport);
+    assertEquals(result, 3);
+
+    org.mockito.ArgumentCaptor<SearchRequest> captor =
+        org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockElasticClient)
+        .search(any(OperationContext.class), captor.capture(), any(RequestOptions.class));
+    SearchRequest request = captor.getValue();
+    assertEquals(request.indices(), new String[] {"corpuserindex_v3"});
+    String query = request.source().query().toString();
+    assertTrue(query.contains("_entityType"));
+    assertTrue(query.contains(Constants.CORP_USER_ENTITY_NAME));
   }
 
   /**
@@ -421,7 +475,8 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new AnalyticsService(
+                mockIndexConvention, TestOperationContexts.defaultEntityRegistry(), null));
 
     org.mockito.ArgumentCaptor<SearchRequest> captor =
         org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
@@ -448,7 +503,8 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new AnalyticsService(
+                mockIndexConvention, TestOperationContexts.defaultEntityRegistry(), null));
 
     assertEquals(counts.size(), 1, "only the non-zero type should be reported");
     assertTrue(counts.containsKey("DATASET"));
@@ -475,7 +531,8 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new AnalyticsService(
+                mockIndexConvention, TestOperationContexts.defaultEntityRegistry(), null));
 
     org.mockito.ArgumentCaptor<SearchRequest> captor =
         org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
@@ -630,6 +687,9 @@ public class DailyReportTest {
         .thenReturn(response);
 
     when(mockIndexConvention.getIndexName(any(OperationFingerprint.class), anyString()))
+        .thenReturn("datahub_usage_event");
+    when(mockIndexConvention.getIndexName(
+            any(OperationFingerprint.class), any(SearchComponent.class), anyString()))
         .thenReturn("datahub_usage_event");
 
     com.linkedin.metadata.config.DataHubConfiguration dataHub =

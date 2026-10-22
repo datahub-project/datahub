@@ -40,14 +40,50 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
 export function pathMatchesInsensitiveToV2(fieldPathA?: string | null, fieldPathB?: string | null) {
     if (!fieldPathA || !fieldPathB) return false;
     if (fieldPathA === fieldPathB) return true;
-    const a = downgradeV2FieldPath(fieldPathA);
-    const b = downgradeV2FieldPath(fieldPathB);
-    return !!a && !!b && a.toLowerCase() === b.toLowerCase();
+    const a = normalizeFieldPathKey(fieldPathA);
+    const b = normalizeFieldPathKey(fieldPathB);
+    return !!a && !!b && a === b;
+}
+
+/** Lowercased v1-equivalent path for case-insensitive v2 matching. Null when the input is missing. */
+export function normalizeFieldPathKey(fieldPath?: string | null): string | null {
+    if (!fieldPath) {
+        return null;
+    }
+    return (downgradeV2FieldPath(fieldPath) ?? fieldPath).toLowerCase();
 }
 
 // should use pathMatchesExact when rendering editable info so the user edits the correct field
 export function pathMatchesExact(fieldPathA?: string | null, fieldPathB?: string | null) {
     return fieldPathA === fieldPathB;
+}
+
+// Split a DataHub field path into tokens without breaking dots inside bracket annotations
+// such as `[version=2.0]`. Naive `split('.')` would turn that into `[version=2` / `0]`.
+export function splitFieldPathTokens(fieldPath: string): string[] {
+    return fieldPath.match(/\[[^\]]*\]|[^.]+/g) ?? [];
+}
+
+// Compute the expected parent fieldPath for a given fieldPath in O(path-depth) time,
+// without scanning previously-seen sibling rows. Returns null for top-level fields.
+export function getParentPath(fieldPath: string): string | null {
+    const tokens = splitFieldPathTokens(fieldPath);
+    const isQualifyingUnionField = tokens[tokens.length - 3] === UNION_TOKEN;
+
+    if (isQualifyingUnionField) {
+        // For unions the parent path drops the union variant label (penultimate token).
+        const parentTokens = [...tokens];
+        parentTokens.splice(parentTokens.length - 2, 1);
+        return parentTokens.join('.');
+    }
+
+    // For structs/arrays find the rightmost non-bracket token to the left of the leaf.
+    for (let i = tokens.length - 2; i >= 0; i--) {
+        if (tokens[i] && tokens[i][0] !== '[') {
+            return tokens.slice(0, i + 1).join('.');
+        }
+    }
+    return null;
 }
 
 // group schema fields by fieldPath and grouping for hierarchy in schema table
@@ -62,47 +98,16 @@ export function groupByFieldPath(
     ] as Array<ExtendedSchemaFields>;
 
     const outputRows: Array<ExtendedSchemaFields> = [];
-    const outputRowByPath = {};
+    // Map so parent lookup is O(1) and keys like toString/constructor/__proto__ are not inherited
+    const outputRowByPath = new Map<string, ExtendedSchemaFields>();
 
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-        let parentRow: null | ExtendedSchemaFields = null;
         const row = { children: undefined, ...rows[rowIndex], depth: 0 };
 
-        for (let j = rowIndex - 1; j >= 0; j--) {
-            const rowTokens = row.fieldPath.split('.');
-            const isQualifyingUnionField = rowTokens[rowTokens.length - 3] === UNION_TOKEN;
-            if (isQualifyingUnionField) {
-                // in the case of unions, parent will not be a subset of the child
-                rowTokens.splice(rowTokens.length - 2, 1);
-                const parentPath = rowTokens.join('.');
+        const parentPath = getParentPath(row.fieldPath);
+        const parentRow = parentPath ? (outputRowByPath.get(parentPath) ?? null) : null;
 
-                if (rows[j].fieldPath === parentPath) {
-                    parentRow = outputRowByPath[rows[j].fieldPath];
-                    break;
-                }
-            } else {
-                // In the case of structs, arrays, etc, parent will be the first token from
-                // the left of this field's name(last token of the path) that does not enclosed in [].
-                let parentPath: null | string = null;
-                for (
-                    let lastParentTokenIndex = rowTokens.length - 2;
-                    lastParentTokenIndex >= 0;
-                    --lastParentTokenIndex
-                ) {
-                    const lastParentToken: string = rowTokens[lastParentTokenIndex];
-                    if (lastParentToken && lastParentToken[0] !== '[') {
-                        parentPath = rowTokens.slice(0, lastParentTokenIndex + 1).join('.');
-                        break;
-                    }
-                }
-                if (parentPath && rows[j].fieldPath === parentPath) {
-                    parentRow = outputRowByPath[rows[j].fieldPath];
-                    break;
-                }
-            }
-        }
-
-        // if the parent field exists in the ouput, add the current row as a child
+        // if the parent field exists in the output, add the current row as a child
         if (parentRow) {
             row.depth = (parentRow.depth || 0) + 1;
             row.parent = parentRow;
@@ -110,9 +115,13 @@ export function groupByFieldPath(
         } else {
             outputRows.push(row);
         }
-        outputRowByPath[row.fieldPath] = row;
+        outputRowByPath.set(row.fieldPath, row);
     }
     return outputRows;
+}
+
+export function hasNestedSchemaRows(rows: Array<ExtendedSchemaFields>): boolean {
+    return rows.some((row) => (row.depth || 0) > 0 || (row.children?.length ?? 0) > 0);
 }
 
 export function diffJson(oldStr: string, newStr: string) {

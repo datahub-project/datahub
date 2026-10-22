@@ -1,4 +1,4 @@
-import { GlobalOutlined } from '@ant-design/icons';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -115,7 +115,7 @@ export default function AttributeContent({
             fontSize={fontSize}
             highlightAttribute={highlightAttribute}
         >
-            <GlobalOutlined style={{ marginRight: '4px' }} />
+            <Globe style={{ marginRight: '4px' }} />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
                 {entityRegistry.getDisplayName(EntityType.BusinessAttribute, businessAttribute?.businessAttribute)}
             </Highlight>

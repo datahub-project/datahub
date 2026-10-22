@@ -73,6 +73,7 @@
     "levelFilter.indirectTooltip": "間接的に関連するData Assetを表示",
     "manageLineage.changeToHome": "ホームに設定",
     "manageLineage.dashboardNoDownstream": "Dashboardには下流のLineageがありません",
+    "manageLineage.metricNoUpstream": "Metric entities have no editable upstream lineage",
     "manageLineage.downstreamDisabled": "下流を編集するには、このEntityをホームに設定してください。",
     "manageLineage.editDownstream": "下流を編集",
     "manageLineage.editUpstream": "上流を編集",

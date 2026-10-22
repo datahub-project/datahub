@@ -110,6 +110,7 @@ const TopUsers = ({ users }: Props) => {
                 title={t('topUsers.title')}
                 renderGraph={renderTopUsersTable}
                 isEmpty={!isUsersDataPresent || !canViewDatasetUsage}
+                emptyMessage={t('topUsers.empty')}
                 emptyContent={!canViewDatasetUsage && <NoPermission statName={t('topUsers.statName')} />}
                 moreInfoModalContent={<MoreInfoModalContent />}
             />

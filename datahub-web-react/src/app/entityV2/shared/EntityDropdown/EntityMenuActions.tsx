@@ -1,4 +1,4 @@
-import { MoreOutlined } from '@ant-design/icons';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -32,7 +32,7 @@ export enum EntityMenuItems {
     CHANGE_HISTORY,
 }
 
-export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+export const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;

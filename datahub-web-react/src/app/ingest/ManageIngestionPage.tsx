@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons';
 import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Tabs } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
@@ -155,14 +155,20 @@ export const ManageIngestionPage = () => {
                             id={INGESTION_CREATE_SOURCE_ID}
                             onClick={handleCreateSource}
                             data-testid="create-ingestion-source-button"
+                            icon={{ icon: Plus }}
                         >
-                            <PlusOutlined style={{ marginRight: '4px' }} /> Create new source
+                            Create new source
                         </Button>
                     )}
 
                     {selectedTab === TabType.Secrets && showSecretsTab && (
-                        <Button variant="filled" onClick={handleCreateSecret} data-testid="create-secret-button">
-                            <PlusOutlined style={{ marginRight: '4px' }} /> Create new secret
+                        <Button
+                            variant="filled"
+                            onClick={handleCreateSecret}
+                            data-testid="create-secret-button"
+                            icon={{ icon: Plus }}
+                        >
+                            Create new secret
                         </Button>
                     )}
                 </HeaderActionsContainer>

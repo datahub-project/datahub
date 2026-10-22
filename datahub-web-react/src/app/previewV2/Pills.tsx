@@ -1,8 +1,8 @@
-import { LayoutOutlined } from '@ant-design/icons';
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
-import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { FileMagnifyingGlass } from '@phosphor-icons/react/dist/csr/FileMagnifyingGlass';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -71,7 +71,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
             )}
             {showTagsBadge && tags && (
                 <SearchPill
-                    icon={<SellOutlinedIcon />}
+                    icon={<Tag />}
                     count={tags.tags?.length || 0}
                     enabled={!!tags.tags?.length}
                     active={expandedSection === PreviewSection.TAGS}
@@ -83,7 +83,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
             )}
             {showOwnersBadge && owners && (
                 <SearchPill
-                    icon={<AccountCircleOutlinedIcon />}
+                    icon={<UserCircle />}
                     count={owners.length || 0}
                     enabled={!!owners.length}
                     active={expandedSection === PreviewSection.OWNERS}
@@ -95,7 +95,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
 
             {groupedMatches.length > 0 && (
                 <SearchPill
-                    icon={<FindInPageOutlinedIcon />}
+                    icon={<FileMagnifyingGlass />}
                     count={groupedMatches?.length || 0}
                     enabled
                     active={expandedSection === PreviewSection.MATCHES}
@@ -112,7 +112,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
                 selectedColumn && (
                     <SearchPill
                         data-testid="show-column-path-button"
-                        icon={<LayoutOutlined />}
+                        icon={<Layout />}
                         count={paths.length || 0}
                         enabled={!!paths.length}
                         active={expandedSection === PreviewSection.COLUMN_PATHS}

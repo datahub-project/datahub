@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +21,7 @@ export default function DownloadAsCsvButton({ setShowDownloadAsCsvModal, isDownl
     return (
         <>
             <DownloadCsvButton type="text" onClick={() => setShowDownloadAsCsvModal(true)} disabled={isDownloadingCsv}>
-                <DownloadOutlined />
+                <DownloadSimple className="anticon" />
                 {isDownloadingCsv ? t('downloadCsv.downloading') : tc('download')}
             </DownloadCsvButton>
         </>

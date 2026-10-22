@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination, Typography } from 'antd';
+import { Button, EmptyState, Pagination, Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useEffect, useState } from 'react';
@@ -37,7 +37,7 @@ const DomainsPaginationContainer = styled.div`
     align-items: center;
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
 `;
 
@@ -143,8 +143,13 @@ export const DomainsList = () => {
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>
-                    <Button id={DOMAINS_CREATE_DOMAIN_ID} type="text" onClick={() => setIsCreatingDomain(true)}>
-                        <PlusOutlined /> {t('list.newDomain')}
+                    <Button
+                        id={DOMAINS_CREATE_DOMAIN_ID}
+                        variant="text"
+                        icon={{ icon: Plus }}
+                        onClick={() => setIsCreatingDomain(true)}
+                    >
+                        {t('list.newDomain')}
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
@@ -169,7 +174,7 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <EmptyState title={t('list.empty')} size="sm" /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>
@@ -185,11 +190,11 @@ export const DomainsList = () => {
                         />
                     </PaginationInfo>
                     <Pagination
-                        current={page}
-                        pageSize={pageSize}
+                        currentPage={page}
+                        itemsPerPage={pageSize}
                         total={totalDomains}
                         showLessItems
-                        onChange={onChangePage}
+                        onPageChange={onChangePage}
                         showSizeChanger={false}
                     />
                     <span />
