@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
     collectAuthShellPreloadFiles,
     collectRoutePreloadGroups,
+    promoteStylesheetsBefore,
     renderAuthShellPreloadScript,
     renderRoutePreloadScript,
     routePreloadKey,
@@ -166,21 +167,15 @@ describe('route preload groups', () => {
         },
     };
 
-    it('preloads the shell everywhere and adds the current route graph', () => {
+    it('preloads the shell everywhere and adds only the current route chunk', () => {
         const groups = collectRoutePreloadGroups(bundle);
         expect(groups.shell).toEqual(['assets/AuthenticatedApp.js', 'assets/providers.js']);
-        expect(groups.home).toEqual([
-            'assets/AuthenticatedApp.js',
-            'assets/providers.js',
-            'assets/HomePage.js',
-            'assets/home-shared.js',
-        ]);
+        expect(groups.home).toEqual(['assets/AuthenticatedApp.js', 'assets/providers.js', 'assets/HomePage.js']);
         expect(groups.search).toEqual([
             'assets/AuthenticatedApp.js',
             'assets/providers.js',
             'assets/SearchRoutes.js',
             'assets/SearchPage.js',
-            'assets/search-shared.js',
         ]);
         expect(groups.dataset).toEqual([
             'assets/AuthenticatedApp.js',
@@ -188,8 +183,10 @@ describe('route preload groups', () => {
             'assets/SearchRoutes.js',
             'assets/EntityPage.js',
             'assets/EntityProfile.js',
-            'assets/profile-shared.js',
         ]);
+        expect(groups.home).not.toContain('assets/home-shared.js');
+        expect(groups.search).not.toContain('assets/search-shared.js');
+        expect(groups.dataset).not.toContain('assets/profile-shared.js');
         expect(groups.dataset).not.toContain('assets/SchemaTab.js');
         expect(groups.home).not.toContain('assets/SearchPage.js');
     });
@@ -212,5 +209,17 @@ describe('route preload groups', () => {
         expect(script).toContain('path==="/search"||path.indexOf("/search/")===0');
         expect(script).toContain('path==="/dataset"||path.indexOf("/dataset/")===0');
         expect(script).not.toContain('SchemaTab');
+        expect(script).not.toContain('home-shared');
+    });
+});
+
+describe('promoteStylesheetsBefore', () => {
+    it('moves the stylesheet ahead of the preload script', () => {
+        const script = '<script>preload</script>';
+        const html = `<head>${script}<script type="module" src="assets/index.js"></script><link rel="stylesheet" href="assets/index.css"></head>`;
+        const promoted = promoteStylesheetsBefore(html, script);
+        expect(promoted.indexOf('rel="stylesheet"')).toBeLessThan(promoted.indexOf(script));
+        expect(promoted.indexOf(script)).toBeLessThan(promoted.indexOf('type="module"'));
+        expect(promoted.match(/rel="stylesheet"/g)).toHaveLength(1);
     });
 });

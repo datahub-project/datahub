@@ -12,11 +12,17 @@ import type { Plugin } from 'vite';
  * script checks the same cookie `checkAuthStatus` uses and inserts the links
  * only then, before the entry module script is parsed.
  *
- * Home, search, and dataset each add their own static chunk graph. The browser
- * cannot see those imports until the shell and the route module have evaluated,
- * and the shared modules under that graph are mostly tiny files. Preloading the
- * graph for the current path overlaps that discovery. Other routes still get
- * the shell only, so a settings visit does not download the dataset profile.
+ * Home, search, and dataset each add only that route's own chunk, not the
+ * chunks it statically imports. Preloading the whole static graph starts those
+ * files at high priority before the stylesheet is parsed, and that delayed the
+ * CSS and the font the largest paint was waiting on. The browser still
+ * discovers the route chunk's imports once that one file arrives. Other routes
+ * still get the shell only, so a settings visit does not download the dataset
+ * profile.
+ *
+ * The stylesheet link is moved ahead of this script. It is render-blocking, and
+ * the body font is declared there, so it has to be discovered before the
+ * modulepreloads.
  */
 
 const AUTH_SHELL_MODULE = /(?:^|\/)AuthenticatedApp\.tsx$/;
@@ -73,6 +79,20 @@ export function collectStaticPreloadFiles(byFile: Map<string, PreloadChunk>, sta
     return files;
 }
 
+// The route chunk itself, not its static imports. Walking the closure queues
+// dozens of high-priority script requests before the parser reaches the CSS.
+function entryFiles(chunks: PreloadChunk[], patterns: RegExp[]): string[] {
+    const files: string[] = [];
+    const seen = new Set<string>();
+    patterns.forEach((pattern) => {
+        const chunk = findChunk(chunks, pattern);
+        if (!chunk || chunk.isEntry || seen.has(chunk.fileName)) return;
+        seen.add(chunk.fileName);
+        files.push(chunk.fileName);
+    });
+    return files;
+}
+
 function unionFiles(groups: string[][]): string[] {
     const files: string[] = [];
     const seen = new Set<string>();
@@ -103,12 +123,14 @@ export function collectRoutePreloadGroups(bundle: Record<string, PreloadChunk>):
     const shell = closure([AUTH_SHELL_MODULE]);
     return {
         shell,
-        home: unionFiles([shell, closure([HOME_MODULE])]),
-        search: unionFiles([shell, closure([SEARCH_ROUTES_MODULE, SEARCH_PAGE_MODULE])]),
-        // EntityProfile is the dataset page's first dynamic import. Its static
-        // imports are the next hop after EntityPage, so they belong in this list.
+        home: unionFiles([shell, entryFiles(chunks, [HOME_MODULE])]),
+        search: unionFiles([shell, entryFiles(chunks, [SEARCH_ROUTES_MODULE, SEARCH_PAGE_MODULE])]),
+        // EntityProfile is the dataset page's first dynamic import after EntityPage.
         // Tab chunks stay out: only one tab renders, and modulepreload would parse the rest.
-        dataset: unionFiles([shell, closure([SEARCH_ROUTES_MODULE, ENTITY_PAGE_MODULE, ENTITY_PROFILE_MODULE])]),
+        dataset: unionFiles([
+            shell,
+            entryFiles(chunks, [SEARCH_ROUTES_MODULE, ENTITY_PAGE_MODULE, ENTITY_PROFILE_MODULE]),
+        ]),
     };
 }
 
@@ -158,6 +180,21 @@ export function renderRoutePreloadScript(groups: RoutePreloadGroups): string {
     );
 }
 
+const STYLESHEET_LINK = /<link\b[^>]*\brel="stylesheet"[^>]*>/g;
+
+// Render-blocking CSS has to be in the document before the preload script runs.
+// The script inserts modulepreloads synchronously, and those links are high priority.
+export function promoteStylesheetsBefore(html: string, marker: string): string {
+    if (!marker || !html.includes(marker)) return html;
+    const links: string[] = [];
+    const stripped = html.replace(STYLESHEET_LINK, (tag) => {
+        links.push(tag);
+        return '';
+    });
+    if (links.length === 0) return html;
+    return stripped.replace(marker, `${links.join('')}${marker}`);
+}
+
 export function authShellPreloadPlugin(): Plugin {
     return {
         name: 'auth-shell-preload',
@@ -177,8 +214,10 @@ export function authShellPreloadPlugin(): Plugin {
                 }
                 const script = renderRoutePreloadScript(groups);
                 const moduleScript = '<script type="module"';
-                if (html.includes(moduleScript)) return html.replace(moduleScript, `${script}${moduleScript}`);
-                return html.replace('</head>', `${script}</head>`);
+                const withScript = html.includes(moduleScript)
+                    ? html.replace(moduleScript, `${script}${moduleScript}`)
+                    : html.replace('</head>', `${script}</head>`);
+                return promoteStylesheetsBefore(withScript, script);
             },
         },
     };

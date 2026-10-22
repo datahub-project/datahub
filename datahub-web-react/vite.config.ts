@@ -311,9 +311,10 @@ export default defineConfig(async ({ mode }) => {
                     // landed in that chunk. Rollup's default splitting keeps those
                     // graphs async. authShellPreloadPlugin modulepreloads the logged-in
                     // provider graph when the actor cookie is set, so /login does not
-                    // download it. The same plugin preloads the current route's static
-                    // chunk graph so those requests are not discovered one import()
-                    // hop at a time.
+                    // download it. The same plugin also preloads the current route's
+                    // own chunk (not that chunk's static imports) and keeps the
+                    // stylesheet ahead of those links. Preloading the whole route
+                    // graph delayed the CSS and the font.
                 },
             },
         },
