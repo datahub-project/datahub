@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+import yaml
 from sqlalchemy import exc
 
 from datahub.ingestion.source.sql.oracle import (
@@ -257,6 +258,36 @@ def test_oracle_test_connection(oracle_runner):
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason is None
+
+
+@pytest.mark.integration
+def test_oracle_dsn_failover(oracle_runner):
+    """A multi-address dsn fails over past an unreachable first address."""
+    tls_args = _oracle_tls_connect_args(oracle_runner)
+    recipe = yaml.safe_load(
+        Path(SOURCE_FILES_PATH, "oracle_to_file_with_all_tables.yml").read_text()
+    )["source"]["config"]
+    config_dict = {
+        "username": recipe["username"],
+        "password": recipe["password"],
+        "dsn": (
+            "(DESCRIPTION=(FAILOVER=on)(LOAD_BALANCE=off)(ADDRESS_LIST="
+            # Nothing listens on port 1, so the driver must move on.
+            "(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=1))"
+            f"(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT={oracle_runner})))"
+            "(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+        ),
+        "options": {
+            "connect_args": {
+                "wallet_location": tls_args["wallet_location"],
+                "ssl_server_dn_match": tls_args["ssl_server_dn_match"],
+            }
+        },
+    }
+
+    report = OracleSource.test_connection(config_dict)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable, report.basic_connectivity.failure_reason
 
 
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):

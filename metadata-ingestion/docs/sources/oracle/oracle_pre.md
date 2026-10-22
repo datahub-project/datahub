@@ -164,3 +164,18 @@ GRANT SELECT ANY TABLE TO datahub_user;
 ```
 
 If you need to ingest from multiple PDBs, create a separate ingestion source for each PDB service name.
+
+#### High-Availability and TNS Connections
+
+If your environment connects through a TNS connect descriptor, for example with multiple listener addresses for failover, set `dsn` instead of `host_port`, `service_name`, and `database`. The descriptor is passed unchanged to python-oracledb, so connect-time failover and load balancing behave as they do for your other Oracle clients.
+
+```yaml
+source:
+  type: oracle
+  config:
+    dsn: "(DESCRIPTION=(FAILOVER=on)(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=db-a)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=db-b)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=<SERVICE_NAME>)))"
+    username: datahub_user
+    password: "${ORACLE_PASSWORD}"
+```
+
+`dsn` also accepts an Easy Connect string or a `tnsnames.ora` alias. To resolve an alias, set `tns_admin` to the directory containing `tnsnames.ora`, or set the `TNS_ADMIN` environment variable on the machine running ingestion.
