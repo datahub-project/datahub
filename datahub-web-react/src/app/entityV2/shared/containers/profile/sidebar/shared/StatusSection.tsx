@@ -11,8 +11,8 @@ import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shar
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getDatasetLastUpdatedMs, getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
