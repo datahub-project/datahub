@@ -5,6 +5,7 @@ from typing import Any, Dict, Set, Type
 import pytest
 from pydantic import BaseModel
 
+from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
@@ -27,7 +28,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
 _SCHEMA_DIR = (
     pathlib.Path(__file__).parents[3] / "src/datahub/ingestion/source/odcs/odcs_schema"
 )
-_SCHEMA_FILES = ("odcs-v3.0.2.json", "odcs-v3.1.0.json")
+_SCHEMA_FILES = ("odcs-v3.0.2.json", "odcs-v3.1.0.json", "odcs-v3.2.0.json")
 
 
 def _model_keys(model_cls: Type[BaseModel]) -> Set[str]:
@@ -59,7 +60,7 @@ def _spec_keys(node: Any, defs: Dict[str, Any]) -> Set[str]:
 
 
 def _level_keys() -> Dict[str, Set[str]]:
-    """Union of spec keys per object level across both vendored schemas."""
+    """Union of spec keys per object level across all vendored schemas."""
     union: Dict[str, Set[str]] = {}
     for filename in _SCHEMA_FILES:
         spec = json.loads((_SCHEMA_DIR / filename).read_text())
@@ -162,3 +163,63 @@ def test_team_members_accepts_both_spec_shapes() -> None:
         ).team_members
         == []
     )
+
+
+def test_v32_descriptive_attributes_parse_leniently() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "apiVersion": "v3.2.0",
+            "schema": [
+                {
+                    "name": "t",
+                    "synonyms": [{"synonym": "orders"}, "purchases"],
+                    "properties": [
+                        {
+                            "name": "col_a",
+                            "logicalType": "vector",
+                            "semanticType": "measure",
+                            "transformLogic": "SUM(col_a)",
+                            "logicalTypeOptions": {"dimensions": 3},
+                            "enum": [{"value": "x"}, 2, None],
+                        },
+                        # malformed shapes must not fail the whole contract
+                        {"name": "col_b", "logicalTypeOptions": "oops"},
+                    ],
+                }
+            ],
+        }
+    )
+    assert contract.schema_ is not None
+    schema = contract.schema_[0]
+    assert isinstance(schema.synonyms, list) and len(schema.synonyms) == 2
+    assert schema.properties is not None
+    prop = schema.properties[0]
+    assert prop.semanticType == "measure"
+    assert prop.transformLogic == "SUM(col_a)"
+    assert prop.logicalTypeOptions == {"dimensions": 3}
+    assert prop.enum == [{"value": "x"}, 2, None]
+    assert schema.properties[1].logicalTypeOptions == "oops"
+
+
+def test_emit_structured_properties_defaults_off() -> None:
+    assert (
+        ODCSSourceConfig.model_validate({"path": "/tmp/x"}).emit_structured_properties
+        is False
+    )
+
+
+def test_v32_descriptive_attributes_never_fail_the_contract() -> None:
+    # These keys are only mapped behind emit_structured_properties; off-spec
+    # shapes must not reject a contract that ingested before they were parsed.
+    schema = ODCSSchemaObject.model_validate(
+        {
+            "name": "t",
+            "synonyms": "orders",
+            "properties": [
+                {"name": "col_a", "semanticType": 1, "transformLogic": {"sql": "x"}}
+            ],
+        }
+    )
+    assert schema.properties is not None
+    assert schema.properties[0].transformLogic == {"sql": "x"}

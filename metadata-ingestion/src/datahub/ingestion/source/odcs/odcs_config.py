@@ -43,11 +43,15 @@ SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
     "sqlserver": "mssql",
     "trino": "trino",
     "oracle": "oracle",
+    "glue": "glue",
+    # Remapped to `glue` when the REST catalog is AWS Glue (see
+    # odcs_mapper._platform_for_server).
+    "iceberg": "iceberg",
 }
 
 # Platforms whose DataHub connectors lowercase dataset names by default; the
 # composed physical name follows suit when `lowercase_physical_urns` is on.
-LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake",))
+LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake", "glue"))
 
 
 class ServerMapping(ConfigModel):
@@ -163,7 +167,7 @@ class ODCSSourceConfig(
     lowercase_physical_urns: bool = Field(
         default=True,
         description="Lowercase composed physical dataset names for platforms whose DataHub "
-        "connectors lowercase URNs by default (currently snowflake). Set False if your "
+        "connectors lowercase URNs by default (currently snowflake and glue). Set False if your "
         "snowflake ingestion runs with convert_urns_to_lowercase disabled. Logical `odcs` "
         "dataset URNs always preserve the contract's casing.",
     )
@@ -212,7 +216,7 @@ class ODCSSourceConfig(
         ),
     )
     odcs_versions: List[str] = Field(
-        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"],
+        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0", "3.2.0"],
         description="List of supported ODCS `apiVersion` values. Contracts with `apiVersion` "
         "outside this list are skipped with a warning.",
     )
@@ -308,6 +312,15 @@ class ODCSSourceConfig(
         "requires `emit_logical_parent` (the master switch for writing onto physical datasets). "
         "Note: the referenced assertions target the logical dataset, so the contract may render "
         "with limited detail on the physical table until assertions can target it directly.",
+    )
+    emit_structured_properties: bool = Field(
+        default=False,
+        description="Emit ODCS v3.2 descriptive attributes as `odcs.*` structured properties "
+        "on the logical dataset and its fields: `context`, `semanticType`, `transformLogic`, "
+        "`synonyms`, `enum` values and vector `logicalTypeOptions`. Creates the instance-wide structured "
+        "property definitions before any contract is ingested (existing ones are left "
+        "untouched). Values follow the contract: a value removed from the contract is removed "
+        "from DataHub. Values outside a definition's allowed values are dropped and reported.",
     )
     emit_data_product_association: bool = Field(
         default=False,

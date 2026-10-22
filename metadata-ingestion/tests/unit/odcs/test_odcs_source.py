@@ -3,7 +3,7 @@
 import json
 import pathlib
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,6 +16,9 @@ from datahub.ingestion.source.odcs import odcs_source
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_mapper import odcs_data_contract_urn
 from datahub.ingestion.source.odcs.odcs_source import ODCSSource
+from datahub.ingestion.source.odcs.odcs_structured_properties import (
+    structured_property_definition_mcps,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     auto_stale_entity_removal,
 )
@@ -32,7 +35,9 @@ from datahub.metadata.schema_classes import (
     EdgeClass,
     LogicalParentClass,
     OwnershipClass,
+    PropertyValueClass,
     StatusClass,
+    StructuredPropertyDefinitionClass,
 )
 
 
@@ -1632,6 +1637,66 @@ def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
     )
 
 
+def test_v32_api_version_is_accepted_and_validated(tmp_path: pathlib.Path) -> None:
+    src = _make_source(tmp_path, strict_validation=True)
+    raw_dict: Dict[str, Any] = {
+        "apiVersion": "v3.2.0",
+        "kind": "DataContract",
+        "id": "x",
+        "version": "1.0.0",
+        "status": "active",
+        "context": "Use for hourly reporting only.",
+        "schema": [
+            {
+                "name": "t",
+                "deprecated": True,
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "logicalType": "vector",
+                        "logicalTypeOptions": {"dimensions": 3},
+                        "synonyms": [{"synonym": "alias_a"}],
+                    }
+                ],
+            }
+        ],
+    }
+    assert src._validate(raw_dict, str(tmp_path / "v32.yaml"))
+    assert src.report.validation_errors == 0
+    assert "3.2.0" in src._validators
+
+
+def test_field_aspects_are_not_stale_removal_candidates(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Field-level deprecation/aiContext must not put schemaField URNs in the
+    stateful checkpoint: dropping a flag later would otherwise soft-delete the
+    field entity. The logical dataset itself stays primary-source."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        "apiVersion: v3.2.0\nkind: DataContract\nid: x\nversion: 1.0.0\n"
+        "status: active\nschema:\n  - name: t\n    properties:\n"
+        "      - name: col_a\n        deprecated: true\n"
+        "        synonyms:\n          - synonym: alias_a\n",
+        encoding="utf-8",
+    )
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    field_wus = [
+        wu
+        for wu in workunits
+        if (_mcp(wu).entityUrn or "").startswith("urn:li:schemaField:")
+    ]
+    assert len(field_wus) == 2
+    assert not any(wu.is_primary_source for wu in field_wus)
+    props_wus = [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+    ]
+    assert props_wus and all(wu.is_primary_source for wu in props_wus)
+
+
 def test_contract_missing_required_id_is_skipped(tmp_path: pathlib.Path) -> None:
     """A document that passes lenient schema validation but cannot be coerced
     into the model (missing required `id`) is skipped, not crashed."""
@@ -1858,3 +1923,201 @@ def test_git_info_clones_and_walks_checkout(
     assert src.report.git_checkout == str(checkout)
     assert src.report.contracts_parsed == 1
     assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
+_SP_CONTRACT = (
+    "apiVersion: v3.2.0\nkind: DataContract\nid: x\nversion: 1.0.0\nstatus: active\n"
+    "context: Use for order analysis.\n"
+    "schema:\n  - name: t\n    synonyms:\n      - synonym: orders\n    properties:\n"
+    "      - name: col_a\n        semanticType: measure\n"
+    "      - name: col_b\n        semanticType: kpi\n"
+)
+
+
+def _sp_workunits(
+    tmp_path: pathlib.Path, **config: Any
+) -> Tuple[List[Any], ODCSSource]:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SP_CONTRACT, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file), **config)
+    return list(src.get_workunits_internal()), src
+
+
+def _sp_patch_wus(workunits: List[Any]) -> List[Any]:
+    return [
+        wu
+        for wu in workunits
+        if getattr(wu.metadata, "aspectName", None) == "structuredProperties"
+    ]
+
+
+def _sp_patch_text(workunits: List[Any]) -> str:
+    return " ".join(str(wu.metadata.aspect.value) for wu in _sp_patch_wus(workunits))
+
+
+def test_structured_properties_off_by_default(tmp_path: pathlib.Path) -> None:
+    workunits, _ = _sp_workunits(tmp_path)
+    assert not _sp_patch_wus(workunits)
+    assert not _aspects_of(workunits, StructuredPropertyDefinitionClass)
+
+
+def test_structured_properties_emitted_without_graph(tmp_path: pathlib.Path) -> None:
+    workunits, src = _sp_workunits(tmp_path, emit_structured_properties=True)
+    def_indexes = [
+        i
+        for i, wu in enumerate(workunits)
+        if isinstance(
+            getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass
+        )
+    ]
+    assert len(def_indexes) == 11
+    assert not any(workunits[i].is_primary_source for i in def_indexes)
+    # Definitions lead the stream, ahead of every contract workunit.
+    assert def_indexes == list(range(11))
+    patches = _sp_patch_wus(workunits)
+    dataset = [
+        wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:dataset:")
+    ]
+    fields = [
+        wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:schemaField:")
+    ]
+    assert dataset and all(wu.is_primary_source for wu in dataset)
+    assert fields and not any(wu.is_primary_source for wu in fields)
+    assert len({wu.id for wu in patches}) == len(patches)  # unique workunit ids
+    assert any("odcs.semanticType=kpi" in str(w.context) for w in src.report.warnings)
+    assert any("not verified" in str(w.title) for w in src.report.warnings)
+
+
+def _sp_graph(
+    existing: Optional[Dict[str, StructuredPropertyDefinitionClass]] = None,
+    removed: Tuple[str, ...] = (),
+    fail_create: Tuple[str, ...] = (),
+) -> MagicMock:
+    """Fake graph holding `odcs.*` definitions keyed by qualified name."""
+    existing = existing or {}
+    graph = MagicMock()
+
+    def get_aspect(urn: str, aspect_cls: Any) -> Any:
+        name = urn.removeprefix("urn:li:structuredProperty:")
+        if aspect_cls is StructuredPropertyDefinitionClass:
+            return existing.get(name)
+        if aspect_cls is StatusClass:
+            return StatusClass(removed=name in removed)
+        return None
+
+    def emit(mcp: Any, **kwargs: Any) -> None:
+        if mcp.entityUrn.removeprefix("urn:li:structuredProperty:") in fail_create:
+            raise RuntimeError("403")
+
+    graph.get_aspect.side_effect = get_aspect
+    graph.emit_mcp.side_effect = emit
+    return graph
+
+
+def _our_definition(name: str) -> StructuredPropertyDefinitionClass:
+    for mcp in structured_property_definition_mcps():
+        assert isinstance(mcp.aspect, StructuredPropertyDefinitionClass)
+        if mcp.aspect.qualifiedName == name:
+            return mcp.aspect
+    raise KeyError(name)
+
+
+def _set_paths(workunits: List[Any]) -> str:
+    return " ".join(
+        op["path"]
+        for wu in _sp_patch_wus(workunits)
+        for op in json.loads(wu.metadata.aspect.value)["patch"]
+        if op["op"] == "add"
+    )
+
+
+def test_structured_property_definitions_created_via_graph(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = _sp_graph(existing={"odcs.synonyms": _our_definition("odcs.synonyms")})
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    assert not _aspects_of(workunits, StructuredPropertyDefinitionClass)
+    created = [c.args[0].entityUrn for c in graph.emit_mcp.call_args_list]
+    assert len(created) == 10 and not any(u.endswith("odcs.synonyms") for u in created)
+    assert "odcs.semanticType" in _set_paths(workunits)
+    assert "odcs.synonyms" in _set_paths(workunits)
+    titles = " ".join(str(w.title) for w in src.report.warnings)
+    assert "not verified" not in titles and "not usable" not in titles
+    assert "Could not create" not in titles
+
+
+def test_values_not_set_when_definition_cannot_be_created(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = _sp_graph(fail_create=("odcs.semanticType",))
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    # A value for a missing definition would fail the whole entity's patch.
+    assert "odcs.semanticType" not in _set_paths(workunits)
+    assert "odcs.synonyms" in _set_paths(workunits)  # other properties still set
+    assert any(
+        "structured property definition" in str(w.title) for w in src.report.warnings
+    )
+
+
+def test_values_not_set_when_definition_check_fails(tmp_path: pathlib.Path) -> None:
+    graph = MagicMock()
+    graph.get_aspect.side_effect = RuntimeError("GMS down")
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    assert not graph.emit_mcp.called
+    assert _set_paths(workunits) == ""
+    assert src.report.warnings
+
+
+def test_soft_deleted_definition_is_cleared_not_set(tmp_path: pathlib.Path) -> None:
+    graph = _sp_graph(
+        existing={"odcs.semanticType": _our_definition("odcs.semanticType")},
+        removed=("odcs.semanticType",),
+    )
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    # GMS rejects any patch whose result still holds a soft-deleted property's
+    # value, so it is removed (never set) while other properties are written.
+    assert "odcs.semanticType" not in _set_paths(workunits)
+    assert "odcs.semanticType" in _sp_patch_text(workunits)
+    assert "odcs.synonyms" in _set_paths(workunits)
+    assert any("odcs.semanticType" in str(w.context) for w in src.report.warnings)
+
+
+def test_incompatible_existing_definition_is_not_set(tmp_path: pathlib.Path) -> None:
+    narrower = _our_definition("odcs.semanticType")
+    narrower.allowedValues = [PropertyValueClass(value="column")]
+    graph = _sp_graph(existing={"odcs.semanticType": narrower})
+    workunits, src = _sp_workunits(
+        tmp_path, graph=graph, emit_structured_properties=True
+    )
+    assert not any(
+        c.args[0].entityUrn.endswith("odcs.semanticType")
+        for c in graph.emit_mcp.call_args_list
+    )
+    assert "odcs.semanticType" not in _set_paths(workunits)
+    assert any("odcs.semanticType" in str(w.context) for w in src.report.warnings)
+
+
+def test_dry_run_does_not_write_definitions(tmp_path: pathlib.Path) -> None:
+    graph = _sp_graph()
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SP_CONTRACT, encoding="utf-8")
+    src = _make_source(
+        tmp_path, graph=graph, path=str(contract_file), emit_structured_properties=True
+    )
+    src.ctx.dry_run_mode = True
+    workunits = list(src.get_workunits_internal())
+    assert not graph.emit_mcp.called
+    assert len(_aspects_of(workunits, StructuredPropertyDefinitionClass)) == 11
+
+
+def test_contract_context_reaches_the_dataset(tmp_path: pathlib.Path) -> None:
+    workunits, _ = _sp_workunits(tmp_path, emit_structured_properties=True)
+    assert "odcs.context" in _set_paths(workunits)

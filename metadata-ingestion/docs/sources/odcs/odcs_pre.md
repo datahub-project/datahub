@@ -1,6 +1,6 @@
 ### Overview
 
-The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0 and v3.1 YAML files from
+The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0, v3.1 and v3.2 YAML files from
 a path, directory, or glob, and models each contract as a **logical dataset** on the `odcs`
 platform: dataset properties, canonical schema metadata, ownership, top-level and
 column-level tags, a link to the source document, and the contract's `quality[]` rules as
@@ -26,9 +26,9 @@ applies to every logical dataset by default. See the Concept Mapping table on th
 Overview above for per-row semantics, and the [Limitations](#limitations) section below for
 how to disable replication.
 
-- ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
-  v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
-  v2.x — or any value outside `odcs_versions` — are skipped with a warning.
+- ODCS v3.0, v3.1 and v3.2 are supported (any `3.0.x` patch level validates against the same
+  v3.0.2 JSON Schema; `3.1.0` and `3.2.0` against their own schemas). Contracts whose
+  `apiVersion` reports v2.x — or any value outside `odcs_versions` — are skipped with a warning.
 - **Filter which datasets are ingested with `dataset_pattern`.** The allow/deny regexes
   match the composed logical dataset name (`{contract_id}.{schema_name}`, per
   `logical_dataset_name_template`). A non-matching `schema[]` entry is skipped along with its
@@ -51,7 +51,7 @@ how to disable replication.
   table's contract — and it requires `emit_logical_parent`.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
-  redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified
+  redshift, databricks, sqlserver, trino, glue, iceberg) to DataHub platforms and composes fully-qualified
   dataset names from the server's own fields (e.g. `database.schema.table`). Use
   `server_overrides` to refine `env` / `platform_instance`, or `physical_urn_overrides`
   (keyed by contract id, then `schema[]` entry name) for explicit URNs. Binding affects only
