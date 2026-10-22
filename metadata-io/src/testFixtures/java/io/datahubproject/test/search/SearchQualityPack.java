@@ -23,7 +23,8 @@ public final class SearchQualityPack {
           "semantic-probe",
           "structured-property",
           "sort",
-          "field-probe");
+          "field-probe",
+          "autocomplete");
 
   private SearchQualityPack() {}
 

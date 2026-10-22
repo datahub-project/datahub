@@ -760,3 +760,25 @@
       exactValue:
         enabled: true
     routes: []
+- entityUrn: urn:li:searchTemplate:autocomplete
+  entityType: searchTemplate
+  aspectName: searchTemplateProperties
+  changeType: UPSERT
+  aspect:
+    name: Autocomplete
+    description: "Typeahead prefix on one field. A one- or two-character prefix is kept, and expansions are capped. Java sets the field, the limit, the filters, and skips the total-hit count."
+    dialect: ELASTICSEARCH
+    apiVersion: 1
+    editable: false
+    query: |
+      {{=<% %>=}}
+      {
+        "match_phrase_prefix": {
+          "{{prefixField}}": {
+            "query": "{{unquoted}}",
+            "analyzer": "partial",
+            "max_expansions": {{prefixMaxExpansions}}
+          }
+        }
+      }
+      <%={{ }}=%>

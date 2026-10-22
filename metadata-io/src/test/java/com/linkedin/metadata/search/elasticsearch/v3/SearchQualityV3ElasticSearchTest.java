@@ -80,4 +80,10 @@ public class SearchQualityV3ElasticSearchTest extends SearchQualityV3TestBase {
   public void testFieldProbes() throws Exception {
     super.testFieldProbes();
   }
+
+  @Test
+  @Override
+  public void testAutocompleteProbes() throws Exception {
+    super.testAutocompleteProbes();
+  }
 }
