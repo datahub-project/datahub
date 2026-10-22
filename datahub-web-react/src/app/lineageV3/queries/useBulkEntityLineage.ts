@@ -19,7 +19,7 @@ import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useS
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
 import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetBulkEntityLineageV2Query } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
@@ -28,7 +28,7 @@ const BATCH_SIZE = 10;
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const {
         rootType,

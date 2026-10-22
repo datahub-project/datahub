@@ -8,8 +8,8 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import updateQueryParams from '@app/shared/updateQueryParams';
 
 const StyledSelect = styled(Select)`

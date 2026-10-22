@@ -33,7 +33,7 @@ vi.mock('@graphql/user.generated', () => ({
 }));
 
 vi.mock('@src/app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({
+    useEntityRegistry: () => ({
         getGenericEntityProperties: (_type: EntityType, entity: Entity) => entity,
         getIcon: () => null,
         getDisplayName: (_type: EntityType, entity: ActorEntity) => {

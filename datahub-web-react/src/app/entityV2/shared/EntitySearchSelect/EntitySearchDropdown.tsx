@@ -18,7 +18,7 @@ import {
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
 import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
@@ -96,7 +96,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState('');
     const prevOpenRef = useRef<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);

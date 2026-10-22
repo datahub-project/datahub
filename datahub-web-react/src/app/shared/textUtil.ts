@@ -38,13 +38,6 @@ export function pluralize(count: number, noun: string, suffix = 's') {
 /**
  * @deprecated - use i18next pluralization instead
  */
-export function forcePluralize(noun: string, suffix = 's') {
-    return pluralizeIfIrregular(noun, suffix);
-}
-
-/**
- * @deprecated - use i18next pluralization instead
- */
 export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     const irregularPlurals: Record<string, string> = {
         query: 'queries',

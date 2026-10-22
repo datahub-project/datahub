@@ -1,10 +1,10 @@
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import PlatformContentView from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';

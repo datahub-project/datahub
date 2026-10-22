@@ -22,9 +22,6 @@ export const ANT_NOTIFICATION_Z_INDEX = 1010;
 // S3 folder to store product assets
 export const PRODUCT_ASSETS_FOLDER = 'product_assets';
 
-// Product update dismissal key
-export const DISMISSED_PRODUCT_UPDATES_KEY = 'dismissedProductUpdates';
-
 // Welcome modal key
 export const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 

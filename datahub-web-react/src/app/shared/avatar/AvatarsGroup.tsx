@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { EntityType, Owner } from '@types';
 

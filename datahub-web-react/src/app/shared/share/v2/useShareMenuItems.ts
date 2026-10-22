@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { ItemType } from '@components/components/Menu/types';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 function openMailClient(mailtoUrl: string): void {
@@ -24,7 +24,7 @@ export function useShareMenuItems(): ItemType[] {
     const { t } = useTranslation('shared.share');
     const { t: tc } = useTranslation('common.actions');
     const { urn, entityType, entityData } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const subType = entityData?.subTypes?.typeNames?.[0];
     const name = entityData?.name;

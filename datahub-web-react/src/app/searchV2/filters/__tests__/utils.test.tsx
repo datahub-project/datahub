@@ -2,7 +2,7 @@ import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     PlatformIcon,

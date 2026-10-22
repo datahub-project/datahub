@@ -12,7 +12,7 @@ import useGetUserName from '@app/entityV2/shared/tabs/Incident/hooks';
 import { TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
 import { Text } from '@src/alchemy-components';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 type TimelineContentProps = {
     incidentActivities: TimelineContentDetails;
@@ -23,7 +23,7 @@ export default function IncidentActivityContent({ incidentActivities }: Timeline
     const { t } = useTranslation('entity.profile.incident');
     const { action, actor, time, message } = incidentActivities;
     const getUserName = useGetUserName();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return (
         <Content>

@@ -18,7 +18,7 @@ import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/
 import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { getUserFilters } from '@app/shared/userSearchUtils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
@@ -68,7 +68,7 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
     icon,
 }) => {
     const { t } = useTranslation(['entity.shared.selectors', 'common.feedback']);
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     // Entities added the instant they're picked from the dropdown, before any network roundtrip —
     // lets a freshly-selected chip show its real name/icon immediately.
     const [optimisticCache, setOptimisticCache] = useState<Map<string, Entity>>(new Map());

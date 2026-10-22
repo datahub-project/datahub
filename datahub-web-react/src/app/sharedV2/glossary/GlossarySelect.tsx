@@ -14,7 +14,7 @@ import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useEntityPickerState } from '@app/shared/tags/useEntityPickerState';
 import { useGlossaryTreeEntities } from '@app/shared/tags/useGlossaryTreeEntities';
 import { TermTreeOption, useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, GlossaryTerm } from '@types';
 
@@ -95,7 +95,7 @@ export default function GlossarySelect({
     defaultValues = [],
 }: Props) {
     const { t } = useTranslation('shared.tags');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
 
     // Picker state owns the autocomplete search path.

@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { PreviewType } from '@app/entity/Entity';
 import { EntityAndType } from '@app/entity/shared/types';
 import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
 import { useSearchContext } from '@app/search/context/SearchContext';
@@ -152,8 +151,6 @@ type Props = {
     highlightedIndex: number | null;
     setHighlightedIndex: (val: number | null) => void;
     pageNumber: number;
-    previewType?: PreviewType;
-    onCardClick?: (any: any) => any;
     setAreAllEntitiesSelected?: (areAllSelected: boolean) => void;
 };
 
@@ -169,8 +166,6 @@ export const SearchResultList = ({
     highlightedIndex,
     setHighlightedIndex,
     pageNumber,
-    previewType,
-    onCardClick,
     setAreAllEntitiesSelected,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -287,12 +282,7 @@ export const SearchResultList = ({
                                             onClick={(e) => e.stopPropagation()}
                                         />
                                     )}
-                                    {entityRegistry.renderSearchResult(
-                                        item.entity.type,
-                                        item,
-                                        previewType,
-                                        onCardClick,
-                                    )}
+                                    {entityRegistry.renderSearchResult(item.entity.type, item)}
                                 </ListItem>
                                 {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not
                         render. */}

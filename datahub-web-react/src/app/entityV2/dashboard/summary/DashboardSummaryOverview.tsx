@@ -11,7 +11,7 @@ import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreated
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import Loading from '@app/shared/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDashboardQuery } from '@graphql/dashboard.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';
@@ -53,7 +53,7 @@ export default function DashboardSummaryOverview() {
     const { t } = useTranslation('entity.types');
     const { loading } = useEntityData();
     const dashboard = useBaseEntity<GetDashboardQuery>()?.dashboard;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const charts = (dashboard?.charts?.relationships?.map((r) => r.entity) || []) as Entity[];
 
