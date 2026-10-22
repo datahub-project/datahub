@@ -28,9 +28,6 @@ import type { Plugin } from 'vite';
 const AUTH_SHELL_MODULE = /(?:^|\/)AuthenticatedApp\.tsx$/;
 const HOME_MODULE = /(?:^|\/)homeV3\/HomePage\.tsx$/;
 const SEARCH_ROUTES_MODULE = /(?:^|\/)SearchRoutes\.tsx$/;
-const SEARCH_PAGE_MODULE = /(?:^|\/)searchV2\/SearchPage\.tsx$/;
-const ENTITY_PAGE_MODULE = /(?:^|\/)entityV2\/EntityPage\.tsx$/;
-const ENTITY_PROFILE_MODULE = /(?:^|\/)containers\/profile\/EntityProfile\.tsx$/;
 
 export type RoutePreloadKey = 'shell' | 'home' | 'search' | 'dataset';
 
@@ -124,13 +121,11 @@ export function collectRoutePreloadGroups(bundle: Record<string, PreloadChunk>):
     return {
         shell,
         home: unionFiles([shell, entryFiles(chunks, [HOME_MODULE])]),
-        search: unionFiles([shell, entryFiles(chunks, [SEARCH_ROUTES_MODULE, SEARCH_PAGE_MODULE])]),
-        // EntityProfile is the dataset page's first dynamic import after EntityPage.
-        // Tab chunks stay out: only one tab renders, and modulepreload would parse the rest.
-        dataset: unionFiles([
-            shell,
-            entryFiles(chunks, [SEARCH_ROUTES_MODULE, ENTITY_PAGE_MODULE, ENTITY_PROFILE_MODULE]),
-        ]),
+        // SearchRoutes is the direct async boundary from ProtectedRoutes for
+        // both paths. SearchPage and EntityPage are later hops; starting them
+        // early did not improve paint and made dataset tail metrics noisier.
+        search: unionFiles([shell, entryFiles(chunks, [SEARCH_ROUTES_MODULE])]),
+        dataset: unionFiles([shell, entryFiles(chunks, [SEARCH_ROUTES_MODULE])]),
     };
 }
 

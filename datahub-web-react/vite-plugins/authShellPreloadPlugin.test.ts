@@ -171,21 +171,17 @@ describe('route preload groups', () => {
         const groups = collectRoutePreloadGroups(bundle);
         expect(groups.shell).toEqual(['assets/AuthenticatedApp.js', 'assets/providers.js']);
         expect(groups.home).toEqual(['assets/AuthenticatedApp.js', 'assets/providers.js', 'assets/HomePage.js']);
-        expect(groups.search).toEqual([
-            'assets/AuthenticatedApp.js',
-            'assets/providers.js',
-            'assets/SearchRoutes.js',
-            'assets/SearchPage.js',
-        ]);
+        expect(groups.search).toEqual(['assets/AuthenticatedApp.js', 'assets/providers.js', 'assets/SearchRoutes.js']);
         expect(groups.dataset).toEqual([
             'assets/AuthenticatedApp.js',
             'assets/providers.js',
             'assets/SearchRoutes.js',
-            'assets/EntityPage.js',
-            'assets/EntityProfile.js',
         ]);
         expect(groups.home).not.toContain('assets/home-shared.js');
+        expect(groups.search).not.toContain('assets/SearchPage.js');
         expect(groups.search).not.toContain('assets/search-shared.js');
+        expect(groups.dataset).not.toContain('assets/EntityPage.js');
+        expect(groups.dataset).not.toContain('assets/EntityProfile.js');
         expect(groups.dataset).not.toContain('assets/profile-shared.js');
         expect(groups.dataset).not.toContain('assets/SchemaTab.js');
         expect(groups.home).not.toContain('assets/SearchPage.js');

@@ -312,7 +312,7 @@ export default defineConfig(async ({ mode }) => {
                     // graphs async. authShellPreloadPlugin modulepreloads the logged-in
                     // provider graph when the actor cookie is set, so /login does not
                     // download it. The same plugin also preloads the current route's
-                    // own chunk (not that chunk's static imports) and keeps the
+                    // direct async boundary (not later import() hops) and keeps the
                     // stylesheet ahead of those links. Preloading the whole route
                     // graph delayed the CSS and the font.
                 },
