@@ -19,7 +19,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -37,8 +36,7 @@ public class JdbcSparkUtils {
       DatasetFactory<D> datasetFactory, SqlMeta meta, JDBCRelation relation) {
 
     StructType schema = relation.schema();
-    String jdbcUrl = relation.jdbcOptions().url();
-    Properties jdbcProperties = relation.jdbcOptions().asConnectionProperties();
+    JDBCOptions jdbcOptions = relation.jdbcOptions();
 
     if (meta.columnLineage().isEmpty()) {
       int numberOfTables = meta.inTables().size();
@@ -46,9 +44,7 @@ public class JdbcSparkUtils {
       return meta.inTables().stream()
           .map(
               dbtm -> {
-                DatasetIdentifier di =
-                    JdbcDatasetUtils.getDatasetIdentifier(
-                        jdbcUrl, dbtm.qualifiedName(), jdbcProperties);
+                DatasetIdentifier di = getDatasetIdentifier(jdbcOptions, dbtm);
 
                 if (numberOfTables > 1) {
                   return datasetFactory.sparkDatasetBuilder().dataset(di).build();
@@ -61,9 +57,7 @@ public class JdbcSparkUtils {
     return meta.inTables().stream()
         .map(
             dbtm -> {
-              DatasetIdentifier di =
-                  JdbcDatasetUtils.getDatasetIdentifier(
-                      jdbcUrl, dbtm.qualifiedName(), jdbcProperties);
+              DatasetIdentifier di = getDatasetIdentifier(jdbcOptions, dbtm);
               return datasetFactory
                   .sparkDatasetBuilder()
                   .dataset(di)
@@ -71,6 +65,20 @@ public class JdbcSparkUtils {
                   .build();
             })
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Builds the dataset identifier of a table referenced by a JDBC relation. Input datasets and
+   * column-level lineage inputs must both be named through this method, so that column lineage
+   * input fields point to the same datasets as the inputs of the event.
+   *
+   * @param jdbcOptions options of the JDBC relation
+   * @param table table extracted from the relation's query
+   * @return dataset identifier, before namespace resolution
+   */
+  public static DatasetIdentifier getDatasetIdentifier(JDBCOptions jdbcOptions, DbTableMeta table) {
+    return JdbcDatasetUtils.getDatasetIdentifier(
+        jdbcOptions.url(), table.qualifiedName(), jdbcOptions.asConnectionProperties());
   }
 
   public static StructType generateSchemaFromSqlMeta(

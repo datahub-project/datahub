@@ -1,0 +1,188 @@
+# Patch for DataHub customizations in JdbcSparkUtils.java
+# Upstream version: OpenLineage 1.54.0
+# Generated: 2026-10-13 10:20:09 UTC
+#
+# To apply this patch to a new upstream version, from the acryl-spark-lineage module directory:
+#   patch src/main/java/io/openlineage/spark/agent/util/JdbcSparkUtils.java < patches/datahub-customizations/v1.54.0/JdbcSparkUtils.patch
+#
+# The target is named explicitly rather than left to -p<n>: both header paths exist during an
+# upgrade, and patch's "fewest components wins" heuristic picks the upstream reference copy, so
+# -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
+#
+--- a/patches/upstream-1.54.0/spark/agent/util/JdbcSparkUtils.java
++++ b/src/main/java/io/openlineage/spark/agent/util/JdbcSparkUtils.java
+@@ -1,5 +1,5 @@
+ /*
+-/* Copyright 2018-2026 contributors to the OpenLineage project
++/* Copyright 2018-2025 contributors to the OpenLineage project
+ /* SPDX-License-Identifier: Apache-2.0
+ */
+
+@@ -26,6 +26,7 @@
+ import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions;
+ import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions$;
+ import org.apache.spark.sql.execution.datasources.jdbc.JDBCRelation;
++import org.apache.spark.sql.types.StructField;
+ import org.apache.spark.sql.types.StructType;
+
+ @Slf4j
+@@ -37,8 +38,33 @@
+     StructType schema = relation.schema();
+     JDBCOptions jdbcOptions = relation.jdbcOptions();
+
+-    return SqlUtils.createDatasets(
+-        datasetFactory, meta, schema, table -> getDatasetIdentifier(jdbcOptions, table));
++    if (meta.columnLineage().isEmpty()) {
++      int numberOfTables = meta.inTables().size();
++
++      return meta.inTables().stream()
++          .map(
++              dbtm -> {
++                DatasetIdentifier di = getDatasetIdentifier(jdbcOptions, dbtm);
++
++                if (numberOfTables > 1) {
++                  return datasetFactory.sparkDatasetBuilder().dataset(di).build();
++                }
++
++                return datasetFactory.sparkDatasetBuilder().dataset(di).schema(schema).build();
++              })
++          .collect(Collectors.toList());
++    }
++    return meta.inTables().stream()
++        .map(
++            dbtm -> {
++              DatasetIdentifier di = getDatasetIdentifier(jdbcOptions, dbtm);
++              return datasetFactory
++                  .sparkDatasetBuilder()
++                  .dataset(di)
++                  .schema(generateSchemaFromSqlMeta(dbtm, schema, meta))
++                  .build();
++            })
++        .collect(Collectors.toList());
+   }
+
+   /**
+@@ -55,22 +81,34 @@
+         jdbcOptions.url(), table.qualifiedName(), jdbcOptions.asConnectionProperties());
+   }
+
++  public static StructType generateSchemaFromSqlMeta(
++      DbTableMeta origin, StructType schema, SqlMeta sqlMeta) {
++    StructType originSchema = new StructType();
++    for (StructField f : schema.fields()) {
++      List<ColumnMeta> fields =
++          sqlMeta.columnLineage().stream()
++              .filter(cl -> cl.descendant().name().equals(f.name()))
++              .flatMap(
++                  cl ->
++                      cl.lineage().stream()
++                          .filter(
++                              cm -> cm.origin().isPresent() && cm.origin().get().equals(origin)))
++              .collect(Collectors.toList());
++      for (ColumnMeta cm : fields) {
++        originSchema = originSchema.add(cm.name(), f.dataType());
++      }
++    }
++    return originSchema;
++  }
++
+   public static Optional<SqlMeta> extractQueryFromSpark(JDBCRelation relation) {
+-    Optional<String> dbtable =
++    Optional<String> table =
+         ScalaConversionUtils.asJavaOptional(
+             relation.jdbcOptions().parameters().get(JDBCOptions$.MODULE$.JDBC_TABLE_NAME()));
+-
+-    // Anything that is valid in a FROM clause of a SQL query can be used in dbtable.
+-    // It could be a subquery in parentheses, an alias or even multiple tables with a join.
+-    // Examples of valid dbtable:
+-    // `(SELECT col1, col2 FROM table_name WHERE some='filter')`
+-    // `table_name AS t`
+-    // `table_name t JOIN another_table a ON t.id = a.t_id`
+-    // `table_name`
+-    // `schema_name.table_name`
+-    // https://spark.apache.org/docs/3.5.6/sql-data-sources-jdbc.html#data-source-option
+-    if (dbtable.isPresent() && dbtableIsJustATableName(dbtable.get())) {
+-      DbTableMeta origin = new DbTableMeta(null, null, dbtable.get());
++    // in some cases table value can be "(SELECT col1, col2 FROM table_name WHERE some='filter')
++    // ALIAS"
++    if (table.isPresent() && !table.get().startsWith("(")) {
++      DbTableMeta origin = new DbTableMeta(null, null, table.get());
+       return Optional.of(
+           new SqlMeta(
+               Collections.singletonList(origin),
+@@ -85,11 +123,10 @@
+               Collections.emptyList()));
+     }
+
++    String query = queryStringFromJdbcOptions(relation.jdbcOptions());
++
+     String dialect = extractDialectFromJdbcUrl(relation.jdbcOptions().url());
+-    Optional<SqlMeta> sqlMeta =
+-        dbtable
+-            .map(fromClause -> parseDbtable(fromClause, dialect))
+-            .orElseGet(() -> parse(queryStringFromJdbcOptions(relation.jdbcOptions()), dialect));
++    Optional<SqlMeta> sqlMeta = OpenLineageSql.parse(Collections.singletonList(query), dialect);
+
+     if (!sqlMeta.isPresent()) { // missing JNI library
+       return sqlMeta;
+@@ -110,47 +147,9 @@
+     return sqlMeta;
+   }
+
+-  /**
+-   * Parses {@code dbtable} as {@code select * from <dbtable>}. That has no column lineage, so a
+-   * single subquery like {@code (SELECT ...) t} is parsed on its own instead: the text between its
+-   * first {@code (} and last {@code )}. A dbtable that only starts with a subquery is told apart by
+-   * the parser: that text then fails to parse, e.g. for {@code (SELECT ...) a JOIN (SELECT ...) b
+-   * ON ...}, or reads fewer tables than the whole dbtable, e.g. for {@code (SELECT ...) a JOIN b ON
+-   * ...}. Leaving quoting and comments to the parser keeps every dialect's lexical rules.
+-   */
+-  private static Optional<SqlMeta> parseDbtable(String dbtable, String dialect) {
+-    Optional<SqlMeta> wholeTable = parse("select * from " + dbtable, dialect);
+-    if (!wholeTable.isPresent() || !dbtableIsASubquery(dbtable)) {
+-      return wholeTable;
+-    }
+-    List<DbTableMeta> tables = wholeTable.get().inTables();
+-    Optional<SqlMeta> subquery =
+-        parse(unwrapParentheses(dbtable), dialect)
+-            .filter(meta -> meta.errors().isEmpty() && meta.inTables().containsAll(tables));
+-    return subquery.isPresent() ? subquery : wholeTable;
+-  }
+-
+-  private static Optional<SqlMeta> parse(String query, String dialect) {
+-    return OpenLineageSql.parse(Collections.singletonList(query), dialect);
+-  }
+-
+   public static String queryStringFromJdbcOptions(JDBCOptions options) {
+-    return unwrapParentheses(options.tableOrQuery());
+-  }
+-
+-  /** Returns the text between the first {@code (} and the last {@code )}. */
+-  private static String unwrapParentheses(String sql) {
+-    return sql.substring(0, sql.lastIndexOf(")")).replaceFirst("\\(", "");
+-  }
+-
+-  private static boolean dbtableIsASubquery(String dbtable) {
+-    return dbtable.startsWith("(");
+-  }
+-
+-  private static boolean dbtableIsJustATableName(String dbtable) {
+-    // If there are no whitespaces between characters, we can assume this is a table name
+-    // in form of `table_name` or `schema_name.table_name`
+-    return !dbtable.matches("(?s).*\\S\\s+\\S.*");
++    String tableOrQuery = options.tableOrQuery();
++    return tableOrQuery.substring(0, tableOrQuery.lastIndexOf(")")).replaceFirst("\\(", "");
+   }
+
+   private static String extractDialectFromJdbcUrl(String jdbcUrl) {
+@@ -158,7 +157,9 @@
+     Matcher matcher = pattern.matcher(jdbcUrl);
+
+     if (matcher.find()) {
+-      return matcher.group(1);
++      String dialect = matcher.group(1);
++      // Added to map SQL Server dialect to the one recognized by OpenLineage
++      return "sqlserver".equals(dialect) ? "mssql" : dialect;
+     } else {
+       return null;
+     }

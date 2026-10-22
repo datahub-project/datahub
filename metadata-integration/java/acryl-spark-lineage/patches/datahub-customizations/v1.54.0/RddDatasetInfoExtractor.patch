@@ -1,0 +1,79 @@
+# Patch for DataHub customizations in RddDatasetInfoExtractor.java
+# Upstream version: OpenLineage 1.54.0
+# Generated: 2026-10-13 10:20:09 UTC
+#
+# To apply this patch to a new upstream version, from the acryl-spark-lineage module directory:
+#   patch src/main/java/io/openlineage/spark/agent/util/RddDatasetInfoExtractor.java < patches/datahub-customizations/v1.54.0/RddDatasetInfoExtractor.patch
+#
+# The target is named explicitly rather than left to -p<n>: both header paths exist during an
+# upgrade, and patch's "fewest components wins" heuristic picks the upstream reference copy, so
+# -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
+#
+--- a/patches/upstream-1.54.0/spark/agent/util/RddDatasetInfoExtractor.java
++++ b/src/main/java/io/openlineage/spark/agent/util/RddDatasetInfoExtractor.java
+@@ -93,7 +93,7 @@
+
+     @Override
+     public Stream<DatasetIdentifier> extract(RDD<?> rdd) {
+-      log.warn("Unknown RDD class {}", rdd);
++      log.debug("Unknown RDD class {}", rdd);
+       return Stream.empty();
+     }
+   }
+@@ -171,14 +171,20 @@
+           .map(
+               f -> {
+                 if ("3.4".compareTo(package$.MODULE$.SPARK_VERSION()) <= 0) {
+-                  // filePath returns SparkPath for Spark 3.4
++                  // Spark 3.4+: filePath() returns a SparkPath whose toPath() yields a Hadoop Path.
++                  // Stay null-safe (like the branch below): a reflective miss on an unexpected
++                  // point-release must drop this one file, not throw NoSuchElementException out of
++                  // the listener (which listenerNotReady cannot catch) and abort the whole event.
+                   return tryExecuteMethod(f, "filePath")
+-                      .map(o -> tryExecuteMethod(o, "toPath"))
+-                      .map(o -> (Path) o.get())
+-                      .get()
+-                      .getParent();
++                      .flatMap(o -> tryExecuteMethod(o, "toPath"))
++                      .map(o -> ((Path) o).getParent())
++                      .orElse(null);
+                 } else {
+-                  return parentOf(f.filePath());
++                  // Spark < 3.4: filePath() returns a String. Access reflectively so this branch
++                  // still compiles against Spark 3.4+ where filePath() returns SparkPath.
++                  return tryExecuteMethod(f, "filePath")
++                      .map(o -> parentOf(o.toString()))
++                      .orElse(null);
+                 }
+               })
+           .filter(Objects::nonNull)
+@@ -227,10 +233,10 @@
+               .filter(Objects::nonNull)
+               .map(PathUtils::fromPath);
+         } else {
+-          log.warn("Cannot extract path from ParallelCollectionRDD {}", data);
++          log.debug("Cannot extract path from ParallelCollectionRDD {}", data);
+         }
+       } catch (IllegalAccessException | IllegalArgumentException e) {
+-        log.warn("Cannot read data field from ParallelCollectionRDD {}", rdd);
++        log.debug("Cannot read data field from ParallelCollectionRDD {}", rdd);
+       }
+       return Stream.empty();
+     }
+@@ -290,10 +296,15 @@
+                 .map(ip -> (InputPartition) ip)
+                 .collect(Collectors.toList());
+       } else {
++        // Older Spark: DataSourceRDDPartition exposes a single inputPartition(). Access
++        // reflectively so this branch compiles against Spark 3.3+ where it became
++        // inputPartitions().
+         inputPartitions =
+             Arrays.stream(rdd.getPartitions())
+                 .filter(p -> p instanceof DataSourceRDDPartition)
+-                .map(p -> ((DataSourceRDDPartition) p).inputPartition())
++                .map(p -> tryExecuteMethod(p, "inputPartition").orElse(null))
++                .filter(Objects::nonNull)
++                .map(ip -> (InputPartition) ip)
+                 .collect(Collectors.toList());
+       }
+       return inputPartitions;

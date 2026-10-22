@@ -37,6 +37,7 @@ public final class WriteToDataSourceV2Visitor
       "org.apache.spark.sql.kafka010.KafkaStreamingWrite";
   private static final String FOREACH_BATCH_SINK_CLASS_NAME =
       "org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink";
+  private static final boolean RELATION_ACCESSOR_AVAILABLE = hasRelationAccessor();
 
   public WriteToDataSourceV2Visitor(@NonNull OpenLineageContext context) {
     super(context);
@@ -74,6 +75,10 @@ public final class WriteToDataSourceV2Visitor
               || streamingWriteClassName.contains("DeltaSink")
               || streamingWriteClassName.contains("ParquetSink"))) {
         result = handleFileBasedStreamingWrite(streamingWrite, write);
+      } else if (RELATION_ACCESSOR_AVAILABLE) {
+        log.debug(
+            "Deferring streaming write class '{}' to the relation-backed output dataset builder",
+            streamingWriteClass);
       } else {
         log.warn(
             "The streaming write class '{}' for '{}' is not supported",
@@ -210,6 +215,15 @@ public final class WriteToDataSourceV2Visitor
     } catch (IllegalAccessException e) {
       log.debug("Could not read field {}: {}", fieldName, e.getMessage());
       return Optional.empty();
+    }
+  }
+
+  private static boolean hasRelationAccessor() {
+    try {
+      WriteToDataSourceV2.class.getMethod("relation");
+      return true;
+    } catch (NoSuchMethodException | SecurityException | LinkageError e) {
+      return false;
     }
   }
 

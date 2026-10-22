@@ -22,6 +22,7 @@ import io.openlineage.spark.agent.util.ScalaConversionUtils;
 import io.openlineage.spark.api.AbstractQueryPlanDatasetBuilder;
 import io.openlineage.spark.api.JobNameSuffixProvider;
 import io.openlineage.spark.api.OpenLineageContext;
+import io.openlineage.spark.api.SparkDatasetBuilder;
 import java.net.URI;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -149,19 +150,18 @@ public class SaveIntoDataSourceCommandVisitor
     }
 
     StructType schema = getSchema(command);
-    LifecycleStateChange lifecycleStateChange =
-        (SaveMode.Overwrite == command.mode()) ? OVERWRITE : CREATE;
+    Optional<LifecycleStateChange> lifecycleStateChange = getLifecycleStateChange(command.mode());
 
     if (command.dataSource().getClass().getName().contains("DeltaDataSource")) {
       // Path-based Delta tables.
       if (command.options().contains("path")) {
-        return Collections.singletonList(
+        SparkDatasetBuilder<OutputDataset> builder =
             outputDataset()
                 .sparkDatasetBuilder()
                 .dataset(URI.create(command.options().get("path").get()))
-                .schema(schema)
-                .lifecycleStateChange(lifecycleStateChange)
-                .build());
+                .schema(schema);
+        lifecycleStateChange.ifPresent(builder::lifecycleStateChange);
+        return Collections.singletonList(builder.build());
       }
 
       // Catalog-based Delta tables (saveAsTable). OpenLineage's SaveIntoDataSource handling only
@@ -170,12 +170,7 @@ public class SaveIntoDataSourceCommandVisitor
       if (command.options().contains("table")) {
         String tableName = command.options().get("table").get();
         return Collections.singletonList(
-            outputDataset()
-                .sparkDatasetBuilder()
-                .dataset(new DatasetIdentifier(tableName, SPARK_CATALOG_NAMESPACE))
-                .schema(schema)
-                .lifecycleStateChange(lifecycleStateChange)
-                .build());
+            catalogDeltaOutput(tableName, schema, lifecycleStateChange));
       }
 
       // saveAsTable without an explicit "table" option: recover the table name from the query
@@ -184,12 +179,7 @@ public class SaveIntoDataSourceCommandVisitor
         String extractedTableName = extractTableNameFromContext(context.getQueryExecution().get());
         if (extractedTableName != null) {
           return Collections.singletonList(
-              outputDataset()
-                  .sparkDatasetBuilder()
-                  .dataset(new DatasetIdentifier(extractedTableName, SPARK_CATALOG_NAMESPACE))
-                  .schema(schema)
-                  .lifecycleStateChange(lifecycleStateChange)
-                  .build());
+              catalogDeltaOutput(extractedTableName, schema, lifecycleStateChange));
         }
       }
 
@@ -210,13 +200,13 @@ public class SaveIntoDataSourceCommandVisitor
       }
       String tableName = command.options().get("dbtable").get();
       String url = command.options().get("url").get();
-      return Collections.singletonList(
+      SparkDatasetBuilder<OutputDataset> builder =
           outputDataset()
               .sparkDatasetBuilder()
               .dataset(JdbcDatasetUtils.getDatasetIdentifier(url, tableName, new Properties()))
-              .schema(schema)
-              .lifecycleStateChange(lifecycleStateChange)
-              .build());
+              .schema(schema);
+      lifecycleStateChange.ifPresent(builder::lifecycleStateChange);
+      return Collections.singletonList(builder.build());
     }
 
     SQLContext sqlContext = context.getSparkSession().get().sqlContext();
@@ -263,6 +253,10 @@ public class SaveIntoDataSourceCommandVisitor
               }
               ds.getFacets().getAdditionalProperties().putAll(facetsMap.build());
 
+              if (!lifecycleStateChange.isPresent()) {
+                return ds;
+              }
+
               // rebuild whole dataset with a LifecycleStateChange facet added
               OpenLineage.DatasetFacets facets =
                   DatasetFacetsUtils.copyToBuilder(context, ds.getFacets())
@@ -270,9 +264,7 @@ public class SaveIntoDataSourceCommandVisitor
                           context
                               .getOpenLineage()
                               .newLifecycleStateChangeDatasetFacet(
-                                  OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange
-                                      .OVERWRITE,
-                                  null))
+                                  lifecycleStateChange.get(), null))
                       .build();
 
               OpenLineage.OutputDataset newDs =
@@ -285,6 +277,19 @@ public class SaveIntoDataSourceCommandVisitor
         .collect(Collectors.toList());
   }
 
+  /**
+   * Overwrite replaces the dataset and ErrorIfExists only succeeds when it does not exist yet.
+   * Append and Ignore leave an existing dataset in place, so they are not lifecycle changes.
+   */
+  private static Optional<LifecycleStateChange> getLifecycleStateChange(SaveMode mode) {
+    if (SaveMode.Overwrite == mode) {
+      return Optional.of(OVERWRITE);
+    } else if (SaveMode.ErrorIfExists == mode) {
+      return Optional.of(CREATE);
+    }
+    return Optional.empty();
+  }
+
   private StructType getSchema(SaveIntoDataSourceCommand command) {
     StructType schema = command.schema();
     if ((schema == null || schema.fields() == null || schema.fields().length == 0)
@@ -294,6 +299,17 @@ public class SaveIntoDataSourceCommandVisitor
       schema = PlanUtils.toStructType(ScalaConversionUtils.fromSeq(command.query().output()));
     }
     return schema;
+  }
+
+  private OutputDataset catalogDeltaOutput(
+      String tableName, StructType schema, Optional<LifecycleStateChange> lifecycleStateChange) {
+    SparkDatasetBuilder<OutputDataset> builder =
+        outputDataset()
+            .sparkDatasetBuilder()
+            .dataset(new DatasetIdentifier(tableName, SPARK_CATALOG_NAMESPACE))
+            .schema(schema);
+    lifecycleStateChange.ifPresent(builder::lifecycleStateChange);
+    return builder.build();
   }
 
   /**
