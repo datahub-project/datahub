@@ -130,6 +130,8 @@ public class ValidationExceptionCollection
         .filter(e -> includeFiltered || !ValidationSubType.FILTER.equals(e.getSubType()))
         .map(AspectValidationException::getMsg)
         .filter(msg -> msg != null && !msg.isEmpty())
+        // a bulk edit rejected by one validator carries the same message for every item
+        .distinct()
         .collect(Collectors.joining("; "));
   }
 }

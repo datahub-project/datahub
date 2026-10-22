@@ -7,7 +7,6 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.exception.IngestProposalExceptionUtils;
 import com.linkedin.datahub.graphql.generated.SetLogicalParentInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.logical.LogicalParent;
@@ -52,7 +51,7 @@ public class SetLogicalParentResolver implements DataFetcher<CompletableFuture<B
                 entityUrn,
                 parent,
                 e.getMessage());
-            throw IngestProposalExceptionUtils.toGraphQLException(
+            throw new RuntimeException(
                 String.format("Failed to set Logical Parent on entity %s to %s", entityUrn, parent),
                 e);
           }

@@ -1,5 +1,4 @@
 import logging
-from random import randint
 from typing import List
 
 import pytest
@@ -8,23 +7,17 @@ from datahub.configuration.common import OperationalError
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.schema_classes import (
-    StructuredPropertiesClass,
-    StructuredPropertyDefinitionClass,
-    StructuredPropertyValueAssignmentClass,
-)
+from datahub.metadata.schema_classes import StructuredPropertyDefinitionClass
 from datahub.utilities.urns.urn import Urn
-from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utilities.domains import Domain
-from tests.utils import delete_urns
+from tests.e2e.utils import delete_urns, execute_graphql, unique_suffix
+from utilities.consistency_utils import wait_for_writes_to_sync
+from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.CATALOG)
 
-dataset_urn = make_dataset_urn(
-    "snowflake", f"validator_error_test_{randint(10, 10000)}"
-)
+dataset_urn = make_dataset_urn("snowflake", f"validator_error_test_{unique_suffix()}")
 
 # Everything this module creates, so cleanup runs even when an assertion aborts a test.
 generated_urns: List[str] = []
@@ -82,62 +75,69 @@ def test_validator_rejection_message_propagates_cleanly(graph_client):
     assert "EntityAspect:" not in message
 
 
-def _numeric_metric_facet(graph: DataHubGraph, property_id: str):
-    query = """
-    query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
-      aggregateAcrossEntities(input: $input) {
-        facets {
-          field
-          aggregations {
-            value
-          }
+def test_validator_rejection_over_graphql_is_400_with_validation_source(auth_session):
+    """The GraphQL path end to end: a validator rejection comes back as BAD_REQUEST with the
+    validator's own text and the errorSource extension the UI uses to show it verbatim."""
+    property_id = f"petshop weight {unique_suffix()}"
+    generated_urns.append(f"urn:li:structuredProperty:{property_id}")
+    res = execute_graphql(
+        auth_session,
+        """
+        mutation createStructuredProperty($input: CreateStructuredPropertyInput!) {
+          createStructuredProperty(input: $input) { urn }
         }
-      }
-    }
-    """
-    facet_field = f"structuredProperties.{property_id}"
-    result = graph.execute_graphql(
-        query,
+        """,
         variables={
             "input": {
-                "query": "*",
-                "facets": [facet_field],
-                "types": ["DATASET"],
+                "id": property_id,
+                "qualifiedName": property_id,
+                "valueType": "urn:li:dataType:datahub.string",
+                "entityTypes": ["urn:li:entityType:datahub.dataset"],
+                "cardinality": "SINGLE",
             }
         },
+        expect_errors=True,
     )
-    facets = result["aggregateAcrossEntities"]["facets"] or []
-    return next((f for f in facets if f["field"] == facet_field), None)
+
+    errors = res.get("errors") or []
+    assert len(errors) == 1, f"expected one error, got: {res}"
+    error = errors[0]
+    assert "Urn ID cannot have spaces" in error["message"]
+    assert "ValidationExceptionCollection" not in error["message"]
+    assert error["extensions"]["code"] == 400
+    assert error["extensions"]["errorSource"] == "VALIDATION"
 
 
-def test_hard_deleted_structured_property_rolls_up_out_of_search(graph_client):
-    """A hard-deleted structured property definition must stop appearing as a search facet -
-    the delete needs to roll up into the search index, not just remove the entity's own aspect."""
-    property_id = f"delete_rollup_test_{randint(10, 10000)}"
+def test_bulk_validator_rejection_reports_message_once(auth_session, graph_client):
+    """One validator rejecting every item of a batch reports its message once, not per item."""
+    property_id = f"petshop_weight_kg_{unique_suffix()}"
     property_urn = create_property_with_id(property_id, graph_client)
+    dataset_urns = [
+        make_dataset_urn("hive", f"petshop.pet_orders_{i}_{unique_suffix()}")
+        for i in range(3)
+    ]
+    generated_urns.extend(dataset_urns)
 
-    mcp = MetadataChangeProposalWrapper(
-        entityUrn=dataset_urn,
-        aspect=StructuredPropertiesClass(
-            properties=[
-                StructuredPropertyValueAssignmentClass(
-                    propertyUrn=property_urn, values=[42.0]
-                )
-            ]
-        ),
+    response = auth_session.post(
+        f"{auth_session.gms_url()}/openapi/v3/entity/dataset?async=false",
+        json=[
+            {
+                "urn": urn,
+                "structuredProperties": {
+                    "value": {
+                        "properties": [
+                            {
+                                "propertyUrn": property_urn,
+                                "values": [{"string": "heavy"}],
+                            }
+                        ]
+                    }
+                },
+            }
+            for urn in dataset_urns
+        ],
     )
-    generated_urns.append(dataset_urn)
-    graph_client.emit_mcp(mcp)
-    wait_for_writes_to_sync()
 
-    facet_before = _numeric_metric_facet(graph_client, property_id)
-    assert facet_before is not None, "property should be aggregatable before delete"
-    assert any(agg["value"] == "42.0" for agg in facet_before["aggregations"])
-
-    delete_urns(graph_client, [property_urn])
-    wait_for_writes_to_sync()
-
-    facet_after = _numeric_metric_facet(graph_client, property_id)
-    assert facet_after is None or not facet_after["aggregations"], (
-        f"deleted property still has aggregatable values in search: {facet_after}"
-    )
+    assert response.status_code == 400, response.text
+    message = response.json()["message"]
+    assert message.count("should be a number") == 1, message

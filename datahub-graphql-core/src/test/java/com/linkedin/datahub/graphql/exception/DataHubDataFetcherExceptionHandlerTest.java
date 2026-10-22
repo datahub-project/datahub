@@ -307,11 +307,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    String message = error.getMessage();
-    assertTrue(message.contains("Top validation error"));
-    assertTrue(message.contains("Middle error"));
-    assertTrue(message.contains("Deep validation error"));
-    assertTrue(message.contains("Root cause"));
+    // The outermost ValidationException's own text only: the IllegalStateException in the middle
+    // is internal and VALIDATION messages are shown verbatim.
+    assertEquals(error.getMessage(), "Top validation error");
     assertEquals(error.getErrorCode(), 400);
   }
 
@@ -507,9 +505,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   @Test
-  public void testExtractErrorMessageWithValidationExceptionAndCause()
+  public void testValidationExceptionMessageExcludesCause()
       throws ExecutionException, InterruptedException {
-    // Test that ValidationException also includes root cause
+    // VALIDATION-marked messages are shown verbatim, so the cause's text is left out.
     IllegalArgumentException rootCause = new IllegalArgumentException("Field 'email' is required");
     ValidationException exception = new ValidationException("Validation failed", rootCause);
     Mockito.when(mockParameters.getException()).thenReturn(exception);
@@ -519,9 +517,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertNotNull(result);
     assertEquals(result.getErrors().size(), 1);
     DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
-    assertTrue(error.getMessage().contains("Validation failed"));
-    assertTrue(error.getMessage().contains("Field 'email' is required"));
-    assertTrue(error.getMessage().contains("Root cause"));
+    assertEquals(error.getMessage(), "Validation failed");
     assertEquals(error.getErrorCode(), 400);
   }
 
@@ -735,11 +731,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testWrappedMetadataValidationExceptionDoesNotLeakLogsMessage()
       throws ExecutionException, InterruptedException {
-    // IngestProposalExceptionUtils (data-product / logical-parent batch paths) wraps metadata-io's
-    // ValidationException inside the graphql-layer one. The graphql branch walks causes, so if it
-    // matched first it would splice this cause's logs/REST message - FILTER text, or the
-    // collection-dump fallback - into a VALIDATION-marked toast. The metadata branch is ordered
-    // above it precisely so the collection's user-facing text is used instead.
+    // A metadata-io ValidationException wrapped in the graphql-layer one must still be answered
+    // with the collection's user-facing text, never its logs/REST message.
     com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
         com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
             .newCollection();
@@ -758,6 +751,67 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(error.getMessage(), "At least one rule is required.");
     assertFalse(error.getMessage().contains("If-None-Match"));
     assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
+
+  private DataHubGraphQLError handle(Throwable exception)
+      throws ExecutionException, InterruptedException {
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+    return (DataHubGraphQLError) handler.handleException(mockParameters).get().getErrors().get(0);
+  }
+
+  private static com.linkedin.metadata.entity.validation.ValidationException metadataValidation(
+      com.linkedin.metadata.aspect.plugins.validation.AspectValidationException... exceptions) {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    for (com.linkedin.metadata.aspect.plugins.validation.AspectValidationException e : exceptions) {
+      collection.addException(e);
+    }
+    return new com.linkedin.metadata.entity.validation.ValidationException(collection);
+  }
+
+  @Test
+  public void testResolverWrapperDoesNotChangeClassification()
+      throws ExecutionException, InterruptedException {
+    // Resolvers wrap failures in "Failed to perform update against input ..." RuntimeExceptions
+    // (graphql-java adds a CompletionException); the cause walk must classify them as unwrapped,
+    // so resolvers need no rethrows or exception mapping of their own.
+    java.util.List<Exception> causes =
+        java.util.List.of(
+            new AuthorizationException("Unauthorized to perform this action."),
+            new IllegalArgumentException("Invalid urn"),
+            metadataValidation(
+                com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forItem(
+                    mockBatchItem(), "First rule failed."),
+                com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forItem(
+                    mockBatchItem(), "Second rule failed.")),
+            metadataValidation(
+                com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forAuth(
+                    mockBatchItem(), "Not authorized to modify this aspect")));
+    for (Exception cause : causes) {
+      DataHubGraphQLError direct = handle(cause);
+      DataHubGraphQLError wrapped =
+          handle(
+              new java.util.concurrent.CompletionException(
+                  new RuntimeException("Failed to perform update against input {}", cause)));
+      assertEquals(wrapped.getErrorCode(), direct.getErrorCode(), cause.toString());
+      assertEquals(wrapped.getMessage(), direct.getMessage(), cause.toString());
+      assertEquals(wrapped.getExtensions(), direct.getExtensions(), cause.toString());
+    }
+  }
+
+  @Test
+  public void testGraphQLValidationExceptionDoesNotSurfaceCauseText()
+      throws ExecutionException, InterruptedException {
+    // VALIDATION-marked messages are shown verbatim, so only the caller's own text may appear.
+    DataHubGraphQLError error =
+        handle(
+            new ValidationException(
+                "Invalid input", new RuntimeException("connection refused: db-internal:5432")));
+
+    assertEquals(error.getMessage(), "Invalid input");
     assertEquals(error.getErrorCode(), 400);
     assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
   }

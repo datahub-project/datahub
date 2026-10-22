@@ -50,33 +50,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           sourceLocation);
     }
 
-    // Matched BEFORE the graphql-layer ValidationException below: IngestProposalExceptionUtils
-    // wraps this exception inside that one (data-product / logical-parent batch paths), and
-    // that branch's cause walk would otherwise drag this exception's logs/REST message -
-    // FILTER text, or the collection-dump fallback - into a VALIDATION-marked toast.
-    // Distinct from the graphql-layer ValidationException: this is metadata-io's
-    // validator-rejection exception (thrown by AspectsBatchImpl/EntityServiceImpl when an
-    // AspectPayloadValidator rejects a proposal). It carries the validator text on its
-    // collection, so no need to walk the cause chain - just classify it as BAD_REQUEST instead
-    // of falling through to the generic RuntimeException branch below, which would misclassify
-    // it as a 500.
+    // Before the graphql-layer ValidationException branch: that branch would surface this
+    // exception's logs/REST message when it is a cause.
     com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
         findFirstThrowableCauseOfClass(
             exception, com.linkedin.metadata.entity.validation.ValidationException.class);
     if (metadataValidationException != null) {
-      // Log the full per-entity/aspect breakdown (which urn/aspect failed, useful when a batch
-      // has multiple items); the client only ever sees the subset stored in userFacingMessage.
       log.error(
           "Failed to execute: {}",
           metadataValidationException.getValidationExceptionCollection(),
           metadataValidationException);
-      // Read the collection's user-facing text rather than getMessage(): the latter is the
-      // logs/REST message and may be ValidationException's diagnostic fallback, a full collection
-      // dump carrying the submitted aspect payload and actor - never safe to echo into a toast.
-      // Without a collection (ValidationException built from a plain string) getMessage() is
-      // already clean validator text. Either can be absent, and GraphQL's `message` is non-null,
-      // so fall back like every other branch - dropping the VALIDATION marker when we do, since
-      // that marker promises the client verbatim-safe validator text a placeholder is not.
+      // getMessage() may be the collection dump (payload and actor); only validator text goes out.
       com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
           metadataValidationException.getValidationExceptionCollection();
       String userFacingMessage =
@@ -85,10 +69,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
               : metadataValidationException.getMessage();
       boolean hasValidatorMessage = userFacingMessage != null && !userFacingMessage.isEmpty();
       String message = hasValidatorMessage ? userFacingMessage : DEFAULT_ERROR_MESSAGE;
-      // AUTHORIZATION-subtype failures (e.g. auth validators) are permission errors, not
-      // payload-validation errors: classify as 403 without the VALIDATION marker, mirroring
-      // the OpenAPI mapping in GlobalControllerExceptionHandler. Other subtypes (including
-      // PRECONDITION, which GraphQL has no distinct status for) stay 400/VALIDATION.
+      // Authorization failures are 403 without the marker, as in the OpenAPI handler.
       if (collection != null
           && collection
               .getSubTypes()
@@ -109,17 +90,15 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
     if (validationException != null) {
       log.error("Failed to execute", validationException);
-      // errorSource=VALIDATION tells the client this BAD_REQUEST's message is the real
-      // validator text, safe to surface verbatim (see handleGraphQLError.ts). The cause walk
-      // is deliberate here - callers throw a generic wrapper message with the detail on the
-      // cause. A wrapped metadata-io ValidationException never reaches this branch: it is
-      // matched above, so its logs/REST message cannot be walked into this one.
+      // VALIDATION messages are shown verbatim: only the text the caller wrote, never causes.
+      String message = validationException.getMessage();
+      boolean hasMessage = message != null && !message.isEmpty();
       return completedResult(
-          extractErrorMessage(validationException),
+          hasMessage ? message : DEFAULT_ERROR_MESSAGE,
           DataHubGraphQLErrorCode.BAD_REQUEST,
           path,
           sourceLocation,
-          ERROR_SOURCE_VALIDATION);
+          hasMessage ? ERROR_SOURCE_VALIDATION : null);
     }
 
     IllegalArgumentException illException =

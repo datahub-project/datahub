@@ -410,4 +410,18 @@ public class ValidationExceptionCollectionTest {
     // Callers that surface this directly are responsible for their own fallback.
     assertEquals(collection.getCollectiveMessage(), "");
   }
+
+  @Test
+  public void testGetCollectiveMessageReportsRepeatedMessageOnce() {
+    // A bulk edit rejected by one validator gets the same message for every item.
+    for (String id : List.of("urn:li:chart:1", "urn:li:chart:2", "urn:li:chart:3")) {
+      BatchItem item =
+          TestMCP.ofOneMCP(UrnUtils.getUrn(id), new Status(), testEntityRegistry).stream()
+              .findFirst()
+              .get();
+      collection.addException(item, ERROR_MESSAGE);
+    }
+
+    assertEquals(collection.getCollectiveMessage(), ERROR_MESSAGE);
+  }
 }
