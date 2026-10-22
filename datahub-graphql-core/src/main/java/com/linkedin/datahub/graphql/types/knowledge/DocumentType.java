@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -89,9 +87,9 @@ public class DocumentType
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.DOCUMENT_ENTITY_NAME,
-              documentUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
-                  .collect(Collectors.toSet()),
+              // DocumentMapper redacts denied documents. Filtering here would leave null entries
+              // and fail search results, whose entity field is non-nullable.
+              ImmutableSet.copyOf(documentUrns),
               aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
