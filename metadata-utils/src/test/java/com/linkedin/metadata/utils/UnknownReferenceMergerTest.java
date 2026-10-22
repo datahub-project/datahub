@@ -29,6 +29,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.testng.annotations.Test;
 
 /**
@@ -162,14 +163,39 @@ public class UnknownReferenceMergerTest {
   }
 
   @Test
-  public void testStrictHandlingMergesNothing() {
+  public void testStrictHandlingMergesNothingAndNeverReadsTheStoredAspect() {
+    // Reading the stored aspect parses the stored row; with tolerance off that cost isn't paid.
     final Ownership request = ownership(ALICE, OTHER_BOT);
 
     final UnknownReferenceMerger.MergeResult result =
-        StrictHandling.INSTANCE.mergeStoredReferences(request, ownership(ALICE, BOT), registry);
+        StrictHandling.INSTANCE.mergeStoredReferences(
+            request,
+            () -> {
+              throw new AssertionError("stored aspect read with tolerance off");
+            },
+            registry);
 
     assertEquals(result, UnknownReferenceMerger.MergeResult.NONE);
     assertEquals(owners(request), List.of(ALICE, OTHER_BOT));
+  }
+
+  @Test
+  public void testTolerantHandlingReadsTheStoredAspectOnce() {
+    final Ownership request = ownership(ALICE);
+    final AtomicInteger reads = new AtomicInteger();
+
+    final UnknownReferenceMerger.MergeResult result =
+        TolerantHandling.INSTANCE.mergeStoredReferences(
+            request,
+            () -> {
+              reads.incrementAndGet();
+              return ownership(ALICE, BOT);
+            },
+            registry);
+
+    assertEquals(reads.get(), 1);
+    assertEquals(result.preserved(), 1);
+    assertEquals(owners(request), List.of(ALICE, BOT));
   }
 
   private static Ownership ownership(final Urn... owners) {
