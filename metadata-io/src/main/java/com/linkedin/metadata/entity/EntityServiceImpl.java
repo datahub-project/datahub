@@ -497,14 +497,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final OperationContext opContext,
       @Nonnull final ChangeMCP changeMCP,
       @Nullable final SystemAspect latestAspect) {
-    final RecordTemplate stored =
-        latestAspect == null
-            ? null
-            : latestAspect.getDatabaseAspect().map(SystemAspect::getRecordTemplate).orElse(null);
+    // Lazy: getDatabaseAspect() parses the stored row, which only tolerant handling needs.
     final UnknownReferenceMerger.MergeResult result =
         handling()
             .mergeStoredReferences(
-                changeMCP.getRecordTemplate(), stored, opContext.getEntityRegistry());
+                changeMCP.getRecordTemplate(),
+                () ->
+                    latestAspect == null
+                        ? null
+                        : latestAspect
+                            .getDatabaseAspect()
+                            .map(SystemAspect::getRecordTemplate)
+                            .orElse(null),
+                opContext.getEntityRegistry());
     if (!result.added().isEmpty()) {
       throw new ValidationException(
           String.format(

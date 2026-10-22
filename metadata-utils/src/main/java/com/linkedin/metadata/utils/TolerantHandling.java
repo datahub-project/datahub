@@ -12,6 +12,7 @@ import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -163,9 +164,9 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public UnknownReferenceMerger.MergeResult mergeStoredReferences(
       @Nonnull final RecordTemplate request,
-      @Nullable final RecordTemplate stored,
+      @Nonnull final Supplier<RecordTemplate> stored,
       @Nonnull final EntityRegistry registry) {
-    return UnknownReferenceMerger.merge(request, stored, registry);
+    return UnknownReferenceMerger.merge(request, stored.get(), registry);
   }
 
   @Nonnull
