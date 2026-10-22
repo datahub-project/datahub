@@ -170,9 +170,7 @@ def _pip_floor_ok(specifier: SpecifierSet, label: str) -> None:
         f"{label} blocks pip 26.2.2 (GHSA-6q48-6c7w-9gw2)"
     )
     for below in _SUB_26_2_2:
-        assert not specifier.contains(below), (
-            f"{label} allows sub-26.2.2 pip {below}"
-        )
+        assert not specifier.contains(below), f"{label} allows sub-26.2.2 pip {below}"
 
 
 def test_pip_floored_at_26_2_2_everywhere():
