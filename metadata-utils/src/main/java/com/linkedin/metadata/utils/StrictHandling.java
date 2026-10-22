@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -121,7 +122,7 @@ public final class StrictHandling implements UnknownDataHandling {
   @Override
   public UnknownReferenceMerger.MergeResult mergeStoredReferences(
       @Nonnull final RecordTemplate request,
-      @Nullable final RecordTemplate stored,
+      @Nonnull final Supplier<RecordTemplate> stored,
       @Nonnull final EntityRegistry registry) {
     return UnknownReferenceMerger.MergeResult.NONE;
   }

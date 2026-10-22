@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -98,12 +99,14 @@ public interface UnknownDataHandling {
    * (see {@link UnknownReferenceMerger}), and reports the ones the write adds, which the caller
    * rejects.
    *
-   * @param stored the stored aspect as written, before any read dropped references; null if none
+   * @param stored supplies the stored aspect as written, before any read dropped references, or
+   *     null if none. Reading it parses the stored row, so it is called only when unknown data is
+   *     tolerated.
    */
   @Nonnull
   UnknownReferenceMerger.MergeResult mergeStoredReferences(
       @Nonnull RecordTemplate request,
-      @Nullable RecordTemplate stored,
+      @Nonnull Supplier<RecordTemplate> stored,
       @Nonnull EntityRegistry registry);
 
   /** True if the aspect references an entity type the registry doesn't know, anywhere in it. */
