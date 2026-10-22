@@ -581,16 +581,15 @@ index 9d2aa6a5c2..2bca5e1263 100644
    uniqueUserCount: optional int
  
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl b/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
-index 1bf3722b21..7eeae46107 100644
+index f6a3f0a09e..80f97fd690 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
-@@ -7,7 +7,8 @@ import com.linkedin.common.ChangeAuditStamps
-  * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.
+@@ -8,7 +8,7 @@ import com.linkedin.common.ChangeAuditStamps
   */
  @Aspect = {
--  "name": "editableSchemaMetadata"
-+  "name": "editableSchemaMetadata",
-+  "schemaVersion": 2
+   "name": "editableSchemaMetadata",
+-  "schemaVersion": 2
++  "schemaVersion": 3
  }
  record EditableSchemaMetadata includes ChangeAuditStamps {
    /**
