@@ -10,6 +10,7 @@ import time_machine
 from deepdiff import DeepDiff
 from looker_sdk.sdk.api40.models import DBConnection
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
@@ -170,6 +171,82 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
     assert pipeline.source.get_report().warnings.total_elements == 2
 
     golden_path = test_resources_dir / "refinement_include_order_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_lookml_refinement_view_parameters(pytestconfig, tmp_path, mock_time):
+    """
+    Refinements override view parameters such as sql_table_name and derived_table, and
+    can be defined in any LookML file: a view file, another .lkml file or the model file.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
+    mce_out_file = "refinement_view_parameters_mces_output.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/lkml_refinement_samples/sample2",
+    )
+    new_recipe["source"]["config"]["process_refinements"] = True
+    new_recipe["source"]["config"]["project_name"] = "lkml_refinement_sample2"
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "db-connection": {
+            "platform": "postgres",
+            "default_db": "db",
+            "default_schema": "public",
+        }
+    }
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=False)
+    assert pipeline.source.get_report().warnings.total_elements == 0
+
+    def view_urn(view_name: str) -> str:
+        return f"urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample2.view.{view_name},PROD)"
+
+    # Refinements are not emitted as separate views, and a refinement that adds
+    # extends does not drop the view it refines
+    assert {
+        urn
+        for urn in mce_helpers.get_entity_urns(str(tmp_path / mce_out_file))
+        if urn.startswith("urn:li:dataset:")
+    } == {
+        view_urn("orders"),
+        view_urn("customers"),
+        view_urn("order_summary"),
+        view_urn("audit_mixin"),
+    }
+
+    upstreams_by_view = {
+        mcp.entityUrn: [upstream.dataset for upstream in mcp.aspect.upstreams]
+        for mcp in read_metadata_file(tmp_path / mce_out_file)
+        if isinstance(mcp, MetadataChangeProposalWrapper)
+        and isinstance(mcp.aspect, UpstreamLineageClass)
+    }
+    assert upstreams_by_view == {
+        # sql_table_name refined in a layer file, then in the model file
+        view_urn("orders"): [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.analytics.orders_final,PROD)"
+        ],
+        # sql_table_name refined in the model file, using a manifest constant
+        view_urn("customers"): [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.analytics.customers,PROD)"
+        ],
+        # derived_table sql refined in a plain .lkml file
+        view_urn("order_summary"): [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.analytics.orders,PROD)"
+        ],
+        view_urn("audit_mixin"): [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.public.audit_mixin,PROD)"
+        ],
+    }
+
+    golden_path = test_resources_dir / "refinement_view_parameters_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,

@@ -39,6 +39,8 @@ BASE_PROJECT_NAME = "__BASE"
 EXPLORE_FILE_EXTENSION = ".explore.lkml"
 VIEW_FILE_EXTENSION = ".view.lkml"
 MODEL_FILE_EXTENSION = ".model.lkml"
+DASHBOARD_FILE_EXTENSION = ".dashboard.lkml"
+LKML_FILE_EXTENSION = ".lkml"
 
 DERIVED_VIEW_SUFFIX = r".sql_table_name"
 
@@ -204,7 +206,10 @@ class LookMLSourceConfig(
     )
     process_refinements: bool = Field(
         False,
-        description="When enabled, looker refinement will be processed to adapt an existing view.",
+        description="When enabled, looker refinement will be processed to adapt an existing view. "
+        "Refinements are read from the model file and from any included LookML file. A refinement's "
+        "fields are merged into the view and its view parameters, such as `sql_table_name` and "
+        "`derived_table`, override the view's.",
     )
 
     liquid_variables: Dict[Any, Any] = Field(
