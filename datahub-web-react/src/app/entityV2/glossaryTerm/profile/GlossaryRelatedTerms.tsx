@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import {
     glossaryRelatedTermsArePending,
+    glossaryRelationshipSignature,
     pickGlossaryRelatedRelationships,
     relationshipEntries,
 } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms.utils';
@@ -43,8 +44,13 @@ export default function GlossayRelatedTerms() {
     const [selectedKey, setSelectedKey] = useState('');
     const menuOptionsArray = Object.keys(RelatedTermTypes);
     const requestedUrn = useRef<string | null>(null);
+    const seenProfileSignature = useRef<{ urn: string; signature: string } | null>(null);
 
-    const { data, loading: fetchedLoading } = useGetRelatedTermsQuery({
+    const {
+        data,
+        loading: fetchedLoading,
+        refetch: refetchRelatedTerms,
+    } = useGetRelatedTermsQuery({
         variables: { urn, count: RELATED_TERMS_PAGE_SIZE },
         skip: !urn,
         fetchPolicy: 'cache-and-network',
@@ -67,12 +73,29 @@ export default function GlossayRelatedTerms() {
         refetch();
     }, [urn, profileLoading, entityData?.urn, refetch]);
 
+    const profileForUrn =
+        entityData?.urn === urn ? (entityData as Record<string, { relationships?: ReadonlyArray<unknown> }>) : null;
+    const profileReady = !profileLoading && entityData?.urn === urn;
+    const profileSignature = profileForUrn ? glossaryRelationshipSignature(profileForUrn, menuOptionsArray) : '';
+
+    // The first snapshot for a urn is already covered by the query above. A later change is an
+    // add or remove, which only refetches the profile.
+    useEffect(() => {
+        if (!urn || !profileReady) {
+            return;
+        }
+        const seen = seenProfileSignature.current;
+        seenProfileSignature.current = { urn, signature: profileSignature };
+        if (!seen || seen.urn !== urn || seen.signature === profileSignature) {
+            return;
+        }
+        refetchRelatedTerms();
+    }, [urn, profileReady, profileSignature, refetchRelatedTerms]);
+
     const onMenuClick = ({ key }) => {
         setSelectedKey(key);
     };
 
-    const profileForUrn =
-        entityData?.urn === urn ? (entityData as Record<string, { relationships?: ReadonlyArray<unknown> }>) : null;
     const fetchedTerm = data?.glossaryTerm?.urn === urn ? data.glossaryTerm : null;
     const relationships = pickGlossaryRelatedRelationships(
         relationshipEntries(profileForUrn, selectedKey),
@@ -80,8 +103,8 @@ export default function GlossayRelatedTerms() {
             fetchedTerm as Record<string, { relationships?: ReadonlyArray<unknown> }> | null,
             selectedKey,
         ),
+        !fetchedLoading && fetchedTerm !== null,
     );
-    const profileReady = !profileLoading && entityData?.urn === urn;
     const pending = glossaryRelatedTermsArePending({
         urn,
         relationshipCount: relationships.length,

@@ -12,17 +12,37 @@ export function relationshipEntries(
     return Array.isArray(relationships) ? relationships : [];
 }
 
+function relationshipUrn(entry: unknown): string {
+    if (!entry || typeof entry !== 'object') {
+        return '';
+    }
+    return (entry as { entity?: { urn?: string } }).entity?.urn ?? '';
+}
+
+// Add and remove refresh the profile payload only. A changed signature means that payload is newer
+// than the cached getRelatedTerms result, so the tab refetches instead of keeping the old list.
+export function glossaryRelationshipSignature(
+    source: Record<string, RelationshipGroup> | null | undefined,
+    keys: readonly string[],
+): string {
+    return keys.map((key) => relationshipEntries(source, key).map(relationshipUrn).join(',')).join('|');
+}
+
 export function pickGlossaryRelatedRelationships(
     profileRelationships: ReadonlyArray<unknown>,
     fetchedRelationships: ReadonlyArray<unknown>,
+    fetchedSettled: boolean,
 ): ReadonlyArray<unknown> {
-    if (fetchedRelationships.length > profileRelationships.length) {
-        return fetchedRelationships;
-    }
-    if (profileRelationships.length > 0) {
+    // While getRelatedTerms is in flight, including the refetch after an edit, show the profile
+    // list. A settled fetch is the list for this tab, so a longer cached fetch cannot hide a term
+    // that was just removed. An empty settled fetch still falls back to a non-empty profile list.
+    if (!fetchedSettled) {
         return profileRelationships;
     }
-    return fetchedRelationships;
+    if (fetchedRelationships.length > 0) {
+        return fetchedRelationships;
+    }
+    return profileRelationships.length > 0 ? profileRelationships : fetchedRelationships;
 }
 
 export function glossaryRelatedTermsArePending({

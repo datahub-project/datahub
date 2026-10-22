@@ -7,7 +7,8 @@ import GlossaryRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRel
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-const { entityState, relatedTermsQuery } = vi.hoisted(() => ({
+const { entityState, relatedTermsQuery, relatedTermsRefetch } = vi.hoisted(() => ({
+    relatedTermsRefetch: vi.fn(),
     entityState: {
         urn: '',
         entityData: null as {
@@ -46,7 +47,8 @@ describe('Glossary Related Terms', () => {
         entityState.loading = false;
         entityState.refetch.mockClear();
         relatedTermsQuery.mockReset();
-        relatedTermsQuery.mockReturnValue({ data: undefined, loading: false });
+        relatedTermsRefetch.mockClear();
+        relatedTermsQuery.mockReturnValue({ data: undefined, loading: false, refetch: relatedTermsRefetch });
     });
 
     it('renders and print hasRelatedTerms detail by default', async () => {
@@ -75,6 +77,7 @@ describe('Glossary Related Terms', () => {
                 },
             },
             loading: false,
+            refetch: relatedTermsRefetch,
         });
 
         const { rerender } = render(
@@ -94,7 +97,7 @@ describe('Glossary Related Terms', () => {
         entityState.urn = 'urn:li:glossaryTerm:next';
         entityState.entityData = { urn: 'urn:li:glossaryTerm:current' };
         entityState.loading = false;
-        relatedTermsQuery.mockReturnValue({ data: undefined, loading: true });
+        relatedTermsQuery.mockReturnValue({ data: undefined, loading: true, refetch: relatedTermsRefetch });
 
         rerender(
             <MockedProvider mocks={mocks} addTypename={false}>
@@ -123,6 +126,7 @@ describe('Glossary Related Terms', () => {
                 },
             },
             loading: false,
+            refetch: relatedTermsRefetch,
         });
 
         rerender(
@@ -135,5 +139,65 @@ describe('Glossary Related Terms', () => {
         expect(screen.getByTestId('related-results')).toHaveTextContent(
             'urn:li:glossaryTerm:child-a,urn:li:glossaryTerm:child-b',
         );
+        expect(relatedTermsRefetch).not.toHaveBeenCalled();
+    });
+
+    it('shows the updated profile list after a removal and refetches the tab query', async () => {
+        const kept = { entity: { urn: 'urn:li:glossaryTerm:kept' } };
+        const removed = { entity: { urn: 'urn:li:glossaryTerm:removed' } };
+        entityState.urn = 'urn:li:glossaryTerm:current';
+        entityState.entityData = {
+            urn: 'urn:li:glossaryTerm:current',
+            hasRelatedTerms: { relationships: [kept, removed] },
+        };
+        relatedTermsQuery.mockReturnValue({
+            data: {
+                glossaryTerm: {
+                    urn: 'urn:li:glossaryTerm:current',
+                    hasRelatedTerms: { relationships: [kept, removed] },
+                },
+            },
+            loading: false,
+            refetch: relatedTermsRefetch,
+        });
+
+        const { rerender } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('related-results')).toHaveTextContent(
+                'urn:li:glossaryTerm:kept,urn:li:glossaryTerm:removed',
+            );
+        });
+
+        entityState.entityData = {
+            urn: 'urn:li:glossaryTerm:current',
+            hasRelatedTerms: { relationships: [kept] },
+        };
+        relatedTermsQuery.mockReturnValue({
+            data: {
+                glossaryTerm: {
+                    urn: 'urn:li:glossaryTerm:current',
+                    hasRelatedTerms: { relationships: [kept, removed] },
+                },
+            },
+            loading: true,
+            refetch: relatedTermsRefetch,
+        });
+
+        rerender(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(relatedTermsRefetch).toHaveBeenCalled());
+        expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:kept');
     });
 });

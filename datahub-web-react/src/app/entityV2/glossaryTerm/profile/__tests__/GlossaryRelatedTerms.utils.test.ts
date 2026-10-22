@@ -1,5 +1,6 @@
 import {
     glossaryRelatedTermsArePending,
+    glossaryRelationshipSignature,
     pickGlossaryRelatedRelationships,
     relationshipEntries,
 } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms.utils';
@@ -18,16 +19,34 @@ describe('glossary related terms selection', () => {
         expect(relationshipEntries(undefined, 'hasRelatedTerms')).toEqual([]);
     });
 
-    it('prefers the longer list so an empty profile payload does not hide fetched terms', () => {
-        const profile = [{ entity: { urn: 'urn:li:glossaryTerm:from-profile' } }];
-        const fetched = [
-            { entity: { urn: 'urn:li:glossaryTerm:from-fetch-1' } },
-            { entity: { urn: 'urn:li:glossaryTerm:from-fetch-2' } },
-        ];
+    it('uses a settled fetch, and the profile list while that fetch is in flight', () => {
+        const kept = { entity: { urn: 'urn:li:glossaryTerm:kept' } };
+        const removed = { entity: { urn: 'urn:li:glossaryTerm:removed' } };
+        const profile = [kept];
+        const fetched = [kept, removed];
 
-        expect(pickGlossaryRelatedRelationships([], fetched)).toBe(fetched);
-        expect(pickGlossaryRelatedRelationships(profile, [])).toBe(profile);
-        expect(pickGlossaryRelatedRelationships(profile, fetched)).toBe(fetched);
+        expect(pickGlossaryRelatedRelationships([], fetched, true)).toBe(fetched);
+        expect(pickGlossaryRelatedRelationships(profile, [], true)).toBe(profile);
+        expect(pickGlossaryRelatedRelationships(profile, fetched, true)).toBe(fetched);
+        expect(pickGlossaryRelatedRelationships(profile, fetched, false)).toBe(profile);
+    });
+
+    it('changes the signature when a relationship is removed', () => {
+        const keys = ['hasRelatedTerms'];
+        const before = {
+            hasRelatedTerms: {
+                relationships: [
+                    { entity: { urn: 'urn:li:glossaryTerm:kept' } },
+                    { entity: { urn: 'urn:li:glossaryTerm:removed' } },
+                ],
+            },
+        };
+        const after = {
+            hasRelatedTerms: { relationships: [{ entity: { urn: 'urn:li:glossaryTerm:kept' } }] },
+        };
+
+        expect(glossaryRelationshipSignature(before, keys)).not.toBe(glossaryRelationshipSignature(after, keys));
+        expect(glossaryRelationshipSignature(before, keys)).toBe(glossaryRelationshipSignature(before, keys));
     });
 
     it('stays pending until the current term has relationships or both reads have settled empty', () => {
