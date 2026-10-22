@@ -12,6 +12,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.Policy;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCondition;
 import com.linkedin.datahub.graphql.generated.PolicyState;
@@ -115,7 +116,9 @@ public class PolicyInfoPolicyMapperTest {
   }
 
   @Test
-  public void testEntityLoadOfPolicyWithMatchConditionFromNewerVersionIsNull() {
+  public void testEntityLoadOfPolicyWithMatchConditionFromNewerVersionKeepsThePolicy() {
+    // Read-only path (entity, search): a null policy would null the field or list that loaded it,
+    // so only the unknown condition is unset. The editor's list still leaves the policy out.
     final Urn urn = UrnUtils.getUrn("urn:li:dataHubPolicy:x");
     final EntityResponse response =
         new EntityResponse()
@@ -130,7 +133,10 @@ public class PolicyInfoPolicyMapperTest {
                                 new Aspect(
                                     policyWithCondition("CONDITION_FROM_NEWER_BUILD").data())))));
 
-    assertNull(DataHubPolicyMapper.map(null, response));
+    final DataHubPolicy policy = DataHubPolicyMapper.map(null, response);
+
+    assertEquals(policy.getUrn(), urn.toString());
+    assertNull(policy.getResources().getFilter().getCriteria().get(0).getCondition());
   }
 
   @Test
