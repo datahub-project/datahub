@@ -2371,6 +2371,24 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     static_inputs,
                     static_outputs,
                 )
+            elif skipped_static_pair is not None and skipped_static_pair[1]:
+                # No overflow to carry it through (that path re-includes
+                # it above), but the static-matching pair still had its
+                # own dynamically-cached column mappings (e.g. query-
+                # derived, from a run whose source/sink happened to
+                # match the static fallback) - skipping its sibling
+                # DataJob is correct (the parent's own static lineage
+                # already covers the dataset-level edge), but those
+                # column mappings would otherwise be silently dropped
+                # instead of ever reaching any job. Emit them standalone.
+                yield from self._emit_unioned_dynamic_lineage(
+                    activity,
+                    job_urn,
+                    factory_key,
+                    {skipped_static_pair[0]: skipped_static_pair[1]},
+                    static_inputs,
+                    static_outputs,
+                )
 
     def _column_mappings_to_fine_grained_lineages(
         self, column_mappings: set[tuple[tuple[str, ...], str]]

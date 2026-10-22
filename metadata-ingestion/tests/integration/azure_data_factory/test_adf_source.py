@@ -2083,6 +2083,177 @@ def test_adf_source_dynamic_lineage_pair_matching_static_skips_duplicate_sibling
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+def test_adf_source_pair_matching_static_column_lineage_not_dropped(tmp_path):
+    """Regression test: a pair that matches the activity's own static
+    lineage is correctly skipped as a sibling DataJob, since the
+    parent's own static dataJobInputOutput aspect already covers its
+    dataset-level edge. But if that same run's query also resolved
+    column-level lineage, skipping the sibling must not silently drop
+    those column mappings too - with no cap overflow to fold them back
+    in (see test_adf_source_pair_matching_static_survives_cap_overflow
+    for that case), they would otherwise never reach any job at all.
+    """
+    output_file = tmp_path / "adf_pair_matches_static_columns_events.json"
+
+    factory_name = "static-match-columns-test-factory"
+    resource_group = "static-match-columns-test-rg"
+
+    copy_activity = create_mock_activity(
+        name="CopyStaticMatchColumns",
+        activity_type="Copy",
+        inputs=[{"referenceName": "StaticSourceDataset", "type": "DatasetReference"}],
+        outputs=[{"referenceName": "StaticSinkDataset", "type": "DatasetReference"}],
+    )
+    pipeline_def = create_mock_pipeline(
+        name="StaticMatchColumnsPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[copy_activity],
+    )
+    source_dataset = create_mock_dataset(
+        name="StaticSourceDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "orders_table"},
+    )
+    sink_dataset = create_mock_dataset(
+        name="StaticSinkDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "staging_orders"},
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-static-match-cols", pipeline_name="StaticMatchColumnsPipeline"
+        ),
+    ]
+    activity_runs = {
+        "run-static-match-cols": [
+            create_mock_activity_run(
+                activity_run_id=f"act-static-match-cols-{i}",
+                activity_name="CopyStaticMatchColumns",
+                activity_type="Copy",
+                pipeline_run_id="run-static-match-cols",
+                pipeline_name="StaticMatchColumnsPipeline",
+            )
+            for i in range(3)
+        ]
+    }
+    # Run 0 resolves to exactly the same tables as the activity's own
+    # static (unparameterized) dataset references, with an explicit
+    # column list - runs 1 and 2 resolve to genuinely different tables,
+    # making this a real many-to-many fan-out overall (but well under
+    # the default cap, so no overflow folds anything back in).
+    runs = [
+        ("orders_table", "staging_orders", "SELECT id, amount FROM orders_table"),
+        ("customers_table", "staging_customers", "SELECT * FROM customers_table"),
+        ("vendors_table", "staging_vendors", "SELECT * FROM vendors_table"),
+    ]
+    for i, (_source_table, sink_table, query) in enumerate(runs):
+        activity_runs["run-static-match-cols"][i]["input"] = {
+            "source": {"query": query},
+            "sink": {"preCopyScript": f"truncate table {sink_table}"},
+        }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [pipeline_def],
+        "datasets": [source_dataset, sink_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="SqlSourceLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureSqlDatabase",
+            )
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-static-match-cols",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    static_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e.get("entityUrn", "").endswith(",CopyStaticMatchColumns)")
+    ]
+    sibling_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and re.search(
+            r",CopyStaticMatchColumns__[0-9a-f]{12}\)", e.get("entityUrn", "")
+        )
+    ]
+
+    # Still only two siblings - the static-matching pair never gets a
+    # duplicate sibling DataJob.
+    assert len(sibling_lineage_aspects) == 2
+
+    # The static-matching run's "id"/"amount" column lineage must land
+    # somewhere on the parent job rather than being silently dropped.
+    column_lineage_found = False
+    for event in static_lineage_aspects:
+        aspect = event["aspect"]["json"]
+        for fgl in aspect.get("fineGrainedLineages") or []:
+            downstreams = fgl.get("downstreams") or []
+            if any(d.endswith(",amount)") for d in downstreams):
+                column_lineage_found = True
+    assert column_lineage_found, (
+        "query-derived column lineage for the static-matching pair never "
+        "reached any job"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
 def test_adf_source_pair_matching_static_survives_cap_overflow(tmp_path):
     """Regression test: a pair that matches the activity's own static
     lineage is skipped as a sibling on the assumption the parent job's
