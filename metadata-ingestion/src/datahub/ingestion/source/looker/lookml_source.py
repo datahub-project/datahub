@@ -620,10 +620,13 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
 
+        # Constants are resolved for the views (refinements) declared in the model file
         parsed = load_and_preprocess_file(
             path=path,
             reporter=self.reporter,
             source_config=self.source_config,
+            manifest_constants=self.manifest_constants,
+            resolve_constants=True,
         )
 
         looker_model = LookerModel.from_looker_dict(
