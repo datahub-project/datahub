@@ -6,6 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
+import com.linkedin.data.DataList;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.IntegerDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -250,8 +254,66 @@ public class FieldTypeMapperTest {
     Map<String, Object> unindexedAspect =
         FieldTypeMapper.mappingForAspectRoot(
             FieldMapping.root(FieldMapping.Type.KEYWORD, false, false),
-            mock(SearchableFieldSpec.class));
+            annotationSpec(unindexedKeywordAnnotation(), mock(DataSchema.class)));
     assertEquals(unindexedAspect, unindexed);
+  }
+
+  @Test
+  public void testLabeledAspectSourceIsUnindexedUntilReenabled() {
+    Map<String, Object> labeled =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD),
+            annotationSpec(labeledAnnotation("KEYWORD", "name"), mock(DataSchema.class)));
+    assertEquals(labeled.get("type"), "keyword");
+    assertEquals(labeled.get("index"), false);
+    assertEquals(labeled.get("doc_values"), false);
+    assertFalse(labeled.containsKey("fields"));
+
+    DataMap indexOnly = labeledAnnotation("KEYWORD", "name");
+    DataMap indexOnlySource = new DataMap();
+    indexOnlySource.put("index", true);
+    ((DataMap) indexOnly.get("v3")).put("source", indexOnlySource);
+    Map<String, Object> indexed =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD),
+            annotationSpec(indexOnly, mock(DataSchema.class)));
+    assertEquals(indexed.get("normalizer"), "keyword_normalizer");
+    assertFalse(indexed.containsKey("index"));
+    assertEquals(indexed.get("doc_values"), false);
+
+    DataMap both = labeledAnnotation("KEYWORD", "name");
+    DataMap bothSource = new DataMap();
+    bothSource.put("index", true);
+    bothSource.put("docValues", true);
+    ((DataMap) both.get("v3")).put("source", bothSource);
+    Map<String, Object> fullyIndexed =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD),
+            annotationSpec(both, mock(DataSchema.class)));
+    assertEquals(fullyIndexed.get("normalizer"), "keyword_normalizer");
+    assertFalse(fullyIndexed.containsKey("index"));
+    assertFalse(fullyIndexed.containsKey("doc_values"));
+
+    Map<String, Object> count =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.COUNT),
+            annotationSpec(
+                labeledAnnotation("COUNT", "rowCount"),
+                new IntegerDataSchema(),
+                DataSchema.Type.INT));
+    assertEquals(count.get("type"), "integer");
+    assertEquals(count.get("index"), false);
+    assertEquals(count.get("doc_values"), false);
+
+    DataMap plain = new DataMap();
+    plain.put("fieldType", "BOOLEAN");
+    Map<String, Object> unlabeled =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.BOOLEAN),
+            annotationSpec(plain, mock(DataSchema.class), DataSchema.Type.BOOLEAN));
+    assertEquals(unlabeled.get("type"), "boolean");
+    assertEquals(unlabeled.get("index"), false);
+    assertEquals(unlabeled.get("doc_values"), false);
   }
 
   @Test
@@ -286,6 +348,41 @@ public class FieldTypeMapperTest {
     assertTrue(mappings.get(0).isRoot());
     assertEquals(mappings.get(0).getType(), FieldMapping.Type.KEYWORD);
     assertTrue(mappings.get(0).isIndex());
+  }
+
+  private static DataMap labeledAnnotation(String fieldType, String searchLabel) {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", searchLabel);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldType", fieldType);
+    annotation.put("v3", v3);
+    return annotation;
+  }
+
+  private static DataMap unindexedKeywordAnnotation() {
+    DataMap root = new DataMap();
+    root.put("type", "KEYWORD");
+    root.put("index", false);
+    root.put("docValues", false);
+    DataList mappings = new DataList();
+    mappings.add(root);
+    DataMap v3 = new DataMap();
+    v3.put("mappings", mappings);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldType", "KEYWORD");
+    annotation.put("v3", v3);
+    return annotation;
+  }
+
+  private static SearchableFieldSpec annotationSpec(DataMap annotation, DataSchema schema) {
+    return annotationSpec(annotation, schema, DataSchema.Type.STRING);
+  }
+
+  private static SearchableFieldSpec annotationSpec(
+      DataMap annotation, DataSchema schema, DataSchema.Type schemaType) {
+    SearchableAnnotation parsed =
+        SearchableAnnotation.fromPegasusAnnotationObject(annotation, "field", schemaType, "test");
+    return new SearchableFieldSpec(new PathSpec("field"), parsed, schema);
   }
 
   private static SearchableFieldSpec fieldSpec(FieldType fieldType, String path) {
