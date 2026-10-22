@@ -38,6 +38,8 @@ import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.TaskInfo;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -54,6 +56,18 @@ public class CopyDocumentsToSemanticIndexStepTest {
   private OperationContext opContext;
 
   private CopyDocumentsToSemanticIndexStep step;
+
+  // One test drives the reindex-task poll loop (running-then-completed); the production 5s poll
+  // interval would make it sleep for real. Override to ~0 so the loop runs without the wait.
+  @BeforeClass
+  public void disablePollWait() {
+    CopyDocumentsToSemanticIndexStep.setTaskPollIntervalMsForTesting(1);
+  }
+
+  @AfterClass
+  public void restorePollWait() {
+    CopyDocumentsToSemanticIndexStep.resetTaskPollIntervalMsForTesting();
+  }
 
   @BeforeMethod
   public void setup() {
