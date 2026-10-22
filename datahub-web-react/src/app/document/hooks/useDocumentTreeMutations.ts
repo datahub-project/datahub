@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import analytics, { DocumentEditType, EventType } from '@app/analytics';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
-import { ErrorCodes } from '@app/shared/constants';
+import { ErrorCodes } from '@app/sharedV2/constants';
 
 import {
     useCreateDocumentMutation,

@@ -18,7 +18,7 @@ import {
 } from '@app/ingestV2/executions/constants';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import dayjs from '@utils/dayjs';
 
 import {

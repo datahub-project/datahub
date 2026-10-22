@@ -6,7 +6,7 @@ import analytics, { EventType } from '@app/analytics';
 import { useHandleDeleteDomain } from '@app/entity/shared/EntityDropdown/useHandleDeleteDomain';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
-import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
+import { getDeleteEntityMutation } from '@app/sharedV2/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';

@@ -17,7 +17,7 @@ import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/En
 import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { getUserFilters } from '@app/shared/userSearchUtils';
+import { getUserFilters } from '@app/sharedV2/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 

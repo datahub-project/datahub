@@ -13,7 +13,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { MatchText, Text } from '@src/alchemy-components';
 import { MatchesGroupedByFieldName } from '@src/app/search/matches/constants';
 import { getMatchedFieldLabel } from '@src/app/search/matches/utils';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
 import { Entity, EntityType } from '@src/types.generated';
 
 const TextWrapper = styled.span`

@@ -52,7 +52,7 @@ import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/His
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';

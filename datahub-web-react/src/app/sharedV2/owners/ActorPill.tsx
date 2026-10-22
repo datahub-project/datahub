@@ -7,8 +7,8 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, OwnerType } from '@types';

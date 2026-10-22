@@ -5,8 +5,8 @@ import PlatformContentView from '@app/entity/shared/containers/profile/header/Pl
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { IconStyleType } from '@app/entityV2/Entity';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import useContentTruncation from '@app/shared/useContentTruncation';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import useContentTruncation from '@app/sharedV2/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 function PlatformContentContainer() {

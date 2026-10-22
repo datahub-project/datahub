@@ -21,7 +21,7 @@ vi.mock('@app/useEntityRegistry', () => ({
     }),
 }));
 
-vi.mock('@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled', () => ({
+vi.mock('@app/sharedV2/hooks/useIsStructuredPropertiesInPoliciesEnabled', () => ({
     useIsStructuredPropertiesInPoliciesEnabled: () => true,
 }));
 

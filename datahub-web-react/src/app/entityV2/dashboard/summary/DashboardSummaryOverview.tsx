@@ -9,7 +9,7 @@ import { MainSection, StyledTitle, SummaryHeader, VerticalDivider } from '@app/e
 import { SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryCreatedBySection from '@app/entityV2/shared/summary/SummaryCreatedBySection';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

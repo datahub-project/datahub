@@ -22,8 +22,8 @@ import SearchQuerySuggester from '@app/searchV2/suggestions/SearchQuerySugggeste
 import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { useSearchResultLineageCounts } from '@app/searchV2/useSearchResultLineageCounts';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { SearchCfg } from '@src/conf';

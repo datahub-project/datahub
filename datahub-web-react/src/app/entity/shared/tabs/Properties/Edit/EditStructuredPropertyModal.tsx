@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal, toast } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';

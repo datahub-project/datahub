@@ -30,7 +30,7 @@ import { EXACT_SEARCH_PREFIX } from '@app/search/utils/constants';
 import filterSearchQuery from '@app/search/utils/filterSearchQuery';
 import { getFiltersWithQuickFilter } from '@app/search/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { getCommandKShortcutLabel } from '@app/utils/checkIfMac';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';

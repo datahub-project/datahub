@@ -16,7 +16,7 @@ import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections
 import { PLATFORMS_MODULE_ID } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
 import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@app/homeV2/shared/types';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';

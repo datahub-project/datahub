@@ -15,8 +15,8 @@ import {
     resolveActorsFromUrns,
 } from '@app/entityV2/shared/utils/actorUtils';
 import { entitiesToSelectOptions } from '@app/entityV2/shared/utils/selectorUtils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { addUserFiltersToAutoCompleteMultipleInput } from '@app/shared/userSearchUtils';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
+import { addUserFiltersToAutoCompleteMultipleInput } from '@app/sharedV2/userSearchUtils';
 import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';

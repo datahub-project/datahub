@@ -10,7 +10,7 @@ import {
     getDefaultSummaryPageTemplate,
 } from '@app/homeV3/context/hooks/utils/utils';
 import { DEFAULT_TEMPLATE } from '@app/homeV3/modules/constants';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { PageTemplateFragment } from '@graphql/template.generated';

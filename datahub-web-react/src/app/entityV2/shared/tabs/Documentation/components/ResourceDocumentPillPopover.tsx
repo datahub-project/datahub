@@ -8,8 +8,8 @@ import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPill
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { ResourcePillMeta } from '@app/entityV2/shared/tabs/Documentation/components/ResourcePillMeta';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Document } from '@types';

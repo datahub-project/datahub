@@ -11,7 +11,7 @@ import {
 import useGetUserName from '@app/entityV2/shared/tabs/Incident/hooks';
 import { TimelineContentDetails } from '@app/entityV2/shared/tabs/Incident/types';
 import { Text } from '@src/alchemy-components';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
+import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 type TimelineContentProps = {

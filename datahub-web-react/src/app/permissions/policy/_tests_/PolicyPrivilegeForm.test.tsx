@@ -34,7 +34,7 @@ vi.mock('@app/useEntityRegistry', async () => {
 });
 
 // Mock recommendation hooks
-vi.mock('@app/shared/recommendation', () => ({
+vi.mock('@app/sharedV2/recommendation', () => ({
     useGetRecommendations: () => ({ recommendedData: [] }),
 }));
 
