@@ -290,7 +290,8 @@ public class IncidentMapperTest {
   }
 
   @Test
-  public void testIncidentWithOnlyUnknownEntityTypesIsSkipped() throws Exception {
+  public void testIncidentWithOnlyUnknownEntityTypesKeepsTheIncident() throws Exception {
+    // A null incident would null the search hit or list that loaded it, so only entity is unset.
     EntityResponse entityResponse = createBaseEntityResponse();
     EnvelopedAspect incidentAspect =
         entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
@@ -300,7 +301,11 @@ public class IncidentMapperTest {
             ImmutableList.of(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"))));
     incidentAspect.setValue(new Aspect(incidentInfo.data()));
 
-    assertNull(IncidentMapper.map(null, entityResponse));
+    Incident incident = IncidentMapper.map(null, entityResponse);
+
+    assertNotNull(incident);
+    assertNull(incident.getEntity());
+    assertEquals(incident.getTitle(), incidentInfo.getTitle());
   }
 
   @Test
