@@ -61,15 +61,24 @@ def change_stamps() -> dict[str, Any]:
     return {"created": stamp(), "lastModified": stamp()}
 
 
-def mcp(entity_urn: str, aspect_name: str, aspect: dict[str, Any]) -> dict[str, Any]:
+def mcp(
+    entity_urn: str,
+    aspect_name: str,
+    aspect: dict[str, Any],
+    change_type: str = "UPSERT",
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
     entity_type = entity_urn.split(":")[2]
-    return {
+    proposal: dict[str, Any] = {
         "entityType": entity_type,
         "entityUrn": entity_urn,
-        "changeType": "UPSERT",
+        "changeType": change_type,
         "aspectName": aspect_name,
         "aspect": {"json": aspect},
     }
+    if headers:
+        proposal["headers"] = headers
+    return proposal
 
 
 def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
@@ -180,28 +189,89 @@ def cranfield_dataset(document: dict[str, str]) -> tuple[str, list[dict[str, Any
     return urn, [mcp(urn, "datasetProperties", properties)]
 
 
-def platform_mcp(platform_name: str) -> list[dict[str, Any]]:
+def _yaml_scalar(value: str) -> Any:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return value
+
+
+def bootstrap_platform_aspects(root: Path | None = None) -> dict[str, dict[str, Any]]:
+    """dataPlatformInfo aspects from the bootstrap platform registry."""
+    path = (
+        (root or repo_root())
+        / "metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml"
+    )
+    platforms: dict[str, dict[str, Any]] = {}
+    platform_name: str | None = None
+    aspect: dict[str, Any] = {}
+    in_aspect = False
+    for raw in path.read_text().splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        if line.startswith("- entityUrn:"):
+            if platform_name and aspect:
+                platforms[platform_name] = aspect
+            platform_name = line.split("urn:li:dataPlatform:", 1)[1].strip()
+            aspect = {}
+            in_aspect = False
+            continue
+        if line.startswith("  aspect:"):
+            in_aspect = True
+            continue
+        if in_aspect and line.startswith("    "):
+            key, value = line.strip().split(":", 1)
+            aspect[key] = _yaml_scalar(value)
+            continue
+        in_aspect = False
+    if platform_name and aspect:
+        platforms[platform_name] = aspect
+    return platforms
+
+
+def platform_mcp(
+    platform_name: str, bootstrap: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
     urn = f"urn:li:dataPlatform:{platform_name}"
-    display = platform_name
-    short_name = platform_name if len(platform_name) <= 15 else platform_name[:15]
+    aspect = bootstrap.get(platform_name)
+    if aspect is None:
+        # Fixture platforms (cranfield, catalogprobe, ranking, longtail_schemas)
+        # are not in the bootstrap registry.
+        short_name = platform_name if len(platform_name) <= 15 else platform_name[:15]
+        aspect = {
+            "name": short_name,
+            "displayName": platform_name,
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+        }
+    else:
+        aspect = dict(aspect)
+        # DataPlatformInfo.name is limited to 15 characters.
+        if isinstance(aspect.get("name"), str) and len(aspect["name"]) > 15:
+            aspect["name"] = aspect["name"][:15]
+    # Create the aspect only when it is missing. If-None-Match drops the write
+    # when bootstrap already stored dataPlatformInfo, instead of failing the load.
     return [
         mcp(
             urn,
             "dataPlatformInfo",
-            {
-                "name": short_name,
-                "displayName": display,
-                "type": "OTHERS",
-                "datasetNameDelimiter": ".",
-            },
+            aspect,
+            change_type="CREATE",
+            headers={"If-None-Match": "*"},
         )
     ]
 
 
 def definitions(platforms: Iterable[str]) -> list[dict[str, Any]]:
     proposals: list[dict[str, Any]] = []
+    bootstrap = bootstrap_platform_aspects()
     for platform in sorted(set(platforms)):
-        proposals.extend(platform_mcp(platform))
+        proposals.extend(platform_mcp(platform, bootstrap))
     proposals.append(
         mcp(
             PROBE_PROPERTY,
@@ -565,6 +635,181 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "structured-property-fulltext-case",
             "zephyrical quorvane plinth",
             fulltext,
+        ),
+    ]
+    return proposals, judgments
+
+
+def interactive_ranking_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    users = {
+        "rankOwner": "urn:li:corpuser:rankOwner",
+        "rankOther": "urn:li:corpuser:rankOther",
+    }
+    groups = {
+        "rankTeam": "urn:li:corpGroup:rankTeam",
+        "rankOtherTeam": "urn:li:corpGroup:rankOtherTeam",
+    }
+    datasets = {
+        name: dataset_urn("ranking", name)
+        for name in (
+            "owner_rank_owner",
+            "owner_rank_other",
+            "group_rank_team",
+            "group_rank_other_team",
+            "described",
+            "bare",
+            "usage_high",
+            "usage_low",
+        )
+    }
+    proposals: list[dict[str, Any]] = []
+
+    for username, urn in users.items():
+        proposals.append(
+            mcp(
+                urn,
+                "corpUserInfo",
+                {"active": True, "displayName": username},
+            )
+        )
+    for group_name, urn in groups.items():
+        proposals.append(
+            mcp(
+                urn,
+                "corpGroupInfo",
+                {
+                    "displayName": group_name,
+                    "admins": [],
+                    "members": [],
+                    "groups": [],
+                },
+            )
+        )
+    proposals.extend(
+        [
+            mcp(
+                users["rankOwner"],
+                "groupMembership",
+                {"groups": [groups["rankTeam"]]},
+            ),
+            mcp(
+                users["rankOther"],
+                "groupMembership",
+                {"groups": [groups["rankOtherTeam"]]},
+            ),
+        ]
+    )
+
+    for name, urn in datasets.items():
+        properties: dict[str, Any] = {"name": name}
+        if name == "described":
+            properties["description"] = "A documented asset"
+        proposals.append(mcp(urn, "datasetProperties", properties))
+
+    def ownership(owner: str) -> dict[str, Any]:
+        return {
+            "owners": [{"owner": owner, "type": "TECHNICAL_OWNER"}],
+            "lastModified": {"time": 0, "actor": users["rankOwner"]},
+        }
+
+    proposals.extend(
+        [
+            mcp(
+                datasets["owner_rank_owner"],
+                "ownership",
+                ownership(users["rankOwner"]),
+            ),
+            mcp(
+                datasets["owner_rank_other"],
+                "ownership",
+                ownership(users["rankOther"]),
+            ),
+            mcp(
+                datasets["group_rank_team"],
+                "ownership",
+                ownership(groups["rankTeam"]),
+            ),
+            mcp(
+                datasets["group_rank_other_team"],
+                "ownership",
+                ownership(groups["rankOtherTeam"]),
+            ),
+            mcp(
+                datasets["usage_high"],
+                "usageFeatures",
+                {"queryCountPercentileLast30Days": 100},
+            ),
+            mcp(
+                datasets["usage_low"],
+                "usageFeatures",
+                {"queryCountPercentileLast30Days": 0},
+            ),
+        ]
+    )
+
+    def judgment(
+        judgment_id: str,
+        viewer: str,
+        viewer_groups: list[str],
+        preferred: str,
+        other: str,
+    ) -> dict[str, Any]:
+        preferred_urn = datasets[preferred]
+        return {
+            "id": judgment_id,
+            "group": "ranking",
+            "query": "*",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "viewerUrn": viewer,
+            "viewerGroups": viewer_groups,
+            "candidateUrns": [preferred_urn, datasets[other]],
+            "grades": [{"urn": preferred_urn, "relevance": 1}],
+            "exactTopHit": preferred_urn,
+        }
+
+    judgments = [
+        judgment(
+            "interactive-list-personal-owner",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "owner_rank_owner",
+            "owner_rank_other",
+        ),
+        judgment(
+            "interactive-list-personal-owner-other-viewer",
+            users["rankOther"],
+            [groups["rankOtherTeam"]],
+            "owner_rank_other",
+            "owner_rank_owner",
+        ),
+        judgment(
+            "interactive-list-group-owner",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "group_rank_team",
+            "group_rank_other_team",
+        ),
+        judgment(
+            "interactive-list-group-owner-other-viewer",
+            users["rankOther"],
+            [groups["rankOtherTeam"]],
+            "group_rank_other_team",
+            "group_rank_team",
+        ),
+        judgment(
+            "interactive-list-catalog-completeness",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "described",
+            "bare",
+        ),
+        judgment(
+            "interactive-list-usage-percentile",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "usage_high",
+            "usage_low",
         ),
     ]
     return proposals, judgments
@@ -1296,7 +1541,7 @@ def generate(root: Path | None = None) -> Path:
         _urn, proposals = cranfield_dataset(document)
         cranfield_mcps.extend(proposals)
 
-    platforms = {"cranfield", "catalogprobe"}
+    platforms = {"cranfield", "catalogprobe", "ranking"}
     for name in LONG_TAIL_SHARDS:
         path = directory / name
         if not path.is_file():
@@ -1310,6 +1555,7 @@ def generate(root: Path | None = None) -> Path:
                 platforms.add(platform)
 
     probe_mcps, probe_judgments = catalog_probes()
+    ranking_mcps, interactive_ranking_judgments = interactive_ranking_probes()
     semantic_mcps, semantic_judgment = semantic_documents()
     benchmark = []
     for query in queries:
@@ -1334,7 +1580,7 @@ def generate(root: Path | None = None) -> Path:
     shards = {
         "01-definitions.json": definitions(platforms),
         "02-cranfield-datasets.json": cranfield_mcps,
-        "05-catalog-probes.json": probe_mcps,
+        "05-catalog-probes.json": probe_mcps + ranking_mcps,
         "06-semantic-probes.json": semantic_mcps,
     }
     index = {
@@ -1360,21 +1606,22 @@ def generate(root: Path | None = None) -> Path:
             "elasticsearch": {
                 "benchmarkNdcgAt10": 0.31,
                 "javaBuilderBenchmarkNdcgAt10": 0.20,
-                # Catalog mean. The floors stay separate because the template
-                # and the Java builder run different queries.
-                "longtailNdcgAt10": 0.67,
-                "javaBuilderLongtailNdcgAt10": 0.66,
+                # Catalog mean. Both paths clear 0.72; the earlier run was
+                # 0.717 (template) and 0.703 (Java builder).
+                "longtailNdcgAt10": 0.72,
+                "javaBuilderLongtailNdcgAt10": 0.72,
             },
             "opensearch": {
                 "benchmarkNdcgAt10": 0.31,
                 "javaBuilderBenchmarkNdcgAt10": 0.20,
-                "longtailNdcgAt10": 0.67,
-                "javaBuilderLongtailNdcgAt10": 0.66,
+                "longtailNdcgAt10": 0.72,
+                "javaBuilderLongtailNdcgAt10": 0.72,
             },
         },
         "judgments": benchmark
         + longtail_judgments()
         + ranking_judgments()
+        + interactive_ranking_judgments
         + probe_judgments
         + [semantic_judgment],
     }

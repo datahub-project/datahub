@@ -185,7 +185,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
   private static final String BROWSE_DELIMITER = "␟";
   private static final String SEARCH_TEMPLATE = "urn:li:searchTemplate:search";
-  private static final String LIST_TEMPLATE = "urn:li:searchTemplate:list";
+  private static final String LIST_BY_URN_TEMPLATE = "urn:li:searchTemplate:listUrn";
   private static final String FULLTEXT_TEMPLATE = "urn:li:searchTemplate:fulltext";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
@@ -1037,9 +1037,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(raw.get(ORDERS).get("name"), "orders");
     Map<String, Object> aspects = (Map<String, Object>) raw.get(ORDERS).get("_aspects");
     assertEquals(((Map<String, Object>) aspects.get("datasetProperties")).get("name"), "orders");
-    // Chart title is labeled name, so the source root is omitted. The stored value stays on the
-    // aspect; copy_to fills the indexed name, which is not part of _source.
-    assertNull(raw.get(ORDERS_CHART).get("title"));
+    // corpUserInfo.title keeps the source name, so the chart title stays on the root. copy_to
+    // still fills the indexed name.
+    assertEquals(raw.get(ORDERS_CHART).get("title"), "Orders by region");
     Map<String, Object> chartAspects = (Map<String, Object>) raw.get(ORDERS_CHART).get("_aspects");
     assertEquals(
         ((Map<String, Object>) chartAspects.get("chartInfo")).get("title"), "Orders by region");
@@ -1124,12 +1124,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // _entityName sorts ignoring case, as on V2, so "orders" comes before "Orders by region"
-    // ascending. The urn tie-break alone would put the chart first
+    // _entityName sorts ignoring case. The dataset name holds both "orders" and the key
+    // "sales.orders", so the dataset comes first in both directions: ascending uses "orders",
+    // and descending uses "sales.orders", which sorts above "Orders by region".
     for (Map.Entry<SortOrder, List<Urn>> sort :
         Map.of(
                 SortOrder.ASCENDING, List.of(ORDERS, ORDERS_CHART),
-                SortOrder.DESCENDING, List.of(ORDERS_CHART, ORDERS))
+                SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
             .entrySet()) {
       assertEquals(
           searchService
@@ -1436,9 +1437,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Dataset full text uses the dataset name. The platform field contributes the platform name. The
-   * fabric token does not match. {@code dataPlatform} expands to the synonym {@code data platform},
-   * and every word is required, so {@code data} in the customers description does not match.
+   * Dataset full text uses the dataset name, including the key name. {@code sales.orders} therefore
+   * also matches {@code sales.customers} on the shared token. The platform name is copied into
+   * {@code other}. The fabric token does not match. {@code dataPlatform} expands to the synonym
+   * {@code data platform}, and every word is required, so {@code data} in the customers description
+   * does not match.
    */
   @Test
   public void testDatasetNameMatchesWithoutPlatformOrFabric() {
@@ -1453,7 +1456,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 0,
                 10)
             .getEntities(),
-        ORDERS);
+        ORDERS,
+        CUSTOMERS);
     assertUrns(
         searchService
             .search(
@@ -2063,7 +2067,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   public void testScroll() {
     OperationContext scrolling =
         scrollOperation().withSearchFlags(flags -> flags.setFulltext(true));
-    assertShippedClasspathTemplate(scrolling, "*", true, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(scrolling, "*", true, SEARCH_TEMPLATE, LIST_BY_URN_TEMPLATE);
     assertShippedClasspathTemplate(scrolling, "orders", true, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
     assertUrns(
         searchService
@@ -2126,7 +2130,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         aggregateOperation().withSearchFlags(flags -> flags.setFulltext(true));
     OperationContext paged = pagedSearch().withSearchFlags(flags -> flags.setFulltext(true));
     List<String> dashboards = List.of(DASHBOARD_ENTITY_NAME);
-    assertShippedClasspathTemplate(aggregate, "*", false, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(aggregate, "*", false, SEARCH_TEMPLATE, LIST_BY_URN_TEMPLATE);
     assertShippedClasspathTemplate(aggregate, "archive", false, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
 
     SearchResult light =
@@ -2170,7 +2174,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   @Test
   public void testBrowseV2() {
     OperationContext browsing = browseOperation().withSearchFlags(flags -> flags.setFulltext(true));
-    assertShippedClasspathTemplate(browsing, "*", false, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(browsing, "*", false, SEARCH_TEMPLATE, LIST_BY_URN_TEMPLATE);
     assertShippedClasspathTemplate(browsing, "orders", false, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
     BrowseResultV2 datasets =
         searchService.browseV2(opContext, DATASET_ENTITY_NAME, "", null, "*", 0, 10);

@@ -146,10 +146,7 @@ public class SearchTemplateGoldenTest {
         prefixBoosts(
             render(
                 SEARCH_TEMPLATE_FULLTEXT_URN, "orders", harness.registry.getEntitySpec("chart")));
-    assertTrue(chart.containsKey("name.text"), chart.toString());
-    assertTrue(
-        chart.keySet().stream().noneMatch(field -> field.startsWith("qualifiedName.")),
-        chart.toString());
+    assertEquals(chart.keySet(), prefixes.keySet(), chart.toString());
 
     ExactMatchConfiguration exact = new ExactMatchConfiguration();
     exact.setWithPrefix(false);

@@ -184,8 +184,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     boolean readV3 = EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex());
     v3SearchFieldResolver =
         readV3
-            ? V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs)
-                .resolver()
+            ? V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver()
             : null;
     v3SearchQueryBuilder =
         readV3
