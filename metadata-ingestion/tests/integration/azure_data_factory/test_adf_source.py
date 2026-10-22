@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import time_machine
+from azure.core.exceptions import HttpResponseError
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.azure_data_factory.adf_report import (
@@ -1132,6 +1133,184 @@ def test_adf_source_dynamic_lineage_via_pipeline_run_parameters(tmp_path):
         and any(",Customers," in d for d in a["aspect"]["json"]["inputDatasets"])
     ]
     assert len(union_aspects) == 1
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_dynamic_lineage_augmentation_preserves_execute_pipeline_edge(
+    tmp_path,
+):
+    """Regression test: dataJobInputOutput MCPs replace the whole aspect
+    rather than merging. _emit_pipeline_lineage writes an ExecutePipeline
+    -> child-first-activity edge via inputDatajobs; if that same child
+    activity also gets a dynamic lineage augmentation MCP later (from
+    execution-history processing, which always runs after pipeline
+    processing), that MCP must carry the inputDatajobs value forward too,
+    or it silently erases the ExecutePipeline edge instead of adding
+    dataset lineage alongside it.
+    """
+    output_file = tmp_path / "adf_execute_pipeline_augmentation_events.json"
+
+    factory_name = "execute-pipeline-augmentation-test-factory"
+    resource_group = "execute-pipeline-augmentation-test-rg"
+
+    execute_pipeline_activity = create_mock_activity(
+        name="CallChild", activity_type="ExecutePipeline"
+    )
+    execute_pipeline_activity["typeProperties"] = {
+        "pipeline": {"referenceName": "ChildPipeline", "type": "PipelineReference"},
+        "waitOnCompletion": True,
+    }
+    parent_pipeline = create_mock_pipeline(
+        name="ParentOrchestrationPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[execute_pipeline_activity],
+    )
+
+    child_copy_activity = create_mock_activity(
+        name="ChildCopy",
+        activity_type="Copy",
+        inputs=[
+            {
+                "referenceName": "DynamicSqlDataset",
+                "type": "DatasetReference",
+                "parameters": {
+                    "table_name": {
+                        "value": "@pipeline().parameters.SourceTable",
+                        "type": "Expression",
+                    }
+                },
+            }
+        ],
+        outputs=[{"referenceName": "DestSqlDataset", "type": "DatasetReference"}],
+    )
+    child_pipeline = create_mock_pipeline(
+        name="ChildPipeline",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        activities=[child_copy_activity],
+    )
+
+    dynamic_dataset = create_mock_dataset(
+        name="DynamicSqlDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={
+            "table": {"value": "@dataset().table_name", "type": "Expression"},
+        },
+    )
+    dest_dataset = create_mock_dataset(
+        name="DestSqlDataset",
+        factory_name=factory_name,
+        resource_group=resource_group,
+        subscription_id=SUBSCRIPTION_ID,
+        linked_service_name="SqlSourceLS",
+        dataset_type="AzureSqlTableDataset",
+        type_properties={"table": "Staging"},
+    )
+
+    pipeline_runs = [
+        create_mock_pipeline_run(
+            run_id="run-child",
+            pipeline_name="ChildPipeline",
+            parameters={"SourceTable": "RealOrders"},
+        ),
+    ]
+    activity_runs = {
+        "run-child": [
+            create_mock_activity_run(
+                activity_run_id="act-run-child",
+                activity_name="ChildCopy",
+                activity_type="Copy",
+                pipeline_run_id="run-child",
+                pipeline_name="ChildPipeline",
+            ),
+        ],
+    }
+
+    test_data = {
+        "factories": [
+            create_mock_factory(factory_name, resource_group, SUBSCRIPTION_ID)
+        ],
+        "pipelines": [parent_pipeline, child_pipeline],
+        "datasets": [dynamic_dataset, dest_dataset],
+        "linked_services": [
+            create_mock_linked_service(
+                name="SqlSourceLS",
+                factory_name=factory_name,
+                resource_group=resource_group,
+                subscription_id=SUBSCRIPTION_ID,
+                service_type="AzureSqlDatabase",
+            )
+        ],
+        "triggers": [],
+        "pipeline_runs": pipeline_runs,
+        "activity_runs": activity_runs,
+    }
+    mock_client = create_mock_client(test_data, include_activity_runs=True)
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-execute-pipeline-augmentation",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": resource_group,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": True,
+                            "execution_history_days": 7,
+                            "env": "DEV",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+    events = json.loads(output_file.read_text())
+    child_lineage_aspects = [
+        e
+        for e in events
+        if e.get("aspectName") == "dataJobInputOutput"
+        and e.get("entityUrn", "").endswith(",ChildCopy)")
+    ]
+    assert len(child_lineage_aspects) >= 2, (
+        "expected both the ExecutePipeline edge and the dynamic lineage "
+        "augmentation to each emit their own dataJobInputOutput MCP for "
+        "ChildCopy"
+    )
+    # Since MCPs for one entity/aspect replace rather than merge, only the
+    # last-emitted one for this entity actually takes effect in a real
+    # DataHub ingest - that's the one that must still carry the
+    # ExecutePipeline edge forward.
+    final_aspect = child_lineage_aspects[-1]["aspect"]["json"]
+    assert final_aspect.get("inputDatajobs"), (
+        "the dynamic lineage augmentation's dataJobInputOutput MCP erased "
+        "the ExecutePipeline -> ChildCopy edge instead of carrying it "
+        "forward"
+    )
+    assert any("CallChild" in urn for urn in final_aspect["inputDatajobs"])
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2575,6 +2754,74 @@ def test_adf_source_factory_listing_failure_reports_failure(tmp_path):
             ), (
                 f"Expected 'Failed to List Data Factories' failure, got: {failure_messages}"
             )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_adf_source_global_parameters_failure_does_not_skip_factory(tmp_path):
+    """Regression test: global parameters are only needed to resolve one
+    specific reference shape ("@pipeline().globalParameters.X"), not
+    lineage resolution in general - unlike datasets/linked services/data
+    flows, a factory lacking RBAC for this one API (plausible, since it's
+    commonly scoped separately) must not skip the whole factory. Only a
+    warning should be reported, and the factory's other entities (its
+    pipelines, datasets, etc.) must still be ingested.
+    """
+    output_file = tmp_path / "adf_global_parameters_fail_events.json"
+
+    test_data = get_mock_test_data()
+    mock_client = create_mock_client(test_data)
+    mock_client.global_parameters.list_by_factory.side_effect = HttpResponseError(
+        message="Forbidden"
+    )
+
+    with mock.patch(
+        "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
+    ) as MockClientClass:
+        MockClientClass.return_value = mock_client
+
+        with mock.patch(
+            "datahub.ingestion.source.azure.azure_auth.DefaultAzureCredential"
+        ):
+            pipeline = Pipeline.create(
+                {
+                    "run_id": "adf-test-global-parameters-fail",
+                    "source": {
+                        "type": "azure-data-factory",
+                        "config": {
+                            "subscription_id": SUBSCRIPTION_ID,
+                            "resource_group": RESOURCE_GROUP,
+                            "credential": {"authentication_method": "default"},
+                            "include_lineage": True,
+                            "include_execution_history": False,
+                            "env": "PROD",
+                        },
+                    },
+                    "sink": {
+                        "type": "file",
+                        "config": {"filename": str(output_file)},
+                    },
+                }
+            )
+
+            pipeline.run()
+            pipeline.raise_from_status()
+
+            source_report = pipeline.source.get_report()
+            assert source_report is not None
+            assert len(source_report.failures) == 0, (
+                "A global-parameters listing failure must not fail the run"
+            )
+            warning_messages = [str(w) for w in source_report.warnings]
+            assert any(
+                "Failed to List Global Parameters" in msg for msg in warning_messages
+            ), f"Expected a global-parameters warning, got: {warning_messages}"
+
+    events = json.loads(output_file.read_text())
+    assert any(e.get("entityType") == "dataFlow" for e in events), (
+        "The factory's pipelines must still be ingested despite the "
+        "global-parameters failure"
+    )
 
 
 # =============================================================================

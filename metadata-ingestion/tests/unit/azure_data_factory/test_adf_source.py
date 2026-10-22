@@ -412,6 +412,53 @@ class TestExpressionParameterResolution:
         )
         assert result == "DefaultOrders"
 
+    def test_expression_wrapped_dataset_parameter_default_resolves(self) -> None:
+        """Regression test: ADF's "Add dynamic content" UI can wrap even a
+        dataset's own declared parameter default as an Expression dict,
+        same as it does for an activity override - this must be unwrapped
+        the same way, not treated as unresolvable just because it isn't a
+        bare string."""
+        source = self._make_source()
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            dataset_parameters={
+                "table_name": SimpleNamespace(
+                    default_value={"value": "DefaultOrders", "type": "Expression"}
+                )
+            },
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
+        )
+        assert result == "DefaultOrders"
+
+    def test_global_parameter_dataset_parameter_default_resolves(self) -> None:
+        """Regression test: a dataset's own declared parameter default can
+        itself be a global-parameter reference (a tenant-wide literal
+        constant), not just a literal or an Expression-wrapped literal -
+        it must resolve from _global_parameters_cache the same way an
+        activity override referencing a global parameter does."""
+        source = self._make_source()
+        source._global_parameters_cache = {"rg/factory": {"DefaultTable": "RealOrders"}}
+        dataset = self._make_dataset(
+            table={"value": "@dataset().table_name", "type": "Expression"},
+            dataset_parameters={
+                "table_name": SimpleNamespace(
+                    default_value="@pipeline().globalParameters.DefaultTable"
+                )
+            },
+        )
+        result = source._extract_table_name(
+            dataset,
+            linked_service=None,
+            dataset_name="MyDataset",
+            factory_key="rg/factory",
+        )
+        assert result == "RealOrders"
+
     def test_expression_unresolvable_falls_back_and_warns(self) -> None:
         """A value driven by a ForEach loop variable (@item()) has no
         run-history field that can resolve it either - should warn and
@@ -785,6 +832,41 @@ class TestExpressionParameterResolution:
         )
         result = source._resolve_default_database(linked_service, "mssql", "rg/factory")
         assert result == "MyRealDatabase"
+
+    def test_resolve_default_database_accepts_expression_wrapped_connection_string(
+        self,
+    ) -> None:
+        """Regression test: ADF's "Add dynamic content" UI can wrap even a
+        linked service's connection_string as an Expression dict, same as
+        it does for dataset/activity values - this must be unwrapped
+        before the "Initial Catalog=" regex scan, not skipped outright
+        just because it isn't already a bare string."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string={
+                    "value": "Server=tcp:my-server;Initial Catalog=MyRealDatabase;",
+                    "type": "Expression",
+                }
+            )
+        )
+        result = source._resolve_default_database(linked_service, "mssql", "rg/factory")
+        assert result == "MyRealDatabase"
+
+    def test_resolve_default_database_resolves_global_parameter_database(self) -> None:
+        """Regression test: a MySQL/PostgreSQL-style linked service's
+        standalone "database" property can itself be a global-parameter
+        reference (a tenant-wide literal constant) rather than a literal
+        or an Expression-wrapped literal - it must resolve from
+        _global_parameters_cache, the same as the Databricks domain
+        property already does."""
+        source = self._make_source()
+        source._global_parameters_cache = {"rg/factory": {"DbName": "RealDatabase"}}
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(database="@pipeline().globalParameters.DbName")
+        )
+        result = source._resolve_default_database(linked_service, "mysql", "rg/factory")
+        assert result == "RealDatabase"
 
     def test_resolve_default_database_databricks_unset_by_default(self) -> None:
         """ADF exposes no catalog field anywhere for Databricks datasets

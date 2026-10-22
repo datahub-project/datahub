@@ -297,6 +297,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # distinct from "not looked up yet".
         self._graph_schema_cache: dict[str, Optional[DatasetSchemaInfo]] = {}
 
+        # ExecutePipeline -> child-pipeline's-first-activity edges already
+        # written via _emit_pipeline_lineage, keyed by the child DataJob's
+        # own URN. dataJobInputOutput MCPs replace the whole aspect rather
+        # than merging, so if that same child activity also gets a dynamic
+        # lineage augmentation MCP later (_emit_dynamic_lineage_augmentation),
+        # that MCP must carry this value forward too, or it silently erases
+        # the ExecutePipeline edge instead of adding dataset/column lineage
+        # alongside it.
+        self._execute_pipeline_input_datajobs: dict[str, list[str]] = {}
+
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
@@ -413,15 +423,36 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     self._linked_services_cache[factory_key][ls.name] = ls
 
         # Cache global parameters (tenant-wide literal constants referenced
-        # via "@pipeline().globalParameters.X" - needed for lineage resolution)
+        # via "@pipeline().globalParameters.X" - used to resolve that one
+        # specific reference shape, not required for lineage resolution in
+        # general). Unlike datasets/linked services/data flows above, a
+        # failure here must not skip the whole factory - global parameters
+        # are commonly scoped by separate RBAC from the rest of the ARM
+        # API, and most pipelines never reference one at all.
         if self.config.include_lineage:
             self._global_parameters_cache[factory_key] = {}
-            for gp in self.client.get_global_parameters(resource_group, factory_name):
-                self.report.report_api_call()
-                for name, spec in (gp.properties or {}).items():
-                    value = getattr(spec, "value", None)
-                    if isinstance(value, str):
-                        self._global_parameters_cache[factory_key][name] = value
+            try:
+                for gp in self.client.get_global_parameters(
+                    resource_group, factory_name
+                ):
+                    self.report.report_api_call()
+                    for name, spec in (gp.properties or {}).items():
+                        value = getattr(spec, "value", None)
+                        if isinstance(value, str):
+                            self._global_parameters_cache[factory_key][name] = value
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to List Global Parameters",
+                    message=(
+                        "Unable to retrieve global parameters for this factory. "
+                        "Dataset references using "
+                        '"@pipeline().globalParameters.X" will be treated as '
+                        "unresolved; everything else is unaffected."
+                    ),
+                    context=f"factory={factory_name}",
+                    exc=e,
+                    log=False,
+                )
 
         # Cache triggers (for custom properties on pipelines)
         self._triggers_cache[factory_key] = []
@@ -1290,14 +1321,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # This creates lineage: ExecutePipeline -> ChildFirstActivity
         # (The parent activity triggers the child, so parent is upstream of child)
         if child_datajob_urn:
+            input_datajobs = self._execute_pipeline_input_datajobs.setdefault(
+                str(child_datajob_urn), []
+            )
+            input_datajobs.append(str(datajob.urn))
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(child_datajob_urn),  # Child's first activity
                 aspect=DataJobInputOutputClass(
                     inputDatasets=[],
                     outputDatasets=[],
-                    inputDatajobs=[
-                        str(datajob.urn)
-                    ],  # ExecutePipeline as input/upstream
+                    inputDatajobs=list(
+                        input_datajobs
+                    ),  # ExecutePipeline as input/upstream
                 ),
             ).as_workunit()
 
@@ -1491,12 +1526,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             self_ref = LINKED_SERVICE_SELF_REFERENCE_PATTERN.match(candidate)
             if self_ref:
                 return resolve_param(self_ref.group(1))
+            global_param_match = GLOBAL_PARAMETER_REFERENCE_PATTERN.match(candidate)
+            if global_param_match:
+                return self._global_parameters_cache.get(factory_key, {}).get(
+                    global_param_match.group(1)
+                )
             if not UNRESOLVED_ADF_EXPRESSION_PATTERN.search(candidate):
                 return candidate
             return None
 
-        connection_string = getattr(
-            linked_service.properties, "connection_string", None
+        # Linked-service properties can be Expression-wrapped the same way
+        # dataset/activity values are (ADF's "Add dynamic content" UI wraps
+        # even literal values), so unwrap before reading them - otherwise a
+        # wrapped connection_string/database never even reaches the checks
+        # below, regardless of what it actually contains.
+        connection_string = self._unwrap_expression_value(
+            getattr(linked_service.properties, "connection_string", None)
         )
         if isinstance(connection_string, str):
             match = CONNECTION_STRING_DATABASE_PATTERN.search(connection_string)
@@ -1508,8 +1553,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # "database" covers MySQL/PostgreSQL and the MongoDB v2/Atlas/
         # CosmosDB Mongo API linked services; "database_name" is the
         # legacy MongoDB linked service's own name for the same field.
-        database = getattr(linked_service.properties, "database", None) or getattr(
-            linked_service.properties, "database_name", None
+        database = self._unwrap_expression_value(
+            getattr(linked_service.properties, "database", None)
+        ) or self._unwrap_expression_value(
+            getattr(linked_service.properties, "database_name", None)
         )
         if isinstance(database, str) and database:
             resolved = resolve_candidate(database)
@@ -1785,21 +1832,37 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             return None
 
         # No override at all - the activity relies on the dataset's own
-        # declared parameter default.
+        # declared parameter default. ADF's "Add dynamic content" UI wraps
+        # even this default as an Expression dict the same way it wraps an
+        # activity override, so unwrap it the same way before checking it.
         dataset_params = getattr(dataset_props, "parameters", None) or {}
         param_spec = dataset_params.get(param_name)
-        default_value = None
+        raw_default: Any = None
         if isinstance(param_spec, dict):
-            default_value = param_spec.get(
+            raw_default = param_spec.get(
                 "defaultValue", param_spec.get("default_value")
             )
         elif param_spec is not None:
-            default_value = getattr(param_spec, "default_value", None)
-        if isinstance(default_value, str) and not default_value.startswith("@"):
-            if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(default_value):
+            raw_default = getattr(param_spec, "default_value", None)
+        default_value = self._unwrap_expression_value(raw_default)
+
+        if isinstance(default_value, str):
+            global_param_match = GLOBAL_PARAMETER_REFERENCE_PATTERN.match(
+                default_value.strip()
+            )
+            if global_param_match:
+                resolved_global = self._global_parameters_cache.get(
+                    factory_key, {}
+                ).get(global_param_match.group(1))
+                if resolved_global is not None:
+                    return resolved_global
                 self.report.report_unresolved_dynamic_property(dataset_name, expr)
                 return None
-            return default_value
+            if not default_value.startswith("@"):
+                if UNRESOLVED_ADF_EXPRESSION_PATTERN.search(default_value):
+                    self.report.report_unresolved_dynamic_property(dataset_name, expr)
+                    return None
+                return default_value
 
         self.report.report_unresolved_dynamic_property(dataset_name, expr)
         return None
@@ -2212,6 +2275,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 aspect=DataJobInputOutputClass(
                     inputDatasets=sorted(combined_inputs),
                     outputDatasets=sorted(combined_outputs),
+                    # This MCP replaces the whole aspect - carry forward any
+                    # ExecutePipeline upstream edge _emit_pipeline_lineage
+                    # already wrote for this same DataJob (it runs first),
+                    # or this would silently erase it.
+                    inputDatajobs=self._execute_pipeline_input_datajobs.get(
+                        str(job_urn)
+                    ),
                     fineGrainedLineages=fine_grained_lineages,
                 ),
             ).as_workunit()
