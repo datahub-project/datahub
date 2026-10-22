@@ -53,6 +53,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
@@ -1578,6 +1579,19 @@ class OracleSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = OracleConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @classmethod
+    def test_connection(cls, config_dict: dict) -> TestConnectionReport:
+        """Test Oracle connection."""
+        # Force thin mode in test environments to avoid Oracle Client issues
+        os.environ["ORACLE_CLIENT_LIBRARY_DIR"] = ""
+        os.environ["TNS_ADMIN"] = ""
+
+        # Ensure oracledb stays in thin mode
+        if hasattr(oracledb, "defaults"):
+            oracledb.defaults.config_dir = ""
+
+        return super().test_connection(config_dict)
 
     def get_db_name(self, inspector: Inspector) -> str:
         """

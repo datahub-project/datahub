@@ -192,6 +192,6 @@ options:
     config_dir: /path/to/tns_admin
 ```
 
-`config_dir` applies to the default thin mode. With `enable_thick_mode: true`, set the `TNS_ADMIN` environment variable instead.
+`config_dir` applies to the default thin mode. Set it explicitly rather than relying on the `TNS_ADMIN` environment variable, which **Test Connection** does not use. With `enable_thick_mode: true`, `config_dir` is ignored and aliases resolve through `TNS_ADMIN`; Test Connection may then fail even though ingestion succeeds, so prefer an inline descriptor in thick mode.
 
 If your cluster exposes a single SCAN address, you don't need any of this: set `host_port` to the SCAN host and port.

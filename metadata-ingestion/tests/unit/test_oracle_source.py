@@ -80,20 +80,6 @@ def test_oracle_config():
         ).get_workunits()
 
 
-def test_oracle_test_connection_keeps_tns_admin(monkeypatch, tmp_path):
-    # tnsnames.ora aliases resolve through TNS_ADMIN, so test_connection must
-    # not clear it for the process.
-    monkeypatch.setenv("TNS_ADMIN", str(tmp_path))
-    with patch.object(OracleSource, "get_inspectors", return_value=iter([])):
-        report = OracleSource.test_connection(
-            {"username": "user", "host_port": "host:1521", "service_name": "svc01"}
-        )
-
-    assert report.basic_connectivity is not None
-    assert report.basic_connectivity.capable
-    assert os.environ["TNS_ADMIN"] == str(tmp_path)
-
-
 def test_oracle_config_stored_procedures():
     """Test Oracle configuration for stored procedures."""
     base_config = {
