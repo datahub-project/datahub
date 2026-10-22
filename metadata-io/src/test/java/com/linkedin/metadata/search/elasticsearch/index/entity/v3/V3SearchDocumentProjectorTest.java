@@ -357,6 +357,43 @@ public class V3SearchDocumentProjectorTest {
 
     assertEquals(runId.get("copy_to"), List.of("_system.runId"));
     assertEquals(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, "_systemMetadata");
+    assertIndexedSystemField(
+        systemMetadataProperties, "lastObserved", null, "date", "_system.lastObserved");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectCreated", "time", "date", "_system.created.time");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectCreated", "actor", "keyword", "_system.created.actor");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectCreated", "impersonator", "keyword", null);
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectModified", "time", "date", "_system.modified.time");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectModified", "actor", "keyword", "_system.modified.actor");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectModified", "impersonator", "keyword", null);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertIndexedSystemField(
+      Map<String, Object> systemMetadataProperties,
+      String field,
+      String property,
+      String type,
+      String rootField) {
+    Map<String, Object> mapping = (Map<String, Object>) systemMetadataProperties.get(field);
+    if (property != null) {
+      mapping =
+          (Map<String, Object>) ((Map<String, Object>) mapping.get("properties")).get(property);
+    }
+    String name = property == null ? field : field + "." + property;
+    assertEquals(mapping.get("type"), type, name);
+    assertFalse(mapping.containsKey("index"), name + " stays indexed under _aspects");
+    assertFalse(mapping.containsKey("doc_values"), name + " keeps doc values under _aspects");
+    if (rootField == null) {
+      assertFalse(mapping.containsKey("copy_to"), name);
+    } else {
+      assertEquals(mapping.get("copy_to"), List.of(rootField), name);
+    }
   }
 
   @Test

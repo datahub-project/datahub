@@ -667,6 +667,30 @@ public final class V3SearchFields {
     return stored;
   }
 
+  /**
+   * {@code _aspects.<aspect>.<field>}, where a relabeled field keeps its value after the source
+   * root is omitted. {@code copy_to} does not write that value into the label's {@code _source}.
+   */
+  @Nonnull
+  private static String storedAspectField(
+      @Nonnull final Collection<EntitySpec> entitySpecs, @Nonnull final SearchableFieldSpec spec) {
+    final String fieldName = spec.getSearchableAnnotation().getFieldName();
+    for (EntitySpec entitySpec : entitySpecs) {
+      if (entitySpec.getAspectSpecs() == null) {
+        continue;
+      }
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        // Identity, not equals. Chart and dashboard title share a path, annotation, and schema,
+        // so value equality would record both as the first aspect that matches.
+        if (aspectSpec.getSearchableFieldSpecs().stream()
+            .anyMatch(candidate -> candidate == spec)) {
+          return MappingConstants.ASPECTS_FIELD_NAME + "." + aspectSpec.getName() + "." + fieldName;
+        }
+      }
+    }
+    return MappingConstants.ASPECTS_FIELD_NAME + "." + fieldName;
+  }
+
   @Nonnull
   private static String aspectParsedName(
       @Nonnull final String aspectName, @Nonnull final String fieldName) {
@@ -817,8 +841,21 @@ public final class V3SearchFields {
             (rootField, fieldSpecs) -> {
               final boolean groupHasLabel =
                   fieldSpecs.stream().anyMatch(spec -> !labels(spec).isEmpty());
+              final boolean omitSourceRoot = omitsSourceRoot(rootField, fieldSpecs);
               for (String destination : destinations(fieldSpecs, fallbacks)) {
-                sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
+                // copy_to fills the label in the index only. The value in _source stays on the
+                // aspect when the source root is omitted, which is what matched fields read.
+                if (omitSourceRoot) {
+                  for (SearchableFieldSpec spec : fieldSpecs) {
+                    if (landsIn(spec, destination, fallbacks, groupHasLabel)) {
+                      sources
+                          .computeIfAbsent(destination, k -> new LinkedHashSet<>())
+                          .add(storedAspectField(entitySpecs, spec));
+                    }
+                  }
+                } else {
+                  sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
+                }
                 if (fieldSpecs.stream()
                     .anyMatch(
                         spec ->
@@ -874,9 +911,19 @@ public final class V3SearchFields {
                 OTHER.equals(field.getKey())
                     ? field.getValue().stream().filter(MATCHED_OTHER_FIELDS::contains)
                     : field.getValue().stream())
-        .filter(source -> !COLUMN_ARRAY_FIELDS.contains(source))
+        .filter(source -> !isColumnArraySource(source))
         .distinct()
         .collect(Collectors.toList());
+  }
+
+  /**
+   * A schema-field array, whether named at the root ({@code fieldDescriptions}) or stored under
+   * {@code _aspects.<aspect>.<field>} after its source root is omitted.
+   */
+  private static boolean isColumnArraySource(@Nonnull final String source) {
+    final int separator = source.lastIndexOf('.');
+    final String fieldName = separator < 0 ? source : source.substring(separator + 1);
+    return COLUMN_ARRAY_FIELDS.contains(fieldName);
   }
 
   /**
@@ -884,6 +931,30 @@ public final class V3SearchFields {
    * field of that name, whichever aspect declares it. The mappings builder copies each root field
    * into the shared fields of all of them, so the mapping and the query agree.
    */
+  /**
+   * The document root keeps the search label, not a second field under the source name. Chart
+   * {@code title} labeled {@code name} has no root {@code title}. A field whose label is its own
+   * name, or that has no label, keeps its root field.
+   */
+  public static boolean omitsSourceRoot(
+      @Nonnull final String fieldName, @Nonnull final Collection<EntitySpec> entitySpecs) {
+    return omitsSourceRoot(fieldName, rootSourceFieldSpecs(entitySpecs).get(fieldName));
+  }
+
+  public static boolean omitsSourceRoot(
+      @Nonnull final String fieldName, @Nullable final List<SearchableFieldSpec> sources) {
+    if (sources == null || sources.isEmpty()) {
+      return false;
+    }
+    return sources.stream()
+        .allMatch(
+            spec -> {
+              final Optional<String> indexed =
+                  spec.getSearchableAnnotation().resolvedForV3().indexedFieldName();
+              return indexed.filter(name -> !name.isEmpty() && !name.equals(fieldName)).isPresent();
+            });
+  }
+
   @Nonnull
   public static Map<String, List<SearchableFieldSpec>> rootSourceFieldSpecs(
       @Nonnull final Collection<EntitySpec> entitySpecs) {

@@ -114,7 +114,7 @@ public class V3SearchDocumentProjector {
     final ParsedUrnNames parsedUrnNames =
         parsedUrnNames(entityRegistry, aspectSpec, projectedFields, indexGroup);
 
-    return Optional.of(
+    final ProjectedAspect projected =
         buildProjectedAspect(
             aspectSpec.getName(),
             projectedFields,
@@ -123,7 +123,16 @@ public class V3SearchDocumentProjector {
             sharedHasValues,
             parsedUrnNames,
             event.getUrn(),
-            opContext));
+            opContext);
+    if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+        final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
+        if (V3SearchFields.omitsSourceRoot(fieldName, indexGroup)) {
+          projected.rootFields().putNull(fieldName);
+        }
+      }
+    }
+    return Optional.of(projected);
   }
 
   public void applyProjection(

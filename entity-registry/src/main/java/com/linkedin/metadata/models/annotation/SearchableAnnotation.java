@@ -119,6 +119,19 @@ public class SearchableAnnotation {
   Optional<Boolean> v3QueryByDefault;
 
   /**
+   * Whether the {@code _aspects} copy is indexed. Empty means false when Search V3 also projects
+   * the field to the document root, and otherwise the V3 root's {@code index} flag. The
+   * document-root field is unchanged.
+   */
+  Optional<Boolean> sourceIndex;
+
+  /**
+   * Whether the {@code _aspects} copy has doc values. Empty means false when Search V3 also
+   * projects the field to the document root, and otherwise the V3 root's {@code docValues} flag.
+   */
+  Optional<Boolean> sourceDocValues;
+
+  /**
    * Constructor for annotations with no V3 overlay. V3 searches the field with the top-level
    * settings.
    */
@@ -172,6 +185,8 @@ public class SearchableAnnotation {
         FieldMapping.fallback(fieldType, hasSearchDestination(searchLabel, entityFieldName)),
         0,
         Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -217,7 +232,53 @@ public class SearchableAnnotation {
         v3Mappings,
         degree,
         Optional.empty(),
-        Optional.empty());
+        Optional.empty(),
+        sourceIndex,
+        sourceDocValues);
+  }
+
+  /**
+   * Whether the {@code _aspects} copy of this field is indexed. An explicit {@code v3.source.index}
+   * wins. Otherwise a field projected to the document root leaves the copy unindexed, and a field
+   * that stays under {@code _aspects} follows the V3 root. Correct on both the parsed annotation
+   * and {@link #resolvedForV3()}.
+   */
+  public boolean aspectIndexed() {
+    if (sourceIndex.isPresent()) {
+      return sourceIndex.get();
+    }
+    if (projectedToDocumentRoot()) {
+      return false;
+    }
+    return rootFlag(true);
+  }
+
+  /**
+   * Whether the {@code _aspects} copy has doc values. An explicit {@code v3.source.docValues} wins.
+   * Otherwise a field projected to the document root leaves them off, and a field that stays under
+   * {@code _aspects} follows the V3 root.
+   */
+  public boolean aspectDocValues() {
+    if (sourceDocValues.isPresent()) {
+      return sourceDocValues.get();
+    }
+    if (projectedToDocumentRoot()) {
+      return false;
+    }
+    return rootFlag(false);
+  }
+
+  /** Search V3 writes this field at the document root as well as under {@code _aspects}. */
+  private boolean projectedToDocumentRoot() {
+    return v3Searchable && !OBJECT_FIELD_TYPES.contains(fieldType);
+  }
+
+  private boolean rootFlag(boolean index) {
+    if (v3Mappings == null || v3Mappings.isEmpty()) {
+      return true;
+    }
+    FieldMapping root = FieldMapping.rootOf(v3Mappings);
+    return index ? root.isIndex() : root.isDocValues();
   }
 
   /**
@@ -347,6 +408,8 @@ public class SearchableAnnotation {
     final Optional<Boolean> v3QueryByDefault =
         v3Overlay.flatMap(
             overlay -> AnnotationUtils.getField(overlay, "queryByDefault", Boolean.class));
+    final Optional<Boolean> sourceIndex = sourceFlag(v3Overlay, "index", context);
+    final Optional<Boolean> sourceDocValues = sourceFlag(v3Overlay, "docValues", context);
     final Optional<String> entityFieldName =
         AnnotationUtils.getField(map, "entityFieldName", String.class);
     final boolean queryByDefaultResolved = getQueryByDefault(queryByDefault, resolvedFieldType);
@@ -407,7 +470,35 @@ public class SearchableAnnotation {
         v3Mappings,
         degree,
         v3BoostScore,
-        v3QueryByDefault);
+        v3QueryByDefault,
+        sourceIndex,
+        sourceDocValues);
+  }
+
+  private static Optional<Boolean> sourceFlag(
+      Optional<Map> v3Overlay, String name, String context) {
+    if (v3Overlay.isEmpty() || !v3Overlay.get().containsKey("source")) {
+      return Optional.empty();
+    }
+    Object source = v3Overlay.get().get("source");
+    if (!(source instanceof Map)) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.source must be an object",
+              ANNOTATION_NAME, context));
+    }
+    Map sourceMap = (Map) source;
+    if (!sourceMap.containsKey(name)) {
+      return Optional.empty();
+    }
+    Object value = sourceMap.get(name);
+    if (!(value instanceof Boolean)) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.source.%s must be a boolean",
+              ANNOTATION_NAME, context, name));
+    }
+    return Optional.of((Boolean) value);
   }
 
   private static int parseDegree(@Nonnull Optional<Map> v3Overlay, @Nonnull String context) {

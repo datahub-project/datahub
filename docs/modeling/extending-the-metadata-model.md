@@ -584,7 +584,7 @@ The existence boolean follows the same degree. Degree 0 keeps `hasDescription`, 
 <a name="shared-search-fields-on-search-v3"></a>
 **Shared search fields on Search V3:**
 
-Search V3 keeps three field surfaces. `_aspects.<aspect>.<field>` is an analyzer-free copy of every searchable aspect field. The resolved V3 root controls its exact capabilities: indexed strings are keywords with a byte-safe `ignore_above`, dates, numbers and booleans use their native type, and a search-only string is stored but not indexed. The document-root field uses that same exact root, and `copy_to` feeds the shared label. The shared label is one root plus the union of its contributors' analyzer subfields. Full-text search reads `text` and `stemmed` only when the label declares them. A search-only label sets `"index": false` and `"docValues": false` on its root; every contributor resolves to that policy, so its document-root and `_aspects` copies are also unindexed.
+Search V3 keeps three field surfaces. A searchable non-object field with no `v3.searchLabel`, or whose label is its own name, is projected to the document root. A field whose label is a different name is not: chart `title` labeled `name` has a root `name` and no root `title`, and `_aspects.chartInfo.title` copies into `name`. Either way the `_aspects.<aspect>.<field>` copy of a root-projected field is stored with `"index": false` and `"doc_values": false` so the value is not indexed twice. Per-aspect system metadata is the exception: `_aspects.<aspect>._systemMetadata.lastObserved`, `aspectCreated.time`, `aspectModified.time`, `aspectCreated.actor`, `aspectModified.actor`, and both `impersonator` fields stay indexed and, except `impersonator`, still copy into the root `_system` object. `v3.source.index` and `v3.source.docValues` turn either capability back on for that copy only. Object fields are not projected to the root, so their `_aspects` copy follows the V3 root: indexed strings are keywords with a byte-safe `ignore_above`, and dates, numbers and booleans use their native type. `copy_to` on the aspect field, including a URN copied to `<field>_urn`, stays, and a parsed-name sibling such as `<field>__urn_name` stays indexed. The document-root field uses the V3 root, and `copy_to` feeds the shared label. The shared label is one root plus the union of its contributors' analyzer subfields. Full-text search reads `text` and `stemmed` only when the label declares them. A search-only label sets `"index": false` and `"docValues": false` on the label root and on the document-root field. That does not change the aspect-source default, and `v3.source` does not change the label root.
 
 `mappings` replaces the fallback for that field. A root entry has `type` and no `subfield`. A subfield entry has both. Omitted `index` and `docValues` mean true. Exactly one root is required, and a subfield requires a `searchLabel`.
 
@@ -596,6 +596,15 @@ Search V3 keeps three field surfaces. `_aspects.<aspect>.<field>` is an analyzer
     { "subfield": "text", "type": "TEXT" },
     { "subfield": "stemmed", "type": "STEMMED" }
   ]
+}
+```
+
+That leaves `_aspects.<aspect>.name` stored and not indexed, the same default as every other root-projected field. To keep that copy indexed and aggregatable, set both source flags. Omit a key to leave that capability off. `"index": true` alone is searchable and not sortable or aggregatable.
+
+```json
+"v3": {
+  "searchLabel": "name",
+  "source": { "index": true, "docValues": true }
 }
 ```
 
@@ -612,10 +621,11 @@ The browse path v2 root keeps its path analyzer. Cross-aspect system metadata is
   `name_1` for schema field paths and labels, `tags` for tags on the entity and `tags_1` for tags
   on a schema field, `glossaryTerms` and `glossaryTerms_1` on the same split, and `owners` for owner urns. `sourceCreatedAt` and `sourceLastModifiedAt` are times
   reported by the source platform. An incident's start time is `sourceCreatedAt`. A time or actor
-  recorded when DataHub itself wrote the aspect stays on
-  `systemMetadata` (`aspectCreated`, `aspectModified`), copied to `_system.created.time`,
+  recorded when DataHub itself wrote the aspect stays indexed on
+  `_aspects.<aspect>._systemMetadata` (`aspectCreated` and `aspectModified`, including `actor` and
+  `impersonator`) and copies to `_system.created.time`,
   `_system.created.actor`, `_system.modified.time`, and
-  `_system.modified.actor`, and is not indexed again. The V2 system-modified sidecar
+  `_system.modified.actor`. `impersonator` has no root field. The V2 system-modified sidecar
   (`includeSystemModifiedAt`) is Search V2 and V2.5 only;
 - otherwise, when the field is queried by default, the root field `other`, so V3 still searches every field V2 searches. An
   entity none of whose fields names `name` sends the field its `_entityName` alias names to

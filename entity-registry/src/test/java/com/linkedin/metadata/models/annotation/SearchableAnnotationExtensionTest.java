@@ -5,6 +5,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
@@ -744,6 +745,133 @@ public class SearchableAnnotationExtensionTest {
 
     assertFalse(annotation.isV3Searchable());
     assertTrue(annotation.isQueryByDefault());
+  }
+
+  @Test
+  public void testSearchLabelLeavesAspectSourceUnindexedUnlessReenabled() {
+    SearchableAnnotation labeled =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            labeled("KEYWORD", "name"), "name", DataSchema.Type.STRING, "testField");
+    assertFalse(labeled.aspectIndexed());
+    assertFalse(labeled.aspectDocValues());
+    assertFalse(labeled.resolvedForV3().aspectIndexed());
+    assertFalse(labeled.resolvedForV3().aspectDocValues());
+
+    DataMap indexOnlyMap = labeled("KEYWORD", "name");
+    DataMap indexOnlySource = new DataMap();
+    indexOnlySource.put("index", true);
+    ((DataMap) indexOnlyMap.get("v3")).put("source", indexOnlySource);
+    SearchableAnnotation indexOnly =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            indexOnlyMap, "name", DataSchema.Type.STRING, "testField");
+    assertTrue(indexOnly.aspectIndexed());
+    assertFalse(indexOnly.aspectDocValues());
+
+    DataMap bothMap = labeled("KEYWORD", "name");
+    DataMap bothSource = new DataMap();
+    bothSource.put("index", true);
+    bothSource.put("docValues", true);
+    ((DataMap) bothMap.get("v3")).put("source", bothSource);
+    SearchableAnnotation both =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            bothMap, "name", DataSchema.Type.STRING, "testField");
+    assertTrue(both.aspectIndexed());
+    assertTrue(both.aspectDocValues());
+    assertTrue(both.resolvedForV3().aspectIndexed());
+    assertTrue(both.resolvedForV3().aspectDocValues());
+
+    DataMap docValuesOnlyMap = labeled("COUNT", "rowCount");
+    DataMap docValuesOnlySource = new DataMap();
+    docValuesOnlySource.put("docValues", true);
+    ((DataMap) docValuesOnlyMap.get("v3")).put("source", docValuesOnlySource);
+    SearchableAnnotation docValuesOnly =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            docValuesOnlyMap, "rowCount", DataSchema.Type.INT, "testField");
+    assertFalse(docValuesOnly.aspectIndexed());
+    assertTrue(docValuesOnly.aspectDocValues());
+
+    DataMap unlabeled = new DataMap();
+    unlabeled.put("fieldType", "BOOLEAN");
+    SearchableAnnotation plain =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            unlabeled, "removed", DataSchema.Type.BOOLEAN, "testField");
+    assertFalse(plain.aspectIndexed());
+    assertFalse(plain.aspectDocValues());
+
+    DataMap entityField = new DataMap();
+    entityField.put("fieldType", "KEYWORD");
+    DataMap entityFieldV3 = new DataMap();
+    entityFieldV3.put("entityFieldName", "name");
+    entityField.put("v3", entityFieldV3);
+    SearchableAnnotation consolidated =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            entityField, "title", DataSchema.Type.STRING, "testField");
+    assertFalse(consolidated.aspectIndexed());
+    assertFalse(consolidated.aspectDocValues());
+
+    DataMap objectField = new DataMap();
+    objectField.put("fieldType", "OBJECT");
+    SearchableAnnotation objectAnnotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            objectField, "ownerTypes", DataSchema.Type.MAP, "testField");
+    assertTrue(objectAnnotation.aspectIndexed());
+    assertTrue(objectAnnotation.aspectDocValues());
+
+    DataMap searchOnly = labeled("KEYWORD", "name");
+    DataMap searchOnlyRoot = new DataMap();
+    searchOnlyRoot.put("type", "KEYWORD");
+    searchOnlyRoot.put("index", false);
+    searchOnlyRoot.put("docValues", false);
+    DataList searchOnlyMappings = new DataList();
+    searchOnlyMappings.add(searchOnlyRoot);
+    ((DataMap) searchOnly.get("v3")).put("mappings", searchOnlyMappings);
+    SearchableAnnotation searchOnlyLabel =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            searchOnly, "name", DataSchema.Type.STRING, "testField");
+    assertFalse(searchOnlyLabel.aspectIndexed());
+    DataMap reenabled = new DataMap();
+    reenabled.put("index", true);
+    ((DataMap) searchOnly.get("v3")).put("source", reenabled);
+    SearchableAnnotation explicitOverSearchOnly =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            searchOnly, "name", DataSchema.Type.STRING, "testField");
+    assertTrue(explicitOverSearchOnly.aspectIndexed());
+    assertFalse(explicitOverSearchOnly.aspectDocValues());
+
+    DataMap objectUnindexed = new DataMap();
+    objectUnindexed.put("fieldType", "OBJECT");
+    DataMap objectV3 = new DataMap();
+    DataMap objectRoot = new DataMap();
+    objectRoot.put("type", "OBJECT");
+    objectRoot.put("index", false);
+    objectRoot.put("docValues", true);
+    DataList objectMappings = new DataList();
+    objectMappings.add(objectRoot);
+    objectV3.put("mappings", objectMappings);
+    objectUnindexed.put("v3", objectV3);
+    SearchableAnnotation followsRoot =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            objectUnindexed, "ownerTypes", DataSchema.Type.MAP, "testField");
+    assertFalse(followsRoot.aspectIndexed());
+    assertTrue(followsRoot.aspectDocValues());
+
+    DataMap badSource = labeled("KEYWORD", "name");
+    ((DataMap) badSource.get("v3")).put("source", "nope");
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                badSource, "name", DataSchema.Type.STRING, "testField"));
+
+    DataMap badFlag = labeled("KEYWORD", "name");
+    DataMap badFlagSource = new DataMap();
+    badFlagSource.put("index", "yes");
+    ((DataMap) badFlag.get("v3")).put("source", badFlagSource);
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                badFlag, "name", DataSchema.Type.STRING, "testField"));
   }
 
   private static DataMap labeled(String fieldType, String searchLabel) {

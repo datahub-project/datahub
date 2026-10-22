@@ -165,24 +165,26 @@ public class AspectMappingBuilderTest {
             AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null).get("testAspect");
     Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
 
-    // Full-text search reads the root fields, so the aspect copies are not analyzed a second time
-    Map<String, Object> unanalyzedString =
+    // A root-projected field keeps an unindexed aspect copy. copy_to still reaches the label.
+    Map<String, Object> unindexed = Map.of(TYPE, "keyword", "index", false, "doc_values", false);
+    for (String stringField : List.of("description", "name", "browsePathV2")) {
+      assertEquals(fields.get(stringField), unindexed, stringField);
+    }
+    assertEquals(
+        fields.get("platform"),
         Map.of(
             TYPE,
             "keyword",
-            "normalizer",
-            "keyword_normalizer",
-            "ignore_above",
-            8191,
-            "fields",
-            Map.of("keyword", Map.of(TYPE, "keyword", "ignore_above", 8191)));
-    for (String stringField : List.of("description", "name", "browsePathV2")) {
-      assertEquals(fields.get(stringField), unanalyzedString, stringField);
-    }
+            "index",
+            false,
+            "doc_values",
+            false,
+            "copy_to",
+            List.of("platform_urn")));
     assertEquals(
-        fields.get("platform"), Map.of(TYPE, "keyword", "copy_to", List.of("platform_urn")));
-    assertEquals(fields.get("lastModified"), Map.of(TYPE, "date"));
-    assertEquals(fields.get("removed"), Map.of(TYPE, "boolean"));
+        fields.get("lastModified"), Map.of(TYPE, "date", "index", false, "doc_values", false));
+    assertEquals(
+        fields.get("removed"), Map.of(TYPE, "boolean", "index", false, "doc_values", false));
   }
 
   private static SearchableFieldSpec mockField(String fieldName, FieldType fieldType) {
