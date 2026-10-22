@@ -2694,6 +2694,7 @@ class TestUnionedDynamicLineageColumnRecompute:
         source.report = AzureDataFactorySourceReport()
         source._datasets_cache = {}
         source._column_lineage_extractors = [CopyActivityColumnLineageExtractor()]
+        source._execute_pipeline_input_datajobs = {}
         return source
 
     def test_recomputes_column_lineage_per_pair_not_first_sorted_pair(self) -> None:
