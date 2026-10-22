@@ -35,6 +35,7 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
     MicroStrategyClient,
+    ModelDocumentProbeResult,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
@@ -45,6 +46,9 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DERIVED_DEBUG_LOG_PREFIX,
     MSTR_DOCUMENT_DEBUG_LOG_PREFIX,
+    MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS,
+    MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS,
+    MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT,
     MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
     MSTR_FOLDER_TYPE_PROFILE_REPORTS,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
@@ -99,6 +103,7 @@ from datahub.ingestion.source.microstrategy.models import (
     is_personal_folder_object,
     metric_enrichment_from_expression,
     normalize_object_id,
+    payload_key_paths_matching,
     payload_key_skeleton,
     payload_type_vocabulary,
 )
@@ -199,6 +204,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._v2_definition_logged_projects: Set[str] = set()
         self._model_empty_logged_projects: Set[str] = set()
         self._document_empty_logged_projects: Set[str] = set()
+        # Project id -> Report Services documents without visualizations whose
+        # Modeling document has been probed (capped per project).
+        self._document_model_probes_by_project: Dict[str, int] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -1262,6 +1270,62 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             skeleton,
         )
 
+    def _probe_document_model(self, project_id: str, document_id: str) -> None:
+        """Diagnostic read of GET /api/model/documents/{id} for a Report
+        Services document whose definition carried no visualizations. On the
+        tenant that motivated this, the definition endpoint answers such
+        documents with a dossier-shaped tree (chapters with empty pages and
+        datasets, no layouts), so the Modeling document is the remaining
+        candidate for the grids and panels a document is made of. Record
+        what it answers in the structured report - status, top-level keys,
+        key skeleton and the key paths whose names suggest contents - for
+        the first few such documents per project, so every copy of a
+        duplicated document need not be read. A non-200 answer (the endpoint
+        has returned 500 for one document) is recorded, never raised."""
+        probed = self._document_model_probes_by_project.get(project_id, 0)
+        if probed >= MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT:
+            return
+        self._document_model_probes_by_project[project_id] = probed + 1
+        self.report.report_document_model_probe()
+        try:
+            result = self.client.probe_model_document(project_id, document_id)
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            result = ModelDocumentProbeResult(
+                status_code=None,
+                excerpt=str(error)[:MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS],
+            )
+        if result.payload is None:
+            self.report.report_document_model_probe_failure()
+            detail = f"status={result.status_code}, body={result.excerpt!r}"
+        else:
+            detail = (
+                f"status={result.status_code}, keys={sorted(result.payload)}, "
+                f"skeleton={payload_key_skeleton(result.payload)}, "
+                "content_hints="
+                f"{payload_key_paths_matching(result.payload, MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS)}"
+            )
+        context = f"project_id={project_id}, document_id={document_id}, {detail}"
+        self.report.info(
+            title="Document model probe",
+            message=(
+                "GET /api/model/documents/{id} was read for a Report Services "
+                "document whose definition carried no visualizations, to learn "
+                "whether the Modeling service describes the document's grids "
+                "and layout; its status, top-level keys, key skeleton and the "
+                "key paths that look like contents (or the error body) are "
+                "recorded for the first few such documents per project."
+            ),
+            context=context,
+            log=False,
+        )
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s document model probe %s", MSTR_DOCUMENT_DEBUG_LOG_PREFIX, context
+        )
+
     def _debug_v2_definition_payload(
         self,
         project_id: str,
@@ -1523,6 +1587,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self._debug_document_definition_without_visualizations(
                 project_id, dashboard_id, response
             )
+            self._probe_document_model(project_id, dashboard_id)
         if self.config.extract_lineage and self.config.extract_visualization_details:
             self._enrich_visualization_details(project_id, dashboard_object, dashboard)
         if self.config.extract_lineage:

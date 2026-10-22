@@ -1322,6 +1322,7 @@ def extract_document_derived_metric_definitions(
 PAYLOAD_SKELETON_MAX_DEPTH = 6
 PAYLOAD_SKELETON_MAX_CHARS = 4000
 PAYLOAD_SKELETON_MAX_TYPE_VALUES = 50
+PAYLOAD_SKELETON_MAX_HINT_PATHS = 50
 _SKELETON_LIST_LENGTH_KEY = "$len"
 _SKELETON_LIST_ITEM_KEY = "$item"
 _SKELETON_TRUNCATED_SUFFIX = "..."
@@ -1426,6 +1427,37 @@ def payload_key_skeleton(
     Depth-limited (deeper containers collapse to `dict[n]`/`list[n]`) and
     capped at `max_chars`."""
     return _capped_json(_payload_skeleton(value, max_depth), max_chars)
+
+
+def payload_key_paths_matching(
+    value: object,
+    needles: Iterable[str],
+    max_depth: int = PAYLOAD_SKELETON_MAX_DEPTH,
+    max_paths: int = PAYLOAD_SKELETON_MAX_HINT_PATHS,
+) -> List[str]:
+    """Sorted key paths within the depth-limited skeleton of `value` whose
+    own key name contains any of `needles` (case-insensitive). List items
+    are written `[]`, so `layouts[].sections[].nodes` names a key reached
+    through two lists. Same depth rule as payload_key_skeleton, so every
+    path returned is visible in the skeleton logged beside it; key names
+    only, never values."""
+    lowered = [needle.lower() for needle in needles]
+    found: List[str] = []
+
+    def visit(node: object, prefix: str) -> None:
+        if not isinstance(node, dict):
+            return
+        if _SKELETON_LIST_ITEM_KEY in node and _SKELETON_LIST_LENGTH_KEY in node:
+            visit(node[_SKELETON_LIST_ITEM_KEY], f"{prefix}[]")
+            return
+        for key, child in node.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if any(needle in key.lower() for needle in lowered):
+                found.append(path)
+            visit(child, path)
+
+    visit(_payload_skeleton(value, max_depth), "")
+    return sorted(found)[:max_paths]
 
 
 def first_derived_node_skeleton(

@@ -11,6 +11,7 @@ from datahub.ingestion.source.microstrategy.models import (
     extract_document_derived_metric_definitions,
     first_derived_node_skeleton,
     is_personal_folder_object,
+    payload_key_paths_matching,
     payload_key_skeleton,
     payload_type_vocabulary,
 )
@@ -815,3 +816,47 @@ def test_document_derived_metrics_keyed_by_defining_dataset() -> None:
 def test_document_derived_metrics_tolerate_missing_datasets() -> None:
     assert extract_document_derived_metric_definitions({}) == {}
     assert extract_document_derived_metric_definitions({"datasets": "x"}) == {}
+
+
+def test_payload_key_paths_matching_names_content_keys_through_lists() -> None:
+    payload: Dict[str, Any] = {
+        "id": "doc-1",
+        "datasets": [{"id": "ds-1", "name": "DCS - Dataset"}],
+        "layouts": [
+            {"sections": [{"nodes": [{"gridTemplate": {"id": "t"}, "shapes": []}]}]}
+        ],
+        "chapters": [{"pages": [{"layout": {"nodes": []}}]}],
+    }
+
+    assert payload_key_paths_matching(
+        payload, ("layout", "grid", "section", "node", "shape")
+    ) == [
+        "chapters[].pages[].layout",
+        "chapters[].pages[].layout.nodes",
+        "layouts",
+        "layouts[].sections",
+        "layouts[].sections[].nodes",
+        "layouts[].sections[].nodes[].gridTemplate",
+        "layouts[].sections[].nodes[].shapes",
+    ]
+    # Matched on the key name, case-insensitively; never on values.
+    assert payload_key_paths_matching({"GridUnits": "layout"}, ("grid",)) == [
+        "GridUnits"
+    ]
+    assert payload_key_paths_matching(payload, ("prompt",)) == []
+    assert payload_key_paths_matching("scalar", ("grid",)) == []
+
+
+def test_payload_key_paths_matching_is_depth_limited_and_capped() -> None:
+    payload = {"a": {"b": {"c": {"grid": 1}}}}
+
+    # Same depth rule as the skeleton: a key the skeleton collapses to
+    # `dict[n]` is not named either.
+    assert payload_key_paths_matching(payload, ("grid",), max_depth=3) == []
+    assert payload_key_paths_matching(payload, ("grid",), max_depth=4) == ["a.b.c.grid"]
+    many = {f"grid{n}": n for n in range(10)}
+    assert payload_key_paths_matching(many, ("grid",), max_paths=3) == [
+        "grid0",
+        "grid1",
+        "grid2",
+    ]

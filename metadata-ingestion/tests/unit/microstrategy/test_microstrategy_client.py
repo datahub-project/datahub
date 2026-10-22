@@ -9,6 +9,7 @@ from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
     MicroStrategyAuthError,
     MicroStrategyClient,
+    ModelDocumentProbeResult,
 )
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -1052,3 +1053,105 @@ def test_dashboard_instance_body_follows_resolve_only(
 
     assert getattr(client, method_name)("project-1", "dash-1") == "inst-1"
     assert bodies == [{"resolveOnly": True} if resolve_only else {}]
+
+
+class _TextResponse:
+    """A response with a body text, as the Modeling document probe keeps an
+    excerpt of it; `payload` is what json() returns, None meaning not JSON."""
+
+    def __init__(
+        self, status_code: int, text: str, payload: Optional[Any] = None
+    ) -> None:
+        self.status_code = status_code
+        self.text = text
+        self.headers: Dict[str, str] = {}
+        self.content = text.encode()
+        self._payload = payload
+
+    def json(self) -> Any:
+        if self._payload is None:
+            raise ValueError("invalid json")
+        return self._payload
+
+
+def test_probe_model_document_returns_the_payload_on_200(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client()
+    calls: list[Dict[str, Any]] = []
+
+    def fake_request(**kwargs: Any) -> _TextResponse:
+        calls.append(kwargs)
+        return _TextResponse(200, '{"layouts": []}', payload={"layouts": []})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    result = client.probe_model_document("project-1", "doc-1")
+
+    assert result == ModelDocumentProbeResult(status_code=200, payload={"layouts": []})
+    assert calls[0]["method"] == "GET"
+    assert calls[0]["url"].endswith("/api/model/documents/doc-1")
+    assert calls[0]["headers"]["X-MSTR-ProjectID"] == "project-1"
+    assert report.api_errors == 0
+
+
+def test_probe_model_document_records_a_500_without_raising_or_retrying(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client({"max_retries": 3})
+    body = '{"code":"ERR001","message":"' + "x" * 400 + '"}'
+    calls: list[Dict[str, Any]] = []
+
+    def fake_request(**kwargs: Any) -> _TextResponse:
+        calls.append(kwargs)
+        return _TextResponse(500, body)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    with mock.patch("time.sleep") as fake_sleep:
+        result = client.probe_model_document("project-1", "doc-1")
+
+    # The answer is the finding: one request, no backoff, no API error.
+    assert result.status_code == 500
+    assert result.payload is None
+    assert result.excerpt == body[:300]
+    assert len(calls) == 1
+    assert fake_sleep.call_count == 0
+    assert report.api_errors == 0
+
+
+def test_probe_model_document_keeps_an_excerpt_of_a_non_json_200(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client()
+
+    def fake_request(**kwargs: Any) -> _TextResponse:
+        return _TextResponse(200, "<html>login page</html>")
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    result = client.probe_model_document("project-1", "doc-1")
+
+    assert result == ModelDocumentProbeResult(
+        status_code=200, excerpt="<html>login page</html>"
+    )
+    assert report.api_errors == 0
+
+
+def test_probe_model_document_records_a_failed_request(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, report = _make_client({"max_retries": 0})
+
+    def fake_request(**kwargs: Any) -> _TextResponse:
+        raise requests.ConnectionError("connection refused")
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    result = client.probe_model_document("project-1", "doc-1")
+
+    assert result.status_code is None
+    assert result.payload is None
+    assert result.excerpt is not None
+    assert "connection refused" in result.excerpt
+    assert report.api_errors == 1

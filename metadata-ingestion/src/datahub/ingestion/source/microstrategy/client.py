@@ -1,5 +1,6 @@
 import logging
 import time
+from dataclasses import dataclass
 from typing import (
     Any,
     Dict,
@@ -31,6 +32,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_API_OBJECT,
     MSTR_API_PROJECTS,
     MSTR_API_SEARCHES,
+    MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS,
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
     MSTR_MS_INSTANCE_HEADER,
@@ -65,6 +67,26 @@ _METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
 # Cap backoff so a hostile Retry-After header or large max_retries cannot
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
+
+# probe_model_document hands every HTTP answer back to its caller instead of
+# raising: the endpoint has answered 500 for one document on a live tenant,
+# and what it answers is the finding. 401 still goes through session
+# recovery, and the transient statuses other than 500 still retry.
+_PROBE_PASSTHROUGH_STATUS_CODES = (
+    set(range(200, 600)) - {401} - (_RETRYABLE_STATUS_CODES - {500})
+)
+
+
+@dataclass(frozen=True)
+class ModelDocumentProbeResult:
+    """What GET /api/model/documents/{id} answered a diagnostic probe with:
+    the HTTP status (None when no HTTP answer arrived), the parsed JSON body
+    on 200, else the first MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS characters
+    of the response text or error message."""
+
+    status_code: Optional[int]
+    payload: Optional[Dict[str, Any]] = None
+    excerpt: Optional[str] = None
 
 
 class MicroStrategyAPIError(RuntimeError):
@@ -433,6 +455,48 @@ class MicroStrategyClient:
             project_id=project_id,
             headers=({MSTR_MS_INSTANCE_HEADER: instance_id} if instance_id else None),
         )
+
+    def probe_model_document(
+        self, project_id: str, document_id: str
+    ) -> ModelDocumentProbeResult:
+        """Diagnostic GET /api/model/documents/{id}: what the Modeling service
+        answers for a document, whatever the status. Unlike get_model_document
+        an HTTP answer is never raised or counted as an API error - a 500
+        (seen on a live tenant), 403 or 404 is the result - so a caller can
+        record it and move on. Dead auth still propagates."""
+        path = f"/api/model/documents/{document_id}"
+        try:
+            response = self._request(
+                "GET",
+                path,
+                project_id=project_id,
+                expected_statuses=_PROBE_PASSTHROUGH_STATUS_CODES,
+            )
+        except MicroStrategyAPIError as error:
+            return ModelDocumentProbeResult(
+                status_code=error.status_code,
+                excerpt=str(error)[:MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS],
+            )
+        if response.status_code == 200:
+            try:
+                value = response.json()
+            except ValueError:
+                return ModelDocumentProbeResult(
+                    status_code=response.status_code,
+                    excerpt=self._response_excerpt(response),
+                )
+            return ModelDocumentProbeResult(
+                status_code=response.status_code,
+                payload=value if isinstance(value, dict) else {"result": value},
+            )
+        return ModelDocumentProbeResult(
+            status_code=response.status_code,
+            excerpt=self._response_excerpt(response),
+        )
+
+    @staticmethod
+    def _response_excerpt(response: requests.Response) -> str:
+        return (response.text or "")[:MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS]
 
     def list_model_tables(
         self,

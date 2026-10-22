@@ -93,6 +93,23 @@ MSTR_DERIVED_DEBUG_LOG_PREFIX = "[mstr-derived-debug]"
 # layouts[].visualizations[], so an empty result means the tenant answered
 # with a shape the parser does not know yet.
 MSTR_DOCUMENT_DEBUG_LOG_PREFIX = "[mstr-document-debug]"
+# Diagnostic probe of GET /api/model/documents/{id} for those documents: how
+# many documents per project are probed, how much of a non-200 (or non-JSON)
+# answer is kept, and the key-name fragments that mark a path in the answer
+# as describing the document's contents (grids, layout, panels) rather than
+# its datasets or prompts.
+MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT = 3
+MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS = 300
+MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS = (
+    "layout",
+    "visualization",
+    "grid",
+    "section",
+    "node",
+    "panel",
+    "template",
+    "shape",
+)
 
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
