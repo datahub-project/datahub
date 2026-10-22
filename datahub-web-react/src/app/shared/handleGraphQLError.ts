@@ -23,14 +23,21 @@ export default function handleGraphQLError({
     toast.destroy();
     const { graphQLErrors } = error;
     if (graphQLErrors && graphQLErrors.length) {
-        const { extensions } = graphQLErrors[0];
+        const { extensions, message: serverMessage } = graphQLErrors[0];
         const errorCode = extensions && (extensions.code as number);
+        const errorSource = extensions && (extensions.errorSource as string);
         if (errorCode === ErrorCodes.Forbidden) {
             toast.error(permissionMessage);
             return;
         }
-        if (errorCode === ErrorCodes.BadRequest && badRequestMessage) {
-            toast.error(badRequestMessage);
+        if (errorCode === ErrorCodes.BadRequest && errorSource === 'VALIDATION') {
+            // The validator's own text is more specific than any caller override, so it wins.
+            toast.error(serverMessage?.trim() || badRequestMessage || defaultMessage);
+            return;
+        }
+        if (errorCode === ErrorCodes.BadRequest) {
+            // Other 400 messages may carry server internals, so never show them verbatim.
+            toast.error(badRequestMessage || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.ServerError && serverErrorMessage) {
