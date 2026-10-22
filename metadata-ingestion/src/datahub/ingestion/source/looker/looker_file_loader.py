@@ -12,7 +12,10 @@ from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
 )
 from datahub.ingestion.source.looker.lookml_config import (
+    DASHBOARD_FILE_EXTENSION,
     EXPLORE_FILE_EXTENSION,
+    LKML_FILE_EXTENSION,
+    MODEL_FILE_EXTENSION,
     VIEW_FILE_EXTENSION,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -43,15 +46,24 @@ class LookerViewFileLoader:
         self.manifest_constants = manifest_constants or {}
 
     def _load_viewfile(
-        self, project_name: str, path: str, reporter: LookMLSourceReport
+        self,
+        project_name: str,
+        path: str,
+        reporter: LookMLSourceReport,
+        allow_any_lkml_file: bool = False,
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
         allowed_extensions = [VIEW_FILE_EXTENSION, EXPLORE_FILE_EXTENSION]
+        if allow_any_lkml_file:
+            allowed_extensions = [LKML_FILE_EXTENSION]
         matched_any_extension = [
             match for match in [path.endswith(x) for x in allowed_extensions] if match
         ]
-        if not matched_any_extension:
+        # Wildcard includes can match model and dashboard files, which hold no views
+        if not matched_any_extension or path.endswith(
+            (MODEL_FILE_EXTENSION, DASHBOARD_FILE_EXTENSION)
+        ):
             # not a view file
             logger.debug(
                 f"Skipping file {path} because it doesn't appear to be a view file. Matched extensions {allowed_extensions}"
@@ -124,11 +136,18 @@ class LookerViewFileLoader:
         project_name: str,
         connection: Optional[LookerConnectionDefinition],
         reporter: LookMLSourceReport,
+        allow_any_lkml_file: bool = False,
     ) -> Optional[LookerViewFile]:
+        """
+        By default only .view.lkml and .explore.lkml files are loaded. Set allow_any_lkml_file
+        to load views from any included .lkml file, e.g. when looking up refinements, which
+        can be defined in any LookML file of the project.
+        """
         viewfile = self._load_viewfile(
             project_name=project_name,
             path=path,
             reporter=reporter,
+            allow_any_lkml_file=allow_any_lkml_file,
         )
         if viewfile is None:
             return None

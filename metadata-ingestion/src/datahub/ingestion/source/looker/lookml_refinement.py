@@ -4,7 +4,7 @@ import logging
 from typing import ClassVar, Dict, List, Set
 
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
-from datahub.ingestion.source.looker.looker_constant import NAME
+from datahub.ingestion.source.looker.looker_constant import DERIVED_TABLE, NAME
 from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.lookml_config import (
@@ -108,26 +108,46 @@ class LookerRefinementResolver:
         """
         Iterate over refinement_views and merge parameter of each view with raw_view.
         Detail of merging order can be found at https://cloud.google.com/looker/docs/lookml-refinements
+
+        A refinement overrides the view parameters it sets, except that dimensions,
+        measures and dimension_groups are merged by name, derived_table is merged
+        sub-parameter by sub-parameter, and extends is not applied.
         """
         new_raw_view: dict = copy.deepcopy(raw_view)
 
         for refinement_view in refinement_views:
-            # Merge dimension and measure
-            # TODO: low priority: handle additive parameters
+            # TODO: handle additive parameters: extends for views; bind_filters,
+            # dev_filters, filters and sorts for derived tables; action, filters and
+            # link for fields; allowed_value for parameters.
             # https://cloud.google.com/looker/docs/lookml-refinements#some_parameters_are_additive
-
-            # Merge Dimension
-            LookerRefinementResolver.merge_and_set_column(
-                new_raw_view, refinement_view, LookerRefinementResolver.DIMENSIONS
-            )
-            # Merge Measure
-            LookerRefinementResolver.merge_and_set_column(
-                new_raw_view, refinement_view, LookerRefinementResolver.MEASURES
-            )
-            # Merge Dimension Group
-            LookerRefinementResolver.merge_and_set_column(
-                new_raw_view, refinement_view, LookerRefinementResolver.DIMENSION_GROUPS
-            )
+            refinement: dict = copy.deepcopy(refinement_view)
+            for key, value in refinement.items():
+                if key in (
+                    NAME,
+                    LookerRefinementResolver.EXTENDS,
+                    LookerRefinementResolver.EXTENDS_ALL,
+                ):
+                    continue
+                if key in (
+                    LookerRefinementResolver.DIMENSIONS,
+                    LookerRefinementResolver.MEASURES,
+                    LookerRefinementResolver.DIMENSION_GROUPS,
+                ):
+                    LookerRefinementResolver.merge_and_set_column(
+                        new_raw_view, refinement, key
+                    )
+                elif key == DERIVED_TABLE and isinstance(
+                    new_raw_view.get(DERIVED_TABLE), dict
+                ):
+                    # derived_table is refined sub-parameter by sub-parameter, so that
+                    # e.g. refining its persistence keeps the sql of the view
+                    new_raw_view[DERIVED_TABLE] = {
+                        **new_raw_view[DERIVED_TABLE],
+                        **value,
+                    }
+                else:
+                    # Any other parameter (e.g. sql_table_name) is overridden
+                    new_raw_view[key] = value
 
         return new_raw_view
 
@@ -146,6 +166,11 @@ class LookerRefinementResolver:
         return refined_views
 
     def get_refinement_from_model_includes(self, view_name: str) -> List[dict]:
+        """
+        A refinement can be defined in any LookML file of the project, including the model file.
+        Refinements from included files are returned in include order, followed by the ones
+        defined in the model file itself.
+        """
         refined_views: List[dict] = []
 
         for include in self.looker_model.resolved_includes:
@@ -154,6 +179,7 @@ class LookerRefinementResolver:
                 include.project,
                 self.connection_definition,
                 self.reporter,
+                allow_any_lkml_file=True,
             )
 
             if not included_looker_viewfile:
@@ -162,6 +188,8 @@ class LookerRefinementResolver:
             refined_views.extend(
                 self.get_refinements(included_looker_viewfile.views, view_name)
             )
+
+        refined_views.extend(self.get_refinements(self.looker_model.views, view_name))
 
         return refined_views
 
