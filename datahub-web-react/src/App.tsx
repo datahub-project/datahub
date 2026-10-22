@@ -7,6 +7,7 @@ import Cookies from 'js-cookie';
 import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
+import { StyleSheetManager } from 'styled-components';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
 import { ToastRenderer } from '@components/components/Toast';
@@ -126,26 +127,30 @@ export const InnerApp: React.VFC = () => {
     const isDarkMode = loadIsDarkMode();
 
     return (
-        <HelmetProvider>
-            <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
-                <GlobalStyles />
-                {/* ToastRenderer translates its own labels and sits above the router's boundary,
-                    so it needs one of its own while the locale bundle loads. */}
-                <Suspense fallback={null}>
-                    <ToastRenderer />
-                </Suspense>
-                <FilesUploadingDownloadingLatencyTracker />
-
-                <Helmet>
-                    <title>{useCustomTheme().theme?.content?.title}</title>
-                </Helmet>
-                <Router basename={getRuntimeBasePath()}>
-                    <Suspense fallback={<SuspenseGlobal />}>
-                        <Routes />
+        // Lazy route chunks add library CSS to <head> after styled-components' tag. Keeping our styles in
+        // <body> puts them after every stylesheet, so they win at equal specificity however late a chunk loads.
+        <StyleSheetManager target={document.body}>
+            <HelmetProvider>
+                <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
+                    <GlobalStyles />
+                    {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                        so it needs one of its own while the locale bundle loads. */}
+                    <Suspense fallback={null}>
+                        <ToastRenderer />
                     </Suspense>
-                </Router>
-            </CustomThemeProvider>
-        </HelmetProvider>
+                    <FilesUploadingDownloadingLatencyTracker />
+
+                    <Helmet>
+                        <title>{useCustomTheme().theme?.content?.title}</title>
+                    </Helmet>
+                    <Router basename={getRuntimeBasePath()}>
+                        <Suspense fallback={<SuspenseGlobal />}>
+                            <Routes />
+                        </Suspense>
+                    </Router>
+                </CustomThemeProvider>
+            </HelmetProvider>
+        </StyleSheetManager>
     );
 };
 

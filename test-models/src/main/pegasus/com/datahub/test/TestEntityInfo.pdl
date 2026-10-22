@@ -7,7 +7,8 @@ import com.linkedin.common.CustomProperties
  * Info associated with a Test Entity
  */
 @Aspect = {
-  "name": "testEntityInfo"
+  "name": "testEntityInfo",
+  "schemaVersion": 2
 }
 record TestEntityInfo includes CustomProperties {
 
@@ -40,7 +41,10 @@ record TestEntityInfo includes CustomProperties {
     "entityTypes": []
   }
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "queryByDefault": false
+    }
   }
   foreignKey: optional Urn
 
@@ -63,7 +67,10 @@ record TestEntityInfo includes CustomProperties {
       "entityTypes": []
     }
     @Searchable = {
-      "fieldType": "URN_PARTIAL"
+      "fieldType": "URN_PARTIAL",
+      "v3": {
+        "queryByDefault": false
+      }
     }
     nestedForeignKey: optional Urn
   }

@@ -84,7 +84,7 @@ public class MappingsBuilderFactory {
       // V3 documents carry hashed ids. Recording the running scheme on every V3 index at creation
       // lets the incremental upgrade detect a later hasher change and rebuild the index.
       return new DocumentIdSchemeStampingMappingsBuilder(
-          new MultiEntityMappingsBuilder(entityIndexConfig, keywordMaxLength, contributors),
+          new MultiEntityMappingsBuilder(entityIndexConfig, null, keywordMaxLength, contributors),
           v3DocumentIdScheme);
     } catch (IOException e) {
       log.error("Failed to initialize MultiEntityMappingsBuilder", e);

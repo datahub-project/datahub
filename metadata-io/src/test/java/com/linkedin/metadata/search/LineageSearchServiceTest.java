@@ -5,6 +5,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -1650,6 +1651,46 @@ public class LineageSearchServiceTest {
         null,
         "5m",
         10);
+  }
+
+  @Test
+  public void testGraphWalkLeavesSearchSurfaceUnset() throws Exception {
+    Urn sourceUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,pet_profiles,PROD)");
+    EntityLineageResult lineageResult = new EntityLineageResult();
+    lineageResult.setTotal(1);
+    lineageResult.setRelationships(new LineageRelationshipArray());
+    LineageRelationship relationship = new LineageRelationship();
+    relationship.setEntity(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,downstream,PROD)"));
+    relationship.setType("DownstreamOf");
+    relationship.setDegree(1);
+    lineageResult.getRelationships().add(relationship);
+    when(_graphService.getImpactLineage(any(), eq(sourceUrn), any(), anyInt()))
+        .thenReturn(lineageResult);
+
+    _lineageSearchService.searchAcrossLineage(
+        _operationContext,
+        sourceUrn,
+        LineageDirection.DOWNSTREAM,
+        Collections.singletonList(DATASET_ENTITY_NAME),
+        "pet profiles",
+        1,
+        null,
+        null,
+        0,
+        10);
+
+    ArgumentCaptor<OperationContext> captor = ArgumentCaptor.forClass(OperationContext.class);
+    verify(_searchService)
+        .searchAcrossEntities(
+            captor.capture(),
+            any(),
+            eq("pet profiles"),
+            any(),
+            nullable(List.class),
+            anyInt(),
+            nullable(Integer.class));
+    assertNull(captor.getValue().getSearchContext().getSearchSurface());
   }
 
   private EntityLineageResult createMockEntityLineageResult() {
