@@ -42,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class IncidentMapper {
   private static final UnknownDataGuard UNREPRESENTABLE =
-      UnknownDataGuard.forSite(IncidentMapper.class, "incident");
+      UnknownDataGuard.forSite(IncidentMapper.class, "entity of incident");
 
   @Nullable
   public static Incident map(@Nullable QueryContext context, final EntityResponse entityResponse) {
@@ -65,19 +65,23 @@ public class IncidentMapper {
       result.setPriority(mapPriority(info.getPriority(GetMode.NULL)));
       result.setAssignees(mapAssignees(info.getAssignees(GetMode.NULL)));
       // TODO: Support multiple entities per incident.
-      // Incident.entity is non-null: use the first linked entity GraphQL can map, skipping entity
-      // types the registry doesn't know (e.g. after a rollback). With none left the incident can't
-      // be represented, so it is skipped rather than nulling the list or object that holds it.
+      // Use the first linked entity GraphQL can map, skipping entity types the registry doesn't
+      // know (e.g. after a rollback). With none left only `entity` stays unset, as before
+      // tolerance: the incident itself is still returned, because a null here would null the
+      // non-null search hit or list that loaded it (e.g. the whole incident search page).
       if (handling().isTolerant()) {
         final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
-        if (linkedEntity == null) {
+        if (linkedEntity != null) {
+          result.setEntity(linkedEntity);
+        } else {
           // Logged only: mapFirst already counted each entity the registry doesn't know, and
           // entities the registry knows but GraphQL can't show aren't rollback data.
           UNREPRESENTABLE.skippedBecause(
-              Optional.empty(), "incident", "none of its entities can be represented", entityUrn);
-          return null;
+              Optional.empty(),
+              "incident entity",
+              "none of its entities can be represented",
+              entityUrn);
         }
-        result.setEntity(linkedEntity);
       } else {
         result.setEntity(UrnToEntityMapper.map(context, info.getEntities().get(0)));
       }
