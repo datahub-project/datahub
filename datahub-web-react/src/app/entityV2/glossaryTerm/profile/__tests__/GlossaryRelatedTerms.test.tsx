@@ -199,5 +199,77 @@ describe('Glossary Related Terms', () => {
 
         await waitFor(() => expect(relatedTermsRefetch).toHaveBeenCalled());
         expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:kept');
+
+        relatedTermsQuery.mockReturnValue({
+            data: {
+                glossaryTerm: {
+                    urn: 'urn:li:glossaryTerm:current',
+                    hasRelatedTerms: { relationships: [kept, removed] },
+                },
+            },
+            loading: false,
+            refetch: relatedTermsRefetch,
+        });
+        rerender(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:kept');
+    });
+
+    it('shows an empty list when the tab query settles empty before the profile urn catches up', async () => {
+        entityState.urn = 'urn:li:glossaryTerm:empty';
+        entityState.entityData = { urn: 'urn:li:glossaryTerm:previous' };
+        entityState.loading = false;
+        relatedTermsQuery.mockReturnValue({
+            data: {
+                glossaryTerm: {
+                    urn: 'urn:li:glossaryTerm:empty',
+                    hasRelatedTerms: { relationships: [] },
+                },
+            },
+            loading: false,
+            refetch: relatedTermsRefetch,
+        });
+
+        render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(screen.getByTestId('related-results')).toBeInTheDocument());
+        expect(screen.getByTestId('related-results')).toHaveTextContent('');
+    });
+
+    it('retries the profile refetch when the cached term is still behind and the first refetch fails', async () => {
+        entityState.urn = 'urn:li:glossaryTerm:next';
+        entityState.entityData = { urn: 'urn:li:glossaryTerm:current' };
+        entityState.loading = false;
+        entityState.refetch.mockRejectedValueOnce(new Error('profile refetch failed'));
+        entityState.refetch.mockResolvedValueOnce({});
+
+        const { rerender } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(entityState.refetch).toHaveBeenCalledTimes(2));
+        rerender(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(entityState.refetch).toHaveBeenCalledTimes(2);
     });
 });

@@ -19,16 +19,25 @@ describe('glossary related terms selection', () => {
         expect(relationshipEntries(undefined, 'hasRelatedTerms')).toEqual([]);
     });
 
-    it('uses a settled fetch, and the profile list while that fetch is in flight', () => {
+    it('keeps the edited profile list until the fetched urns match it', () => {
         const kept = { entity: { urn: 'urn:li:glossaryTerm:kept' } };
         const removed = { entity: { urn: 'urn:li:glossaryTerm:removed' } };
         const profile = [kept];
-        const fetched = [kept, removed];
+        const staleFetched = [kept, removed];
+        const settled = { fetchedSettled: true, holdForProfile: false, fetchFailed: false };
 
-        expect(pickGlossaryRelatedRelationships([], fetched, true)).toBe(fetched);
-        expect(pickGlossaryRelatedRelationships(profile, [], true)).toBe(profile);
-        expect(pickGlossaryRelatedRelationships(profile, fetched, true)).toBe(fetched);
-        expect(pickGlossaryRelatedRelationships(profile, fetched, false)).toBe(profile);
+        expect(pickGlossaryRelatedRelationships([], staleFetched, settled)).toBe(staleFetched);
+        expect(pickGlossaryRelatedRelationships(profile, staleFetched, { ...settled, holdForProfile: true })).toBe(
+            profile,
+        );
+        expect(pickGlossaryRelatedRelationships(profile, staleFetched, { ...settled, fetchedSettled: false })).toBe(
+            profile,
+        );
+        expect(pickGlossaryRelatedRelationships(profile, [kept], settled)).toEqual([kept]);
+        expect(pickGlossaryRelatedRelationships([kept, removed], [], settled)).toEqual([]);
+        expect(pickGlossaryRelatedRelationships(profile, staleFetched, { ...settled, fetchFailed: true })).toBe(
+            profile,
+        );
     });
 
     it('changes the signature when a relationship is removed', () => {
@@ -49,12 +58,11 @@ describe('glossary related terms selection', () => {
         expect(glossaryRelationshipSignature(before, keys)).toBe(glossaryRelationshipSignature(before, keys));
     });
 
-    it('stays pending until the current term has relationships or both reads have settled empty', () => {
+    it('shows an empty tab once this urn’s query has settled', () => {
         expect(
             glossaryRelatedTermsArePending({
                 urn: 'urn:li:glossaryTerm:next',
                 relationshipCount: 0,
-                profileReady: false,
                 fetchedSettled: false,
             }),
         ).toBe(true);
@@ -63,7 +71,6 @@ describe('glossary related terms selection', () => {
             glossaryRelatedTermsArePending({
                 urn: 'urn:li:glossaryTerm:next',
                 relationshipCount: 1,
-                profileReady: false,
                 fetchedSettled: false,
             }),
         ).toBe(false);
@@ -72,7 +79,6 @@ describe('glossary related terms selection', () => {
             glossaryRelatedTermsArePending({
                 urn: 'urn:li:glossaryTerm:next',
                 relationshipCount: 0,
-                profileReady: true,
                 fetchedSettled: true,
             }),
         ).toBe(false);

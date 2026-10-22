@@ -31,36 +31,39 @@ export function glossaryRelationshipSignature(
 export function pickGlossaryRelatedRelationships(
     profileRelationships: ReadonlyArray<unknown>,
     fetchedRelationships: ReadonlyArray<unknown>,
-    fetchedSettled: boolean,
+    {
+        fetchedSettled,
+        holdForProfile,
+        fetchFailed,
+    }: {
+        fetchedSettled: boolean;
+        // True after an add or remove until getRelatedTerms returns the same urns as the profile.
+        holdForProfile: boolean;
+        fetchFailed: boolean;
+    },
 ): ReadonlyArray<unknown> {
-    // While getRelatedTerms is in flight, including the refetch after an edit, show the profile
-    // list. A settled fetch is the list for this tab, so a longer cached fetch cannot hide a term
-    // that was just removed. An empty settled fetch still falls back to a non-empty profile list.
-    if (!fetchedSettled) {
+    // A settled fetch that has not caught up to the edited profile, or one that failed and left
+    // the previous payload in place, must not put a removed term back on screen. An empty settled
+    // fetch is itself the result: a stale non-empty profile does not replace it.
+    if (!fetchedSettled || holdForProfile || fetchFailed) {
         return profileRelationships;
     }
-    if (fetchedRelationships.length > 0) {
-        return fetchedRelationships;
-    }
-    return profileRelationships.length > 0 ? profileRelationships : fetchedRelationships;
+    return fetchedRelationships;
 }
 
 export function glossaryRelatedTermsArePending({
     urn,
     relationshipCount,
-    profileReady,
     fetchedSettled,
 }: {
     urn?: string;
     relationshipCount: number;
-    profileReady: boolean;
     fetchedSettled: boolean;
 }): boolean {
     if (!urn || relationshipCount > 0) {
         return false;
     }
-    if (!fetchedSettled) {
-        return true;
-    }
-    return !profileReady;
+    // A term with no relationships is an empty tab once this urn's query has settled. Waiting on
+    // the profile urn leaves the loader up when that refetch fails.
+    return !fetchedSettled;
 }

@@ -43,12 +43,17 @@ export default function GlossayRelatedTerms() {
     const refetch = useRefetch();
     const [selectedKey, setSelectedKey] = useState('');
     const menuOptionsArray = Object.keys(RelatedTermTypes);
-    const requestedUrn = useRef<string | null>(null);
+    const succeededProfileUrn = useRef<string | null>(null);
+    const profileRefetchInFlight = useRef<string | null>(null);
+    const profileRefetchAttempts = useRef<{ urn: string; count: number } | null>(null);
+    const [profileRefetchAttempt, setProfileRefetchAttempt] = useState(0);
     const seenProfileSignature = useRef<{ urn: string; signature: string } | null>(null);
+    const awaitingProfileSignature = useRef<string | null>(null);
 
     const {
         data,
         loading: fetchedLoading,
+        error: fetchedError,
         refetch: refetchRelatedTerms,
     } = useGetRelatedTermsQuery({
         variables: { urn, count: RELATED_TERMS_PAGE_SIZE },
@@ -63,15 +68,41 @@ export default function GlossayRelatedTerms() {
         }
     }, [menuOptionsArray, selectedKey]);
 
-    // cache-first keeps the previous term in context after the route changes. Refetch once so the
-    // profile payload, including the tab count, catches up to the term on screen.
+    // cache-first can keep the previous term after the route changes, and its own fetch often
+    // leaves `loading` false. Refetch only while this urn is still behind, and only remember the
+    // urn after that refetch resolves so a failure can try again.
     useEffect(() => {
-        if (!urn || profileLoading || entityData?.urn === urn || requestedUrn.current === urn) {
+        if (!urn || profileLoading || entityData?.urn === urn || succeededProfileUrn.current === urn) {
             return;
         }
-        requestedUrn.current = urn;
-        refetch();
-    }, [urn, profileLoading, entityData?.urn, refetch]);
+        if (profileRefetchInFlight.current === urn) {
+            return;
+        }
+        const previousAttempts = profileRefetchAttempts.current;
+        const attemptsForUrn = previousAttempts?.urn === urn ? previousAttempts.count : 0;
+        // One retry. The empty tab no longer waits on this request, and a rejected refetch must
+        // not schedule itself forever.
+        if (attemptsForUrn >= 2) {
+            return;
+        }
+        const requested = urn;
+        profileRefetchAttempts.current = { urn: requested, count: attemptsForUrn + 1 };
+        profileRefetchInFlight.current = requested;
+        Promise.resolve()
+            .then(() => refetch())
+            .then(() => {
+                succeededProfileUrn.current = requested;
+                if (profileRefetchInFlight.current === requested) {
+                    profileRefetchInFlight.current = null;
+                }
+            })
+            .catch(() => {
+                if (profileRefetchInFlight.current === requested) {
+                    profileRefetchInFlight.current = null;
+                }
+                setProfileRefetchAttempt((attempt) => attempt + 1);
+            });
+    }, [urn, profileLoading, entityData?.urn, refetch, profileRefetchAttempt]);
 
     const profileForUrn =
         entityData?.urn === urn ? (entityData as Record<string, { relationships?: ReadonlyArray<unknown> }>) : null;
@@ -86,9 +117,14 @@ export default function GlossayRelatedTerms() {
         }
         const seen = seenProfileSignature.current;
         seenProfileSignature.current = { urn, signature: profileSignature };
-        if (!seen || seen.urn !== urn || seen.signature === profileSignature) {
+        if (!seen || seen.urn !== urn) {
+            awaitingProfileSignature.current = null;
             return;
         }
+        if (seen.signature === profileSignature) {
+            return;
+        }
+        awaitingProfileSignature.current = profileSignature;
         refetchRelatedTerms();
     }, [urn, profileReady, profileSignature, refetchRelatedTerms]);
 
@@ -97,19 +133,37 @@ export default function GlossayRelatedTerms() {
     };
 
     const fetchedTerm = data?.glossaryTerm?.urn === urn ? data.glossaryTerm : null;
+    const fetchedForUrn = Boolean(data) && (data?.glossaryTerm == null || data.glossaryTerm.urn === urn);
+    const fetchedSettled = !fetchedLoading && fetchedForUrn;
+    const fetchFailed = Boolean(fetchedError) && !fetchedLoading;
+    const fetchedSignature = fetchedTerm
+        ? glossaryRelationshipSignature(
+              fetchedTerm as Record<string, { relationships?: ReadonlyArray<unknown> }>,
+              menuOptionsArray,
+          )
+        : null;
+    if (
+        awaitingProfileSignature.current !== null &&
+        (fetchFailed || (fetchedSettled && fetchedSignature === awaitingProfileSignature.current))
+    ) {
+        awaitingProfileSignature.current = null;
+    }
     const relationships = pickGlossaryRelatedRelationships(
         relationshipEntries(profileForUrn, selectedKey),
         relationshipEntries(
             fetchedTerm as Record<string, { relationships?: ReadonlyArray<unknown> }> | null,
             selectedKey,
         ),
-        !fetchedLoading && fetchedTerm !== null,
+        {
+            fetchedSettled,
+            holdForProfile: profileReady && awaitingProfileSignature.current !== null && !fetchFailed,
+            fetchFailed,
+        },
     );
     const pending = glossaryRelatedTermsArePending({
         urn,
         relationshipCount: relationships.length,
-        profileReady,
-        fetchedSettled: !fetchedLoading,
+        fetchedSettled,
     });
 
     return (
