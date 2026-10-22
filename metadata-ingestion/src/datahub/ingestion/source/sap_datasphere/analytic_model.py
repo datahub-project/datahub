@@ -11,6 +11,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     BLD_VARIABLES,
     CSN_AS,
     CSN_COLUMNS,
+    CSN_FROM,
     CSN_KEY_QUERY,
     CSN_REF,
     CSN_SELECT,
@@ -61,8 +62,10 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     # Map each projected element (keyed by its `as` alias, else the source column
     # name) to the source object + column it reads from, via query.SELECT.columns.
     # Analytic-model elements carry no inline type, so this is how we find the
-    # source column whose type to copy. Calculated columns (an expression, or a
-    # `$projection` self-reference) have no single source and are skipped.
+    # source column whose type to copy. One-segment refs, and qualifiers that
+    # match the FROM object's name or `as` alias, use that object. Calculated
+    # columns (an expression, or a `$projection` self-reference) have no single
+    # source and are skipped.
     query = csn_def.get(CSN_KEY_QUERY)
     if not isinstance(query, dict):
         return {}
@@ -72,19 +75,41 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     columns = select.get(CSN_COLUMNS)
     if not isinstance(columns, list):
         return {}
+    source_object = None
+    source_alias = None
+    from_node = select.get(CSN_FROM)
+    if isinstance(from_node, dict):
+        from_ref = from_node.get(CSN_REF)
+        if isinstance(from_ref, list) and from_ref and isinstance(from_ref[0], str):
+            source_object = from_ref[0]
+            alias = from_node.get(CSN_AS)
+            if isinstance(alias, str) and alias:
+                source_alias = alias
     out: Dict[str, SourceColumnRef] = {}
     for col in columns:
         if not isinstance(col, dict):
             continue
         ref = col.get(CSN_REF)
-        if not (isinstance(ref, list) and len(ref) >= 2):
+        if not (isinstance(ref, list) and ref):
             continue
-        source_object, column = ref[0], ref[-1]
-        if not (isinstance(source_object, str) and isinstance(column, str)):
+        if len(ref) == 1:
+            projected_source = source_object
+            column = ref[0]
+        elif len(ref) == 2:
+            qualifier, column = ref[0], ref[-1]
+            if not isinstance(qualifier, str) or qualifier == PROJECTION_ALIAS:
+                continue
+            if source_object is not None and (
+                qualifier in (source_object, source_alias)
+            ):
+                projected_source = source_object
+            else:
+                projected_source = qualifier
+        else:
             continue
-        if source_object == PROJECTION_ALIAS:
+        if not (isinstance(projected_source, str) and isinstance(column, str)):
             continue
         alias = col.get(CSN_AS)
         element = alias if isinstance(alias, str) and alias else column
-        out[element] = SourceColumnRef(source_object=source_object, column=column)
+        out[element] = SourceColumnRef(source_object=projected_source, column=column)
     return out

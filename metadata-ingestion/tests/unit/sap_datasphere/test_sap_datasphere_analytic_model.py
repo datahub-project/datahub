@@ -119,6 +119,77 @@ def test_projection_source_columns_maps_alias_to_source():
     assert result["col_b"].column == "col_b"
 
 
+def test_projection_source_columns_maps_unqualified_refs_and_output_aliases():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SAP_I_COMPANYCODE"]},
+                "columns": [
+                    {"ref": ["CompanyCode"], "as": "Company Code", "key": True},
+                    {"ref": ["CompanyCodeName"], "as": "Company Name"},
+                    {"ref": ["Currency"]},
+                    {"ref": ["Country"], "as": "Country/Region Key"},
+                ],
+            }
+        }
+    }
+
+    result = extract_projection_source_columns(csn_def)
+
+    assert result["Company Code"].source_object == "SAP_I_COMPANYCODE"
+    assert result["Company Code"].column == "CompanyCode"
+    assert result["Company Name"].column == "CompanyCodeName"
+    assert result["Currency"].column == "Currency"
+    assert result["Country/Region Key"].column == "Country"
+
+
+def test_projection_source_columns_resolves_from_alias_to_source_object():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SPACE.v_source"], "as": "source"},
+                "columns": [{"ref": ["source", "col_a"], "as": "renamed_a"}],
+            }
+        }
+    }
+
+    result = extract_projection_source_columns(csn_def)
+
+    assert result["renamed_a"].source_object == "SPACE.v_source"
+    assert result["renamed_a"].column == "col_a"
+
+
+def test_projection_source_columns_preserves_other_qualifier():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SPACE.fact"], "as": "fact"},
+                "columns": [{"ref": ["dimension", "name"], "as": "dimension_name"}],
+            }
+        }
+    }
+
+    result = extract_projection_source_columns(csn_def)
+
+    assert result["dimension_name"].source_object == "dimension"
+    assert result["dimension_name"].column == "name"
+
+
+def test_projection_source_columns_skips_multi_segment_navigation():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SPACE.fact"], "as": "fact"},
+                "columns": [
+                    {"ref": ["fact", "dimension", "name"], "as": "dimension_name"}
+                ],
+            }
+        }
+    }
+
+    assert extract_projection_source_columns(csn_def) == {}
+
+
 def test_projection_source_columns_skips_derived_columns():
     csn_def = {
         "query": {
