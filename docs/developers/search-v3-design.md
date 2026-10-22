@@ -75,7 +75,7 @@ The composed keyword query is the rendered body, then whole-value terms and the 
 
 A vector participates in one of three ways, and each is a different template shape. `knn` on a keyword template reorders rows already in the keyword window and adds no hits. Corpus kNN is its own rung. A keyword rung and a vector rung can run together and add hits that only the vector leg found. In OSS the three shapes run for the Document entity only. Hybrid adds vector-only hits once a fusion policy is chosen. See [Document rerank](#document-rerank) and [Vector retrieval](#vector-retrieval).
 
-The search box is a search. Which field matched is read from the returned document, on that page, for the fields the query searched. The default query stays one body. Highlighting stays off on a template request. `skipHighlighting` does not turn it on. `highlightFields` is still stored. See [Highlight fields](#highlight-fields).
+The search box is a search. Which field matched is read from the returned page, for the fields the request opted into. The default set is empty, so the default query stays one body and fetches no highlight source. The engine highlighter stays off. A non-empty set opts into final-page source matching, and `skipHighlighting` clears that set. See [Highlight fields](#highlight-fields).
 
 Hydration from `_source` is not implemented. Search responses still read aspects from the primary store. See [Hydrating from `_source`](#hydrating-from-_source).
 
@@ -92,7 +92,7 @@ A template is the `searchTemplateProperties` aspect, addressed as `urn:li:search
 - `SearchFlags.searchTemplate` selects a URN for that call.
 - `sortCriteria` replaces the template sort. On a from/size search it also replaces engine `rescore`, `ranking`, and `knn`.
 - `skipAggregates` and `includeDefaultFacets` adjust aggregations for the request.
-- Highlighting stays off. `skipHighlighting` does not turn it on. `highlightFields` is still stored, and a request may add, remove, or replace fields for that call.
+- A non-empty highlight set opts into final-page source matching. `skipHighlighting` clears that set, including a template set and a caller override. A request may add, remove, or replace the template set, and `customHighlightingFields` replaces it.
 
 The result cache key combines those service discriminators with the template discriminators, so two requests that differ in template do not share a hit and an edit does not keep serving the previous ranking.
 
@@ -124,7 +124,7 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore`, `ranking`, or `knn` is applied.                                                      | [Query composition](#query-composition)                                          |
 | `fields`                  | Queried fields and one weight each. Each degree of separation is its own field.                                                                                | [Field weights](#field-weights)                                                  |
 | `structuredPropertyQuery` | Analyzed value, exact value, and name-and-value clauses. A child replaces only the clauses it sets.                                                            | [Name and value](#name-and-value)                                                |
-| `highlightFields`         | Stored field set. This release does not run the engine highlighter.                                                                                            | [Highlight fields](#highlight-fields)                                            |
+| `highlightFields`         | Fields opted into final-page source matching. The engine highlighter stays off.                                                                                | [Highlight fields](#highlight-fields)                                            |
 | `parameters`              | Named values the body can reference, such as `deprecatedBoost`.                                                                                                | [Render context](#render-context)                                                |
 | `created`                 | When the template was first written. Callers omit it.                                                                                                          | [Stamps](#stamps)                                                                |
 | `lastModified`            | When the template was last written. Callers omit it. Part of the result cache key.                                                                             | [Stamps](#stamps)                                                                |
@@ -267,7 +267,7 @@ boosts:
 
 ### Highlight fields
 
-Which field matched is read from values already on the returned document, for the fields this query searched, on that page of hits. The check grows with the page. The default query stays one body.
+Which field matched is read from values already on the returned page, for the fields this request opted into and this query searches. The check runs after ranking and page selection, so a discarded window row is not scanned, and it stops at the first matching value in each field. An empty set fetches nothing. The default query stays one body.
 
 A named query identifies a field only when that field is its own clause. A `multi_match` does not say which inner field matched. Lucene already scores a sub-query per field inside that one body, so a `_name` on every field costs template size rather than query time. The template does not grow one per queried field, including every degree of separation and every structured property the query searched. An author may still name a distinct clause. That name is what a structured-property match reports. It does not replace the field check.
 
@@ -275,7 +275,7 @@ A structured-property match reports the definition URN and the matched value. It
 
 The comparison uses values on the returned document. A shared field filled only by `copy_to` is not stored, which keeps that cost off every write, so the check reads the source fields copied into it. A keyword is the value itself, folded the same way as the folded copy when the match was case-insensitive. Analyzed text uses the same approximate mark the UI applies. That mark can miss a hit found only through a stem, a fuzzy edit, a synonym, or a phrase with slop. The drift is accepted. The engine highlighter stays off on a template request.
 
-`highlightFields` is still stored. A child changes the set with `add`, `remove`, and `replace`. `replace` cannot be combined with `add` or `remove`. The section has no weight. It names an indexed field, including a degree field such as `tags_1`. Declaring `highlights` does not run the engine highlighter. `skipHighlighting` does not turn it on. Which field matched is read from the returned document, for the fields this query searched.
+Shipped templates leave `highlightFields` unset, so the default set is empty. A template opts fields in only when that cost is warranted. A child changes the set with `add`, `remove`, and `replace`. `replace` cannot be combined with `add` or `remove`. An explicit empty section clears the set. A request applies the same section after the template set. `customHighlightingFields` replaces that set outright, including a V2 subfield normalized to its indexed root, and the request section is not applied on top of it. `skipHighlighting` then clears whatever remains. The section has no weight. It names an indexed field, including a degree field such as `tags_1`. An aspect path, a wildcard, or a subfield the index does not store is dropped. The engine highlighter stays off. A non-empty set fetches those source paths, including the fields copied into a selected shared field, and matches them on the final page.
 
 ### Examples
 
@@ -411,7 +411,7 @@ The same template URN serves both. On scroll the ladder section is left unread, 
 | `query`, `clauses`, `fields`, `functionScore`, `boosts` | Part of that query                                                | Part of that query                                        |
 | Whole-value terms and name-and-value                    | Run                                                               | Run                                                       |
 | `aggregations`                                          | Run when the request asks                                         | Run when the request asks                                 |
-| Highlight                                               | Stays off                                                         | Stays off                                                 |
+| Highlight                                               | Final-page source match when the set is non-empty                 | Same, on the scrolled page                                |
 | `sort` and `sortCriteria`                               | Run. `sortCriteria` also replaces `rescore`, `ranking`, and `knn` | Run. The default is score, then URN                       |
 | `rescore`                                               | Runs on the top `window_size`                                     | Dropped. The engine rejects `rescore` with `search_after` |
 | `ranking`                                               | Reorders the fetched window                                       | Dropped                                                   |

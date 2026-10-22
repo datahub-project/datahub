@@ -132,6 +132,26 @@ input SearchInput {
 }
 
 """
+Search V3 highlight-field adjustment. replace cannot be combined with add or remove.
+"""
+input HighlightFieldOverrides {
+  """
+  Field names added to the template set.
+  """
+  add: [String!]
+
+  """
+  Field names removed from the template set.
+  """
+  remove: [String!]
+
+  """
+  Field names that replace the template set.
+  """
+  replace: [String!]
+}
+
+"""
 Set of flags to control search behavior
 """
 input SearchFlags {
@@ -188,6 +208,13 @@ input SearchFlags {
   fields to include for custom Highlighting
   """
   customHighlightingFields: [String!]
+
+  """
+  Search V3 adjustment of the template highlight set. replace cannot be combined with add or
+  remove. An empty object clears the template set. customHighlightingFields replaces the set.
+  skipHighlighting clears it.
+  """
+  highlightFields: HighlightFieldOverrides
 
   """
   Whether or not to fetch and request for structured property facets when doing a search
