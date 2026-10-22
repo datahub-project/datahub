@@ -75,7 +75,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
 )
-from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_workunits,
 )
@@ -572,22 +571,6 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     scheme: str = Field(
         default="oracle", description="Will be set automatically to default value."
     )
-    host_port: Optional[str] = Field(  # type: ignore[assignment]
-        default=None,
-        description="host URL. Required unless `dsn` or `sqlalchemy_uri` is set.",
-    )
-    dsn: Optional[str] = Field(
-        default=None,
-        description="Oracle connect string: a full connect descriptor such as "
-        "`(DESCRIPTION=(FAILOVER=on)(ADDRESS_LIST=(ADDRESS=...)(ADDRESS=...))(CONNECT_DATA=(SERVICE_NAME=...)))`, "
-        "an Easy Connect string, or a tnsnames.ora alias. Use this for multi-host "
-        "high-availability setups. If set, omit `host_port`, `service_name` and `database`.",
-    )
-    tns_admin: Optional[str] = Field(
-        default=None,
-        description="Directory containing tnsnames.ora, used to resolve a `dsn` alias. "
-        "Defaults to the TNS_ADMIN environment variable.",
-    )
     service_name: Optional[str] = Field(
         default=None,
         description="Oracle service name. If using, omit `database`.",
@@ -756,22 +739,6 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return self
 
     @model_validator(mode="after")
-    def check_connection_target(self):
-        if self.dsn:
-            conflicting = [
-                name
-                for name in ("host_port", "service_name", "database", "sqlalchemy_uri")
-                if getattr(self, name)
-            ]
-            if conflicting:
-                raise ValueError(f"'dsn' cannot be combined with {conflicting}.")
-        elif not (self.host_port or self.sqlalchemy_uri):
-            raise ValueError(
-                "One of 'host_port', 'dsn' or 'sqlalchemy_uri' is required."
-            )
-        return self
-
-    @model_validator(mode="after")
     def check_thick_mode_lib_dir(self):
         if (
             self.thick_mode_lib_dir is None
@@ -786,22 +753,6 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
-        if self.dsn:
-            # A host-less URL makes the dialect pass `dsn` (and `config_dir`)
-            # from the query straight to oracledb.connect().
-            return make_sqlalchemy_uri(
-                self.scheme,
-                self.username,
-                self.password.get_secret_value() if self.password else None,
-                None,
-                None,
-                uri_opts={
-                    **(uri_opts or {}),
-                    "dsn": self.dsn,
-                    "config_dir": self.tns_admin,
-                },
-            )
-
         url = super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
 
         if self.service_name:
@@ -1587,15 +1538,10 @@ class OracleSource(SQLAlchemySource):
         # create_engine, which is called in get_inspectors()
         # https://python-oracledb.readthedocs.io/en/latest/user_guide/initialization.html#enabling-python-oracledb-thick-mode
         if self.config.enable_thick_mode:
-            # Thick mode ignores connect()'s config_dir; tnsnames.ora is read
-            # by the client library, configured once here.
-            config_dir = self.config.tns_admin
             if platform.system() in ("Darwin", "Windows"):
                 # Mac/Windows: lib_dir is required and is enough; the platform's
                 # loader handles the dependent libs.
-                oracledb.init_oracle_client(
-                    lib_dir=self.config.thick_mode_lib_dir, config_dir=config_dir
-                )
+                oracledb.init_oracle_client(lib_dir=self.config.thick_mode_lib_dir)
             elif self.config.thick_mode_lib_dir:
                 # Linux: passing lib_dir to init_oracle_client() locates
                 # libclntsh.so itself but the loader still falls back to
@@ -1604,10 +1550,10 @@ class OracleSource(SQLAlchemySource):
                 # .so in lib_dir by absolute path with RTLD_GLOBAL so the deps
                 # are resolved by SONAME from the process namespace.
                 _preload_oracle_client_libs(self.config.thick_mode_lib_dir)
-                oracledb.init_oracle_client(config_dir=config_dir)
+                oracledb.init_oracle_client()
             else:
                 # Linux without thick_mode_lib_dir: rely on ldconfig / LD_LIBRARY_PATH.
-                oracledb.init_oracle_client(config_dir=config_dir)
+                oracledb.init_oracle_client()
 
         # Pre-fetch schemas from DataHub when not ingesting all tables/views so that
         # V$SQL queries and view definitions can resolve lineage against tables outside

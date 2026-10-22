@@ -261,8 +261,10 @@ def test_oracle_test_connection(oracle_runner):
 
 
 @pytest.mark.integration
-def test_oracle_dsn_failover(oracle_runner):
-    """A multi-address dsn fails over past an unreachable first address."""
+def test_oracle_connect_args_dsn_failover(oracle_runner):
+    """The documented HA pattern: a multi-address descriptor in
+    options.connect_args.dsn overrides host_port and fails over past an
+    unreachable first address."""
     tls_args = _oracle_tls_connect_args(oracle_runner)
     recipe = yaml.safe_load(
         Path(SOURCE_FILES_PATH, "oracle_to_file_with_all_tables.yml").read_text()
@@ -270,17 +272,18 @@ def test_oracle_dsn_failover(oracle_runner):
     config_dict = {
         "username": recipe["username"],
         "password": recipe["password"],
-        "dsn": (
-            "(DESCRIPTION=(FAILOVER=on)(LOAD_BALANCE=off)(ADDRESS_LIST="
-            # Nothing listens on port 1, so the driver must move on.
-            "(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=1))"
-            f"(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT={oracle_runner})))"
-            "(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
-        ),
+        # Required by the config but unused: connect_args.dsn takes precedence.
+        "host_port": "unused:1521",
         "options": {
             "connect_args": {
-                "wallet_location": tls_args["wallet_location"],
-                "ssl_server_dn_match": tls_args["ssl_server_dn_match"],
+                **tls_args,
+                "dsn": (
+                    "(DESCRIPTION=(FAILOVER=on)(LOAD_BALANCE=off)(ADDRESS_LIST="
+                    # Nothing listens on port 1, so the driver must move on.
+                    "(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=1))"
+                    f"(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT={oracle_runner})))"
+                    "(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+                ),
             }
         },
     }

@@ -80,65 +80,18 @@ def test_oracle_config():
         ).get_workunits()
 
 
-_HA_DSN = (
-    "(DESCRIPTION=(FAILOVER=on)(ADDRESS_LIST="
-    "(ADDRESS=(PROTOCOL=TCP)(HOST=db-a)(PORT=1521))"
-    "(ADDRESS=(PROTOCOL=TCP)(HOST=db-b)(PORT=1521)))"
-    "(CONNECT_DATA=(SERVICE_NAME=svc01)))"
-)
+def test_oracle_test_connection_keeps_tns_admin(monkeypatch, tmp_path):
+    # tnsnames.ora aliases resolve through TNS_ADMIN, so test_connection must
+    # not clear it for the process.
+    monkeypatch.setenv("TNS_ADMIN", str(tmp_path))
+    with patch.object(OracleSource, "get_inspectors", return_value=iter([])):
+        report = OracleSource.test_connection(
+            {"username": "user", "host_port": "host:1521", "service_name": "svc01"}
+        )
 
-
-@pytest.mark.parametrize("tns_admin", [None, "/etc/oracle"])
-def test_oracle_config_dsn_reaches_driver(tns_admin):
-    config = OracleConfig.model_validate(
-        {
-            "username": "user",
-            "password": "test_password",
-            "dsn": _HA_DSN,
-            "tns_admin": tns_admin,
-        }
-    )
-    engine = sqlalchemy.create_engine(config.get_sql_alchemy_url())
-    _, connect_kwargs = engine.dialect.create_connect_args(engine.url)
-
-    assert connect_kwargs["dsn"] == _HA_DSN
-    assert connect_kwargs["user"] == "user"
-    assert connect_kwargs["password"] == "test_password"
-    assert connect_kwargs.get("config_dir") == tns_admin
-
-
-@pytest.mark.parametrize(
-    "extra",
-    [
-        {"host_port": "host:1521"},
-        {"service_name": "svc01"},
-        {"database": "db"},
-        {"sqlalchemy_uri": "oracle://user:password@host:1521"},
-    ],
-)
-def test_oracle_config_dsn_rejects_other_targets(extra):
-    with pytest.raises(ValidationError):
-        OracleConfig.model_validate({"username": "user", "dsn": _HA_DSN, **extra})
-
-
-def test_oracle_config_requires_connection_target():
-    with pytest.raises(ValidationError):
-        OracleConfig.model_validate({"username": "user", "service_name": "svc01"})
-
-
-@patch("datahub.ingestion.source.sql.oracle.platform.system", return_value="Linux")
-@patch("datahub.ingestion.source.sql.oracle.oracledb")
-def test_oracle_source_thick_mode_passes_tns_admin(mock_oracledb, _mock_platform):
-    config = OracleConfig(
-        username="user",
-        dsn="MYALIAS",
-        tns_admin="/etc/oracle",
-        enable_thick_mode=True,
-    )
-
-    OracleSource(config, PipelineContext("test-thick-tns-admin"))
-
-    mock_oracledb.init_oracle_client.assert_called_once_with(config_dir="/etc/oracle")
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert os.environ["TNS_ADMIN"] == str(tmp_path)
 
 
 def test_oracle_config_stored_procedures():
@@ -2055,7 +2008,7 @@ def test_oracle_source_linux_preloads_when_lib_dir_set(
     # On Linux we must NOT pass lib_dir to init_oracle_client(): the preload
     # already put the libs in the process namespace, and passing lib_dir is
     # what triggers the DT_NEEDED resolution failure described in oracle/python-oracledb#578.
-    mock_oracledb.init_oracle_client.assert_called_once_with(config_dir=None)
+    mock_oracledb.init_oracle_client.assert_called_once_with()
 
 
 @patch("datahub.ingestion.source.sql.oracle.platform.system", return_value="Linux")
@@ -2069,7 +2022,7 @@ def test_oracle_source_linux_skips_preload_when_lib_dir_unset(
     OracleSource(config, PipelineContext("test-thick-linux-no-preload"))
 
     mock_preload.assert_not_called()
-    mock_oracledb.init_oracle_client.assert_called_once_with(config_dir=None)
+    mock_oracledb.init_oracle_client.assert_called_once_with()
 
 
 @patch("datahub.ingestion.source.sql.oracle.platform.system", return_value="Darwin")
@@ -2085,6 +2038,4 @@ def test_oracle_source_mac_passes_lib_dir_without_preload(
     # macOS uses dyld, not glibc's loader, so no preload trick is needed —
     # init_oracle_client(lib_dir=...) is sufficient.
     mock_preload.assert_not_called()
-    mock_oracledb.init_oracle_client.assert_called_once_with(
-        lib_dir=str(tmp_path), config_dir=None
-    )
+    mock_oracledb.init_oracle_client.assert_called_once_with(lib_dir=str(tmp_path))
