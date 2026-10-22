@@ -2,8 +2,10 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import OptionalTooltip from '@app/sharedV2/OptionalTooltip';
-import { Button, Editor } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
 const ELLIPSIS = '...';

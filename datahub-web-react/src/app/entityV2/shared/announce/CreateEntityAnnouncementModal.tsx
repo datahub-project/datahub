@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import { PostEntry } from '@app/settings/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
@@ -10,9 +12,9 @@ import {
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
 } from '@app/settings/posts/constants';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Editor, Modal } from '@src/alchemy-components';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
+import { Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType, SubResourceType } from '@types';

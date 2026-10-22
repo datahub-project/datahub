@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
 import SchemaFieldDropdown from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import VirtualScrollChild from '@app/shared/VirtualScrollChild';
+import VirtualScrollChild from '@app/sharedV2/VirtualScrollChild';
 import { SearchBar } from '@src/alchemy-components';
 
 import { FormPrompt, SchemaField } from '@types';

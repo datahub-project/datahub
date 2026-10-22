@@ -34,27 +34,36 @@ record DataHubPageModuleProperties  {
   params: DataHubPageModuleParams
 
   /**
-   * Audit stamp for when and by whom this template was created
+   * Audit stamp for when and by whom this module was created.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "createdAt"
+       "fieldName": "createdAt",
+       "v3": { "enabled": false }
     },
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "createdBy"
+      "fieldName": "createdBy",
+      "v3": { "enabled": false }
     }
   }
   created: AuditStamp
   
   /**
-   * Audit stamp for when and by whom this template was last updated
+   * Audit stamp for when and by whom this module was last updated.
+   * Search V3 does not index this time. The write is systemMetadata.aspectModified,
+   * copied to _system.modified.time.
    */
+  @deprecated = "Use systemMetadata.aspectModified instead."
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "lastModifiedAt"
+       "fieldName": "lastModifiedAt",
+       "v3": { "enabled": false }
     }
   }
   lastModified: AuditStamp

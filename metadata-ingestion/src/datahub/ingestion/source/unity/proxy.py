@@ -75,6 +75,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Table,
     TableReference,
     escape_unity_name,
+    make_schema,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -1439,13 +1440,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if not obj.name:
             self.report.num_schemas_missing_name += 1
             return None
-        return Schema(
-            name=obj.name,
-            id=f"{catalog.id}.{self._escape_sequence(obj.name)}",
-            catalog=catalog,
-            comment=obj.comment,
-            owner=obj.owner,
-        )
+        return make_schema(catalog, obj.name, comment=obj.comment, owner=obj.owner)
 
     def _create_column(self, table_id: str, obj: ColumnInfo) -> Optional[Column]:
         if not obj.name:

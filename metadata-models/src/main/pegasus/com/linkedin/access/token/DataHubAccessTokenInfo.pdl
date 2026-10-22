@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Information about a DataHub Access Token
  */
 @Aspect = {
-  "name": "dataHubAccessTokenInfo"
+  "name": "dataHubAccessTokenInfo",
+  "schemaVersion": 2
 }
 record DataHubAccessTokenInfo {
 
@@ -15,7 +16,16 @@ record DataHubAccessTokenInfo {
    * User defined name for the access token if defined.
    */
   @Searchable = {
-   "fieldType": "TEXT_PARTIAL"
+   "fieldType": "TEXT_PARTIAL",
+   "boostScore": 10.0,
+   "v3": {
+     "searchLabel": "name",
+     "mappings": [
+       { "type": "KEYWORD" },
+       { "subfield": "text", "type": "TEXT" },
+       { "subfield": "stemmed", "type": "STEMMED" }
+     ]
+   }
   }
   name: string
 
@@ -40,7 +50,12 @@ record DataHubAccessTokenInfo {
    */
   @Searchable = {
       "fieldType": "COUNT",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
   }
   createdAt: Time
 
@@ -50,12 +65,29 @@ record DataHubAccessTokenInfo {
    // if null, it means that the token does not have an expiry.
  @Searchable = {
      "fieldType": "COUNT",
-     "queryByDefault": false
+     "queryByDefault": false,
+     "v3": {
+       "mappings": [
+         { "type": "DATETIME" }
+       ]
+     }
   }
   expiresAt: optional Time
 
   /**
    * Description of the token if defined.
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 }

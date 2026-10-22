@@ -20,32 +20,48 @@ record DomainProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
   /**
    * Description of the Domain
    */
-   @Searchable = {
+  @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
   /**
-   * Created Audit stamp
+   * When this domain was created in DataHub.
+   * Search V3 does not index this time. It is systemMetadata.aspectCreated,
+   * copied to _system.created.time.
    */
-   @Searchable = {
-     "/time": {
+  @deprecated = "Use systemMetadata.aspectCreated instead."
+  @Searchable = {
+    "/time": {
       "fieldName": "createdTime",
       "fieldType": "DATETIME",
-      "searchLabel": "createdAt"
-     }
-   }
-   created: optional AuditStamp
+      "v3": { "enabled": false }
+    }
+  }
+  created: optional AuditStamp
 
   /**
    * Optional: Parent of the domain

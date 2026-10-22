@@ -24,7 +24,7 @@ vi.mock('@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown', 
     ),
 }));
 
-vi.mock('@app/shared/VirtualScrollChild', () => ({
+vi.mock('@app/sharedV2/VirtualScrollChild', () => ({
     default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 

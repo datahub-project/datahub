@@ -40,8 +40,7 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.sourcesTab.search(RUN_HISTORY_SOURCE);
     await ingestionPage.sourcesTab.expectSourceVisible(RUN_HISTORY_SOURCE);
 
-    await ingestionPage.sourcesTab.openMoreOptions(RUN_HISTORY_SOURCE);
-    await ingestionPage.sourcesTab.clickDropdownItem('View Run History');
+    await ingestionPage.sourcesTab.selectMoreOption(RUN_HISTORY_SOURCE, 'View Run History');
 
     await ingestionPage.runHistoryTab.expectTabActive();
   });
