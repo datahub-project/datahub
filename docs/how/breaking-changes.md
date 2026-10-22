@@ -233,6 +233,8 @@ Requirements:
 
 - [#20821](https://github.com/datahub-project/datahub/pull/20821) **(Ingestion / Dremio)** View lineage no longer doubles the prefix (`dremio.dremio.…`), so views now link to their real upstreams. Upstream dataset names parsed from SQL are now lowercase, like every other dataset name the Dremio source emits. **Action:** none.
 
+- #PR_NUMBER **(GMS / OpenAPI)** When an API client writes a structured property that its policies' `privilegeConstraints` do not allow it to modify, the OpenAPI endpoints now reject the write with **403 (Authorization Error)** instead of **400 (Bad Request)**. Nothing else changes: the write is still refused and the error message is the same. **Action:** if a client or script checks for a 400 to detect this case, update it to also expect 403.
+
 ### Known Issues
 
 ### Potential Downtime
