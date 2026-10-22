@@ -59,13 +59,7 @@ def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
 
 
 def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRef]:
-    # Map each projected element (keyed by its `as` alias, else the source column
-    # name) to the source object + column it reads from, via query.SELECT.columns.
-    # Analytic-model elements carry no inline type, so this is how we find the
-    # source column whose type to copy. One-segment refs, and qualifiers that
-    # match the FROM object's name or `as` alias, use that object. Calculated
-    # columns (an expression, or a `$projection` self-reference) have no single
-    # source and are skipped.
+    # Analytic-model elements omit types, so map each output to its source column.
     query = csn_def.get(CSN_KEY_QUERY)
     if not isinstance(query, dict):
         return {}

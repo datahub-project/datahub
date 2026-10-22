@@ -36,11 +36,8 @@ LOCAL_TABLE_NAMES = [
 ANALYTIC_MODEL_NAMES = [
     "Test_Analytic_Model",
 ]
-# Source objects an analytic model projects from. These are not catalog assets;
-# the connector probes them via the /views/ endpoint (by the projection's
-# source-object name) to recover the analytic model's typeless column types.
-SOURCE_OBJECT_VIEW_NAMES = [
-    "FINANCE_DATASALES_A",
+SOURCE_OBJECT_VIEWS = [
+    ("FINANCE_DATA", "SALES_ALL_GE"),
 ]
 
 
@@ -149,11 +146,9 @@ def register_handlers(
             content_type="application/json",
         )
 
-    # Source objects projected by an analytic model, probed via /views/ to
-    # resolve the model's typeless (measure) columns.
-    for name in SOURCE_OBJECT_VIEW_NAMES:
+    for space, name in SOURCE_OBJECT_VIEWS:
         httpserver.expect_request(
-            f"/dwaas-core/api/v1/spaces/{SPACE}/views/{name}",
+            f"/dwaas-core/api/v1/spaces/{space}/views/{name}",
             method="GET",
         ).respond_with_data(
             _fixture_text(f"views/{name}.json"),
@@ -176,11 +171,7 @@ def register_handlers(
     ).respond_with_handler(
         # A real tenant lists every design-time View, including ones not
         # exposed in the catalog.
-        _paged_list_handler(
-            json.dumps(
-                [{"technicalName": n} for n in VIEW_NAMES + SOURCE_OBJECT_VIEW_NAMES]
-            )
-        ),
+        _paged_list_handler(json.dumps([{"technicalName": n} for n in VIEW_NAMES])),
     )
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/analyticmodels",
