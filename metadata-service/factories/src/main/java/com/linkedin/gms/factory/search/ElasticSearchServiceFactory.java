@@ -7,6 +7,8 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConcurrencyConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -18,6 +20,10 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIn
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -31,8 +37,17 @@ import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,6 +76,10 @@ public class ElasticSearchServiceFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Autowired(required = false)
+  @Nullable
+  private SearchTemplateLoader searchTemplateLoader;
+
   @Bean
   protected ElasticSearchConfiguration elasticSearchConfiguration(
       final ConfigurationProvider configurationProvider) {
@@ -87,8 +106,9 @@ public class ElasticSearchServiceFactory {
       final EntityDocumentIdHasher entityDocumentIdHasher,
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
-      final SearchClusterRegistry searchClusterRegistry) {
-
+      final SearchClusterRegistry searchClusterRegistry,
+      @Nullable final SearchTemplateCoordinator searchTemplateCoordinator) {
+    SearchTemplates.installProcessWide(searchTemplateCoordinator);
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -174,6 +194,70 @@ public class ElasticSearchServiceFactory {
   }
 
   @Bean
+  @Nullable
+  protected SearchTemplateCoordinator searchTemplateCoordinator(
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
+      @Qualifier("searchTemplateLadderExecutor")
+          final ExecutorService searchTemplateLadderExecutor) {
+    if (searchTemplateLoader == null) {
+      return null;
+    }
+    searchTemplateLoader.installDocuments(
+        new SearchTemplateDocumentSource(elasticSearchConfiguration.getEntityIndex()));
+    return new SearchTemplateCoordinator(
+        elasticSearchConfiguration,
+        customSearchConfiguration,
+        searchTemplateLoader,
+        searchTemplateLadderExecutor);
+  }
+
+  @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")
+  protected ExecutorService searchTemplateLadderExecutor(
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      @Nullable final MetricUtils metricUtils) {
+    SearchTemplateConfiguration templates =
+        elasticSearchConfiguration.getSearch().getV3().getTemplates();
+    if (!templates.isEnabled()) {
+      return new CallerRunsExecutor();
+    }
+    SearchTemplateConcurrencyConfiguration concurrency = templates.getConcurrency();
+    int corePoolSize = concurrency.resolveCorePoolSize();
+    int maxPoolSize = concurrency.resolveMaxPoolSize();
+    if (maxPoolSize < corePoolSize) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.concurrency.maxPoolSize must be >= corePoolSize");
+    }
+    if (concurrency.getKeepAlive() <= 0) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.concurrency.keepAlive must be positive");
+    }
+    AtomicInteger threadNumber = new AtomicInteger();
+    ThreadFactory threadFactory =
+        runnable -> {
+          Thread thread =
+              new Thread(runnable, "search-template-ladder-" + threadNumber.incrementAndGet());
+          thread.setDaemon(true);
+          return thread;
+        };
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            corePoolSize,
+            maxPoolSize,
+            concurrency.getKeepAlive(),
+            TimeUnit.SECONDS,
+            concurrency.createWorkQueue(),
+            threadFactory,
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    executor.allowCoreThreadTimeOut(true);
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "search-template-ladder", executor, metricUtils.getRegistry());
+    }
+    return executor;
+  }
+
+  @Bean
   protected ESWriteDAO esWriteDAO(
       final ConfigurationProvider configurationProvider,
       final SearchClusterRegistry searchClusterRegistry) {
@@ -232,6 +316,43 @@ public class ElasticSearchServiceFactory {
    * Surfaced as a startup warning rather than a failure so existing 2.x-migrated deployments can
    * start; the rejected items themselves are logged at ERROR by the bulk listener.
    */
+  /** Runs work on the caller. Used when template reads are off so no ladder threads start. */
+  private static final class CallerRunsExecutor extends AbstractExecutorService {
+    private volatile boolean shutdown;
+
+    @Override
+    public void shutdown() {
+      shutdown = true;
+    }
+
+    @Override
+    @Nonnull
+    public List<Runnable> shutdownNow() {
+      shutdown = true;
+      return List.of();
+    }
+
+    @Override
+    public boolean isShutdown() {
+      return shutdown;
+    }
+
+    @Override
+    public boolean isTerminated() {
+      return shutdown;
+    }
+
+    @Override
+    public boolean awaitTermination(long timeout, @Nonnull TimeUnit unit) {
+      return true;
+    }
+
+    @Override
+    public void execute(@Nonnull Runnable command) {
+      command.run();
+    }
+  }
+
   static void warnOpenSearch3DocIdRisk(
       @Nonnull final ElasticSearchConfiguration configuration,
       @Nullable final SearchClientShim<?> searchClient) {

@@ -827,6 +827,41 @@ def test_bc_added_boost_score_is_compatible():
     assert bsv._defs_backward_compatible(base, cur) is True
 
 
+def test_bc_changed_query_by_default_is_compatible():
+    # queryByDefault only changes whether an unqualified query reads the field.
+    # It does not change the stored record, so the aspect version stays.
+    base = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "queryByDefault": false }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "queryByDefault": true }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_added_query_by_default_is_compatible():
+    base = _record_defs('@Searchable = { "fieldType": "KEYWORD" }', "a: optional string")
+    cur = _record_defs(
+        '@Searchable = { "fieldType": "KEYWORD", "queryByDefault": true }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
+def test_bc_nested_query_by_default_is_compatible():
+    base = _record_defs(
+        '@Searchable = { "/name": { "fieldType": "KEYWORD" } }',
+        "a: optional string",
+    )
+    cur = _record_defs(
+        '@Searchable = { "/name": { "fieldType": "KEYWORD", "queryByDefault": true } }',
+        "a: optional string",
+    )
+    assert bsv._defs_backward_compatible(base, cur) is True
+
+
 def test_bc_nested_boost_score_is_compatible():
     base = _record_defs(
         '@Searchable = { "/time": { "fieldName": "createdAt", "fieldType": "DATETIME", "boostScore": 1.0 } }',
@@ -1530,6 +1565,59 @@ def test_get_base_pdl_changes_failure_exits(monkeypatch):
                             subprocess.CalledProcessError(1, "git", stderr="err")))
     with pytest.raises(SystemExit):
         bsv.get_base_pdl_changes("deadbeef", "refs/remotes/origin/acryl-main")
+
+
+def _git_run(responses):
+    """Return a subprocess.run stand-in keyed by the git subcommand."""
+
+    def run(cmd, **_kwargs):
+        key = tuple(cmd[:3])
+        if key not in responses:
+            raise AssertionError(f"unexpected git command: {cmd}")
+        responses[key]["cmds"].append(cmd)
+        return responses[key]["proc"]
+
+    return run
+
+
+def test_changed_pdl_during_merge_compares_to_head(monkeypatch):
+    # An in-progress merge must not treat files that only arrived from the
+    # other branch as changes this branch made. Diff HEAD, not the worktree.
+    responses = {
+        ("git", "rev-parse", "-q"): {
+            "proc": _make_proc(0, "mergehead\n"),
+            "cmds": [],
+        },
+        ("git", "diff", "--name-only"): {
+            "proc": _make_proc(0, "branch-edited.pdl\n"),
+            "cmds": [],
+        },
+    }
+    monkeypatch.setattr(subprocess, "run", _git_run(responses))
+
+    assert bsv.get_changed_pdl_files("base-sha") == ["branch-edited.pdl"]
+    diff_cmd = responses[("git", "diff", "--name-only")]["cmds"][0]
+    assert diff_cmd[diff_cmd.index("--") - 1] == "HEAD"
+    assert diff_cmd[diff_cmd.index("--") - 2] == "base-sha"
+
+
+def test_changed_pdl_outside_merge_compares_to_worktree(monkeypatch):
+    responses = {
+        ("git", "rev-parse", "-q"): {
+            "proc": _make_proc(1, ""),
+            "cmds": [],
+        },
+        ("git", "diff", "--name-only"): {
+            "proc": _make_proc(0, "uncommitted.pdl\n"),
+            "cmds": [],
+        },
+    }
+    monkeypatch.setattr(subprocess, "run", _git_run(responses))
+
+    assert bsv.get_changed_pdl_files("base-sha") == ["uncommitted.pdl"]
+    diff_cmd = responses[("git", "diff", "--name-only")]["cmds"][0]
+    assert "HEAD" not in diff_cmd
+    assert diff_cmd[diff_cmd.index("--") - 1] == "base-sha"
 
 
 # ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
@@ -14,13 +15,17 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +38,13 @@ public class V3SearchDocumentProjector {
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+
+  /**
+   * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
+   * to SQL. A string, so a partial document update replaces it.
+   */
+  public static final String ASPECT_JSON_FIELD = "_aspectJson";
+
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
 
   private final SearchDocumentTransformer searchDocumentTransformer;
@@ -44,9 +56,19 @@ public class V3SearchDocumentProjector {
 
   public ObjectNode newEntityDocument(
       @Nonnull final Urn urn, @Nonnull final EntitySpec entitySpec) {
+    return newEntityDocument(urn, entitySpec, null);
+  }
+
+  public ObjectNode newEntityDocument(
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec,
+      @Nullable final EntityRegistry entityRegistry) {
     final ObjectNode document = JsonNodeFactory.instance.objectNode();
     document.put(URN_FIELD, urn.toString());
     document.put(ENTITY_TYPE_FIELD, entitySpec.getName());
+    if (entityRegistry != null) {
+      putParsedUrnName(document, urn, entityRegistry);
+    }
     return document;
   }
 
@@ -70,12 +92,27 @@ public class V3SearchDocumentProjector {
 
     final Optional<ObjectNode> previousSearchDocument =
         transformPreviousAspect(opContext, urn, aspectSpec, previousAspect, event);
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      searchDocument.ifPresent(
+          document ->
+              StructuredPropertyUrnIdentity.project(
+                  opContext, document, event.getRecordTemplate()));
+      if (previousAspect != null) {
+        previousSearchDocument.ifPresent(
+            document -> StructuredPropertyUrnIdentity.project(opContext, document, previousAspect));
+      }
+    }
     final ObjectNode projectedFields =
         SearchDocumentTransformer.handleRemoveFields(
             searchDocument.get().deepCopy(), previousSearchDocument.orElse(null));
     omitV3ExcludedFields(aspectSpec, projectedFields);
-    final Set<String> sharedHasValues =
-        placeSharedHasValues(event.getEntitySpec(), aspectSpec, projectedFields);
+    storeAspectJson(event, aspectSpec, projectedFields);
+    final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
+    final EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    final List<EntitySpec> indexGroup =
+        V3SearchFields.indexGroupSpecs(entityRegistry, List.of(event.getEntitySpec()));
+    final ParsedUrnNames parsedUrnNames =
+        parsedUrnNames(entityRegistry, aspectSpec, projectedFields, indexGroup);
 
     return Optional.of(
         buildProjectedAspect(
@@ -84,6 +121,8 @@ public class V3SearchDocumentProjector {
             event.getSystemMetadata(),
             STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
             sharedHasValues,
+            parsedUrnNames,
+            event.getUrn(),
             opContext));
   }
 
@@ -91,6 +130,22 @@ public class V3SearchDocumentProjector {
       @Nonnull final ObjectNode document, @Nonnull final ProjectedAspect projectedAspect) {
     copyFields(projectedAspect.rootFields(), document);
     if (projectedAspect.rootOnly()) {
+      // Searchable values stay at the root. Parsed-name keywords still live under the aspect so
+      // copy_to can rebuild a label after another aspect is updated.
+      final ObjectNode sources = JsonNodeFactory.instance.objectNode();
+      projectedAspect
+          .aspectFields()
+          .fieldNames()
+          .forEachRemaining(
+              name -> {
+                if (name.endsWith(V3SearchFields.PARSED_URN_SUFFIX)) {
+                  sources.set(name, projectedAspect.aspectFields().get(name).deepCopy());
+                }
+              });
+      if (!sources.isEmpty()) {
+        getOrCreateObject(document, MappingConstants.ASPECTS_FIELD_NAME)
+            .set(projectedAspect.aspectName(), sources);
+      }
       return;
     }
 
@@ -183,15 +238,14 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * A shared-label hasValues boolean is written under the aspect only when a source in this aspect
-   * is populated. {@code copy_to} ORs those trues onto the root name. The root value is cleared so
-   * a stored false is not indexed beside a copied true.
+   * A shared-label hasValues boolean is written under the aspect, at the declared name, only when a
+   * source in this aspect is populated. {@code copy_to} sends that true to the degree's root name
+   * ({@code hasDescription} or {@code hasDescription_1}). The declared name is cleared on the root
+   * so a column value is not indexed as the entity's own boolean.
    */
   @Nonnull
   private static Set<String> placeSharedHasValues(
-      @Nonnull final EntitySpec entitySpec,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final ObjectNode projectedFields) {
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
     final Set<String> names = new LinkedHashSet<>();
     final Set<String> populated = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
@@ -200,11 +254,12 @@ public class V3SearchDocumentProjector {
       if (!resolved.isV3Searchable()) {
         continue;
       }
-      final Optional<String> label = resolved.getSearchLabel().filter(name -> !name.isEmpty());
+      final Optional<String> label = resolved.indexedFieldName();
       if (label.isEmpty()) {
         continue;
       }
-      V3SearchFields.hasValuesFieldName(entitySpec, label.get())
+      resolved
+          .getHasValuesFieldName()
           .ifPresent(
               booleanName -> {
                 names.add(booleanName);
@@ -224,9 +279,69 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * Uses the boolean {@code setSearchableValue} already wrote when this field declares one.
-   * Otherwise the source field it wrote is populated when that value is present.
+   * Parsed name of each URN field on this aspect. The document's own URN is not included. An empty
+   * array clears a name the field no longer contributes. Fields whose parsed name occupies the root
+   * label are listed in {@link ParsedUrnNames#rootFields()}.
    */
+  @Nonnull
+  private static ParsedUrnNames parsedUrnNames(
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields,
+      @Nonnull final List<EntitySpec> indexGroup) {
+    final Map<String, ArrayNode> names = new LinkedHashMap<>();
+    final Set<String> rootFields = new LinkedHashSet<>();
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      if (!V3SearchFields.contributesParsedUrn(fieldSpec)) {
+        continue;
+      }
+      final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
+      final Set<String> found = new LinkedHashSet<>();
+      collectUrnText(projectedFields.get(annotation.getFieldName()), entityRegistry, found);
+      names.put(V3SearchFields.parsedUrnField(annotation.getFieldName()), arrayOf(found));
+      if (V3SearchFields.clearsRootForUrnLabel(fieldSpec, indexGroup)) {
+        rootFields.add(annotation.getFieldName());
+      }
+    }
+    return new ParsedUrnNames(names, rootFields);
+  }
+
+  @Nonnull
+  private static ArrayNode arrayOf(@Nonnull final Set<String> values) {
+    final ArrayNode array = JsonNodeFactory.instance.arrayNode();
+    values.forEach(array::add);
+    return array;
+  }
+
+  private static void collectUrnText(
+      @Nullable final JsonNode value,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Set<String> identities) {
+    if (value == null || value.isNull()) {
+      return;
+    }
+    if (value.isArray()) {
+      value.forEach(item -> collectUrnText(item, entityRegistry, identities));
+      return;
+    }
+    if (value.isObject()) {
+      collectUrnText(value.get("urn"), entityRegistry, identities);
+      return;
+    }
+    if (!value.isTextual() || !value.asText().startsWith("urn:")) {
+      return;
+    }
+    try {
+      final String identity =
+          UrnSearchIdentity.identity(Urn.createFromString(value.asText()), entityRegistry);
+      if (!identity.isEmpty()) {
+        identities.add(identity);
+      }
+    } catch (URISyntaxException exception) {
+      // A value that only looks like a URN stays exact and contributes no full-text identity.
+    }
+  }
+
   private static boolean sourcePopulated(
       @Nonnull final SearchableAnnotation annotation, @Nonnull final ObjectNode projectedFields) {
     final Optional<String> declared = annotation.getHasValuesFieldName();
@@ -247,15 +362,49 @@ public class V3SearchDocumentProjector {
     return !value.isArray() || !value.isEmpty();
   }
 
+  private static void storeAspectJson(
+      @Nonnull final MCLItem event,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final ObjectNode projectedFields) {
+    if (aspectSpec.getAspectAnnotation() == null
+        || !aspectSpec.getAspectAnnotation().isAspectJson()) {
+      return;
+    }
+    if (ChangeType.DELETE.equals(event.getChangeType()) || event.getRecordTemplate() == null) {
+      projectedFields.putNull(ASPECT_JSON_FIELD);
+      return;
+    }
+    projectedFields.put(ASPECT_JSON_FIELD, RecordUtils.toJsonString(event.getRecordTemplate()));
+  }
+
+  /**
+   * Aspect JSON from an {@code _aspects.<aspect>} object. A string is the stored value. An object
+   * is accepted so a caller can still parse a value that was written as JSON.
+   */
+  @Nullable
+  public static String aspectJson(@Nullable final JsonNode aspectNode) {
+    if (aspectNode == null || aspectNode.isNull() || aspectNode.isMissingNode()) {
+      return null;
+    }
+    JsonNode stored = aspectNode.get(ASPECT_JSON_FIELD);
+    if (stored == null || stored.isNull() || stored.isMissingNode()) {
+      return null;
+    }
+    return stored.isTextual() ? stored.asText() : stored.toString();
+  }
+
   private static ProjectedAspect buildProjectedAspect(
       @Nonnull final String aspectName,
       @Nonnull final ObjectNode projectedFields,
       @Nullable final SystemMetadata systemMetadata,
       final boolean rootOnly,
       @Nonnull final Set<String> sharedHasValues,
+      @Nonnull final ParsedUrnNames parsedUrns,
+      @Nonnull final Urn urn,
       @Nonnull final OperationContext opContext) {
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
+    rootFields.remove(ASPECT_JSON_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
@@ -268,15 +417,39 @@ public class V3SearchDocumentProjector {
       }
     }
     addSystemMetadata(opContext, aspectFields, systemMetadata);
+    // Kept on the aspect so a later partial update of another aspect does not replace it.
+    // An empty array clears a name this field no longer contributes.
+    parsedUrns
+        .names()
+        .forEach(
+            (fieldName, values) -> {
+              aspectFields.set(fieldName, values);
+            });
+    // A URN label is an object filled by copy_to. Clear a previously stored string.
+    for (String fieldName : parsedUrns.rootFields()) {
+      rootFields.putNull(fieldName);
+    }
 
     if (SEMANTIC_CONTENT_ASPECT_NAME.equals(aspectName)) {
       // Vectors stay under _aspects; UpdateIndicesV3Strategy lifts them to the root only for
       // entities with semantic search enabled, whose V3 index maps a root embeddings field.
-      return new ProjectedAspect(
-          aspectName, JsonNodeFactory.instance.objectNode(), aspectFields, false);
+      final ObjectNode semanticRoot = JsonNodeFactory.instance.objectNode();
+      putParsedUrnName(semanticRoot, urn, opContext.getEntityRegistry());
+      return new ProjectedAspect(aspectName, semanticRoot, aspectFields, false);
     }
 
+    putParsedUrnName(rootFields, urn, opContext.getEntityRegistry());
     return new ProjectedAspect(aspectName, rootFields, aspectFields, rootOnly);
+  }
+
+  private static void putParsedUrnName(
+      @Nonnull final ObjectNode rootFields,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityRegistry entityRegistry) {
+    final String identity = UrnSearchIdentity.identity(urn, entityRegistry);
+    if (!identity.isEmpty()) {
+      rootFields.put(MappingConstants.URN_NAME_FIELD, identity);
+    }
   }
 
   private static void addSystemMetadata(
@@ -294,6 +467,9 @@ public class V3SearchDocumentProjector {
       throw propagate("Failed to serialize system metadata for V3 projected aspect", e);
     }
   }
+
+  private record ParsedUrnNames(
+      @Nonnull Map<String, ArrayNode> names, @Nonnull Set<String> rootFields) {}
 
   private static RuntimeException propagate(
       @Nonnull final String message, @Nonnull final Exception exception) {

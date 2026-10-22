@@ -56,6 +56,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesUtil;
@@ -519,7 +520,11 @@ public class UpdateIndicesV3StrategyTest {
     assertFalse(mappings.isEmpty());
     assertEquals(
         mappings,
-        new MultiEntityMappingsBuilder(EntityIndexConfiguration.builder().v3(v3Config).build())
+        new MultiEntityMappingsBuilder(
+                EntityIndexConfiguration.builder().v3(v3Config).build(),
+                null,
+                ESUtils.KEYWORD_MAXLENGTH,
+                List.of())
             .getIndexMappingsWithNewStructuredProperty(operationContext, propertyUrn, property));
   }
 
