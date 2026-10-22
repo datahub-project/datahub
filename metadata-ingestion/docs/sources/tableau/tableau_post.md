@@ -6,7 +6,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 Tableau Pulse metric definitions can be ingested from Tableau Cloud. Enable this with `extract_pulse_metrics: true`.
 
-The connector calls `GET /api/-/pulse/definitions`, then `GET /api/-/pulse/definitions/{definition_id}/metrics` for each definition. Each metric definition is a dataset with subtype Metric Definition. Each metric in that definition is a column on the dataset. The column name is taken from the metric's filters and time granularity, or `default` for the definition's default metric.
+The connector calls `GET /api/-/pulse/definitions`, then `GET /api/-/pulse/definitions/{definition_id}/metrics` for each definition. Each metric definition is a semantic model, and each metric in that definition is a metric entity under it, so both show up in the Metrics area. The model's definition records the measure, aggregation, time dimension, and datasource. A metric's name comes from its filters and time granularity, or from the definition name for the default metric. Its description records the filters, granularity, comparison, and measure, and its expression is the Tableau calculation for that measure.
 
 Pulse is not available on Tableau Server. If the API is missing or the credential cannot read definitions, ingestion records a warning and continues with the rest of the Tableau site.
 

@@ -8,7 +8,12 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSourceReport,
 )
 from datahub.ingestion.source.tableau.tableau_pulse import TableauPulseExtractor
-from datahub.metadata.schema_classes import SchemaMetadataClass, SubTypesClass
+from datahub.metadata.schema_classes import (
+    MetricInfoClass,
+    MetricRelationshipsClass,
+    SemanticModelInfoClass,
+    SubTypesClass,
+)
 
 
 class _Response:
@@ -50,11 +55,11 @@ def _extractor(get: Any) -> TableauPulseExtractor:
     )
 
 
-def _snapshots(workunits: List[Any]) -> List[Any]:
+def _aspects(workunits: List[Any], aspect_type: type) -> List[Any]:
     return [
-        wu.metadata.proposedSnapshot
+        wu.metadata.aspect
         for wu in workunits
-        if hasattr(wu.metadata, "proposedSnapshot")
+        if isinstance(getattr(wu.metadata, "aspect", None), aspect_type)
     ]
 
 
@@ -70,7 +75,7 @@ def test_extract_pulse_metrics_defaults_off() -> None:
     assert config.extract_pulse_metrics is False
 
 
-def test_definition_is_a_dataset_and_metrics_are_columns() -> None:
+def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
     def get(url: str, **kwargs: Any) -> _Response:
         if url.endswith("/metrics"):
             return _Response(
@@ -94,9 +99,14 @@ def test_definition_is_a_dataset_and_metrics_are_columns() -> None:
                                     }
                                 ],
                                 "measurement_period": {
-                                    "granularity": "GRANULARITY_BY_MONTH"
+                                    "granularity": "GRANULARITY_BY_MONTH",
+                                    "range": "RANGE_UNSPECIFIED",
+                                },
+                                "comparison": {
+                                    "comparison": "TIME_COMPARISON_PREVIOUS_PERIOD"
                                 },
                             },
+                            "datasource_luid": "luid-1",
                         },
                         {"is_default": False},
                     ]
@@ -112,8 +122,21 @@ def test_definition_is_a_dataset_and_metrics_are_columns() -> None:
                                 "id": "def-1",
                                 "name": "Sales",
                                 "description": "Sales pulse",
+                                "schema_version": "1.2",
+                                "created_at": "2024-01-01T00:00:00Z",
                             },
-                            "specification": {"datasource": {"id": "ds-1"}},
+                            "specification": {
+                                "datasource": {"id": "ds-1"},
+                                "basic_specification": {
+                                    "measure": {
+                                        "field": "Sales Amount",
+                                        "aggregation": "AGGREGATION_SUM",
+                                    },
+                                    "time_dimension": {"field": "Order Date"},
+                                },
+                                "temporality": "TEMPORALITY_OVER_TIME",
+                                "is_running_total": False,
+                            },
                         }
                     ],
                     "next_page_token": "page-2",
@@ -130,34 +153,54 @@ def test_definition_is_a_dataset_and_metrics_are_columns() -> None:
     extractor = _extractor(get)
     workunits = list(extractor.emit())
 
-    snapshots = _snapshots(workunits)
-    assert [snapshot.urn for snapshot in snapshots] == [
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,def-1,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:tableau,def-2,PROD)",
-    ]
-    sales = snapshots[0]
-    properties = next(
-        aspect for aspect in sales.aspects if getattr(aspect, "name", None) == "Sales"
+    models = _aspects(workunits, SemanticModelInfoClass)
+    assert [model.name for model in models] == ["Sales", "Profit"]
+    assert models[0].description == "Sales pulse"
+    assert models[0].nativeDefinition == "\n".join(
+        [
+            "measure: SUM(Sales Amount)",
+            "time_dimension: Order Date",
+            "temporality: OVER_TIME",
+            "is_running_total: false",
+            "datasource_id: ds-1",
+        ]
     )
-    assert properties.description == "Sales pulse"
-    assert properties.customProperties == {
-        "definitionId": "def-1",
-        "datasourceId": "ds-1",
-    }
-    schema = next(
-        aspect for aspect in sales.aspects if isinstance(aspect, SchemaMetadataClass)
-    )
-    assert [field.fieldPath for field in schema.fields] == [
-        "default",
-        "Region=West | by month",
-    ]
-    assert schema.fields[1].nativeDataType == "metric"
-    subtypes = [
-        wu.metadata.aspect
+    model_urns = [
+        wu.metadata.entityUrn
         for wu in workunits
-        if isinstance(getattr(wu.metadata, "aspect", None), SubTypesClass)
+        if isinstance(getattr(wu.metadata, "aspect", None), SemanticModelInfoClass)
     ]
-    assert subtypes[0].typeNames == ["Metric Definition"]
+    assert model_urns == [
+        "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-1)",
+        "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-2)",
+    ]
+    metrics = [
+        (wu.metadata.entityUrn, wu.metadata.aspect)
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), MetricInfoClass)
+    ]
+    sales_metrics = [item for item in metrics if ",site.def-1," in item[0]]
+    assert [metric.name for _, metric in sales_metrics] == [
+        "Sales",
+        "Sales · Region=West | by month",
+    ]
+    default_metric = sales_metrics[0][1]
+    assert default_metric.semanticModel == model_urns[0]
+    assert default_metric.expression.dialects[0].dialect == "TABLEAU"
+    assert default_metric.expression.dialects[0].expression == "SUM([Sales Amount])"
+    assert "Default metric for this definition." in default_metric.description
+    assert "Measure: SUM(Sales Amount)" in default_metric.description
+    filtered = sales_metrics[1][1]
+    assert "Filters: Region=West" in filtered.description
+    assert "Granularity: BY_MONTH" in filtered.description
+    assert "Comparison: PREVIOUS_PERIOD" in filtered.description
+    assert "Datasource: luid-1" in filtered.description
+    relationships = _aspects(workunits, MetricRelationshipsClass)
+    assert relationships
+    assert all(aspect.parentMetric is None for aspect in relationships)
+    assert _aspects(workunits, SubTypesClass)[0].typeNames == [
+        "Pulse Metric Definition"
+    ]
     assert extractor.report.num_pulse_definitions == 2
     assert extractor.report.num_pulse_metrics == 4
     assert len(extractor.report.warnings) == 1
@@ -188,7 +231,7 @@ def test_repeated_page_token_stops_listing() -> None:
     workunits = list(extractor.emit())
     # Two definition pages, then metrics for each emitted definition.
     assert calls["n"] == 4
-    assert len(_snapshots(workunits)) == 2
+    assert len(_aspects(workunits, SemanticModelInfoClass)) == 2
     assert len(extractor.report.warnings) == 1
 
 
@@ -201,10 +244,8 @@ def test_metrics_failure_still_emits_the_definition() -> None:
         )
 
     extractor = _extractor(get)
-    snapshots = _snapshots(list(extractor.emit()))
-    assert len(snapshots) == 1
-    assert not any(
-        isinstance(aspect, SchemaMetadataClass) for aspect in snapshots[0].aspects
-    )
+    workunits = list(extractor.emit())
+    assert len(_aspects(workunits, SemanticModelInfoClass)) == 1
+    assert _aspects(workunits, MetricInfoClass) == []
     assert extractor.report.num_pulse_definitions == 1
     assert len(extractor.report.warnings) == 1

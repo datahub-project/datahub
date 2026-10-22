@@ -1,5 +1,16 @@
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set
+from datetime import datetime
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 from urllib.parse import quote
 
 import requests
@@ -9,22 +20,22 @@ from tableauserverclient import Server
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    NumberTypeClass,
-    OtherSchema,
-    SchemaField,
-    SchemaFieldDataType,
-    SchemaMetadata,
-)
 from datahub.metadata.schema_classes import (
-    BrowsePathsClass,
+    AuditStampClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
-    DatasetPropertiesClass,
+    DialectClass,
+    DialectExpressionClass,
+    MetricExpressionClass,
+    MetricInfoClass,
+    MetricRelationshipsClass,
+    MetricUpstreamsClass,
+    SemanticModelInfoClass,
+    StatusClass,
     SubTypesClass,
 )
+from datahub.metadata.urns import MetricUrn, SemanticModelUrn
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.tableau.tableau import (
@@ -36,6 +47,8 @@ logger = logging.getLogger(__name__)
 
 _PULSE_PAGE_SIZE_CAP = 1000
 _DEFINITIONS_PATH = "definitions"
+_UNKNOWN_ACTOR_URN = "urn:li:corpuser:unknown"
+_DEFINITION_SUBTYPE = "Pulse Metric Definition"
 
 
 def _camel(name: str) -> str:
@@ -57,6 +70,12 @@ def _as_list(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
 
 
+def _clean_enum(value: Any, prefix: str) -> Optional[str]:
+    if not isinstance(value, str) or not value or "UNSPECIFIED" in value:
+        return None
+    return value.removeprefix(prefix)
+
+
 def _filter_values(pulse_filter: Dict[str, Any]) -> List[str]:
     values: List[str] = []
     for item in _as_list(_field(pulse_filter, "categorical_values")):
@@ -75,18 +94,51 @@ def _filter_values(pulse_filter: Dict[str, Any]) -> List[str]:
     return values
 
 
-def _metric_display_name(metric: Dict[str, Any]) -> str:
-    specification = _as_dict(_field(metric, "specification"))
-    parts: List[str] = []
+def _filter_label(pulse_filter: Dict[str, Any]) -> Optional[str]:
+    field_name = _field(pulse_filter, "field")
+    values = _filter_values(pulse_filter)
+    if field_name and values:
+        return f"{field_name}={','.join(values)}"
+    if field_name:
+        return str(field_name)
+    return None
+
+
+def _filter_labels(specification: Dict[str, Any]) -> List[str]:
+    labels: List[str] = []
     for pulse_filter in _as_list(_field(specification, "filters")):
         if not isinstance(pulse_filter, dict):
             continue
-        field_name = _field(pulse_filter, "field")
-        values = _filter_values(pulse_filter)
-        if field_name and values:
-            parts.append(f"{field_name}={','.join(values)}")
-        elif field_name:
-            parts.append(str(field_name))
+        label = _filter_label(pulse_filter)
+        if label:
+            labels.append(label)
+    return labels
+
+
+def _basic_specification(definition: Dict[str, Any]) -> Dict[str, Any]:
+    return _as_dict(
+        _field(_as_dict(_field(definition, "specification")), "basic_specification")
+    )
+
+
+def _measure(definition: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    measure = _as_dict(_field(_basic_specification(definition), "measure"))
+    field_name = _field(measure, "field")
+    aggregation = _clean_enum(_field(measure, "aggregation"), "AGGREGATION_")
+    return (str(field_name) if field_name else None, aggregation)
+
+
+def _time_dimension(definition: Dict[str, Any]) -> Optional[str]:
+    time_dimension = _as_dict(
+        _field(_basic_specification(definition), "time_dimension")
+    )
+    field_name = _field(time_dimension, "field")
+    return str(field_name) if field_name else None
+
+
+def _metric_qualifier(metric: Dict[str, Any]) -> str:
+    specification = _as_dict(_field(metric, "specification"))
+    parts = _filter_labels(specification)
     period = _as_dict(_field(specification, "measurement_period"))
     granularity = _field(period, "granularity")
     if (
@@ -102,30 +154,114 @@ def _metric_display_name(metric: Dict[str, Any]) -> str:
     return str(_field(metric, "id") or "")
 
 
-def _metric_description(metric: Dict[str, Any], field_path: str) -> str:
+def _metric_name(definition_name: str, metric: Dict[str, Any]) -> str:
+    qualifier = _metric_qualifier(metric)
+    if _field(metric, "is_default") or qualifier in {"default", ""}:
+        return definition_name
+    return f"{definition_name} · {qualifier}"
+
+
+def _audit_stamp(value: Any) -> Optional[AuditStampClass]:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return AuditStampClass(
+        time=int(parsed.timestamp() * 1000), actor=_UNKNOWN_ACTOR_URN
+    )
+
+
+def _native_definition(definition: Dict[str, Any]) -> Optional[str]:
+    specification = _as_dict(_field(definition, "specification"))
+    measure_field, aggregation = _measure(definition)
+    lines: List[str] = []
+    if measure_field and aggregation:
+        lines.append(f"measure: {aggregation}({measure_field})")
+    elif measure_field:
+        lines.append(f"measure: {measure_field}")
+    time_dimension = _time_dimension(definition)
+    if time_dimension:
+        lines.append(f"time_dimension: {time_dimension}")
+    temporality = _clean_enum(_field(specification, "temporality"), "TEMPORALITY_")
+    if temporality:
+        lines.append(f"temporality: {temporality}")
+    running_total = _field(specification, "is_running_total")
+    if isinstance(running_total, bool):
+        lines.append(f"is_running_total: {str(running_total).lower()}")
+    datasource_id = _field(_as_dict(_field(specification, "datasource")), "id")
+    if datasource_id:
+        lines.append(f"datasource_id: {datasource_id}")
+    return "\n".join(lines) or None
+
+
+def _metric_expression(definition: Dict[str, Any]) -> Optional[MetricExpressionClass]:
+    measure_field, aggregation = _measure(definition)
+    if not measure_field:
+        return None
+    expression = (
+        f"{aggregation}([{measure_field}])" if aggregation else f"[{measure_field}]"
+    )
+    return MetricExpressionClass(
+        dialects=[
+            DialectExpressionClass(dialect=DialectClass.TABLEAU, expression=expression)
+        ]
+    )
+
+
+def _metric_description(definition: Dict[str, Any], metric: Dict[str, Any]) -> str:
+    metadata = _as_dict(_field(definition, "metadata"))
+    specification = _as_dict(_field(metric, "specification"))
+    period = _as_dict(_field(specification, "measurement_period"))
+    comparison = _as_dict(_field(specification, "comparison"))
+    lines: List[str] = []
+    description = _field(metadata, "description")
+    if isinstance(description, str) and description:
+        lines.append(description)
     metric_id = _field(metric, "id")
-    pieces = [f"Tableau Pulse metric {metric_id}."]
+    if metric_id:
+        lines.append(f"Tableau Pulse metric {metric_id}.")
     if _field(metric, "is_default"):
-        pieces.append("Default metric for this definition.")
-    if field_path != metric_id:
-        pieces.append(f"Shown as column {field_path}.")
-    return " ".join(pieces)
+        lines.append("Default metric for this definition.")
+    measure_field, aggregation = _measure(definition)
+    if measure_field and aggregation:
+        lines.append(f"Measure: {aggregation}({measure_field})")
+    elif measure_field:
+        lines.append(f"Measure: {measure_field}")
+    time_dimension = _time_dimension(definition)
+    if time_dimension:
+        lines.append(f"Time dimension: {time_dimension}")
+    filters = _filter_labels(specification)
+    if filters:
+        lines.append(f"Filters: {', '.join(filters)}")
+    granularity = _clean_enum(_field(period, "granularity"), "GRANULARITY_")
+    if granularity:
+        lines.append(f"Granularity: {granularity}")
+    period_range = _clean_enum(_field(period, "range"), "RANGE_")
+    if period_range:
+        lines.append(f"Range: {period_range}")
+    comparison_name = _clean_enum(_field(comparison, "comparison"), "TIME_COMPARISON_")
+    if comparison_name:
+        lines.append(f"Comparison: {comparison_name}")
+    datasource_luid = _field(metric, "datasource_luid")
+    if datasource_luid:
+        lines.append(f"Datasource: {datasource_luid}")
+    return "\n".join(lines)
 
 
-def _unique_field_path(name: str, metric_id: str, used: Set[str]) -> str:
-    cleaned = name.replace(".", "_").replace("/", "|").strip() or metric_id
-    candidate = cleaned
-    if candidate in used:
-        suffix = metric_id[:8] if metric_id else str(len(used))
-        candidate = f"{cleaned}_{suffix}"
-    used.add(candidate)
-    return candidate
+def _workunits(entity_urn: str, aspects: Sequence[Any]) -> Iterable[MetadataWorkUnit]:
+    for aspect in aspects:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=entity_urn, aspect=aspect
+        ).as_workunit()
 
 
 class TableauPulseExtractor:
-    """Lists Pulse metric definitions and emits each as a dataset.
+    """Lists Pulse metric definitions and emits them into the Metrics area.
 
-    Metrics returned for a definition become schema fields on that dataset.
+    Each definition becomes a semantic model. Each metric in that definition
+    becomes a metric entity belonging to the model.
     """
 
     def __init__(
@@ -161,6 +297,12 @@ class TableauPulseExtractor:
                 continue
             yield from self._emit_definition(definition)
 
+    def _namespace(self) -> str:
+        site = self.config.site or "default"
+        if self.config.platform_instance:
+            return f"{self.config.platform_instance}.{site}"
+        return site
+
     def _emit_definition(
         self, definition: Dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
@@ -184,97 +326,118 @@ class TableauPulseExtractor:
         except Exception as exc:
             self.report.warning(
                 title="Failed to list Tableau Pulse metrics",
-                message="The metric definition was ingested without columns.",
+                message="The metric definition was ingested without metrics.",
                 context=definition_id,
                 exc=exc,
             )
             metrics = []
 
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            self.platform,
-            definition_id,
-            self.config.platform_instance,
-            self.config.env,
+        platform_urn = builder.make_data_platform_urn(self.platform)
+        model_urn = str(
+            SemanticModelUrn(
+                platform=platform_urn, path=self._namespace(), id=definition_id
+            )
         )
-        custom_properties: Dict[str, str] = {"definitionId": definition_id}
-        datasource = _as_dict(
-            _field(_as_dict(_field(definition, "specification")), "datasource")
-        )
-        datasource_id = _field(datasource, "id")
-        if datasource_id:
-            custom_properties["datasourceId"] = str(datasource_id)
-
+        created = _audit_stamp(_field(metadata, "created_at"))
         browse_name = name.replace("/", "|")
-        snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[
-                DataPlatformInstanceClass(
-                    platform=builder.make_data_platform_urn(self.platform),
-                    instance=(
-                        builder.make_dataplatform_instance_urn(
-                            self.platform, self.config.platform_instance
-                        )
-                        if self.config.platform_instance
-                        else None
-                    ),
-                ),
-                DatasetPropertiesClass(
+        yield from _workunits(
+            model_urn,
+            [
+                StatusClass(removed=False),
+                SemanticModelInfoClass(
                     name=name,
                     description=_field(metadata, "description"),
-                    customProperties=custom_properties,
+                    created=created,
+                    lastModified=created,
+                    nativeDefinition=_native_definition(definition),
                 ),
-                BrowsePathsClass(paths=[f"{self.browse_prefix}/Pulse/{browse_name}"]),
+                self._platform_instance(platform_urn),
+                SubTypesClass(typeNames=[_DEFINITION_SUBTYPE]),
+                self._browse_path(browse_name),
             ],
         )
-        schema = self._schema(name, metrics)
-        if schema is not None:
-            snapshot.aspects.append(schema)
-
         self.report.num_pulse_definitions += 1
-        yield MetadataWorkUnit(
-            id=dataset_urn, mce=MetadataChangeEvent(proposedSnapshot=snapshot)
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLEAU_METRIC_DEFINITION]),
-        ).as_workunit()
 
-    def _schema(self, schema_name: str, metrics: List[Any]) -> Optional[SchemaMetadata]:
-        used: Set[str] = set()
-        fields: List[SchemaField] = []
         for metric in metrics:
             if not isinstance(metric, dict):
                 continue
-            metric_id = _field(metric, "id")
-            if not metric_id:
-                self.report.warning(
-                    title="Skipped Tableau Pulse metric",
-                    message="A Pulse metric had no id and was not added as a column.",
-                    context=schema_name,
-                )
-                continue
-            metric_id = str(metric_id)
-            field_path = _unique_field_path(
-                _metric_display_name(metric), metric_id, used
+            yield from self._emit_metric(
+                definition, definition_id, name, model_urn, platform_urn, metric
             )
-            fields.append(
-                SchemaField(
-                    fieldPath=field_path,
-                    type=SchemaFieldDataType(type=NumberTypeClass()),
-                    nativeDataType="metric",
-                    description=_metric_description(metric, field_path),
-                )
+
+    def _emit_metric(
+        self,
+        definition: Dict[str, Any],
+        definition_id: str,
+        definition_name: str,
+        model_urn: str,
+        platform_urn: str,
+        metric: Dict[str, Any],
+    ) -> Iterable[MetadataWorkUnit]:
+        metric_id = _field(metric, "id")
+        if not metric_id:
+            self.report.warning(
+                title="Skipped Tableau Pulse metric",
+                message="A Pulse metric had no id and was not ingested.",
+                context=definition_name,
             )
-            self.report.num_pulse_metrics += 1
-        if not fields:
-            return None
-        return SchemaMetadata(
-            schemaName=schema_name,
-            platform=f"urn:li:dataPlatform:{self.platform}",
-            version=0,
-            hash="",
-            platformSchema=OtherSchema(rawSchema=""),
-            fields=fields,
+            return
+        metric_id = str(metric_id)
+        metric_urn = str(
+            MetricUrn(
+                platform=platform_urn,
+                path=f"{self._namespace()}.{definition_id}",
+                id=metric_id,
+            )
+        )
+        created = _audit_stamp(
+            _field(_as_dict(_field(definition, "metadata")), "created_at")
+        )
+        browse_name = definition_name.replace("/", "|")
+        yield from _workunits(
+            metric_urn,
+            [
+                StatusClass(removed=False),
+                MetricInfoClass(
+                    name=_metric_name(definition_name, metric),
+                    description=_metric_description(definition, metric),
+                    created=created,
+                    lastModified=created,
+                    expression=_metric_expression(definition),
+                    semanticModel=model_urn,
+                ),
+                self._platform_instance(platform_urn),
+                # Emit relationships with no parent so the metric is a root in
+                # the Metrics sidebar (hasParentMetric indexes as false).
+                MetricRelationshipsClass(derivedFrom=[]),
+                MetricUpstreamsClass(datasetUpstreams=[], fieldUpstreams=[]),
+                self._browse_path(browse_name, model_urn),
+            ],
+        )
+        self.report.num_pulse_metrics += 1
+
+    def _browse_path(
+        self, name: str, model_urn: Optional[str] = None
+    ) -> BrowsePathsV2Class:
+        entries = [
+            BrowsePathEntryClass(id=part)
+            for part in self.browse_prefix.strip("/").split("/")
+            if part
+        ]
+        entries.append(BrowsePathEntryClass(id="Pulse"))
+        entries.append(BrowsePathEntryClass(id=name, urn=model_urn))
+        return BrowsePathsV2Class(path=entries)
+
+    def _platform_instance(self, platform_urn: str) -> DataPlatformInstanceClass:
+        return DataPlatformInstanceClass(
+            platform=platform_urn,
+            instance=(
+                builder.make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def _list(self, path: str, list_key: str) -> Iterable[Dict[str, Any]]:
