@@ -17,13 +17,11 @@ import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValue;
-import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -50,12 +48,6 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATAHUB_POLICY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-    final EnvelopedAspect infoAspect = aspectMap.get(DATAHUB_POLICY_INFO_ASPECT_NAME);
-    if (infoAspect != null
-        && PolicyInfoPolicyMapper.isUnrepresentable(
-            new DataHubPolicyInfo(infoAspect.getValue().data()), entityResponse.getUrn())) {
-      return null;
-    }
     MappingHelper<DataHubPolicy> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(context, DATAHUB_POLICY_INFO_ASPECT_NAME, this::mapDataHubPolicyInfo);
     return mappingHelper.getResult();

@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
+import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyMapper;
 import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldMapper;
 import com.linkedin.entity.Aspect;
@@ -49,13 +50,17 @@ public class RollbackToleranceMappersTest {
   }
 
   @Test
-  public void testSchemaFieldOfUnrepresentableParentResolvesToNothing() {
+  public void testSchemaFieldOfUnrepresentableParentKeepsTheField() {
+    // A null field would null the non-null field or list that loaded it, so only parent is unset.
     EntityResponse response =
         new EntityResponse()
             .setUrn(UrnUtils.getUrn("urn:li:schemaField:(" + FROM_NEWER_BUILD + ",field)"))
             .setAspects(new EnvelopedAspectMap());
 
-    assertNull(SchemaFieldMapper.map(TestUtils.getMockAllowContext(), response));
+    SchemaFieldEntity field = SchemaFieldMapper.map(TestUtils.getMockAllowContext(), response);
+
+    assertEquals(field.getFieldPath(), "field");
+    assertNull(field.getParent());
   }
 
   @Test
