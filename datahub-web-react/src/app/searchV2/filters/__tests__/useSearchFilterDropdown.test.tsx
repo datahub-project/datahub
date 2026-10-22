@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react-hooks';
 
 import useSearchFilterDropdown from '@app/searchV2/filters/useSearchFilterDropdown';
 import { STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { STRING_TYPE_URN } from '@src/app/shared/constants';
+import { STRING_TYPE_URN } from '@src/app/sharedV2/constants';
 
 import { FacetMetadata, FilterOperator } from '@types';
 

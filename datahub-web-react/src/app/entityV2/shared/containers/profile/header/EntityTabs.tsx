@@ -6,7 +6,7 @@ import { Tab } from '@components/components/Tabs/Tabs';
 
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EntityTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+import TabFullsizedContext from '@app/sharedV2/TabFullsizedContext';
 
 type Props = {
     tabs: EntityTab[];

@@ -31,7 +31,7 @@ import {
 import useUpdateSchemaFilterQueryString from '@app/entityV2/shared/tabs/Dataset/Schema/utils/updateSchemaFilterQueryString';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

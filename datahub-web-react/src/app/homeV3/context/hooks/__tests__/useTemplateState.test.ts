@@ -22,14 +22,14 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
     useEntityContext: vi.fn(),
 }));
 
-vi.mock('@app/shared/usePrevious', () => ({
+vi.mock('@app/sharedV2/usePrevious', () => ({
     default: vi.fn(),
 }));
 
 const mockUseGlobalSettings = vi.mocked(useGlobalSettings);
 const mockUseUserContext = vi.mocked(useUserContext);
 const mockUseEntityContext = vi.mocked(useEntityContext);
-const mockUsePrevious = vi.mocked(await import('@app/shared/usePrevious')).default;
+const mockUsePrevious = vi.mocked(await import('@app/sharedV2/usePrevious')).default;
 
 // Mock template data
 const mockPersonalTemplate: PageTemplateFragment = {

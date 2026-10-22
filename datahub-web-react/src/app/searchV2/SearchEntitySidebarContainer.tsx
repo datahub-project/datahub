@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { EntityAndType } from '@app/entity/shared/types';
-import CompactContext from '@app/shared/CompactContext';
+import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';

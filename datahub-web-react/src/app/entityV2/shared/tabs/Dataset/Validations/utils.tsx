@@ -1,5 +1,5 @@
-import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
+import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
+import { parseMaybeStringAsFloatOrDefault } from '@app/sharedV2/numberUtil';
 
 import { AssertionStdOperator, AssertionStdParameters, VolumeAssertionInfo, VolumeAssertionType } from '@types';
 

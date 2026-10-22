@@ -21,8 +21,8 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '@app/search/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, Tag } from '@types';
