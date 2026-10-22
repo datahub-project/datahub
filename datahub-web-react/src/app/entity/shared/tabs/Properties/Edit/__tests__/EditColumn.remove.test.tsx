@@ -22,6 +22,7 @@ vi.mock('@src/alchemy-components', () => ({
             ))}
         </div>
     ),
+    toast: { loading: vi.fn(), success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock('@src/app/sharedV2/modals/ConfirmationModal', () => ({
@@ -60,9 +61,8 @@ vi.mock('@src/app/analytics', () => ({
     EventType: { RemoveStructuredPropertyEvent: 'RemoveStructuredPropertyEvent' },
 }));
 
-vi.mock('@src/app/sharedV2/toastMessageUtils', () => ({
-    ToastType: { LOADING: 'LOADING', SUCCESS: 'SUCCESS', ERROR: 'ERROR' },
-    showToastMessage: vi.fn(),
+vi.mock('@src/app/useEntityRegistry', () => ({
+    useEntityRegistry: () => ({ getDisplayName: () => 'Priority' }),
 }));
 
 vi.mock('react-i18next', () => ({
