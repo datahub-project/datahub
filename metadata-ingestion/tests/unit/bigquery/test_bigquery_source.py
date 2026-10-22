@@ -1,12 +1,13 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import time_machine
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import BadRequest, Forbidden, GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 from pydantic import ValidationError
 
@@ -61,6 +62,8 @@ from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryTableType,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stateful_ingestion_base import StateProviderWrapper
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -2973,3 +2976,269 @@ def test_probe_qualifies_tables_through_the_project_ids_field():
     # get_identifier shim cannot build `project.dataset.table`; the Qualifier
     # on `project_ids` declares it.
     assert declares_qualifier(BigQueryV2Config.model_construct())
+
+
+_BIGQUERY_OFF_ERROR = BadRequest(
+    "GET https://bigquery.googleapis.com/bigquery/v2/projects/off-proj/datasets"
+    "?prettyPrint=false: The project off-proj has not enabled BigQuery."
+)
+_CLEAN_UP_ON = {"enabled": True, "remove_stale_metadata": True}
+
+
+def _run_off_project(
+    tmp_path: Path,
+    stateful: Optional[Dict[str, Any]] = None,
+    project_ids: Optional[List[str]] = None,
+    ingested_before: bool = False,
+    last_state_urns: Optional[List[str]] = None,
+    error: Exception = _BIGQUERY_OFF_ERROR,
+    last_state_error: Optional[Exception] = None,
+) -> Tuple[BigqueryV2Source, List[Any]]:
+    config: Dict[str, Any] = {
+        "include_table_lineage": False,
+        "include_usage_statistics": False,
+    }
+    if project_ids:
+        config["project_ids"] = project_ids
+    if stateful is not None:
+        config["stateful_ingestion"] = {
+            **stateful,
+            "state_provider": {
+                "type": "file",
+                "config": {"filename": str(tmp_path / "state.json")},
+            },
+        }
+    with (
+        patch.object(
+            BigQueryConnectionConfig, "get_bigquery_client", new=lambda self: None
+        ),
+        patch.object(BigQueryV2Config, "get_projects_client"),
+        patch.object(
+            BigQuerySchemaApi, "get_datasets_for_project_id", side_effect=error
+        ),
+    ):
+        source = BigqueryV2Source(
+            config=BigQueryV2Config.model_validate(config),
+            ctx=PipelineContext(run_id="test", pipeline_name="test-pipeline"),
+        )
+        urns = list(last_state_urns or [])
+        if ingested_before:
+            urns.append(
+                source.bq_schema_extractor.gen_project_id_key("off-proj").as_urn()
+            )
+        with patch.object(
+            StateProviderWrapper,
+            "_get_last_checkpoint",
+            return_value=SimpleNamespace(state=GenericCheckpointState(urns=urns)),
+            side_effect=last_state_error,
+        ):
+            workunits = list(
+                source.bq_schema_extractor.get_project_workunits(
+                    BigqueryProject(id="off-proj", name="off-proj")
+                )
+            )
+    return source, workunits
+
+
+def test_bigquery_off_project_never_ingested_is_skipped_with_warning(
+    tmp_path: Path,
+) -> None:
+    source, workunits = _run_off_project(tmp_path, stateful=_CLEAN_UP_ON)
+
+    assert workunits == []
+    assert not source.report.failures
+    warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "BigQuery API not enabled for project"
+    ]
+    assert len(warnings) == 1
+    assert "off-proj" in str(warnings[0].context)
+
+
+def test_bigquery_off_project_ingested_before_stays_a_failure(tmp_path: Path) -> None:
+    # Its entities are in the last checkpoint, so a warning would let stale-entity
+    # removal soft-delete them.
+    source, _ = _run_off_project(tmp_path, stateful=_CLEAN_UP_ON, ingested_before=True)
+
+    failures = list(source.report.failures)
+    assert [f.title for f in failures] == ["Unable to get datasets for project"]
+    assert "project_id_pattern" in (failures[0].message or "")
+
+
+@pytest.mark.parametrize(
+    "dataset_name, ingested_before",
+    [("off-proj.ds.t1", True), ("OFF-PROJ.ds.t1", True), ("off-proj2.ds.t1", False)],
+)
+def test_bigquery_off_project_ingested_before_detected_by_dataset_urn(
+    tmp_path: Path, dataset_name: str, ingested_before: bool
+) -> None:
+    urn = f"urn:li:dataset:(urn:li:dataPlatform:bigquery,{dataset_name},PROD)"
+    source, _ = _run_off_project(tmp_path, stateful=_CLEAN_UP_ON, last_state_urns=[urn])
+
+    assert bool(source.report.failures) is ingested_before
+
+
+def test_bigquery_off_named_project_stays_a_failure(tmp_path: Path) -> None:
+    source, _ = _run_off_project(tmp_path, project_ids=["off-proj"])
+
+    failures = list(source.report.failures)
+    assert [f.title for f in failures] == ["Unable to get datasets for project"]
+    assert "mistype" in (failures[0].message or "")
+
+
+def test_dataset_listing_permission_error_stays_a_failure(tmp_path: Path) -> None:
+    source, _ = _run_off_project(
+        tmp_path,
+        stateful=_CLEAN_UP_ON,
+        error=Forbidden(
+            "Access Denied: Project off-proj: User does not have permission"
+        ),
+    )
+
+    assert [f.title for f in source.report.failures] == [
+        "Unable to get datasets for project"
+    ]
+
+
+def test_bigquery_off_project_stays_a_failure_when_last_state_is_unreadable(
+    tmp_path: Path,
+) -> None:
+    source, _ = _run_off_project(
+        tmp_path,
+        stateful=_CLEAN_UP_ON,
+        last_state_error=ConnectionError("state store unreachable"),
+    )
+
+    assert [f.title for f in source.report.failures] == [
+        "Unable to get datasets for project"
+    ]
+
+
+@pytest.mark.parametrize(
+    "stateful",
+    [
+        None,
+        {"enabled": False, "remove_stale_metadata": True},
+        {"enabled": True, "remove_stale_metadata": False},
+    ],
+)
+def test_bigquery_off_project_is_a_warning_when_clean_up_cannot_delete(
+    tmp_path: Path, stateful: Optional[Dict[str, Any]]
+) -> None:
+    source, _ = _run_off_project(tmp_path, stateful=stateful, ingested_before=True)
+
+    assert not source.report.failures
+
+
+_QUERY_LOG_OFF_ERROR = BadRequest(
+    "The project off-proj has not enabled BigQuery.; reason: invalid, "
+    "message: The project off-proj has not enabled BigQuery."
+)
+
+
+def _run_whole_source(
+    tmp_path: Path,
+    project_ids: Optional[List[str]] = None,
+    ingested_before: bool = False,
+    datasets_off: bool = True,
+) -> Tuple[BigqueryV2Source, List[str]]:
+    config: Dict[str, Any] = {
+        "include_table_lineage": True,
+        "include_usage_statistics": False,
+        "stateful_ingestion": {
+            **_CLEAN_UP_ON,
+            "state_provider": {
+                "type": "file",
+                "config": {"filename": str(tmp_path / "state.json")},
+            },
+        },
+    }
+    if project_ids:
+        config["project_ids"] = project_ids
+    projects = [BigqueryProject(id=p, name=p) for p in ("ok-proj", "off-proj")]
+    asked: List[str] = []
+
+    def list_datasets(project_id: str, **kwargs: Any) -> List[BigqueryDataset]:
+        if datasets_off and project_id == "off-proj":
+            raise _BIGQUERY_OFF_ERROR
+        return []
+
+    def query_log(
+        extractor: Any, project: BigqueryProject, region: str
+    ) -> Iterator[Any]:
+        asked.append(project.id)
+        if project.id == "off-proj":
+            raise _QUERY_LOG_OFF_ERROR
+        return iter(())
+
+    with (
+        patch.object(
+            BigQueryConnectionConfig, "get_bigquery_client", new=lambda self: None
+        ),
+        patch.object(BigQueryV2Config, "get_projects_client"),
+        patch.object(
+            BigQuerySchemaApi, "get_datasets_for_project_id", side_effect=list_datasets
+        ),
+        patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery.get_projects",
+            return_value=projects,
+        ),
+        patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.get_projects",
+            return_value=projects,
+        ),
+        patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor."
+            "BigQueryQueriesExtractor.fetch_region_query_log",
+            side_effect=query_log,
+            autospec=True,
+        ),
+    ):
+        source = BigqueryV2Source(
+            config=BigQueryV2Config.model_validate(config),
+            ctx=PipelineContext(run_id="test", pipeline_name="test-pipeline"),
+        )
+        urns = (
+            [source.bq_schema_extractor.gen_project_id_key("off-proj").as_urn()]
+            if ingested_before
+            else []
+        )
+        with patch.object(
+            StateProviderWrapper,
+            "_get_last_checkpoint",
+            return_value=SimpleNamespace(state=GenericCheckpointState(urns=urns)),
+        ):
+            list(source.get_workunits_internal())
+    return source, asked
+
+
+@pytest.mark.parametrize(
+    "project_ids, ingested_before, failure_titles",
+    [
+        (None, False, []),
+        (None, True, ["Unable to get datasets for project"]),
+        (["ok-proj", "off-proj"], False, ["Unable to get datasets for project"]),
+    ],
+)
+def test_bigquery_off_project_is_not_asked_for_query_history(
+    tmp_path: Path,
+    project_ids: Optional[List[str]],
+    ingested_before: bool,
+    failure_titles: List[str],
+) -> None:
+    source, asked = _run_whole_source(tmp_path, project_ids, ingested_before)
+
+    assert set(asked) == {"ok-proj"}
+    assert [f.title for f in source.report.failures] == failure_titles
+
+
+def test_bigquery_off_only_in_query_history_is_a_warning(tmp_path: Path) -> None:
+    # The API can change state between schema extraction and queries extraction.
+    source, asked = _run_whole_source(tmp_path, datasets_off=False)
+
+    assert asked.count("off-proj") == 1
+    assert not source.report.failures
+    assert "BigQuery API not enabled for project" in [
+        w.title for w in source.report.warnings
+    ]

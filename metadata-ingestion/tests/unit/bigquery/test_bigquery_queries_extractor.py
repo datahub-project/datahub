@@ -23,10 +23,12 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import BadRequest
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
@@ -1770,3 +1772,112 @@ class TestJobLabelsAsQueryProperties:
         assert query.custom_properties == expected_labels
         assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)
         assert query.extra_info == {"job_id": f"job_{expected_ts}"}
+
+
+class TestSkipProjectsWithoutBigQuery:
+    def _run(
+        self,
+        tmp_path: Path,
+        skip_project_ids: Optional[Set[str]],
+        failing: Tuple[str, ...] = (),
+        bigquery_off: Tuple[str, ...] = (),
+        project_ids: Optional[List[str]] = None,
+        error_project: Optional[str] = None,
+    ) -> Tuple[List[str], MagicMock]:
+        report = MagicMock()
+        extractor = BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=BigQueryQueriesExtractorConfig(
+                local_temp_path=tmp_path, region_qualifiers=["region-us", "region-eu"]
+            ),
+            structured_report=report,
+            filters=BigQueryFilter(
+                BigQueryFilterConfig(project_ids=project_ids or []), MagicMock()
+            ),
+            identifiers=BigQueryIdentifierBuilder(
+                BigQueryIdentifierConfig(), MagicMock()
+            ),
+            skip_project_ids=skip_project_ids,
+        )
+        asked: List[str] = []
+
+        def fake_region_query_log(
+            project: BigqueryProject, region: str
+        ) -> Iterator[ObservedQuery]:
+            asked.append(project.id)
+            if project.id in failing:
+                raise RuntimeError("query log unavailable")
+            if project.id in bigquery_off:
+                named = error_project or project.id
+                raise BadRequest(
+                    f"The project {named} has not enabled BigQuery.; reason: invalid"
+                )
+            return iter(())
+
+        try:
+            with (
+                patch(
+                    "datahub.ingestion.source.bigquery_v2.queries_extractor.get_projects",
+                    return_value=[
+                        BigqueryProject(id="ok-proj", name="ok-proj"),
+                        BigqueryProject(id="off-proj", name="off-proj"),
+                    ],
+                ),
+                patch.object(
+                    extractor,
+                    "fetch_region_query_log",
+                    side_effect=fake_region_query_log,
+                ),
+            ):
+                list(extractor.get_workunits_internal())
+        finally:
+            extractor.close()
+        return asked, report
+
+    def _failed_projects(self, report: MagicMock) -> Set[str]:
+        return {
+            c.kwargs["context"].split()[0]
+            for c in report.failure.call_args_list
+            if c.kwargs.get("title") == "BigQuery query log fetch failed"
+        }
+
+    def test_query_log_not_enabled_is_one_warning(self, tmp_path):
+        asked, report = self._run(
+            tmp_path, skip_project_ids=None, bigquery_off=("off-proj",)
+        )
+
+        assert self._failed_projects(report) == set()
+        assert asked.count("off-proj") == 1
+        assert [
+            c.kwargs["title"]
+            for c in report.warning.call_args_list
+            if "off-proj" in c.kwargs.get("context", "")
+        ] == ["BigQuery API not enabled for project"]
+
+    def test_query_log_not_enabled_named_project_stays_a_failure(self, tmp_path):
+        _, report = self._run(
+            tmp_path,
+            skip_project_ids=None,
+            bigquery_off=("off-proj",),
+            project_ids=["ok-proj", "off-proj"],
+        )
+
+        assert self._failed_projects(report) == {"project=off-proj"}
+
+    def test_query_log_not_enabled_for_another_project_stays_a_failure(self, tmp_path):
+        _, report = self._run(
+            tmp_path,
+            skip_project_ids=None,
+            bigquery_off=("off-proj",),
+            error_project="billing-proj",
+        )
+
+        assert self._failed_projects(report) == {"project=off-proj"}
+
+    def test_other_project_query_log_error_still_fails(self, tmp_path):
+        _, report = self._run(
+            tmp_path, skip_project_ids={"off-proj"}, failing=("ok-proj",)
+        )
+
+        assert self._failed_projects(report) == {"project=ok-proj"}

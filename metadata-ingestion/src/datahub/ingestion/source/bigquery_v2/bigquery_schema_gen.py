@@ -3,7 +3,18 @@ import re
 from base64 import b32decode
 from collections import defaultdict
 from dataclasses import replace
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 
 from google.cloud.bigquery.table import TableListItem
 
@@ -247,6 +258,8 @@ class BigQuerySchemaGenerator:
         shard_matcher: BigQueryShardPatternMatcher,
         graph: Optional[DataHubGraph] = None,
         sharing_handler: Optional[BigQuerySharingHandler] = None,
+        *,
+        project_in_last_state: Callable[[str], bool],
     ):
         self.config = config
         self.report = report
@@ -259,6 +272,9 @@ class BigQuerySchemaGenerator:
         self.shard_matcher = shard_matcher
         self.graph = graph
         self.sharing_handler = sharing_handler
+        self.project_in_last_state = project_in_last_state
+        # Read by queries extraction, which starts after every project is processed.
+        self.projects_without_bigquery: Set[str] = set()
 
         self.classification_handler = ClassificationHandler(self.config, self.report)
         self.data_reader: Optional[BigQueryDataReader] = None
@@ -462,10 +478,29 @@ class BigQuerySchemaGenerator:
                 ),
             )
         except Exception as e:
-            if self.config.project_ids and "not enabled BigQuery." in str(e):
+            bigquery_off = "not enabled BigQuery." in str(e)
+            if bigquery_off:
+                self.projects_without_bigquery.add(project_id)
+            if self.config.project_ids and bigquery_off:
                 action_mesage = (
                     "The project has not enabled BigQuery API. "
                     "Did you mistype project id in recipe ?"
+                )
+            elif bigquery_off and not self.project_in_last_state(project_id):
+                self.report.warning(
+                    title="BigQuery API not enabled for project",
+                    message="Skipped: the BigQuery API is not enabled in this project. "
+                    "Add it to `project_id_pattern.deny` to stop this warning.",
+                    context=project_id,
+                    exc=e,
+                )
+                return None
+            elif bigquery_off:
+                # A warning would let stale-entity removal soft-delete its old entities.
+                action_mesage = (
+                    "The BigQuery API is not enabled in this project, but its metadata "
+                    "was ingested before. Add the project to `project_id_pattern.deny` "
+                    "to retire it, or enable the BigQuery API again."
                 )
             else:
                 action_mesage = (
