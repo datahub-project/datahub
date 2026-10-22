@@ -65,7 +65,7 @@ attrs==25.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   pytest-docker
     #   referencing
     #   zeep
-authlib==1.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+authlib==1.9.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   confluent-kafka
@@ -661,7 +661,7 @@ jmespath==1.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   botocore
 joblib==1.5.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via nltk
-joserfc==1.6.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
+joserfc==1.7.7 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via authlib
 jpype1==1.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub

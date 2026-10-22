@@ -5,7 +5,7 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
-import ClickOutside from '@app/shared/ClickOutside';
+import ClickOutside from '@app/sharedV2/ClickOutside';
 import { SearchResultsDropdown } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

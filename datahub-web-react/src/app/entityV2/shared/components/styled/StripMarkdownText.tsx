@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { stripMarkdownLinks } from '@app/shared/stripMarkdownLinks';
+import { stripMarkdownLinks } from '@app/sharedV2/stripMarkdownLinks';
 
 const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
     display: block;

@@ -38,12 +38,6 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
         .getTestContext()
         .markApplicationContextDirty(DirtiesContext.HierarchyMode.EXHAUSTIVE);
 
-    TestContextManager goldenTestContextManager =
-        new TestContextManager(GoldenElasticSearchTest.class);
-    goldenTestContextManager
-        .getTestContext()
-        .markApplicationContextDirty(DirtiesContext.HierarchyMode.EXHAUSTIVE);
-
     TestContextManager lineageTestContextManager =
         new TestContextManager(LineageDataFixtureElasticSearchTest.class);
     lineageTestContextManager

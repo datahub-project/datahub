@@ -19,7 +19,8 @@ import com.linkedin.common.AuditStamp
  *   - explicit list: the stage only applies to those entity types
  */
 @Aspect = {
-  "name": "lifecycleStageTypeInfo"
+  "name": "lifecycleStageTypeInfo",
+  "schemaVersion": 2
 }
 record LifecycleStageTypeInfo {
   /**
@@ -43,6 +44,18 @@ record LifecycleStageTypeInfo {
   /**
    * Description of what this lifecycle stage represents.
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**

@@ -33,7 +33,7 @@ import {
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
 import {
@@ -219,7 +219,7 @@ export default function DefaultPreviewCard({
     description,
     refetchDeprecation,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
     const { config } = useAppConfig();
 

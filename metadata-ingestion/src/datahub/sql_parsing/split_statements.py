@@ -187,12 +187,14 @@ _EXEC_TARGET_TOKENS: Final = {
     # A bracketed name arrives already quoted: the T-SQL tokenizer emits `[p]` as a
     # single IDENTIFIER rather than a bracket token.
     TokenType.IDENTIFIER,
-    # `EXEC @rc = proc`, `EXEC(@sql)` and `EXECUTE AS <principal>`. Only the first
-    # names a callee and yields an edge, but each still has to open a statement, or
-    # the statement before it is absorbed into the fragment and loses its own lineage.
+    # `EXEC @rc = proc`, `EXEC(@sql)`, `EXECUTE AS <principal>` and `EXEC #tmp_proc`.
+    # Only the first names a callee the run can resolve and yields an edge, but each
+    # still has to open a statement, or the statement before it is absorbed into the
+    # fragment and loses its own lineage.
     TokenType.PARAMETER,
     TokenType.L_PAREN,
     TokenType.ALIAS,
+    TokenType.HASH,
 }
 
 # Continuation tokens that may still precede a real `EXEC <proc>` statement.

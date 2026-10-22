@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
 import { handleBatchError } from '@src/app/entityV2/shared/utils';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
+import { useGetRecommendations } from '@src/app/sharedV2/recommendation';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
 import { useBatchAddTagsMutation, useBatchRemoveTagsMutation } from '@src/graphql/mutations.generated';
 import { Entity, EntityType, TagAssociation, Tag as TagType } from '@src/types.generated';

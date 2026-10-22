@@ -18,7 +18,7 @@ import {
     getStructuredReport,
 } from '@app/ingest/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
