@@ -29,8 +29,9 @@ export default function LineageExplorer(props: Props) {
     const { urn, type } = props;
 
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    // Member queries of these initializers don't take the time params, so after the time-range
-    // reset nothing would re-add their members. Remounting restarts pagination and refetches them.
+    // The DataProduct and SemanticModel member queries don't take the time params, so after the
+    // time-range reset nothing would re-add their members. Remounting refetches them. DataFlow
+    // refetches its child jobs on a time-range change itself (useFetchChildDataJobs).
     const timeRangeKey = `${startTimeMillis}-${endTimeMillis}`;
 
     const [nodes] = useState(new Map<string, LineageEntity>());
@@ -80,7 +81,7 @@ export default function LineageExplorer(props: Props) {
 
     return (
         <LineageNodesContext.Provider value={context}>
-            {type === EntityType.DataFlow && <DAGNodeInitializer key={timeRangeKey} urn={urn} type={type} />}
+            {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
             {type === EntityType.DataProduct && (
                 <DataProductGraphInitializer key={timeRangeKey} urn={urn} type={type} />
             )}

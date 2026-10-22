@@ -20,7 +20,6 @@ export default function useFetchChildDataJobs(): boolean {
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const [start, setStart] = useState(0);
     const [initialized, setInitialized] = useState(false);
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
 
     // A new time range resets the graph, so child jobs must be fetched again from the first page
     useEffect(() => setStart(0), [startTimeMillis, endTimeMillis]);
