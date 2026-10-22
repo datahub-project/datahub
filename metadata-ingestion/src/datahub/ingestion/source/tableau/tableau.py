@@ -1335,6 +1335,10 @@ class TableauSiteSource:
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, Optional[str]] = {}
         self.datasource_project_map: Dict[str, str] = {}
+        # Pulse identifies a datasource by LUID. Dataset URNs use the metadata
+        # API id, so keep both keys pointed at the emitted dataset.
+        self.datasource_urn_by_id: Dict[str, str] = {}
+        self.datasource_fields_by_urn: Dict[str, Set[str]] = {}
         self.db_tables_lookup: Dict[str, dict] = {}
 
         self.group_map: Dict[str, GroupItem] = {}
@@ -3602,6 +3606,7 @@ class TableauSiteSource:
         )
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
+        self._remember_datasource(datasource, datasource_urn, schema_metadata)
 
         yield self.get_metadata_change_event(dataset_snapshot)
         yield self.get_metadata_change_proposal(
@@ -3624,6 +3629,21 @@ class TableauSiteSource:
                 c.DATASET,
                 dataset_snapshot.urn,
             )
+
+    def _remember_datasource(
+        self,
+        datasource: dict,
+        datasource_urn: str,
+        schema_metadata: Optional[SchemaMetadata],
+    ) -> None:
+        self.datasource_urn_by_id[str(datasource[c.ID])] = datasource_urn
+        luid = datasource.get(c.LUID)
+        if luid:
+            self.datasource_urn_by_id[str(luid)] = datasource_urn
+        if schema_metadata is not None:
+            self.datasource_fields_by_urn[datasource_urn] = {
+                field.fieldPath for field in schema_metadata.fields
+            }
 
     def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
         return {key: str(obj[key]) for key in keys if obj.get(key)} or None
@@ -4911,6 +4931,8 @@ class TableauSiteSource:
                         report=self.report,
                         platform=self.platform,
                         browse_prefix=self.dataset_browse_prefix,
+                        datasource_urns=self.datasource_urn_by_id,
+                        datasource_fields=self.datasource_fields_by_urn,
                     ).emit()
                     self.report.emit_pulse_metrics_timer[self.site_content_url] = (
                         timer.elapsed_seconds(digits=2)

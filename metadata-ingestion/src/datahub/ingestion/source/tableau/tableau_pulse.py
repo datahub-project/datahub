@@ -25,8 +25,10 @@ from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     DialectClass,
     DialectExpressionClass,
+    EdgeClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
@@ -34,8 +36,10 @@ from datahub.metadata.schema_classes import (
     SemanticModelInfoClass,
     StatusClass,
     SubTypesClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
-from datahub.metadata.urns import MetricUrn, SemanticModelUrn
+from datahub.metadata.urns import MetricUrn, SchemaFieldUrn, SemanticModelUrn
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.tableau.tableau import (
@@ -250,6 +254,50 @@ def _metric_description(definition: Dict[str, Any], metric: Dict[str, Any]) -> s
     return "\n".join(lines)
 
 
+def _datasource_keys(
+    definition: Dict[str, Any], metric: Optional[Dict[str, Any]] = None
+) -> List[str]:
+    keys: List[str] = []
+    specification = _as_dict(_field(definition, "specification"))
+    datasource_id = _field(_as_dict(_field(specification, "datasource")), "id")
+    if datasource_id:
+        keys.append(str(datasource_id))
+    if metric is not None:
+        datasource_luid = _field(metric, "datasource_luid")
+        if datasource_luid and str(datasource_luid) not in keys:
+            keys.append(str(datasource_luid))
+    return keys
+
+
+def _lineage_field_names(
+    definition: Dict[str, Any], metric: Dict[str, Any]
+) -> List[str]:
+    names: List[str] = []
+    measure_field, _ = _measure(definition)
+    if measure_field:
+        names.append(measure_field)
+    time_dimension = _time_dimension(definition)
+    if time_dimension:
+        names.append(time_dimension)
+    specifications = [
+        _as_dict(_field(definition, "specification")),
+        _basic_specification(definition),
+        _as_dict(_field(metric, "specification")),
+    ]
+    for specification in specifications:
+        for pulse_filter in _as_list(_field(specification, "filters")):
+            if not isinstance(pulse_filter, dict):
+                continue
+            field_name = _field(pulse_filter, "field")
+            if field_name:
+                names.append(str(field_name))
+    unique: List[str] = []
+    for name in names:
+        if name not in unique:
+            unique.append(name)
+    return unique
+
+
 def _workunits(entity_urn: str, aspects: Sequence[Any]) -> Iterable[MetadataWorkUnit]:
     for aspect in aspects:
         yield MetadataChangeProposalWrapper(
@@ -271,12 +319,16 @@ class TableauPulseExtractor:
         report: "TableauSourceReport",
         platform: str,
         browse_prefix: str,
+        datasource_urns: Optional[Dict[str, str]] = None,
+        datasource_fields: Optional[Dict[str, Set[str]]] = None,
     ) -> None:
         self.config = config
         self.server = server
         self.report = report
         self.platform = platform
         self.browse_prefix = browse_prefix
+        self.datasource_urns = datasource_urns or {}
+        self.datasource_fields = datasource_fields or {}
 
     def emit(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -340,29 +392,54 @@ class TableauPulseExtractor:
         )
         created = _audit_stamp(_field(metadata, "created_at"))
         browse_name = name.replace("/", "|")
-        yield from _workunits(
-            model_urn,
-            [
-                StatusClass(removed=False),
-                SemanticModelInfoClass(
-                    name=name,
-                    description=_field(metadata, "description"),
-                    created=created,
-                    lastModified=created,
-                    nativeDefinition=_native_definition(definition),
+        datasource_urn = self._resolve_datasource(_datasource_keys(definition))
+        if _datasource_keys(definition) and datasource_urn is None:
+            self.report.warning(
+                title="Tableau Pulse metric has no datasource lineage",
+                message=(
+                    "The Pulse datasource id did not match an ingested Tableau "
+                    "datasource, so lineage was not created."
                 ),
-                self._platform_instance(platform_urn),
-                SubTypesClass(typeNames=[_DEFINITION_SUBTYPE]),
-                self._browse_path(browse_name),
-            ],
-        )
+                context=definition_id,
+            )
+        model_aspects: List[Any] = [
+            StatusClass(removed=False),
+            SemanticModelInfoClass(
+                name=name,
+                description=_field(metadata, "description"),
+                created=created,
+                lastModified=created,
+                nativeDefinition=_native_definition(definition),
+            ),
+            self._platform_instance(platform_urn),
+            SubTypesClass(typeNames=[_DEFINITION_SUBTYPE]),
+            self._browse_path(browse_name),
+        ]
+        if datasource_urn:
+            model_aspects.append(
+                UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=datasource_urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    ]
+                )
+            )
+        yield from _workunits(model_urn, model_aspects)
         self.report.num_pulse_definitions += 1
 
         for metric in metrics:
             if not isinstance(metric, dict):
                 continue
             yield from self._emit_metric(
-                definition, definition_id, name, model_urn, platform_urn, metric
+                definition,
+                definition_id,
+                name,
+                model_urn,
+                platform_urn,
+                metric,
+                datasource_urn,
             )
 
     def _emit_metric(
@@ -373,6 +450,7 @@ class TableauPulseExtractor:
         model_urn: str,
         platform_urn: str,
         metric: Dict[str, Any],
+        definition_datasource_urn: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         metric_id = _field(metric, "id")
         if not metric_id:
@@ -394,6 +472,10 @@ class TableauPulseExtractor:
             _field(_as_dict(_field(definition, "metadata")), "created_at")
         )
         browse_name = definition_name.replace("/", "|")
+        datasource_urn = (
+            self._resolve_datasource(_datasource_keys(definition, metric))
+            or definition_datasource_urn
+        )
         yield from _workunits(
             metric_urn,
             [
@@ -410,11 +492,43 @@ class TableauPulseExtractor:
                 # Emit relationships with no parent so the metric is a root in
                 # the Metrics sidebar (hasParentMetric indexes as false).
                 MetricRelationshipsClass(derivedFrom=[]),
-                MetricUpstreamsClass(datasetUpstreams=[], fieldUpstreams=[]),
+                self._metric_upstreams(datasource_urn, definition, metric),
                 self._browse_path(browse_name, model_urn),
             ],
         )
         self.report.num_pulse_metrics += 1
+
+    def _resolve_datasource(self, keys: Sequence[str]) -> Optional[str]:
+        for key in keys:
+            urn = self.datasource_urns.get(key)
+            if urn:
+                return urn
+        return None
+
+    def _metric_upstreams(
+        self,
+        datasource_urn: Optional[str],
+        definition: Dict[str, Any],
+        metric: Dict[str, Any],
+    ) -> MetricUpstreamsClass:
+        if not datasource_urn:
+            return MetricUpstreamsClass(datasetUpstreams=[], fieldUpstreams=[])
+        known_fields = self.datasource_fields.get(datasource_urn, set())
+        folded = {field.lower(): field for field in known_fields}
+        field_urns: List[str] = []
+        for name in _lineage_field_names(definition, metric):
+            field_path = name if name in known_fields else folded.get(name.lower())
+            if not field_path:
+                continue
+            field_urn = str(SchemaFieldUrn(datasource_urn, field_path))
+            if field_urn not in field_urns:
+                field_urns.append(field_urn)
+        return MetricUpstreamsClass(
+            datasetUpstreams=[EdgeClass(destinationUrn=datasource_urn)],
+            fieldUpstreams=[
+                EdgeClass(destinationUrn=field_urn) for field_urn in field_urns
+            ],
+        )
 
     def _browse_path(
         self, name: str, model_urn: Optional[str] = None

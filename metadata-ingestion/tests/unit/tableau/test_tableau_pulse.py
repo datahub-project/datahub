@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 from unittest import mock
 
 import requests
@@ -11,9 +11,12 @@ from datahub.ingestion.source.tableau.tableau_pulse import TableauPulseExtractor
 from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
+    MetricUpstreamsClass,
     SemanticModelInfoClass,
     SubTypesClass,
+    UpstreamLineageClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 
 
 class _Response:
@@ -42,7 +45,11 @@ def _config() -> TableauConfig:
     )
 
 
-def _extractor(get: Any) -> TableauPulseExtractor:
+def _extractor(
+    get: Any,
+    datasource_urns: Dict[str, str] | None = None,
+    datasource_fields: Dict[str, Set[str]] | None = None,
+) -> TableauPulseExtractor:
     server = mock.Mock()
     server.auth_token = "token"
     server._session.get.side_effect = get
@@ -52,6 +59,8 @@ def _extractor(get: Any) -> TableauPulseExtractor:
         report=TableauSourceReport(),
         platform="tableau",
         browse_prefix="/prod/tableau",
+        datasource_urns=datasource_urns,
+        datasource_fields=datasource_fields,
     )
 
 
@@ -150,7 +159,14 @@ def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
             }
         )
 
-    extractor = _extractor(get)
+    datasource_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,graphql-ds,PROD)"
+    extractor = _extractor(
+        get,
+        datasource_urns={"ds-1": datasource_urn},
+        datasource_fields={
+            datasource_urn: {"Sales Amount", "Order Date", "Region"},
+        },
+    )
     workunits = list(extractor.emit())
 
     models = _aspects(workunits, SemanticModelInfoClass)
@@ -201,6 +217,34 @@ def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
     assert _aspects(workunits, SubTypesClass)[0].typeNames == [
         "Pulse Metric Definition"
     ]
+    model_lineage = [
+        (wu.metadata.entityUrn, wu.metadata.aspect)
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), UpstreamLineageClass)
+    ]
+    assert model_lineage[0][0] == model_urns[0]
+    assert model_lineage[0][1].upstreams[0].dataset == datasource_urn
+
+    def _metric_upstreams(metric_id: str) -> MetricUpstreamsClass:
+        return next(
+            wu.metadata.aspect
+            for wu in workunits
+            if wu.metadata.entityUrn.endswith(f",{metric_id})")
+            and isinstance(wu.metadata.aspect, MetricUpstreamsClass)
+        )
+
+    default_upstreams = _metric_upstreams("metric-default")
+    assert [edge.destinationUrn for edge in default_upstreams.datasetUpstreams] == [
+        datasource_urn
+    ]
+    assert {edge.destinationUrn for edge in default_upstreams.fieldUpstreams} == {
+        str(SchemaFieldUrn(datasource_urn, "Sales Amount")),
+        str(SchemaFieldUrn(datasource_urn, "Order Date")),
+    }
+    west_upstreams = _metric_upstreams("metric-west")
+    assert str(SchemaFieldUrn(datasource_urn, "Region")) in {
+        edge.destinationUrn for edge in west_upstreams.fieldUpstreams
+    }
     assert extractor.report.num_pulse_definitions == 2
     assert extractor.report.num_pulse_metrics == 4
     assert len(extractor.report.warnings) == 1
