@@ -3,6 +3,11 @@ package com.linkedin.datahub.graphql.exception;
 import static org.testng.Assert.*;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
@@ -606,14 +611,11 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertEquals(error.getErrorCode(), 504);
   }
 
-  private static com.linkedin.metadata.aspect.batch.BatchItem mockBatchItem() {
-    com.linkedin.metadata.aspect.batch.BatchItem item =
-        Mockito.mock(com.linkedin.metadata.aspect.batch.BatchItem.class);
-    Mockito.when(item.getChangeType()).thenReturn(com.linkedin.events.metadata.ChangeType.UPSERT);
+  private static BatchItem mockBatchItem() {
+    BatchItem item = Mockito.mock(BatchItem.class);
+    Mockito.when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
     Mockito.when(item.getUrn())
-        .thenReturn(
-            com.linkedin.common.urn.UrnUtils.getUrn(
-                "urn:li:dataset:(urn:li:dataPlatform:hive,handler_test,PROD)"));
+        .thenReturn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,handler_test,PROD)"));
     Mockito.when(item.getAspectName()).thenReturn("datasetProperties");
     return item;
   }
@@ -621,9 +623,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testHandleMetadataValidationExceptionMarksValidationSource()
       throws ExecutionException, InterruptedException {
-    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
-        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
-            .newCollection();
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
     collection.addException(mockBatchItem(), "At least one rule is required.");
     com.linkedin.metadata.entity.validation.ValidationException exception =
         new com.linkedin.metadata.entity.validation.ValidationException(collection);
@@ -641,12 +641,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testHandleMetadataValidationExceptionAuthorizationSubtypeIs403()
       throws ExecutionException, InterruptedException {
-    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
-        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
-            .newCollection();
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
     collection.addException(
-        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forAuth(
-            mockBatchItem(), "Not authorized to modify this aspect"));
+        AspectValidationException.forAuth(mockBatchItem(), "Not authorized to modify this aspect"));
     com.linkedin.metadata.entity.validation.ValidationException exception =
         new com.linkedin.metadata.entity.validation.ValidationException(collection);
     Mockito.when(mockParameters.getException()).thenReturn(exception);
@@ -683,9 +680,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testHandleMetadataValidationExceptionWithBlankValidatorMessages()
       throws ExecutionException, InterruptedException {
-    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
-        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
-            .newCollection();
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
     collection.addException(mockBatchItem(), "");
     com.linkedin.metadata.entity.validation.ValidationException exception =
         new com.linkedin.metadata.entity.validation.ValidationException(collection);
@@ -708,11 +703,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
   @Test
   public void testHandleMetadataValidationExceptionFilterSubTypeNotSurfaced()
       throws ExecutionException, InterruptedException {
-    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
-        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
-            .newCollection();
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
     collection.addException(
-        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forFilter(
+        AspectValidationException.forFilter(
             mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
     com.linkedin.metadata.entity.validation.ValidationException exception =
         new com.linkedin.metadata.entity.validation.ValidationException(collection);
@@ -733,12 +726,10 @@ public class DataHubDataFetcherExceptionHandlerTest {
       throws ExecutionException, InterruptedException {
     // A metadata-io ValidationException wrapped in the graphql-layer one must still be answered
     // with the collection's user-facing text, never its logs/REST message.
-    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
-        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
-            .newCollection();
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
     collection.addException(mockBatchItem(), "At least one rule is required.");
     collection.addException(
-        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forFilter(
+        AspectValidationException.forFilter(
             mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
     com.linkedin.metadata.entity.validation.ValidationException cause =
         new com.linkedin.metadata.entity.validation.ValidationException(collection);
@@ -762,11 +753,9 @@ public class DataHubDataFetcherExceptionHandlerTest {
   }
 
   private static com.linkedin.metadata.entity.validation.ValidationException metadataValidation(
-      com.linkedin.metadata.aspect.plugins.validation.AspectValidationException... exceptions) {
-    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
-        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
-            .newCollection();
-    for (com.linkedin.metadata.aspect.plugins.validation.AspectValidationException e : exceptions) {
+      AspectValidationException... exceptions) {
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    for (AspectValidationException e : exceptions) {
       collection.addException(e);
     }
     return new com.linkedin.metadata.entity.validation.ValidationException(collection);
@@ -783,12 +772,10 @@ public class DataHubDataFetcherExceptionHandlerTest {
             new AuthorizationException("Unauthorized to perform this action."),
             new IllegalArgumentException("Invalid urn"),
             metadataValidation(
-                com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forItem(
-                    mockBatchItem(), "First rule failed."),
-                com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forItem(
-                    mockBatchItem(), "Second rule failed.")),
+                AspectValidationException.forItem(mockBatchItem(), "First rule failed."),
+                AspectValidationException.forItem(mockBatchItem(), "Second rule failed.")),
             metadataValidation(
-                com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forAuth(
+                AspectValidationException.forAuth(
                     mockBatchItem(), "Not authorized to modify this aspect")));
     for (Exception cause : causes) {
       DataHubGraphQLError direct = handle(cause);

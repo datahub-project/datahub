@@ -31,16 +31,12 @@ export default function handleGraphQLError({
             return;
         }
         if (errorCode === ErrorCodes.BadRequest && errorSource === 'VALIDATION') {
-            // The server marked this BAD_REQUEST as validation-originated: its message is the
-            // specific validator text (rule names, offending values), strictly more useful than
-            // any generic override the caller passed — so the server message takes precedence.
+            // The validator's own text is more specific than any caller override, so it wins.
             toast.error(serverMessage?.trim() || badRequestMessage || defaultMessage);
             return;
         }
         if (errorCode === ErrorCodes.BadRequest) {
-            // Non-validation 400s keep master's behavior: only caller-supplied text is shown.
-            // Verbatim server messages are gated on errorSource=VALIDATION above so arbitrary
-            // BadRequest internals never leak to the toast.
+            // Other 400 messages may carry server internals, so never show them verbatim.
             toast.error(badRequestMessage || defaultMessage);
             return;
         }
