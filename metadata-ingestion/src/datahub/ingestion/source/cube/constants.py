@@ -28,6 +28,8 @@ CONTROL_PLANE_META_SYNC_TOKEN_PATH = (
     "api/v1/deployments/{deployment_id}/environments/{environment_id}/"
     "tokens-for-meta-sync"
 )
+# Metadata API scope that allows `include_private=true`.
+META_PRIVATE_SCOPE = "meta-private"
 
 # Cube Cloud Platform API: lists saved reports (charts) and workbooks
 # (dashboards) for a deployment. Authenticated with the Cube Cloud API key as a

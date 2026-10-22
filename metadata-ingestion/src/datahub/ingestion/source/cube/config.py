@@ -102,6 +102,19 @@ class CubeSourceConfig(
             "multi-tenancy rules."
         ),
     )
+    include_private: bool = Field(
+        default=False,
+        description=(
+            "Cube Cloud only. Request private (`public: false`) cubes, views, and "
+            "members from the Metadata API (`include_private=true`), so lineage "
+            "from public views through private cubes to warehouse tables is not "
+            "cut off. Requires a token with the `meta-private` scope: the minted "
+            "token requests it automatically, but Cube Cloud only grants it to "
+            "admins or users who can read the data model; a pre-supplied "
+            "`api_token` must already carry it. Set `include_hidden` as well to "
+            "also ingest the private cubes themselves as datasets."
+        ),
+    )
     meta_sync_token_expires_in: int = Field(
         default=86400,
         description="Expiry (in seconds) of the minted Metadata API token. Defaults to 24 hours.",

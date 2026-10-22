@@ -28,6 +28,7 @@ from datahub.ingestion.source.cube.constants import (
     HTTP_RETRY_BACKOFF_FACTOR,
     HTTP_RETRY_MAX_ATTEMPTS,
     HTTP_RETRY_STATUS_CODES,
+    META_PRIVATE_SCOPE,
     METADATA_API_PAGE_SIZE,
     PLATFORM_API_PAGE_SIZE,
 )
@@ -108,6 +109,11 @@ class CubeAPIClient:
             json={
                 "security_context": self.config.security_context,
                 "expires_in": self.config.meta_sync_token_expires_in,
+                **(
+                    {"scopes": [META_PRIVATE_SCOPE]}
+                    if self.config.include_private
+                    else {}
+                ),
             },
             headers={
                 HTTP_HEADER_AUTHORIZATION: f"Bearer {self.config.cloud_api_key.get_secret_value()}"
@@ -302,7 +308,9 @@ class CubeAPIClient:
                 HTTP_METHOD_POST,
                 API_ENDPOINT_ENTITIES_ALL,
                 params={"offset": offset, "limit": METADATA_API_PAGE_SIZE},
-                json_body={},
+                json_body=(
+                    {"include_private": True} if self.config.include_private else {}
+                ),
                 bearer=True,
             )
             response = CloudEntitiesResponse.model_validate(raw)

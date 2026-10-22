@@ -53,6 +53,47 @@ def test_metadata_token_minted_via_control_plane_and_cached(
     }
 
 
+def test_include_private_requests_meta_private_scope(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client(
+        cloud_api_key="cp-key",
+        deployment_id="123",
+        environment_id="456",
+        include_private=True,
+    )
+    matcher = requests_mock.post(
+        "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
+        json={"data": {"token": "minted-meta-token"}},
+    )
+
+    client._metadata_api_token()
+
+    assert matcher.last_request is not None
+    assert matcher.last_request.json()["scopes"] == ["meta-private"]
+
+
+@pytest.mark.parametrize(
+    "include_private, expected_body",
+    [(False, {}), (True, {"include_private": True})],
+)
+def test_entities_all_passes_include_private(
+    requests_mock: rm.Mocker,
+    include_private: bool,
+    expected_body: Dict[str, object],
+) -> None:
+    client = _client(include_private=include_private)
+    matcher = requests_mock.post(
+        "https://demo.cubecloud.dev/cubejs-api/v1/entities/all",
+        json={"data": {"entities": []}},
+    )
+
+    client._get_cloud_entities()
+
+    assert matcher.last_request is not None
+    assert matcher.last_request.json() == expected_body
+
+
 def test_control_plane_base_can_be_overridden(requests_mock: rm.Mocker) -> None:
     client = _client(
         cloud_api_key="cp-key",
