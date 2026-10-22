@@ -11,11 +11,15 @@ import com.linkedin.assertion.SqlAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -236,5 +240,59 @@ public class AssertionUtils {
             assertionInfo);
         return null;
     }
+  }
+
+  /** Derive the shared column search projection from authoritative field associations. */
+  public static StringArray getFieldPathsFromAssertionInfo(@Nullable AssertionInfo info) {
+    if (info == null || !info.hasType()) {
+      return new StringArray();
+    }
+    Collection<Urn> fields = Collections.emptyList();
+    switch (info.getType()) {
+      case CUSTOM:
+        if (info.hasCustomAssertion()) {
+          CustomAssertionInfo custom = info.getCustomAssertion();
+          // An explicitly empty plural list clears scope even if a legacy singular field remains.
+          fields =
+              custom.hasFields()
+                  ? custom.getFields()
+                  : custom.hasField() ? List.of(custom.getField()) : Collections.emptyList();
+        }
+        break;
+      case DATASET:
+        if (info.hasDatasetAssertion() && info.getDatasetAssertion().hasFields()) {
+          fields = info.getDatasetAssertion().getFields();
+        }
+        break;
+      case FIELD:
+        if (info.hasFieldAssertion()) {
+          FieldAssertionInfo field = info.getFieldAssertion();
+          String path = getFieldPathFromFieldAssertion(field);
+          if (path == null && field.hasFieldPath()) {
+            path = field.getFieldPath();
+          }
+          return path == null ? new StringArray() : new StringArray(path);
+        }
+        break;
+      default:
+        break;
+    }
+    return new StringArray(
+        fields.stream()
+            .filter(
+                urn ->
+                    "schemaField".equals(urn.getEntityType())
+                        && urn.getEntityKey().getParts().size() == 2)
+            // Schema-field URNs escape tuple delimiters, not arbitrary URL characters.
+            .map(
+                urn ->
+                    urn.getEntityKey()
+                        .get(1)
+                        .replace("%28", "(")
+                        .replace("%29", ")")
+                        .replace("%2C", ",")
+                        .replace("%2c", ","))
+            .distinct()
+            .collect(Collectors.toList()));
   }
 }

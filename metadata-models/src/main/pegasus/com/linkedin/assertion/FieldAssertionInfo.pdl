@@ -43,11 +43,6 @@ record FieldAssertionInfo {
     /**
     * The field path targeted by this assertion. Automatically populated from the nested field definition.
     */
-    @Searchable = {
-      "fieldName": "fieldPath",
-      "fieldType": "KEYWORD",
-      "addToFilters": true
-    }
     fieldPath: optional string
 
     /**
