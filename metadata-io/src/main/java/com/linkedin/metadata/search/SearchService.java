@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search;
 
+import static com.linkedin.metadata.search.utils.QueryUtils.filterEntitiesForSearch;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.data.template.LongMap;
@@ -193,7 +194,12 @@ public class SearchService {
     if (lowercaseEntities.isEmpty()) {
       return opContext.withSpan(
           "getNonEmptyEntities",
-          () -> _entityDocCountCache.getNonEmptyEntities(opContext.withSkipTemplateExecution(true)),
+          // Apply entity filtering (hook for custom filtering logic)
+          // Custom deployments can override filterEntitiesForSearch.
+          () ->
+              filterEntitiesForSearch(
+                  _entityDocCountCache.getNonEmptyEntities(
+                      opContext.withSkipTemplateExecution(true))),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }

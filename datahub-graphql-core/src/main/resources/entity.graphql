@@ -10628,6 +10628,11 @@ input ListUsersInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
@@ -10673,6 +10678,11 @@ input ListGroupsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 type EntityCountResults {
