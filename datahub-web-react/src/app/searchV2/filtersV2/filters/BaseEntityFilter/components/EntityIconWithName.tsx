@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import { Text } from '@src/alchemy-components';
 import { SingleEntityIcon } from '@src/app/searchV2/autoCompleteV2/components/icon/SingleEntityIcon';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
 
 const Container = styled.div`
@@ -47,7 +47,7 @@ interface Props {
 }
 
 export function EntityIconWithName({ entity }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (!entity) return null;
 

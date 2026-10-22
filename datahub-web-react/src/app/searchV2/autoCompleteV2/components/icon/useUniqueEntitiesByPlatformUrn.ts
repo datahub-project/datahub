@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
 
 export default function useUniqueEntitiesByPlatformUrn(entities: Entity[] | undefined): Entity[] {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return useMemo(() => {
         const seenPlatformUrns = new Set<string>();

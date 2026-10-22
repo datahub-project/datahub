@@ -197,20 +197,15 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Creates a mapping configuration for a structured-property URN field.
-   *
-   * <p>Parent keyword only (no {@code .keyword} subfield): query-time structured-property filters
-   * skip {@code .keyword} for URN value types via {@code
-   * StructuredPropertyUtils.usesKeywordSubfield}. Root URN fields of entities are mapped like text
-   * roots instead (see {@link #getMappingsForFieldType(FieldType)}).
-   *
-   * @return mapping configuration for URN structured property field
+   * Exact URN keyword with no {@code .keyword} subfield. Query-time structured-property filters
+   * skip {@code .keyword} for URN value types. The whole value is indexed, including dataset and
+   * schema-field paths longer than 255 bytes. The parsed name is the aspect keyword {@code
+   * <field>__urn_name}.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(IGNORE_ABOVE, 255);
     return mapping;
   }
 

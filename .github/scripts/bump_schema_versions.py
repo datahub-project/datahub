@@ -230,32 +230,55 @@ def get_base_pdl_changes(merge_base: str, remote_ref: str) -> list[str]:
         sys.exit(1)
 
 
-def get_changed_pdl_files(base_ref: str) -> list[str]:
-    """Return repo-relative paths of PDL files that differ between base_ref and the working tree.
+def _merge_in_progress() -> bool:
+    """Return True while a `git merge` is unfinished (MERGE_HEAD exists)."""
+    result = subprocess.run(
+        ["git", "rev-parse", "-q", "--verify", "MERGE_HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
 
-    Compares base_ref against the working tree (not HEAD) so that uncommitted
-    changes are included — this function runs inside a pre-commit hook.
-    base_ref may be a branch name, remote tracking ref, or commit SHA.
+
+def _diff_pdl_names(base_ref: str, against: str | None = None) -> list[str]:
+    """PDL paths that differ between base_ref and against, or the working tree.
+
+    against=None compares to the working tree, so uncommitted edits count.
     """
+    cmd = [
+        "git",
+        "diff",
+        "--name-only",
+        "--diff-filter=ACM",
+        base_ref,
+    ]
+    if against is not None:
+        cmd.append(against)
+    cmd.extend(["--", "*.pdl"])
     try:
-        result = subprocess.run(
-            [
-                "git",
-                "diff",
-                "--name-only",
-                "--diff-filter=ACM",
-                base_ref,
-                "--",
-                "*.pdl",
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Error getting changed files: {e.stderr}", file=sys.stderr)
         sys.exit(1)
+    return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+
+
+def get_changed_pdl_files(base_ref: str) -> list[str]:
+    """Return PDL files this branch changed relative to base_ref.
+
+    Outside a merge, compares base_ref to the working tree so uncommitted
+    edits count — this runs inside a pre-commit hook. During a merge the
+    working tree also contains the branch being merged in. Comparing that
+    tree to the old merge base reports those incoming files as changes this
+    branch made, and the overlap check then refuses the merge commit for a
+    file this branch never edited. Compare to HEAD instead: files that only
+    arrived with the merge are not this branch's changes. Conflict-resolution
+    edits to a file the branch did not already change do not count either.
+    base_ref may be a branch name, remote tracking ref, or commit SHA.
+    """
+    if _merge_in_progress():
+        return _diff_pdl_names(base_ref, "HEAD")
+    return _diff_pdl_names(base_ref)
 
 
 def get_file_at_branch(filepath: str, branch: str) -> str | None:
@@ -1043,6 +1066,20 @@ def _without_boost_score(annotation: str) -> str:
     return " ".join(text.split())
 
 
+def _without_query_by_default(annotation: str) -> str:
+    """Drop queryByDefault from a normalized @Searchable value, including path maps.
+
+    The flag selects whether an unqualified query reads the field. Changing it does
+    not change rows stored for the aspect.
+    """
+    text = re.sub(r'"queryByDefault"\s*:\s*(?:true|false|"true"|"false")', "", annotation)
+    text = re.sub(r",\s*,", ", ", text)
+    text = re.sub(r"\{\s*,", "{ ", text)
+    text = re.sub(r",\s*\}", " }", text)
+    text = " ".join(text.split())
+    return re.sub(r"\{\s*\}", "{}", text)
+
+
 def _without_v3_overlay(annotation: str) -> str:
     """Drop a nested v3 value from a normalized @Searchable value.
 
@@ -1101,18 +1138,21 @@ def _annotations_for_version_bump(annotations: dict[str, str]) -> dict[str, str]
     """Annotations that require a stored-aspect migration.
 
     searchLabel selects a shared search field, hasValuesFieldName names that label's
-    existence boolean, and a nested v3 object overrides the label for Search V3 only.
-    Changing any of them rebuilds the index mapping and does not change rows already
-    stored for the aspect, so they are ignored the same way boostScore is. A
-    @Searchable annotation that contains nothing else is ignored too.
+    existence boolean, queryByDefault selects whether an unqualified query reads the
+    field, and a nested v3 object overrides the label for Search V3 only. Changing any
+    of them rebuilds the index and does not change rows already stored for the aspect,
+    so they are ignored the same way boostScore is. A @Searchable annotation that
+    contains nothing else is ignored too.
     """
     compared: dict[str, str] = {}
     for name, value in annotations.items():
         if name != "Searchable":
             compared[name] = value
             continue
-        value = _without_has_values_field_name(
-            _without_search_label(_without_boost_score(_without_v3_overlay(value)))
+        value = _without_query_by_default(
+            _without_has_values_field_name(
+                _without_search_label(_without_boost_score(_without_v3_overlay(value)))
+            )
         )
         if not _is_empty_annotation(value):
             compared[name] = value
@@ -1427,10 +1467,12 @@ def main() -> int:
         print("No changed PDL files found.")
         return 0
 
-    # Check whether any PDL files changed on this branch also changed on the
+    # Check whether any PDL files this branch changed also changed on the
     # base branch since divergence. If so, the branch must be rebased or
     # merged before schemaVersion can be bumped correctly.
-    # Unrelated PDL changes on the base branch do not block.
+    # Unrelated PDL changes on the base branch do not block. A file that
+    # shows up only because it is being merged in from the base does not
+    # either: get_changed_pdl_files excludes those during a merge.
     base_pdl_changes = get_base_pdl_changes(merge_base, remote_ref)
     conflicting = sorted(set(directly_changed) & set(base_pdl_changes))
     if conflicting:

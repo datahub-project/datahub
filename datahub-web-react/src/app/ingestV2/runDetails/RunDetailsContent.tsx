@@ -20,7 +20,7 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
