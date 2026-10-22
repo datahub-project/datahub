@@ -7,7 +7,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * Adapts {@link GraphqlDocumentCache} to graphql-java's {@link PreparsedDocumentProvider} SPI.
+ * Adapts {@link GraphqlDocumentCache} to graphql-java's {@link PreparsedDocumentProvider} SPI. It
+ * also passes the cost results of the cache entry to {@link QueryCostInstrumentation}, through the
+ * {@code GraphQLContext} of the request.
  *
  * <p>The cache key is the query text only. That's correct today because DataHub never sets a
  * per-request {@code Locale} (which can localize validation error messages) or the internal
@@ -27,9 +29,12 @@ final class GraphqlPreparsedDocumentProvider implements PreparsedDocumentProvide
   public CompletableFuture<PreparsedDocumentEntry> getDocumentAsync(
       ExecutionInput executionInput,
       Function<ExecutionInput, PreparsedDocumentEntry> parseAndValidateFunction) {
-    PreparsedDocumentEntry entry =
+    GraphqlDocumentCache.Entry entry =
         cache.getOrCompute(
             executionInput.getQuery(), () -> parseAndValidateFunction.apply(executionInput));
-    return CompletableFuture.completedFuture(entry);
+    executionInput
+        .getGraphQLContext()
+        .put(QueryCostInstrumentation.COSTS_CONTEXT_KEY, entry.costs());
+    return CompletableFuture.completedFuture(entry.document());
   }
 }

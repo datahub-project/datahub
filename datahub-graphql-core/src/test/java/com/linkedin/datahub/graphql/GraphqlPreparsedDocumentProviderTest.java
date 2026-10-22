@@ -50,6 +50,21 @@ public class GraphqlPreparsedDocumentProviderTest {
   }
 
   @Test
+  public void testHandsTheCacheEntrysQueryCostsToTheRequest() {
+    GraphqlDocumentCache cache = new GraphqlDocumentCache(1024 * 1024);
+    GraphqlPreparsedDocumentProvider provider = new GraphqlPreparsedDocumentProvider(cache);
+    ExecutionInput executionInput = ExecutionInput.newExecutionInput().query("{ hello }").build();
+
+    provider
+        .getDocumentAsync(executionInput, GraphqlPreparsedDocumentProviderTest::parseAndValidate)
+        .join();
+
+    assertSame(
+        executionInput.getGraphQLContext().get(QueryCostInstrumentation.COSTS_CONTEXT_KEY),
+        cache.getOrCompute("{ hello }", () -> parseAndValidate(executionInput)).costs());
+  }
+
+  @Test
   public void testDifferentQueriesEachComputeOnce() {
     GraphqlPreparsedDocumentProvider provider =
         new GraphqlPreparsedDocumentProvider(new GraphqlDocumentCache(1024 * 1024));

@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
+import com.linkedin.datahub.graphql.instrumentation.RootFieldNameInstrumentation;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.ratelimit.ClientClass;
 import com.linkedin.metadata.ratelimit.ClientClassifier;
@@ -370,8 +371,10 @@ public class GraphQLController {
                  */
                 try {
                   final long totalDuration = submitMetrics(executionResult, requestStartNanos);
-                  // Remove tracing from response to reduce bulk, not used by the frontend
-                  executionResult.getExtensions().remove("tracing");
+                  // Only metrics use this value. Do not send it in the response.
+                  executionResult
+                      .getExtensions()
+                      .remove(RootFieldNameInstrumentation.EXTENSION_KEY);
                   final Map<String, Object> responseSpec = executionResult.toSpecification();
 
                   if (streamResponse) {
@@ -515,33 +518,20 @@ public class GraphQLController {
     }
   }
 
-  @SuppressWarnings("unchecked")
   private long submitMetrics(ExecutionResult executionResult, long requestStartNanos) {
     try {
       observeErrors(executionResult);
       if (metricUtils != null)
         metricUtils.increment(MetricRegistry.name(this.getClass(), "call"), 1);
-      Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
-      if (tracingInstrumentation instanceof Map) {
-        Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
-        long wallDuration = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartNanos);
-        Map<String, Object> executionData = (Map<String, Object>) tracingMap.get("execution");
-        // Extract top level resolver, parent is top level query. Assumes single query per call.
-        List<Map<String, Object>> resolvers =
-            (List<Map<String, Object>>) executionData.get("resolvers");
-        String fieldName =
-            resolvers.stream()
-                .filter(
-                    resolver -> List.of("Query", "Mutation").contains(resolver.get("parentType")))
-                .findFirst()
-                .map(parentResolver -> parentResolver.get("fieldName"))
-                .map(Object::toString)
-                .orElse("UNKNOWN");
-        if (metricUtils != null) {
-          metricUtils.histogram(this.getClass(), fieldName, wallDuration);
-        }
-        return wallDuration;
+      long wallDuration = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartNanos);
+      // Uses the first top-level field only.
+      Object fieldName =
+          executionResult.getExtensions().get(RootFieldNameInstrumentation.EXTENSION_KEY);
+      if (metricUtils != null) {
+        metricUtils.histogram(
+            this.getClass(), fieldName != null ? fieldName.toString() : "UNKNOWN", wallDuration);
       }
+      return wallDuration;
     } catch (Exception e) {
       if (metricUtils != null)
         metricUtils.increment(

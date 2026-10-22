@@ -51,12 +51,23 @@ public class GraphqlDocumentCacheTest {
   }
 
   @Test
+  public void testQueryCostsLiveInTheCacheEntry() {
+    GraphqlDocumentCache cache = new GraphqlDocumentCache(1024 * 1024);
+    String query = "{ hello }";
+
+    GraphqlDocumentCache.Entry first = cache.getOrCompute(query, () -> parsed(query));
+    GraphqlDocumentCache.Entry second = cache.getOrCompute(query, () -> parsed(query));
+
+    assertSame(first.costs(), second.costs());
+  }
+
+  @Test
   public void testReadOnlyLookupServesCachedDocument() {
     GraphqlDocumentCache cache = new GraphqlDocumentCache(1024 * 1024);
     String query = "{ hello }";
-    PreparsedDocumentEntry entry = cache.getOrCompute(query, () -> parsed(query));
+    GraphqlDocumentCache.Entry entry = cache.getOrCompute(query, () -> parsed(query));
 
-    assertSame(cache.getCachedDocument(query), entry.getDocument());
+    assertSame(cache.getCachedDocument(query), entry.document().getDocument());
   }
 
   @Test
@@ -150,7 +161,7 @@ public class GraphqlDocumentCacheTest {
           computeCount.incrementAndGet();
           return withValidationErrors;
         });
-    PreparsedDocumentEntry second =
+    GraphqlDocumentCache.Entry second =
         cache.getOrCompute(
             query,
             () -> {
@@ -159,7 +170,7 @@ public class GraphqlDocumentCacheTest {
             });
 
     assertEquals(computeCount.get(), 1);
-    assertTrue(second.hasErrors());
+    assertTrue(second.document().hasErrors());
     assertSame(cache.getCachedDocument(query), document);
   }
 

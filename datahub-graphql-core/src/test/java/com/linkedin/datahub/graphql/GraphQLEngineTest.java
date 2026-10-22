@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.datahub.graphql.instrumentation.RootFieldNameInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLDocumentCacheConfiguration;
@@ -36,6 +37,8 @@ public class GraphQLEngineTest {
             hello: String
             user(id: ID!): User
             users: [User]
+            node: Node
+            searchAcrossEntities(input: SearchInput): SearchResults
         }
 
         type User {
@@ -44,10 +47,34 @@ public class GraphQLEngineTest {
             email: String
         }
 
+        type Node {
+            name: String
+            child: Node
+        }
+
+        input SearchInput {
+            query: String
+            count: Int
+        }
+
+        type SearchResults {
+            searchResults: SearchResultsWrapper
+        }
+
+        type SearchResultsWrapper {
+            entity: Entity
+        }
+
+        type Entity {
+            urn: String
+        }
+
         type Mutation {
             createUser(name: String!, email: String!): User
         }
         """;
+
+  private static final String LINEAGE_FRAGMENT = "fragment searchResultFields on Entity { urn }";
 
   @BeforeMethod
   public void setUp() {
@@ -122,6 +149,7 @@ public class GraphQLEngineTest {
 
     // Verify
     assertNotNull(result);
+    assertEquals(result.getExtensions().get(RootFieldNameInstrumentation.EXTENSION_KEY), "hello");
     assertFalse(result.getErrors().isEmpty() == false && result.getErrors().size() > 0);
     Map<String, Object> data = result.getData();
     assertNotNull(data);
@@ -146,6 +174,27 @@ public class GraphQLEngineTest {
     graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
 
     assertEquals(graphQLEngine.getDocumentCache().stats().hitCount(), 1);
+  }
+
+  @Test
+  public void testQueryCostIsComputedOncePerBooleanCombination() {
+    graphQLEngine = buildEngineWithLimits(10, 1000);
+    String query =
+        "query q($deep: Boolean = false) { node { child @include(if: $deep) { name } } }";
+
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+    graphQLEngine.execute(query, null, Map.of("deep", true), mockQueryContext);
+
+    GraphqlDocumentCache.Entry entry =
+        graphQLEngine
+            .getDocumentCache()
+            .getOrCompute(
+                query,
+                () -> {
+                  throw new AssertionError("document should be cached");
+                });
+    assertEquals(entry.costs().size(), 2);
   }
 
   @Test
@@ -477,10 +526,157 @@ public class GraphQLEngineTest {
 
     assertNotNull(graphQLEngine);
 
-    // A deeply nested query would be rejected based on depth limit
-    // This is a simple test to ensure the engine is created with limits
+    // A query well within both limits executes normally.
     ExecutionResult result = graphQLEngine.execute("{ hello }", null, Map.of(), mockQueryContext);
     assertNotNull(result);
+    assertTrue(result.getErrors().isEmpty());
+  }
+
+  private GraphQLEngine buildEngineWithLimits(int depthLimit, int complexityLimit) {
+    GraphQLConfiguration config = createDefaultConfiguration();
+    config.getQuery().setDepthLimit(depthLimit);
+    config.getQuery().setComplexityLimit(complexityLimit);
+    return GraphQLEngine.builder()
+        .addSchema(TEST_SCHEMA)
+        .setGraphQLConfiguration(config)
+        .setMetricUtils(mockMetricUtils)
+        .configureRuntimeWiring(
+            wiring ->
+                wiring.type(
+                    "Query",
+                    typeWiring ->
+                        typeWiring
+                            .dataFetcher("hello", env -> "World")
+                            .dataFetcher("node", env -> new NodeData())
+                            .dataFetcher("searchAcrossEntities", env -> new SearchResultsData())))
+        .build();
+  }
+
+  @Test
+  public void testDepthWithinLimitSucceeds() {
+    graphQLEngine = buildEngineWithLimits(3, 1000);
+
+    ExecutionResult result =
+        graphQLEngine.execute("{ node { child { name } } }", null, Map.of(), mockQueryContext);
+
+    assertTrue(result.getErrors().isEmpty());
+  }
+
+  @Test
+  public void testDepthExceedingLimitIsRejectedBeforeExecution() {
+    graphQLEngine = buildEngineWithLimits(2, 1000);
+
+    ExecutionResult result =
+        graphQLEngine.execute("{ node { child { name } } }", null, Map.of(), mockQueryContext);
+
+    assertNull(result.getData());
+    assertEquals(result.getErrors().size(), 1);
+    assertTrue(result.getErrors().get(0).getMessage().contains("maximum query depth exceeded"));
+    assertTrue(result.getErrors().get(0).getMessage().contains("3 > 2"));
+  }
+
+  @Test
+  public void testEmptyOperationNameStillChecksTheOperationThatRuns() {
+    graphQLEngine = buildEngineWithLimits(2, 1000);
+
+    // graphql-java runs the first operation for an empty name, so that's the one to check.
+    ExecutionResult result =
+        graphQLEngine.execute(
+            "query Heavy { node { child { name } } } query Light { hello }",
+            "",
+            Map.of(),
+            mockQueryContext);
+
+    assertNull(result.getData());
+    assertTrue(result.getErrors().get(0).getMessage().contains("maximum query depth exceeded"));
+  }
+
+  @Test
+  public void testVariableConditionsAreEvaluatedPerRequest() {
+    graphQLEngine = buildEngineWithLimits(2, 1000);
+    String query =
+        "query q($deep: Boolean = false) { node { child @include(if: $deep) { name } } }";
+
+    // Each Boolean combination is computed and cached separately, so alternating values must
+    // never serve one request the other's result.
+    for (int i = 0; i < 2; i++) {
+      assertTrue(
+          graphQLEngine.execute(query, null, Map.of(), mockQueryContext).getErrors().isEmpty());
+      ExecutionResult deep =
+          graphQLEngine.execute(query, null, Map.of("deep", true), mockQueryContext);
+      assertTrue(
+          deep.getErrors().get(0).getMessage().contains("maximum query depth exceeded 3 > 2"));
+    }
+  }
+
+  @Test
+  public void testComplexityExceedingLimitWithLiteralCountIsRejected() {
+    graphQLEngine = buildEngineWithLimits(10, 5);
+
+    String query =
+        "{ searchAcrossEntities(input: {count: 10}) { searchResults { entity { ...searchResultFields } } } } "
+            + LINEAGE_FRAGMENT;
+    ExecutionResult result = graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+
+    assertNull(result.getData());
+    assertEquals(result.getErrors().size(), 1);
+    assertTrue(
+        result.getErrors().get(0).getMessage().contains("maximum query complexity exceeded"));
+    // searchAcrossEntities + searchResults + entity + urn (4) + 2*10 = 24
+    assertTrue(result.getErrors().get(0).getMessage().contains("24 > 5"));
+  }
+
+  @Test
+  public void testComplexityWithVariableBoundCountDependsOnRequestNotCachedVerdict() {
+    // Same cached query text (and hence the same precomputed structural analysis) executed twice
+    // with different `count` values must be evaluated independently each time -- the whole point
+    // of only caching the query-text-invariant part of the analysis.
+    graphQLEngine = buildEngineWithLimits(10, 5);
+    String query =
+        "query Q($input: SearchInput) { searchAcrossEntities(input: $input) { searchResults { entity { ...searchResultFields } } } } "
+            + LINEAGE_FRAGMENT;
+
+    ExecutionResult withinLimit =
+        graphQLEngine.execute(query, "Q", Map.of("input", Map.of("count", 1)), mockQueryContext);
+    assertTrue(withinLimit.getErrors().isEmpty());
+
+    ExecutionResult overLimit =
+        graphQLEngine.execute(query, "Q", Map.of("input", Map.of("count", 10)), mockQueryContext);
+    assertEquals(overLimit.getErrors().size(), 1);
+    assertTrue(
+        overLimit.getErrors().get(0).getMessage().contains("maximum query complexity exceeded"));
+
+    // Confirms both executions hit the same cached document (and so the same cached structural
+    // analysis) -- the differing verdicts above are solely from re-evaluating live variables.
+    assertEquals(graphQLEngine.getDocumentCache().stats().hitCount(), 1);
+  }
+
+  public static class NodeData {
+    public String getName() {
+      return "node";
+    }
+
+    public NodeData getChild() {
+      return new NodeData();
+    }
+  }
+
+  public static class SearchResultsData {
+    public SearchResultsWrapperData getSearchResults() {
+      return new SearchResultsWrapperData();
+    }
+  }
+
+  public static class SearchResultsWrapperData {
+    public EntityData getEntity() {
+      return new EntityData();
+    }
+  }
+
+  public static class EntityData {
+    public String getUrn() {
+      return "urn:li:dataset:(urn:li:dataPlatform:test,example,PROD)";
+    }
   }
 
   @Test

@@ -3,8 +3,8 @@ package com.linkedin.datahub.graphql;
 import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
-import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
 import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
+import com.linkedin.datahub.graphql.instrumentation.RootFieldNameInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLDocumentCacheConfiguration;
 import com.linkedin.metadata.system_telemetry.GraphQLOtelResolverInstrumentation;
@@ -14,11 +14,8 @@ import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.VisibleForTesting;
-import graphql.analysis.MaxQueryComplexityInstrumentation;
-import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.execution.instrumentation.ChainedInstrumentation;
 import graphql.execution.instrumentation.Instrumentation;
-import graphql.execution.instrumentation.tracing.TracingInstrumentation;
 import graphql.execution.values.InputInterceptor;
 import graphql.execution.values.legacycoercing.LegacyCoercingInputInterceptor;
 import graphql.language.Document;
@@ -92,11 +89,9 @@ public class GraphQLEngine {
      * Instantiate engine
      */
     List<Instrumentation> instrumentations = new ArrayList<>();
-    instrumentations.add(new TracingInstrumentation());
-    instrumentations.add(new MaxQueryDepthInstrumentation(graphQLQueryDepthLimit));
+    instrumentations.add(RootFieldNameInstrumentation.INSTANCE);
     instrumentations.add(
-        new MaxQueryComplexityInstrumentation(
-            graphQLQueryComplexityLimit, new DataHubFieldComplexityCalculator()));
+        new QueryCostInstrumentation(graphQLQueryDepthLimit, graphQLQueryComplexityLimit));
 
     MeterRegistry meterRegistry = metricUtils != null ? metricUtils.getRegistry() : null;
     if (meterRegistry != null && graphQLConfiguration.getMetrics().isEnabled()) {
