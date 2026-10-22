@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+import yaml
 from sqlalchemy import exc
 
 from datahub.ingestion.source.sql.oracle import (
@@ -257,6 +258,39 @@ def test_oracle_test_connection(oracle_runner):
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason is None
+
+
+@pytest.mark.integration
+def test_oracle_connect_args_dsn_failover(oracle_runner):
+    """The documented HA pattern: a multi-address descriptor in
+    options.connect_args.dsn overrides host_port and fails over past an
+    unreachable first address."""
+    tls_args = _oracle_tls_connect_args(oracle_runner)
+    recipe = yaml.safe_load(
+        Path(SOURCE_FILES_PATH, "oracle_to_file_with_all_tables.yml").read_text()
+    )["source"]["config"]
+    config_dict = {
+        "username": recipe["username"],
+        "password": recipe["password"],
+        # Required by the config but unused: connect_args.dsn takes precedence.
+        "host_port": "unused:1521",
+        "options": {
+            "connect_args": {
+                **tls_args,
+                "dsn": (
+                    "(DESCRIPTION=(FAILOVER=on)(LOAD_BALANCE=off)(ADDRESS_LIST="
+                    # Nothing listens on port 1, so the driver must move on.
+                    "(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=1))"
+                    f"(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT={oracle_runner})))"
+                    "(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+                ),
+            }
+        },
+    }
+
+    report = OracleSource.test_connection(config_dict)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable, report.basic_connectivity.failure_reason
 
 
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):
