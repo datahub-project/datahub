@@ -1952,18 +1952,34 @@ def test_dataset_external_url_falls_back_to_parent_for_cubes_and_unknowns() -> N
 
 
 @pytest.mark.parametrize(
-    ("subtype", "expected"),
-    [("14081", "Document"), ("14080", "Dossier"), (None, "Dossier")],
+    ("subtype", "view_media", "expected"),
+    [
+        ("14081", None, "Document"),
+        ("14081", 1073741827, "Document"),
+        # A dossier search hit carries the same subtype; its viewMedia flags
+        # (bits 30 and 29 set) are what tell it apart.
+        ("14081", 1879072805, "Dossier"),
+        ("14080", None, "Dossier"),
+        ("14080", 1073741827, "Dossier"),
+        (None, None, "Dossier"),
+    ],
 )
 def test_dashboard_subtype_follows_microstrategy_object_subtype(
-    subtype: Optional[str], expected: str
+    subtype: Optional[str], view_media: Optional[int], expected: str
 ) -> None:
-    # Documents and dossiers share object type 55; the subtype is what tells
-    # a business user which kind of object they are looking at.
+    # Documents and dossiers share object type 55 and subtype 14081; the
+    # subtype plus the search result's viewMedia is what tells a business
+    # user which kind of object they are looking at.
     mapper = _mapper()
     dashboard = _definition()
     dashboard_object = MicroStrategyObject.model_validate(
-        {"id": dashboard.id, "name": dashboard.name, "type": "55", "subtype": subtype}
+        {
+            "id": dashboard.id,
+            "name": dashboard.name,
+            "type": "55",
+            "subtype": subtype,
+            "viewMedia": view_media,
+        }
     )
 
     sub_types = _aspect(

@@ -33,7 +33,6 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
-    MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
@@ -64,6 +63,7 @@ from datahub.ingestion.source.microstrategy.models import (
     ReportDerivedMetric,
     Visualization,
     extract_folder_parts,
+    is_document_object,
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -465,8 +465,9 @@ class MicroStrategyMapper:
     def dashboard_sub_type(dashboard_object: MicroStrategyObject) -> str:
         """`Document` for a Report Services document, `Dossier` for a dossier
         (what Strategy now calls a dashboard); both share object type 55 and
-        only the subtype tells them apart."""
-        if _is_document_object(dashboard_object):
+        subtype 14081, and a search hit's viewMedia flags tell them apart
+        (is_document_object)."""
+        if is_document_object(dashboard_object):
             return BIAssetSubTypes.MICROSTRATEGY_DOCUMENT
         return BIAssetSubTypes.MICROSTRATEGY_DOSSIER
 
@@ -809,7 +810,7 @@ class MicroStrategyMapper:
         # chart carries its dataset lineage the way a dossier's do; its
         # datasets are linked here under their own setting, leaving the
         # dossier fallback opt-in.
-        is_document = _is_document_object(dashboard_object)
+        is_document = is_document_object(dashboard_object)
         dashboard_dataset_edges = (
             self.lineage.dashboard_dataset_urns(project_id, dashboard)
             if (
@@ -1687,11 +1688,6 @@ def _resolve_folder_name(
 def _is_cube_object(dataset_object: MicroStrategyObject) -> bool:
     """Intelligent or super cube, by object subtype (see MSTR_CUBE_SUBTYPES)."""
     return (dataset_object.subtype or "").strip() in MSTR_CUBE_SUBTYPES
-
-
-def _is_document_object(dashboard_object: MicroStrategyObject) -> bool:
-    """Report Services document, by object subtype; a dossier otherwise."""
-    return (dashboard_object.subtype or "").strip() == MSTR_OBJECT_SUBTYPE_DOCUMENT
 
 
 def _is_hidden_folder(

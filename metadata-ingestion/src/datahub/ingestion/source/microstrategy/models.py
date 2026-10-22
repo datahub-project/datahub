@@ -60,8 +60,11 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_NON_METRIC_DEFINITION_TYPE_WORDS,
     MSTR_NULL_OBJECT_ID,
     MSTR_OBJECT_ID_PARENT_KEYS,
+    MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TYPES,
     MSTR_SCHEMA_PARAM_RE,
+    MSTR_VIEW_MEDIA_DOSSIER_FLAGS,
+    MSTR_VIEW_MEDIA_DOSSIER_MASK,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 
@@ -143,6 +146,10 @@ class MicroStrategyObject(MicroStrategyBaseModel):
     owner: Optional[str] = None
     date_created: Optional[str] = Field(default=None, alias="dateCreated")
     date_modified: Optional[str] = Field(default=None, alias="dateModified")
+    # EnumDSSXMLViewMedia flags, carried by search results; the only field
+    # that tells a dossier from a Report Services document (both are type 55,
+    # subtype 14081).
+    view_media: Optional[int] = Field(default=None, alias="viewMedia")
 
     @model_validator(mode="before")
     @classmethod
@@ -337,6 +344,27 @@ def is_personal_folder_object(
             for part in parts
         )
     return any(part.name.strip().lower() in resolution.names for part in parts)
+
+
+def is_dossier_view_media(view_media: int) -> bool:
+    """True when a type-55 object's viewMedia flags mark it as a dossier
+    (what Strategy now calls a dashboard) rather than a Report Services
+    document: bits 30 and 29 set with bits 31 and 27 clear, the test
+    mstrio-py applies to search results."""
+    return (view_media & MSTR_VIEW_MEDIA_DOSSIER_MASK) == MSTR_VIEW_MEDIA_DOSSIER_FLAGS
+
+
+def is_document_object(mstr_object: MicroStrategyObject) -> bool:
+    """Report Services document: object subtype 14081 whose viewMedia, when
+    the object carries one, does not mark a dossier. Dossiers share the
+    subtype, so a search hit is only a document once its viewMedia says it
+    is not a dossier; an object without viewMedia (object-info responses,
+    older fixtures) is classified on the subtype alone, as before."""
+    if (mstr_object.subtype or "").strip() != MSTR_OBJECT_SUBTYPE_DOCUMENT:
+        return False
+    if mstr_object.view_media is None:
+        return True
+    return not is_dossier_view_media(mstr_object.view_media)
 
 
 class ModelTablesResponse(MicroStrategyBaseModel):

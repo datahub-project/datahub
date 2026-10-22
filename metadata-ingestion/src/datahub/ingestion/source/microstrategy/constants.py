@@ -65,8 +65,17 @@ MSTR_LOGIN_MODE_GUEST = 8
 
 MSTR_OBJECT_TYPE_DASHBOARD = 55
 MSTR_OBJECT_TYPE_REPORT = 3
-# Documents share object type 55 with dossiers; the subtype distinguishes them.
+# Report Services documents and dossiers share object type 55 AND subtype
+# 14081 (DssXmlSubTypeReportWritingDocument): search results carry the same
+# type and subtype for both, and only viewMedia tells them apart (mstrio-py
+# lists each kind by searching this subtype and filtering on view_media). The
+# subtype still rules out the other type-55 subtypes (definition, theme, bot).
 MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
+# EnumDSSXMLViewMedia flags that mark a type-55 object as a dossier: bits 30
+# and 29 set, bits 31 and 27 clear (mstrio-py helper.is_dashboard). Anything
+# else with the document subtype is a Report Services document.
+MSTR_VIEW_MEDIA_DOSSIER_MASK = 0xE800_0000
+MSTR_VIEW_MEDIA_DOSSIER_FLAGS = 0x6000_0000
 # EnumDSSXMLObjectTypes: Metric, Consolidation. Used for project-wide metric
 # search and to recognize a consolidation-type expression token. Metric is
 # DssXmlTypeMetric = 4 (mstrio-py's ObjectTypes enum: METRIC = 4,

@@ -1,15 +1,20 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+import pytest
 
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
     DatasourceConnection,
+    MicroStrategyObject,
     PersonalFolderResolution,
     ReportDefinition,
     extract_document_derived_metric_definitions,
     first_derived_node_skeleton,
+    is_document_object,
+    is_dossier_view_media,
     is_personal_folder_object,
     payload_key_paths_matching,
     payload_key_skeleton,
@@ -860,3 +865,44 @@ def test_payload_key_paths_matching_is_depth_limited_and_capped() -> None:
         "grid1",
         "grid2",
     ]
+
+
+@pytest.mark.parametrize(
+    ("subtype", "view_media", "expected"),
+    [
+        # Object-info responses and older fixtures carry no viewMedia: the
+        # subtype alone decides, as it did before viewMedia was read.
+        ("14081", None, True),
+        ("14081", 1073741827, True),
+        # A dossier search hit has the same subtype; bits 30 and 29 of its
+        # viewMedia (with 31 and 27 clear) mark it as a dossier.
+        ("14081", 1879072805, False),
+        ("14081", 0x6000_0000, False),
+        ("14081", 0xE000_0000, True),
+        ("14080", 1073741827, False),
+        ("14080", None, False),
+        (None, 1073741827, False),
+    ],
+)
+def test_is_document_object_needs_the_subtype_and_a_non_dossier_view_media(
+    subtype: Optional[str], view_media: Optional[int], expected: bool
+) -> None:
+    mstr_object = MicroStrategyObject.model_validate(
+        {
+            "id": "o-1",
+            "name": "Object",
+            "type": "55",
+            "subtype": subtype,
+            "viewMedia": view_media,
+        }
+    )
+    assert is_document_object(mstr_object) is expected
+
+
+def test_view_media_is_read_from_search_results() -> None:
+    mstr_object = MicroStrategyObject.model_validate(
+        {"id": "o-1", "name": "Object", "viewMedia": "1879072805"}
+    )
+    assert mstr_object.view_media == 1879072805
+    assert is_dossier_view_media(1879072805)
+    assert not is_dossier_view_media(1073741827)

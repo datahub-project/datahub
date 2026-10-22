@@ -100,6 +100,7 @@ from datahub.ingestion.source.microstrategy.models import (
     extract_embedded_metric_definitions,
     extract_folder_parts,
     first_derived_node_skeleton,
+    is_document_object,
     is_personal_folder_object,
     metric_enrichment_from_expression,
     normalize_object_id,
@@ -1580,10 +1581,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             response=response,
             report=self.report,
         )
-        if (
-            dashboard_object.subtype == MSTR_OBJECT_SUBTYPE_DOCUMENT
-            and not dashboard.visualizations
-        ):
+        if is_document_object(dashboard_object) and not dashboard.visualizations:
             self._debug_document_definition_without_visualizations(
                 project_id, dashboard_id, response
             )
@@ -2007,7 +2005,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         if not dashboard.datasets:
             return
-        if dashboard_object.subtype == MSTR_OBJECT_SUBTYPE_DOCUMENT:
+        if is_document_object(dashboard_object):
             # The dossier SQL-view endpoint answers a document instance with
             # views that carry no SQL (or a 406), so calling it would only
             # spend an execution; a document's datasets are read through
@@ -2353,6 +2351,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard_object: MicroStrategyObject,
         dashboard_id: str,
     ) -> str:
+        # On the subtype alone, not is_document_object: a dossier is a document
+        # underneath, so the document instance endpoint serves both kinds and
+        # is the one the connector has always used for dossiers, which share
+        # the subtype; the dossier endpoint remains for the other type-55
+        # subtypes. The instance cleanup below mirrors this choice.
         if dashboard_object.subtype == MSTR_OBJECT_SUBTYPE_DOCUMENT:
             return self.client.create_document_instance(project_id, dashboard_id)
         return self.client.create_dossier_instance(project_id, dashboard_id)

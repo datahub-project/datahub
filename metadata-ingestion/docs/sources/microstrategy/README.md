@@ -8,19 +8,19 @@ Lineage is emitted from datasets to visualizations and report source datasets to
 
 ## Concept Mapping
 
-| MicroStrategy Concept          | DataHub Concept                                 | Notes                                                                                                                  |
-| ------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Project                        | Container (`Project` subtype)                   | Project-scoped APIs require `X-MSTR-ProjectID`.                                                                        |
-| Folder                         | Container (`Folder` subtype)                    | Created when search results expose folder or location context.                                                         |
-| Dossier / dashboard            | Dashboard (`Dossier` subtype)                   | Dashboard metadata is read from the dossier definition API.                                                            |
-| Report Services document       | Dashboard (`Document` subtype)                  | Object subtype 14081; metadata is read from the document definition API.                                               |
-| Visualization                  | Chart (`Visualization` subtype)                 | Chart lineage uses `ChartInfo.inputs`, `inputEdges`, and chart `InputFields` when dataset and field IDs can be mapped. |
-| Report                         | Chart (`Report` subtype)                        | Optional via `extract_reports`; report lineage uses a report-scoped source dataset.                                    |
-| Dashboard dataset (report)     | Dataset (`MicroStrategy Dataset` subtype)       | Schema fields come from embedded `availableObjects`.                                                                   |
-| Dashboard dataset (cube)       | Dataset (`Cube` subtype)                        | Intelligent and super cubes (object subtype 776/779); `MicroStrategy Dataset` when the object info lookup fails.       |
-| Report source dataset          | Dataset (`MicroStrategy Dataset` or `Cube`)     | Schema fields come from report definition `availableObjects`; `Cube` when the report reads a cube.                     |
-| Source warehouse / datasource  | Custom properties and optional upstream lineage | SQL-view APIs provide opt-in coarse physical table lineage when available.                                             |
-| Metric                         | Schema field with `Measure` tag                 | Metric IDs are preserved in field `jsonProps`.                                                                         |
-| Attribute / form               | Schema field with `Dimension` tag               | Date/time forms also receive the `Temporal` tag.                                                                       |
-| Owner                          | CorpUser ownership                              | Emitted when owner fields are exposed and `ingest_owner` is enabled.                                                   |
-| Metric / attribute glossary    | Field glossary terms from explicit config maps  | The connector does not create glossary terms automatically.                                                            |
+| MicroStrategy Concept         | DataHub Concept                                 | Notes                                                                                                                  |
+| ----------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Project                       | Container (`Project` subtype)                   | Project-scoped APIs require `X-MSTR-ProjectID`.                                                                        |
+| Folder                        | Container (`Folder` subtype)                    | Created when search results expose folder or location context.                                                         |
+| Dossier / dashboard           | Dashboard (`Dossier` subtype)                   | Dashboard metadata is read from the dossier definition API.                                                            |
+| Report Services document      | Dashboard (`Document` subtype)                  | Object subtype 14081; metadata is read from the document definition API.                                               |
+| Visualization                 | Chart (`Visualization` subtype)                 | Chart lineage uses `ChartInfo.inputs`, `inputEdges`, and chart `InputFields` when dataset and field IDs can be mapped. |
+| Report                        | Chart (`Report` subtype)                        | Optional via `extract_reports`; report lineage uses a report-scoped source dataset.                                    |
+| Dashboard dataset (report)    | Dataset (`MicroStrategy Dataset` subtype)       | Schema fields come from embedded `availableObjects`.                                                                   |
+| Dashboard dataset (cube)      | Dataset (`Cube` subtype)                        | Intelligent and super cubes (object subtype 776/779); `MicroStrategy Dataset` when the object info lookup fails.       |
+| Report source dataset         | Dataset (`MicroStrategy Dataset` or `Cube`)     | Schema fields come from report definition `availableObjects`; `Cube` when the report reads a cube.                     |
+| Source warehouse / datasource | Custom properties and optional upstream lineage | SQL-view APIs provide opt-in coarse physical table lineage when available.                                             |
+| Metric                        | Schema field with `Measure` tag                 | Metric IDs are preserved in field `jsonProps`.                                                                         |
+| Attribute / form              | Schema field with `Dimension` tag               | Date/time forms also receive the `Temporal` tag.                                                                       |
+| Owner                         | CorpUser ownership                              | Emitted when owner fields are exposed and `ingest_owner` is enabled.                                                   |
+| Metric / attribute glossary   | Field glossary terms from explicit config maps  | The connector does not create glossary terms automatically.                                                            |

@@ -104,7 +104,11 @@ def _dashboards(
                 "id": "dash-1",
                 "name": "Sales Performance",
                 "type": "55",
+                # A dossier search hit: dossiers and Report Services documents
+                # share subtype 14081, and only the viewMedia flags (bits 30
+                # and 29 set, as on a live instance) mark this one a dossier.
                 "subtype": "14081",
+                "viewMedia": 1879072805,
                 "description": "Sales performance dashboard",
                 "owner": {"username": "sales_owner"},
                 # Real quick-search responses (getAncestors=true) carry the
@@ -573,7 +577,11 @@ def _dashboards_under_reports_folder(
                 "id": "dash-1",
                 "name": "Sales Performance",
                 "type": "55",
+                # A dossier search hit: dossiers and Report Services documents
+                # share subtype 14081, and only the viewMedia flags (bits 30
+                # and 29 set, as on a live instance) mark this one a dossier.
                 "subtype": "14081",
+                "viewMedia": 1879072805,
                 "description": "Sales performance dashboard",
                 "owner": {"username": "sales_owner"},
                 # Real getAncestors shape from a live MicroStrategy instance:
