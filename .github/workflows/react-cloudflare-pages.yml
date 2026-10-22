@@ -76,9 +76,10 @@ jobs:
         run: python3 .github/scripts/check_sourcemap_sizes.py datahub-web-react/dist/assets/*.map
       # pages-action is unpublished (repo 404); Cloudflare's replacement is wrangler-action.
       # Do not pass gitHubToken: wrangler-action names GitHub Deployments "preview"/"production",
-      # which broke Meticulous. pages-action named them "datahub-project-web-react (Preview)" on
-      # pull requests and "datahub-project-web-react (Production)" on the main branch. Record
-      # those names ourselves after a successful Pages upload.
+      # which broke Meticulous. On this repo pages-action named both pull requests and master
+      # "datahub-project-web-react (Preview)". Meticulous records the base run from that
+      # environment, so a master deployment named "(Production)" never becomes a base and later
+      # pull requests skip with no sessions. Record the Preview name ourselves after upload.
       - name: Publish
         id: cloudflare
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
@@ -97,24 +98,23 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           REPO: ${{ github.repository }}
           REF: ${{ github.event.pull_request.head.sha || github.sha }}
-          IS_PRODUCTION: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.event_name == 'release') }}
+          IS_MAIN_BRANCH: ${{ github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.event_name == 'release') }}
         run: |
           set -euo pipefail
           if [ -z "${DEPLOY_URL}" ]; then
             echo "::error::wrangler-action did not output deployment-url"
             exit 1
           fi
-          # Match pages-action: "${projectName} (Production|Preview)", description
-          # "Cloudflare Pages", and a Cloudflare dashboard log URL.
-          if [ "${IS_PRODUCTION}" = "true" ]; then
+          # Match pages-action on this repo: environment "datahub-project-web-react (Preview)"
+          # for master and pull requests, description "Cloudflare Pages", and a Cloudflare
+          # dashboard log URL. Master stays non-transient so the base deployment is kept.
+          if [ "${IS_MAIN_BRANCH}" = "true" ]; then
             TRANSIENT=false
-            PRODUCTION=true
-            ENVIRONMENT="datahub-project-web-react (Production)"
           else
             TRANSIENT=true
-            PRODUCTION=false
-            ENVIRONMENT="datahub-project-web-react (Preview)"
           fi
+          PRODUCTION=false
+          ENVIRONMENT="datahub-project-web-react (Preview)"
           if [ -n "${PAGES_DEPLOYMENT_ID}" ] && [ -n "${CLOUDFLARE_ACCOUNT_ID}" ]; then
             LOG_URL="https://dash.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/pages/view/datahub-project-web-react/${PAGES_DEPLOYMENT_ID}"
           else
