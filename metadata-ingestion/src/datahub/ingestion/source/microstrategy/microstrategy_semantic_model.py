@@ -26,12 +26,14 @@ from datahub.ingestion.source.microstrategy.lineage import (
 from datahub.ingestion.source.microstrategy.models import normalize_object_id
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     ContainerClass,
     DialectClass,
     ERModelRelationshipCardinalityClass,
     SemanticFieldTypeClass,
 )
-from datahub.metadata.urns import MetricUrn, SemanticModelUrn
+from datahub.metadata.urns import DataPlatformInstanceUrn, MetricUrn, SemanticModelUrn
 from datahub.sdk.metric import DialectExpressionInput, Metric
 from datahub.sdk.semantic_model import (
     SemanticFieldInput,
@@ -160,7 +162,7 @@ class MicroStrategySemanticModelMapper:
             name=project_name,
             datasets=datasets,
             relationships=relationships or None,
-            extra_aspects=self._container_aspects(project_container_key),
+            extra_aspects=self._browse_path_aspects(project_container_key),
         )
 
         yield from model.as_workunits()
@@ -178,6 +180,37 @@ class MicroStrategySemanticModelMapper:
         self, project_container_key: ContainerKey
     ) -> List[ContainerClass]:
         return [ContainerClass(container=project_container_key.as_urn())]
+
+    def _browse_path_aspects(
+        self, project_container_key: ContainerKey
+    ) -> List[BrowsePathsV2Class]:
+        # The semanticModel entity does not accept a container aspect (it is
+        # absent from the entity registry, so GMS rejects the whole write
+        # batch carrying the model with a 422), which also means the server
+        # cannot derive the model's browse path from a parent container the
+        # way it does for the logical datasets. Emit browsePathsV2 directly
+        # instead, in the shape the SDK builds for a ContainerKey parent: the
+        # platform instance first (when configured), then the container
+        # chain, each entry keyed by its urn.
+        path_reversed = [project_container_key.as_urn()]
+        parent_key = project_container_key.parent_key()
+        while parent_key is not None:
+            path_reversed.append(parent_key.as_urn())
+            parent_key = parent_key.parent_key()
+        if project_container_key.instance is not None:
+            path_reversed.append(
+                DataPlatformInstanceUrn(
+                    project_container_key.platform, project_container_key.instance
+                ).urn()
+            )
+        return [
+            BrowsePathsV2Class(
+                path=[
+                    BrowsePathEntryClass(id=entry, urn=entry)
+                    for entry in reversed(path_reversed)
+                ]
+            )
+        ]
 
     # ------------------------------------------------------------------
     # Tables -> logical datasets

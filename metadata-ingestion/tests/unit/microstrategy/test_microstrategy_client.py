@@ -200,7 +200,9 @@ def test_search_metrics_uses_metric_object_type(monkeypatch: MonkeyPatch) -> Non
     metrics = list(client.search_metrics(project_id="project-1"))
 
     assert captured_params is not None
-    assert captured_params["type"] == "7"
+    # EnumDSSXMLObjectTypes DssXmlTypeMetric is 4. 7 is DssXmlTypeAggMetric,
+    # and a type-7 search silently returns no plain metrics.
+    assert captured_params["type"] == "4"
     assert metrics[0].id == "metric-1"
 
 

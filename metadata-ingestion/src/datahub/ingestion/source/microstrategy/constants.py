@@ -68,8 +68,12 @@ MSTR_OBJECT_TYPE_REPORT = 3
 # Documents share object type 55 with dossiers; the subtype distinguishes them.
 MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
 # EnumDSSXMLObjectTypes: Metric, Consolidation. Used for project-wide metric
-# search and to recognize a consolidation-type expression token.
-MSTR_OBJECT_TYPE_METRIC = 7
+# search and to recognize a consolidation-type expression token. Metric is
+# DssXmlTypeMetric = 4 (mstrio-py's ObjectTypes enum: METRIC = 4,
+# AGG_METRIC = 7); searching type 7 returns no plain metrics at all.
+MSTR_OBJECT_TYPE_METRIC = 4
+# EnumDSSXMLObjectTypes: AggMetric. Unused; kept so 7 is not read as Metric.
+MSTR_OBJECT_TYPE_AGG_METRIC = 7
 MSTR_OBJECT_TYPE_CONSOLIDATION = 47
 
 # Which REST endpoint supplied a report's derived metric definitions: the
