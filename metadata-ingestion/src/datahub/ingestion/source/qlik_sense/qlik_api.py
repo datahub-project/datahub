@@ -27,14 +27,16 @@ class QlikAPI:
         self.spaces: Dict = {}
         self.users: Dict = {}
         self.config = config
+        if not config.tenant_hostname or config.api_key is None:
+            raise ValueError("Qlik Cloud requires tenant_hostname and api_key")
         self.session = requests.Session()
         self.session.headers.update(
             {
-                "Authorization": f"Bearer {self.config.api_key.get_secret_value()}",
+                "Authorization": f"Bearer {config.api_key.get_secret_value()}",
                 "Content-Type": "application/json",
             }
         )
-        self.rest_api_url = f"https://{self.config.tenant_hostname}/api/v1"
+        self.rest_api_url = f"https://{config.tenant_hostname}/api/v1"
         # Test connection by fetching list of api keys
         logger.info(f"Trying to connect to {self.rest_api_url}")
         self.session.get(f"{self.rest_api_url}/api-keys").raise_for_status()
@@ -260,6 +262,8 @@ class QlikAPI:
 
     def _get_app(self, app_id: str) -> Optional[App]:
         try:
+            assert self.config.tenant_hostname is not None
+            assert self.config.api_key is not None
             websocket_connection = WebsocketConnection(
                 self.config.tenant_hostname,
                 self.config.api_key.get_secret_value(),
