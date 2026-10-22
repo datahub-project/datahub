@@ -31,8 +31,10 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -263,7 +265,7 @@ public class ESUtilsTest {
             .setCriteria(
                 new CriterionArray(buildCriterion("_entityType", Condition.EQUAL, "CHART")));
 
-    Filter result = ESUtils.toV3EntityFilter(opContext, filter);
+    Filter result = EntityFilter.toEntityFilter(opContext, filter);
 
     CriterionArray and = result.getOr().get(0).getAnd();
     // V3 root fields keep the V2 .keyword subfield, so other criteria pass through unchanged
@@ -277,7 +279,7 @@ public class ESUtilsTest {
     assertFalse(and.get(2).hasValues());
     assertEquals(result.getCriteria().get(0).getValues(), List.of("chart"));
     // The search DAO and the request handlers both normalize, so a second pass changes nothing
-    assertEquals(ESUtils.toV3EntityFilter(opContext, result), result);
+    assertEquals(EntityFilter.toEntityFilter(opContext, result), result);
   }
 
   @Test
@@ -1070,6 +1072,103 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropCaseInsensitiveValue() {
+    // Search V2 has no .lowercase subfield. IEQUAL stays a case-insensitive term on the keyword.
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward", Condition.IEQUAL, "urn:li:corpuser:jdoe");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    String expected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"term\" : {\n"
+            + "          \"structuredProperties.steward\" : {\n"
+            + "            \"value\" : \"urn:li:corpuser:jdoe\",\n"
+            + "            \"case_insensitive\" : true,\n"
+            + "            \"boost\" : 1.0\n"
+            + "          }\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.steward\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropCaseInsensitiveValueOnV3() {
+    // A term query does not run keyword_normalizer, so the value is lowercased and ASCII-folded.
+    final Criterion singleValueCriterion =
+        buildCriterion(
+            "structuredProperties.steward", Condition.IEQUAL, "URN:LI:CORPUSER:JOS\u00c9");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion,
+            false,
+            new HashMap<>(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            mock(
+                com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver
+                    .class));
+    assertTrue(
+        result.toString().contains("structuredProperties.steward.lowercase"), result.toString());
+    assertTrue(result.toString().contains("urn:li:corpuser:jose"), result.toString());
+    assertFalse(result.toString().contains("case_insensitive"), result.toString());
+  }
+
+  @Test
+  public void testResolvedUrnCaseInsensitiveValueIsAsciiFolded() {
+    SearchFieldResolver resolver = mock(SearchFieldResolver.class);
+    when(resolver.contains("tags")).thenReturn(true);
+    when(resolver.supports(eq("tags"), any())).thenReturn(true);
+    when(resolver.exactPath(eq("tags"), any())).thenReturn("tags_urn");
+    when(resolver.lowercaseFullUrnPath("tags")).thenReturn("tags_urn.lowercase");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            buildCriterion("tags", Condition.IEQUAL, "URN:LI:TAG:JOS\u00c9"),
+            false,
+            new HashMap<>(),
+            opContext,
+            QueryFilterRewriteChain.EMPTY,
+            resolver);
+    assertTrue(result.toString().contains("tags_urn.lowercase"), result.toString());
+    assertTrue(result.toString().contains("urn:li:tag:jose"), result.toString());
+    assertFalse(result.toString().contains("case_insensitive"), result.toString());
+  }
+
+  @Test
+  public void testGetQueryBuilderFromParsedUrnStructPropCaseInsensitiveValue() {
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward__urn_name", Condition.IEQUAL, "Confidential");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    assertTrue(result.toString().contains("structuredProperties.steward__urn_name"));
+    assertTrue(result.toString().contains("case_insensitive"));
+    assertFalse(result.toString().contains(".lowercase"));
   }
 
   @Test

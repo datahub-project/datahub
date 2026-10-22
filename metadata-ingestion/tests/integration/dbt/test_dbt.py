@@ -554,6 +554,9 @@ def test_dbt_test_connection(test_resources_dir, config_dict, is_success):
 def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwargs):
     # Run the metadata ingestion pipeline.
     output_file = tmp_path / "dbt_test_events.json"
+    # jaffle_shop_manifest.json is edited for coverage (JSON can't hold comments):
+    # unique_stg_orders_order_id has a custom `name:` and not_null_stg_orders_order_id
+    # a test `description:`.
     golden_path = test_resources_dir / "dbt_test_events_golden.json"
 
     pipeline = Pipeline(

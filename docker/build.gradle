@@ -141,6 +141,21 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartDebugSearchSplit': [
+                    // Search V3 on its own OpenSearch cluster: profiles/docker-compose.search-split-override.yml
+                    // adds `search-secondary` and points GMS / system update / MAE consumer at it through
+                    // elasticsearch.clusters.secondary.uri + componentCluster.searchV3. V2 stays on `search`.
+                    // Turn V3 on with the usual variables (ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED,
+                    // ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED); this task supplies only the
+                    // cluster and the routing.
+                    profile: 'debug',
+                    composeFiles: [compose_base, 'profiles/docker-compose.search-split-override.yml'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartDebugElasticsearch': [
                     profile: 'debug-elasticsearch',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],

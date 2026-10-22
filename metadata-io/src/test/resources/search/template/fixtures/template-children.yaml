@@ -1,0 +1,18 @@
+# Children of the shipped fulltext template. Goldens are rendered output, not this file.
+- urn: urn:li:searchTemplate:fieldEdits
+  name: Field edits
+  parent: urn:li:searchTemplate:fulltext
+  nameAndValueWeight: 8.0
+  fields:
+    add:
+      - fieldName: urn:li:structuredProperty:hidden.label
+        boost: 6.0
+    remove:
+      - urn:li:structuredProperty:certification.status
+    override:
+      - fieldName: urn:li:structuredProperty:contract.id
+        boost: 9.0
+- urn: urn:li:searchTemplate:nameAndValue
+  name: Name and value
+  parent: urn:li:searchTemplate:fulltext
+  nameAndValueWeight: 8.0

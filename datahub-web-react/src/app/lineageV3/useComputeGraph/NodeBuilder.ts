@@ -1,6 +1,7 @@
 import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
 import { Edge, Node } from 'reactflow';
 
+import { DataFlowLineageControlData } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import { LINEAGE_BOUNDING_BOX_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
@@ -43,7 +44,9 @@ export const MAIN_Y_SEP_RATIO = 0.5;
 export const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
-export type LineageVisualizationNode = Node<LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode>;
+export type LineageVisualizationNode = Node<
+    LineageEntity | LineageFilter | LineageBoundingBox | LineageAnnotationNode | DataFlowLineageControlData
+>;
 type LineageVisualizationEdgeData = LineageTableEdgeData | DataJobInputOutputEdgeData;
 
 export function getNodePriority(node: LineageVisualizationNode) {
@@ -159,8 +162,9 @@ export default class NodeBuilder {
         this.parents = parents;
         this.isHorizontal = isHorizontal;
         this.useProvidedParents = useProvidedParents;
-        this.nodeHeight = rootType === EntityType.DataFlow ? LINEAGE_NODE_WIDTH : LINEAGE_NODE_HEIGHT;
-        this.nodeWidth = rootType === EntityType.DataFlow ? LINEAGE_NODE_HEIGHT - 10 : LINEAGE_NODE_WIDTH;
+        const isDataJobStack = rootType === EntityType.DataFlow && !isHorizontal;
+        this.nodeHeight = isDataJobStack ? LINEAGE_NODE_WIDTH : LINEAGE_NODE_HEIGHT;
+        this.nodeWidth = isDataJobStack ? LINEAGE_NODE_HEIGHT - 10 : LINEAGE_NODE_WIDTH;
 
         // +15 accounts for column footer
         this.separationNodeHeight = this.nodeHeight + (rootType === EntityType.SchemaField ? 15 : 0);

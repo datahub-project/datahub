@@ -1,25 +1,56 @@
+import os
 import subprocess
 import time
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import MagicMock, Mock
 
+import pytds
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.elements import TextClause
 
-from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.sql.mssql.query import (
+    AUDIT_STATEMENT_MAX_CHARS,
+    QUERY_LOG_PREPARE_LOOKBACK,
+    UNMAPPED_EXECUTE_KEY,
+    MSSQLQuery,
+    QueryHistoryWindow,
+)
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
     MSSQLQueryEntry,
 )
-from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
+from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
+from datahub.metadata.schema_classes import (
+    QueryPropertiesClass,
+    QuerySubjectsClass,
+    QueryUsageStatisticsClass,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from tests.integration.mssql.tls import prepare_mssql_tls
 from tests.test_helpers.docker_helpers import wait_for_port
 
 MSSQL_PORT = 1433
+
+
+def _pytds_tls_options() -> Dict[str, Dict[str, object]]:
+    # The fixture server forces encryption, and pytds stays plaintext unless a
+    # CA file is set (prepare_mssql_tls exports it before the server starts).
+    return {
+        "connect_args": {"cafile": os.environ["MSSQL_CAFILE"], "validate_host": True}
+    }
+
+
+# Wide naive-UTC window so executions from the test run always fall inside it.
+_HISTORY_WINDOW = QueryHistoryWindow(
+    start_time=datetime(2000, 1, 1), end_time=datetime(2100, 1, 1)
+)
 
 
 @pytest.fixture(scope="module")
@@ -202,7 +233,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -244,7 +275,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(3)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -273,6 +304,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
+            window=_HISTORY_WINDOW,
             limit=100,
             min_calls=1,
             exclude_patterns=["%sys.%", "%@@%"],
@@ -292,6 +324,7 @@ class TestMSSQLLineageIntegration:
         malicious_pattern = "'; DROP TABLE lineage_test.source_orders; --"
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
+            window=_HISTORY_WINDOW,
             limit=10,
             min_calls=1,
             exclude_patterns=[malicious_pattern],
@@ -376,7 +409,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=3, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=3, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -460,7 +493,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_query_store(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
 
@@ -488,7 +521,7 @@ class TestMSSQLLineageIntegration:
         time.sleep(2)
 
         query, params = MSSQLQuery.get_query_history_from_dmv(
-            limit=100, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=100, min_calls=1, exclude_patterns=None
         )
         result = mssql_connection.execute(query, params).mappings()
         queries = list(result)
@@ -511,12 +544,12 @@ class TestMSSQLLineageIntegration:
         assert isinstance(MSSQLQuery.get_mssql_version(), TextClause)
 
         query, _ = MSSQLQuery.get_query_history_from_query_store(
-            limit=10, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=10, min_calls=1, exclude_patterns=None
         )
         assert isinstance(query, TextClause)
 
         query, _ = MSSQLQuery.get_query_history_from_dmv(
-            limit=10, min_calls=1, exclude_patterns=None
+            window=_HISTORY_WINDOW, limit=10, min_calls=1, exclude_patterns=None
         )
         assert isinstance(query, TextClause)
 
@@ -1173,6 +1206,15 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
                 )
             )
 
+            # One batch, two statements: DMV stats are per statement while
+            # sql_handle is per batch, so these must come back as two entries.
+            conn.execute(
+                text(
+                    "SELECT customer_name FROM customers WHERE customer_id = 1; "
+                    "SELECT order_date FROM orders WHERE order_id = 100"
+                )
+            )
+
             # Execute queries multiple times to increase DMV caching probability
             for _ in range(5):
                 conn.execute(text("SELECT customer_id, customer_name FROM customers"))
@@ -1224,21 +1266,41 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
 
             queries = extractor.extract_query_history()
 
-            # DMV cache is unpredictable - test validates mechanism not cache state
-            if len(queries) > 0:
-                assert report.num_queries_extracted > 0
+            # Ad-hoc statements have a NULL sql_text.dbid; the plan dbid filter
+            # must still find them in a fresh container's plan cache.
+            assert queries, "DMV extraction returned no ad-hoc queries"
+            assert report.num_queries_extracted == len(queries)
+            for query in queries:
+                assert query.query_text
+                assert query.execution_count > 0
+                assert query.database_name == "dmv_test_db"
 
-                for query in queries:
-                    assert query.query_id is not None
-                    assert query.query_text is not None
-                    assert query.execution_count > 0
-                    assert query.database_name == "dmv_test_db"
-                    assert not hasattr(query, "user_name")
+            # SQL Server may auto-parameterize these into bracketed form.
+            batch_entries = [
+                q
+                for q in queries
+                if any(
+                    fragment in q.query_text.replace("[", "").replace("]", "")
+                    for fragment in (
+                        "customer_name FROM customers WHERE",
+                        "order_date FROM orders WHERE",
+                    )
+                )
+            ]
+            assert len(batch_entries) == 2
+            assert len({q.query_id for q in batch_entries}) == 2
+            for entry in batch_entries:
+                # Ran before config fixed end_time, so inside the window.
+                assert entry.executions
+                # Statement text only, not the whole batch.
+                assert not (
+                    "customers" in entry.query_text and "orders" in entry.query_text
+                )
 
-                extractor.populate_lineage_from_queries()
-                assert report.num_queries_parsed >= 0
-            else:
-                assert report.num_queries_extracted == 0
+            # Re-extracts; the plan cache may have grown since the first call.
+            extractor.populate_lineage_from_queries()
+            assert report.num_queries_parse_failures == 0
+            assert report.num_queries_parsed >= len(queries)
 
     finally:
         test_engine.dispose()
@@ -1250,3 +1312,613 @@ def test_dmv_extraction_end_to_end_no_query_store(mssql_runner):
             )
             master_conn.execute(text("DROP DATABASE dmv_test_db"))
         master_engine.dispose()
+
+
+@pytest.mark.integration
+def test_select_query_emitted_as_query_entity(mssql_connection, mssql_runner):
+    """Read-only queries in Query Store become Query entities with usage counts.
+
+    Uses the source's own aggregator so the real query-usage and system-object
+    wiring is exercised, and the default time window so the UTC conversion of
+    Query Store timestamps is checked against SQL Server.
+    """
+    conn = mssql_connection
+    select_sql = "SELECT customer_name, country FROM lineage_test.source_customers"
+    for _ in range(3):
+        conn.execute(text(select_sql))
+    conn.execute(text("SELECT name FROM sys.objects WHERE object_id = 1"))
+    # Query Store buffers runtime stats in memory; flush so they are readable.
+    conn.execute(text("EXEC sys.sp_query_store_flush_db"))
+    time.sleep(2)
+
+    config = SQLServerConfig.model_validate(
+        {
+            "username": "sa",
+            "password": "test!Password",
+            "host_port": f"localhost:{mssql_runner}",
+            "database": "lineage_test",
+            "include_query_lineage": True,
+            "max_queries_to_extract": 1000,
+            "options": _pytds_tls_options(),
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="select-query-entity"))
+    # The extractor runs without a table-ingestion pass here, so record the
+    # table as discovered; only ingested tables become Query subjects.
+    source.discovered_datasets.add("lineage_test.lineage_test.source_customers")
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        connection=conn,
+        report=source.report,
+        sql_aggregator=source.aggregator,
+        default_schema="dbo",
+    )
+    extractor.populate_lineage_from_queries()
+    mcps = list(source.aggregator.gen_metadata())
+
+    statements = {
+        mcp.entityUrn: mcp.aspect.statement.value
+        for mcp in mcps
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    }
+    matching = [
+        urn
+        for urn, statement in statements.items()
+        if "source_customers" in statement and "country" in statement
+    ]
+    assert len(matching) == 1, f"SELECT not emitted as a Query: {statements}"
+    assert not any(
+        "sys.objects" in statement.lower() for statement in statements.values()
+    )
+
+    query_urn = matching[0]
+    subjects = {
+        subject.entity
+        for mcp in mcps
+        if mcp.entityUrn == query_urn and isinstance(mcp.aspect, QuerySubjectsClass)
+        for subject in mcp.aspect.subjects
+    }
+    assert any("source_customers" in subject for subject in subjects)
+    query_count = sum(
+        mcp.aspect.queryCount or 0
+        for mcp in mcps
+        if mcp.entityUrn == query_urn
+        and isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    )
+    assert query_count >= 3
+
+
+def _int_output(value: Optional[int] = None) -> pytds.output:
+    return pytds.output(param_type="int", value=value)
+
+
+def _first_rpc_output(cursor: pytds.Cursor) -> int:
+    # pytds' get_proc_outputs() raises IndexError for cursor RPCs that mix
+    # input and output parameters, but the session keeps the returned values.
+    return next(iter(cursor._session.output_params.values())).value
+
+
+@pytest.fixture(scope="module")
+def query_log_targets(mssql_connection, mssql_runner):
+    """A file audit capturing BATCH_COMPLETED_GROUP and an Extended Events
+    session capturing completed batches/RPCs, plus a non-admin login whose
+    queries should be attributed to it."""
+    master_engine = sa.create_engine(
+        f"mssql+pyodbc://sa:test!Password@127.0.0.1:{mssql_runner}/master?"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        isolation_level="AUTOCOMMIT",
+    )
+    with master_engine.connect() as master:
+        master.execute(
+            text(
+                "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'qh_analyst') "
+                "CREATE LOGIN qh_analyst WITH PASSWORD = 'Analyst!Passw0rd', CHECK_POLICY = OFF"
+            )
+        )
+        master.execute(
+            text(
+                "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'qh_other') "
+                "CREATE LOGIN qh_other WITH PASSWORD = 'Other!Passw0rd1', CHECK_POLICY = OFF"
+            )
+        )
+        master.execute(text("GRANT IMPERSONATE ON LOGIN::qh_other TO qh_analyst"))
+        master.execute(
+            text(
+                "IF NOT EXISTS (SELECT 1 FROM sys.server_audits WHERE name = 'qh_audit') "
+                "CREATE SERVER AUDIT qh_audit TO FILE (FILEPATH = '/var/opt/mssql/data/')"
+            )
+        )
+        master.execute(text("ALTER SERVER AUDIT qh_audit WITH (STATE = ON)"))
+        master.execute(
+            text(
+                "IF EXISTS (SELECT 1 FROM sys.server_event_sessions WHERE name = 'qh_xe') "
+                "DROP EVENT SESSION qh_xe ON SERVER"
+            )
+        )
+        master.execute(
+            text("""
+            CREATE EVENT SESSION qh_xe ON SERVER
+            ADD EVENT sqlserver.sql_batch_completed(
+                ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+                       sqlserver.session_id, sqlserver.database_name)
+                WHERE sqlserver.database_id > 4
+                  AND NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'qh_excluded')),
+            ADD EVENT sqlserver.rpc_completed(
+                ACTION(sqlserver.session_server_principal_name, sqlserver.server_principal_name,
+                       sqlserver.session_id, sqlserver.database_name)
+                WHERE sqlserver.database_id > 4
+                  AND NOT sqlserver.equal_i_sql_unicode_string(sqlserver.session_server_principal_name, N'qh_excluded'))
+            ADD TARGET package0.event_file(
+                SET filename = N'/var/opt/mssql/data/qh_xe.xel', max_file_size = 100, max_rollover_files = 5)
+            WITH (MAX_DISPATCH_LATENCY = 1 SECONDS)
+        """)
+        )
+        master.execute(text("ALTER EVENT SESSION qh_xe ON SERVER STATE = START"))
+
+    conn = mssql_connection
+    conn.execute(
+        text(
+            "IF USER_ID('qh_analyst') IS NULL CREATE USER qh_analyst FOR LOGIN qh_analyst"
+        )
+    )
+    conn.execute(text("GRANT SELECT ON SCHEMA::lineage_test TO qh_analyst"))
+    conn.execute(
+        text("IF USER_ID('qh_other') IS NULL CREATE USER qh_other FOR LOGIN qh_other")
+    )
+    conn.execute(text("GRANT SELECT ON SCHEMA::lineage_test TO qh_other"))
+    conn.execute(
+        text(
+            "CREATE DATABASE AUDIT SPECIFICATION qh_spec FOR SERVER AUDIT qh_audit "
+            "ADD (BATCH_COMPLETED_GROUP) WITH (STATE = ON)"
+        )
+    )
+
+    analyst_engine = sa.create_engine(
+        f"mssql+pyodbc://qh_analyst:Analyst!Passw0rd@127.0.0.1:{mssql_runner}/lineage_test?"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        isolation_level="AUTOCOMMIT",
+    )
+    conn.execute(text("DROP TABLE IF EXISTS dbo.qh_restricted"))
+    conn.execute(text("CREATE TABLE dbo.qh_restricted (secret_id INT)"))
+    lookup = text(
+        "SELECT customer_name FROM lineage_test.source_customers "
+        "WHERE customer_id = :customer_id"
+    )
+    with analyst_engine.connect() as analyst:
+        # Bound parameters -> sp_prepexec RPCs, one raw statement per value.
+        for customer_id in (101, 102, 103):
+            analyst.execute(lookup, {"customer_id": customer_id})
+        # No parameters -> a plain batch.
+        analyst.exec_driver_sql("SELECT order_id FROM lineage_test.source_orders")
+        # Permission denied -> must not become a query.
+        with pytest.raises(sa.exc.DBAPIError):
+            analyst.exec_driver_sql("SELECT secret_id FROM dbo.qh_restricted")
+        # Impersonation -> credited to the session's own login.
+        analyst.exec_driver_sql("EXECUTE AS LOGIN = 'qh_other'")
+        analyst.exec_driver_sql(
+            "SELECT country FROM lineage_test.source_customers /* impersonated */"
+        )
+        analyst.exec_driver_sql("REVERT")
+        # Over 4000 characters -> SQL Server splits it across audit records.
+        analyst.exec_driver_sql(
+            "SELECT total_amount FROM lineage_test.source_orders WHERE order_id IN ("
+            + ",".join(str(i) for i in range(1500))
+            + ") /* long */"
+        )
+        # A hot parameterized query with many distinct values.
+        for value in range(12):
+            analyst.execute(
+                text(
+                    "SELECT order_date FROM lineage_test.source_orders "
+                    "WHERE order_id = :value /* hot */"
+                ),
+                {"value": value},
+            )
+    analyst_engine.dispose()
+
+    # JDBC re-runs a prepared statement with sp_prepare + `exec sp_execute <handle>`
+    # RPCs; pytds callproc sends the same RPCs over one session.
+    jdbc = pytds.connect(
+        "localhost",
+        "lineage_test",
+        "qh_analyst",
+        "Analyst!Passw0rd",
+        port=mssql_runner,
+        autocommit=True,
+        cafile=os.environ["MSSQL_CAFILE"],
+        validate_host=False,
+    )
+    cursor = jdbc.cursor()
+    cursor.callproc(
+        "sp_prepare",
+        (
+            pytds.output(param_type="int", value=None),
+            "@P0 int",
+            "SELECT customer_id FROM lineage_test.source_orders WHERE order_id = @P0 /* jdbc */",
+            1,
+        ),
+    )
+    while cursor.nextset():
+        pass
+    handle = cursor.get_proc_outputs()[0]
+    for value in range(4):
+        cursor.callproc("sp_execute", (handle, value))
+        while cursor.nextset():
+            pass
+    # JDBC server cursors: sp_cursorprepexec runs once, then sp_cursorexecute.
+    cursor.callproc(
+        "sp_cursorprepexec",
+        (
+            _int_output(),
+            _int_output(),
+            "@P0 int",
+            "SELECT order_date FROM lineage_test.source_orders WHERE order_id = @P0 /* cursor */",
+            _int_output(4100),
+            _int_output(8193),
+            _int_output(0),
+            1,
+        ),
+    )
+    while cursor.nextset():
+        pass
+    cursor_handle = _first_rpc_output(cursor)
+    for value in range(2):
+        cursor.callproc(
+            "sp_cursorexecute",
+            (
+                cursor_handle,
+                _int_output(),
+                _int_output(4),
+                _int_output(1),
+                _int_output(0),
+                value,
+            ),
+        )
+        while cursor.nextset():
+            pass
+    jdbc.close()
+    # The connector's own login runs the same lookup; it must not be counted.
+    conn.execute(lookup, {"customer_id": 101})
+    time.sleep(3)  # event_file / audit buffers flush
+
+    yield
+
+    conn.execute(text("DROP TABLE IF EXISTS dbo.qh_restricted"))
+    conn.execute(text("ALTER DATABASE AUDIT SPECIFICATION qh_spec WITH (STATE = OFF)"))
+    conn.execute(text("DROP DATABASE AUDIT SPECIFICATION qh_spec"))
+    with master_engine.connect() as master:
+        master.execute(text("ALTER EVENT SESSION qh_xe ON SERVER STATE = STOP"))
+        master.execute(text("DROP EVENT SESSION qh_xe ON SERVER"))
+        master.execute(text("ALTER SERVER AUDIT qh_audit WITH (STATE = OFF)"))
+        master.execute(text("DROP SERVER AUDIT qh_audit"))
+    master_engine.dispose()
+
+
+def _run_query_log(
+    mssql_connection: sa.engine.Connection,
+    mssql_runner: int,
+    query_history_source: str,
+    **overrides: object,
+) -> Tuple[List[MetadataChangeProposalWrapper], SQLServerSource]:
+    config = SQLServerConfig.model_validate(
+        {
+            "username": "sa",
+            "password": "test!Password",
+            "host_port": f"localhost:{mssql_runner}",
+            "database": "lineage_test",
+            "include_query_lineage": True,
+            "query_history_source": query_history_source,
+            "email_domain": "example.com",
+            "options": _pytds_tls_options(),
+            **overrides,
+        }
+    )
+    source = SQLServerSource(config, PipelineContext(run_id=query_history_source))
+    # No table-ingestion pass runs here, so record the fixture tables as
+    # discovered; only ingested tables become Query subjects.
+    for table in (
+        "lineage_test.lineage_test.source_customers",
+        "lineage_test.lineage_test.source_orders",
+        "lineage_test.dbo.qh_restricted",
+    ):
+        source.discovered_datasets.add(table)
+    extractor = MSSQLLineageExtractor(
+        config=config,
+        connection=mssql_connection,
+        report=source.report,
+        sql_aggregator=source.aggregator,
+        default_schema="dbo",
+    )
+    extractor.populate_lineage_from_queries()
+    assert not source.report.failures
+    return list(source.aggregator.gen_metadata()), source
+
+
+def _query_usage_by_statement(
+    mcps: List[MetadataChangeProposalWrapper],
+) -> Dict[str, Tuple[int, Set[str]]]:
+    statements = {
+        mcp.entityUrn: mcp.aspect.statement.value
+        for mcp in mcps
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    }
+    usage: Dict[str, Tuple[int, Set[str]]] = {}
+    for urn, statement in statements.items():
+        aspects = [
+            mcp.aspect
+            for mcp in mcps
+            if mcp.entityUrn == urn
+            and isinstance(mcp.aspect, QueryUsageStatisticsClass)
+        ]
+        usage[statement] = (
+            sum(a.queryCount or 0 for a in aspects),
+            {u.user for a in aspects for u in (a.userCounts or [])},
+        )
+    return usage
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_attributes_queries_to_users(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """Queries read from the audit log / Extended Events carry the login that
+    ran them, with the target discovered automatically. One parameterized
+    query run with three values is one query; the connector's own login and a
+    failed query are not counted; a plain batch is attributed too."""
+    mcps, source = _run_query_log(mssql_connection, mssql_runner, query_history_source)
+    usage = _query_usage_by_statement(mcps)
+    analyst = {"urn:li:corpuser:qh_analyst@example.com"}
+
+    lookups = {
+        s: u
+        for s, u in usage.items()
+        if "source_customers" in s and "impersonated" not in s
+    }
+    assert len(lookups) == 1, usage
+    assert list(lookups.values())[0] == (3, analyst)
+    assert source.report.num_query_log_rpc_executions_unwrapped >= 3
+
+    # EXECUTE AS work is credited to the login that opened the session.
+    impersonated = [u for s, u in usage.items() if "impersonated" in s]
+    assert impersonated == [(1, analyst)], usage
+
+    # A JDBC prepared statement re-run with sp_execute keeps every execution.
+    jdbc = [u for s, u in usage.items() if "/* jdbc */" in s]
+    assert jdbc == [(4, analyst)], usage
+    # A server cursor: one sp_cursorprepexec plus two sp_cursorexecute calls.
+    cursors = [u for s, u in usage.items() if "/* cursor */" in s]
+    assert cursors == [(3, analyst)], usage
+
+    # A statement SQL Server split across audit records comes back whole.
+    long_statements = [s for s in usage if "/* long */" in s]
+    assert len(long_statements) == 1 and "1499" in long_statements[0], usage
+
+    # The plain batch is the only unfiltered read of source_orders.order_id.
+    batches = [
+        u
+        for s, u in usage.items()
+        if "source_orders" in s and "order_id" in s and "WHERE" not in s
+    ]
+    assert batches == [(1, analyst)], usage
+    if query_history_source == "audit_log":
+        # Extended Events reports statement-level errors (e.g. permission
+        # denied) with result OK, so only the audit log can drop them.
+        assert not any("qh_restricted" in s for s in usage)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_respects_time_window(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    mcps, _ = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        start_time="2000-01-01T00:00:00Z",
+        end_time="2000-01-02T00:00:00Z",
+    )
+    assert not any("source_customers" in s for s in _query_usage_by_statement(mcps))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_top_n_ranks_unwrapped_statements(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """Ranking happens on the unwrapped statement, so a parameterized query run
+    with 12 distinct values beats queries run once, even with a top-1 limit."""
+    mcps, _ = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        max_queries_to_extract=1,
+    )
+    usage = _query_usage_by_statement(mcps)
+    assert [count for s, (count, _) in usage.items() if "/* hot */" in s] == [12], usage
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("query_history_source", ["audit_log", "extended_events"])
+def test_query_log_attributes_executes_of_statements_prepared_before_window(
+    mssql_connection, mssql_runner, query_log_targets, query_history_source
+):
+    """Pooled connections prepare once and execute for hours, so the prepare is
+    usually older than start_time. Executions inside the window still count
+    against the prepared statement, and the prepare itself isn't counted."""
+    session = pytds.connect(
+        "localhost",
+        "lineage_test",
+        "qh_analyst",
+        "Analyst!Passw0rd",
+        port=mssql_runner,
+        autocommit=True,
+        cafile=os.environ["MSSQL_CAFILE"],
+        validate_host=False,
+    )
+    cursor = session.cursor()
+    cursor.callproc(
+        "sp_prepare",
+        (
+            _int_output(),
+            "@P0 int",
+            "SELECT country FROM lineage_test.source_customers WHERE customer_id = @P0 /* pooled */",
+            1,
+        ),
+    )
+    while cursor.nextset():
+        pass
+    handle = _first_rpc_output(cursor)
+    time.sleep(2)
+    window_start = datetime.now(tz=timezone.utc)
+    time.sleep(1)
+    for value in range(3):
+        cursor.callproc("sp_execute", (handle, value))
+        while cursor.nextset():
+            pass
+    session.close()
+    time.sleep(3)
+
+    mcps, source = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        start_time=window_start.isoformat(),
+        end_time="2100-01-01T00:00:00Z",
+    )
+    usage = _query_usage_by_statement(mcps)
+    pooled = [count for s, (count, _) in usage.items() if "/* pooled */" in s]
+    assert pooled == [3], usage
+    assert source.report.num_query_log_unmapped_executions == 0
+
+
+def _fake_log_row(
+    event_time: datetime,
+    statement: str,
+    session_id: int = 60,
+    is_rpc: int = 0,
+    is_truncated: int = 0,
+) -> Dict[str, object]:
+    return {
+        "event_time": event_time,
+        "session_id": session_id,
+        "user_name": "qh_fake",
+        "statement": statement,
+        "is_rpc": is_rpc,
+        "is_truncated": is_truncated,
+        "database_name": "lineage_test",
+    }
+
+
+@pytest.mark.integration
+def test_query_log_sql_handles_truncated_records_and_old_prepares(mssql_connection):
+    """Runs the shared audit / Extended Events SQL over fabricated log rows,
+    since a real SQL Server log can't produce Azure-truncated records.
+
+    A truncated wrapper whose SQL literal closed is a complete query; one cut
+    inside the literal is truncated. Truncated statements rank on their own,
+    so they can't push real queries out of the top-N. Prepares are looked up
+    only within QUERY_LOG_PREPARE_LOOKBACK before the window."""
+    start = datetime(2030, 1, 10)
+    at = datetime(2030, 1, 10, 12)
+    cap = AUDIT_STATEMENT_MAX_CHARS
+    rows = [
+        _fake_log_row(
+            at,
+            (
+                "exec sp_executesql N'SELECT a FROM t WHERE id = @P0 /* wrapped-long */',"
+                "N'@P0 nvarchar(max)',@P0=N'" + "x" * cap
+            )[:cap],
+            is_rpc=1,
+            is_truncated=1,
+        ),
+        _fake_log_row(
+            at,
+            ("exec sp_executesql N'SELECT a /* cut-literal */ " + "y" * cap)[:cap],
+            is_rpc=1,
+            is_truncated=1,
+        ),
+        *(
+            _fake_log_row(
+                at, (f"SELECT /* trunc{i} */ " + "z" * cap)[:cap], is_truncated=1
+            )
+            for i in range(3)
+            for _ in range(5)
+        ),
+        *(_fake_log_row(at, "SELECT b FROM t /* real */") for _ in range(3)),
+        _fake_log_row(
+            start - timedelta(hours=2),
+            "declare @p1 int set @p1=7 exec sp_prepare @p1 output,N'@P0 int',"
+            "N'SELECT c FROM t WHERE id = @P0 /* recent-prep */',1 select @p1",
+            session_id=51,
+            is_rpc=1,
+        ),
+        *(
+            _fake_log_row(at, "exec sp_execute 7,1", session_id=51, is_rpc=1)
+            for _ in range(2)
+        ),
+        _fake_log_row(
+            start - QUERY_LOG_PREPARE_LOOKBACK - timedelta(hours=1),
+            "declare @p1 int set @p1=8 exec sp_prepare @p1 output,N'@P0 int',"
+            "N'SELECT d FROM t WHERE id = @P0 /* old-prep */',1 select @p1",
+            session_id=52,
+            is_rpc=1,
+        ),
+        _fake_log_row(at, "exec sp_execute 8,1", session_id=52, is_rpc=1),
+    ]
+    mssql_connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))
+    mssql_connection.execute(
+        text(
+            "CREATE TABLE dbo.qh_fake_log (event_time DATETIME2(7), session_id INT, "
+            "user_name NVARCHAR(256), statement NVARCHAR(MAX), is_rpc INT, "
+            "is_truncated INT, database_name NVARCHAR(256))"
+        )
+    )
+    mssql_connection.execute(
+        text(
+            "INSERT INTO dbo.qh_fake_log VALUES (:event_time, :session_id, "
+            ":user_name, :statement, :is_rpc, :is_truncated, :database_name)"
+        ),
+        rows,
+    )
+
+    def run(limit: int) -> Dict[str, Tuple[int, int, int]]:
+        query, params = MSSQLQuery._get_log_query_history(
+            log_rows_cte="WITH log_rows AS (SELECT * FROM dbo.qh_fake_log WHERE __TIME__)",
+            window_predicate="event_time >= :start_time AND event_time < :end_time",
+            before_window_predicate=(
+                "event_time >= :prepare_start_time AND event_time < :start_time"
+            ),
+            path="unused",
+            window=QueryHistoryWindow(start_time=start, end_time=datetime(2030, 1, 11)),
+            limit=limit,
+            min_calls=1,
+            exclude_patterns=None,
+        )
+        return {
+            r["query_text"]: (r["execution_count"], r["is_truncated"], r["is_unmapped"])
+            for r in mssql_connection.execute(query, params).mappings()
+        }
+
+    try:
+        by_text = run(limit=10)
+        found = {
+            marker: counts
+            for marker in ("wrapped-long", "cut-literal", "real", "recent-prep")
+            for statement, counts in by_text.items()
+            if f"/* {marker} */" in statement
+        }
+        assert found == {
+            "wrapped-long": (1, 0, 0),
+            "cut-literal": (1, 1, 0),
+            "real": (3, 0, 0),
+            "recent-prep": (2, 0, 0),
+        }, by_text
+        assert by_text[UNMAPPED_EXECUTE_KEY] == (1, 0, 1)
+        assert not any("old-prep" in s for s in by_text)
+
+        top = run(limit=1)
+        assert any("/* real */" in s for s in top), top
+    finally:
+        mssql_connection.execute(text("DROP TABLE IF EXISTS dbo.qh_fake_log"))

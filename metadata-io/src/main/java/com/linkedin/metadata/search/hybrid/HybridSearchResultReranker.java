@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;

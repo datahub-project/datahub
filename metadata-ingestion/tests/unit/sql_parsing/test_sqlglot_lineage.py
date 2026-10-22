@@ -775,16 +775,34 @@ FROM staged
     )
 
 
-def test_databricks_case_sensitive_column_lineage() -> None:
-    # Regression guard for case-insensitive dialects (Databricks/Spark/Hive/Redshift/
-    # Trino/...). Unlike Snowflake, these fold identifiers *even when quoted*. A
-    # SELECT * over a schema with mixed-case columns expands to the columns' real
-    # casing (betStatusId), so the lineage lookup must not be re-folded. Passing the
+def test_hive_select_star_mixed_case_column_lineage() -> None:
+    # Regression guard for dialects that fold identifiers *even when quoted*
+    # (Spark/Hive/Redshift/Trino/...) and aren't in DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    # so their schema keeps its mixed case. A SELECT * expands to the columns' real
+    # casing (eventId), so the lineage lookup must not be re-folded. Passing the
     # lookup column as quoted=True alone is not enough here -- it case-folds
-    # "betStatusId" to "betstatusid", the column is no longer found, and the upstream
-    # edge is silently dropped. Marking the identifier case_sensitive keeps it
-    # verbatim. This mirrors the Unity Catalog view-lineage path. See
-    # https://github.com/tobymao/sqlglot/issues/7733.
+    # "eventId" to "eventid", the column is no longer found, and the upstream edge
+    # is silently dropped. Marking the identifier case_sensitive keeps it verbatim.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        "SELECT * FROM my_schema.events",
+        dialect="hive",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)": {
+                "eventId": "BIGINT",
+                "userId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_hive_select_star_mixed_case_column_lineage.json",
+    )
+
+
+def test_databricks_case_sensitive_column_lineage() -> None:
+    # Databricks matches columns case-insensitively, so the schema is folded before
+    # the SELECT * expansion. With no output table, the output columns still take
+    # their upstream column's declared casing (betStatusId). This mirrors the Unity
+    # Catalog view-lineage path and a dbt model compiled to a bare SELECT.
     assert_sql_result(
         "SELECT * FROM hive_metastore.bronze_kambi.bet",
         dialect="databricks",
@@ -798,6 +816,62 @@ def test_databricks_case_sensitive_column_lineage() -> None:
         },
         expected_file=RESOURCE_DIR
         / "test_databricks_case_sensitive_column_lineage.json",
+    )
+
+
+def test_databricks_explicit_mixed_case_columns() -> None:
+    # Databricks folds every query column to lowercase, even backticked ones. Unlike
+    # SELECT *, which expands from the schema, named columns only resolve to the
+    # schema's mixed-case fields through the case-insensitive lookup.
+    assert_sql_result(
+        """
+SELECT o.orderId, `customerId`, amountUsd
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+                "amountUsd": "DOUBLE",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_databricks_explicit_mixed_case_columns.json",
+    )
+
+
+def test_databricks_multi_upstream_mixed_case_columns() -> None:
+    # A column fed by several upstream columns of the same name (UNION, COALESCE)
+    # takes their casing when they agree, as a single upstream column does.
+    assert_sql_result(
+        """
+SELECT COALESCE(o.orderId, p.orderId) AS orderId, o.customerId
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+UNION ALL
+SELECT orderId, customerId
+FROM my_catalog.my_schema.orders_archive
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_multi_upstream_mixed_case_columns.json",
     )
 
 

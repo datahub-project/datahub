@@ -2,6 +2,7 @@
 
 import collections
 import concurrent.futures
+import contextlib
 import dataclasses
 import json
 import logging
@@ -34,7 +35,10 @@ from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
 )
-from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    ProfilingIsolationLevel,
+)
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
@@ -207,6 +211,21 @@ BIGQUERY = "bigquery"
 ATHENA = "athena"
 TRINO = "trino"
 
+# How many tables the dialect allows in one join. The combined statement
+# cross-joins one subquery per query, so a batch above this cannot be parsed.
+# Platforms absent here either have no practical limit or it is not documented.
+MAX_JOINED_TABLES = {
+    "mysql": 61,
+    "mariadb": 61,
+    "sqlite": 64,
+}
+
+# A timed-out statement costs these platforms only the column it was for, not
+# the rest of the table, so the only isolation levels worth warning about are
+# the ones that hold a single read view across the whole table profile.
+MYSQL_FAMILY_PLATFORMS = {"mysql", "mariadb"}
+LEVELS_HOLDING_ONE_READ_VIEW = {"REPEATABLE READ", "SERIALIZABLE"}
+
 
 def format_profile_value(
     value: Any,
@@ -345,8 +364,11 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
+        self._query_timeout_warning_logged = False
+        self._timeout_isolation_warning_logged = False
         # Same, per bound (limit/offset) the platform adapter did not apply.
         self._unapplied_bound_logged: Set[str] = set()
+        self._warn_if_batch_exceeds_join_limit()
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -915,6 +937,10 @@ class SQLAlchemyProfiler:
                 serial_execution_fallback_enabled=True,
                 flatten_enabled=self.config.query_combiner_flatten_enabled,
                 max_distinct_per_statement=self.config.max_distinct_per_statement,
+                max_queries_to_combine=self.config.max_queries_to_combine,
+                # A pure predicate on the exception, so the calling thread's
+                # adapter answers for every worker's.
+                is_query_timeout=self._thread_adapter(self.platform).is_query_timeout,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.
@@ -988,6 +1014,216 @@ class SQLAlchemyProfiler:
             self.config.profile_table_row_count_estimate_only
             and adapter.supports_row_count_estimation()
         )
+
+    def _warn_if_batch_exceeds_join_limit(self) -> None:
+        """
+        Above the dialect's join limit every merged statement fails.
+
+        The combined statement cross-joins one subquery per query, so a batch
+        larger than the limit cannot be parsed and the whole batch is retried
+        one query at a time -- slower than not combining at all, and the only
+        visible sign is `query_exceptions`. Flattening does not join, so it is
+        bounded only through its re-route onto the joining path.
+        """
+        if not self.config.query_combiner_enabled:
+            return
+        limit = MAX_JOINED_TABLES.get(self.platform)
+        if limit is None or self.config.max_queries_to_combine <= limit:
+            return
+        self.report.warning(
+            title="Profiling: max_queries_to_combine above the join limit",
+            message=(
+                "A combined statement above the limit fails to parse and is "
+                "retried one query at a time, which is slower than leaving the "
+                "queries uncombined. With flattening on this hits the re-route "
+                "rather than the normal path, since a flat statement does not "
+                "join. Lower max_queries_to_combine to the limit or below."
+            ),
+            context=(
+                f"Platform: {self.platform}; "
+                f"max_queries_to_combine={self.config.max_queries_to_combine}; "
+                f"join limit={limit}"
+            ),
+        )
+
+    def _rollback_quietly(self, conn: Connection) -> None:
+        try:
+            conn.rollback()
+        except Exception:
+            logger.debug("Rollback failed", exc_info=True)
+
+    def _warn_if_timeout_needs_autocommit(
+        self, conn: Connection, pretty_name: str
+    ) -> None:
+        """
+        A per-statement limit does not do its job on every isolation level.
+
+        The reason differs by platform, so the warning does too. On Postgres a
+        timed-out statement leaves the transaction aborted and the per-column
+        queries that follow fail with it, which is true at every level below
+        AUTOCOMMIT. On MySQL nothing is lost that way, but REPEATABLE READ and
+        SERIALIZABLE hold one read view from the first statement until the
+        commit, so a per-statement limit does not bound it; READ COMMITTED
+        takes a fresh view per statement and is as sound as AUTOCOMMIT here.
+        """
+        if self._timeout_isolation_warning_logged:
+            return
+        requested = (
+            conn.get_execution_options().get("isolation_level")
+            or self._profiling_isolation_level
+        )
+        if requested == ProfilingIsolationLevel.AUTOCOMMIT.value:
+            return
+        try:
+            # The driver's own state, not get_isolation_level(), which reports
+            # the server's level and so never says AUTOCOMMIT. It is also the
+            # only thing that sees an engine built with
+            # isolation_level=AUTOCOMMIT, which is how the Postgres source
+            # connects by default.
+            #
+            # psycopg2 exposes it as a bool attribute; PyMySQL and mysqlclient
+            # expose get_autocommit() and leave `autocommit` a method, which is
+            # always truthy.
+            dbapi = conn.connection.dbapi_connection
+            getter = getattr(dbapi, "get_autocommit", None)
+            flag = getter() if callable(getter) else getattr(dbapi, "autocommit", None)
+            if not isinstance(flag, bool):
+                # An unknown driver shape. Say nothing rather than guess.
+                return
+            if flag:
+                return
+            level = requested or conn.get_isolation_level()
+        except Exception:
+            # Cannot tell, so say nothing rather than warn on a healthy setup.
+            logger.debug("Could not read the isolation level", exc_info=True)
+            return
+
+        if self.platform in MYSQL_FAMILY_PLATFORMS:
+            if str(level).upper().replace("_", " ") not in LEVELS_HOLDING_ONE_READ_VIEW:
+                return
+            reason = (
+                "the server holds one read view from the first statement until "
+                "the commit at this level, so a per-statement limit does not "
+                "bound the view this option exists to bound. Set "
+                "profiling_isolation_level: AUTOCOMMIT or READ COMMITTED."
+            )
+        else:
+            reason = (
+                "a statement that hits the limit leaves the transaction "
+                "aborted, so the table loses every per-column metric that runs "
+                "after it -- quantiles, histograms, value frequencies, sample "
+                "values. Set profiling_isolation_level: AUTOCOMMIT."
+            )
+
+        self._timeout_isolation_warning_logged = True
+        self.report.warning(
+            title="Profiling: query timeout set on a transactional connection",
+            message=f"query_timeout_seconds is set, but {reason}",
+            context=f"Asset: {pretty_name}; isolation_level={level}",
+        )
+
+    def _warn_query_timeout_unavailable(
+        self, pretty_name: str, seconds: int, e: Exception
+    ) -> None:
+        self.report.warning(
+            title="Profiling: query timeout unavailable",
+            message=(
+                "The database did not accept the requested statement timeout. "
+                "Profiling may run without one, so a single aggregate over a "
+                "large table can hold a read view for as long as it takes. On "
+                "MySQL the SET is not transactional, so a limit that applied "
+                "but failed to commit is still in effect."
+            ),
+            context=f"Asset: {pretty_name}; query_timeout_seconds={seconds}",
+            exc=e,
+            log=not self._query_timeout_warning_logged,
+        )
+        self._query_timeout_warning_logged = True
+        if not self.config.catch_exceptions:
+            raise e
+
+    def _install_query_timeout(
+        self,
+        stack: contextlib.ExitStack,
+        conn: Connection,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> None:
+        """
+        Put a per-statement time limit on the profiling connection, and arrange
+        for it to come back off before the connection returns to the pool.
+        """
+        seconds = self.config.query_timeout_seconds
+        if seconds is None:
+            return
+        timeout = adapter.get_query_timeout_statements(seconds)
+        if timeout is None:
+            if not self._query_timeout_warning_logged:
+                logger.info(
+                    f"query_timeout_seconds is set but {self.platform} has no "
+                    f"session statement timeout; profiling will run without one."
+                )
+                self._query_timeout_warning_logged = True
+            return
+        # After the support check: a platform that ignores the option has no
+        # timeout to warn about the consequences of.
+        self._warn_if_timeout_needs_autocommit(conn, pretty_name)
+
+        # Driver-level, so the combiner's patched Connection.execute does not
+        # count session bookkeeping as profiling queries, and so a restored
+        # value containing ':' is not read as a bind parameter.
+        try:
+            # Put back what was there, not the server default: the session may
+            # already carry a limit from init_command or a connect listener.
+            previous = conn.exec_driver_sql(timeout.read).scalar()
+            conn.exec_driver_sql(timeout.apply)
+        except Exception as e:
+            # A rejected SET leaves Postgres in an aborted transaction, which
+            # would cost the table every query that follows.
+            self._rollback_quietly(conn)
+            self._warn_query_timeout_unavailable(pretty_name, seconds, e)
+            return
+
+        # Registered before the commit, not after: SET SESSION is not
+        # transactional on MySQL, so a commit that fails still leaves the limit
+        # on a connection the pool shares with metadata extraction.
+        clear = timeout.restore.format(value=previous)
+        stack.callback(self._clear_query_timeout, conn, clear)
+
+        # Commit the SET itself. On Postgres a non-LOCAL SET belongs to the
+        # open transaction, and the serial fallback rolls back before every
+        # retry -- which would drop the limit exactly when a query has already
+        # proved slow enough to need it.
+        try:
+            conn.commit()
+        except Exception as e:
+            self._rollback_quietly(conn)
+            self._warn_query_timeout_unavailable(pretty_name, seconds, e)
+
+    def _clear_query_timeout(self, conn: Connection, clear: str) -> None:
+        """
+        Take the time limit back off the connection, whatever else went wrong.
+
+        Runs as the table's profile is finishing, when the transaction may be
+        aborted, so it rolls back first and never raises: the profile is already
+        built and must not be discarded over cleanup. If the limit cannot be
+        removed the connection is discarded instead of returned to the pool,
+        which metadata extraction shares.
+        """
+        try:
+            conn.rollback()
+            conn.exec_driver_sql(clear)
+            conn.commit()
+        except Exception as e:
+            logger.warning(
+                f"Could not clear the profiling query timeout ({type(e).__name__}); "
+                f"discarding the connection so the limit cannot leak to the pool."
+            )
+            logger.debug("Could not clear the profiling query timeout", exc_info=e)
+            try:
+                conn.invalidate()
+            except Exception:
+                logger.debug("Could not invalidate the connection", exc_info=True)
 
     def _schedule_row_count(
         self,
@@ -1647,7 +1883,8 @@ class SQLAlchemyProfiler:
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
-                with self.base_engine.connect() as conn:
+                with contextlib.ExitStack() as stack:
+                    conn = stack.enter_context(self.base_engine.connect())
                     isolation_level = self._profiling_isolation_level
                     if isolation_level is not None:
                         # Must be the first operation on this connection — the
@@ -1691,6 +1928,8 @@ class SQLAlchemyProfiler:
                             self._isolation_level_warning_logged = True
                             if not self.config.catch_exceptions:
                                 raise
+
+                    self._install_query_timeout(stack, conn, adapter, pretty_name)
 
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table

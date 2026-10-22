@@ -4413,7 +4413,7 @@
                             "type": "NUMBER"
                         }
                     },
-                    "nativeType": "unique_stg_orders_order_id",
+                    "nativeType": "stg_orders_have_unique_ids",
                     "nativeParameters": {
                         "column_name": "order_id",
                         "model": "{{ get_where_subquery(ref('stg_orders')) }}"
@@ -4421,12 +4421,13 @@
                 },
                 "source": {
                     "type": "EXTERNAL"
-                }
+                },
+                "description": "stg_orders_have_unique_ids"
             }
         },
         "systemMetadata": {
             "lastObserved": 1643871600000,
-            "runId": "dbt-2022_02_03-07_00_00-xkps96",
+            "runId": "dbt-2022_02_03-07_00_00-15bq99",
             "lastRunId": "no-run-id-provided"
         }
     },
