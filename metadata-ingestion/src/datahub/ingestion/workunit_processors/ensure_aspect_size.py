@@ -492,8 +492,19 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         def is_upstream(operation: Dict[str, object]) -> bool:
             return str(operation.get("path", "")).startswith("/upstreams/")
 
+        # Patch ops drop upstreamType; approximate it from the upstream URN (last path
+        # segment) so the kept subset matches the upsert trimmer.
+        def is_dataset_upstream(operation: Dict[str, object]) -> bool:
+            upstream_urn = str(operation.get("path", "")).rsplit("/", 1)[-1]
+            return upstream_urn.startswith("urn:li:dataset:")
+
         ordered = sorted(
-            operations, key=lambda op: (not is_upstream(op), str(op.get("path", "")))
+            operations,
+            key=lambda op: (
+                not is_upstream(op),
+                not is_dataset_upstream(op),
+                str(op.get("path", "")),
+            ),
         )
         accepted = []
         total_size = 0
@@ -507,14 +518,20 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         dropped = ordered[len(accepted) :]
         if not dropped:
             return
-        num_dropped_upstreams = sum(map(is_upstream, dropped))
+        dropped_fg = [op for op in dropped if not is_upstream(op)]
+        num_dropped_dataset_fg = sum(map(is_dataset_upstream, dropped_fg))
         self._maybe_warn_upstream_lineage(
-            entity_urn, num_dropped_upstreams, "upstream datasets"
+            entity_urn, len(dropped) - len(dropped_fg), "upstream datasets"
         )
         self._maybe_warn_upstream_lineage(
             entity_urn,
-            len(dropped) - num_dropped_upstreams,
-            "fine-grained lineage edges",
+            num_dropped_dataset_fg,
+            "dataset-level fine-grained lineages",
+        )
+        self._maybe_warn_upstream_lineage(
+            entity_urn,
+            len(dropped_fg) - num_dropped_dataset_fg,
+            "field-set-level fine-grained lineages",
         )
         self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
 

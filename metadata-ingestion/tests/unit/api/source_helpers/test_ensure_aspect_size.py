@@ -1678,7 +1678,7 @@ def test_upstream_lineage_patch_keeps_upstreams_first_in_path_order(processor):
     assert patch_operations(result) == upstream_ops[:3]
     warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
     assert "Skipped 2 upstream datasets" in warnings
-    assert "Skipped 10 fine-grained lineage edges" in warnings
+    assert "Skipped 10 field-set-level fine-grained lineages" in warnings
 
 
 def test_upstream_lineage_patch_truncated_when_only_escaped_size_exceeds(processor):
@@ -1693,6 +1693,50 @@ def test_upstream_lineage_patch_truncated_when_only_escaped_size_exceeds(process
 
     assert len(patch_operations(result)) < len(json.loads(raw_value))
     assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+
+
+def test_upstream_lineage_patch_keeps_dataset_level_before_field_set_level(processor):
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream,PROD)"
+    # The field-set edge sorts first by path, so only the type priority keeps the
+    # dataset-level edge.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstream, "col_a")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_a")],
+            ),
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[upstream],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_b")],
+            ),
+        ],
+    )
+    wu = convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+    upstream_op, field_set_op, dataset_op = sorted(
+        patch_operations(wu), key=lambda op: op["path"].startswith("/fine")
+    )
+    assert field_set_op["path"] < dataset_op["path"]
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in (upstream_op, dataset_op)) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == [upstream_op, dataset_op]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 1 field-set-level fine-grained lineages" in warnings
 
 
 def with_first_operation(
