@@ -502,7 +502,8 @@ sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
-    "Authlib>=1.6.11,<2.0.0",
+    # CVE-2026-96760: fixed in 1.9.0
+    "Authlib>=1.9.0,<2.0.0",
 }
 
 superset_common = {

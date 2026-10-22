@@ -57,8 +57,11 @@ snowflake-connector-python>=4.7.3,<5.0.0
 msgpack>=1.2.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
 # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+# CVE-2026-96760: fixed in 1.9.0 (https://github.com/authlib/authlib/pull/938)
 # Previous Docker minimum: authlib>=1.6.9
-authlib>=1.6.11
+authlib>=1.9.0
+# joserfc: CVE-2026-102946; fixed in 1.7.4. Transitive via authlib.
+joserfc>=1.7.4
 werkzeug>=3.1.6
 azure-core>=1.38.0
 # CVE-2026-25087: Apache Arrow C++ Use After Free; fixed in pyarrow 23.0.1. Docker minimum.
