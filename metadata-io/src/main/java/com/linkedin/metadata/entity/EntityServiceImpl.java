@@ -606,7 +606,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     return Pair.of(
         EntityUtils.toSystemAspect(
-                opContext, opContext.getRetrieverContext(), maybeAspect.orElse(null), false)
+                opContext, opContext.getRetrieverContext(), maybeAspect.orElse(null))
             .map(SystemAspect::getRecordTemplate)
             .orElse(null),
         version);
@@ -4063,8 +4063,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               EntityUtils.toSystemAspect(
                                       opContext,
                                       opContext.getRetrieverContext(),
-                                      aspectDao.getAspect(opContext, urn, aspectName, maxVersion),
-                                      true)
+                                      aspectDao.getAspect(opContext, urn, aspectName, maxVersion))
                                   .orElse(null);
                       SystemMetadata previousSysMetadata =
                           candidateAspect != null ? candidateAspect.getSystemMetadata() : null;
