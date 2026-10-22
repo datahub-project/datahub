@@ -22,8 +22,14 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -33,8 +39,15 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2,
-    "sanitizeRichText": true
+    "sanitizeRichText": true,
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -43,8 +56,7 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "queryByDefault": false,
-    "searchTier": 3
+    "queryByDefault": false
   }
   project: optional string
 
@@ -55,7 +67,12 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "/time": {
       "fieldName": "createdAt",
       "fieldType": "DATETIME",
-      "searchLabel": "createdAt"
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   created: optional TimeStamp
@@ -67,7 +84,12 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
     "/time": {
       "fieldName": "lastModifiedAt",
       "fieldType": "DATETIME",
-      "searchLabel": "lastModifiedAt"
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: optional TimeStamp

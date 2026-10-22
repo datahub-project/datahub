@@ -15,7 +15,10 @@ record DatasetKey {
   */
   @Searchable = {
     "fieldType": "URN",
-    "enableAutocomplete": true
+    "enableAutocomplete": true,
+    "v3": {
+      "searchLabel": "platform"
+    }
   }
   platform: Urn
 
@@ -39,7 +42,12 @@ record DatasetKey {
     "addToFilters": true,
     "filterNameOverride": "Environment",
     "queryByDefault": false,
-    "searchLabel": "origin"
+    "v3": {
+      "searchLabel": "origin",
+      "mappings": [
+        { "type": "KEYWORD" }
+      ]
+    }
   }
   origin: FabricType
 }

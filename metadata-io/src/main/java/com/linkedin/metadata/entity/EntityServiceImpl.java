@@ -2693,6 +2693,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.countAspect(opContext, args);
   }
 
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    // Same store the delete ceiling is read from; a lagging replica would under-count.
+    return aspectDao.countUrnRows(primaryRead(opContext), urn.toString());
+  }
+
   @Nonnull
   @Override
   public List<RestoreIndicesResult> restoreIndices(

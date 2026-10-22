@@ -16,6 +16,7 @@ import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.EdgeArray;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
@@ -30,6 +31,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Api;
 import com.linkedin.datahub.graphql.generated.ApiProperties;
 import com.linkedin.datahub.graphql.generated.ApiSignature;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.HttpMethod;
 import com.linkedin.datahub.graphql.generated.RestApiProperties;
@@ -51,6 +53,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.structured.StructuredProperties;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -169,7 +172,27 @@ public class ApiMapper implements ModelMapper<EntityResponse, Api> {
               .map(field -> SchemaFieldMapper.map(context, field, entityUrn))
               .collect(Collectors.toList()));
     }
+    // Schema-by-reference: Dataset stubs hydrated by the DataLoader for whatever
+    // fields the caller selects (name, platform, schema, ...).
+    if (info.hasInputDatasetEdges()) {
+      signature.setInputDatasets(mapDatasetStubs(info.getInputDatasetEdges()));
+    }
+    if (info.hasOutputDatasetEdges()) {
+      signature.setOutputDatasets(mapDatasetStubs(info.getOutputDatasetEdges()));
+    }
     api.setSignature(signature);
+  }
+
+  private static List<Dataset> mapDatasetStubs(@Nonnull final EdgeArray edges) {
+    return edges.stream()
+        .map(
+            edge -> {
+              final Dataset stub = new Dataset();
+              stub.setUrn(edge.getDestinationUrn().toString());
+              stub.setType(EntityType.DATASET);
+              return stub;
+            })
+        .collect(Collectors.toList());
   }
 
   private static void mapRestApiProperties(@Nonnull final Api api, @Nonnull final DataMap dataMap) {

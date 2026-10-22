@@ -8,7 +8,8 @@ import com.linkedin.common.Urn
  * Information about a Query against one or more data assets (e.g. Tables or Views).
  */
 @Aspect = {
-  "name": "queryProperties"
+  "name": "queryProperties",
+  "schemaVersion": 2
 }
 record QueryProperties includes CustomProperties {
   /**
@@ -37,13 +38,33 @@ record QueryProperties includes CustomProperties {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "v3": {
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: optional string
 
   /**
    * The Query description.
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**
@@ -52,7 +73,13 @@ record QueryProperties includes CustomProperties {
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "createdAt"
+       "fieldName": "createdAt",
+       "v3": {
+         "searchLabel": "sourceCreatedAt",
+         "mappings": [
+           { "type": "DATETIME" }
+         ]
+       }
     },
     "/actor": {
       "fieldType": "URN",
@@ -67,7 +94,13 @@ record QueryProperties includes CustomProperties {
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "lastModifiedAt"
+       "fieldName": "lastModifiedAt",
+       "v3": {
+         "searchLabel": "sourceLastModifiedAt",
+         "mappings": [
+           { "type": "DATETIME" }
+         ]
+       }
     }
     "/actor": {
       "fieldType": "URN",

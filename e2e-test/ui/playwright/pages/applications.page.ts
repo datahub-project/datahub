@@ -33,7 +33,6 @@ export class ApplicationsPage extends BasePage {
   readonly applicationSection: Locator;
   readonly noApplicationText: Locator;
   readonly removeConfirmYesButton: Locator;
-  readonly applicationSelectDropdown: Locator;
   readonly removeIcon: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
@@ -59,7 +58,6 @@ export class ApplicationsPage extends BasePage {
     this.applicationSection = page.getByTestId('sidebar-section-content-Applications');
     this.noApplicationText = page.getByText('No application yet');
     this.removeConfirmYesButton = page.getByRole('button', { name: /yes/i });
-    this.applicationSelectDropdown = page.getByTestId('application-select');
     this.removeIcon = page.getByTestId('remove-icon');
   }
 
@@ -84,11 +82,11 @@ export class ApplicationsPage extends BasePage {
   }
 
   private getDropdownOption(appName: string): Locator {
-    return this.page.getByText(appName, { exact: true });
+    return this.page.getByTestId('application-select-dropdown').getByText(appName, { exact: true });
   }
 
-  private getOKButton(): Locator {
-    return this.page.getByRole('button', { name: /ok/i, exact: false }).filter({ visible: true });
+  private getAddButton(): Locator {
+    return this.page.getByTestId('set-application-modal-add-button');
   }
 
   private getApplicationActionsDropdown(appRow: Locator): Locator {
@@ -262,23 +260,22 @@ export class ApplicationsPage extends BasePage {
   }
 
   async clickSelectApplicationDropdown(): Promise<void> {
-    await this.applicationSelectDropdown.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    const selectTrigger = this.page.getByTestId('application-select-base');
+    await selectTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS); // Wait for modal to fully stabilize
-    await this.applicationSelectDropdown.click({ timeout: TIMEOUTS.MEDIUM });
+    await selectTrigger.click({ timeout: TIMEOUTS.MEDIUM });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   async searchApplicationInDropdown(appName: string): Promise<void> {
-    // Find the input within the application-select dropdown
-    const searchInput = this.applicationSelectDropdown.getByRole('combobox');
+    // SimpleSelect renders search in a portaled dropdown, not as a combobox inside application-select.
+    const searchInput = this.page.getByTestId('application-select-dropdown').getByTestId('dropdown-search-input');
 
-    // Wait for input to be ready
     await searchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
-    // Fill the search input with application name
     await searchInput.fill(appName);
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
@@ -292,14 +289,11 @@ export class ApplicationsPage extends BasePage {
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
-  async clickOKButton(): Promise<void> {
-    const okButton = this.getOKButton();
+  async clickAddButton(): Promise<void> {
+    const addButton = this.getAddButton();
 
-    // Wait for OK button to appear
-    await okButton.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-
-    // Click OK button
-    await okButton.click({ timeout: TIMEOUTS.MEDIUM });
+    await addButton.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    await addButton.click({ timeout: TIMEOUTS.MEDIUM });
 
     // Wait for operation to complete
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -317,7 +311,7 @@ export class ApplicationsPage extends BasePage {
     await this.clickSelectApplicationDropdown();
     await this.searchApplicationInDropdown(appName);
     await this.selectApplicationFromDropdown(appName);
-    await this.clickOKButton();
+    await this.clickAddButton();
   }
 
   async clickRemoveApplicationIcon(): Promise<void> {

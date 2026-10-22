@@ -4,7 +4,8 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import { EMPTY_MESSAGES, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
@@ -23,28 +24,22 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 const LINE_LIMIT = 5;
 
 /* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
-const SUMMARY_TAB = 'Summary';
-const DOCUMENTATION_TAB = 'Documentation';
 /* eslint-enable i18next/no-literal-string */
 
-interface Properties {
-    hideLinksButton?: boolean;
-}
-
 interface Props {
-    properties?: Properties;
     readOnly?: boolean;
 }
 
-export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
+    const { isInFormContext } = useEntityFormContext();
+    const readOnly = readOnlyFromProps || isInFormContext;
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const urn = useMutationUrn();
 
-    const hideLinksButton = properties?.hideLinksButton;
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const routeToTab = useRouteToTab();
 
@@ -65,7 +60,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
     // Edit where this profile actually renders documentation: the Summary tab when it has one,
     // otherwise the Documentation tab.
     const hasSummaryTab = useEntityHasSummaryTab(entityType);
-    const editTab = hasSummaryTab ? SUMMARY_TAB : DOCUMENTATION_TAB;
+    const editTab = hasSummaryTab ? EntityTabPath.SUMMARY : EntityTabPath.DOCUMENTATION;
     const editTabParams = hasSummaryTab ? { editingDescription: true } : { editing: true };
 
     return (
@@ -81,7 +76,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                 lineLimit={LINE_LIMIT}
                             />
                         )}
-                        {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
+                        {hasContent && <LinksSection readOnly />}
                         {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>
                 }

@@ -99,9 +99,8 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
 
   /**
    * Builds base settings from explicit V3 analyzer configuration. The V3 analyzers reuse V2 filters
-   * (synonyms, stop words, stem overrides), autocomplete uses V2's partial analyzer and legacy
-   * browse paths V2's path analyzers; the V2 analysis is merged in getSettings where
-   * IndexConfiguration is available.
+   * (synonyms, stop words, stem overrides), and legacy browse paths use V2's path analyzers; the V2
+   * analysis is merged in getSettings where IndexConfiguration is available.
    */
   private Map<String, Object> buildBaseSettings() {
     Map<String, Object> baseSettings = new HashMap<>();

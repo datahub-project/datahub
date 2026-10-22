@@ -223,7 +223,10 @@ export default defineConfig(async ({ mode }) => {
             macrosPlugin(),
             viteStaticCopy({
                 targets: [
-                    // Self-host images by copying them to the build directory
+                    // Self-host images by copying them to the build directory.
+                    // Keep these in a subdirectory of assets/. ContentHashedAssetCacheFilter treats a
+                    // single filename directly under /assets/ as a Vite content hash and caches it for
+                    // a year. These URLs are stable and must stay revalidatable.
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },

@@ -1,4 +1,5 @@
 import filters.BasePathRedirectFilter
+import filters.ContentHashedAssetCacheFilter
 import filters.InFlightRequestsFilter
 import filters.ShutdownConnectionCloseFilter
 import javax.inject.Inject
@@ -11,7 +12,9 @@ import play.filters.headers.SecurityHeadersFilter
 /**
  * Custom filter chain: ShutdownConnectionCloseFilter outermost, then CSPFilter, then
  * SecurityHeadersFilter, then InFlightRequestsFilter, then BasePathRedirectFilter, then Play's
- * enabled filters (GzipFilter from play.filters.enabled in application.conf).
+ * enabled filters (GzipFilter from play.filters.enabled in application.conf), then
+ * ContentHashedAssetCacheFilter closest to the action so it rewrites Cache-Control on the asset
+ * result.
  *
  * ShutdownConnectionCloseFilter is outermost so every response, including redirects that
  * short-circuit inner filters, carries Connection: close once graceful shutdown starts.
@@ -28,20 +31,25 @@ class Filters @Inject()(
     securityHeadersFilter: SecurityHeadersFilter,
     inFlightRequestsFilter: InFlightRequestsFilter,
     basePathRedirectFilter: BasePathRedirectFilter,
-    enabledFilters: EnabledFilters
+    enabledFilters: EnabledFilters,
+    contentHashedAssetCacheFilter: ContentHashedAssetCacheFilter
 ) extends DefaultHttpFilters(
-      (shutdownConnectionCloseFilter
+      ((shutdownConnectionCloseFilter
         +: cspFilter
         +: securityHeadersFilter
         +: inFlightRequestsFilter
         +: basePathRedirectFilter
-        +: enabledFilters.filters): _*
+        +: enabledFilters.filters) :+ contentHashedAssetCacheFilter): _*
     ) {
 
   private val logger = Logger(getClass)
   private val chainForLog =
-    shutdownConnectionCloseFilter +: cspFilter +: securityHeadersFilter +: inFlightRequestsFilter +:
-      basePathRedirectFilter +: enabledFilters.filters
+    (shutdownConnectionCloseFilter
+      +: cspFilter
+      +: securityHeadersFilter
+      +: inFlightRequestsFilter
+      +: basePathRedirectFilter
+      +: enabledFilters.filters) :+ contentHashedAssetCacheFilter
   logger.info(
     "HTTP filters enabled: " + chainForLog.map(_.getClass.getSimpleName).mkString(", ")
   )

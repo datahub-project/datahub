@@ -1,0 +1,8 @@
+node_modules/
+# Timestamped run outputs. Committed reference runs live at the harness root
+# (e.g. sample-output.json), not here.
+results/
+# Local frontend build outputs the runner measures.
+builds/
+config.json
+config.ci.run.json

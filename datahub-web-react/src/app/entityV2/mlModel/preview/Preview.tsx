@@ -41,7 +41,6 @@ export const Preview = ({
             entityType={EntityType.Mlmodel}
             typeIcon={entityRegistry.getIcon(EntityType.Mlmodel, 14, IconStyleType.ACCENT)}
             platform={model?.platform?.properties?.displayName || capitalizeFirstLetterOnly(model?.platform?.name)}
-            qualifier={model.origin}
             tags={model.globalTags || undefined}
             owners={model?.ownership?.owners}
             dataProduct={getDataProduct(genericProperties?.dataProduct)}
