@@ -665,6 +665,15 @@ class TableauConfig(
             "Disabled by default."
         ),
     )
+    extract_pulse_tags: bool = Field(
+        default=False,
+        description=(
+            "Ingest Tableau Pulse tags onto each metric and its metric "
+            "definition. Personal tags such as favorites are skipped. "
+            "When enabled, ingested tags replace tags entered in DataHub. "
+            "Requires `extract_pulse_metrics: true`. Disabled by default."
+        ),
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""

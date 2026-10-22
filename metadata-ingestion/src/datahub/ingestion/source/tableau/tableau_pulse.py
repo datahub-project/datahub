@@ -276,6 +276,32 @@ def _definition_property_rows(value: Any, path: str = "") -> List[Tuple[str, str
     return [(path, _scalar(value))]
 
 
+def _tag_value(item: Any) -> Optional[str]:
+    if isinstance(item, str):
+        text = item.strip()
+        return text or None
+    if not isinstance(item, dict):
+        return None
+    category = _field(item, "category")
+    if isinstance(category, str) and "SYSTEM_DEFINED" in category.upper():
+        return None
+    for key in ("value", "name"):
+        value = _field(item, key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _tag_names(*sources: Any) -> List[str]:
+    names: List[str] = []
+    for source in sources:
+        for item in _as_list(source):
+            name = _tag_value(item)
+            if name and name not in names:
+                names.append(name)
+    return names
+
+
 def _metric_filter_rows(metric: Dict[str, Any]) -> List[Tuple[str, str]]:
     specification = _as_dict(_field(metric, "specification"))
     values_by_field: Dict[str, List[str]] = {}
@@ -494,11 +520,7 @@ class TableauPulseExtractor:
         definition_id = str(definition_id)
         name = str(_field(metadata, "name") or definition_id)
         try:
-            metrics = list(
-                self._list(
-                    f"definitions/{quote(definition_id, safe='')}/metrics", "metrics"
-                )
-            )
+            metrics = self._list_current_metrics(definition_id)
         except Exception as exc:
             self.report.warning(
                 title="Failed to list Tableau Pulse metrics",
@@ -563,6 +585,12 @@ class TableauPulseExtractor:
             )
             if properties is not None:
                 model_aspects.append(properties)
+        if self.config.extract_pulse_tags:
+            model_aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(
+                    _tag_names(_field(definition, "tags"))
+                )
+            )
         yield from _workunits(model_urn, model_aspects)
         self.report.num_pulse_definitions += 1
 
@@ -643,6 +671,15 @@ class TableauPulseExtractor:
             )
             if properties is not None:
                 metric_aspects.append(properties)
+        if self.config.extract_pulse_tags:
+            metric_aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(
+                    _tag_names(
+                        _field(metric, "tags"),
+                        _field(definition, "tags"),
+                    )
+                )
+            )
         yield from _workunits(metric_urn, metric_aspects)
         self.report.num_pulse_metrics += 1
 
@@ -766,12 +803,55 @@ class TableauPulseExtractor:
             ),
         )
 
-    def _list(self, path: str, list_key: str) -> Iterable[Dict[str, Any]]:
+    def _list_current_metrics(self, definition_id: str) -> List[Dict[str, Any]]:
+        """Return the default metric and metrics that still have followers.
+
+        ``GET /definitions/{id}/metrics`` also returns scoped metrics that were
+        created by applying filters and then left with no followers. Tableau
+        does not show those, so they are not ingested.
+        """
+
+        path = f"definitions/{quote(definition_id, safe='')}/metrics"
+        selected: List[Dict[str, Any]] = []
+        seen: Set[str] = set()
+        has_default = False
+        for metric in self._list(
+            path,
+            "metrics",
+            {"exclude_metrics_without_followers": "true"},
+        ):
+            metric_id = _field(metric, "id")
+            if metric_id and str(metric_id) in seen:
+                continue
+            if metric_id:
+                seen.add(str(metric_id))
+            selected.append(metric)
+            if _field(metric, "is_default"):
+                has_default = True
+        if has_default:
+            return selected
+        for metric in self._list(path, "metrics"):
+            if not _field(metric, "is_default"):
+                continue
+            metric_id = _field(metric, "id")
+            if metric_id and str(metric_id) not in seen:
+                selected.append(metric)
+            break
+        return selected
+
+    def _list(
+        self,
+        path: str,
+        list_key: str,
+        extra_params: Optional[Dict[str, Any]] = None,
+    ) -> Iterable[Dict[str, Any]]:
         page_token: Optional[str] = None
         seen_tokens: Set[str] = set()
         page_size = min(self.config.page_size, _PULSE_PAGE_SIZE_CAP)
         while True:
             params: Dict[str, Any] = {"page_size": page_size}
+            if extra_params:
+                params.update(extra_params)
             if page_token:
                 params["page_token"] = page_token
             payload = self._get(path, params)

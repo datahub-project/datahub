@@ -13,6 +13,7 @@ from datahub.ingestion.source.tableau.tableau_pulse import (
     _metric_name,
 )
 from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
     MetricInfoClass,
     MetricRelationshipsClass,
     MetricUpstreamsClass,
@@ -163,6 +164,85 @@ def test_extract_pulse_metrics_defaults_off() -> None:
     assert config.extract_pulse_metrics is False
     assert config.extract_pulse_metric_definition_properties is False
     assert config.extract_pulse_metric_properties is False
+    assert config.extract_pulse_tags is False
+
+
+def _tagged_pulse_get(url: str, **kwargs: Any) -> _Response:
+    if url.endswith("/metrics"):
+        return _Response(
+            {
+                "metrics": [
+                    {
+                        "id": "metric-default",
+                        "is_default": True,
+                        "specification": {},
+                    },
+                    {
+                        "id": "metric-west",
+                        "is_default": False,
+                        "specification": {},
+                        "tags": [
+                            {
+                                "category": "CATEGORY_USER_DEFINED",
+                                "value": "Q1",
+                            },
+                            {
+                                "category": "CATEGORY_SYSTEM_DEFINED",
+                                "value": "favorite",
+                            },
+                        ],
+                    },
+                ]
+            }
+        )
+    return _Response(
+        {
+            "definitions": [
+                {
+                    "metadata": {"id": "def-1", "name": "Sales"},
+                    "tags": [
+                        {"category": "CATEGORY_USER_DEFINED", "value": "Finance"},
+                        {
+                            "category": "CATEGORY_SYSTEM_DEFINED",
+                            "value": "mute-from-summary",
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+
+
+def _tag_urns(workunits: List[Any], entity_urn: str) -> List[str]:
+    urns: List[str] = []
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, GlobalTagsClass) and wu.metadata.entityUrn == entity_urn:
+            urns.extend(tag.tag for tag in aspect.tags)
+    return urns
+
+
+def test_pulse_tags_are_ingested_when_enabled() -> None:
+    extractor = _extractor(_tagged_pulse_get)
+    extractor.config.extract_pulse_tags = True
+    workunits = list(extractor.emit())
+
+    assert _tag_urns(
+        workunits, "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-1)"
+    ) == ["urn:li:tag:Finance"]
+    assert _tag_urns(
+        workunits,
+        "urn:li:metric:(urn:li:dataPlatform:tableau,site.def-1,metric-west)",
+    ) == ["urn:li:tag:Q1", "urn:li:tag:Finance"]
+    assert _tag_urns(
+        workunits,
+        "urn:li:metric:(urn:li:dataPlatform:tableau,site.def-1,metric-default)",
+    ) == ["urn:li:tag:Finance"]
+
+
+def test_pulse_tags_are_skipped_when_disabled() -> None:
+    workunits = list(_extractor(_tagged_pulse_get).emit())
+    assert _aspects(workunits, GlobalTagsClass) == []
 
 
 def test_definition_properties_are_only_emitted_when_enabled() -> None:
@@ -413,10 +493,98 @@ def test_repeated_page_token_stops_listing() -> None:
 
     extractor = _extractor(get)
     workunits = list(extractor.emit())
-    # Two definition pages, then metrics for each emitted definition.
-    assert calls["n"] == 4
+    # Two definition pages, then the followed-metrics query and the default-metric
+    # query for each emitted definition.
+    assert calls["n"] == 6
     assert len(_aspects(workunits, SemanticModelInfoClass)) == 2
     assert len(extractor.report.warnings) == 1
+
+
+def test_metrics_without_followers_are_not_ingested() -> None:
+    def get(url: str, **kwargs: Any) -> _Response:
+        if url.endswith("/metrics"):
+            params = kwargs.get("params") or {}
+            if params.get("exclude_metrics_without_followers") == "true":
+                return _Response({"metrics": []})
+            return _Response(
+                {
+                    "metrics": [
+                        {
+                            "id": "metric-default",
+                            "is_default": True,
+                            "specification": {},
+                        },
+                        {
+                            "id": "metric-old",
+                            "is_default": False,
+                            "specification": {
+                                "filters": [
+                                    {
+                                        "field": "Region",
+                                        "categorical_values": [
+                                            {"string_value": "West"}
+                                        ],
+                                    }
+                                ]
+                            },
+                        },
+                        {
+                            "id": "metric-older",
+                            "is_default": False,
+                            "specification": {},
+                        },
+                    ]
+                }
+            )
+        return _Response(
+            {"definitions": [{"metadata": {"id": "def-1", "name": "Discount"}}]}
+        )
+
+    workunits = list(_extractor(get).emit())
+    metric_names = [aspect.name for aspect in _aspects(workunits, MetricInfoClass)]
+    assert metric_names == ["Discount"]
+
+
+def test_followed_metrics_are_ingested_with_the_default() -> None:
+    def get(url: str, **kwargs: Any) -> _Response:
+        if url.endswith("/metrics"):
+            params = kwargs.get("params") or {}
+            followed = {
+                "id": "metric-west",
+                "is_default": False,
+                "specification": {
+                    "filters": [
+                        {
+                            "field": "Region",
+                            "categorical_values": [{"string_value": "West"}],
+                        }
+                    ]
+                },
+            }
+            if params.get("exclude_metrics_without_followers") == "true":
+                return _Response({"metrics": [followed]})
+            return _Response(
+                {
+                    "metrics": [
+                        {
+                            "id": "metric-default",
+                            "is_default": True,
+                            "specification": {},
+                        },
+                        followed,
+                        {"id": "metric-old", "is_default": False, "specification": {}},
+                    ]
+                }
+            )
+        return _Response(
+            {"definitions": [{"metadata": {"id": "def-1", "name": "Discount"}}]}
+        )
+
+    workunits = list(_extractor(get).emit())
+    assert [aspect.name for aspect in _aspects(workunits, MetricInfoClass)] == [
+        "Discount · Region=West",
+        "Discount",
+    ]
 
 
 def test_metrics_failure_still_emits_the_definition() -> None:
