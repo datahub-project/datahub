@@ -2486,9 +2486,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 # ExecutePipeline upstream edge _emit_pipeline_lineage
                 # already wrote for this same DataJob (it runs first), or
                 # this would silently erase it.
-                inputDatajobs=self._execute_pipeline_input_datajobs.get(
-                    str(job_urn)
-                ),
+                inputDatajobs=self._execute_pipeline_input_datajobs.get(str(job_urn)),
                 fineGrainedLineages=fine_grained_lineages,
             ),
         ).as_workunit()
