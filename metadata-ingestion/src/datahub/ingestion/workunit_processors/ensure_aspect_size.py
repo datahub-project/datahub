@@ -490,7 +490,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
 
         # Adds to different fields are independent, so reordering them is safe.
         def is_upstream(operation: Dict[str, object]) -> bool:
-            return str(operation.get("path", "")).startswith("/upstreams")
+            return str(operation.get("path", "")).startswith("/upstreams/")
 
         ordered = sorted(
             operations, key=lambda op: (not is_upstream(op), str(op.get("path", "")))
@@ -505,6 +505,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
             total_size += size
 
         dropped = ordered[len(accepted) :]
+        if not dropped:
+            return
         num_dropped_upstreams = sum(map(is_upstream, dropped))
         self._maybe_warn_upstream_lineage(
             entity_urn, num_dropped_upstreams, "upstream datasets"
