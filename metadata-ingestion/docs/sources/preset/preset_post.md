@@ -4,26 +4,14 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Platform instance
 
-If you ingest from more than one Preset workspace, set `platform_instance` to keep them apart. Dashboards and charts get the instance in their URNs and are emitted with a `dataPlatformInstance` aspect. DataHub's Navigate panel groups by that aspect, so each workspace appears under its own instance instead of everything landing under "Default".
+If you ingest from more than one Preset workspace, set `platform_instance` to keep them apart. Dashboards, charts and datasets then get the instance in their URNs and in a `dataPlatformInstance` aspect, so DataHub's Navigate panel lists each workspace under its own instance instead of "Default".
 
 ```yml
 source:
   type: preset
   config:
-    # Coordinates
-    connect_uri: Preset workspace URL
-    manager_uri: https://api.app.preset.io
     platform_instance: analytics_prod
-
-    # Credentials
-    api_key: API key
-    api_secret: API secret
-
-sink:
-  # sink configs
 ```
-
-Datasets do not receive the aspect yet because their URNs do not carry the instance; that follows in a later change together with database and schema containers.
 
 #### Database alias
 

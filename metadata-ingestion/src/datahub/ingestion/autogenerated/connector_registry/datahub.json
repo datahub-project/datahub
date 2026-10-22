@@ -3760,7 +3760,7 @@
         },
         {
           "capability": "PLATFORM_INSTANCE",
-          "description": "Enabled by `platform_instance` config",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4997,7 +4997,7 @@
         },
         {
           "capability": "PLATFORM_INSTANCE",
-          "description": "Enabled by `platform_instance` config",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },

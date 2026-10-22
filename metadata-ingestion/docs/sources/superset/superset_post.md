@@ -25,26 +25,14 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Platform instance
 
-If you ingest from more than one Superset deployment, set `platform_instance` to keep them apart. Dashboards and charts get the instance in their URNs and are emitted with a `dataPlatformInstance` aspect. DataHub's Navigate panel groups by that aspect, so each deployment appears under its own instance instead of everything landing under "Default".
+If you ingest from more than one Superset deployment, set `platform_instance` to keep them apart. Dashboards, charts and datasets then get the instance in their URNs and in a `dataPlatformInstance` aspect, so DataHub's Navigate panel lists each deployment under its own instance instead of "Default".
 
 ```yml
 source:
   type: superset
   config:
-    # Coordinates
-    connect_uri: http://localhost:8088
     platform_instance: analytics_prod
-
-    # Credentials
-    username: user
-    password: pass
-    provider: ldap
-
-sink:
-  # sink configs
 ```
-
-Datasets do not receive the aspect yet because their URNs do not carry the instance; that follows in a later change together with database and schema containers.
 
 ### Limitations
 

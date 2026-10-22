@@ -2,9 +2,7 @@ import requests_mock as rm
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.preset import PresetConfig, PresetSource
-from datahub.metadata.schema_classes import DataPlatformInstanceClass
 
 
 def test_default_values():
@@ -86,26 +84,33 @@ def _build_preset_source(
     )
 
 
-def test_preset_inherits_platform_instance_from_superset(requests_mock):
-    """Preset subclasses the Superset source, so it picks up the
-    dataPlatformInstance aspect with no Preset-specific code. The aspect must
+def test_preset_inherits_platform_instance_from_superset(
+    requests_mock: rm.Mocker,
+) -> None:
+    """Preset subclasses the Superset source and inherits its platform instance
+    handling with no Preset-specific code. The aspect and the dataset URN must
     name the preset platform, not superset."""
     source = _build_preset_source(requests_mock, platform_instance="my_instance")
 
     aspect = source.get_data_platform_instance()
+    dataset_urn = source.get_datasource_urn_from_id(
+        {
+            "result": {
+                "table_name": "my_table",
+                "schema": "public",
+                "database": {"id": 1, "database_name": "my_database"},
+            }
+        },
+        source.platform,
+        with_instance=True,
+    )
 
-    assert isinstance(aspect, DataPlatformInstanceClass)
     assert aspect.platform == "urn:li:dataPlatform:preset"
     assert (
         aspect.instance
         == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:preset,my_instance)"
     )
-
-
-def test_preset_inherits_platform_instance_capability():
-    capabilities = {
-        setting.capability
-        for setting in PresetSource.get_capabilities()  # type: ignore[attr-defined]
-    }
-
-    assert SourceCapability.PLATFORM_INSTANCE in capabilities
+    assert (
+        dataset_urn
+        == "urn:li:dataset:(urn:li:dataPlatform:preset,my_instance.my_database.public.my_table,PROD)"
+    )
