@@ -1044,6 +1044,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull Set<SearchableFieldSpec> entityNameFallbacks,
       @Nonnull List<SearchableFieldSpec> sharedFieldSources) {
 
+    if (V3SearchFields.omitsSourceRoot(rootFieldName, entitySpecs)) {
+      log.debug(
+          "Omitting root projection '{}' because every source uses a different search label",
+          rootFieldName);
+      return;
+    }
     final List<SearchableFieldSpec> sourceFieldSpecs =
         findSearchableFieldSpecsForPaths(entitySpecs, allPaths);
     final Map<String, Object> rootFieldMapping =
@@ -1338,21 +1344,30 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   /**
    * Gets the mappings for a field's copy under {@code _aspects.<aspect>}, which stays unanalyzed
-   * (see {@link FieldTypeMapper#mappingForAspectRoot}) and copies into no {@code _search} field.
-   * The resolved V3 root controls exact indexing, so a search-only label also leaves its aspect
-   * copies unindexed.
+   * (see {@link FieldTypeMapper#mappingForAspectRoot}) and copies into no shared label. A field
+   * also projected to the document root leaves this copy unindexed unless {@code v3.source}
+   * re-enables index or doc values. When the source's own root field is omitted, this copy carries
+   * {@code copy_to} into the search label.
    */
   public static Map<String, Object> getAspectMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec, @Nonnull final String aspectName) {
+    return getAspectMappingsForField(searchableFieldSpec, aspectName, List.of());
+  }
+
+  public static Map<String, Object> getAspectMappingsForField(
+      @Nonnull final SearchableFieldSpec searchableFieldSpec,
+      @Nonnull final String aspectName,
+      @Nonnull final Collection<EntitySpec> indexGroup) {
     if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
       return Map.of();
     }
     SearchableAnnotation annotation = searchableFieldSpec.getSearchableAnnotation().resolvedForV3();
     FieldMapping root = FieldMapping.rootOf(FieldMapping.of(annotation));
+    boolean copyToLabel = V3SearchFields.omitsSourceRoot(annotation.getFieldName(), indexGroup);
     return buildFieldMappings(
         searchableFieldSpec,
         aspectName,
-        false,
+        copyToLabel,
         FieldTypeMapper.mappingForAspectRoot(root, searchableFieldSpec));
   }
 
@@ -1375,35 +1390,37 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappings = new HashMap<>();
     Map<String, Object> mappingForField = new HashMap<>(fieldTypeMapping);
 
-    // Handle eagerGlobalOrdinals - set eager_global_ordinals to true if specified and field type is
-    // appropriate
-    searchableFieldSpec
-        .getSearchableAnnotation()
-        .getEagerGlobalOrdinals()
-        .ifPresent(
-            eagerGlobalOrdinals -> {
-              if (eagerGlobalOrdinals) {
-                // Only apply eager_global_ordinals to appropriate field types
-                if (fieldType == FieldType.KEYWORD
-                    || fieldType == FieldType.URN
-                    || fieldType == FieldType.URN_PARTIAL) {
-                  putEagerGlobalOrdinals(mappingForField);
-                  log.debug("Setting eager_global_ordinals=true for field '{}'", baseFieldName);
-                } else {
-                  log.debug(
-                      "Skipping eager_global_ordinals for field '{}' with field type '{}' (not supported)",
-                      baseFieldName,
-                      fieldType);
-                }
-              }
-            });
-
     if (includeSearchCopyTo) {
       addSearchCopyToDestinations(
           mappingForField, List.of(searchableFieldSpec), baseFieldName, Set.of());
     }
 
-    applyProjectedRootFieldOptions(mappingForField, List.of(searchableFieldSpec));
+    // An unindexed aspect copy has no ordinals. copy_to on that copy still reaches the label.
+    if (!Boolean.FALSE.equals(mappingForField.get(ESUtils.INDEX))) {
+      // Handle eagerGlobalOrdinals - set eager_global_ordinals to true if specified and field type
+      // is appropriate
+      searchableFieldSpec
+          .getSearchableAnnotation()
+          .getEagerGlobalOrdinals()
+          .ifPresent(
+              eagerGlobalOrdinals -> {
+                if (eagerGlobalOrdinals) {
+                  // Only apply eager_global_ordinals to appropriate field types
+                  if (fieldType == FieldType.KEYWORD
+                      || fieldType == FieldType.URN
+                      || fieldType == FieldType.URN_PARTIAL) {
+                    putEagerGlobalOrdinals(mappingForField);
+                    log.debug("Setting eager_global_ordinals=true for field '{}'", baseFieldName);
+                  } else {
+                    log.debug(
+                        "Skipping eager_global_ordinals for field '{}' with field type '{}' (not supported)",
+                        baseFieldName,
+                        fieldType);
+                  }
+                }
+              });
+      applyProjectedRootFieldOptions(mappingForField, List.of(searchableFieldSpec));
+    }
 
     // Create field directly under aspect name (not prefixed)
     // For MAP_ARRAY fields with "/$key" field name, use the schema field name instead

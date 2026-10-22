@@ -43,8 +43,16 @@ public final class V3SearchFieldModel {
             labels.putIfAbsent(path, label);
           }
         });
-    storedParsedNameLabels = Collections.unmodifiableMap(labels);
     fullTextFields = immutable(V3SearchFields.fullTextFields(entitySpecs));
+    fullTextFields.forEach(
+        (label, paths) -> {
+          for (String path : paths) {
+            if (path.startsWith("_aspects.")) {
+              labels.putIfAbsent(path, label);
+            }
+          }
+        });
+    storedParsedNameLabels = Collections.unmodifiableMap(labels);
     analyzerSubfields = immutableSets(V3SearchFields.analyzerSubfields(entitySpecs));
     rootSourceFieldSpecs = immutable(V3SearchFields.rootSourceFieldSpecs(entitySpecs));
     entityNameFallbacks = Set.copyOf(V3SearchFields.entityNameFallbacks(entitySpecs));

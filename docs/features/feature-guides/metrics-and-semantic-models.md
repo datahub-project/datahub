@@ -13,6 +13,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 Metrics & Semantic Models is currently in **Beta**. The underlying entity model is stable, but the UI experience, lineage visualization, and ingestion coverage are actively evolving. Expect ongoing improvements to sidebar navigation, entity page layouts, and lineage rendering across the next few releases.
 :::
 
+:::tip Looking for modeling guidance?
+This guide covers _what_ Metrics & Semantic Models are and _how_ to turn them on. For opinionated patterns on how to model your business concepts in them — when to use a Glossary Term vs a Metric, how to represent the same KPI across Snowflake and dbt, how metric lineage works end to end — see [Metrics & Semantic Models — Best Practices](./metrics-and-semantic-models-best-practices.md).
+:::
+
 ## Why Use Metrics & Semantic Models?
 
 DataHub Metrics is a **catalog for metric definitions**, transforming how your team documents, discovers, and governs business measurements:
@@ -239,4 +243,5 @@ Yes. Metrics support Structured Properties — typed, governance-controlled, sea
 
 ## Related
 
+- [Metrics & Semantic Models — Best Practices](./metrics-and-semantic-models-best-practices.md) — opinionated modeling patterns, how to represent cross-platform metrics, and how metric lineage works end to end
 - [Semantic Models & Metrics SDK Tutorial](../../api/tutorials/semantic-models.md)
