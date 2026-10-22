@@ -369,6 +369,8 @@ class CubeSourceConfig(
                 "cloud_api_key, deployment_id, and environment_id are only valid "
                 "for deployment_type=CLOUD."
             )
+        if self.deployment_type != CubeDeploymentType.CLOUD and self.include_private:
+            raise ValueError("include_private is only valid for deployment_type=CLOUD.")
         # cloud_api_key + deployment_id together unlock the Platform API
         # (reports/workbooks) and are the prerequisite for minting a Metadata
         # API token. environment_id is additionally required only for the

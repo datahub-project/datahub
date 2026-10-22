@@ -25,14 +25,21 @@ def test_metadata_token_uses_api_token_without_control_plane() -> None:
     assert client._auth_header_value(bearer=False) == "data-token"
 
 
+@pytest.mark.parametrize(
+    "include_private, expected_scopes",
+    [(False, {}), (True, {"scopes": ["meta-private"]})],
+)
 def test_metadata_token_minted_via_control_plane_and_cached(
     requests_mock: rm.Mocker,
+    include_private: bool,
+    expected_scopes: Dict[str, object],
 ) -> None:
     client = _client(
         cloud_api_key="cp-key",
         deployment_id="123",
         environment_id="456",
         security_context={"tenant_id": "acme"},
+        include_private=include_private,
     )
     matcher = requests_mock.post(
         "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
@@ -50,27 +57,8 @@ def test_metadata_token_minted_via_control_plane_and_cached(
     assert request.json() == {
         "security_context": {"tenant_id": "acme"},
         "expires_in": 86400,
+        **expected_scopes,
     }
-
-
-def test_include_private_requests_meta_private_scope(
-    requests_mock: rm.Mocker,
-) -> None:
-    client = _client(
-        cloud_api_key="cp-key",
-        deployment_id="123",
-        environment_id="456",
-        include_private=True,
-    )
-    matcher = requests_mock.post(
-        "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
-        json={"data": {"token": "minted-meta-token"}},
-    )
-
-    client._metadata_api_token()
-
-    assert matcher.last_request is not None
-    assert matcher.last_request.json()["scopes"] == ["meta-private"]
 
 
 @pytest.mark.parametrize(

@@ -104,17 +104,15 @@ class CubeAPIClient:
             environment_id=self.config.environment_id,
         )
         url = f"{self._control_plane_base()}/{path}"
+        body: Dict[str, object] = {
+            "security_context": self.config.security_context,
+            "expires_in": self.config.meta_sync_token_expires_in,
+        }
+        if self.config.include_private:
+            body["scopes"] = [META_PRIVATE_SCOPE]
         response = self.session.post(
             url,
-            json={
-                "security_context": self.config.security_context,
-                "expires_in": self.config.meta_sync_token_expires_in,
-                **(
-                    {"scopes": [META_PRIVATE_SCOPE]}
-                    if self.config.include_private
-                    else {}
-                ),
-            },
+            json=body,
             headers={
                 HTTP_HEADER_AUTHORIZATION: f"Bearer {self.config.cloud_api_key.get_secret_value()}"
             },
@@ -186,6 +184,13 @@ class CubeAPIClient:
                     "unavailable. Provide cloud_api_key + deployment_id + "
                     "environment_id (or a Control Plane token) to enable the "
                     "Metadata API."
+                    + (
+                        " include_private is set: the token also needs the "
+                        "meta-private scope, which Cube Cloud grants only to "
+                        "admins or users who can read the data model."
+                        if self.config.include_private
+                        else ""
+                    )
                 ),
                 exc=e,
             )
@@ -302,15 +307,14 @@ class CubeAPIClient:
 
     def _get_cloud_entities(self) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
+        body = {"include_private": True} if self.config.include_private else {}
         offset = 0
         while True:
             raw = self._request(
                 HTTP_METHOD_POST,
                 API_ENDPOINT_ENTITIES_ALL,
                 params={"offset": offset, "limit": METADATA_API_PAGE_SIZE},
-                json_body=(
-                    {"include_private": True} if self.config.include_private else {}
-                ),
+                json_body=body,
                 bearer=True,
             )
             response = CloudEntitiesResponse.model_validate(raw)

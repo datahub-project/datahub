@@ -77,3 +77,5 @@ def test_cloud_credentials_rejected_for_core_deployment() -> None:
     # must be rejected rather than silently ignored.
     with pytest.raises(ValueError):
         _config(deployment_type="CORE", cloud_api_key="k", deployment_id="1")
+    with pytest.raises(ValueError):
+        _config(deployment_type="CORE", include_private=True)
