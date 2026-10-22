@@ -9,8 +9,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -25,9 +28,13 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.run.DeleteEntityResponse;
+import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
@@ -44,11 +51,23 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
+import com.datahub.authorization.AuthUtil;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.DatasetAspectArray;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.snapshot.DatasetSnapshot;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.restli.server.RestLiServiceException;
+import java.util.Map;
+import org.testng.annotations.DataProvider;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -80,6 +99,13 @@ public class EntityResourceTest {
 
     entityResource.setEntityService(entityService);
     entityResource.setTimeseriesAspectService(timeseriesAspectService);
+    entityResource.setHardDeleteService(
+        new HardDeleteService(
+            entityService,
+            mock(DeleteEntityService.class),
+            timeseriesAspectService,
+            new ReliableHardDelete(entityService, false),
+            null));
     entityResource.setAuthorizer(authorizer);
     entityResource.setSystemOperationContext(systemOperationContext);
 
@@ -213,6 +239,219 @@ public class EntityResourceTest {
     verify(entityService, times(1)).getEntity(any(OperationContext.class), eq(urn), any(), eq(true));
   }
 
+  /**
+   * Regression coverage for the confirmed disclosure path where this deprecated, Snapshot-based
+   * {@code get}/{@code batchGet} had no per-field mapper and no whole-aspect redaction call the
+   * way v1/v2/v3 OpenAPI and Rest.li's {@code EntityV2Resource} gained, so a restricted aspect
+   * (e.g. {@code viewProperties}) was fetched and returned unconditionally. The fix prunes the
+   * restricted aspect name from the requested set before the fetch rather than redacting the
+   * returned Snapshot afterward, so this asserts against what {@code entityService.getEntity} was
+   * actually asked to fetch.
+   */
+  @Test
+  public void testGetPrunesQuerySqlRestrictedAspectFromProjectedSet() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    Entity entity = new Entity(new DataMap());
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+
+    try (MockedStatic<EntityAuthorizationUtils> mockedUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      mockedUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                      any(OperationContext.class), eq(urn), eq("viewProperties")))
+          .thenReturn(true);
+
+      awaitTask(
+          entityResource.get(
+              urn.toString(), new String[] {"viewProperties", "datasetProperties"}));
+
+      ArgumentCaptor<Set<String>> projectedAspectsCaptor = ArgumentCaptor.forClass(Set.class);
+      verify(entityService)
+          .getEntity(any(OperationContext.class), eq(urn), projectedAspectsCaptor.capture(), eq(true));
+      assertFalse(
+          projectedAspectsCaptor.getValue().contains("viewProperties"),
+          "viewProperties must be pruned before the fetch when restricted");
+      assertTrue(
+          projectedAspectsCaptor.getValue().contains("datasetProperties"),
+          "unrelated requested aspects must still be fetched");
+    }
+  }
+
+  /**
+   * Regression for a residual disclosure a follow-up audit caught in the fix above: when the
+   * caller requests ONLY a restricted aspect, pruning it leaves an EMPTY set. {@code
+   * EntityServiceImpl#getLatestAspect} treats an empty aspect-name set as "fetch every registered
+   * aspect" — so passing that empty set through would silently widen the fetch back to
+   * everything, restoring the very aspect just restricted (and leaking every other aspect too).
+   * The fix must fall back to a non-empty, harmless set (the entity's own key aspect) instead of
+   * ever letting the projected set go empty when something was actually requested.
+   */
+  @Test
+  public void testGetFallsBackToKeyAspectWhenAllRequestedAspectsAreRestricted() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    Entity entity = new Entity(new DataMap());
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+
+    try (MockedStatic<EntityAuthorizationUtils> mockedUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      mockedUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                      any(OperationContext.class), eq(urn), eq("viewProperties")))
+          .thenReturn(true);
+
+      awaitTask(entityResource.get(urn.toString(), new String[] {"viewProperties"}));
+
+      ArgumentCaptor<Set<String>> projectedAspectsCaptor = ArgumentCaptor.forClass(Set.class);
+      verify(entityService)
+          .getEntity(
+              any(OperationContext.class), eq(urn), projectedAspectsCaptor.capture(), eq(true));
+      assertFalse(
+          projectedAspectsCaptor.getValue().isEmpty(),
+          "an empty set here would be misread by the entity service as \"fetch everything\"");
+      assertFalse(projectedAspectsCaptor.getValue().contains("viewProperties"));
+    }
+  }
+
+  /**
+   * Regression for a second residual disclosure the same follow-up audit caught: an explicitly
+   * empty {@code aspects=List()} produces a non-null, empty {@code aspectNames} array, which skips
+   * the {@code aspectNames == null} branch entirely and reaches {@code
+   * pruneQuerySqlRestrictedAspects} with an already-empty {@code requested} set. The fallback
+   * added for the previous fix only triggers when pruning causes emptiness ({@code
+   * !requested.isEmpty()}), so a caller-supplied empty set sailed through untouched and was
+   * misread by the entity service as "fetch everything." An explicit empty array must resolve to
+   * the same projected set as an omitted one.
+   */
+  @Test
+  public void testGetTreatsExplicitEmptyAspectsSameAsOmitted() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    Entity entity = new Entity(new DataMap());
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+
+    awaitTask(entityResource.get(urn.toString(), null));
+    ArgumentCaptor<Set<String>> omittedCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntity(any(OperationContext.class), eq(urn), omittedCaptor.capture(), eq(true));
+
+    Mockito.clearInvocations(entityService);
+    when(entityService.getEntity(any(OperationContext.class), eq(urn), any(), eq(true)))
+        .thenReturn(entity);
+    awaitTask(entityResource.get(urn.toString(), new String[0]));
+    ArgumentCaptor<Set<String>> explicitEmptyCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntity(any(OperationContext.class), eq(urn), explicitEmptyCaptor.capture(), eq(true));
+
+    assertFalse(
+        explicitEmptyCaptor.getValue().isEmpty(),
+        "an explicitly empty aspects=List() must not reach entityService.getEntity as empty");
+    assertEquals(
+        explicitEmptyCaptor.getValue(),
+        omittedCaptor.getValue(),
+        "an explicit empty aspects array must resolve identically to an omitted one");
+  }
+
+  /** Same fix, batch path. */
+  @Test
+  public void testBatchGetTreatsExplicitEmptyAspectsSameAsOmitted() throws Exception {
+    Urn urn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    when(entityService.getEntities(any(OperationContext.class), any(), any(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              java.util.Map<Urn, Entity> out = new java.util.HashMap<>();
+              urns.forEach(u -> out.put(u, new Entity(new DataMap())));
+              return out;
+            });
+
+    awaitTask(entityResource.batchGet(Set.of(urn.toString()), null));
+    ArgumentCaptor<Set<String>> omittedCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntities(any(OperationContext.class), any(), omittedCaptor.capture(), eq(true));
+
+    Mockito.clearInvocations(entityService);
+    when(entityService.getEntities(any(OperationContext.class), any(), any(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              java.util.Map<Urn, Entity> out = new java.util.HashMap<>();
+              urns.forEach(u -> out.put(u, new Entity(new DataMap())));
+              return out;
+            });
+    awaitTask(entityResource.batchGet(Set.of(urn.toString()), new String[0]));
+    ArgumentCaptor<Set<String>> explicitEmptyCaptor = ArgumentCaptor.forClass(Set.class);
+    verify(entityService)
+        .getEntities(any(OperationContext.class), any(), explicitEmptyCaptor.capture(), eq(true));
+
+    assertFalse(
+        explicitEmptyCaptor.getValue().isEmpty(),
+        "an explicitly empty aspects=List() must not reach entityService.getEntities as empty");
+    assertEquals(
+        explicitEmptyCaptor.getValue(),
+        omittedCaptor.getValue(),
+        "an explicit empty aspects array must resolve identically to an omitted one");
+  }
+
+  /**
+   * Same fix, batch path: urns landing on different projected-aspect sets (here, only one of the
+   * two has {@code viewProperties} restricted) must not share a single {@code getEntities} call
+   * with the unpruned set, which would either over-withhold for the unrestricted urn or leak for
+   * the restricted one depending on which way the shared set went.
+   */
+  @Test
+  public void testBatchGetGroupsUrnsByDistinctProjectedAspectSets() throws Exception {
+    Urn restrictedUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,restricted,PROD)");
+    Urn allowedUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:hive,allowed,PROD)");
+    when(entityService.getEntities(any(OperationContext.class), any(), any(), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              java.util.Map<Urn, Entity> out = new java.util.HashMap<>();
+              urns.forEach(u -> out.put(u, new Entity(new DataMap())));
+              return out;
+            });
+
+    try (MockedStatic<EntityAuthorizationUtils> mockedUtils =
+        Mockito.mockStatic(EntityAuthorizationUtils.class, Mockito.CALLS_REAL_METHODS)) {
+      mockedUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                      any(OperationContext.class), eq(restrictedUrn), eq("viewProperties")))
+          .thenReturn(true);
+      mockedUtils
+          .when(
+              () ->
+                  EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                      any(OperationContext.class), eq(allowedUrn), eq("viewProperties")))
+          .thenReturn(false);
+
+      java.util.Map<String, AnyRecord> result =
+          awaitTask(
+              entityResource.batchGet(
+                  Set.of(restrictedUrn.toString(), allowedUrn.toString()),
+                  new String[] {"viewProperties", "datasetProperties"}));
+
+      assertEquals(result.size(), 2);
+      ArgumentCaptor<Set<String>> aspectsCaptor = ArgumentCaptor.forClass(Set.class);
+      verify(entityService, times(2))
+          .getEntities(any(OperationContext.class), any(), aspectsCaptor.capture(), eq(true));
+      List<Set<String>> capturedAspectSets = aspectsCaptor.getAllValues();
+      assertTrue(
+          capturedAspectSets.stream().anyMatch(s -> !s.contains("viewProperties")),
+          "the restricted urn's group must fetch without viewProperties");
+      assertTrue(
+          capturedAspectSets.stream().anyMatch(s -> s.contains("viewProperties")),
+          "the allowed urn's group must still fetch viewProperties");
+    }
+  }
+
   @Test
   public void testSearchUsesSearchQueryUsageOperation() throws Exception {
     EntitySearchService entitySearchService = mock(EntitySearchService.class);
@@ -249,6 +488,79 @@ public class EntityResourceTest {
             any(),
             eq(0),
             eq(10));
+  }
+
+  @DataProvider(name = "legacyIngestAuthorizationCases")
+  public Object[][] legacyIngestAuthorizationCases() {
+    String create = "CREATE_ENTITY";
+    String edit = PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType();
+    return new Object[][] {
+      // granted privilege, entity exists, batch endpoint, expect allowed
+      {create, false, false, true},
+      {create, true, false, false},
+      {create, false, true, true},
+      {create, true, true, false},
+      {edit, false, false, true},
+      {edit, true, false, true},
+      {edit, true, true, true},
+    };
+  }
+
+  /**
+   * Legacy snapshot ingest must use the same existence-aware CREATE vs EDIT selection as
+   * ingestProposal: a create-only grant may create new entities but not overwrite existing ones.
+   */
+  @Test(dataProvider = "legacyIngestAuthorizationCases")
+  public void testLegacyIngestAuthorizationIsExistenceAware(
+      String grantedPrivilege, boolean entityExists, boolean batch, boolean expectAllowed)
+      throws Exception {
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry())
+        .thenReturn(systemOperationContext.getEntityRegistry());
+    when(aspectRetriever.entityExists(any(OperationContext.class), eq(Set.of(urn))))
+        .thenReturn(Map.of(urn, entityExists));
+    entityResource.setSystemOperationContext(
+        TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever));
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              return new AuthorizationResult(
+                  request,
+                  grantedPrivilege.equals(request.getPrivilege())
+                      ? AuthorizationResult.Type.ALLOW
+                      : AuthorizationResult.Type.DENY,
+                  "");
+            });
+    Entity entity =
+        new Entity()
+            .setValue(
+                Snapshot.create(
+                    new DatasetSnapshot()
+                        .setUrn(DatasetUrn.createFromUrn(urn))
+                        .setAspects(new DatasetAspectArray())));
+
+    // AuthUtil reads this flag directly, so it must be set rather than stubbed.
+    Field restApiAuthEnabled = AuthUtil.class.getDeclaredField("isRestApiAuthorizationEnabled");
+    restApiAuthEnabled.setAccessible(true);
+    Object previousRestApiAuthEnabled = restApiAuthEnabled.get(null);
+    restApiAuthEnabled.set(null, true);
+    boolean allowed;
+    try {
+      if (batch) {
+        entityResource.batchIngest(new Entity[] {entity}, null);
+      } else {
+        entityResource.ingest(entity, null);
+      }
+      allowed = true;
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus().getCode(), 403);
+      allowed = false;
+    } finally {
+      restApiAuthEnabled.set(null, previousRestApiAuthEnabled);
+    }
+    assertEquals(allowed, expectAllowed);
   }
 
   private static void setEntitySearchService(

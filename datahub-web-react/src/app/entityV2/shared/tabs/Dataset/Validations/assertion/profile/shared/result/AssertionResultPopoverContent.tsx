@@ -1,5 +1,5 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Divider, Typography } from 'antd';
 import React from 'react';
@@ -92,7 +92,7 @@ const ExpectedText = styled.div``;
 
 const PlatformRow = styled.div``;
 
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
+const StyledClockCircleOutlined = styled(Clock)`
     margin-right: 4px;
     font-size: 12px;
 `;

@@ -96,6 +96,12 @@ export default {
     yellow600: '#EEAE09',
     yellow700: '#EE9521',
     yellow800: '#C77100',
+    // Dark-mode warning surfaces. The scale previously bottomed out at yellow800,
+    // which is still mid-tone, so dark mode had to borrow trueyellow300 and ended
+    // up painting amber text on an amber surface (~2.5:1). These mirror what
+    // blue1200 and red500 already provide for the info and error surfaces.
+    yellow900: '#5E410B',
+    yellow1000: '#4A3208',
     violet0: '#F1F3FD',
     cyan00: '#E0F2F1',
     cyan100: '#80DEEA',

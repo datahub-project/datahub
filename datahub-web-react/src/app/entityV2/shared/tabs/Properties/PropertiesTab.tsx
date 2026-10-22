@@ -14,8 +14,8 @@ import {
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
-import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { filterHiddenProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/shared/Loading';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -67,7 +67,6 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const {
         structuredPropertyRows,
         expandedRowsFromFilter,
-        structuredPropertyRowsRaw,
         loading: structuredPropertiesLoading,
     } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldEntity);
 
@@ -78,19 +77,13 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows
+    const dataSource: PropertyRow[] = filterHiddenProperties(structuredPropertyRows)
         .concat(customPropertyRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
-
-    const entityUrnsToHydrate = structuredPropertyRowsRaw
-        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
-        .filter(Boolean);
-
-    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
 
     const propertyTableColumns = [
         {
@@ -105,8 +98,8 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}
-                    hydratedEntityMap={hydratedEntityMap}
                     renderType={renderType}
+                    scopeKey={fieldPath ? `${entityData?.urn}:${fieldPath}` : (entityData?.urn ?? '')}
                 />
             ),
         },

@@ -50,6 +50,7 @@ export default function SingleSelectInput({ selectSingleValue, allowedValues, se
         <SimpleSelect
             width="full"
             placeholder={t('structuredProperty.selectPlaceholder')}
+            showSearch
             values={selectedValues.map(String)}
             options={options}
             showDescriptions

@@ -30,7 +30,7 @@ def _compare(
     framework: str = "Smoke pytest",
     workflow: str = "docker-unified.yml",
     entry_noun: str = "tests",
-    batch_hint: str = "python_batch_count in docker-unified.yml (full=7)",
+    batch_hint: str = "python_batch_count in docker-unified.yml (full=9)",
     key: str = "testId",
     threshold: float = 5.0,
     pr_gate: str = "threshold",

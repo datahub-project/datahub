@@ -1,31 +1,38 @@
-import { CheckCircleOutlined, ExclamationCircleOutlined, ExclamationCircleTwoTone } from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
-const UnhealthyIconFilled = styled(ExclamationCircleTwoTone).attrs((props) => ({
-    twoToneColor: props.theme.colors.iconError,
-}))<{ fontSize: number }>`
-    && {
-        font-size: ${(props) => props.fontSize}px;
-    }
-`;
-
-const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
+const UnhealthyIconFilled = styled(WarningCircle).attrs({ weight: 'fill' })<{ fontSize: number }>`
     color: ${(props) => props.theme.colors.iconError};
     && {
         font-size: ${(props) => props.fontSize}px;
+        width: ${(props) => props.fontSize}px;
+        height: ${(props) => props.fontSize}px;
     }
 `;
 
-const HealthyIconOutlined = styled(CheckCircleOutlined)<{ fontSize: number }>`
+const UnhealthyIconOutlined = styled(WarningCircle)<{ fontSize: number }>`
+    color: ${(props) => props.theme.colors.iconError};
+    && {
+        font-size: ${(props) => props.fontSize}px;
+        width: ${(props) => props.fontSize}px;
+        height: ${(props) => props.fontSize}px;
+    }
+`;
+
+const HealthyIconOutlined = styled(CheckCircle)<{ fontSize: number }>`
     color: ${(props) => props.theme.colors.iconSuccess};
     && {
         font-size: ${(props) => props.fontSize}px;
+        width: ${(props) => props.fontSize}px;
+        height: ${(props) => props.fontSize}px;
     }
 `;
 
@@ -91,13 +98,13 @@ export const getHealthSummaryMessage = (healths: Health[]) => {
 export const getHealthRedirectPath = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
-            return 'Quality/List';
+            return `${EntityTabPath.QUALITY}/List`;
         }
         case HealthStatusType.Incidents: {
-            return 'Incidents';
+            return EntityTabPath.INCIDENTS;
         }
         case HealthStatusType.Tests: {
-            return 'Governance';
+            return EntityTabPath.GOVERNANCE;
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);

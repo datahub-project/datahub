@@ -93,7 +93,7 @@ class TestRestoreCaseFoldedColumns:
             rebuilt = adapter._use_stored_column_names(table, snowflake_engine)
 
         rendered = [
-            str(sa.select([sa.func.min(c)]).compile(dialect=snowflake_engine.dialect))
+            str(sa.select(sa.func.min(c)).compile(dialect=snowflake_engine.dialect))
             for c in rebuilt.columns
         ]
         assert any('"col"' in sql for sql in rendered)

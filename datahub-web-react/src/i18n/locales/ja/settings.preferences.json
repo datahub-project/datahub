@@ -1,6 +1,9 @@
 {
     "appearance.subTitle": "外観の設定を管理します。",
     "appearance.title": "外観",
+    "darkMode.beta": "ベータ",
+    "darkMode.description": "DataHub全体でダークカラーテーマを使用します。",
+    "darkMode.title": "ダークモード",
     "language.description": "使用する表示言語を選択してください",
     "language.title": "ユーザーインターフェースの言語",
     "noSettings": "外観の設定が見つかりません。",

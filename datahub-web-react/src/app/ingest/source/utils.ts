@@ -72,9 +72,10 @@ export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
 export const FAILURE = 'FAILURE';
 const CANCELLED = 'CANCELLED';
 const ABORTED = 'ABORTED';
+const DUPLICATE = 'DUPLICATE';
 const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
-const ROLLED_BACK = 'ROLLED_BACK';
+export const ROLLED_BACK = 'ROLLED_BACK';
 const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
 
 export const CLI_EXECUTOR_ID = '__datahub_cli_';
@@ -94,6 +95,7 @@ export const getExecutionRequestStatusIcon = (status?: string) => {
         (status === ROLLING_BACK && ArrowsCounterClockwise) ||
         (status === ROLLBACK_FAILED && X) ||
         (status === ABORTED && X) ||
+        (status === DUPLICATE && Prohibit) ||
         ClockClockwise
     );
 };
@@ -110,6 +112,7 @@ export const getExecutionRequestStatusDisplayText = (status?: string) => {
         (status === ROLLING_BACK && i18next.t('ingestion:status.rollingBack')) ||
         (status === ROLLBACK_FAILED && i18next.t('ingestion:status.rollbackFailed')) ||
         (status === ABORTED && i18next.t('ingestion:status.aborted')) ||
+        (status === DUPLICATE && i18next.t('ingestion:status.duplicate')) ||
         /* untranslated-text -- raw status enum fallback when status is unrecognized */
         status
     );
@@ -135,6 +138,8 @@ export const getExecutionRequestSummaryText = (status: string) => {
             return i18next.t('ingestion:executions.summaryRollbackFailed');
         case ABORTED:
             return i18next.t('ingestion:executions.summaryAborted');
+        case DUPLICATE:
+            return i18next.t('ingestion:executions.summaryDuplicate');
         default:
             return i18next.t('ingestion:executions.summaryUnknown');
     }

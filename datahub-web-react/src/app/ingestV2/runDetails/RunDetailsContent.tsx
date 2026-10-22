@@ -1,4 +1,3 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
 import { Icon, Pill } from '@components';
 import { message } from 'antd';
@@ -22,6 +21,7 @@ import {
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
 import { Message } from '@app/shared/Message';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -81,7 +81,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 <Pill
                     customIconRenderer={() =>
                         status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
-                            <LoadingOutlined />
+                            <StyledSpinner $height={14} />
                         ) : (
                             <Icon icon={ResultIcon} size="lg" />
                         )

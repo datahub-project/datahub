@@ -47,6 +47,7 @@
     "executions.someHidden": "一部の実行は表示されていない場合があります",
     "executions.summaryAborted": "ワーカーの再起動によりIngestionジョブが中断されました。",
     "executions.summaryCancelled": "Ingestionはキャンセルされました。",
+    "executions.summaryDuplicate": "このジョブの別インスタンスがすでに存在するため、ingestionジョブはキャンセルされました。",
     "executions.summaryFailure": "Ingestionが完了できなかった、またはエラーで終了しました。",
     "executions.summaryRollbackFailed": "Ingestionのロールバックに失敗しました。",
     "executions.summaryRolledBack": "Ingestionはロールバックされました。",

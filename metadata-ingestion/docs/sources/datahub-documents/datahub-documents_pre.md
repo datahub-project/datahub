@@ -59,7 +59,7 @@ See the [Semantic Search Configuration Guide](../../../how-to/semantic-search-co
 
 Required server configuration:
 
-- OpenSearch 2.17+ with k-NN plugin enabled
+- OpenSearch 2.17+ with the k-NN plugin enabled, or Elasticsearch 8.18+
 - AWS Bedrock or Cohere embedding provider configured
 - Semantic search enabled in `application.yml`
 

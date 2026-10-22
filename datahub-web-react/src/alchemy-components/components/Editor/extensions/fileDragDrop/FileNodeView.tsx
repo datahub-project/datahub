@@ -2,11 +2,12 @@ import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { NodeViewComponentProps } from '@remirror/react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
 import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
+import { useHighlightLanguage } from '@components/components/CodeBlock/useHighlightLanguage';
 import {
     FILE_ATTRS,
     FILE_TYPES_TO_PREVIEW,
@@ -113,6 +114,8 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     const [isPreviewVisible, setIsPreviewVisible] = useState(true);
     const { url, name, type, size, id } = node.attrs;
     const extension = getExtensionFromFileName(name);
+    const highlightLanguage = extension || 'text';
+    useHighlightLanguage(highlightLanguage);
     const fileType = type || getFileTypeFromFilename(name);
     const shouldWrap = extension === 'txt';
     const isPdf = fileType === 'application/pdf';
@@ -249,7 +252,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                 {fileNodeWithButton}
                 {isPreviewVisible && (
                     <StyledSyntaxHighlighter
-                        language={extension || 'text'}
+                        language={highlightLanguage}
                         customStyle={{
                             maxHeight: 250,
                             borderRadius: 8,

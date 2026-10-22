@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Empty } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -63,7 +63,6 @@ const LoadingWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 350px;
-    font-size: 30px;
 `;
 
 const DEFAULT_SCHEMA_FILTER_TYPES = [
@@ -255,7 +254,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
 
     if (renderType === TabRenderType.COMPACT) {
         if (loading && !schemaMetadata) {
-            return <LoadingOutlined />;
+            return <Loader size="md" />;
         }
         return (
             // Provided here as well as below: the compact table renders the same field drawer, whose
@@ -328,7 +327,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
             />
             {loading && !schemaMetadata ? (
                 <LoadingWrapper>
-                    <LoadingOutlined />
+                    <Loader size="md" />
                 </LoadingWrapper>
             ) : (
                 <>
@@ -371,7 +370,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     an empty result while Phase 2 is still loading is "not yet", not "none". */}
                                 {fullMetadataLoading ? (
                                     <LoadingWrapper>
-                                        <LoadingOutlined />
+                                        <Loader size="md" />
                                     </LoadingWrapper>
                                 ) : (
                                     <NoSchema />

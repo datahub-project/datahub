@@ -1,10 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { Suspense, useCallback, useState } from 'react';
 import { Route, Switch } from 'react-router-dom';
 
-import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
-import MetricsPage from '@app/metrics/MetricsPage';
 import MetricsSidebar from '@app/metrics/MetricsSidebar';
 import { MetricsEntityContextProvider } from '@app/metrics/context/MetricsEntityContext';
+import { SuspenseBlock } from '@app/shared/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
     HierarchicalBrowseMainContent,
@@ -13,6 +13,9 @@ import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
+
+const EntityPageV2 = lazyNamed(() => import('@app/entityV2/EntityPage'), 'EntityPage');
+const MetricsPage = lazyDefault(() => import('@app/metrics/MetricsPage'));
 
 export default function MetricsRoutes() {
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -35,17 +38,19 @@ export default function MetricsRoutes() {
                     onExpandSidebar={expandSidebar}
                 />
                 <HierarchicalBrowseMainContent>
-                    <Switch>
-                        <Route
-                            path={`${PageRoutes.METRIC_ENTITY}/:urn`}
-                            render={() => <EntityPageV2 entityType={EntityType.Metric} />}
-                        />
-                        <Route
-                            path={`${PageRoutes.SEMANTIC_MODEL_ENTITY}/:urn`}
-                            render={() => <EntityPageV2 entityType={EntityType.SemanticModel} />}
-                        />
-                        <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />
-                    </Switch>
+                    <Suspense fallback={<SuspenseBlock />}>
+                        <Switch>
+                            <Route
+                                path={`${PageRoutes.METRIC_ENTITY}/:urn`}
+                                render={() => <EntityPageV2 entityType={EntityType.Metric} />}
+                            />
+                            <Route
+                                path={`${PageRoutes.SEMANTIC_MODEL_ENTITY}/:urn`}
+                                render={() => <EntityPageV2 entityType={EntityType.SemanticModel} />}
+                            />
+                            <Route path={PageRoutes.METRICS} render={() => <MetricsPage />} />
+                        </Switch>
+                    </Suspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </MetricsEntityContextProvider>

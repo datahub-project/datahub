@@ -1,5 +1,5 @@
-import { UpCircleOutlined } from '@ant-design/icons';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { CaretCircleUp } from '@phosphor-icons/react/dist/csr/CaretCircleUp';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
@@ -73,11 +73,10 @@ ExpandableNode.HeaderLeft = styled.div`
     }
 `;
 
-const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
+const ChevronRightIconStyle = styled(CaretRight).attrs({ size: 12 })<{ isVisible?: boolean }>`
     &&& {
         color: ${(props) => props.theme.colors.icon};
         visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};
-        font-size: 18px;
     }
 `;
 
@@ -128,7 +127,7 @@ ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: stri
             size="small"
             type="ghost"
             deg={isOpen ? 0 : 180}
-            icon={<UpCircleOutlined style={{ color }} />}
+            icon={<CaretCircleUp style={{ color }} />}
         />
     );
 };

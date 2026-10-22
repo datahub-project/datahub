@@ -1,5 +1,5 @@
-import { FolderFilled } from '@ant-design/icons';
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -21,7 +21,6 @@ import {
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
-import TableIcon from '@src/images/table-icon.svg?react';
 import dayjs from '@utils/dayjs';
 
 import {
@@ -189,7 +188,7 @@ export function getFilterIconAndLabel(
         );
         label = entityRegistry.getDisplayName(EntityType.Container, filterEntity);
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
-        icon = <FolderFilled size={size} color="black" />;
+        icon = <Folder size={size} weight="fill" color="black" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
@@ -203,7 +202,7 @@ export function getFilterIconAndLabel(
         label = newLabel;
     } else if (filterField.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)) {
         label = getStructuredPropFilterDisplayName(filterField, filterValue, facetEntity);
-        icon = <Icon component={TableIcon} />;
+        icon = <TableIcon />;
     } else {
         label = filterValue;
     }

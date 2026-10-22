@@ -1,4 +1,4 @@
-import { RightOutlined } from '@ant-design/icons';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Dropdown } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -78,7 +78,7 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                     {icon && <IconWrapper>{icon}</IconWrapper>}
                     {title} {isSelected ? `(1) ` : ''}
                 </IconNameWrapper>
-                <RightOutlined style={{ fontSize: '12px', height: '12px' }} />
+                <CaretRight size={12} />
             </MoreFilterOptionLabel>
         </Dropdown>
     );

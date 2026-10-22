@@ -1,7 +1,7 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { PlatformIcon } from '@app/search/filters/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -14,12 +14,13 @@ interface Props {
 
 export default function EntityIcon({ entity, size = 14 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const logoUrl = genericEntityProps?.platform?.properties?.logoUrl;
     const icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
-        entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT, ANTD_GRAY[9])
+        entityRegistry.getIcon(entity.type, size, IconStyleType.ACCENT, theme.colors.text)
     );
 
     return <>{icon}</>;

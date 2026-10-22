@@ -79,22 +79,6 @@ public class KafkaEventConsumerFactory {
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
 
-  @Bean(name = "duheKafkaConsumerFactory")
-  protected DefaultKafkaConsumerFactory<String, GenericRecord> duheKafkaConsumerFactory(
-      @Qualifier("configurationProvider") ConfigurationProvider provider,
-      KafkaProperties baseKafkaProperties,
-      @Qualifier("duheSchemaRegistryConfig")
-          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
-
-    KafkaConfiguration kafkaConfiguration = provider.getKafka();
-    // Bootstrap is shared for DUHE since it does not need to preserve history in migrations
-    Map<String, Object> customizedProperties =
-        buildCustomizedProperties(
-            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true, true);
-
-    return new DefaultKafkaConsumerFactory<>(customizedProperties);
-  }
-
   private static Map<String, Object> buildCustomizedProperties(
       KafkaProperties baseKafkaProperties,
       KafkaConfiguration kafkaConfiguration,
@@ -321,28 +305,6 @@ public class KafkaEventConsumerFactory {
         batchListener ? " (batch)" : "",
         kafkaEventConsumerConcurrency);
 
-    return factory;
-  }
-
-  @Bean(name = "duheKafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> duheKafkaEventConsumer(
-      @Qualifier("duheKafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory) {
-
-    ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
-        new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(kafkaConsumerFactory);
-    factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
-    factory.setConcurrency(1);
-    factory.setAutoStartup(false);
-    if (authExceptionRetryIntervalSeconds > 0) {
-      factory
-          .getContainerProperties()
-          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
-    }
-
-    log.info(
-        "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");
     return factory;
   }
 }

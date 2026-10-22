@@ -1608,6 +1608,22 @@ public class ApplicationTest extends WithBrowser {
     }
   }
 
+  @Test
+  public void testFilterChainClosesConnectionsOnlyOnceShuttingDown() {
+    GracefulShutdownModule shutdownModule = app.injector().instanceOf(GracefulShutdownModule.class);
+
+    Result serving = route(app, fakeRequest(Helpers.GET, "/health"));
+    assertFalse(serving.headers().containsKey(Http.HeaderNames.CONNECTION));
+
+    shutdownModule.setShuttingDown(true);
+    try {
+      Result draining = route(app, fakeRequest(Helpers.GET, "/health"));
+      assertEquals("close", draining.headers().get(Http.HeaderNames.CONNECTION));
+    } finally {
+      shutdownModule.setShuttingDown(false);
+    }
+  }
+
   /**
    * Test module that provides a mock Application controller that simulates resource loading failure
    */
@@ -1631,7 +1647,11 @@ public class ApplicationTest extends WithBrowser {
       // Mock GracefulShutdownModule for the test
       GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
       return new controllers.Application(
-          mockHttpClient, mockEnvironment, config, mockShutdownModule);
+          mockHttpClient,
+          mockEnvironment,
+          config,
+          mockShutdownModule,
+          new controllers.ProxyAdmission(controllers.ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
     }
 
     @Provides

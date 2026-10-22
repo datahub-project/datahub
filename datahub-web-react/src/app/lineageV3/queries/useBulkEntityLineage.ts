@@ -95,7 +95,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                         entity.upstreamRelationships?.forEach((relationship) => {
                             processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                         });
-                        pruneAllDuplicateEdges(node.urn, null, smallContext);
+                        pruneAllDuplicateEdges(node.urn, null, smallContext, entityRegistry);
                     }
                 }
             });

@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
-import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';

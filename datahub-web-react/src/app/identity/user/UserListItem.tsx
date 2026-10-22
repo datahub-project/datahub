@@ -1,19 +1,17 @@
-import { Avatar, Text, Tooltip } from '@components';
+import { Avatar, Menu, Text, Tooltip, toast } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { LockOpen } from '@phosphor-icons/react/dist/csr/LockOpen';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Button, Dropdown, List, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
+import { ItemType } from '@components/components/Menu/types';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
-import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
@@ -42,6 +40,19 @@ const UserItemContainer = styled.div`
     width: 100%;
 `;
 
+const ListItem = styled.div`
+    display: flex;
+    align-items: center;
+    padding: 12px 24px;
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
+`;
+
+const StatusTag = styled(Text)`
+    padding: 2px 8px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: 4px;
+`;
+
 const UserHeaderContainer = styled.div`
     display: flex;
     justify-content: left;
@@ -63,6 +74,16 @@ const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     margin-left: 5px;
 `;
 
+const MenuTriggerButton = styled.button`
+    display: flex;
+    align-items: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: ${(props) => props.theme.colors.icon};
+`;
+
 export default function UserListItem({
     user,
     canManageUserCredentials,
@@ -77,7 +98,6 @@ export default function UserListItem({
 }: Props) {
     const { t } = useTranslation('entity.identity');
     const { t: tc } = useTranslation('common.actions');
-    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
@@ -99,59 +119,43 @@ export default function UserListItem({
         }
     };
 
-    const getUserStatusColor = (userStatus: CorpUserStatus) => {
-        switch (userStatus) {
-            case CorpUserStatus.Active:
-                return theme.colors.textBrand;
-            default:
-                return theme.colors.textDisabled;
-        }
-    };
-
     const userStatus = user.status; // Support case where the user status is undefined.
     const userStatusToolTip = userStatus && getUserStatusToolTip(userStatus);
-    const userStatusColor = userStatus && getUserStatusColor(userStatus);
 
-    const items = [
+    const items: ItemType[] = [
         {
+            type: 'item',
             key: 'copyurn',
-            label: (
-                <MenuItemStyle
-                    onClick={() => {
-                        navigator.clipboard.writeText(user.urn);
-                        message.success(t('users.urnCopied'));
-                    }}
-                    data-testid="copyurn-menu-item"
-                >
-                    <Copy data-testid="copyUrnButton" /> &nbsp; {t('users.copyUrn')}
-                </MenuItemStyle>
-            ),
+            title: t('users.copyUrn'),
+            icon: Copy,
+            dataTestId: 'copyurn-menu-item',
+            onClick: () => {
+                navigator.clipboard.writeText(user.urn);
+                toast.success(t('users.urnCopied'));
+            },
         },
         {
+            type: 'item',
             key: 'reset',
-            label: (
-                <MenuItemStyle
-                    disabled={!shouldShowPasswordReset}
-                    onClick={() => setIsViewingResetToken(true)}
-                    data-testid="reset-menu-item"
-                >
-                    <LockOpen data-testid="resetButton" /> &nbsp; {t('users.resetPasswordMenu')}
-                </MenuItemStyle>
-            ),
+            title: t('users.resetPasswordMenu'),
+            icon: LockOpen,
+            disabled: !shouldShowPasswordReset,
+            dataTestId: 'reset-menu-item',
+            onClick: () => setIsViewingResetToken(true),
         },
-
         {
+            type: 'item',
             key: 'delete',
-            label: (
-                <MenuItemStyle onClick={onDeleteEntity}>
-                    <Trash /> &nbsp;{tc('delete')}
-                </MenuItemStyle>
-            ),
+            title: tc('delete'),
+            icon: Trash,
+            danger: true,
+            dataTestId: 'delete-menu-item',
+            onClick: onDeleteEntity,
         },
     ];
 
     return (
-        <List.Item>
+        <ListItem>
             <UserItemContainer>
                 <Link to={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}>
                     <UserHeaderContainer>
@@ -163,7 +167,7 @@ export default function UserListItem({
                         />
                         <div style={{ marginLeft: 16, marginRight: 20 }}>
                             <div>
-                                <Typography.Text>{displayName}</Typography.Text>
+                                <Text>{displayName}</Text>
                             </div>
                             <div data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
                                 <Text type="span" color="textSecondary">
@@ -172,8 +176,14 @@ export default function UserListItem({
                             </div>
                         </div>
                         {userStatus && (
-                            <Tooltip overlay={userStatusToolTip}>
-                                <Tag color={userStatusColor || theme.colors.textDisabled}>{userStatus}</Tag>
+                            <Tooltip title={userStatusToolTip}>
+                                <StatusTag
+                                    type="span"
+                                    size="sm"
+                                    color={userStatus === CorpUserStatus.Active ? 'textBrand' : 'textDisabled'}
+                                >
+                                    {userStatus}
+                                </StatusTag>
                             </Tooltip>
                         )}
                     </UserHeaderContainer>
@@ -191,16 +201,15 @@ export default function UserListItem({
                     setRolesSearchQuery={setRolesSearchQuery}
                     refetch={refetch}
                 />
-                <Dropdown trigger={['click']} menu={{ items }}>
-                    <Button
-                        type="text"
-                        style={{ padding: 0 }}
+                <Menu items={items} trigger={['click']}>
+                    <MenuTriggerButton
+                        type="button"
                         onClick={(e) => e.preventDefault()}
                         data-testid={`userItem-${shouldShowPasswordReset ? 'native' : 'non-native'}`}
                     >
                         <MenuIcon fontSize={20} />
-                    </Button>
-                </Dropdown>
+                    </MenuTriggerButton>
+                </Menu>
             </ButtonGroup>
             <ViewResetTokenModal
                 open={isViewingResetToken}
@@ -208,6 +217,6 @@ export default function UserListItem({
                 username={user.username}
                 onClose={() => setIsViewingResetToken(false)}
             />
-        </List.Item>
+        </ListItem>
     );
 }

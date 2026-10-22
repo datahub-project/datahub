@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -84,7 +84,7 @@ export default function BusinessAttributeGroup({
                     }}
                     {...buttonProps}
                 >
-                    <PlusOutlined />
+                    <Plus />
                     <span>{t('addAttribute')}</span>
                 </NoElementButton>
             )}

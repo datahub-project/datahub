@@ -5,11 +5,13 @@ import * as React from 'react';
 import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import UserProfile from '@app/entityV2/user/UserProfile';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { Preview } from '@app/entityV2/user/preview/Preview';
 
 import { CorpUser, EntityType, SearchResult } from '@types';
+
+const UserProfile = lazyProfileComponent('UserProfile', () => import('@app/entityV2/user/UserProfile'));
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -46,10 +48,9 @@ export class UserEntity implements Entity<CorpUser> {
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 
-    renderPreview = (previewType: PreviewType, data: CorpUser) => (
+    renderPreview = (_previewType: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
-            previewType={previewType}
             name={this.displayName(data)}
             title={data.editableProperties?.title || data.info?.title || ''}
         />

@@ -156,6 +156,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SnowflakeV2Source(
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -368,6 +372,7 @@ class SnowflakeV2Source(
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
                 SourceCapability.TEST_CONNECTION,
+                SourceCapability.PROBE,
             )
         ]
 

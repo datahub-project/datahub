@@ -446,3 +446,12 @@ class UnionMergeSlot(BaseModel):
     refs: List[UpstreamColRef] = Field(default_factory=list)
     unresolved: List[str] = Field(default_factory=list)
     op: Optional[TransformOp] = None
+
+
+class CatalogListing(BaseModel):
+    # Filled while a space's consumption-catalog assets are listed, so design-time
+    # View discovery can skip catalog assets and stand down when the listing
+    # failed (a failed listing says nothing about exposure). Holds dataset names
+    # (_build_dataset_name) so matching follows URN case rules, not raw strings.
+    dataset_names: Set[str] = Field(default_factory=set)
+    failed: bool = False

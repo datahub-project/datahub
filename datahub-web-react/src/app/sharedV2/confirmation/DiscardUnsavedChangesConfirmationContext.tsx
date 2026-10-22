@@ -26,11 +26,13 @@ interface ConfirmationArgs {
 }
 
 interface DiscardUnsavedChangesConfirmationContextType {
+    isDirty: boolean;
     setIsDirty: (isDirty: boolean) => void;
     showConfirmation: (args: ConfirmationArgs) => void;
 }
 
 const DiscardUnsavedChangesConfirmationContext = React.createContext<DiscardUnsavedChangesConfirmationContextType>({
+    isDirty: false,
     setIsDirty: () => {},
     showConfirmation: () => {},
 });
@@ -111,7 +113,7 @@ export function DiscardUnsavedChangesConfirmationProvider({
     }, [history, lastRedirectLocation]);
 
     return (
-        <DiscardUnsavedChangesConfirmationContext.Provider value={{ setIsDirty, showConfirmation }}>
+        <DiscardUnsavedChangesConfirmationContext.Provider value={{ isDirty, setIsDirty, showConfirmation }}>
             {children}
 
             <ConfirmationModal

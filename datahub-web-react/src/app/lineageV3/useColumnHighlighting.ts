@@ -32,6 +32,7 @@ import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -96,6 +97,7 @@ export default function useColumnHighlighting(
                     nodeIdsByUrn,
                     rootUrn,
                     rootType,
+                    entityRegistry,
                     showFilterNodes: showLineageFilterNodes,
                 },
                 columnHighlightSource?.isSelected ? theme.colors.borderSelected : theme.colors.borderHover,
@@ -165,6 +167,7 @@ interface ArgumentBundle {
     nodeIdsByUrn: Map<string, string[]>;
     rootUrn: string;
     rootType: EntityType;
+    entityRegistry: EntityRegistry;
     /** Whether lineage filter nodes are rendered, rather than the column lineage controls. */
     showFilterNodes: boolean;
 }
@@ -179,6 +182,7 @@ export function computeSingleColumnHighlights(
         nodeIdsByUrn,
         rootUrn,
         rootType,
+        entityRegistry,
         showFilterNodes,
     }: ArgumentBundle,
     stroke: string,
@@ -269,7 +273,14 @@ export function computeSingleColumnHighlights(
             // its node's own controls and filter nodes cover whatever lineage it hides
             const [currentUrn] = parseColumnRef(ref);
             if (displayedNodeIds.has(currentUrn) && !isEntityRef(ref)) {
-                const numRelatedOnGraph = countRelatedColumnsOnGraph(ref, fgl, displayedNodeIds, rootType);
+                const numRelatedOnGraph = countRelatedColumnsOnGraph(
+                    ref,
+                    fgl,
+                    displayedNodeIds,
+                    nodes,
+                    rootType,
+                    entityRegistry,
+                );
                 setDefault(shownRelatedColumns, ref, {})[direction] = numRelatedOnGraph;
 
                 if (showFilterNodes) {
@@ -437,13 +448,16 @@ function getLineageFilterNodeEdge(
  * Number of columns related to `ref` that are rendered on the graph, to compare against the count
  * fetched for the column. Traverses through refs that aren't rendered as their own column -- both
  * transformations and nodes missing from the graph -- as those aren't counted for the column either.
- * Entities attached directly to columns like metrics count too.
+ * Entities attached directly to columns count too, once each, as the fetched count sees them: a
+ * metric reading the column, or a chart consuming it, however many of its fields do.
  */
 function countRelatedColumnsOnGraph(
     ref: ColumnRef,
     fgl: FineGrainedLineageMap,
     displayedNodeIds: Set<string>,
+    nodes: NodeContext['nodes'],
     rootType: EntityType,
+    entityRegistry: EntityRegistry,
 ): number {
     const related = new Set<ColumnRef>();
     const seen = new Set<ColumnRef>([ref]);
@@ -453,12 +467,17 @@ function countRelatedColumnsOnGraph(
         if (neighbor !== undefined && !seen.has(neighbor)) {
             seen.add(neighbor);
             const [neighborUrn] = parseColumnRef(neighbor);
-            if (displayedNodeIds.has(neighborUrn) && !isUrnTransformational(neighborUrn, rootType)) {
-                related.add(neighbor);
+            if (displayedNodeIds.has(neighborUrn) && !isUrnTransformational(neighborUrn, rootType, entityRegistry)) {
+                related.add(isChart(neighborUrn, nodes) ? createEntityRef(neighborUrn) : neighbor);
             } else {
                 toVisit.push(...(fgl.get(neighbor)?.keys() || []));
             }
         }
     }
     return related.size;
+}
+
+/** Charts consume columns as a whole through `inputFields`, rather than having columns of their own. */
+function isChart(urn: string, nodes: NodeContext['nodes']): boolean {
+    return nodes.get(urn)?.type === EntityType.Chart;
 }

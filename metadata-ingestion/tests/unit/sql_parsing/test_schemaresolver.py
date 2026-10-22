@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClas
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
+    _SchemaResolverWithExtras,
     _TableName,
     match_columns_to_schema,
 )
@@ -111,6 +112,60 @@ def test_get_urn_for_table_lowercase():
         schema_resolver.get_urn_for_table(table=table, lower=True, mixed=True)
         == "urn:li:dataset:(urn:li:dataPlatform:mssql,Uppercased-Instance.database.dataset.table,PROD)"
     )
+
+
+@pytest.mark.parametrize(
+    "keep_platform_instance_case, expected_name",
+    [
+        pytest.param(False, "prodws.main.sales.orders", id="default_lowercases"),
+        pytest.param(True, "ProdWS.main.sales.orders", id="opt_in_keeps_case"),
+    ],
+)
+def test_resolve_table_miss_platform_instance_case(
+    keep_platform_instance_case: bool, expected_name: str
+) -> None:
+    schema_resolver = SchemaResolver(
+        platform="databricks",
+        platform_instance="ProdWS",
+        env="PROD",
+        keep_platform_instance_case=keep_platform_instance_case,
+    )
+
+    urn, schema_info = schema_resolver.resolve_table(
+        _TableName(database="Main", db_schema="Sales", table="Orders")
+    )
+
+    assert schema_info is None
+    assert (
+        urn == f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected_name},PROD)"
+    )
+
+
+@pytest.mark.parametrize("keep_platform_instance_case", [False, True])
+def test_temp_table_registered_under_miss_urn_resolves(
+    keep_platform_instance_case: bool,
+) -> None:
+    # The aggregator registers a temp table under the URN the base resolver returned
+    # for it, so later lookups must build that same URN.
+    base = SchemaResolver(
+        platform="databricks",
+        platform_instance="ProdWS",
+        env="PROD",
+        keep_platform_instance_case=keep_platform_instance_case,
+    )
+    resolver = _SchemaResolverWithExtras(base_resolver=base, extra_schemas={})
+    temp_view = _TableName(database="main", db_schema="sales", table="tmp_v")
+    temp_urn, _ = base.resolve_table(temp_view)
+
+    resolver.add_temp_tables(
+        {
+            temp_urn: [
+                SchemaFieldClass(fieldPath="id", nativeDataType="int", type=MagicMock())
+            ]
+        }
+    )
+
+    assert resolver.resolve_table(temp_view) == (temp_urn, {"id": "int"})
 
 
 def test_get_urn_for_table_not_lower_should_keep_capital_letters():

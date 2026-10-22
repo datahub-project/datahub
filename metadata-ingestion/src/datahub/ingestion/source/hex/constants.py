@@ -66,3 +66,9 @@ CONNECTION_TYPE_DEFAULTS: dict[
     "cloudsql__mysql": (None, "database", None),
     "clickhouse": (None, "database", None),
 }
+
+# A Hex category is not a DataHub entity, so it has no subtype to borrow -- but
+# category_pattern filters on it, so `probe filter --kind` needs a name for it.
+# Declared here so the probe getter and the Filters() declaration on the config
+# cannot drift apart.
+HEX_CATEGORY_KIND = "HexCategory"

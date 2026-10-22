@@ -1,7 +1,8 @@
-import path from 'path';
-import tsParser from '@typescript-eslint/parser';
 import { Linter } from 'eslint';
+import path from 'path';
 import { describe, expect, it } from 'vitest';
+
+import tsParser from '@typescript-eslint/parser';
 
 // The rule is a CommonJS module (loaded by ESLint via eslint-plugin-rulesdir).
 import rule from '../no-antd-imports.js';
@@ -18,7 +19,7 @@ function lint(code: string, ruleOptions: Record<string, unknown> = { allowedFile
                 parserOptions: { ecmaVersion: 2020, sourceType: 'module', ecmaFeatures: { jsx: true } },
                 rules: { 't/no-antd-imports': ['error', ruleOptions] },
             },
-            filename ? { filename } : undefined,
+            filename ? { filename } : {},
         )
         .map((m) => m.message);
 }

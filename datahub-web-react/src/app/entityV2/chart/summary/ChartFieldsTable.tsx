@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -82,7 +83,10 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
                 })}
             />
             {hasSeeMore && (
-                <SeeMoreLink type="text" to={`${entityRegistry.getEntityUrl(EntityType.Chart, urn)}/Fields`}>
+                <SeeMoreLink
+                    type="text"
+                    to={`${entityRegistry.getEntityUrl(EntityType.Chart, urn)}/${EntityTabPath.FIELDS}`}
+                >
                     {t('chart.viewCountMore', { count: rows.length - MAX_ROWS })}
                 </SeeMoreLink>
             )}

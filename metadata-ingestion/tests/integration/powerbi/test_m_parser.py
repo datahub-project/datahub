@@ -182,6 +182,49 @@ def test_snowflake_regular_case():
 
 
 @pytest.mark.integration
+def test_starburst_trino_regular_case():
+    # Covers both Starburst Power BI connectors: StarburstAad and StarburstPresto.
+    starburst_queries: List[str] = [
+        'let\n    Source = StarburstAad.Contents("starburst.example.com", 443, [Role=null, Catalog=null, UseSystemProxy=null, ExtraConnectionString=null]),\n    prod_Database = Source{[Name="prod",Kind="Database"]}[Data],\n    sales_Schema = prod_Database{[Name="sales",Kind="Schema"]}[Data],\n    orders_Table = sales_Schema{[Name="orders",Kind="Table"]}[Data]\nin\n    orders_Table',
+        'let\n    Source = StarburstPresto.Contents("trino.example.com", 8443, [Catalog=null]),\n    hive_Database = Source{[Name="hive",Kind="Database"]}[Data],\n    analytics_Schema = hive_Database{[Name="analytics",Kind="Schema"]}[Data],\n    events_Table = analytics_Schema{[Name="events",Kind="Table"]}[Data]\nin\n    events_Table',
+        # Catalog selected in the connector's advanced options ([Catalog="prod"]).
+        # Unlike Databricks' record-based [Catalog=…] (which collapses navigation to
+        # schema→table), Starburst's .Contents is a navigation-table connector: the
+        # option only scopes the navigator, so Power BI still emits the full
+        # catalog→schema→table navigation and lineage must not be dropped.
+        'let\n    Source = StarburstAad.Contents("starburst.example.com", 443, [Role=null, Catalog="prod", UseSystemProxy=null, ExtraConnectionString=null]),\n    prod_Database = Source{[Name="prod",Kind="Database"]}[Data],\n    finance_Schema = prod_Database{[Name="finance",Kind="Schema"]}[Data],\n    invoices_Table = finance_Schema{[Name="invoices",Kind="Table"]}[Data]\nin\n    invoices_Table',
+    ]
+    expected_tables = [
+        "urn:li:dataset:(urn:li:dataPlatform:trino,prod.sales.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:trino,hive.analytics.events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:trino,prod.finance.invoices,PROD)",
+    ]
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    for index, query in enumerate(starburst_queries):
+        table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
+            expression=query,
+            name="virtual_order_table",
+            full_name="OrderDataSet.virtual_order_table",
+        )
+        reporter = PowerBiDashboardSourceReport()
+
+        data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )[0].upstreams
+
+        assert len(data_platform_tables) == 1
+        assert data_platform_tables[0].urn == expected_tables[index]
+
+
+@pytest.mark.integration
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(

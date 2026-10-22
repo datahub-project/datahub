@@ -4,11 +4,15 @@ import { AlertVariant } from '@components/components/Alert/types';
 
 import { radius, spacing, typography } from '@src/alchemy-components/theme';
 
+// Text sits on a tinted surface, so these use the textOnSurface* tokens rather
+// than the plain text* ones. The plain tokens are tuned for the page background
+// and stay mid-tone in dark mode, which left amber-on-amber and red-on-red.
+// Brand and gray have no textOnSurface* equivalent yet.
 const VARIANT_THEME_MAP: Record<AlertVariant, { bg: string; text: string; icon: string }> = {
-    success: { bg: 'bgSurfaceSuccess', text: 'textSuccess', icon: 'iconSuccess' },
-    error: { bg: 'bgSurfaceError', text: 'textError', icon: 'iconError' },
-    warning: { bg: 'bgSurfaceWarning', text: 'textWarning', icon: 'iconWarning' },
-    info: { bg: 'bgSurfaceInfo', text: 'textInformation', icon: 'iconInformation' },
+    success: { bg: 'bgSurfaceSuccess', text: 'textOnSurfaceSuccess', icon: 'iconSuccess' },
+    error: { bg: 'bgSurfaceError', text: 'textOnSurfaceError', icon: 'iconError' },
+    warning: { bg: 'bgSurfaceWarning', text: 'textOnSurfaceWarning', icon: 'iconWarning' },
+    info: { bg: 'bgSurfaceInfo', text: 'textOnSurfaceInformation', icon: 'iconInformation' },
     brand: { bg: 'bgSurfaceBrand', text: 'textBrand', icon: 'iconBrand' },
     gray: { bg: 'bgSurface', text: 'textSecondary', icon: 'icon' },
 };

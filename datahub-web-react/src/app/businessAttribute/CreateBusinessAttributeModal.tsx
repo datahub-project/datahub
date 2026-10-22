@@ -1,5 +1,5 @@
-import { EditOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
@@ -217,7 +217,7 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         }
                     >
                         <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
-                            <EditOutlined />
+                            <PencilSimple />
                             {documentation
                                 ? t('businessAttribute.editDocumentation')
                                 : t('businessAttribute.addDocumentation')}

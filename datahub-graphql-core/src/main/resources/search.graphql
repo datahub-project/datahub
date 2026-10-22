@@ -200,6 +200,21 @@ input SearchFlags {
   filterNonLatestVersions: Boolean
 
   """
+  Include Elasticsearch scoring explanation in search results.
+  Explanations appear in SearchResult.extraProperties with key '_explain'.
+  Note: Adds computational overhead - use for debugging only.
+  """
+  includeExplain: Boolean
+
+  """
+  Elasticsearch search type for controlling IDF calculation across shards.
+  - QUERY_THEN_FETCH: Shard-local IDF (default, faster, production behavior)
+  - DFS_QUERY_THEN_FETCH: Global IDF across all shards (slower, more accurate for debugging)
+  Note: DFS mode adds 20-50% latency overhead - use for debugging only.
+  """
+  searchType: String
+
+  """
   Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
   floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
   only by the semantic search path.
@@ -209,6 +224,13 @@ input SearchFlags {
   floor must be calibrated per deployment rather than assumed.
   """
   minScore: Float
+
+  """
+  Caller-selected search template URN (`urn:li:searchTemplate:<id>`). When set, the server uses this
+  template and skips query classification and engine lookup. The resolved template is not written
+  back onto this field. The caller must have the MANAGE_SYSTEM_OPERATIONS privilege.
+  """
+  searchTemplate: String
 }
 
 """
@@ -756,6 +778,10 @@ type SearchResults {
   Search suggestions based on the query provided for alternate query texts
   """
   suggestions: [SearchSuggestion!]
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 type ExtraProperty {
@@ -793,6 +819,11 @@ type SearchResult {
   Additional properties about the search result. Used for rendering in the UI
   """
   extraProperties: [ExtraProperty!]
+
+  """
+  How each field matched. Set when includeExplain is true.
+  """
+  explainMatches: [ExplainMatch!]
 }
 
 """
@@ -833,6 +864,10 @@ type ScrollResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 """
@@ -878,6 +913,10 @@ type SearchAcrossLineageResults {
   Indicates whether the results are partial due to reaching the maxRelations limit or timeout
   """
   isPartial: Boolean
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 """
@@ -918,6 +957,10 @@ type ScrollAcrossLineageResults {
   Indicates whether the results are partial due to reaching the maxRelations limit or timeout
   """
   isPartial: Boolean
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 """
@@ -968,6 +1011,11 @@ type SearchAcrossLineageResult {
   Whether this relationship was ignored as a hop
   """
   ignoredAsHop: Boolean!
+
+  """
+  How each field matched. Set when includeExplain is true.
+  """
+  explainMatches: [ExplainMatch!]
 }
 
 """
@@ -998,6 +1046,36 @@ type MatchedField {
   Entity if the value is an urn
   """
   entity: Entity
+}
+
+"""
+How a field matched. Present when the caller asked for an explanation.
+"""
+type ExplainMatch {
+  """
+  The same name a matched field reports: a logical field, or a structured property URN
+  """
+  field: String!
+
+  """
+  Matched text
+  """
+  value: String!
+
+  """
+  Indexed path that matched, such as name.keyword or name.stemmed
+  """
+  subfield: String!
+
+  """
+  exact, prefix, word, contains, or nameAndValue
+  """
+  mode: String!
+
+  """
+  Query text that produced the hit
+  """
+  query: String!
 }
 
 """

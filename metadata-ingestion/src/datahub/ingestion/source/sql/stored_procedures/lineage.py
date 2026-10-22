@@ -292,6 +292,18 @@ def _classify_statements(
             procedure_calls.append(call)
             continue
 
+        # An INSERT with no source is what `INSERT INTO #t EXEC p` leaves behind once
+        # the call splits off. Passed to the aggregator it registers `#t` as a temp
+        # table with no upstreams, and everything later built from `#t` then resolves
+        # to nothing -- costing the procedure its real output table. `DEFAULT VALUES`
+        # is the only other statement with this shape, and it already produced no
+        # lineage, so nothing is lost by dropping both.
+        if (
+            isinstance(parsed, sqlglot.exp.Insert)
+            and parsed.args.get("expression") is None
+        ):
+            continue
+
         # Skip TSQL control flow keywords that don't produce lineage.
         if is_dialect_instance(dialect, "tsql") and _is_tsql_control_flow_statement(
             stmt_upper

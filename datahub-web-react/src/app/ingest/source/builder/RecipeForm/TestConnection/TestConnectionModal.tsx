@@ -1,6 +1,7 @@
 import { green, red } from '@ant-design/colors';
-import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { Button } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -80,12 +81,12 @@ const CapabilitiesTitle = styled.div`
     margin-bottom: 5px;
 `;
 
-const StyledCheck = styled(CheckOutlined)`
+const StyledCheck = styled(Check)`
     color: ${green[6]};
     margin-right: 5px;
 `;
 
-const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(X)`
     color: ${red[5]};
     margin-right: 5px;
 `;

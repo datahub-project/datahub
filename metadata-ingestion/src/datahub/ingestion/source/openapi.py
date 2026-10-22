@@ -3,10 +3,10 @@ import logging
 import warnings
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
 
 import requests
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
@@ -73,6 +73,29 @@ class SchemaExtractionStats:
         )
 
 
+class OpenApiGetTokenConfig(ConfigModel):
+    request_type: Literal["get", "post"] = Field(
+        description="HTTP method used to retrieve an auth token."
+    )
+    url_complement: str = Field(
+        description="Path appended to the base URL for the token request. "
+        "For request_type=get, must contain {username} and {password} placeholders."
+    )
+
+    @model_validator(mode="after")
+    def validate_get_placeholders(self) -> "OpenApiGetTokenConfig":
+        if self.request_type == "get":
+            if "{username}" not in self.url_complement:
+                raise ValueError(
+                    "When request_type is 'get', url_complement must contain {username}"
+                )
+            if "{password}" not in self.url_complement:
+                raise ValueError(
+                    "When request_type is 'get', url_complement must contain {password}"
+                )
+        return self
+
+
 class OpenApiConfig(ConfigModel):
     """
     Configuration for OpenAPI source ingestion.
@@ -109,9 +132,11 @@ class OpenApiConfig(ConfigModel):
         "If authentication is required, add it to the proxy url directly e.g. "
         "`http://user:pass@10.10.1.10:3128/`.",
     )
-    forced_examples: dict = Field(
-        default={},
-        description="If no example is provided for a route, it is possible to create one using forced_example.",
+    forced_examples: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Path-parameter examples keyed by endpoint path. Values may be "
+        "scalars (str/int/float; bool is accepted via int) and are stringified for "
+        "URL composition.",
     )
     token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
@@ -119,8 +144,8 @@ class OpenApiConfig(ConfigModel):
     bearer_token: Optional[TransparentSecretStr] = Field(
         default=None, description="Bearer token for endpoint authentication."
     )
-    get_token: dict = Field(
-        default={}, description="Retrieving a token from the endpoint."
+    get_token: Optional[OpenApiGetTokenConfig] = Field(
+        default=None, description="Retrieving a token from the endpoint."
     )
     verify_ssl: bool = Field(
         default=True, description="Enable SSL certificate verification"
@@ -133,15 +158,68 @@ class OpenApiConfig(ConfigModel):
     )
     schema_resolution_max_depth: int = Field(
         default=10,
+        ge=1,
+        le=100,
         description="Maximum recursion depth for resolving schema references. "
         "Prevents infinite recursion from deeply nested or circular references. "
-        "Default is 10 levels.",
+        "Default is 10 levels; capped at 100 to avoid RecursionError.",
     )
+
+    @field_validator("get_token", mode="before")
+    @classmethod
+    def empty_get_token_to_none(cls, value: Any) -> Any:
+        # Recipes historically used get_token: {} to mean "unset".
+        if value == {} or value is None:
+            return None
+        return value
+
+    @field_validator("forced_examples", mode="before")
+    @classmethod
+    def stringify_forced_examples(cls, value: Any) -> Any:
+        # Docs/recipes use numeric path params (e.g. /pet/{petId}: [1]).
+        # Only coerce documented scalars — leave null/objects untouched so List[str]
+        # validation rejects them instead of silently emitting "None" in URLs.
+        if not isinstance(value, dict):
+            return value
+        coerced: Dict[str, Any] = {}
+        for endpoint, examples in value.items():
+            if not isinstance(examples, list):
+                coerced[endpoint] = examples
+                continue
+            coerced[endpoint] = [
+                # bool must be handled before int (it is a subclass): the docs
+                # promise "bool via int", so True/False become "1"/"0" rather
+                # than str(True) == "True", which most APIs reject for a boolean
+                # path param.
+                str(int(item))
+                if isinstance(item, bool)
+                else str(item)
+                if isinstance(item, (str, int, float))
+                else item
+                for item in examples
+            ]
+        return coerced
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
-        if self.bearer_token is not None and self.token is not None:
-            raise ValueError("Unable to use 'token' and 'bearer_token' together.")
+        # Truthiness, not `is not None`: an empty SecretStr("") (e.g. an unset
+        # env var substituted into token/bearer_token) is falsy and get_swagger()
+        # treats it as unconfigured, so it must not count as "configured" here.
+        configured = [
+            name
+            for name, value in (
+                ("token", self.token),
+                ("bearer_token", self.bearer_token),
+                ("get_token", self.get_token),
+            )
+            if value
+        ]
+        if len(configured) > 1:
+            raise ValueError(
+                "Unable to use "
+                + ", ".join(repr(name) for name in configured)
+                + " together; configure only one of 'token', 'bearer_token', or 'get_token'."
+            )
         return self
 
     def get_swagger(self) -> Dict:
@@ -155,10 +233,15 @@ class OpenApiConfig(ConfigModel):
             Dictionary containing the parsed OpenAPI specification
 
         Raises:
-            KeyError: If invalid token retrieval method is specified
-            AssertionError: If required URL complement parameters are missing
+            ValueError: If token retrieval fails or the token response has an
+                unexpected shape (get_token's request_type/url_complement are
+                validated at config construction time by OpenApiGetTokenConfig).
         """
-        if self.get_token or self.token or self.bearer_token is not None:
+        # Truthiness (not `is not None`) for all three: an empty SecretStr("") is
+        # falsy, and treating it as "configured" here would fall through to the
+        # else below and hit `assert self.get_token is not None` with neither
+        # get_token nor a real token/bearer_token actually set.
+        if self.get_token or self.token or self.bearer_token:
             if self.token:
                 pass
             elif self.bearer_token:
@@ -168,35 +251,23 @@ class OpenApiConfig(ConfigModel):
                 # details there once, and then use that session for all requests.
                 self.token = SecretStr(f"Bearer {self.bearer_token.get_secret_value()}")
             else:
-                assert "url_complement" in self.get_token, (
-                    "When 'request_type' is set to 'get', an url_complement is needed for the request."
-                )
-                if self.get_token["request_type"] == "get":
-                    assert "{username}" in self.get_token["url_complement"], (
-                        "we expect the keyword {username} to be present in the url"
-                    )
-                    assert "{password}" in self.get_token["url_complement"], (
-                        "we expect the keyword {password} to be present in the url"
-                    )
-                    url4req = self.get_token["url_complement"].replace(
+                assert self.get_token is not None
+                if self.get_token.request_type == "get":
+                    url4req = self.get_token.url_complement.replace(
                         "{username}", self.username
                     )
                     url4req = url4req.replace(
                         "{password}", self.password.get_secret_value()
                     )
-                elif self.get_token["request_type"] == "post":
-                    url4req = self.get_token["url_complement"]
                 else:
-                    raise KeyError(
-                        "This tool accepts only 'get' and 'post' as method for getting tokens"
-                    )
+                    url4req = self.get_token.url_complement
                 self.token = SecretStr(
                     get_tok(
                         url=self.url,
                         username=self.username,
                         password=self.password.get_secret_value(),
                         tok_url=url4req,
-                        method=self.get_token["request_type"],
+                        method=self.get_token.request_type,
                         proxies=self.proxies,
                         verify_ssl=self.verify_ssl,
                     )

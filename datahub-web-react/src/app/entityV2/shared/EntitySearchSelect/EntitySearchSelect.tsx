@@ -15,8 +15,11 @@ import { SelectOption, SelectSizeOptions } from '@components/components/Select/t
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
 import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
+import { buildEntityCache, isEntityResolutionRequired } from '@app/entityV2/shared/utils/selectorUtils';
+import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
 import { getUserFilters } from '@app/shared/userSearchUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
 import { useGetIngestionSourceNamesLazyQuery } from '@graphql/ingestion.generated';
@@ -44,17 +47,6 @@ const addToCache = (cache: Map<string, Entity>, entity: Entity) => {
     return newCache;
 };
 
-const buildCache = (entities: Entity[]) => {
-    const cache = new Map();
-    entities.forEach((entity) => cache.set(entity.urn, entity));
-    return cache;
-};
-
-const isResolutionRequired = (urns: string[], cache: Map<string, Entity>) => {
-    const uncachedUrns = urns.filter((urn) => !cache.has(urn));
-    return uncachedUrns.length > 0;
-};
-
 /**
  * A standardized entity search and selection component that allows users to search
  * for DataHub entities and select one or multiple entities. Built on top of the
@@ -75,16 +67,28 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
     isRequired = false,
     icon,
 }) => {
-    const { t } = useTranslation('entity.shared.selectors');
+    const { t } = useTranslation(['entity.shared.selectors', 'common.feedback']);
     const entityRegistry = useEntityRegistryV2();
-    const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
+    // Entities added the instant they're picked from the dropdown, before any network roundtrip —
+    // lets a freshly-selected chip show its real name/icon immediately.
+    const [optimisticCache, setOptimisticCache] = useState<Map<string, Entity>>(new Map());
     const [isOpen, setIsOpen] = useState(false);
     const selectRef = useRef<HTMLDivElement>(null);
+    const attemptedUrnsRef = useRef<Set<string>>(new Set());
 
     /**
      * Bootstrap by resolving all URNs that are not in the cache yet.
      */
-    const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
+    const [getEntities, { data: resolvedEntitiesData, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
+
+    // Derived directly from `resolvedEntitiesData` (not useState+useEffect) so the cache updates in
+    // the same render `entitiesLoading` flips to false — an effect-based copy lags one render behind,
+    // long enough to flash the raw urn before the follow-up render fills in the real name.
+    const entityCache = useMemo(() => {
+        const resolvedCache = buildEntityCache(resolvedEntitiesData?.entities);
+        optimisticCache.forEach((entity, urn) => resolvedCache.set(urn, entity));
+        return resolvedCache;
+    }, [resolvedEntitiesData, optimisticCache]);
 
     // Ingestion sources aren't in the entity registry and can't be resolved through the generic
     // entities() query — they get their own name lookup, mirroring the pre-refactor policy form.
@@ -97,17 +101,26 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
         [selectedUrns],
     );
 
-    const [getIngestionSourceNames, { data: sourceNamesData }] = useGetIngestionSourceNamesLazyQuery();
+    const [getIngestionSourceNames, { data: sourceNamesData, loading: sourceNamesLoading }] =
+        useGetIngestionSourceNamesLazyQuery();
 
     const ingestionSourceNames = useMemo(() => {
         const sources = sourceNamesData?.listIngestionSources?.ingestionSources || [];
-        return new Map(sources.map((source): [string, string] => [source.urn, source.name ?? source.urn]));
+        return new Map(sources.map((source) => [source.urn, source.name]));
     }, [sourceNamesData]);
 
+    const getEntityDisplayName = useCallback(
+        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
+        [entityRegistry],
+    );
+
     useEffect(() => {
-        if (isResolutionRequired(standardUrns, entityCache)) {
-            getEntities({ variables: { urns: standardUrns } });
+        const attemptedUrns = attemptedUrnsRef.current;
+        if (!isEntityResolutionRequired(standardUrns, entityCache, attemptedUrns)) {
+            return;
         }
+        standardUrns.forEach((urn) => attemptedUrns.add(urn));
+        getEntities({ variables: { urns: standardUrns } });
     }, [standardUrns, entityCache, getEntities]);
 
     useEffect(() => {
@@ -116,16 +129,6 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
             getIngestionSourceNames({ variables: { urns: ingestionSourceUrns } });
         }
     }, [ingestionSourceUrns, entityCache, ingestionSourceNames, getIngestionSourceNames]);
-
-    /**
-     * Build cache from resolved entities
-     */
-    useEffect(() => {
-        if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
-            const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
-            setEntityCache(buildCache(entities));
-        }
-    }, [resolvedEntitiesData]);
 
     const handleSelectionChange = useCallback(
         (newUrns: string[]) => {
@@ -140,13 +143,8 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
 
     const handleEntitySelect = useCallback((entity: Entity) => {
         // Add entity to cache when selected
-        setEntityCache((prevCache) => addToCache(prevCache, entity));
+        setOptimisticCache((prevCache) => addToCache(prevCache, entity));
     }, []);
-
-    const getEntityDisplayName = useCallback(
-        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
-        [entityRegistry],
-    );
 
     // Apply user filters when searching for CorpUser entities
     const defaultFilters = useMemo(() => {
@@ -177,18 +175,31 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
             // would return an empty label. Use the cached pseudo-entity's name (set by the
             // dropdown on selection) or the dedicated name lookup instead.
             if (extractTypeFromUrn(urn) === EntityType.IngestionSource) {
-                // The dropdown caches ingestion sources as pseudo-entities carrying a `name`,
-                // which the Entity union itself doesn't declare.
-                const cachedName = (entity as { name?: string } | undefined)?.name;
-                return { label: cachedName || ingestionSourceNames.get(urn) || urn, value: urn };
+                const name = (entity as any)?.name || ingestionSourceNames.get(urn);
+                if (!name && sourceNamesLoading) {
+                    return {
+                        label: t('common.feedback:loading'),
+                        value: urn,
+                        icon: <StyledSpinner $height={12} />,
+                    };
+                }
+                return { label: name || urn, value: urn };
             }
 
+            if (!entity && entitiesLoading) {
+                return {
+                    label: t('common.feedback:loading'),
+                    value: urn,
+                    icon: <StyledSpinner $height={12} />,
+                };
+            }
             return {
                 label: entity ? getEntityDisplayName(entity) : urn,
                 value: urn,
+                icon: entity ? <EntityIcon entity={entity} size={14} /> : undefined,
             };
         });
-    }, [selectedUrns, entityCache, getEntityDisplayName, ingestionSourceNames]);
+    }, [selectedUrns, entityCache, getEntityDisplayName, entitiesLoading, ingestionSourceNames, sourceNamesLoading, t]);
 
     const selectBase = (
         <SelectBase

@@ -149,3 +149,8 @@ extend type Mutation {
   """
   unlinkAssetVersion(input: UnlinkVersionInput!): VersionSet
 }
+
+extend type Api implements SupportsVersions {
+  versionProperties: VersionProperties
+    @aspectMapping(aspects: ["versionProperties"])
+}

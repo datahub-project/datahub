@@ -834,7 +834,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "null",
+                                "nativeDataType": "ROWID",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -846,7 +846,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "null",
+                                "nativeDataType": "ROWID",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -16594,7 +16594,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "null",
+                                "nativeDataType": "ROWID",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

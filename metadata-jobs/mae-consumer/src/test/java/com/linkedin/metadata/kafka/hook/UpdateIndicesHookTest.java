@@ -32,7 +32,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.graph.GraphService;
@@ -46,6 +45,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -54,7 +54,6 @@ import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
-import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -113,7 +112,6 @@ public class UpdateIndicesHookTest {
   private TimeseriesAspectService mockTimeseriesAspectService;
   private SystemMetadataService mockSystemMetadataService;
   private SearchDocumentTransformer searchDocumentTransformer;
-  private DataHubUpgradeKafkaListener mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider mockConfigurationProvider;
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
@@ -132,14 +130,13 @@ public class UpdateIndicesHookTest {
     mockSystemMetadataService = mock(SystemMetadataService.class);
     searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
-    mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
     // Hook invoke paths call flushAndWaitIfConfigured(); stub a disabled ack path.
     ESWriteDAO mockWriteDAO = mock(ESWriteDAO.class);
     ESBulkProcessor mockBulkProcessor = mock(ESBulkProcessor.class);
     when(mockEntitySearchService.getEsWriteDAO()).thenReturn(mockWriteDAO);
-    when(mockWriteDAO.getBulkProcessor()).thenReturn(mockBulkProcessor);
+    when(mockWriteDAO.bulkProcessors()).thenReturn(List.of(mockBulkProcessor));
     when(mockBulkProcessor.isAckAfterTransfer()).thenReturn(false);
 
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
@@ -984,12 +981,13 @@ public class UpdateIndicesHookTest {
 
     if (v3Enabled) {
       UpdateIndicesV3Strategy v3Strategy =
-          new UpdateIndicesV3Strategy(
-              EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
-              mockEntitySearchService,
-              searchDocumentTransformer,
-              mockTimeseriesAspectService,
-              null);
+          UpdateIndicesV3Strategy.builder()
+              .v3Config(
+                  EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+              .elasticSearchService(mockEntitySearchService)
+              .searchDocumentTransformer(searchDocumentTransformer)
+              .timeseriesAspectService(mockTimeseriesAspectService)
+              .build();
       strategies.add(v3Strategy);
     }
 

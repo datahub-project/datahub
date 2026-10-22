@@ -86,7 +86,7 @@ test.describe.skip('add_user', () => {
       .getByTestId('userItem-native')
       .click();
 
-    await page.getByTestId('resetButton').first().click();
+    await page.getByTestId('reset-menu-item').first().click();
     await page.getByTestId('refreshButton').click();
     await expect(page.getByText('Generated new link to reset credentials')).toBeVisible({ timeout: 15000 });
 

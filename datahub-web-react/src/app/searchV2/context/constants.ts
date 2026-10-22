@@ -34,6 +34,3 @@ export function getSortOptions() {
         },
     };
 }
-
-/** @deprecated Use getSortOptions() instead so labels are translated at call time. */
-export const SORT_OPTIONS = getSortOptions();

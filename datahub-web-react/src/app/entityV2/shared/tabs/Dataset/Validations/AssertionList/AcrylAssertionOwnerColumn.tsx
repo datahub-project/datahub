@@ -1,7 +1,6 @@
-import { Avatar, Tooltip } from '@components';
+import { Avatar, Tooltip, toast } from '@components';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -12,6 +11,7 @@ import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStack
 
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -29,14 +29,7 @@ function OwnerOption({ option }: OwnerOptionProps) {
     if (!item) return <>{option.label}</>;
     const avatarUrl =
         item.type === EntityType.CorpUser ? (item as CorpUser).editableProperties?.pictureLink || undefined : undefined;
-    return (
-        <Avatar
-            name={entityRegistry.getDisplayName(item.type, item)}
-            imageUrl={avatarUrl}
-            showInPill
-            type={mapEntityTypeToAvatarType(item.type)}
-        />
-    );
+    return <OwnerLabel name={entityRegistry.getDisplayName(item.type, item)} avatarUrl={avatarUrl} type={item.type} />;
 }
 
 const Container = styled.div`
@@ -165,11 +158,15 @@ export const AcrylAssertionOwnerColumn = ({ record, refetch }: Props) => {
                     },
                 });
             }
-            message.success(t('builder.details.ownersUpdated'), 2);
+            toast.success(t('builder.details.ownersUpdated'), { duration: 2 });
             setPopoverVisible(false);
             refetch?.();
         } catch (e) {
-            message.error(handleBatchError([record.urn], e, t('builder.details.failedUpdateOwners')));
+            const { content, duration } = handleBatchError([record.urn], e, {
+                content: t('builder.details.failedUpdateOwners'),
+                duration: 3,
+            });
+            toast.error(content, { duration });
         } finally {
             isSaving.current = false;
         }

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { isNullOrUndefined } from '@app/previewV2/utils';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 
@@ -66,7 +67,7 @@ export default function LineageBadge({ upstreamTotal, downstreamTotal, entityReg
             placement="bottom"
         >
             {hasLineage && (
-                <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
+                <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/${EntityTabPath.LINEAGE}`} {...linkProps}>
                     <Icon highlighted />
                 </Link>
             )}

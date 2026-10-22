@@ -49,6 +49,15 @@ export function useIsContextDocumentsEnabled(): boolean {
     return appConfig.config.featureFlags.contextDocumentsEnabled;
 }
 
+/**
+ * When true, document body edits stay local until the user saves.
+ * When false, the editor auto-saves.
+ */
+export function useIsDocumentExplicitSaveEnabled(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.documentExplicitSaveEnabled;
+}
+
 function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfigWithoutPolicyPrivileges) => boolean) {
     const { config, loaded } = useAppConfig();
     const flagValue = f(config);

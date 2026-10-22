@@ -178,6 +178,7 @@ export const SEARCHABLE_ENTITY_TYPES = [
     EntityType.Tag,
     EntityType.Role,
     EntityType.Application,
+    EntityType.Api,
 ];
 
 export const APPLIES_TO_ENTITIES = [
@@ -199,6 +200,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.SchemaField,
     EntityType.DataContract,
     EntityType.Application,
+    EntityType.Api,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
@@ -486,8 +488,7 @@ export function getStructuredPropertiesSearchInputs(
         types: [EntityType.StructuredProperty],
         query: '*',
         start: 0,
-        count: 100,
-        searchFlags: { skipCache: true },
+        count: 500,
         orFilters: [
             {
                 and: [

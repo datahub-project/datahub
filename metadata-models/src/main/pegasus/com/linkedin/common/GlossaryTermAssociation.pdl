@@ -18,7 +18,15 @@ record GlossaryTermAssociation {
     "addToFilters": true,
     "filterNameOverride": "Glossary Term",
     "includeSystemModifiedAt": true,
-    "systemModifiedAtFieldName": "termsModifiedAt"
+    "systemModifiedAtFieldName": "termsModifiedAt",
+    "boostScore": 0.5,
+    "v3": {
+      "includeSystemModifiedAt": false,
+      "searchLabel": "glossaryTerms",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   urn: GlossaryTermUrn
 
