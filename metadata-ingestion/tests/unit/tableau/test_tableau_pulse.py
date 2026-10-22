@@ -7,12 +7,18 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau.tableau_pulse import TableauPulseExtractor
+from datahub.ingestion.source.tableau.tableau_pulse import (
+    TableauPulseExtractor,
+    _definition_property_rows,
+    _metric_name,
+)
 from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
     MetricUpstreamsClass,
     SemanticModelInfoClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
@@ -40,6 +46,7 @@ def _config() -> TableauConfig:
             "connect_uri": "https://tableau.example",
             "site": "site",
             "extract_pulse_metrics": True,
+            "extract_pulse_metric_definition_properties": True,
             "page_size": 1,
         }
     )
@@ -72,6 +79,77 @@ def _aspects(workunits: List[Any], aspect_type: type) -> List[Any]:
     ]
 
 
+def _property_values(workunits: List[Any], entity_urn: str) -> Dict[str, str]:
+    values: Dict[str, str] = {}
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if (
+            isinstance(aspect, StructuredPropertiesClass)
+            and wu.metadata.entityUrn == entity_urn
+        ):
+            for assignment in aspect.properties:
+                qualified_name = str(assignment.propertyUrn).removeprefix(
+                    "urn:li:structuredProperty:"
+                )
+                values[qualified_name] = str(assignment.values[0])
+    return values
+
+
+def test_definition_properties_keep_nested_values() -> None:
+    rows = dict(
+        _definition_property_rows(
+            {
+                "specification": {
+                    "basic_specification": {
+                        "filters": [
+                            {
+                                "field": "Region",
+                                "categorical_values": [{"string_value": "West"}],
+                            }
+                        ]
+                    }
+                }
+            }
+        )
+    )
+    assert rows == {
+        "specification.basic_specification.filters": (
+            '[{"categorical_values": [{"string_value": "West"}], "field": "Region"}]'
+        )
+    }
+
+
+def test_long_filter_list_is_contracted_in_the_name() -> None:
+    metric = {
+        "id": "metric-filtered",
+        "is_default": False,
+        "specification": {
+            "filters": [
+                {
+                    "field": "Region",
+                    "categorical_values": [
+                        {"string_value": value}
+                        for value in ["West", "East", "North", "South", "Central"]
+                    ],
+                },
+                {
+                    "field": "Segment",
+                    "categorical_values": [
+                        {"string_value": "Consumer"},
+                        {"string_value": "Corporate"},
+                    ],
+                },
+                {
+                    "field": "Category",
+                    "categorical_values": [{"string_value": "Furniture"}],
+                },
+            ],
+            "measurement_period": {"granularity": "GRANULARITY_BY_MONTH"},
+        },
+    }
+    assert _metric_name("Sales", metric) == "Sales · Region=West +6 | by month"
+
+
 def test_extract_pulse_metrics_defaults_off() -> None:
     config = TableauConfig.model_validate(
         {
@@ -82,6 +160,23 @@ def test_extract_pulse_metrics_defaults_off() -> None:
         }
     )
     assert config.extract_pulse_metrics is False
+    assert config.extract_pulse_metric_definition_properties is False
+
+
+def test_definition_properties_are_only_emitted_when_enabled() -> None:
+    def get(url: str, **kwargs: Any) -> _Response:
+        if url.endswith("/metrics"):
+            return _Response({"metrics": []})
+        return _Response(
+            {"definitions": [{"metadata": {"id": "def-1", "name": "Sales"}}]}
+        )
+
+    extractor = _extractor(get)
+    extractor.config.extract_pulse_metric_definition_properties = False
+    workunits = list(extractor.emit())
+
+    assert _aspects(workunits, StructuredPropertyDefinitionClass) == []
+    assert _aspects(workunits, StructuredPropertiesClass) == []
 
 
 def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
@@ -190,6 +285,39 @@ def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
         "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-1)",
         "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-2)",
     ]
+    sales_properties = {
+        "tableau.pulse.metadata.id": "def-1",
+        "tableau.pulse.metadata.name": "Sales",
+        "tableau.pulse.metadata.description": "Sales pulse",
+        "tableau.pulse.metadata.schema_version": "1.2",
+        "tableau.pulse.metadata.created_at": "2024-01-01T00:00:00Z",
+        "tableau.pulse.specification.datasource.id": "ds-1",
+        "tableau.pulse.specification.basic_specification.measure.field": "Sales Amount",
+        "tableau.pulse.specification.basic_specification.measure.aggregation": "AGGREGATION_SUM",
+        "tableau.pulse.specification.basic_specification.time_dimension.field": "Order Date",
+        "tableau.pulse.specification.temporality": "TEMPORALITY_OVER_TIME",
+        "tableau.pulse.specification.is_running_total": "false",
+    }
+    assert _property_values(workunits, model_urns[0]) == sales_properties
+    assert _property_values(workunits, model_urns[1]) == {
+        "tableau.pulse.metadata.id": "def-2",
+        "tableau.pulse.metadata.name": "Profit",
+    }
+    definitions = {
+        wu.metadata.entityUrn: wu.metadata.aspect
+        for wu in workunits
+        if isinstance(
+            getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass
+        )
+    }
+    assert set(definitions) == {
+        f"urn:li:structuredProperty:{name}" for name in sales_properties
+    }
+    measure = definitions[
+        "urn:li:structuredProperty:tableau.pulse.specification.basic_specification.measure.field"
+    ]
+    assert measure.displayName == "Measure Field"
+    assert measure.entityTypes == ["urn:li:entityType:datahub.semanticModel"]
     metrics = [
         (wu.metadata.entityUrn, wu.metadata.aspect)
         for wu in workunits

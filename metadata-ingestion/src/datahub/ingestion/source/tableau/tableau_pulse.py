@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
@@ -18,8 +20,10 @@ from requests import Response
 from tableauserverclient import Server
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.emit_mode import EmitMode
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BrowsePathEntryClass,
@@ -35,6 +39,9 @@ from datahub.metadata.schema_classes import (
     MetricUpstreamsClass,
     SemanticModelInfoClass,
     StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -53,6 +60,10 @@ _PULSE_PAGE_SIZE_CAP = 1000
 _DEFINITIONS_PATH = "definitions"
 _UNKNOWN_ACTOR_URN = "urn:li:corpuser:unknown"
 _DEFINITION_SUBTYPE = "Pulse Metric Definition"
+_PROPERTY_PREFIX = "tableau.pulse"
+_PROPERTY_VALUE_LIMIT = 32000
+_STRING_VALUE_TYPE = "urn:li:dataType:datahub.string"
+_SEMANTIC_MODEL_TYPE = "urn:li:entityType:datahub.semanticModel"
 
 
 def _camel(name: str) -> str:
@@ -140,9 +151,46 @@ def _time_dimension(definition: Dict[str, Any]) -> Optional[str]:
     return str(field_name) if field_name else None
 
 
+# Names stay readable when a metric carries a long filter list. The full
+# list remains in the metric description.
+_MAX_FILTER_NAME_LENGTH = 48
+
+
+def _contracted_filters(specification: Dict[str, Any]) -> str:
+    raw_filters: List[Dict[str, Any]] = []
+    labels: List[str] = []
+    for pulse_filter in _as_list(_field(specification, "filters")):
+        if not isinstance(pulse_filter, dict):
+            continue
+        label = _filter_label(pulse_filter)
+        if not label:
+            continue
+        raw_filters.append(pulse_filter)
+        labels.append(label)
+    if not labels:
+        return ""
+    full = " | ".join(labels)
+    if len(full) <= _MAX_FILTER_NAME_LENGTH:
+        return full
+    first = raw_filters[0]
+    field_name = _field(first, "field")
+    values = _filter_values(first)
+    if field_name and values:
+        head = f"{field_name}={values[0]}"
+        hidden = len(values) - 1
+    else:
+        head = labels[0]
+        hidden = 0
+    hidden += len(labels) - 1
+    if hidden:
+        return f"{head} +{hidden}"
+    return head
+
+
 def _metric_qualifier(metric: Dict[str, Any]) -> str:
     specification = _as_dict(_field(metric, "specification"))
-    parts = _filter_labels(specification)
+    contracted = _contracted_filters(specification)
+    parts = [contracted] if contracted else []
     period = _as_dict(_field(specification, "measurement_period"))
     granularity = _field(period, "granularity")
     if (
@@ -198,6 +246,53 @@ def _native_definition(definition: Dict[str, Any]) -> Optional[str]:
     if datasource_id:
         lines.append(f"datasource_id: {datasource_id}")
     return "\n".join(lines) or None
+
+
+def _scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _definition_property_rows(value: Any, path: str = "") -> List[Tuple[str, str]]:
+    if isinstance(value, dict):
+        rows: List[Tuple[str, str]] = []
+        for key, child in value.items():
+            child_path = f"{path}.{key}" if path else str(key)
+            rows.extend(_definition_property_rows(child, child_path))
+        return rows
+    if isinstance(value, list):
+        if not path or not value:
+            return []
+        if any(isinstance(item, (dict, list)) for item in value):
+            rendered = json.dumps(value, sort_keys=True)
+        else:
+            rendered = ", ".join(_scalar(item) for item in value)
+        return [(path, rendered)] if rendered else []
+    if not path or value is None or value == "":
+        return []
+    return [(path, _scalar(value))]
+
+
+def _property_qualified_name(path: str) -> str:
+    safe = ".".join(
+        re.sub(r"[^A-Za-z0-9_]", "_", segment) for segment in path.split(".") if segment
+    )
+    return f"{_PROPERTY_PREFIX}.{safe}"
+
+
+def _property_display_name(path: str) -> str:
+    parts = [segment for segment in path.split(".") if segment]
+    while len(parts) > 1 and parts[0] in {"specification", "basic_specification"}:
+        parts = parts[1:]
+    return " ".join(part.replace("_", " ").title() for part in parts)
+
+
+def _limit_property_value(value: str) -> str:
+    encoded = value.encode()
+    if len(encoded) <= _PROPERTY_VALUE_LIMIT:
+        return value
+    return encoded[: _PROPERTY_VALUE_LIMIT - 3].decode(errors="ignore") + "..."
 
 
 def _metric_expression(definition: Dict[str, Any]) -> Optional[MetricExpressionClass]:
@@ -321,6 +416,7 @@ class TableauPulseExtractor:
         browse_prefix: str,
         datasource_urns: Optional[Dict[str, str]] = None,
         datasource_fields: Optional[Dict[str, Set[str]]] = None,
+        graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config = config
         self.server = server
@@ -329,6 +425,8 @@ class TableauPulseExtractor:
         self.browse_prefix = browse_prefix
         self.datasource_urns = datasource_urns or {}
         self.datasource_fields = datasource_fields or {}
+        self.graph = graph
+        self._defined_properties: Set[str] = set()
 
     def emit(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -426,6 +524,12 @@ class TableauPulseExtractor:
                     ]
                 )
             )
+        if self.config.extract_pulse_metric_definition_properties:
+            property_rows = _definition_property_rows(definition)
+            yield from self._property_definitions(property_rows)
+            properties = self._structured_properties(property_rows)
+            if properties is not None:
+                model_aspects.append(properties)
         yield from _workunits(model_urn, model_aspects)
         self.report.num_pulse_definitions += 1
 
@@ -497,6 +601,65 @@ class TableauPulseExtractor:
             ],
         )
         self.report.num_pulse_metrics += 1
+
+    def _property_definitions(
+        self, rows: Sequence[Tuple[str, str]]
+    ) -> Iterable[MetadataWorkUnit]:
+        for path, _value in rows:
+            qualified_name = _property_qualified_name(path)
+            if qualified_name in self._defined_properties:
+                continue
+            self._defined_properties.add(qualified_name)
+            definition_mcp = MetadataChangeProposalWrapper(
+                entityUrn=f"urn:li:structuredProperty:{qualified_name}",
+                aspect=StructuredPropertyDefinitionClass(
+                    qualifiedName=qualified_name,
+                    displayName=_property_display_name(path),
+                    description=f"Tableau Pulse metric definition field {path}.",
+                    valueType=_STRING_VALUE_TYPE,
+                    entityTypes=[_SEMANTIC_MODEL_TYPE],
+                ),
+            )
+            if self.graph is not None:
+                try:
+                    self.graph.emit_mcp(definition_mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+                    continue
+                except Exception as exc:
+                    self.report.warning(
+                        title="Failed to register Tableau Pulse property",
+                        message=(
+                            "The Pulse field is still emitted as a property. "
+                            "DataHub accepts the value once this property exists."
+                        ),
+                        context=qualified_name,
+                        exc=exc,
+                    )
+            yield definition_mcp.as_workunit()
+
+    def _structured_properties(
+        self, rows: Sequence[Tuple[str, str]]
+    ) -> Optional[StructuredPropertiesClass]:
+        assignments: List[StructuredPropertyValueAssignmentClass] = []
+        for path, value in rows:
+            limited = _limit_property_value(value)
+            if limited != value:
+                self.report.warning(
+                    title="Truncated Tableau Pulse property value",
+                    message=(
+                        "A Pulse definition field was longer than a property "
+                        "value can store, so it was shortened."
+                    ),
+                    context=path,
+                )
+            assignments.append(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=f"urn:li:structuredProperty:{_property_qualified_name(path)}",
+                    values=[limited],
+                )
+            )
+        if not assignments:
+            return None
+        return StructuredPropertiesClass(properties=assignments)
 
     def _resolve_datasource(self, keys: Sequence[str]) -> Optional[str]:
         for key in keys:

@@ -644,9 +644,17 @@ class TableauConfig(
             "Ingest Tableau Pulse metric definitions from the Pulse REST API "
             "(`GET /api/-/pulse/definitions` and "
             "`GET /api/-/pulse/definitions/{definition_id}/metrics`). "
-            "Each metric definition is emitted as a dataset with subtype "
-            "Metric Definition, and each metric in that definition is a column. "
+            "Each metric definition is emitted as a semantic model, and each "
+            "metric in that definition is emitted as a metric entity. "
             "Tableau Cloud only. Disabled by default."
+        ),
+    )
+    extract_pulse_metric_definition_properties: bool = Field(
+        default=False,
+        description=(
+            "Add every field returned by Tableau Pulse for a metric definition "
+            "to the semantic model's Properties tab. Requires "
+            "`extract_pulse_metrics: true`. Disabled by default."
         ),
     )
 
@@ -4933,6 +4941,7 @@ class TableauSiteSource:
                         browse_prefix=self.dataset_browse_prefix,
                         datasource_urns=self.datasource_urn_by_id,
                         datasource_fields=self.datasource_fields_by_urn,
+                        graph=self.ctx.graph,
                     ).emit()
                     self.report.emit_pulse_metrics_timer[self.site_content_url] = (
                         timer.elapsed_seconds(digits=2)
