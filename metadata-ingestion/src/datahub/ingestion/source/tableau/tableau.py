@@ -657,6 +657,14 @@ class TableauConfig(
             "`extract_pulse_metrics: true`. Disabled by default."
         ),
     )
+    extract_pulse_metric_properties: bool = Field(
+        default=False,
+        description=(
+            "Add each Tableau Pulse metric's filters to that metric's "
+            "Properties tab. Requires `extract_pulse_metrics: true`. "
+            "Disabled by default."
+        ),
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""

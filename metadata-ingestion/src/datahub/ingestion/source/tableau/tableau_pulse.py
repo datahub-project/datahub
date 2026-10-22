@@ -61,9 +61,11 @@ _DEFINITIONS_PATH = "definitions"
 _UNKNOWN_ACTOR_URN = "urn:li:corpuser:unknown"
 _DEFINITION_SUBTYPE = "Pulse Metric Definition"
 _PROPERTY_PREFIX = "tableau.pulse"
+_METRIC_FILTER_PREFIX = "tableau.pulse.metric.filter"
 _PROPERTY_VALUE_LIMIT = 32000
 _STRING_VALUE_TYPE = "urn:li:dataType:datahub.string"
 _SEMANTIC_MODEL_TYPE = "urn:li:entityType:datahub.semanticModel"
+_METRIC_ENTITY_TYPE = "urn:li:entityType:datahub.metric"
 
 
 def _camel(name: str) -> str:
@@ -274,11 +276,35 @@ def _definition_property_rows(value: Any, path: str = "") -> List[Tuple[str, str
     return [(path, _scalar(value))]
 
 
-def _property_qualified_name(path: str) -> str:
+def _metric_filter_rows(metric: Dict[str, Any]) -> List[Tuple[str, str]]:
+    specification = _as_dict(_field(metric, "specification"))
+    values_by_field: Dict[str, List[str]] = {}
+    field_order: List[str] = []
+    for pulse_filter in _as_list(_field(specification, "filters")):
+        if not isinstance(pulse_filter, dict):
+            continue
+        field_name = _field(pulse_filter, "field")
+        values = _filter_values(pulse_filter)
+        if not field_name or not values:
+            continue
+        field_name = str(field_name)
+        if field_name not in values_by_field:
+            field_order.append(field_name)
+            values_by_field[field_name] = []
+        for value in values:
+            if value not in values_by_field[field_name]:
+                values_by_field[field_name].append(value)
+    return [
+        (field_name, ", ".join(values_by_field[field_name]))
+        for field_name in field_order
+    ]
+
+
+def _property_qualified_name(path: str, prefix: str) -> str:
     safe = ".".join(
         re.sub(r"[^A-Za-z0-9_]", "_", segment) for segment in path.split(".") if segment
     )
-    return f"{_PROPERTY_PREFIX}.{safe}"
+    return f"{prefix}.{safe}"
 
 
 def _property_display_name(path: str) -> str:
@@ -526,8 +552,15 @@ class TableauPulseExtractor:
             )
         if self.config.extract_pulse_metric_definition_properties:
             property_rows = _definition_property_rows(definition)
-            yield from self._property_definitions(property_rows)
-            properties = self._structured_properties(property_rows)
+            yield from self._property_definitions(
+                property_rows,
+                prefix=_PROPERTY_PREFIX,
+                entity_type=_SEMANTIC_MODEL_TYPE,
+                field_label="metric definition",
+            )
+            properties = self._structured_properties(
+                property_rows, prefix=_PROPERTY_PREFIX
+            )
             if properties is not None:
                 model_aspects.append(properties)
         yield from _workunits(model_urn, model_aspects)
@@ -580,33 +613,49 @@ class TableauPulseExtractor:
             self._resolve_datasource(_datasource_keys(definition, metric))
             or definition_datasource_urn
         )
-        yield from _workunits(
-            metric_urn,
-            [
-                StatusClass(removed=False),
-                MetricInfoClass(
-                    name=_metric_name(definition_name, metric),
-                    description=_metric_description(definition, metric),
-                    created=created,
-                    lastModified=created,
-                    expression=_metric_expression(definition),
-                    semanticModel=model_urn,
-                ),
-                self._platform_instance(platform_urn),
-                # Emit relationships with no parent so the metric is a root in
-                # the Metrics sidebar (hasParentMetric indexes as false).
-                MetricRelationshipsClass(derivedFrom=[]),
-                self._metric_upstreams(datasource_urn, definition, metric),
-                self._browse_path(browse_name, model_urn),
-            ],
-        )
+        metric_aspects: List[Any] = [
+            StatusClass(removed=False),
+            MetricInfoClass(
+                name=_metric_name(definition_name, metric),
+                description=_metric_description(definition, metric),
+                created=created,
+                lastModified=created,
+                expression=_metric_expression(definition),
+                semanticModel=model_urn,
+            ),
+            self._platform_instance(platform_urn),
+            # Emit relationships with no parent so the metric is a root in
+            # the Metrics sidebar (hasParentMetric indexes as false).
+            MetricRelationshipsClass(derivedFrom=[]),
+            self._metric_upstreams(datasource_urn, definition, metric),
+            self._browse_path(browse_name, model_urn),
+        ]
+        if self.config.extract_pulse_metric_properties:
+            property_rows = _metric_filter_rows(metric)
+            yield from self._property_definitions(
+                property_rows,
+                prefix=_METRIC_FILTER_PREFIX,
+                entity_type=_METRIC_ENTITY_TYPE,
+                field_label="metric filter",
+            )
+            properties = self._structured_properties(
+                property_rows, prefix=_METRIC_FILTER_PREFIX
+            )
+            if properties is not None:
+                metric_aspects.append(properties)
+        yield from _workunits(metric_urn, metric_aspects)
         self.report.num_pulse_metrics += 1
 
     def _property_definitions(
-        self, rows: Sequence[Tuple[str, str]]
+        self,
+        rows: Sequence[Tuple[str, str]],
+        *,
+        prefix: str,
+        entity_type: str,
+        field_label: str,
     ) -> Iterable[MetadataWorkUnit]:
         for path, _value in rows:
-            qualified_name = _property_qualified_name(path)
+            qualified_name = _property_qualified_name(path, prefix)
             if qualified_name in self._defined_properties:
                 continue
             self._defined_properties.add(qualified_name)
@@ -615,9 +664,9 @@ class TableauPulseExtractor:
                 aspect=StructuredPropertyDefinitionClass(
                     qualifiedName=qualified_name,
                     displayName=_property_display_name(path),
-                    description=f"Tableau Pulse metric definition field {path}.",
+                    description=f"Tableau Pulse {field_label} field {path}.",
                     valueType=_STRING_VALUE_TYPE,
-                    entityTypes=[_SEMANTIC_MODEL_TYPE],
+                    entityTypes=[entity_type],
                 ),
             )
             if self.graph is not None:
@@ -637,7 +686,7 @@ class TableauPulseExtractor:
             yield definition_mcp.as_workunit()
 
     def _structured_properties(
-        self, rows: Sequence[Tuple[str, str]]
+        self, rows: Sequence[Tuple[str, str]], *, prefix: str
     ) -> Optional[StructuredPropertiesClass]:
         assignments: List[StructuredPropertyValueAssignmentClass] = []
         for path, value in rows:
@@ -646,14 +695,14 @@ class TableauPulseExtractor:
                 self.report.warning(
                     title="Truncated Tableau Pulse property value",
                     message=(
-                        "A Pulse definition field was longer than a property "
-                        "value can store, so it was shortened."
+                        "A Pulse field was longer than a property value can "
+                        "store, so it was shortened."
                     ),
                     context=path,
                 )
             assignments.append(
                 StructuredPropertyValueAssignmentClass(
-                    propertyUrn=f"urn:li:structuredProperty:{_property_qualified_name(path)}",
+                    propertyUrn=f"urn:li:structuredProperty:{_property_qualified_name(path, prefix)}",
                     values=[limited],
                 )
             )

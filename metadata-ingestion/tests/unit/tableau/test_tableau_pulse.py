@@ -47,6 +47,7 @@ def _config() -> TableauConfig:
             "site": "site",
             "extract_pulse_metrics": True,
             "extract_pulse_metric_definition_properties": True,
+            "extract_pulse_metric_properties": True,
             "page_size": 1,
         }
     )
@@ -161,6 +162,7 @@ def test_extract_pulse_metrics_defaults_off() -> None:
     )
     assert config.extract_pulse_metrics is False
     assert config.extract_pulse_metric_definition_properties is False
+    assert config.extract_pulse_metric_properties is False
 
 
 def test_definition_properties_are_only_emitted_when_enabled() -> None:
@@ -173,6 +175,7 @@ def test_definition_properties_are_only_emitted_when_enabled() -> None:
 
     extractor = _extractor(get)
     extractor.config.extract_pulse_metric_definition_properties = False
+    extractor.config.extract_pulse_metric_properties = False
     workunits = list(extractor.emit())
 
     assert _aspects(workunits, StructuredPropertyDefinitionClass) == []
@@ -310,9 +313,9 @@ def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
             getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass
         )
     }
-    assert set(definitions) == {
-        f"urn:li:structuredProperty:{name}" for name in sales_properties
-    }
+    assert {f"urn:li:structuredProperty:{name}" for name in sales_properties}.issubset(
+        set(definitions)
+    )
     measure = definitions[
         "urn:li:structuredProperty:tableau.pulse.specification.basic_specification.measure.field"
     ]
@@ -339,6 +342,15 @@ def test_definition_is_a_semantic_model_and_metrics_are_metrics() -> None:
     assert "Granularity: BY_MONTH" in filtered.description
     assert "Comparison: PREVIOUS_PERIOD" in filtered.description
     assert "Datasource: luid-1" in filtered.description
+    assert _property_values(workunits, sales_metrics[0][0]) == {}
+    assert _property_values(workunits, sales_metrics[1][0]) == {
+        "tableau.pulse.metric.filter.Region": "West",
+    }
+    metric_filters = definitions[
+        "urn:li:structuredProperty:tableau.pulse.metric.filter.Region"
+    ]
+    assert metric_filters.displayName == "Region"
+    assert metric_filters.entityTypes == ["urn:li:entityType:datahub.metric"]
     relationships = _aspects(workunits, MetricRelationshipsClass)
     assert relationships
     assert all(aspect.parentMetric is None for aspect in relationships)
