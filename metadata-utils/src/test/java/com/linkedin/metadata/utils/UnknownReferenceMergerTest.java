@@ -4,15 +4,26 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.incident.IncidentAssignee;
+import com.linkedin.incident.IncidentAssigneeArray;
+import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentSource;
+import com.linkedin.incident.IncidentSourceType;
+import com.linkedin.incident.IncidentState;
+import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
@@ -64,6 +75,63 @@ public class UnknownReferenceMergerTest {
   }
 
   @Test
+  public void testClearedRecordTheClientSawStaysCleared() {
+    // Readers saw the source without its unknown urn, so clearing it was deliberate.
+    final IncidentInfo request = incident();
+
+    final UnknownReferenceMerger.MergeResult result =
+        UnknownReferenceMerger.merge(request, incident().setSource(source(BOT)), registry);
+
+    assertEquals(result.preserved(), 0);
+    assertFalse(request.hasSource());
+  }
+
+  @Test
+  public void testUnknownUrnOfARecordTheClientKeptIsKept() {
+    final IncidentInfo request = incident().setSource(source(null));
+
+    UnknownReferenceMerger.merge(request, incident().setSource(source(BOT)), registry);
+
+    assertEquals(request.getSource().getSourceUrn(), BOT);
+  }
+
+  @Test
+  public void testClearedRecordTheClientCouldNotSeeIsKept() {
+    // An attribution whose required actor is of an unknown type is dropped whole on read.
+    final Ownership stored = ownership(ALICE);
+    stored.getOwners().get(0).setAttribution(new MetadataAttribution().setTime(0L).setActor(BOT));
+    final Ownership request = ownership(ALICE);
+
+    final UnknownReferenceMerger.MergeResult result =
+        UnknownReferenceMerger.merge(request, stored, registry);
+
+    assertEquals(result.preserved(), 1);
+    assertEquals(request, stored);
+  }
+
+  @Test
+  public void testClearedListOfElementsTheClientSawStaysAbsent() {
+    final IncidentInfo request = incident();
+
+    UnknownReferenceMerger.merge(
+        request, incident().setAssignees(assignees(assignee(ALICE, BOT))), registry);
+
+    assertFalse(request.hasAssignees());
+  }
+
+  @Test
+  public void testClearedListKeepsOnlyElementsTheClientCouldNotSee() {
+    final IncidentInfo request = incident();
+
+    UnknownReferenceMerger.merge(
+        request,
+        incident().setAssignees(assignees(assignee(ALICE, BOT), assignee(BOT, null))),
+        registry);
+
+    assertEquals(request.getAssignees(), assignees(assignee(BOT, null)));
+  }
+
+  @Test
   public void testAddedReferenceIsReportedAndNothingIsMerged() {
     final Ownership request = ownership(ALICE, OTHER_BOT);
 
@@ -112,6 +180,37 @@ public class UnknownReferenceMergerTest {
     return new Ownership()
         .setOwners(ownerArray)
         .setLastModified(new AuditStamp().setTime(0L).setActor(ALICE));
+  }
+
+  private static IncidentInfo incident() {
+    return new IncidentInfo()
+        .setType(IncidentType.OPERATIONAL)
+        .setEntities(new UrnArray(List.of(ALICE)))
+        .setStatus(
+            new IncidentStatus()
+                .setState(IncidentState.ACTIVE)
+                .setLastUpdated(new AuditStamp().setTime(0L).setActor(ALICE)))
+        .setCreated(new AuditStamp().setTime(0L).setActor(ALICE));
+  }
+
+  private static IncidentSource source(final Urn sourceUrn) {
+    final IncidentSource source = new IncidentSource().setType(IncidentSourceType.MANUAL);
+    if (sourceUrn != null) {
+      source.setSourceUrn(sourceUrn);
+    }
+    return source;
+  }
+
+  private static IncidentAssignee assignee(final Urn actor, final Urn impersonator) {
+    final AuditStamp assignedAt = new AuditStamp().setTime(0L).setActor(ALICE);
+    if (impersonator != null) {
+      assignedAt.setImpersonator(impersonator);
+    }
+    return new IncidentAssignee().setActor(actor).setAssignedAt(assignedAt);
+  }
+
+  private static IncidentAssigneeArray assignees(final IncidentAssignee... assignees) {
+    return new IncidentAssigneeArray(List.of(assignees));
   }
 
   private static List<Urn> owners(final Ownership ownership) {

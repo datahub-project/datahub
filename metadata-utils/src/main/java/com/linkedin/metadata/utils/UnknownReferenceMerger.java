@@ -23,9 +23,11 @@ import javax.annotation.Nullable;
  * client that writes back what it read would delete them. Instead, a write keeps every stored
  * reference to such a type that it couldn't have seen, at its stored position, and a client can't
  * delete one: one the request no longer holds is put back, even when the client cleared the list or
- * field that held it. A reference to such a type that the stored aspect doesn't hold is an
- * addition, which the caller rejects; typos stay client errors. Because kept references go back
- * where they were stored, writing back what was read leaves the aspect as stored.
+ * field that held it. Clearing a field readers did see (e.g. a record shown without its unknown
+ * urn) stands, and deletes the references inside it with it. A reference to such a type that the
+ * stored aspect doesn't hold is an addition, which the caller rejects; typos stay client errors.
+ * Because kept references go back where they were stored, writing back what was read leaves the
+ * aspect as stored.
  */
 public final class UnknownReferenceMerger {
 
@@ -91,12 +93,19 @@ public final class UnknownReferenceMerger {
         schema = typeref.getRef();
       }
       if (request == null) {
-        // The client cleared what held them: keep only what it couldn't see.
+        // The client cleared what held them: keep only what it couldn't see. A list or map comes
+        // back only if it held such elements, and anything else only if readers never saw it
+        // (e.g. a record whose required urn is of an unknown type); clearing what they saw stands.
         if (schema instanceof ArrayDataSchema) {
-          return merge(new DataList(), stored, schema);
+          final DataList kept = (DataList) merge(new DataList(), stored, schema);
+          return kept.isEmpty() ? null : kept;
         }
         if (schema instanceof MapDataSchema) {
-          return merge(new DataMap(), stored, schema);
+          final DataMap kept = (DataMap) merge(new DataMap(), stored, schema);
+          return kept.isEmpty() ? null : kept;
+        }
+        if (!UnknownEntityUrnStripper.wouldRemove(stored, schema, entityRegistry)) {
+          return null;
         }
         preserved++;
         return UnknownEntityUrnStripper.copyOf(stored);
