@@ -609,4 +609,156 @@ public class DataHubDataFetcherExceptionHandlerTest {
     assertTrue(error.getMessage().contains("Slice 0 timed out"));
     assertEquals(error.getErrorCode(), 504);
   }
+
+  private static com.linkedin.metadata.aspect.batch.BatchItem mockBatchItem() {
+    com.linkedin.metadata.aspect.batch.BatchItem item =
+        Mockito.mock(com.linkedin.metadata.aspect.batch.BatchItem.class);
+    Mockito.when(item.getChangeType()).thenReturn(com.linkedin.events.metadata.ChangeType.UPSERT);
+    Mockito.when(item.getUrn())
+        .thenReturn(
+            com.linkedin.common.urn.UrnUtils.getUrn(
+                "urn:li:dataset:(urn:li:dataPlatform:hive,handler_test,PROD)"));
+    Mockito.when(item.getAspectName()).thenReturn("datasetProperties");
+    return item;
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionMarksValidationSource()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(mockBatchItem(), "At least one rule is required.");
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertTrue(error.getMessage().contains("At least one rule is required."));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionAuthorizationSubtypeIs403()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(
+        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forAuth(
+            mockBatchItem(), "Not authorized to modify this aspect"));
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // Authorization-subtype validator failures are permission errors: 403, no VALIDATION marker.
+    assertEquals(error.getErrorCode(), 403);
+    assertTrue(error.getMessage().contains("Not authorized to modify this aspect"));
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionWithoutMessageFallsBack()
+      throws ExecutionException, InterruptedException {
+    // Not every construction path supplies a message (e.g. ValidationApiUtils wraps an
+    // IllegalArgumentException whose getMessage() can be null). GraphQL's `message` is non-null,
+    // and a placeholder must not be marked as real validator text.
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException((String) null);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionWithBlankValidatorMessages()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(mockBatchItem(), "");
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    assertEquals(result.getErrors().size(), 1);
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // ValidationException.getMessage() falls back to the collection dump for logs/REST, but the
+    // client must never see it: the handler reads the collection's user-facing text, finds none,
+    // and degrades to the generic message without the VALIDATION marker.
+    assertTrue(exception.getMessage().contains("Failed to validate MCP due to:"));
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testHandleMetadataValidationExceptionFilterSubTypeNotSurfaced()
+      throws ExecutionException, InterruptedException {
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(
+        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forFilter(
+            mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
+    com.linkedin.metadata.entity.validation.ValidationException exception =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    Mockito.when(mockParameters.getException()).thenReturn(exception);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    // FILTER text describes an internal drop, not something the user did wrong - it stays in the
+    // logs/REST message and the client degrades to its own default.
+    assertTrue(exception.getMessage().contains("If-None-Match"));
+    assertEquals(error.getMessage(), "An unknown error occurred.");
+    assertEquals(error.getExtensions().get("errorSource"), null);
+  }
+
+  @Test
+  public void testWrappedMetadataValidationExceptionDoesNotLeakLogsMessage()
+      throws ExecutionException, InterruptedException {
+    // IngestProposalExceptionUtils (data-product / logical-parent batch paths) wraps metadata-io's
+    // ValidationException inside the graphql-layer one. The graphql branch walks causes, so if it
+    // matched first it would splice this cause's logs/REST message - FILTER text, or the
+    // collection-dump fallback - into a VALIDATION-marked toast. The metadata branch is ordered
+    // above it precisely so the collection's user-facing text is used instead.
+    com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+        com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection
+            .newCollection();
+    collection.addException(mockBatchItem(), "At least one rule is required.");
+    collection.addException(
+        com.linkedin.metadata.aspect.plugins.validation.AspectValidationException.forFilter(
+            mockBatchItem(), "Dropping write per precondition header If-None-Match: *"));
+    com.linkedin.metadata.entity.validation.ValidationException cause =
+        new com.linkedin.metadata.entity.validation.ValidationException(collection);
+    ValidationException wrapper = new ValidationException("Failed to ingest proposal", cause);
+    Mockito.when(mockParameters.getException()).thenReturn(wrapper);
+
+    DataFetcherExceptionHandlerResult result = handler.handleException(mockParameters).get();
+
+    DataHubGraphQLError error = (DataHubGraphQLError) result.getErrors().get(0);
+    assertEquals(error.getMessage(), "At least one rule is required.");
+    assertFalse(error.getMessage().contains("If-None-Match"));
+    assertFalse(error.getMessage().contains("ValidationExceptionCollection"));
+    assertEquals(error.getErrorCode(), 400);
+    assertEquals(error.getExtensions().get("errorSource"), "VALIDATION");
+  }
 }
