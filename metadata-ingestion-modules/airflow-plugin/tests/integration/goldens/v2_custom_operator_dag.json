@@ -16,7 +16,7 @@
                 "tags": "[\"example_tag\"]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=custom_operator_dag",
+            "externalUrl": "http://airflow.example.com/dags/custom_operator_dag",
             "name": "custom_operator_dag",
             "description": "An example dag with custom operator",
             "env": "PROD"
@@ -166,7 +166,7 @@
                 "tags": "[\"example_tag\"]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=custom_operator_dag",
+            "externalUrl": "http://airflow.example.com/dags/custom_operator_dag",
             "name": "custom_operator_dag",
             "description": "An example dag with custom operator",
             "env": "PROD"
