@@ -337,6 +337,8 @@ export interface Tab {
     dataTestId?: string;
     disabled?: boolean;
     closable?: boolean;
+    /** Included in the tab error boundary reset keys so a new value clears a stuck fallback. */
+    errorResetKey?: string;
 }
 
 export interface Props extends Pick<TabsProps, 'tabBarExtraContent'> {
@@ -440,7 +442,7 @@ export function Tabs({
         ),
         disabled: tab.disabled,
         children: (
-            <ErrorBoundary resetKeys={[tab.key]} variant="tab">
+            <ErrorBoundary resetKeys={[tab.key, tab.errorResetKey ?? '']} variant="tab">
                 {tab.component}
             </ErrorBoundary>
         ),
