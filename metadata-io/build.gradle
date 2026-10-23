@@ -291,7 +291,7 @@ test {
 // They keep the same no-op behavior as before this change and must be re-enabled in a follow-up
 // once those tests are fixed. The container-free shim unit tests the es8 suite used to carry now
 // run in the OpenSearch suites (see testng-opensearch.xml).
-def deliberatelyUnwiredSuites = ['testMysql', 'testOther', 'testEs8', 'testCassandraNeo4j']
+def deliberatelyUnwiredSuites = ['testMysql', 'testEs8', 'testCassandraNeo4j']
 tasks.withType(Test).configureEach {
   if (!(name in deliberatelyUnwiredSuites)) {
     testClassesDirs = sourceSets.test.output.classesDirs
