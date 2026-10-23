@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkdocs_website=globalThis.webpackChunkdocs_website||[]).push([[10514],{73788(a){a.exports=JSON.parse('{"label":"Data Pipeline","permalink":"/learn/tags/data-pipeline","allTagsPath":"/learn/tags","count":1}')}}]);

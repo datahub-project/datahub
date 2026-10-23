@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkdocs_website=globalThis.webpackChunkdocs_website||[]).push([[45309],{80252(a){a.exports=JSON.parse('{"label":"Data Mesh","permalink":"/learn/tags/data-mesh","allTagsPath":"/learn/tags","count":1}')}}]);
