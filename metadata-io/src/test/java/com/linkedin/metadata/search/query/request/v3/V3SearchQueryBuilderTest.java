@@ -1068,6 +1068,30 @@ public class V3SearchQueryBuilderTest {
         plain.toString());
   }
 
+  @Test
+  public void testExactMatchClausesCoverUserDisplayName() {
+    // Users keep their entity name in displayName and fullName, not name or title. Quoted queries
+    // run only the exact/prefix builder (simpleQuery is off for them). displayName shares the
+    // "name" search label, so its exact clause targets name.keyword; fullName keeps its own
+    // keyword field. The light path's exact-name boost lists the keyword fields explicitly.
+    EntitySpec corpUserSpec = OP_CONTEXT.getEntityRegistry().getEntitySpec("corpuser");
+    V3SearchQueryBuilder v3Builder = builder(null);
+
+    String fullPath =
+        v3Builder
+            .buildQuery(OP_CONTEXT, List.of(corpUserSpec), "\"Pat Example\"", true, false)
+            .toString();
+    assertTrue(fullPath.contains("\"name.keyword\""), fullPath);
+    assertTrue(fullPath.contains("\"fullName.keyword\""), fullPath);
+
+    String lightPath =
+        v3Builder
+            .buildQuery(OP_CONTEXT, List.of(corpUserSpec), "Pat Example", true, true)
+            .toString();
+    assertTrue(lightPath.contains("\"displayName.keyword\""), lightPath);
+    assertTrue(lightPath.contains("\"fullName.keyword\""), lightPath);
+  }
+
   private static Map<String, Float> analyzerFields(QueryBuilder query, String analyzer) {
     Map<String, Float> fields = new HashMap<>();
     find(query, SimpleQueryStringBuilder.class).stream()
