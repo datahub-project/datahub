@@ -94,3 +94,30 @@ class TestS3Config:
 
         error_msg = str(exc_info.value).lower()
         assert "s3 bucket tags" in error_msg and "platform is not s3" in error_msg
+
+    def test_enable_schema_inference_defaults_to_true(self):
+        config = DataLakeSourceConfig.parse_obj(
+            {"path_specs": [{"include": "s3://bucket/data/*.parquet"}]}
+        )
+        assert config.enable_schema_inference is True
+
+    def test_enable_schema_inference_can_be_disabled(self):
+        config = DataLakeSourceConfig.parse_obj(
+            {
+                "path_specs": [{"include": "s3://bucket/data/*.parquet"}],
+                "enable_schema_inference": False,
+            }
+        )
+        assert config.enable_schema_inference is False
+
+    def test_add_partition_columns_rejected_without_schema_inference(self):
+        with pytest.raises(
+            ValidationError, match="add_partition_columns_to_schema has no effect"
+        ):
+            DataLakeSourceConfig.parse_obj(
+                {
+                    "path_specs": [{"include": "s3://bucket/data/*.parquet"}],
+                    "enable_schema_inference": False,
+                    "add_partition_columns_to_schema": True,
+                }
+            )

@@ -69,8 +69,7 @@ module.exports = {
     meta: {
         type: 'suggestion',
         docs: {
-            description:
-                'Enforce Phosphor icon imports from specific icon paths, not generic folders.',
+            description: 'Enforce Phosphor icon imports from specific icon paths, not generic folders.',
         },
     },
     create(context) {

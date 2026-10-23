@@ -6,8 +6,8 @@ repos:
     hooks:
       - id: ruff-check
         name: Ruff Check (all Python modules)
-        entry: ghcr.io/astral-sh/ruff:0.15.22 check --fix
-        language: docker_image
+        entry: bash .github/scripts/pre-commit/run_ruff.sh check --fix
+        language: system
         files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|metadata-service/iceberg-catalog|smoke-test)/(?:.*\.py$|(?:.*/)?(?:pyproject|ruff)\.toml$)
         exclude: (^|/)(venv|build|dist|node_modules|\.git)/
         pass_filenames: true
@@ -16,8 +16,8 @@ repos:
 
       - id: ruff-format
         name: Ruff Format (all Python modules)
-        entry: ghcr.io/astral-sh/ruff:0.15.22 format
-        language: docker_image
+        entry: bash .github/scripts/pre-commit/run_ruff.sh format
+        language: system
         files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|metadata-service/iceberg-catalog|smoke-test)/(?:.*\.py$|(?:.*/)?(?:pyproject|ruff)\.toml$)
         exclude: (^|/)(venv|build|dist|node_modules|\.git)/
         pass_filenames: true

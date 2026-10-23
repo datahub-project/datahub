@@ -1,6 +1,9 @@
 package com.linkedin.datahub.graphql.featureflags;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.resolver.ConfigKeyConstants;
+import javax.annotation.Nonnull;
 import lombok.Data;
 
 @Data
@@ -69,14 +72,18 @@ public class FeatureFlags {
   private boolean showHomepageUserRole = false;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
-  private boolean metricsEnabled = false;
+  private boolean metricsEnabled = true;
   private boolean showDefaultExternalLinks = true;
   private boolean documentationFileUploadV1 = false;
   private boolean multipleDataProductsPerAsset = false;
   private boolean hideLineageInSearchCards = false;
   private boolean dataProductLineageEnabled = false;
   private boolean contextDocumentsEnabled = false;
+  // When true, document body edits stay local until the user saves. When false, the editor
+  // auto-saves. Default OFF so existing editors keep the current behavior.
+  private boolean documentExplicitSaveEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
+  private boolean structuredPropertiesInPoliciesEnabled = false;
   private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
@@ -100,4 +107,13 @@ public class FeatureFlags {
   // only the aspects required by the selected fields. When false, every loader falls back to
   // fetching its full default aspect set (legacy behavior). Default ON.
   private boolean graphQLAspectOptimizationEnabled = true;
+  // Kill switch for the reliable hard delete. When true, whole-entity hard deletes delete only what
+  // existed when the request arrived; false restores the previous delete behavior. The default is
+  // set in application.yaml (featureFlags.reliableHardDelete).
+  private boolean reliableHardDelete;
+
+  /** Per-operation read: the operation's resolved value, else the bound one. */
+  public boolean isMetricsEnabled(@Nonnull final OperationFingerprint operation) {
+    return operation.getConfig(ConfigKeyConstants.FeatureFlags.METRICS_ENABLED, metricsEnabled);
+  }
 }

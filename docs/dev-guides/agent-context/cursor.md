@@ -25,7 +25,7 @@ Navigate to **Cursor → Settings → Cursor Settings → Tools & MCP → New MC
 
 Save. Cursor opens a browser tab for the DataHub OAuth flow (callback `cursor://anysphere.cursor-mcp/oauth/callback`) — enter your DataHub domain (e.g. `<tenant>` for `https://<tenant>.acryl.io`) and sign in. Tokens are stored and refreshed automatically.
 
-Prefer your tenant URL directly? Replace the URL with `https://<tenant>.acryl.io/integrations/ai/mcp`.
+Prefer your tenant URL directly? Replace the URL with `https://<tenant>.acryl.io/mcp`.
 
 ## DataHub Cloud — Personal Access Token (Legacy)
 
@@ -35,7 +35,7 @@ For service accounts or DataHub Cloud versions prior to v1.0.2, use a [personal 
 {
   "mcpServers": {
     "datahub-cloud": {
-      "url": "https://<tenant>.acryl.io/integrations/ai/mcp/",
+      "url": "https://<tenant>.acryl.io/mcp",
       "headers": {
         "Authorization": "Bearer <token>"
       }

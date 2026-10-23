@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+    "dbt_version": "1.8.0",
+    "generated_at": "2026-01-02T00:00:00.000000Z",
+    "invocation_id": "inv-project-a"
+  },
+  "results": [
+    {
+      "unique_id": "test.project_a.not_null_orders_id.abc123",
+      "status": "pass",
+      "message": null,
+      "failures": 0,
+      "execution_time": 0.1,
+      "adapter_response": {},
+      "thread_id": "Thread-1",
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-01-02T00:00:01.000000Z",
+          "completed_at": "2026-01-02T00:00:02.000000Z"
+        }
+      ]
+    },
+    {
+      "unique_id": "model.project_a.orders",
+      "status": "success",
+      "message": null,
+      "failures": null,
+      "execution_time": 1.0,
+      "adapter_response": {},
+      "thread_id": "Thread-1",
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2026-01-02T00:00:00.000000Z",
+          "completed_at": "2026-01-02T00:00:01.000000Z"
+        }
+      ]
+    }
+  ],
+  "elapsed_time": 1.1,
+  "args": {}
+}

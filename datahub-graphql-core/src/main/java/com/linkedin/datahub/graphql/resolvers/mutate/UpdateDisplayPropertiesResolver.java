@@ -41,8 +41,7 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
 
     // Debug-level so a successful color/icon change doesn't add noise to a production log
     // stream. Errors keep their existing log.error and authorization failures still throw.
-    log.debug(
-        "Updating display properties. urn: {} input: {}", targetUrn.toString(), input.toString());
+    log.debug("Updating display properties. urn: {} input: {}", targetUrn, input);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

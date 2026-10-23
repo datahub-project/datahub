@@ -16,7 +16,9 @@ const DBT_PLATFORM = 'dbt';
 const BIGQUERY_PLATFORM = 'bigquery';
 const PLATFORMS = [DBT_PLATFORM, BIGQUERY_PLATFORM];
 const STG_ORDERS_DATASET = 'stg_orders';
-const SEARCH_QUERY_STG = 'stg';
+// Prefer the full dataset name: a short token like "stg" also matches unrelated
+// fixtures on the same shard (e.g. lineage-cll's cll_staging).
+const SEARCH_QUERY_STG = 'stg_orders';
 const DATASET_ENTITY_TYPE = 'dataset';
 
 test.describe('siblings', () => {

@@ -33,18 +33,22 @@ describe('EntityProfile', () => {
                         tabs={[
                             {
                                 name: 'Schema',
+                                path: 'Schema',
                                 component: SchemaTab,
                             },
                             {
                                 name: 'Documentation',
+                                path: 'Documentation',
                                 component: DocumentationTab,
                             },
                             {
                                 name: 'Properties',
+                                path: 'Properties',
                                 component: PropertiesTab,
                             },
                             {
                                 name: 'Lineage',
+                                path: 'Lineage',
                                 component: LineageTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -55,6 +59,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Queries',
+                                path: 'Queries',
                                 component: QueriesTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -64,6 +69,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Stats',
+                                path: 'Stats',
                                 component: StatsTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -120,18 +126,22 @@ describe('EntityProfile', () => {
                         tabs={[
                             {
                                 name: 'Schema',
+                                path: 'Schema',
                                 component: SchemaTab,
                             },
                             {
                                 name: 'Documentation',
+                                path: 'Documentation',
                                 component: DocumentationTab,
                             },
                             {
                                 name: 'Properties',
+                                path: 'Properties',
                                 component: PropertiesTab,
                             },
                             {
                                 name: 'Lineage',
+                                path: 'Lineage',
                                 component: LineageTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -142,6 +152,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Queries',
+                                path: 'Queries',
                                 component: QueriesTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -151,6 +162,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Stats',
+                                path: 'Stats',
                                 component: StatsTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -206,18 +218,22 @@ describe('EntityProfile', () => {
                         tabs={[
                             {
                                 name: 'Schema',
+                                path: 'Schema',
                                 component: SchemaTab,
                             },
                             {
                                 name: 'Documentation',
+                                path: 'Documentation',
                                 component: DocumentationTab,
                             },
                             {
                                 name: 'Properties',
+                                path: 'Properties',
                                 component: PropertiesTab,
                             },
                             {
                                 name: 'Lineage',
+                                path: 'Lineage',
                                 component: LineageTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -228,6 +244,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Queries',
+                                path: 'Queries',
                                 component: QueriesTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -237,6 +254,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Stats',
+                                path: 'Stats',
                                 component: StatsTab,
                                 display: {
                                     enabled: (_, _1) => true,
@@ -305,22 +323,27 @@ describe('EntityProfile', () => {
                         tabs={[
                             {
                                 name: 'Schema',
+                                path: 'Schema',
                                 component: SchemaTab,
                             },
                             {
                                 name: 'Documentation',
+                                path: 'Documentation',
                                 component: DocumentationTab,
                             },
                             {
                                 name: 'Properties',
+                                path: 'Properties',
                                 component: PropertiesTab,
                             },
                             {
                                 name: 'Lineage',
+                                path: 'Lineage',
                                 component: LineageTab,
                             },
                             {
                                 name: 'Queries',
+                                path: 'Queries',
                                 component: QueriesTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -330,6 +353,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Stats',
+                                path: 'Stats',
                                 component: StatsTab,
                                 display: {
                                     enabled: (_, _1) => true,
@@ -385,18 +409,22 @@ describe('EntityProfile', () => {
                         tabs={[
                             {
                                 name: 'Schema',
+                                path: 'Schema',
                                 component: SchemaTab,
                             },
                             {
                                 name: 'Documentation',
+                                path: 'Documentation',
                                 component: DocumentationTab,
                             },
                             {
                                 name: 'Properties',
+                                path: 'Properties',
                                 component: PropertiesTab,
                             },
                             {
                                 name: 'Lineage',
+                                path: 'Lineage',
                                 component: LineageTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -407,6 +435,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Queries',
+                                path: 'Queries',
                                 component: QueriesTab,
                                 display: {
                                     visible: (_, _1) => true,
@@ -416,6 +445,7 @@ describe('EntityProfile', () => {
                             },
                             {
                                 name: 'Stats',
+                                path: 'Stats',
                                 component: StatsTab,
                                 display: {
                                     enabled: (_, _1) => true,

@@ -456,7 +456,7 @@ public class OperationsServiceUtil {
         aggregations.setTotalCustoms(operationCount);
         break;
       default:
-        log.debug(String.format("Found unexpected operation type %s", operationType));
+        log.debug("Found unexpected operation type {}", operationType);
     }
   }
 }

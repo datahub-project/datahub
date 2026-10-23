@@ -9,6 +9,7 @@
     "empty.title": "Glossário Vazio",
     "list.error": "Falha ao carregar o glossário! Ocorreu um erro inesperado.",
     "list.loading": "Carregando Glossário...",
+    "page.contactAdmin": "Entre em contato com o administrador do DataHub para configurar o Glossário.",
     "page.createGlossary": "Criar Glossário",
     "page.subtitle": "Classifique seus ativos de dados e colunas usando dicionários de dados",
     "page.title": "Glossário de Negócios",
@@ -17,5 +18,11 @@
     "sidebar.collapse": "Recolher Glossário",
     "sidebar.expand": "Expandir Glossário",
     "sidebar.home": "Página Inicial do Glossário",
-    "sidebar.section.allTerms": "Todos os Termos do Glossário"
+    "sidebar.ownerFilter.label": "Responsáveis",
+    "sidebar.ownerFilter.placeholder": "Filtrar por responsável",
+    "sidebar.domainFilter.label": "Domínios",
+    "sidebar.domainFilter.placeholder": "Filtrar por domínio",
+    "sidebar.section.allTerms": "Todos os Termos do Glossário",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Filtrar por tag"
 }

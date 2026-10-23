@@ -7,7 +7,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # What is an Ontology?
 
-<FeatureAvailability />
+<FeatureAvailability saasOnly stage="private-beta"/>
+
+:::caution Private Beta
+Ontology is currently in Private Beta. Features, UI, and configuration options are subject to change.
+:::
 
 A **Business Glossary** answers _"what does this word mean?"_. A **business ontology** answers the
 next question: _"how do these words relate to each other?"_

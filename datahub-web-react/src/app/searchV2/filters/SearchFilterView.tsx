@@ -1,4 +1,4 @@
-import { CaretDownFilled } from '@ant-design/icons';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import React from 'react';
 import styled, { CSSProperties } from 'styled-components';
 
@@ -52,7 +52,7 @@ export default function SearchFilterView({
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
                 {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+                <CaretDown size={12} weight="fill" />
             </SearchFilterLabel>
         </ValueSelector>
     );

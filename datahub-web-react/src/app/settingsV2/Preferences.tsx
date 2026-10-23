@@ -1,4 +1,4 @@
-import { PageTitle, Switch } from '@components';
+import { PageTitle, Pill, Switch } from '@components';
 import { message } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,8 +7,9 @@ import styled, { useTheme } from 'styled-components';
 import { useUserContext } from '@app/context/useUserContext';
 import { LanguageSelect } from '@app/i18n/components/LanguageSelect';
 import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
+import DarkModeSwitch from '@app/settingsV2/DarkModeSwitch';
 import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
-import { THEME_DARK_MODE_FLAG, useIsDarkMode } from '@app/theme/useIsDarkMode';
+import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
@@ -61,6 +62,9 @@ const SettingText = styled.div`
     font-size: 16px;
     color: ${(props) => props.theme.colors.text};
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const DescriptionText = styled.div`
@@ -77,7 +81,6 @@ export const Preferences = () => {
     const appConfig = useAppConfig();
     const i18nEnabled = useIsI18nEnabled();
     const darkModeEnabled = useFeatureFlag(THEME_DARK_MODE_FLAG);
-    const [isDarkMode, toggleDarkMode] = useIsDarkMode();
 
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
 
@@ -97,21 +100,13 @@ export const Preferences = () => {
                     <StyledCard>
                         <UserSettingRow>
                             <TextContainer>
-                                <SettingText>{t('darkMode.title')}</SettingText>
+                                <SettingText>
+                                    {t('darkMode.title')}
+                                    <Pill label={t('darkMode.beta')} size="xs" color="primary" clickable={false} />
+                                </SettingText>
                                 <DescriptionText>{t('darkMode.description')}</DescriptionText>
                             </TextContainer>
-                            <Switch
-                                label={t('darkMode.title')}
-                                labelStyle={{
-                                    position: 'absolute',
-                                    width: 1,
-                                    height: 1,
-                                    overflow: 'hidden',
-                                    clip: 'rect(0 0 0 0)',
-                                }}
-                                checked={isDarkMode}
-                                onChange={toggleDarkMode}
-                            />
+                            <DarkModeSwitch />
                         </UserSettingRow>
                     </StyledCard>
                 )}

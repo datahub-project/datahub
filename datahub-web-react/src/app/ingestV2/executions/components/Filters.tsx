@@ -3,7 +3,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import ExecutorTypeFilter from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import ExecutorTypeFilter, {
+    EXECUTOR_TYPE_ALL_VALUE,
+} from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
 import ResultStatusFilter from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 import SourceFilter from '@app/ingestV2/shared/components/filters/SourceFilter';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
@@ -97,9 +99,12 @@ export default function Filters({ onFiltersApplied, hideSystemSources, shouldPre
                 hideSystemSources={!!hideSystemSources}
                 shouldPreserveParams={shouldPreserveParams}
             />
-            <ExecutorTypeFilter onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)} />
+            <ExecutorTypeFilter
+                values={valuesMap.get(EXECUTOR_TYPE_FIELD) || [EXECUTOR_TYPE_ALL_VALUE]}
+                onUpdate={(values) => onUpdate(EXECUTOR_TYPE_FIELD, values)}
+            />
             <ResultStatusFilter
-                defaultValues={defaultValues.get(RESULT_STATUS_FIELD)}
+                values={valuesMap.get(RESULT_STATUS_FIELD)}
                 onUpdate={(values) => onUpdate(RESULT_STATUS_FIELD, values)}
             />
         </Container>

@@ -1,9 +1,23 @@
 import re
-from typing import Set, Tuple
+from typing import Dict, Set, Tuple
 
 # BigQuery partition ID lengths for date/time formats: YYYYMMDD and YYYYMMDDHH.
 PARTITION_ID_YYYYMMDD_LENGTH = 8
 PARTITION_ID_YYYYMMDDHH_LENGTH = 10
+
+# How many most-recently-modified populated partitions to pull from
+# INFORMATION_SCHEMA.PARTITIONS when deriving a partition filter. Small: the first one
+# that verifies as having data wins, so this only bounds how many candidates we try.
+MAX_PARTITIONS_TO_FETCH = 10
+
+# Ingestion-time partitioned tables are partitioned on BigQuery pseudo-columns that
+# never appear in INFORMATION_SCHEMA.COLUMNS, so their data types can't be looked up
+# there. Their types are fixed by BigQuery, so map them directly — otherwise the filter
+# builder falls back to string point-equality instead of a typed half-open range.
+PSEUDO_PARTITION_COLUMN_TYPES: Dict[str, str] = {
+    "_PARTITIONTIME": "TIMESTAMP",
+    "_PARTITIONDATE": "DATE",
+}
 
 
 # Column names that suggest date/time data, used as a fallback when type info is

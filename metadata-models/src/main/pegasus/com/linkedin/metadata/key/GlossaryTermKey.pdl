@@ -13,6 +13,9 @@ record GlossaryTermKey {
   * The term name, which serves as a unique id
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "fieldName": "id"

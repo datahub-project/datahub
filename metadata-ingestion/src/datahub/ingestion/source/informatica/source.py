@@ -620,8 +620,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[BrowsePathEntryClass]:
         """Wire a DataFlow to its parent Container + BrowsePathsV2.
 
-        Returns the entries so callers that build deeper paths (e.g. MT
-        DataJob appends the MT name) can extend them.
+        Returns the entries for callers that want to inspect them; the flow's
+        DataJobs inherit this path automatically via the SDK.
         """
         parent_key = self._container_parent_key(path)
         if parent_key is not None:
@@ -900,10 +900,10 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             subtype="Mapping Task",
             tags=task_tags,
         )
-        browse_entries = self._attach_container_and_browse_path(flow, mt.path)
+        self._attach_container_and_browse_path(flow, mt.path)
         yield flow
         yield self._make_mt_transform_datajob(
-            mt, flow, custom_props, task_tags, browse_entries, mapping_v3_guid
+            mt, flow, custom_props, task_tags, mapping_v3_guid
         )
 
     def _make_mt_transform_datajob(
@@ -912,7 +912,6 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         flow: DataFlow,
         custom_props: Dict[str, str],
         task_tags: Optional[List[TagUrn]],
-        browse_entries: List[BrowsePathEntryClass],
         mapping_v3_guid: V3Guid,
     ) -> DataJob:
         """Build the MT's inner ``transform`` DataJob and register its
@@ -928,14 +927,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             owners=self._owner_list(mt.created_by, mt.updated_by),
             tags=task_tags,
         )
-        job._set_aspect(
-            BrowsePathsV2Class(
-                path=[
-                    *browse_entries,
-                    BrowsePathEntryClass(id=mt.name, urn=str(flow.urn)),
-                ]
-            )
-        )
+        # Browse path (project/folder ancestors + the flow entry keyed by the
+        # flow urn) is derived from the flow by the SDK; don't re-key it here.
         job_urn = str(job.urn)
         if mapping_v3_guid:
             self._mapping_v3_to_mt_job_urns.setdefault(mapping_v3_guid, []).append(
