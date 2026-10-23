@@ -438,6 +438,81 @@ public class AspectsBatchImplTest {
         "Expected 1 valid mcp to be passed through.");
   }
 
+  private static MetadataChangeProposal statusProposal(String name, String attributedActor) {
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(new DatasetUrn(new DataPlatformUrn("platform"), name, FabricType.PROD))
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(STATUS_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
+            .setChangeType(ChangeType.UPSERT);
+    if (attributedActor != null) {
+      AttributedActorHeaders.stamp(mcp, attributedActor);
+    }
+    return mcp;
+  }
+
+  private static AuditStamp systemAuditStamp() {
+    return AuditStampUtils.createAuditStamp(SYSTEM_ACTOR);
+  }
+
+  @Test
+  public void mixedActorsInOneBatch() {
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                List.of(
+                    statusProposal("a", "urn:li:corpuser:alice"),
+                    statusProposal("b", "urn:li:corpuser:bob"),
+                    statusProposal("c", null)),
+                systemAuditStamp(),
+                retrieverContext,
+                false,
+                true)
+            .build(null);
+
+    List<BatchItem> items = List.copyOf(batch.getItems());
+    assertEquals(items.get(0).getAuditStamp().getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(items.get(0).getAuditStamp().getImpersonator().toString(), SYSTEM_ACTOR);
+    assertEquals(items.get(1).getAuditStamp().getActor().toString(), "urn:li:corpuser:bob");
+    assertEquals(items.get(1).getAuditStamp().getImpersonator().toString(), SYSTEM_ACTOR);
+    assertEquals(items.get(2).getAuditStamp().getActor().toString(), SYSTEM_ACTOR);
+  }
+
+  @Test
+  public void patchItemCarriesAttributedActor() {
+    MetadataChangeProposal patch =
+        new DatasetPropertiesPatchBuilder()
+            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
+            .setDescription("something")
+            .build();
+    AttributedActorHeaders.stamp(patch, "urn:li:corpuser:alice");
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(List.of(patch), systemAuditStamp(), retrieverContext, false, true)
+            .build(null);
+
+    BatchItem item = batch.getItems().iterator().next();
+    assertEquals(item.getClass(), PatchItemImpl.class);
+    assertEquals(item.getAuditStamp().getActor().toString(), "urn:li:corpuser:alice");
+  }
+
+  @Test
+  public void fourArgOverloadDoesNotTrustHeader() {
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                List.of(statusProposal("a", "urn:li:corpuser:alice")),
+                systemAuditStamp(),
+                retrieverContext,
+                false)
+            .build(null);
+
+    assertEquals(
+        batch.getItems().iterator().next().getAuditStamp().getActor().toString(), SYSTEM_ACTOR);
+  }
+
   /** Converts unsupported to status aspect */
   @Getter
   @Setter

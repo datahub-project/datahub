@@ -831,7 +831,8 @@ public class JavaEntityClient implements EntityClient {
                           batch,
                           auditStamp,
                           opContext.getRetrieverContext(),
-                          opContext.getValidationContext().isAlternateValidation())
+                          opContext.getValidationContext().isAlternateValidation(),
+                          opContext.isSystemAuth())
                       .build(opContext);
 
               List<IngestResult> results =
