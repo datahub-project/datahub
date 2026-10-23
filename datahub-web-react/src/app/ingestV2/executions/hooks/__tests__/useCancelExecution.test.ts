@@ -92,7 +92,7 @@ describe('useCancelExecution Hook', () => {
             await Promise.resolve();
         });
 
-        expect(toast.destroy).toHaveBeenCalled();
+        expect(toast.destroy).not.toHaveBeenCalled();
         expect(toast.error).toHaveBeenCalledWith(expect.stringContaining(errorMessage), { duration: 3 });
     });
 
@@ -111,7 +111,7 @@ describe('useCancelExecution Hook', () => {
             await Promise.resolve();
         });
 
-        expect(toast.destroy).toHaveBeenCalled();
+        expect(toast.destroy).not.toHaveBeenCalled();
         expect(toast.error).toHaveBeenCalledWith(expect.any(String), { duration: 3 });
     });
 });

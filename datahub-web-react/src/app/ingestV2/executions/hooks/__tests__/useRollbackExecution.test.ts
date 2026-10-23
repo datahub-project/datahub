@@ -65,7 +65,7 @@ describe('useRollbackExecution Hook', () => {
             result.current(runId);
         });
 
-        expect(toast.loading).toHaveBeenCalledWith(expect.any(String));
+        expect(toast.loading).toHaveBeenCalledWith(expect.any(String), { key: 'ingestion-execution-rollback' });
     });
 
     it('should show success message and trigger refetch after timeout', async () => {
@@ -81,8 +81,8 @@ describe('useRollbackExecution Hook', () => {
             vi.advanceTimersByTime(2000);
         });
 
-        expect(toast.destroy).toHaveBeenCalled();
-        expect(toast.success).toHaveBeenCalledWith(expect.any(String));
+        expect(toast.destroy).not.toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalledWith(expect.any(String), { key: 'ingestion-execution-rollback' });
         expect(mockRefetch).toHaveBeenCalled();
     });
 
@@ -100,6 +100,6 @@ describe('useRollbackExecution Hook', () => {
             await Promise.resolve();
         });
 
-        expect(toast.error).toHaveBeenCalledWith(expect.any(String));
+        expect(toast.error).toHaveBeenCalledWith(expect.any(String), { key: 'ingestion-execution-rollback' });
     });
 });

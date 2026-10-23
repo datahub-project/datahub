@@ -23,7 +23,6 @@ export default function useCancelExecution(refetch?: () => void) {
                     toast.success(i18next.t('ingestion:executions.cancelSuccess'), { duration: 3 });
                 })
                 .catch((e) => {
-                    toast.destroy();
                     toast.error(i18next.t('ingestion:executions.cancelError', { errorMessage: e.message || '' }), {
                         duration: 3,
                     });

@@ -13,6 +13,7 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetDataPlatforms';
 import { PLATFORMS_MODULE_ID } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
+import { platformsWithRetainedSelections } from '@app/homeV2/introduce/IntroduceYourselfMainContent.utils';
 import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@app/homeV2/shared/types';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import Loading from '@app/sharedV2/Loading';
@@ -271,19 +272,26 @@ export const IntroduceYourselfMainContent = () => {
         (module) => module.moduleId === PLATFORMS_MODULE_ID,
     );
 
-    const getPlatformList = () => {
-        if (platformsModule && platformsModule.content.length) {
-            return platformsModule?.content
-                ?.filter((content) => content.entity)
-                .map((content) => ({
-                    count: content.params?.contentParams?.count || 0,
-                    platform: content.entity as DataPlatform,
-                }));
-        }
-        return defaultDataPlatforms;
-    };
+    const recommendedPlatforms =
+        platformsModule && platformsModule.content.length
+            ? platformsModule.content
+                  .filter((content) => content.entity)
+                  .map((content) => ({
+                      count: content.params?.contentParams?.count || 0,
+                      platform: content.entity as DataPlatform,
+                  }))
+            : undefined;
 
-    const platforms = getPlatformList();
+    // Recommendations can replace the default list after a selection. Keep those
+    // choices in the dropdown so they stay visible and are not saved unseen.
+    const platforms = platformsWithRetainedSelections(
+        recommendedPlatforms ?? defaultDataPlatforms,
+        defaultDataPlatforms,
+        selectedPlatforms,
+    );
+    const visibleSelectedPlatformUrns = selectedPlatforms.filter((urn) =>
+        platforms.some((entry) => entry.platform.urn === urn),
+    );
 
     const handleRoleChange = (values: string[]) => {
         setSelectedTitle(values[0] || '');
@@ -363,7 +371,7 @@ export const IntroduceYourselfMainContent = () => {
                 urn: user?.urn as string,
                 input: {
                     personaUrn: selectedPersona,
-                    platformUrns: selectedPlatforms,
+                    platformUrns: visibleSelectedPlatformUrns,
                     title: selectedTitle,
                 },
             },
@@ -372,7 +380,7 @@ export const IntroduceYourselfMainContent = () => {
                 analytics.event({
                     type: EventType.IntroduceYourselfSubmitEvent,
                     role: selectedPersona,
-                    platformUrns: selectedPlatforms || [],
+                    platformUrns: visibleSelectedPlatformUrns,
                 });
                 await refetchUser();
                 history.push('/');
