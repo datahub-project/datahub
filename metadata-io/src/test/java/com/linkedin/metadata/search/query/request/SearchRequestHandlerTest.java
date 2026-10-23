@@ -1250,7 +1250,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
         Set.of("urn"));
 
-    // Naming a column array does not fetch it either
+    // Naming a column array does not fetch it. editedName is labeled name and stored on the
+    // aspect, so highlighting name fetches that path. copy_to does not put it in name's _source.
     OperationContext custom =
         operationContext.withSearchFlags(
             flags ->
@@ -1262,7 +1263,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
     assertEquals(
         Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name"));
+        Set.of("urn", "name", "_aspects.editableDatasetProperties.editedName"));
     // V2 highlight fields name subfields, which V3 reads from their root field
     OperationContext v2Subfields =
         operationContext.withSearchFlags(
@@ -1276,7 +1277,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         Set.of(
             getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "description"));
+        Set.of(
+            "urn",
+            "name",
+            "description",
+            "_aspects.editableDatasetProperties.editedName",
+            "_aspects.editableDatasetProperties.editedDescription"));
 
     CustomSearchConfiguration highlightConfig =
         CustomSearchConfiguration.builder()
@@ -1312,9 +1318,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     for (Map.Entry<String, Set<String>> expected :
         Map.of(
                 "names",
-                Set.of("urn", "name"),
+                Set.of("urn", "name", "_aspects.editableDatasetProperties.editedName"),
                 "subfields",
-                Set.of("urn", "name"),
+                Set.of("urn", "name", "_aspects.editableDatasetProperties.editedName"),
                 "off",
                 Set.of("urn"))
             .entrySet()) {
@@ -1358,7 +1364,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   /**
    * Of other, V3 matched fields fetch only what names or tags an entity: a document's text,
    * semantic text and custom properties are searched but never fetched, even when highlighting
-   * names them.
+   * names them. Document title is labeled name, so the fetched value is the aspect field that
+   * stores it. copy_to does not put that value in the name field's _source.
    */
   @Test
   public void testV3DocumentSearchFetchesNoFreeText() {
@@ -1380,7 +1387,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     String query = source.query().toString();
     assertTrue(query.contains("other.text"), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
-    assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
+    assertTrue(fetched.contains("urn"), fetched.toString());
+    assertTrue(fetched.contains("_aspects.documentInfo.title"), fetched.toString());
+    assertFalse(fetched.contains("title"), fetched.toString());
+    assertFalse(fetched.contains("name"), fetched.toString());
     assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
 
     OperationContext naming =
@@ -1390,7 +1400,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .setFulltext(true)
                     .setSkipHighlighting(false)
                     .setCustomHighlightingFields(
-                        new StringArray(List.of("title", "text", "customProperties"))));
+                        new StringArray(List.of("name", "text", "customProperties"))));
     assertEquals(
         Set.of(
             handler
@@ -1398,7 +1408,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 .source()
                 .fetchSource()
                 .includes()),
-        Set.of("urn", "title"));
+        Set.of("urn", "_aspects.documentInfo.title"));
   }
 
   /**

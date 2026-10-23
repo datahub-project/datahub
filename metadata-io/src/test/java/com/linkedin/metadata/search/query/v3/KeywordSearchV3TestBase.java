@@ -1037,7 +1037,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(raw.get(ORDERS).get("name"), "orders");
     Map<String, Object> aspects = (Map<String, Object>) raw.get(ORDERS).get("_aspects");
     assertEquals(((Map<String, Object>) aspects.get("datasetProperties")).get("name"), "orders");
-    assertEquals(raw.get(ORDERS_CHART).get("title"), "Orders by region");
+    // Chart title is labeled name, so the source root is omitted. The stored value stays on the
+    // aspect; copy_to fills the indexed name, which is not part of _source.
+    assertNull(raw.get(ORDERS_CHART).get("title"));
+    Map<String, Object> chartAspects = (Map<String, Object>) raw.get(ORDERS_CHART).get("_aspects");
+    assertEquals(
+        ((Map<String, Object>) chartAspects.get("chartInfo")).get("title"), "Orders by region");
   }
 
   @Test

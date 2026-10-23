@@ -70,7 +70,7 @@ public class AspectMappingBuilder {
                         searchableFieldSpec -> {
                           aspectFields.putAll(
                               MultiEntityMappingsBuilder.getAspectMappingsForField(
-                                  searchableFieldSpec, aspectName));
+                                  searchableFieldSpec, aspectName, indexGroup));
                           copySharedHasValues(searchableFieldSpec, aspectFields);
                         });
               }
@@ -156,6 +156,11 @@ public class AspectMappingBuilder {
    * Creates the mapping structure for the _systemMetadata field that appears in each aspect. This
    * replaces the need for a dynamic template by explicitly defining the structure.
    *
+   * <p>Timestamps and actor info copy into the root {@code _system} object where that object has a
+   * field, and stay indexed here. A searchable field projected to the document root leaves its
+   * {@code _aspects} copy unindexed; these fields do not. {@code impersonator} has no root field
+   * and stays indexed on the aspect.
+   *
    * @return mapping configuration for _systemMetadata field
    */
   private static Map<String, Object> createSystemMetadataMapping() {
@@ -164,11 +169,7 @@ public class AspectMappingBuilder {
 
     Map<String, Object> properties = new HashMap<>();
 
-    // lastObserved field
-    Map<String, Object> lastObserved = new HashMap<>();
-    lastObserved.put(TYPE, "date");
-    lastObserved.put("copy_to", List.of("_system.lastObserved"));
-    properties.put("lastObserved", lastObserved);
+    properties.put("lastObserved", indexedSystemField("date", "_system.lastObserved"));
 
     // runId field
     Map<String, Object> runId = new HashMap<>();
@@ -187,19 +188,9 @@ public class AspectMappingBuilder {
     aspectCreated.put(TYPE, "object");
     Map<String, Object> aspectCreatedProperties = new HashMap<>();
 
-    Map<String, Object> aspectCreatedTime = new HashMap<>();
-    aspectCreatedTime.put(TYPE, "date");
-    aspectCreatedTime.put("copy_to", List.of("_system.created.time"));
-    aspectCreatedProperties.put("time", aspectCreatedTime);
-
-    Map<String, Object> aspectCreatedActor = new HashMap<>();
-    aspectCreatedActor.put(TYPE, "keyword");
-    aspectCreatedActor.put("copy_to", List.of("_system.created.actor"));
-    aspectCreatedProperties.put("actor", aspectCreatedActor);
-
-    Map<String, Object> aspectCreatedImpersonator = new HashMap<>();
-    aspectCreatedImpersonator.put(TYPE, "keyword");
-    aspectCreatedProperties.put("impersonator", aspectCreatedImpersonator);
+    aspectCreatedProperties.put("time", indexedSystemField("date", "_system.created.time"));
+    aspectCreatedProperties.put("actor", indexedSystemField("keyword", "_system.created.actor"));
+    aspectCreatedProperties.put("impersonator", indexedSystemField("keyword", null));
 
     aspectCreated.put(PROPERTIES, aspectCreatedProperties);
     properties.put("aspectCreated", aspectCreated);
@@ -209,24 +200,29 @@ public class AspectMappingBuilder {
     aspectModified.put(TYPE, "object");
     Map<String, Object> aspectModifiedProperties = new HashMap<>();
 
-    Map<String, Object> aspectModifiedTime = new HashMap<>();
-    aspectModifiedTime.put(TYPE, "date");
-    aspectModifiedTime.put("copy_to", List.of("_system.modified.time"));
-    aspectModifiedProperties.put("time", aspectModifiedTime);
-
-    Map<String, Object> aspectModifiedActor = new HashMap<>();
-    aspectModifiedActor.put(TYPE, "keyword");
-    aspectModifiedActor.put("copy_to", List.of("_system.modified.actor"));
-    aspectModifiedProperties.put("actor", aspectModifiedActor);
-
-    Map<String, Object> aspectModifiedImpersonator = new HashMap<>();
-    aspectModifiedImpersonator.put(TYPE, "keyword");
-    aspectModifiedProperties.put("impersonator", aspectModifiedImpersonator);
+    aspectModifiedProperties.put("time", indexedSystemField("date", "_system.modified.time"));
+    aspectModifiedProperties.put("actor", indexedSystemField("keyword", "_system.modified.actor"));
+    aspectModifiedProperties.put("impersonator", indexedSystemField("keyword", null));
 
     aspectModified.put(PROPERTIES, aspectModifiedProperties);
     properties.put("aspectModified", aspectModified);
 
     mapping.put(PROPERTIES, properties);
+    return mapping;
+  }
+
+  /**
+   * A system-metadata field that stays indexed under {@code _aspects}. Omitting {@code index} and
+   * {@code doc_values} leaves both on. {@code copy_to} fills a root {@code _system} field when one
+   * exists.
+   */
+  private static Map<String, Object> indexedSystemField(
+      @Nonnull String type, @Nullable String rootField) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put(TYPE, type);
+    if (rootField != null) {
+      mapping.put("copy_to", List.of(rootField));
+    }
     return mapping;
   }
 }
