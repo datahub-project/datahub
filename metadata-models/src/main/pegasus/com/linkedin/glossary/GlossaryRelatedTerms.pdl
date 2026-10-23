@@ -62,7 +62,6 @@ record GlossaryRelatedTerms {
       "fieldName": "values",
       "fieldType": "URN",
       "v3": {
-        "queryByDefault": false,
         "copyToOther": true
       }
     }
@@ -86,6 +85,7 @@ record GlossaryRelatedTerms {
       "boostScore": 0.5,
       "hasValuesFieldName": "hasGlossaryTerms",
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "glossaryTerms",
         "mappings": [
           { "type": "URN" }

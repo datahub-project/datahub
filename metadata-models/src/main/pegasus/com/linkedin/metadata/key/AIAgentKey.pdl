@@ -10,6 +10,10 @@ record AIAgentKey {
   /**
    * Unique identifier for the agent, e.g. "ask-datahub" or a generated UUID
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   id: string
 }
