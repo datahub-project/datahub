@@ -103,6 +103,12 @@ Key distribution and revocation become operational responsibilities. Canonicaliz
 - Adopt an established signed-envelope format: potentially preferable to a new envelope, subject to metadata representation and SDK interoperability.
 - Leave the mechanism entirely in external applications: avoids SDK maintenance, at the cost of incompatible contracts and repeated security mistakes.
 
+## Related work
+
+- [#16012](https://github.com/datahub-project/datahub/pull/16012) proposes agent and agent-tool metadata. This proposal does not depend on it: an attestation binds a signal to any subject URN, whether or not the producer is cataloged as an agent.
+- [#18966](https://github.com/datahub-project/datahub/pull/18966) proposes execution evidence and verification results tied to an agent version and run, and leaves signed digests to future work. This proposal covers that part for any signal a producer writes: a signature over the complete signal, bound to its subject, and verified with a key that is trusted outside the catalog. Using the two together would require agreeing on how runs, versions, subjects and signed fields map to each other.
+- Metadata permissions, document review and contract sign-offs control who may change or approve catalog state. They do not give a consumer a portable proof of which producer wrote a signal.
+
 ## Rollout / Adoption Strategy
 
 First agree on the contract and conformance vectors. Then propose an optional SDK helper and an example integration in a separate implementation PR. No existing metadata or unsigned integration changes behavior automatically, and no DataHub signing key is introduced. Consumer applications opt into a provenance requirement explicitly.
