@@ -13,6 +13,10 @@ from datahub.ingestion.api.workunit_processor import (
     WorkunitProcessorContext,
     WorkunitProcessorReport,
 )
+from datahub.ingestion.workunit_processors.transform_operation import (
+    logic_length,
+    truncate_transform_operation,
+)
 from datahub.metadata.schema_classes import (
     BinaryJsonSchemaClass,
     DatasetProfileClass,
@@ -359,10 +363,85 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 context=f"Skipped {skipped_count} {item_type} for {entity_urn} due to aspect size constraints",
             )
 
+    def _upstream_lineage_serialized_size(
+        self, upstream_lineage: UpstreamLineageClass
+    ) -> int:
+        return len(json.dumps(pre_json_transform(upstream_lineage.to_obj())))
+
+    def _truncate_transform_operations_to_fit(
+        self, entity_urn: str, upstream_lineage: UpstreamLineageClass
+    ) -> bool:
+        """Shorten transformOperation strings just enough for the aspect to fit.
+
+        Returns True when any transformOperation was changed.
+        """
+        originals = [
+            (fg_lineage, fg_lineage.transformOperation)
+            for fg_lineage in upstream_lineage.fineGrainedLineages or []
+            if fg_lineage.transformOperation is not None
+        ]
+        if not originals:
+            return False
+
+        max_logic = max(logic_length(original) for _, original in originals)
+
+        def apply(retained: int) -> None:
+            for fg_lineage, original in originals:
+                fg_lineage.transformOperation = truncate_transform_operation(
+                    original, retained
+                )
+
+        def fits(retained: int) -> bool:
+            apply(retained)
+            return (
+                self._upstream_lineage_serialized_size(upstream_lineage)
+                < self.payload_constraint
+            )
+
+        # Search the retained logic length; the dummy text only supplies an upper bound.
+        retained = _largest_fitting_prefix("x" * max_logic, fits)
+        apply(retained)
+
+        truncated_count = sum(
+            1
+            for fg_lineage, original in originals
+            if fg_lineage.transformOperation != original
+        )
+        if truncated_count == 0:
+            return False
+
+        self.ctx.source_report.warning(
+            title="Upstream lineage truncated due to size constraint",
+            message="Upstream lineage contained too much data and would have caused ingestion to fail",
+            context=(
+                f"Shortened {truncated_count} transformOperation values for {entity_urn} "
+                f"to fit aspect size constraints"
+            ),
+        )
+        return True
+
     def ensure_upstream_lineage_size(  # noqa: C901
         self, entity_urn: str, upstream_lineage: UpstreamLineageClass
     ) -> None:
         if not upstream_lineage.fineGrainedLineages and not upstream_lineage.upstreams:
+            return
+
+        if (
+            self._upstream_lineage_serialized_size(upstream_lineage)
+            < self.payload_constraint
+        ):
+            return
+
+        # Prefer shortening column logic over dropping lineage edges.
+        transform_truncated = self._truncate_transform_operations_to_fit(
+            entity_urn, upstream_lineage
+        )
+        if (
+            self._upstream_lineage_serialized_size(upstream_lineage)
+            < self.payload_constraint
+        ):
+            if transform_truncated:
+                self._record_truncation("upstreamLineage")
             return
 
         total_lineage_size = 0
@@ -430,7 +509,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                     first_skip_done = True
                     break
 
-        if first_skip_done:
+        if first_skip_done or transform_truncated:
             upstreams_skipped_count = len(upstream_items_with_sizes) - len(
                 accepted_upstreams
             )
