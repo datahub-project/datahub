@@ -36,6 +36,8 @@ import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import com.linkedin.metadata.entity.retention.UnresolvableRetentionKeyException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -55,6 +57,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class RetentionDrainerTest {
@@ -70,6 +73,16 @@ public class RetentionDrainerTest {
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   private HazelcastInstance hazelcastInstance;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @AfterMethod
   public void tearDown() {

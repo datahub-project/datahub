@@ -620,7 +620,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Nonnull
   private Set<String> storedAspectNames(
       @Nonnull final OperationContext opContext, @Nonnull final String urn) {
-    if (!handling().isTolerant()
+    if (!handling().toleratesUnknownEntityAspect()
         || systemMetadataService == null
         || !aspectDao.deletesUrnByAspectName()) {
       return Set.of();
@@ -1076,7 +1076,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
 
       // Strict handling keeps building the key aspect even when it isn't added, as before.
-      if (!alwaysIncludeKeyAspect && handling().isTolerant()) {
+      if (!alwaysIncludeKeyAspect && handling().toleratesUnknownEntityAspect()) {
         result.put(urn, aspects);
         continue;
       }
@@ -2389,7 +2389,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .filter(
                       result -> { // only versioned MCLs
                         MetadataChangeLog mcl = result.getMetadataChangeLog();
-                        if (!handling().isTolerant()) {
+                        if (!handling().toleratesUnknownEntityAspect()) {
                           // Strict handling throws for an unknown entity type, as before.
                           return !handling()
                               .entitySpecForData(opContext.getEntityRegistry(), mcl.getEntityType())
@@ -3400,7 +3400,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return mcls.stream()
         .map(
             mcl -> {
-              if (!handling().isTolerant()) {
+              if (!handling().toleratesUnknownEntityAspect()) {
                 Urn entityUrn = mcl.getEntityUrn();
                 // Strict handling throws for an unknown entity type, as before.
                 AspectSpec aspectSpec =
@@ -3783,7 +3783,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     // Strict handling keeps the original lookup, which logs and skips an unknown
                     // aspect below instead of throwing.
                     Optional<AspectSpec> aspectSpec =
-                        handling().isTolerant()
+                        handling().toleratesUnknownEntityAspect()
                             ? handling()
                                 .aspectSpecForData(
                                     opContext.getEntityRegistry(),
@@ -3871,7 +3871,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Integer rowsDeletedFromEntityDeletion = 0;
 
     final EntitySpec spec =
-        handling().isTolerant()
+        handling().toleratesUnknownEntityAspect()
             ? opContext
                 .getEntityRegistry()
                 .findEntitySpec(PegasusUtils.urnToEntityName(urn))
@@ -4022,7 +4022,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // a newer build) are reported as non-existent instead of failing the whole lookup.
     final List<Urn> knownUrns =
         urns.stream().filter(urn -> admitRead(opContext, urn)).collect(Collectors.toList());
-    if (knownUrns.isEmpty() && handling().isTolerant()) {
+    if (knownUrns.isEmpty() && handling().toleratesUnknownEntityAspect()) {
       return new HashSet<>();
     }
 

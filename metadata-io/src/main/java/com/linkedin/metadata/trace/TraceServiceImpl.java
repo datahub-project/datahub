@@ -133,7 +133,7 @@ public class TraceServiceImpl implements TraceService {
 
     for (Map.Entry<Urn, List<String>> entry : aspectNames.entrySet()) {
       Urn urn = entry.getKey();
-      if (!handling().isTolerant()) {
+      if (!handling().toleratesUnknownEntityAspect()) {
         // As before tolerance: throws for an entity type the registry doesn't know.
         handling().entitySpecForData(entityRegistry, urn.getEntityType());
       } else if (!handling()
@@ -367,7 +367,7 @@ public class TraceServiceImpl implements TraceService {
 
       for (String aspectName : entry.getValue()) {
         // Unknown aspects are skipped by tracePrimaryInParallel, so they have no primary status
-        if (handling().isTolerant() && isTimeseries(urn, aspectName).isEmpty()) {
+        if (handling().toleratesUnknownEntityAspect() && isTimeseries(urn, aspectName).isEmpty()) {
           continue;
         }
         TraceWriteStatus primaryStorageStatus = primaryStatus.get(aspectName).getWriteStatus();
@@ -544,7 +544,7 @@ public class TraceServiceImpl implements TraceService {
    */
   @Nonnull
   private Optional<Boolean> isTimeseries(@Nonnull final Urn urn, @Nonnull final String aspectName) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       return Optional.of(
           handling()
               .entitySpecForData(entityRegistry, urn.getEntityType())

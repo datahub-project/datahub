@@ -304,7 +304,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     // A proposal for an entity type the registry doesn't know (e.g. sent by a client built for a
     // newer version) is a bad request; resolving a key-only proposal's urn for it would fail with a
     // 500 in the authorization checks below.
-    if (handling().isTolerant()) {
+    if (handling().toleratesUnknownEntityAspect()) {
       for (MetadataChangeProposal mcp : metadataChangeProposals) {
         if (mcp.getEntityType() != null
             && opContext.getEntityRegistry().findEntitySpec(mcp.getEntityType()).isEmpty()) {

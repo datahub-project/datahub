@@ -40,7 +40,7 @@ public final class KnownEntities {
   public static List<Entity> mapAll(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
     final List<Entity> entities = new ArrayList<>(urns.size());
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       for (Urn urn : urns) {
         entities.add(UrnToEntityMapper.map(context, urn));
       }
@@ -66,7 +66,7 @@ public final class KnownEntities {
   @Nullable
   public static Entity mapFirst(
       @Nullable final QueryContext context, @Nonnull final Collection<Urn> urns) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       // Throws for no urns, as the callers' get(0) did.
       return UrnToEntityMapper.map(context, new ArrayList<>(urns).get(0));
     }
@@ -110,7 +110,7 @@ public final class KnownEntities {
    * known.
    */
   public static boolean isKnown(@Nullable final QueryContext context, @Nonnull final Urn urn) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       return true;
     }
     final EntityRegistry registry =

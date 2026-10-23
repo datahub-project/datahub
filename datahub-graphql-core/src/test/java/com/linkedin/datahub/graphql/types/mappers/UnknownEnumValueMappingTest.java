@@ -18,6 +18,10 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -27,6 +31,16 @@ import org.testng.annotations.Test;
 public class UnknownEnumValueMappingTest {
 
   private static final String NEWER_VALUE = "VALUE_FROM_NEWER_BUILD";
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testFormPromptOfUnknownTypeIsSkipped() {

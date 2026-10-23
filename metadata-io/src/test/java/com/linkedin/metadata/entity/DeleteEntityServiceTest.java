@@ -42,6 +42,8 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
@@ -59,6 +61,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -71,6 +75,16 @@ public class DeleteEntityServiceTest {
   protected DeleteEntityService _deleteEntityService;
   protected UpdateIndicesService _mockUpdateIndicesService;
   protected EntitySearchService _mockSearchService;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   private static RelatedEntitiesScrollResult emptyScrollGraphResult() {
     return RelatedEntitiesScrollResult.builder()

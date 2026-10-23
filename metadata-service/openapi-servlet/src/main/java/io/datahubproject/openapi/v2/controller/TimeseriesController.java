@@ -95,7 +95,7 @@ public class TimeseriesController {
 
     final AspectSpec aspectSpec;
     final String canonicalAspectName;
-    if (handling().isTolerant()) {
+    if (handling().toleratesUnknownEntityAspect()) {
       aspectSpec =
           RequestInputUtil.requireAspectSpec(entityRegistry.getEntitySpec(entityName), aspectName);
       // The lookup is case-insensitive; use the registered name from here on.

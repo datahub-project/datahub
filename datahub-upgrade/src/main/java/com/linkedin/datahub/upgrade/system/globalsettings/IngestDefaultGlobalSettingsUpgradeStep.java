@@ -153,7 +153,7 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
     // Existing values win the merge, so if every default key is already set there is nothing to
     // write. Re-ingesting would only re-validate stored values, which can fail after a rollback
     // (e.g. a reference or enum value only a newer version knows) and block system-update.
-    if (handling().isTolerant()
+    if (handling().toleratesUnknownData()
         && storedSettings != null
         && existingSettings.data().keySet().containsAll(defaultSettings.data().keySet())) {
       log.info("Global settings already contain every default; nothing to ingest.");
@@ -182,7 +182,7 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
       // Stored settings written by a newer version (read after a rollback) can hold values this
       // version can't validate; leave them as they are rather than failing a blocking upgrade step.
       // Any other validation failure fails the step as before.
-      if (!handling().isTolerant() || !isFromNewerVersion(systemOperationContext)) {
+      if (!handling().toleratesUnknownData() || !isFromNewerVersion(systemOperationContext)) {
         throw e;
       }
       log.warn(

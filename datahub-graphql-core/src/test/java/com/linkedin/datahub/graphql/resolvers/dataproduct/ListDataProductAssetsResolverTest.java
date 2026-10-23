@@ -36,6 +36,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
@@ -46,6 +48,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ListDataProductAssetsResolverTest {
@@ -56,6 +60,16 @@ public class ListDataProductAssetsResolverTest {
   private static ListDataProductAssetsResolver newResolver() {
     return new ListDataProductAssetsResolver(
         Mockito.mock(EntityClient.class), Mockito.mock(ViewService.class));
+  }
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test

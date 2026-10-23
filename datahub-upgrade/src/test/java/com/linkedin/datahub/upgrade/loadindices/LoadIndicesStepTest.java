@@ -27,6 +27,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeaders;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -66,6 +67,11 @@ public class LoadIndicesStepTest {
   @Mock private OperationContext mockOperationContext;
   @Mock private EntityRegistry mockEntityRegistry;
   @Mock private ActorContext mockActorContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setup() {

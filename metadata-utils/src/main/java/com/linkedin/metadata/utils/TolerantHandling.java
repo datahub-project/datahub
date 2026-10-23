@@ -17,30 +17,55 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Tolerates data the registry doesn't know: skips it, strips references to it, and attributes
- * validation failures to a newer version where it can.
+ * Tolerates data a newer version wrote, of the kinds its flags enable; every other kind is handled
+ * as {@link StrictHandling} handles it.
  *
- * <p>Data whose own entity type is unknown is tolerated only when that type is a newer version's
- * (see {@link NextVersionEntityTypes}); any other unknown type, such as a typo, is handled as
- * {@link StrictHandling} handles it. Unknown aspects of known types and references to unknown types
- * are always tolerated.
+ * <ul>
+ *   <li>Unknown entity types, aspects and references: skipped, stripped and kept on write. Data
+ *       whose own entity type is unknown is tolerated only when that type is a newer version's (see
+ *       {@link NextVersionEntityTypes}); any other unknown type, such as a typo, fails as before.
+ *       Unknown aspects of known types and references to unknown types are always tolerated.
+ *   <li>Unknown enum symbols and union members: a validation failure on nothing else is attributed
+ *       to a newer version, and GraphQL falls back instead of failing.
+ * </ul>
  */
 public final class TolerantHandling implements UnknownDataHandling {
 
-  /** Tolerates every unknown entity type. */
-  public static final TolerantHandling INSTANCE = new TolerantHandling(entityType -> true);
+  /** Tolerates both kinds, and every unknown entity type. */
+  public static final TolerantHandling INSTANCE =
+      new TolerantHandling(true, true, entityType -> true);
 
+  // featureFlags.unknownEntityAspectToleranceEnabled: entity types, aspects and references.
+  private final boolean unknownEntityAspectTolerance;
+  // featureFlags.unknownEnumToleranceEnabled: enum symbols and union members.
+  private final boolean unknownEnumTolerance;
   private final Predicate<String> nextVersionEntityType;
 
-  private TolerantHandling(@Nonnull final Predicate<String> nextVersionEntityType) {
+  private TolerantHandling(
+      final boolean unknownEntityAspectTolerance,
+      final boolean unknownEnumTolerance,
+      @Nonnull final Predicate<String> nextVersionEntityType) {
+    this.unknownEntityAspectTolerance = unknownEntityAspectTolerance;
+    this.unknownEnumTolerance = unknownEnumTolerance;
     this.nextVersionEntityType = nextVersionEntityType;
   }
 
-  /** Tolerates unknown entity types only when {@code nextVersionEntityType} accepts them. */
+  /**
+   * Tolerates the kinds enabled, and unknown entity types only when {@code nextVersionEntityType}
+   * accepts them. At least one kind must be enabled; with neither, use {@link StrictHandling},
+   * which looks nothing up and doesn't attribute rows to a newer version.
+   */
   @Nonnull
-  public static TolerantHandling forNextVersionEntityTypes(
+  public static TolerantHandling of(
+      final boolean unknownEntityAspectTolerance,
+      final boolean unknownEnumTolerance,
       @Nonnull final Predicate<String> nextVersionEntityType) {
-    return new TolerantHandling(nextVersionEntityType);
+    if (!unknownEntityAspectTolerance && !unknownEnumTolerance) {
+      throw new IllegalArgumentException(
+          "Neither kind of unknown data is tolerated: use StrictHandling");
+    }
+    return new TolerantHandling(
+        unknownEntityAspectTolerance, unknownEnumTolerance, nextVersionEntityType);
   }
 
   @Override
@@ -51,7 +76,7 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nullable final String entityType,
       @Nullable final String aspectName,
       @Nullable final Object subject) {
-    if (isUnregistered(registry, entityType)) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, entityType)) {
       return StrictHandling.INSTANCE.admit(
           site, registry, metricUtils, entityType, aspectName, subject);
     }
@@ -65,7 +90,7 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final Optional<MetricUtils> metricUtils,
       @Nullable final String urn,
       @Nullable final String aspectName) {
-    if (isUnregistered(registry, entityTypeOf(urn))) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, entityTypeOf(urn))) {
       return StrictHandling.INSTANCE.admitUrn(site, registry, metricUtils, urn, aspectName);
     }
     return site.admitUrn(registry, metricUtils, urn, aspectName);
@@ -79,7 +104,8 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nullable final Urn urn,
       @Nullable final String entityType,
       @Nullable final String aspectName) {
-    if (isUnregistered(registry, entityType)
+    if (!unknownEntityAspectTolerance
+        || isUnregistered(registry, entityType)
         || (urn != null && isUnregistered(registry, urn.getEntityType()))) {
       return StrictHandling.INSTANCE.admitEvent(
           site, registry, metricUtils, urn, entityType, aspectName);
@@ -92,7 +118,7 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final EntityRegistry registry,
       @Nullable final String entityType,
       @Nullable final String aspectName) {
-    if (isUnregistered(registry, entityType)) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, entityType)) {
       return StrictHandling.INSTANCE.isUnknown(registry, entityType, aspectName);
     }
     return RegistryKnowledge.isUnknown(registry, entityType, aspectName);
@@ -103,7 +129,7 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final EntityRegistry registry,
       @Nullable final String urn,
       @Nullable final String aspectName) {
-    if (isUnregistered(registry, entityTypeOf(urn))) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, entityTypeOf(urn))) {
       return StrictHandling.INSTANCE.isUnknownUrn(registry, urn, aspectName);
     }
     if (RegistryKnowledge.classifyUrn(registry, urn, aspectName).isUnknown()) {
@@ -120,7 +146,7 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public boolean referencesUnknownEntityType(
       @Nonnull final EntityRegistry registry, @Nonnull final Urn urn) {
-    if (isUnregistered(registry, urn.getEntityType())) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, urn.getEntityType())) {
       return StrictHandling.INSTANCE.referencesUnknownEntityType(registry, urn);
     }
     return RegistryKnowledge.referencesUnknownEntityType(registry, urn);
@@ -129,6 +155,7 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public boolean isWrittenByNewerSchema(
       @Nullable final SystemMetadata systemMetadata, @Nullable final AspectSpec aspectSpec) {
+    // Either kind can be why a newer version bumped the schema.
     return RegistryKnowledge.isWrittenByNewerSchema(systemMetadata, aspectSpec);
   }
 
@@ -136,7 +163,7 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public Optional<EntitySpec> entitySpecForData(
       @Nonnull final EntityRegistry registry, @Nonnull final String entityType) {
-    if (isUnregistered(registry, entityType)) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, entityType)) {
       return StrictHandling.INSTANCE.entitySpecForData(registry, entityType);
     }
     return registry.findEntitySpec(entityType);
@@ -148,7 +175,7 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final EntityRegistry registry,
       @Nonnull final String entityType,
       @Nonnull final String aspectName) {
-    if (isUnregistered(registry, entityType)) {
+    if (!unknownEntityAspectTolerance || isUnregistered(registry, entityType)) {
       return StrictHandling.INSTANCE.aspectSpecForData(registry, entityType, aspectName);
     }
     return registry.findAspectSpec(entityType, aspectName);
@@ -157,7 +184,7 @@ public final class TolerantHandling implements UnknownDataHandling {
   @Override
   public int stripUnknownReferences(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
-    return UnknownEntityUrnStripper.strip(aspect, registry);
+    return unknownEntityAspectTolerance ? UnknownEntityUrnStripper.strip(aspect, registry) : 0;
   }
 
   @Nonnull
@@ -166,20 +193,25 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nonnull final RecordTemplate request,
       @Nonnull final Supplier<RecordTemplate> stored,
       @Nonnull final EntityRegistry registry) {
-    return UnknownReferenceMerger.merge(request, stored.get(), registry);
+    return unknownEntityAspectTolerance
+        ? UnknownReferenceMerger.merge(request, stored.get(), registry)
+        : UnknownReferenceMerger.MergeResult.NONE;
   }
 
   @Nonnull
   @Override
   public UnknownEntityUrnStripper.StripResult stripReporting(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
-    return UnknownEntityUrnStripper.stripReporting(aspect, registry);
+    return unknownEntityAspectTolerance
+        ? UnknownEntityUrnStripper.stripReporting(aspect, registry)
+        : UnknownEntityUrnStripper.StripResult.NONE;
   }
 
   @Override
   public boolean aspectReferencesUnknownEntityType(
       @Nonnull final RecordTemplate aspect, @Nonnull final EntityRegistry registry) {
-    return UnknownEntityUrnStripper.referencesUnknownEntityType(aspect, registry);
+    return unknownEntityAspectTolerance
+        && UnknownEntityUrnStripper.referencesUnknownEntityType(aspect, registry);
   }
 
   @Override
@@ -188,19 +220,27 @@ public final class TolerantHandling implements UnknownDataHandling {
       @Nullable final SystemMetadata systemMetadata,
       @Nullable final AspectSpec aspectSpec,
       @Nonnull final EntityRegistry registry) {
-    return UnknownEntityUrnStripper.isFromNewerVersion(aspect, systemMetadata, aspectSpec, registry)
-        || (aspect != null && UnknownSchemaValues.failsOnlyOnUnknownValues(aspect));
+    return isWrittenByNewerSchema(systemMetadata, aspectSpec)
+        || (aspect != null && aspectReferencesUnknownEntityType(aspect, registry))
+        || (unknownEnumTolerance
+            && aspect != null
+            && UnknownSchemaValues.failsOnlyOnUnknownValues(aspect));
   }
 
   @Override
   public boolean failsOnlyOnValuesFromNewerVersion(
       @Nullable final ValidationResult validationFailure) {
-    return UnknownSchemaValues.failsOnlyOnUnknownValues(validationFailure);
+    return unknownEnumTolerance && UnknownSchemaValues.failsOnlyOnUnknownValues(validationFailure);
   }
 
   @Override
-  public boolean isTolerant() {
-    return true;
+  public boolean toleratesUnknownEntityAspect() {
+    return unknownEntityAspectTolerance;
+  }
+
+  @Override
+  public boolean toleratesUnknownEnum() {
+    return unknownEnumTolerance;
   }
 
   /** An entity type the registry doesn't know and no newer version registered. */

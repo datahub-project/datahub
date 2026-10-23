@@ -15,6 +15,7 @@ import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class SystemOperationContextFactoryUnknownDataTest {
@@ -22,18 +23,35 @@ public class SystemOperationContextFactoryUnknownDataTest {
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
   @AfterMethod
   public void tearDown() {
     UnknownDataHandlings.reset();
   }
 
   @Test
-  public void testFlagSelectsHowUnknownDataIsHandled() {
+  public void testFlagsSelectHowUnknownDataIsHandled() {
     SystemOperationContextFactory.configureUnknownDataHandling(provider(false), opContext);
     assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
 
     SystemOperationContextFactory.configureUnknownDataHandling(provider(true), opContext);
-    assertTrue(UnknownDataHandlings.handling() instanceof TolerantHandling);
+    assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
+    assertTrue(UnknownDataHandlings.handling().toleratesUnknownEnum());
+  }
+
+  @Test
+  public void testEachFlagTurnsOnOnlyItsKind() {
+    SystemOperationContextFactory.configureUnknownDataHandling(provider(true, false), opContext);
+    assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
+    assertFalse(UnknownDataHandlings.handling().toleratesUnknownEnum());
+
+    SystemOperationContextFactory.configureUnknownDataHandling(provider(false, true), opContext);
+    assertFalse(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
+    assertTrue(UnknownDataHandlings.handling().toleratesUnknownEnum());
   }
 
   @Test
@@ -52,8 +70,14 @@ public class SystemOperationContextFactoryUnknownDataTest {
   }
 
   private static ConfigurationProvider provider(final boolean tolerant) {
+    return provider(tolerant, tolerant);
+  }
+
+  private static ConfigurationProvider provider(
+      final boolean unknownEntityAspectTolerance, final boolean unknownEnumTolerance) {
     FeatureFlags flags = new FeatureFlags();
-    flags.setUnknownDataToleranceEnabled(tolerant);
+    flags.setUnknownEntityAspectToleranceEnabled(unknownEntityAspectTolerance);
+    flags.setUnknownEnumToleranceEnabled(unknownEnumTolerance);
     ConfigurationProvider provider = mock(ConfigurationProvider.class);
     when(provider.getFeatureFlags()).thenReturn(flags);
     return provider;

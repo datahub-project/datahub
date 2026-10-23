@@ -14,6 +14,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.BooleanSupplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -30,6 +31,7 @@ final class StoredAspectValues {
 
   private final OperationFingerprint operationContext;
   private final RetrieverContext retrieverContext;
+  private final BooleanSupplier tolerated;
   private final BiPredicate<BatchItem, SystemAspect> applies;
   // "urn|aspect" -> "path=value"
   private final Map<String, Set<String>> values = new HashMap<>();
@@ -37,27 +39,34 @@ final class StoredAspectValues {
   private StoredAspectValues(
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
+      @Nonnull final BooleanSupplier tolerated,
       @Nonnull final BiPredicate<BatchItem, SystemAspect> applies) {
     this.operationContext = operationContext;
     this.retrieverContext = retrieverContext;
+    this.tolerated = tolerated;
     this.applies = applies;
   }
 
   /**
    * Any stored value counts. For values whose validity is defined in code rather than in the schema
    * (e.g. policy field types), where a newer version adding one doesn't bump the aspect's schema
-   * version.
+   * version. Kept only while unknown enum values are tolerated, as these are values of that kind.
    */
   static StoredAspectValues any(
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext) {
-    return new StoredAspectValues(operationContext, retrieverContext, (item, stored) -> true);
+    return new StoredAspectValues(
+        operationContext,
+        retrieverContext,
+        () -> handling().toleratesUnknownEnum(),
+        (item, stored) -> true);
   }
 
   /**
    * Only values of an aspect written under a newer schema version count, so invalid data this
    * version or an older one wrote is not kept. For rules the schema defines, such as {@code
-   * UrnValidation} entity types.
+   * UrnValidation} entity types, which a newer version can widen to an unknown entity type or to
+   * one this version knows; kept while either kind of newer-version data is tolerated.
    */
   static StoredAspectValues writtenByNewerSchema(
       @Nonnull final OperationFingerprint operationContext,
@@ -65,6 +74,7 @@ final class StoredAspectValues {
     return new StoredAspectValues(
         operationContext,
         retrieverContext,
+        () -> handling().toleratesUnknownData(),
         (item, stored) ->
             RegistryKnowledge.isWrittenByNewerSchema(
                 stored.getSystemMetadata(), item.getAspectSpec()));
@@ -72,11 +82,11 @@ final class StoredAspectValues {
 
   /**
    * True if the stored aspect holds {@code value} at {@code fieldPath}. Always false, without
-   * reading the stored aspect, when unknown data isn't tolerated.
+   * reading the stored aspect, when the kind of value this checks isn't tolerated.
    */
   boolean contains(
       @Nonnull final BatchItem item, @Nonnull final String fieldPath, @Nonnull final String value) {
-    if (!handling().isTolerant() || item.getUrn() == null || item.getAspectName() == null) {
+    if (!tolerated.getAsBoolean() || item.getUrn() == null || item.getAspectName() == null) {
       return false;
     }
     return values

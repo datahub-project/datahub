@@ -212,7 +212,7 @@ public class CDCProcessor {
     Urn entityUrn = Urn.createFromString(urn);
     String entityType = entityUrn.getEntityType();
     final AspectSpec aspectSpec;
-    if (handling().isTolerant()) {
+    if (handling().toleratesUnknownEntityAspect()) {
       // A row of an entity type or aspect this registry doesn't know, or whose urn key references
       // one (written by a newer version before a rollback), is skipped before any metadata is
       // deserialized, as the MCL consumers do.

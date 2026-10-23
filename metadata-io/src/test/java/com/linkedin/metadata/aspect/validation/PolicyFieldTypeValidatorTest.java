@@ -13,6 +13,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -27,10 +29,12 @@ import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PolicyFieldTypeValidatorTest {
+
   private static final Urn TEST_POLICY_URN = UrnUtils.getUrn("urn:li:dataHubPolicy:test-policy");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
@@ -51,6 +55,16 @@ public class PolicyFieldTypeValidatorTest {
   private EntityRegistry entityRegistry;
 
   private PolicyFieldTypeValidator validator;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

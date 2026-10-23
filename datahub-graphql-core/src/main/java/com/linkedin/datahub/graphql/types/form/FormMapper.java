@@ -83,7 +83,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
           .forEach(
               FormPrompt -> {
                 // Prompt types only a newer version knows (e.g. after a rollback) are skipped.
-                if (!handling().isTolerant()
+                if (!handling().toleratesUnknownEnum()
                     || UnknownEnumValues.mapOrNull(FormPromptType.class, FormPrompt.getType())
                         != null) {
                   formPrompts.add(mapFormPrompt(FormPrompt, formUrn));

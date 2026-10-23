@@ -17,6 +17,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /** Container shapes the shipped aspects don't all exercise: maps, unions and nested records. */
@@ -39,6 +41,16 @@ public class UnknownEntityUrnStripperTest {
                   + "   \"name\": \"Nested\", \"fields\": [ { \"name\": \"target\", \"type\": \"OwnerUrn\" },"
                   + "   { \"name\": \"note\", \"type\": \"string\" } ] } },"
                   + " { \"name\": \"label\", \"type\": \"string\", \"optional\": true } ] }");
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testMapEntriesUnionMembersAndOptionalRecordsAreRemoved() {

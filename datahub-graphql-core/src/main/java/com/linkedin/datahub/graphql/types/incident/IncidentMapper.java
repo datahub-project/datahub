@@ -69,7 +69,7 @@ public class IncidentMapper {
       // know (e.g. after a rollback). With none left only `entity` stays unset, as before
       // tolerance: the incident itself is still returned, because a null here would null the
       // non-null search hit or list that loaded it (e.g. the whole incident search page).
-      if (handling().isTolerant()) {
+      if (handling().toleratesUnknownEntityAspect()) {
         final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
         if (linkedEntity != null) {
           result.setEntity(linkedEntity);

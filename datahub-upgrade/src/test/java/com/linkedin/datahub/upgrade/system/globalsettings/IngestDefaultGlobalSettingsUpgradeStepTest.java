@@ -17,6 +17,7 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -32,6 +33,11 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
   @Mock private EntityService<?> mockEntityService;
   @Mock private UpgradeContext mockUpgradeContext;
   @Mock private OperationContext mockOpContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setup() {

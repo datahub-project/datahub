@@ -69,7 +69,7 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
    */
   static List<SearchResult> mapKnownResults(
       @Nullable final QueryContext context, @Nonnull final List<SearchEntity> hits) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       final List<SearchResult> mappedResults = new ArrayList<>();
       for (SearchEntity searchEntity : hits) {
         final SearchResult mapped = MapperUtils.mapResult(context, searchEntity);

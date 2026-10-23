@@ -611,7 +611,7 @@ public abstract class GenericEntitiesController<
       } else {
         entityService.deleteUrn(opContext, urn);
       }
-    } else if (handling().isTolerant()) {
+    } else if (handling().toleratesUnknownEntityAspect()) {
       // Resolve every name first, so a request naming an unknown aspect deletes nothing.
       final List<String> aspectNames =
           aspects.stream()
@@ -702,7 +702,7 @@ public abstract class GenericEntitiesController<
     }
 
     final AspectSpec aspectSpec;
-    if (handling().isTolerant()) {
+    if (handling().toleratesUnknownEntityAspect()) {
       // An unknown aspect (e.g. one written by a newer version before a rollback) fails loudly:
       // silently returning 200 would leave the row in place while telling the caller it is gone.
       aspectSpec =
@@ -774,7 +774,7 @@ public abstract class GenericEntitiesController<
             true);
 
     AspectSpec aspectSpec =
-        handling().isTolerant()
+        handling().toleratesUnknownEntityAspect()
             ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
             : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
@@ -851,7 +851,7 @@ public abstract class GenericEntitiesController<
             true);
 
     AspectSpec aspectSpec =
-        handling().isTolerant()
+        handling().toleratesUnknownEntityAspect()
             ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
             : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
 

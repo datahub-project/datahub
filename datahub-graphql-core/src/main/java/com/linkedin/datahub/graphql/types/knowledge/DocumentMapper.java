@@ -274,7 +274,9 @@ public class DocumentMapper {
                     return assetInfo;
                   })
               // Skip assets of entity types the registry doesn't know (e.g. after a rollback).
-              .filter(assetInfo -> assetInfo.getAsset() != null || !handling().isTolerant())
+              .filter(
+                  assetInfo ->
+                      assetInfo.getAsset() != null || !handling().toleratesUnknownEntityAspect())
               .collect(java.util.stream.Collectors.toList()));
     }
 
