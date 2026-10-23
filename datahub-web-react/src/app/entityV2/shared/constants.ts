@@ -250,6 +250,17 @@ export enum EntityProfileTab {
     SUMMARY_TAB = 'SUMMARY_TAB',
 }
 
+/**
+ * Stable keys that identify entity sidebar tabs (`EntitySidebarTab.key`). Tab display names are
+ * translated, so always target a sidebar tab (e.g. from an onboarding step) by one of these values.
+ */
+export enum EntitySidebarTabKey {
+    SUMMARY = 'Summary',
+    LINEAGE = 'Lineage',
+    COLUMNS = 'Columns',
+    PROPERTIES = 'Properties',
+}
+
 export const EDITING_DOCUMENTATION_URL_PARAM = 'editing';
 
 export const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';

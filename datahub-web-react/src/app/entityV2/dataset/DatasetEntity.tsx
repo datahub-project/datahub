@@ -27,6 +27,7 @@ import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stat
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -180,6 +181,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -189,6 +191,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
         },
         {
+            key: EntitySidebarTabKey.COLUMNS,
             name: i18next.t('common.labels:columns'),
             component: SchemaTab,
             description: i18next.t('entity.types:sidebar.columnsDescription'),
@@ -198,6 +201,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
