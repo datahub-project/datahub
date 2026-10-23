@@ -22,6 +22,7 @@ The below table shows transformer which can transform aspects of entity [Dataset
 | `datasetProperties` | - [Simple Add Dataset datasetProperties](#simple-add-dataset-datasetproperties)<br/> - [Add Dataset datasetProperties](#add-dataset-datasetproperties)                                                                                                                                                                                                                |
 | `domains`           | - [Simple Add Dataset domains](#simple-add-dataset-domains)<br/> - [Pattern Add Dataset domains](#pattern-add-dataset-domains)<br/> - [Domain Mapping Based on Tags](#domain-mapping-based-on-tags)                                                                                                                                                                   |
 | `dataProduct`       | - [Simple Add Dataset dataProduct ](#simple-add-dataset-dataproduct)<br/> - [Pattern Add Dataset dataProduct](#pattern-add-dataset-dataproduct)<br/> - [Add Dataset dataProduct](#add-dataset-dataproduct)                                                                                                                                                            |
+| `upstreamLineage`   | - [Rewrite upstream URNs](#rewrite-upstream-urns)                                                                                                                                                                                                                                                                                                                     |
 
 ## Extract Ownership from Tags
 
@@ -1217,6 +1218,50 @@ transformers:
     config:
       input_pattern: '\b\w*hub\b'
       replacement: "sub"
+```
+
+## Rewrite upstream URNs
+
+Rewrites upstream dataset URNs on the `upstreamLineage` aspect. Each entry in `platform_rules` matches a platform name exactly: `find` must equal the upstream's platform (for example `mssql`, not `sql`), and `replace` is the platform the upstream moves to. Only the first matching rule applies. Its nested `id_rules` are literal find-and-replace operations on the dataset name. They run in list order, and a later one sees the name produced by the earlier ones. An upstream whose platform matches no rule is left unchanged.
+
+Top-level `id_rules` apply to every upstream and keep its platform. They cannot be combined with `platform_rules`; put name rules under the platform rule they belong to.
+
+Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run. When a rewrite produces an upstream that is already listed, the duplicate is dropped.
+
+### Config Details
+
+| Field            | Required | Type         | Default   | Description                                                                                                                                                                                                                                          |
+| ---------------- | -------- | ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform_rules` |          | list[object] | `[]`      | Platform rules. Each object has `find`, `replace`, and nested `id_rules`. The first rule whose `find` equals the upstream's platform applies, and its nested `id_rules` then rewrite the dataset name. Cannot be combined with top-level `id_rules`. |
+| `id_rules`       |          | list[object] | `[]`      | Name rules applied to every upstream, keeping its platform. Each object has `find` and `replace`. Cannot be combined with `platform_rules`.                                                                                                          |
+| `mode`           |          | enum         | `replace` | `replace` overwrites each upstream URN. `add` keeps the original upstream and also emits the rewritten URN.                                                                                                                                          |
+
+```yaml
+transformers:
+  - type: "rewrite_upstream_urns"
+    config:
+      mode: replace
+      platform_rules:
+        - find: mssql
+          replace: fabric-onelake
+          id_rules:
+            - find: src_lakehouse
+              replace: workspace-id.item-id
+            - find: ".gold."
+              replace: ".curated."
+```
+
+An upstream `urn:li:dataset:(urn:li:dataPlatform:mssql,src_lakehouse.gold.bridge_table,PROD)` becomes `urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,workspace-id.item-id.curated.bridge_table,PROD)`. An upstream on another platform is not changed.
+
+With no `platform_rules`, the same name change applies on every platform:
+
+```yaml
+transformers:
+  - type: "rewrite_upstream_urns"
+    config:
+      id_rules:
+        - find: src_lakehouse
+          replace: workspace-id.item-id
 ```
 
 ## Clean User URN in DatasetUsageStatistics Aspect
