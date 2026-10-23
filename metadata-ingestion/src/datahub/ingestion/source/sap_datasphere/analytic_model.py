@@ -9,9 +9,11 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     BLD_MEASURES,
     BLD_SOURCE_MODEL,
     BLD_VARIABLES,
+    CSN_ARGS,
     CSN_AS,
     CSN_COLUMNS,
     CSN_FROM,
+    CSN_JOIN,
     CSN_KEY_QUERY,
     CSN_REF,
     CSN_SELECT,
@@ -58,8 +60,27 @@ def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
     )
 
 
+def _from_sources(node: object, out: Dict[str, str]) -> None:
+    # Maps each FROM source's name and `as` alias to the source object name.
+    if not isinstance(node, dict):
+        return
+    ref = node.get(CSN_REF)
+    if isinstance(ref, list) and ref and isinstance(ref[0], str):
+        out[ref[0]] = ref[0]
+        alias = node.get(CSN_AS)
+        if isinstance(alias, str) and alias:
+            out[alias] = ref[0]
+        return
+    args = node.get(CSN_ARGS)
+    if node.get(CSN_JOIN) and isinstance(args, list):
+        for arg in args:
+            _from_sources(arg, out)
+
+
 def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRef]:
     # Analytic-model elements omit types, so map each output to its source column.
+    # Calculated columns (an expression, or a `$projection` self-reference) have
+    # no single source and are skipped.
     query = csn_def.get(CSN_KEY_QUERY)
     if not isinstance(query, dict):
         return {}
@@ -69,16 +90,10 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     columns = select.get(CSN_COLUMNS)
     if not isinstance(columns, list):
         return {}
-    source_object = None
-    source_alias = None
-    from_node = select.get(CSN_FROM)
-    if isinstance(from_node, dict):
-        from_ref = from_node.get(CSN_REF)
-        if isinstance(from_ref, list) and from_ref and isinstance(from_ref[0], str):
-            source_object = from_ref[0]
-            alias = from_node.get(CSN_AS)
-            if isinstance(alias, str) and alias:
-                source_alias = alias
+    sources: Dict[str, str] = {}
+    _from_sources(select.get(CSN_FROM), sources)
+    distinct_sources = set(sources.values())
+    single_source = next(iter(distinct_sources)) if len(distinct_sources) == 1 else None
     out: Dict[str, SourceColumnRef] = {}
     for col in columns:
         if not isinstance(col, dict):
@@ -87,19 +102,18 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
         if not (isinstance(ref, list) and ref):
             continue
         if len(ref) == 1:
-            projected_source = source_object
+            projected_source = single_source
             column = ref[0]
         elif len(ref) == 2:
             qualifier, column = ref[0], ref[-1]
             if not isinstance(qualifier, str) or qualifier == PROJECTION_ALIAS:
                 continue
-            if source_object is not None and (
-                qualifier in (source_object, source_alias)
-            ):
-                projected_source = source_object
-            else:
-                projected_source = qualifier
+            # An unknown qualifier is not a fetchable object; with no parseable
+            # FROM, keep the old behaviour of treating it as the object name.
+            projected_source = sources.get(qualifier) if sources else qualifier
         else:
+            # Three or more segments navigate an association; CSN dotted names
+            # keep `SPACE.view` in one segment, so these are never object refs.
             continue
         if not (isinstance(projected_source, str) and isinstance(column, str)):
             continue

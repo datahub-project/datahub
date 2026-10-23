@@ -2106,9 +2106,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _source_object_field_types(
         self, default_space: str, source_object: str
     ) -> Dict[str, SchemaFieldClass]:
-        cached = self._source_field_type_cache.get(source_object)
-        if cached is not None:
-            return cached
         # A projection ref is space-qualified (``SPACE.name``); a bare name is a
         # same-space source. NOTE: only VIEWS is probed (its 404 retry also covers
         # analytic models) — a local/remote-table source is not resolved and its
@@ -2116,6 +2113,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         space, _, name = source_object.partition(".")
         if not name:
             space, name = default_space, source_object
+        cache_key = f"{space}.{name}"
+        cached = self._source_field_type_cache.get(cache_key)
+        if cached is not None:
+            return cached
         field_map: Dict[str, SchemaFieldClass] = {}
         csn_obj = self._client.fetch_object_definition(space, OBJECT_TYPE_VIEWS, name)
         definition = self._csn_definition(csn_obj, name)
@@ -2128,7 +2129,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             field_map = {
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
-        self._source_field_type_cache[source_object] = field_map
+        self._source_field_type_cache[cache_key] = field_map
         return field_map
 
     def _apply_column_pattern(

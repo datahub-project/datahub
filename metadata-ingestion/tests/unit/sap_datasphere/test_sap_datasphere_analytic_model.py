@@ -159,20 +159,34 @@ def test_projection_source_columns_resolves_from_alias_to_source_object():
     assert result["renamed_a"].column == "col_a"
 
 
-def test_projection_source_columns_preserves_other_qualifier():
+def test_projection_source_columns_resolves_join_aliases():
     csn_def = {
         "query": {
             "SELECT": {
-                "from": {"ref": ["SPACE.fact"], "as": "fact"},
-                "columns": [{"ref": ["dimension", "name"], "as": "dimension_name"}],
+                "from": {
+                    "join": "left",
+                    "args": [
+                        {"ref": ["SPACE.fact"], "as": "f"},
+                        {"ref": ["SPACE.dim"], "as": "d"},
+                    ],
+                },
+                "columns": [
+                    {"ref": ["f", "amount"]},
+                    {"ref": ["d", "name"], "as": "dimension_name"},
+                    {"ref": ["unknown", "col_x"]},
+                    {"ref": ["col_y"]},
+                ],
             }
         }
     }
 
     result = extract_projection_source_columns(csn_def)
 
-    assert result["dimension_name"].source_object == "dimension"
+    assert result["amount"].source_object == "SPACE.fact"
+    assert result["dimension_name"].source_object == "SPACE.dim"
     assert result["dimension_name"].column == "name"
+    assert "col_x" not in result
+    assert "col_y" not in result
 
 
 def test_projection_source_columns_skips_multi_segment_navigation():

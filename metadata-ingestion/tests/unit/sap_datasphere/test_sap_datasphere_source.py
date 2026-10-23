@@ -6650,6 +6650,13 @@ def test_analytic_model_source_field_types_cached_across_lookups():
     assert "c" in first and first is second
     assert calls == ["v_src"]
 
+    # A bare name resolves against the model's space, so the same name in
+    # another space is a separate lookup.
+    source._source_object_field_types("SPACE_A", "v_src")
+    source._source_object_field_types("SPACE_B", "v_src")
+    source._source_object_field_types("SPACE_A", "v_src")
+    assert calls == ["v_src", "v_src", "v_src"]
+
 
 def test_connections_auth_valueerror_aborts_run(requests_mock, monkeypatch):
     # A connections-endpoint auth/config failure raises ValueError from the
