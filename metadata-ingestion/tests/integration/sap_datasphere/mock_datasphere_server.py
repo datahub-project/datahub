@@ -37,6 +37,8 @@ ANALYTIC_MODEL_NAMES = [
 ]
 SOURCE_OBJECT_VIEWS = [
     ("FINANCE_DATA", "SALES_ALL_GE"),
+    ("FINANCE_DATA", "BusinessPartner_DIM_GE"),
+    ("FINANCE_DATA", "Purchasing_Power_DIM_GE"),
 ]
 
 

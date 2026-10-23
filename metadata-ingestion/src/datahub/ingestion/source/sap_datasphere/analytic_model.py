@@ -11,10 +11,12 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     BLD_VARIABLES,
     CSN_ARGS,
     CSN_AS,
+    CSN_ASSOC_TARGET,
     CSN_COLUMNS,
     CSN_FROM,
     CSN_JOIN,
     CSN_KEY_QUERY,
+    CSN_MIXIN,
     CSN_REF,
     CSN_SELECT,
     PROJECTION_ALIAS,
@@ -60,21 +62,38 @@ def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
     )
 
 
-def _from_sources(node: object, out: Dict[str, str]) -> None:
-    # Maps each FROM source's name and `as` alias to the source object name.
+def _from_sources(node: object) -> Dict[str, str]:
+    # Maps each FROM source's name, `as` alias and implicit alias (the last
+    # dotted segment) to the source object name.
     if not isinstance(node, dict):
-        return
+        return {}
     ref = node.get(CSN_REF)
     if isinstance(ref, list) and ref and isinstance(ref[0], str):
-        out[ref[0]] = ref[0]
+        name = ref[0]
+        sources = {name: name}
         alias = node.get(CSN_AS)
         if isinstance(alias, str) and alias:
-            out[alias] = ref[0]
-        return
+            sources[alias] = name
+        else:
+            sources.setdefault(name.rsplit(".", 1)[-1], name)
+        return sources
+    sources = {}
     args = node.get(CSN_ARGS)
     if node.get(CSN_JOIN) and isinstance(args, list):
         for arg in args:
-            _from_sources(arg, out)
+            for key, name in _from_sources(arg).items():
+                sources.setdefault(key, name)
+    return sources
+
+
+def _mixin_targets(mixin: object) -> Dict[str, str]:
+    if not isinstance(mixin, dict):
+        return {}
+    return {
+        name: assoc[CSN_ASSOC_TARGET]
+        for name, assoc in mixin.items()
+        if isinstance(assoc, dict) and isinstance(assoc.get(CSN_ASSOC_TARGET), str)
+    }
 
 
 def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRef]:
@@ -90,10 +109,12 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     columns = select.get(CSN_COLUMNS)
     if not isinstance(columns, list):
         return {}
-    sources: Dict[str, str] = {}
-    _from_sources(select.get(CSN_FROM), sources)
-    distinct_sources = set(sources.values())
+    from_sources = _from_sources(select.get(CSN_FROM))
+    distinct_sources = set(from_sources.values())
     single_source = next(iter(distinct_sources)) if len(distinct_sources) == 1 else None
+    # A mixin association qualifies refs to its target, but unqualified refs
+    # still read from FROM only.
+    sources = {**_mixin_targets(select.get(CSN_MIXIN)), **from_sources}
     out: Dict[str, SourceColumnRef] = {}
     for col in columns:
         if not isinstance(col, dict):

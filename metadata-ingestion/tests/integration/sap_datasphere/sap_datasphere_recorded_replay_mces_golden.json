@@ -325,10 +325,10 @@
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(20)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -591,10 +591,10 @@
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.BooleanType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "BOOLEAN",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -781,10 +781,10 @@
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(4)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -802,10 +802,10 @@
                     "label": "BusinessPartnerCategory",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(1)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -823,10 +823,10 @@
                     "label": "BusinessPartnerName",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(81)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -844,10 +844,10 @@
                     "label": "CreationDate",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.DateType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DATE",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -886,10 +886,10 @@
                     "label": "BusinessPartnerIsBlocked",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.BooleanType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "BOOLEAN",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1096,10 +1096,10 @@
                     "label": "Country",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(3)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1159,10 +1159,10 @@
                     "label": "City",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(40)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1180,10 +1180,10 @@
                     "label": "City_Population",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "INTEGER",
                     "recursive": false,
                     "globalTags": {
                         "tags": [

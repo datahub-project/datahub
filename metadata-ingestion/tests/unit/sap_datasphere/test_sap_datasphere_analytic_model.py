@@ -189,6 +189,50 @@ def test_projection_source_columns_resolves_join_aliases():
     assert "col_y" not in result
 
 
+def test_projection_source_columns_resolves_mixin_association_targets():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SPACE.fact"], "as": "f"},
+                "mixin": {
+                    "_dim": {"type": "cds.Association", "target": "SPACE.dim"},
+                    "_broken": {"type": "cds.Association"},
+                },
+                "columns": [
+                    {"ref": ["_dim", "name"], "as": "dim_name"},
+                    {"ref": ["_broken", "col_x"]},
+                    {"ref": ["amount"]},
+                ],
+            }
+        }
+    }
+
+    result = extract_projection_source_columns(csn_def)
+
+    assert result["dim_name"].source_object == "SPACE.dim"
+    assert result["dim_name"].column == "name"
+    assert "col_x" not in result
+    # The mixin target is not a second FROM source, so unqualified refs still
+    # resolve to the single FROM object.
+    assert result["amount"].source_object == "SPACE.fact"
+
+
+def test_projection_source_columns_resolves_implicit_from_alias():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["SPACE.v_source"]},
+                "columns": [{"ref": ["v_source", "col_a"], "as": "renamed_a"}],
+            }
+        }
+    }
+
+    result = extract_projection_source_columns(csn_def)
+
+    assert result["renamed_a"].source_object == "SPACE.v_source"
+    assert result["renamed_a"].column == "col_a"
+
+
 def test_projection_source_columns_skips_multi_segment_navigation():
     csn_def = {
         "query": {
