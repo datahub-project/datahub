@@ -16,6 +16,7 @@ Four groups of tests:
 
 import ast
 import fnmatch
+import importlib
 import os
 import pathlib
 import subprocess
@@ -115,6 +116,29 @@ def test_setup_py_and_pyproject_agree(setup_ns: dict) -> None:
     ) == _pyproject_table("exclude-package-data"), (
         "exclude_package_data has drifted between setup.py and pyproject.toml; regenerate pyproject.toml"
     )
+
+
+def test_pyproject_generator_reads_setup_py_without_setuptools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Python 3.12 venvs have no setuptools; the generator then execs setup.py against a stub."""
+    monkeypatch.syspath_prepend(str(_ROOT / "scripts"))
+    generate_pyproject_deps = importlib.import_module("generate_pyproject_deps")
+    # A None entry blocks the import, as if setuptools were not installed.
+    blocked = [
+        "setuptools",
+        "setuptools.command",
+        "setuptools.command.build_py",
+        "setuptools.command.sdist",
+    ]
+    for name in blocked:
+        monkeypatch.setitem(sys.modules, name, None)
+    monkeypatch.chdir(_ROOT)
+
+    ns = generate_pyproject_deps.load_setup_py_variables()
+
+    assert ns["_setup_args"]["cmdclass"]["build_py"].__name__ == "_verified_build_py"
+    assert all(sys.modules[name] is None for name in blocked), "the stub leaked"
 
 
 def test_every_exclusion_still_matches_a_file(setup_ns: dict) -> None:
