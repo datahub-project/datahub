@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, cast
+from typing import Dict, Iterable, List, Optional, cast
 from unittest.mock import patch
 
 import pytest
@@ -30,6 +30,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     JsonDict,
     ResolvedPlatform,
     UpstreamColRef,
+    UpstreamRef,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -5134,7 +5135,8 @@ def test_business_layer_passthrough_qualified_cross_space_keys():
 
 
 def test_business_layer_mixed_bare_and_qualified_keys():
-    # Realistic star schema: same-space fact/dim plus a built-in time dimension.
+    # Realistic star schema: same-space fact/dim plus a generated time dimension,
+    # which lives in the model's space despite its dotted name.
     src = _bl_source("bl-mixed-keys")
     csn = _business_layer_csn(
         "am_orders",
@@ -5154,8 +5156,83 @@ def test_business_layer_mixed_bare_and_qualified_keys():
         "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
         "my_space.v_fact_orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
-        "sap.time.m_time_dimension,PROD)",
+        "my_space.sap.time.m_time_dimension,PROD)",
     }
+
+
+def test_query_lineage_resolves_dotted_upstreams():
+    src = _bl_source("query-lineage-dotted")
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [
+            UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+            UpstreamRef(name="FINANCE.V_SALES"),
+            UpstreamRef(name="V_LOCAL"),
+        ],
+    )
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,finance.v_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_local,PROD)",
+    ]
+
+
+def test_query_lineage_reports_sap_refs_outside_generated_prefixes():
+    src = _bl_source("query-lineage-sap-space")
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [
+            UpstreamRef(name="SAP.V_SALES"),
+            UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+        ],
+    )
+    src._locate("SAP.V_SALES", "OTHER_SPACE")
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,sap.v_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)",
+    ]
+    assert list(src.report.sap_refs_outside_generated_prefixes) == ["SAP.V_SALES"]
+
+
+def test_query_column_lineage_through_generated_time_object():
+    src = _bl_source("query-col-lineage-sap-time")
+    time_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)"
+    )
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v,PROD)"
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION")],
+        ColumnLineageContext(
+            pairs=[
+                ColumnLineagePair(
+                    downstream_col="year",
+                    upstream_refs=[
+                        UpstreamColRef(qname="SAP.TIME.M_TIME_DIMENSION", col="YEAR")
+                    ],
+                    transform_op="IDENTITY",
+                )
+            ],
+            downstream_dataset_urn=view_urn,
+        ),
+    )
+
+    assert lineage is not None
+    assert lineage.fineGrainedLineages is not None
+    assert lineage.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({time_urn},YEAR)"
+    ]
+    assert not list(src.report.column_lineage_unresolved)
 
 
 def test_business_layer_keeps_fgl_for_bare_same_space_keys():
@@ -6560,12 +6637,11 @@ def test_source_does_not_override_get_workunits():
     assert defining_class is not SapDatasphereSource
 
 
-def _am_source(run_id: str, known_spaces: Set[str]) -> SapDatasphereSource:
+def _am_source(run_id: str) -> SapDatasphereSource:
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
     source = SapDatasphereSource(PipelineContext(run_id=run_id), cfg)
-    source._known_spaces = known_spaces
     return source
 
 
@@ -6596,7 +6672,7 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
     # Analytic-model elements carry no inline type: an attribute and a measure are
     # recovered from the projection's source view, a derived measure is inferred
     # numeric, and a non-measure with no source column stays NullType + is reported.
-    source = _am_source("test-am-types", {"SRCSPACE"})
+    source = _am_source("test-am-types")
     _stub_view_fetch(
         source,
         {
@@ -6645,7 +6721,7 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
 def test_analytic_model_source_field_types_cached_across_lookups():
     # The source object's CSN is fetched once per space and reused, so multiple
     # analytic models sharing a fact source don't refetch it.
-    source = _am_source("test-am-cache", {"SRCSPACE", "SPACE_A", "SPACE_B"})
+    source = _am_source("test-am-cache")
     calls = _stub_view_fetch(source, {"v_src": {"c": {"type": "cds.String"}}})
 
     first = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
@@ -6662,8 +6738,8 @@ def test_analytic_model_source_field_types_cached_across_lookups():
 
 def test_analytic_model_dotted_source_names():
     # Generated objects such as `SAP.TIME.*` live in the model's own space; any
-    # other prefix is a space, listed or not, unless a listed space is named SAP.
-    source = _am_source("test-am-dotted", {"AMSPACE"})
+    # other dotted prefix, including `SAP.`, is a space.
+    source = _am_source("test-am-dotted")
     calls = _stub_view_fetch(
         source,
         {
@@ -6674,20 +6750,17 @@ def test_analytic_model_dotted_source_names():
 
     assert source._source_object_field_types("AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY")
     assert source._source_object_field_types("AMSPACE", "UNLISTED.v_src")
-    source._known_spaces = {"AMSPACE", "SAP"}
     assert source._source_object_field_types("AMSPACE", "SAP.v_src")
-    source._source_object_field_types("AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY")
 
     assert calls == [
         "AMSPACE/SAP.TIME.VIEW_DIMENSION_DAY",
         "UNLISTED/v_src",
         "SAP/v_src",
-        "SAP/TIME.VIEW_DIMENSION_DAY",
     ]
 
 
 def test_analytic_model_projection_parse_error_is_reported():
-    source = _am_source("test-am-parse-error", {"AMSPACE"})
+    source = _am_source("test-am-parse-error")
     am_csn_def = {
         "elements": {"dim_a": {"@EndUserText.label": "A"}},
         "query": {"SELECT": {"from": {"ref": ["v_src"]}, "columns": []}},
@@ -6709,9 +6782,9 @@ def test_analytic_model_projection_parse_error_is_reported():
     )
 
 
-def test_known_spaces_include_filtered_spaces_for_projection_types(requests_mock):
-    # A listed space named SAP must win over the SAP object namespace, even when
-    # space_pattern filters it out.
+def test_projection_types_copied_from_a_filtered_space(requests_mock):
+    # A projection source in a space excluded by space_pattern still supplies
+    # column types.
     tenant = "https://myco.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",

@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Final
+from typing import Dict, Final, FrozenSet
 
 PLATFORM: Final[str] = "sap-datasphere"
 
@@ -167,8 +167,14 @@ CSN_JOIN: Final[str] = "join"
 CSN_ARGS: Final[str] = "args"
 CSN_MIXIN: Final[str] = "mixin"
 CSN_ID: Final[str] = "id"
-# Namespace of objects SAP generates inside a space (e.g. `SAP.TIME.*` time
-# dimension tables), whose technical names contain dots.
+# Prefixes of objects Datasphere generates inside a space: time data
+# (`SAP.TIME.VIEW_DIMENSION_DAY`) and TCUR* currency conversion views
+# (`SAP.CURRENCY.VIEW.TCURR`). Their technical names contain dots.
+SAP_GENERATED_OBJECT_PREFIXES: Final[FrozenSet[str]] = frozenset(
+    {"SAP.TIME.", "SAP.CURRENCY."}
+)
+# Namespace of SAP-delivered objects; a `SAP.` reference outside the prefixes
+# above may be a generated namespace this connector does not know yet.
 SAP_OBJECT_NAMESPACE: Final[str] = "SAP"
 CSN_FUNC: Final[str] = "func"
 CSN_XPR: Final[str] = "xpr"
