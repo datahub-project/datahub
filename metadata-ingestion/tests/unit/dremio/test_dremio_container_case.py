@@ -50,7 +50,8 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
         "space-id": {
             "entityType": "space",
             "children": [
-                {"id": "gold", "type": CONTAINER, "path": ["my_space", "Gold"]}
+                {"id": "gold", "type": CONTAINER, "path": ["my_space", "Gold"]},
+                {"id": "no-path", "name": "orphan", "type": CONTAINER, "path": []},
             ],
         },
         "gold": {
@@ -83,6 +84,7 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
         root_container_type=DremioEntityContainerType.SPACE,
     )
 
+    assert len(dremio_api.report.warnings) == 1
     assert sorted(".".join([*(f.path or []), f.name]) for f in folders) == [
         "my_space.Gold",
         "my_space.Gold.Conformed",
@@ -160,7 +162,28 @@ def test_dataset_points_at_emitted_parent_container():
     assert datasets["my_source_table"].container_path == ["my_source"]
 
     assert datasets["my_table"].container_path == ["other_space"]
-    assert list(api.report.datasets_with_unresolved_container) == ["other_space"]
+    assert [list(w.context) for w in api.report.warnings] == [["other_space"]]
+
+
+def test_ambiguous_case_match_gets_no_container():
+    api = _mock_api()
+    api.get_all_containers.return_value = [
+        DremioContainerResponse.model_validate(c)
+        for c in (
+            _container("src", [], DremioEntityContainerType.SOURCE),
+            _container("Data", ["src"], DremioEntityContainerType.FOLDER),
+            _container("data", ["src"], DremioEntityContainerType.FOLDER),
+        )
+    ]
+    api.get_all_tables_and_columns.return_value = [
+        _dataset("[SRC, DATA, t]", "t"),
+        _dataset("[src, data, t2]", "t2"),
+    ]
+    datasets = {d.resource_name: d for d in DremioCatalog(api).get_datasets()}
+
+    assert _aspects()._create_container_class(datasets["t"]) is None
+    assert datasets["t2"].container_path == ["src", "data"]
+    assert len(api.report.warnings) == 1
 
 
 @pytest.mark.parametrize(

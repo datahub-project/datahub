@@ -1414,8 +1414,10 @@ class DremioAPIOperations:
                         root_container_type=container.container_type,
                     )
                 except Exception as exc:
-                    logger.debug(
-                        f"Failed to get sub-containers for {container.name}: {exc}"
+                    self.report.warning(
+                        message="Failed to list sub-containers; datasets under them get no matching container",
+                        context=container.name,
+                        exc=exc,
                     )
 
             return [container] + sub_containers
@@ -1500,7 +1502,7 @@ class DremioAPIOperations:
                         if not child_path:
                             self.report.warning(
                                 message="Dremio catalog child has no path; skipped it",
-                                context=f"{'.'.join(entity_path)}: {container.get('id')}",
+                                context=f"{'.'.join(entity_path)}: {container.get('name') or container.get('id')}",
                             )
                             continue
                         # The listing can case the parent segments differently

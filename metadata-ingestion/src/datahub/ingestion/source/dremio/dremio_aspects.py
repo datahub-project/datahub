@@ -392,7 +392,11 @@ class DremioAspects:
     ) -> Optional[ContainerClass]:
         path = entity.path
         if isinstance(entity, DremioDataset):
-            path = entity.container_path or entity.path
+            path = (
+                entity.container_path
+                if entity.container_path is not None
+                else entity.path
+            )
         if path:
             return ContainerClass(container=self.get_container_urn(path=path))
         return None

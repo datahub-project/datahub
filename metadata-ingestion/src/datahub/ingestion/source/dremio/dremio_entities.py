@@ -251,21 +251,39 @@ class DremioCatalog:
                 dataset_details=dataset_details,
                 api_operations=self.api,
             )
-            container_path = self._container_paths.resolve(dremio_dataset.path)
-            unresolved = ".".join(dremio_dataset.path)
-            if (
-                container_path is None
-                and unresolved
-                and unresolved not in self._unresolved_container_paths
-            ):
-                self._unresolved_container_paths.add(unresolved)
-                self.api.report.datasets_with_unresolved_container.append(unresolved)
-            dremio_dataset.container_path = container_path or dremio_dataset.path
+            dremio_dataset.container_path = self._resolve_container_path(
+                dremio_dataset.path
+            )
 
             yield dremio_dataset
 
+    def _resolve_container_path(self, path: List[str]) -> List[str]:
+        resolved = self._container_paths.resolve(path)
+        if resolved is not None or not path:
+            return resolved or path
+        ambiguous = self._container_paths.is_ambiguous(path)
+        joined = ".".join(path)
+        if joined not in self._unresolved_container_paths:
+            self._unresolved_container_paths.add(joined)
+            self.api.report.warning(
+                title="Dataset container not resolved",
+                message=(
+                    "Schema path matches containers that differ only by case; "
+                    "its datasets get no container"
+                    if ambiguous
+                    else "Schema path matches no emitted container; its datasets "
+                    "point at a container that was not emitted this run"
+                ),
+                context=joined,
+            )
+        # Several candidates means any choice could be wrong.
+        return [] if ambiguous else path
+
     def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
+        # Index only this walk, so a container missing from it isn't resolved.
+        self._container_paths = DremioContainerPathIndex()
+        self._containers_indexed = False
         for container in self.api.get_all_containers():
             dremio_container = self._to_container(container)
             if dremio_container is None:

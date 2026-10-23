@@ -72,10 +72,18 @@ class DremioContainerPathIndex(BaseModel):
         one (a case-sensitive source can hold `Data` and `data`) matches."""
         if self._key(path) in self._exact:
             return path
-        matches = self._by_folded_key.get(self._key([part.lower() for part in path]))
-        if matches and len(matches) == 1:
+        matches = self._folded_matches(path)
+        if len(matches) == 1:
             return matches[0]
         return None
+
+    def is_ambiguous(self, path: List[str]) -> bool:
+        return (
+            self._key(path) not in self._exact and len(self._folded_matches(path)) > 1
+        )
+
+    def _folded_matches(self, path: List[str]) -> List[List[str]]:
+        return self._by_folded_key.get(self._key([part.lower() for part in path]), [])
 
 
 class DremioContainerResponse(BaseModel):
