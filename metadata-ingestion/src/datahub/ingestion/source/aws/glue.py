@@ -406,7 +406,7 @@ class GlueSourceConfig(
 
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields, and between a Lake Formation resource link's columns and the same-named columns of the shared table it points at.",
     )
 
     resolve_resource_link_schema: bool = Field(
@@ -1967,15 +1967,15 @@ class GlueSource(StatefulIngestionSourceBase):
         """
         dataset_urn = mce.proposedSnapshot.urn
         extra_upstreams = extra_upstreams or []
+        schema_metadata: Optional[SchemaMetadataClass] = (
+            mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+        )
 
         storage_upstreams: List[UpstreamClass] = []
         storage_fine_grained: List[FineGrainedLineageClass] = []
         if self.source_config.emit_storage_lineage:
             dataset_properties: Optional[DatasetPropertiesClass] = (
                 mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
-            )
-            schema_metadata: Optional[SchemaMetadataClass] = (
-                mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
             )
 
             # get urn for underlying table storage
@@ -2035,13 +2035,26 @@ class GlueSource(StatefulIngestionSourceBase):
                         ),
                     ).as_workunit()
 
+        # The extra upstreams are resource-link edges: a link is a 1:1 copy of the owner's table and
+        # its schema is the owner's, so each column maps to the same-named owner column.
+        link_fine_grained: List[FineGrainedLineageClass] = []
+        if self.source_config.include_column_lineage and schema_metadata:
+            for upstream in extra_upstreams:
+                link_fine_grained.extend(
+                    self.get_fine_grained_lineages(
+                        dataset_urn, upstream.dataset, schema_metadata, schema_metadata
+                    )
+                    or []
+                )
+
         upstreams = storage_upstreams + extra_upstreams
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=upstreams,
-                    fineGrainedLineages=storage_fine_grained or None,
+                    fineGrainedLineages=storage_fine_grained + link_fine_grained
+                    or None,
                 ),
             ).as_workunit()
 
