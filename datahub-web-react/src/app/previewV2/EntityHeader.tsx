@@ -12,7 +12,7 @@ import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 
 import { DataPlatform, Deprecation, Health, Maybe } from '@types';
 
@@ -31,7 +31,7 @@ const StyledLink = styled(Link)`
 const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     &&& {
         font-size: ${(props) => props.$titleSizePx || 16}px;
-        font-weight: 700;
+        font-weight: 500;
         vertical-align: middle;
 
         :hover {

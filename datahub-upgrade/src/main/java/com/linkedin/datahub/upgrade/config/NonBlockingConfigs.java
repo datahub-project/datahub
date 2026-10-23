@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatf
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.dataproducts.ResyncDataProductAssets;
+import com.linkedin.datahub.upgrade.system.documents.DeleteOrphanedDocumentChildren;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -43,6 +44,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,6 +72,26 @@ public class NonBlockingConfigs {
             .numRetries(numRetries)
             .build();
     return new RemoveQueryEdges(opContext, entityService, esWriteDao, enabled, override);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade deleteOrphanedDocumentChildren(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      DocumentService documentService,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.enabled}") final boolean enabled,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.deleteOrphanedDocumentChildren.batchSize}") final Integer batchSize) {
+    return new DeleteOrphanedDocumentChildren(
+        opContext,
+        entityService,
+        searchService,
+        documentService,
+        enabled,
+        reprocessEnabled,
+        batchSize);
   }
 
   @Bean

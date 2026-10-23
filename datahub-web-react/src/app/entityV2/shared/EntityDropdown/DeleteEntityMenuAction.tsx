@@ -13,7 +13,7 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from '@app/entityV2/shared/EntityDropdown/utils';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -30,7 +30,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const isDomainEntity = entityType === EntityType.Domain;
 
-    const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
+    const { onDeleteEntity, hasBeenDeleted, DeleteConfirmationModal } = useDeleteEntity(
         urn,
         entityType,
         entityData,
@@ -67,6 +67,7 @@ export default function DeleteEntityMenuItem({ options, onDelete }: Props) {
             >
                 <Trash size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
+            {DeleteConfirmationModal}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </Tooltip>
     );

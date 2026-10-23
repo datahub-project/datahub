@@ -32,6 +32,10 @@ const Content = styled.div`
     }
 `;
 
+function sidebarComponentKey(component: { displayName?: string; name: string }) {
+    return component.displayName || component.name;
+}
+
 type Props = {
     sidebarSections: EntitySidebarSection[];
     topSection?: EntitySidebarSection;
@@ -45,7 +49,12 @@ export const EntitySidebarSections = <T,>({ sidebarSections, topSection, renderT
 
     return (
         <Container id={ENTITY_PROFILE_V2_SIDEBAR_ID}>
-            {topSection && <topSection.component key={`${topSection.component}`} properties={topSection.properties} />}
+            {topSection && (
+                <topSection.component
+                    key={sidebarComponentKey(topSection.component)}
+                    properties={topSection.properties}
+                />
+            )}
             <Content>
                 {sidebarSections?.map((section) => {
                     if (section.display?.visible(entityData, baseEntity, contextType) !== true) {
@@ -53,7 +62,7 @@ export const EntitySidebarSections = <T,>({ sidebarSections, topSection, renderT
                     }
                     return (
                         <section.component
-                            key={`${section.component}`}
+                            key={sidebarComponentKey(section.component)}
                             renderType={renderType}
                             contexType={contextType}
                             properties={section.properties}

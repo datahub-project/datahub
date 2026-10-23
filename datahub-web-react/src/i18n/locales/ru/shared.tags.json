@@ -22,10 +22,10 @@
     "managedTagTooltip": "Этот тег управляется в другой платформе",
     "managedTermTooltip": "Этот термин управляется в другой платформе",
     "modal.addTagsTitle": "Добавить теги",
-    "modal.addTermsTitle": "Добавить термины глоссария",
+    "modal.addTermsTitle": "Добавить термины",
     "modal.addTitle": "Добавить {{entity}}",
     "modal.removeTagsTitle": "Удалить теги",
-    "modal.removeTermsTitle": "Удалить термины глоссария",
+    "modal.removeTermsTitle": "Удалить термины",
     "modal.removeTitle": "Удалить {{entity}}",
     "noEntities": "Объектов нет",
     "noTagsFound": "Теги не найдены",
@@ -47,6 +47,6 @@
     "tagDetails": "Информация о теге",
     "tagLabel": "Тег",
     "tagSearchPlaceholder": "Поиск тега...",
-    "termSearchPlaceholder": "Поиск термина глоссария...",
+    "termSearchPlaceholder": "Поиск термина...",
     "updateDescriptionError": "Не удалось обновить описание: \n {{error}}"
 }

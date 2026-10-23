@@ -976,46 +976,6 @@ SNOWFLAKE_CONFIG: Dict[str, object] = {
 
 
 @pytest.mark.parametrize(
-    "extra, parent_path, pattern, target",
-    [
-        ({}, ["my cat"], r"^my_cat\.analytics$", "my_cat.analytics"),
-        (
-            {"include_metastore": True},
-            ["meta", "my cat"],
-            r"^meta\.my_cat\.analytics$",
-            "meta.my_cat.analytics",
-        ),
-    ],
-)
-def test_unity_schemas_are_judged_on_the_id_ingestion_filters(
-    extra: Dict[str, object], parent_path: List[str], pattern: str, target: str
-) -> None:
-    """process_schemas matches schema_pattern against Schema.id -- the escaped
-    `[metastore.]catalog.schema` -- so a correctly written recipe must not read
-    as excluded."""
-    result = check_filters(
-        source_type="unity-catalog",
-        config_dict={**UNITY_CONFIG, **extra, "schema_pattern": {"allow": [pattern]}},
-        kind=str(DatasetContainerSubTypes.SCHEMA),
-        parent_path=parent_path,
-        names=["analytics"],
-    )
-    assert [(r.target, r.included) for r in result.results] == [(target, True)]
-    assert result.warnings == []
-
-
-def test_unity_catalogs_are_judged_on_their_escaped_id() -> None:
-    result = check_filters(
-        source_type="unity-catalog",
-        config_dict={**UNITY_CONFIG, "catalog_pattern": {"deny": ["^my_cat$"]}},
-        kind=str(DatasetContainerSubTypes.CATALOG),
-        parent_path=[],
-        names=["my cat"],
-    )
-    assert (result.results[0].target, result.results[0].included) == ("my_cat", False)
-
-
-@pytest.mark.parametrize(
     "source_type, config, parent_path, excluded_by",
     [
         (

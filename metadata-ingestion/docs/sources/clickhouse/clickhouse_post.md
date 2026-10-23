@@ -27,6 +27,22 @@ Usage attributed to `INSERT`/`CREATE` queries still comes from SQL parsing, so i
 columns that contribute to the written output — a column read solely in an `INSERT ... SELECT`'s
 `WHERE` clause is not counted.
 
+#### Config-File Dictionaries
+
+Dictionaries defined in server config files (XML or YAML) are not listed in `system.tables`. Set
+`include_config_file_dictionaries: true` to read them from `system.dictionaries`; it is off by
+default because it needs the extra grants listed in the prerequisites, and a failed read fails the
+run. A dictionary that declares `<database>` is ingested as `<database>.<name>` under that database's container, and
+`database_pattern` applies to that database. Otherwise it belongs to the server and is ingested
+under its full name without a container. A global name, even a dotted one such as `db.my_dict`, is
+filtered only by `table_pattern`. When `database` is set, only dictionaries declared in that
+database are ingested. With `include_table_lineage`, a dictionary whose source is an existing
+ClickHouse table gets that table as its upstream. ClickHouse reports the source only after the
+dictionary is loaded, and loads dictionaries lazily by default, so a dictionary that has not been
+used since the server started has no upstream. A config-file dictionary with the same name as a
+table or DDL dictionary (for example `<database>db</database>` and `<name>x</name>` next to table
+`db.x`) is skipped with a warning, so `dictGet` lineage to it points at the table.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

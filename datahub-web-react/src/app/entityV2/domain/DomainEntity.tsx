@@ -7,32 +7,51 @@ import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import DataProductsTab from '@app/entityV2/domain/DataProductsTab/DataProductsTab';
-import { DomainEntitiesTab } from '@app/entityV2/domain/DomainEntitiesTab';
 import { Preview } from '@app/entityV2/domain/preview/Preview';
-import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab } from '@app/entityV2/shared/constants';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import SidebarEntitiesSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityProfileTab, EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DocumentationTab,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarEntityHeader,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 
 import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
+
+const DomainSummaryTab = lazyProfileComponent('DomainSummaryTab', () =>
+    import('@app/entityV2/domain/summary/DomainSummaryTab').then((module) => ({
+        default: module.DomainSummaryTab,
+    })),
+);
+
+const DataProductsTab = lazyProfileComponent(
+    'DataProductsTab',
+    () => import('@app/entityV2/domain/DataProductsTab/DataProductsTab'),
+);
+const DomainEntitiesTab = lazyProfileComponent('DomainEntitiesTab', () =>
+    import('@app/entityV2/domain/DomainEntitiesTab').then((module) => ({
+        default: module.DomainEntitiesTab,
+    })),
+);
+const SidebarEntitiesSection = lazyProfileComponent(
+    'SidebarEntitiesSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection'),
+);
 
 const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
@@ -146,12 +165,14 @@ export class DomainEntity implements Entity<Domain> {
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : DomainSummaryTab,
                 icon: SUMMARY_TAB_ICON,
             },
             {
                 id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
                 name: i18next.t('entity.types:tab.assets'),
+                path: EntityTabPath.ASSETS,
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
@@ -163,6 +184,7 @@ export class DomainEntity implements Entity<Domain> {
                       {
                           id: EntityProfileTab.DOCUMENTATION_TAB,
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -171,6 +193,7 @@ export class DomainEntity implements Entity<Domain> {
             {
                 id: EntityProfileTab.DATA_PRODUCTS_TAB,
                 name: i18next.t('entity.types:dataProduct.namePlural'),
+                path: EntityTabPath.DATA_PRODUCTS,
                 getCount: (entityData, _) => {
                     return entityData?.dataProducts?.total;
                 },
@@ -179,6 +202,7 @@ export class DomainEntity implements Entity<Domain> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },

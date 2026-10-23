@@ -7,8 +7,8 @@ import styled from 'styled-components';
 
 import Legend from '@app/analyticsDashboard/components/Legend';
 import { lineColors } from '@app/analyticsDashboard/components/lineColors';
-import { formatNumber } from '@app/shared/formatNumber';
-import { addInterval } from '@app/shared/time/timeUtils';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import { addInterval } from '@app/sharedV2/time/timeUtils';
 
 import { NamedLine, NumericDataPoint, TimeSeriesChart as TimeSeriesChartType } from '@types';
 

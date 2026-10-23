@@ -1,6 +1,7 @@
+import dataclasses
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,14 +11,27 @@ import datahub.ingestion.source.sql.clickhouse as clickhouse
 import datahub.sql_parsing.sqlglot_lineage as sqlglot_lineage
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.clickhouse import (
+    ClickHouseConfig,
+    ClickHouseSource,
+    _XmlDictionary,
+)
 from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT_NAME
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
+    EnumTypeClass,
+    NumberTypeClass,
     OperationClass,
     QueryPropertiesClass,
     QuerySubjectsClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 from datahub.metadata.urns import SchemaFieldUrn
 
@@ -227,6 +241,20 @@ class _FakeRow:
     def __init__(self, mapping: dict):
         self._mapping = mapping
 
+    def __getitem__(self, key):
+        return self._mapping[key]
+
+
+class _FakeResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def mappings(self):
+        return self
+
+    def __iter__(self):
+        return iter(self._rows)
+
 
 class _FakeConnection:
     def __init__(self, rows):
@@ -239,7 +267,7 @@ class _FakeConnection:
         return None
 
     def execute(self, *args, **kwargs):
-        return iter(self._rows)
+        return _FakeResult(self._rows)
 
 
 class _FakeEngine:
@@ -1220,3 +1248,238 @@ def test_query_log_query_fetches_selects_only_for_usage():
     assert "'Select'" in sql
     # Joined server-side: the HTTP driver returns arrays as their printed form.
     assert "arrayStringConcat(columns" in sql
+
+
+def _clickhouse_source(**config_kwargs: object) -> ClickHouseSource:
+    config = ClickHouseConfig.model_validate(
+        {"host_port": "localhost:8123", "include_table_lineage": False, **config_kwargs}
+    )
+    return ClickHouseSource(config, PipelineContext(run_id="test"))
+
+
+_AspectT = TypeVar("_AspectT", bound=_Aspect)
+
+
+def _aspects_of(
+    workunits: List[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> List[_AspectT]:
+    return [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(aspect_type)) is not None
+    ]
+
+
+def _emitted_dataset_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    return {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetPropertiesClass) is not None
+    }
+
+
+def _sample_xml_dictionary(
+    name: str = "db.My_Dict",
+    database: Optional[str] = None,
+    source: str = "ClickHouse: db.src_table",
+    shares_table_name: bool = False,
+) -> _XmlDictionary:
+    return _XmlDictionary(
+        database=database,
+        name=name,
+        key_names=["id"],
+        key_types=["UInt64"],
+        attribute_names=["v"],
+        attribute_types=["String"],
+        source=source,
+        origin="/etc/clickhouse-server/config.d/dicts.xml",
+        comment="",
+        status="LOADED",
+        dict_type="ComplexKeyCache",
+        shares_table_name=shares_table_name,
+    )
+
+
+def test_fetch_xml_dictionaries_parses_row(monkeypatch):
+    source = _clickhouse_source(platform_instance="ch1")
+
+    dictionaries = [
+        _FakeRow(
+            {
+                "database": "",
+                "name": "db.My_Dict",
+                "key_names": '["id","prop"]',
+                "key_types": '["UInt64","String"]',
+                "attribute_names": '["v"]',
+                "attribute_types": '["String"]',
+                "source": "ClickHouse: db.src_table",
+                "origin": "/etc/clickhouse-server/config.d/dicts.xml",
+                "comment": "",
+                "status": "LOADED",
+                "type": "ComplexKeyCache",
+                "shares_table_name": 0,
+            }
+        )
+    ]
+    monkeypatch.setattr(
+        clickhouse,
+        "create_engine",
+        lambda *a, **kw: _FakeEngine(dictionaries),
+    )
+
+    fetched = source._fetch_xml_dictionaries()
+    assert len(fetched) == 1
+    assert fetched[0].database is None
+    assert fetched[0].dataset_name == "db.My_Dict"
+    assert fetched[0].key_names == ["id", "prop"]
+    assert fetched[0].attribute_types == ["String"]
+
+
+def test_emit_xml_dictionaries_filters_by_declared_database(monkeypatch):
+    source = _clickhouse_source(
+        database_pattern={"deny": ["^db$"]},
+        table_pattern={"deny": ["^Other$", r"^db\.dropped$"]},
+    )
+    monkeypatch.setattr(
+        source,
+        "_fetch_xml_dictionaries",
+        lambda: [
+            _sample_xml_dictionary("db.My_Dict"),
+            _sample_xml_dictionary("db.dropped"),
+            _sample_xml_dictionary("Tag_Dict", database="db"),
+            _sample_xml_dictionary("kept", database="analytics"),
+            _sample_xml_dictionary("Other"),
+            _sample_xml_dictionary("Bare_Dict"),
+        ],
+    )
+
+    emitted = _emitted_dataset_urns(list(source._emit_xml_dictionaries()))
+    assert emitted == {
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics.kept,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,Bare_Dict,PROD)",
+    }
+
+
+def test_emit_xml_dictionaries_skips_and_reports_table_name_collisions(monkeypatch):
+    source = _clickhouse_source()
+    monkeypatch.setattr(
+        source,
+        "_fetch_xml_dictionaries",
+        lambda: [
+            _sample_xml_dictionary("x", database="db", shares_table_name=True),
+            _sample_xml_dictionary("db.y", shares_table_name=True),
+            _sample_xml_dictionary("kept", database="db"),
+        ],
+    )
+
+    emitted = _emitted_dataset_urns(list(source._emit_xml_dictionaries()))
+
+    assert emitted == {"urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.kept,PROD)"}
+    [warning] = source.report.warnings
+    assert list(warning.context) == ["db.x", "db.y"]
+
+
+def test_emit_xml_dictionaries_emits_exact_case_schema(monkeypatch):
+    source = _clickhouse_source(platform_instance="ch1", include_view_lineage=True)
+    monkeypatch.setattr(
+        source, "_fetch_xml_dictionaries", lambda: [_sample_xml_dictionary()]
+    )
+
+    workunits = list(source._emit_xml_dictionaries())
+
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.db.My_Dict,PROD)"
+    assert _emitted_dataset_urns(workunits) == {dataset_urn}
+
+    [properties] = _aspects_of(workunits, DatasetPropertiesClass)
+    assert properties.name == "db.My_Dict"
+    assert properties.customProperties["engine"] == "Dictionary"
+    assert (
+        properties.customProperties["origin"]
+        == "/etc/clickhouse-server/config.d/dicts.xml"
+    )
+
+    [schema] = _aspects_of(workunits, SchemaMetadataClass)
+    assert [field.fieldPath for field in schema.fields] == ["id", "v"]
+    assert [field.nativeDataType for field in schema.fields] == ["UInt64", "String"]
+    assert [type(field.type.type) for field in schema.fields] == [
+        NumberTypeClass,
+        StringTypeClass,
+    ]
+    assert schema.fields[0].isPartOfKey
+    assert not schema.fields[1].isPartOfKey
+
+    assert _aspects_of(workunits, SubTypesClass) == [SubTypesClass(typeNames=["Table"])]
+    assert _aspects_of(workunits, ContainerClass) == []
+
+    assert source.get_schema_resolver().has_urn(dataset_urn)
+    assert source.discovered_datasets == {"db.My_Dict"}
+
+
+def test_emit_xml_dictionary_with_database_tag_joins_database_container(monkeypatch):
+    source = _clickhouse_source()
+    monkeypatch.setattr(
+        source,
+        "_fetch_xml_dictionaries",
+        lambda: [_sample_xml_dictionary("Tag_Dict", database="db")],
+    )
+
+    workunits = list(source._emit_xml_dictionaries())
+
+    assert _emitted_dataset_urns(workunits) == {
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.Tag_Dict,PROD)"
+    }
+    assert any(wu.get_aspect_of_type(ContainerClass) for wu in workunits)
+
+
+@pytest.mark.parametrize(
+    "dictionary_source, upstream",
+    [
+        ("ClickHouse: db.src_table, where: id > 1", "db.src_table"),
+        ("ClickHouse: .src_table", "default.src_table"),
+    ],
+)
+def test_emit_xml_dictionary_adds_clickhouse_source_as_upstream(
+    monkeypatch, dictionary_source, upstream
+):
+    source = _clickhouse_source(platform_instance="ch1", include_table_lineage=True)
+    source._all_tables_set = {upstream}
+    monkeypatch.setattr(
+        source,
+        "_fetch_xml_dictionaries",
+        lambda: [_sample_xml_dictionary(source=dictionary_source)],
+    )
+
+    workunits = list(source._emit_xml_dictionaries())
+
+    [lineage] = _aspects_of(workunits, UpstreamLineageClass)
+    assert [u.dataset for u in lineage.upstreams] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:clickhouse,ch1.{upstream},PROD)"
+    ]
+
+
+def test_emit_xml_dictionary_maps_enum_attribute_type(monkeypatch):
+    source = _clickhouse_source()
+    dictionary = dataclasses.replace(
+        _sample_xml_dictionary(), attribute_types=["Enum8('a' = 1, 'b' = 2)"]
+    )
+    monkeypatch.setattr(source, "_fetch_xml_dictionaries", lambda: [dictionary])
+
+    [schema] = _aspects_of(list(source._emit_xml_dictionaries()), SchemaMetadataClass)
+
+    assert isinstance(schema.fields[1].type.type, EnumTypeClass)
+
+
+def test_emit_xml_dictionaries_reports_fetch_error_as_failure(monkeypatch):
+    source = _clickhouse_source()
+
+    def fail():
+        raise RuntimeError("Code: 497. DB::Exception: ACCESS_DENIED")
+
+    monkeypatch.setattr(source, "_fetch_xml_dictionaries", fail)
+
+    assert list(source._emit_xml_dictionaries()) == []
+    assert source.report.warnings == []
+    assert [f.title for f in source.report.failures] == [
+        "Config-file dictionary fetch failed"
+    ]

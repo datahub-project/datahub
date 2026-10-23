@@ -1,10 +1,9 @@
 import React from 'react';
 
-import { Entity } from '@app/entity/Entity';
 import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ViewBuilderState } from '@app/entity/view/types';
-import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { Entity, EntityCapabilityType } from '@app/entityV2/Entity';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';
@@ -133,7 +132,7 @@ export const user1 = {
     },
     settings: {
         __typename: 'CorpUserSettings',
-        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
+        appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
     },
@@ -221,6 +220,7 @@ const user2 = {
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
         homePage: null,
+        locale: null,
     },
     editableInfo: null,
 };
@@ -3509,6 +3509,8 @@ export const mocks = [
                         manageFeatures: true,
                         manageHomePageTemplates: true,
                         manageDocuments: true,
+                        createDocuments: true,
+                        manageServiceAccounts: true,
                     },
                 },
             },
@@ -3795,6 +3797,7 @@ export const platformPrivileges: PlatformPrivileges = {
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
     manageDocuments: true,
+    createDocuments: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
     manageApplications: true,
