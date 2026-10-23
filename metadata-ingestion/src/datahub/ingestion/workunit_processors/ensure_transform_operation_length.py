@@ -52,9 +52,8 @@ class EnsureTransformOperationLengthProcessor(
 
     @classmethod
     def should_enable(cls, ctx: WorkunitProcessorContext) -> bool:
-        return (
-            getattr(ctx.source_config, "max_transform_operation_length", None)
-            is not None
+        return isinstance(
+            getattr(ctx.source_config, "max_transform_operation_length", None), int
         )
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
