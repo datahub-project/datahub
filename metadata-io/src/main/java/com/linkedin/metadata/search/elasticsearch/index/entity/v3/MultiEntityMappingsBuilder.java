@@ -249,8 +249,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         continue;
       }
 
-      // An entity type this registry doesn't know (e.g. added by a newer version before a
-      // rollback) is skipped, so the mapping is still updated for the property's known types.
+      // While unknown data is tolerated, an entity type this registry doesn't know (e.g. added by
+      // a newer version before a rollback) is skipped, so the mapping is still updated for the
+      // property's known types; otherwise it fails as before.
       final Optional<EntitySpec> entitySpec =
           handling().entitySpecForData(opContext.getEntityRegistry(), entityTypeName);
       if (entitySpec.isPresent()) {

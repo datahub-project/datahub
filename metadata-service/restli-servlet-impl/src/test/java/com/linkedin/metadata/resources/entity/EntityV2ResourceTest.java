@@ -21,6 +21,7 @@ import com.linkedin.parseq.Task;
 import java.util.concurrent.Executors;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
@@ -165,24 +166,22 @@ public class EntityV2ResourceTest {
   }
 
   @Test
-  public void testBatchGetFetchesEachEntityTypeSeparately() throws Exception {
-    // A mixed-type batch (e.g. including types only a newer version knows, after a rollback) is
-    // fetched per entity type, each with its own urns and projected aspects.
+  public void testBatchGetLeavesOutEntityTypesFromANewerVersion() throws Exception {
+    // Urns of a type only a newer version knows (e.g. after a rollback) are left out; the rest of
+    // the batch is fetched as before, whichever urn comes first.
     EntityService<?> entityService = mock(EntityService.class);
-    Urn datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,mixed,PROD)");
+    Urn newerUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
     when(entityService.getEntitiesV2(any(), eq("corpuser"), anySet(), anySet(), anyBoolean()))
         .thenReturn(Map.of(USER_URN, corpUserResponseWithCredentials(USER_URN)));
-    when(entityService.getEntitiesV2(any(), eq("dataset"), anySet(), anySet(), anyBoolean()))
-        .thenReturn(Map.of());
 
     awaitTask(
         resourceForUser(entityService)
-            .batchGet(Set.of(USER_URN.toString(), datasetUrn.toString()), null, null));
+            .batchGet(Set.of(USER_URN.toString(), newerUrn.toString()), null, null));
 
     verify(entityService)
         .getEntitiesV2(any(), eq("corpuser"), eq(Set.of(USER_URN)), anySet(), anyBoolean());
-    verify(entityService)
-        .getEntitiesV2(any(), eq("dataset"), eq(Set.of(datasetUrn)), anySet(), anyBoolean());
+    verify(entityService, never())
+        .getEntitiesV2(any(), eq("entityFromNewerBuild"), anySet(), anySet(), anyBoolean());
   }
 
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:auth-test");

@@ -19,7 +19,6 @@ import com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.util.Pair;
 import java.util.*;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -1102,15 +1101,6 @@ public class ReindexConfig {
     }
 
     /**
-     * Dynamic fields should not be considered as part of the difference, except for structured
-     * properties. This prevents unnecessary reindexing when dynamic fields have minor differences
-     * in their properties.
-     *
-     * @param currentMappings current mappings
-     * @param targetMappings target mappings
-     * @return difference map
-     */
-    /**
      * Drops field definitions (keys of a {@code properties} map, at any depth) that the live
      * mapping has and the target doesn't. After a rollback the live index was built by a newer
      * version whose mapping is a superset of this version's: fields of aspects only it knows, or
@@ -1148,6 +1138,15 @@ public class ReindexConfig {
       return result;
     }
 
+    /**
+     * Dynamic fields should not be considered as part of the difference, except for structured
+     * properties. This prevents unnecessary reindexing when dynamic fields have minor differences
+     * in their properties.
+     *
+     * @param currentMappings current mappings
+     * @param targetMappings target mappings
+     * @return difference map
+     */
     private static MapDifference<String, Object> calculateMapDifference(
         Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
       // Identify dynamic fields in target (fields with dynamic=true) - recursively search all

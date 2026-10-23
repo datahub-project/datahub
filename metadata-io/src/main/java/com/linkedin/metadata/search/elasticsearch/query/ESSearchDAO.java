@@ -1726,7 +1726,8 @@ public class ESSearchDAO {
         urns.stream()
             .flatMap(
                 urn ->
-                    // Urns of entity types this registry doesn't know are left out.
+                    // While unknown data is tolerated, urns of entity types this registry
+                    // doesn't know are left out; otherwise they fail as before.
                     handling()
                         .entitySpecForData(entityRegistry, urn.getEntityType())
                         .map(spec -> Map.entry(urn, spec))

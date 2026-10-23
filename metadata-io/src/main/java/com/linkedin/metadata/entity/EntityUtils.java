@@ -268,26 +268,6 @@ public class EntityUtils {
    * @param rawAspects raw aspects to convert
    * @return map converted aspects
    */
-  /** True when the stored row's system metadata carries a newer schema version than its spec. */
-  private static boolean isWrittenByNewerSchema(
-      @Nonnull final EntityAspect raw,
-      @Nonnull final Urn urn,
-      @Nonnull final EntityRegistry entityRegistry) {
-    if (raw.getSystemMetadata() == null) {
-      return false;
-    }
-    try {
-      final SystemMetadata systemMetadata =
-          RecordUtils.toRecordTemplate(SystemMetadata.class, raw.getSystemMetadata());
-      return handling()
-          .isWrittenByNewerSchema(
-              systemMetadata,
-              entityRegistry.findAspectSpec(urn.getEntityType(), raw.getAspect()).orElse(null));
-    } catch (RuntimeException unreadableSystemMetadata) {
-      return false;
-    }
-  }
-
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
       @Nonnull final OperationFingerprint operationContext,
@@ -353,8 +333,8 @@ public class EntityUtils {
             .collect(Collectors.toList());
 
     // Read Strip: references to entity types this registry doesn't know (written by a newer version
-    // before a rollback) are removed on read as they are on write, so no reader (GraphQL, OpenAPI,
-    // Rest.li, hooks, read-modify-write) sees them.
+    // before a rollback) are removed on read, so no reader (GraphQL, OpenAPI, Rest.li, hooks,
+    // read-modify-write) sees them. Writes keep the stored ones (see mergeStoredReferences).
     systemAspects.forEach(
         systemAspect -> {
           if (systemAspect.getRecordTemplate() != null) {
@@ -412,6 +392,26 @@ public class EntityUtils {
     // TODO consider applying write validation plugins
 
     return systemAspects;
+  }
+
+  /** True when the stored row's system metadata carries a newer schema version than its spec. */
+  private static boolean isWrittenByNewerSchema(
+      @Nonnull final EntityAspect raw,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityRegistry entityRegistry) {
+    if (raw.getSystemMetadata() == null) {
+      return false;
+    }
+    try {
+      final SystemMetadata systemMetadata =
+          RecordUtils.toRecordTemplate(SystemMetadata.class, raw.getSystemMetadata());
+      return handling()
+          .isWrittenByNewerSchema(
+              systemMetadata,
+              entityRegistry.findAspectSpec(urn.getEntityType(), raw.getAspect()).orElse(null));
+    } catch (RuntimeException unreadableSystemMetadata) {
+      return false;
+    }
   }
 
   /**

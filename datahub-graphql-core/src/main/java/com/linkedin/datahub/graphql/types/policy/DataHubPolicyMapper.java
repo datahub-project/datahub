@@ -57,8 +57,9 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       @Nullable QueryContext context, @Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
     DataHubPolicyInfo policyInfo = new DataHubPolicyInfo(dataMap);
     policy.setDescription(policyInfo.getDescription());
-    // Type/state are free-form strings; a value this version doesn't know (ingested via the API, or
-    // written by a newer version before a rollback) falls back, as in PolicyInfoPolicyMapper.
+    // Type/state are free-form strings; while unknown enum values are tolerated, a value this
+    // version doesn't know (ingested via the API, or written by a newer version before a rollback)
+    // falls back to the same values PolicyInfoPolicyMapper uses. Otherwise it fails as before.
     policy.setPolicyType(
         UnknownEnumValues.fromString(PolicyType.class, policyInfo.getType(), PolicyType.METADATA));
     policy.setState(

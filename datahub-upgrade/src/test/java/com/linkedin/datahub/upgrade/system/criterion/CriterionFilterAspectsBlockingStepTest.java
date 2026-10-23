@@ -503,22 +503,11 @@ public class CriterionFilterAspectsBlockingStepTest {
     com.linkedin.common.Deprecation deprecation =
         new com.linkedin.common.Deprecation().setDeprecated(true).setNote("moved");
     deprecation.data().put("actor", "not-a-urn");
-    SystemAspect stored = storedDeprecation(deprecation, null);
+    SystemAspect stored = storedDeprecation(deprecation, new SystemMetadata());
 
     assertThrows(
         com.linkedin.metadata.entity.validation.ValidationException.class,
         () -> buildStep().toChangeItem(OP_CONTEXT, stored));
-  }
-
-  @Test
-  public void testRowWithoutSystemMetadataIsBuilt() {
-    com.linkedin.common.Deprecation deprecation =
-        new com.linkedin.common.Deprecation()
-            .setDeprecated(true)
-            .setNote("moved")
-            .setActor(UrnUtils.getUrn("urn:li:corpuser:someone"));
-
-    assertNotNull(buildStep().toChangeItem(OP_CONTEXT, storedDeprecation(deprecation, null)));
   }
 
   private static SystemAspect storedDeprecation(

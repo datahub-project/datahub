@@ -322,9 +322,9 @@ public class DeleteEntityService {
     final String relatedEntityName = relatedUrn.getEntityType();
     final Optional<EntitySpec> maybeRelatedEntitySpec =
         handling().entitySpecForData(opContext.getEntityRegistry(), relatedEntityName);
-    // An entity type this build does not know (e.g. a referrer written by a newer build before a
-    // version rollback) cannot have its aspects edited here: skip it instead of failing the
-    // whole reference cleanup.
+    // While unknown data is tolerated, an entity type this build does not know (e.g. a referrer
+    // written by a newer build before a version rollback) cannot have its aspects edited here: skip
+    // it instead of failing the whole reference cleanup. Otherwise the lookup fails as before.
     if (maybeRelatedEntitySpec.isEmpty()) {
       handleError(
           new DeleteEntityServiceError(
