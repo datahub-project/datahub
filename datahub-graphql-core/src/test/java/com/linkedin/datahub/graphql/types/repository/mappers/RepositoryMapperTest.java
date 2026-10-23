@@ -1,7 +1,11 @@
 package com.linkedin.datahub.graphql.types.repository.mappers;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mockStatic;
 import static org.testng.Assert.*;
+import static org.testng.Assert.assertSame;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
@@ -13,6 +17,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.TestUtils;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Repository;
 import com.linkedin.entity.Aspect;
@@ -23,6 +29,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.repository.RepositoryLineage;
 import com.linkedin.repository.RepositoryProperties;
 import com.linkedin.repository.RepositorySource;
+import org.mockito.MockedStatic;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -35,7 +42,7 @@ public class RepositoryMapperTest {
 
   @BeforeMethod
   public void setup() {
-    queryContext = mock(QueryContext.class);
+    queryContext = TestUtils.getMockAllowContext();
   }
 
   private static EnvelopedAspect envelop(final Object pdl) {
@@ -97,6 +104,8 @@ public class RepositoryMapperTest {
 
     assertNotNull(result.getPlatform());
     assertEquals(result.getPlatform().getUrn(), PLATFORM_URN.toString());
+    assertNotNull(result.getDataPlatformInstance());
+    assertEquals(result.getDataPlatformInstance().getPlatform().getUrn(), PLATFORM_URN.toString());
 
     assertNotNull(result.getStatus());
     assertFalse(result.getStatus().getRemoved());
@@ -235,5 +244,30 @@ public class RepositoryMapperTest {
 
     assertNull(result.getProperties().getCreated());
     assertNull(result.getProperties().getLastModified());
+  }
+
+  @Test
+  public void testMapRestrictsRepositoryTheViewerCannotSee() {
+    final RepositoryProperties properties = new RepositoryProperties();
+    properties.setName("acme/private");
+
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(Constants.REPOSITORY_PROPERTIES_ASPECT_NAME, envelop(properties));
+
+    final EntityResponse entityResponse = new EntityResponse();
+    entityResponse.setUrn(REPO_URN);
+    entityResponse.setEntityName(Constants.REPOSITORY_ENTITY_NAME);
+    entityResponse.setAspects(aspects);
+
+    try (MockedStatic<AuthorizationUtils> authUtils = mockStatic(AuthorizationUtils.class)) {
+      authUtils.when(() -> AuthorizationUtils.canView(any(), eq(REPO_URN))).thenReturn(false);
+      final Repository restricted = new Repository();
+      authUtils
+          .when(
+              () -> AuthorizationUtils.restrictEntity(any(Repository.class), eq(Repository.class)))
+          .thenReturn(restricted);
+
+      assertSame(RepositoryMapper.map(queryContext, entityResponse), restricted);
+    }
   }
 }

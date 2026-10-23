@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.repository.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
+
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -9,6 +11,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Repository;
@@ -16,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.RepositoryProperties;
 import com.linkedin.datahub.graphql.generated.RepositorySource;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -97,6 +101,8 @@ public class RepositoryMapper {
       final com.linkedin.common.DataPlatformInstance platformInstance =
           new com.linkedin.common.DataPlatformInstance(data);
       result.setPlatform(mapPlatform(platformInstance));
+      result.setDataPlatformInstance(
+          DataPlatformInstanceAspectMapper.map(context, platformInstance));
     }
 
     final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
@@ -163,6 +169,9 @@ public class RepositoryMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(result, Repository.class);
+    }
     return result;
   }
 

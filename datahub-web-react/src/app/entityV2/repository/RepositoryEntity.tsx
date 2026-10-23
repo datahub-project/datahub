@@ -224,7 +224,11 @@ export class RepositoryEntity implements Entity<Repository> {
             name: this.displayName(entity),
             type: EntityType.Repository,
             icon: undefined,
-            platform: entity?.platform ?? undefined,
+            // The lineage fragment aliases platform as repositoryPlatform (see lineage.graphql).
+            platform:
+                entity?.platform ??
+                (entity as Repository & { repositoryPlatform?: Repository['platform'] })?.repositoryPlatform ??
+                undefined,
         };
     };
 
