@@ -314,10 +314,11 @@ class UnityCatalogSourceConfig(
     )
 
     log_genie_spaces: bool = Field(
-        default=False,
+        default=True,
         description="Log raw Genie space list/detail responses and permission failures for diagnostics. "
         "Includes descriptions, instructions, and dataset identifiers in INFO logs. "
-        "Does not emit Genie metadata or change normal Unity Catalog ingestion.",
+        "Does not emit Genie metadata or change normal Unity Catalog ingestion. "
+        "Set to `false` to disable this diagnostic logging.",
     )
 
     include_metric_views: bool = pydantic.Field(

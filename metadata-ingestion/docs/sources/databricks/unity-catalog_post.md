@@ -160,9 +160,10 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 #### Genie diagnostics
 
-Set `log_genie_spaces: true` in your Databricks source config to log the raw Genie
-space listing and each space's exported definition at INFO level. This is disabled
-by default and does not emit Genie entities. Normal Unity Catalog ingestion still runs.
+`log_genie_spaces` logs the raw Genie space listing and each space's exported
+definition at INFO level. This is enabled by default and does not emit Genie
+entities; set `log_genie_spaces: false` to turn it off. Normal Unity Catalog
+ingestion still runs either way.
 
 The logs include descriptions, instructions, dataset identifiers, and other fields
 returned by Databricks. Treat the output as workspace metadata when sharing logs.
