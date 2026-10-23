@@ -41,4 +41,11 @@ record EditableSchemaMetadata includes ChangeAuditStamps {
     }
   }
   editableSchemaFieldInfo: array[EditableSchemaFieldInfo]
+
+  /**
+   * Field paths of a user-declared primary key, for datasets whose source declares none.
+   * A primary key declared by the source (SchemaMetadata.primaryKeys or SchemaField.isPartOfKey)
+   * takes precedence over this one.
+   */
+  primaryKeys: optional array[string]
 }

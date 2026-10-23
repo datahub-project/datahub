@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -88,6 +89,8 @@ const Tabs = styled.div``;
 
 interface Props {
     schemaFields: SchemaField[];
+    // primaryKeys declared by the source schema, for the effective primary key badge
+    schemaPrimaryKeys?: string[] | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
@@ -104,6 +107,7 @@ interface Props {
 
 export default function SchemaFieldDrawer({
     schemaFields,
+    schemaPrimaryKeys,
     editableSchemaMetadata,
     expandedDrawerFieldPath,
     setExpandedDrawerFieldPath,
@@ -124,6 +128,11 @@ export default function SchemaFieldDrawer({
     );
     const expandedField =
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? displayedRows[expandedFieldIndex] : undefined;
+
+    const primaryKeys = useMemo(
+        () => getEffectivePrimaryKeys({ primaryKeys: schemaPrimaryKeys, fields: schemaFields }, editableSchemaMetadata),
+        [schemaPrimaryKeys, schemaFields, editableSchemaMetadata],
+    );
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
@@ -270,6 +279,7 @@ export default function SchemaFieldDrawer({
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
+                                isPrimaryKey={isPrimaryKeyField(primaryKeys, expandedField)}
                             />
                             <Body onKeyDown={(e) => e.stopPropagation()}>
                                 {selectedTab && (

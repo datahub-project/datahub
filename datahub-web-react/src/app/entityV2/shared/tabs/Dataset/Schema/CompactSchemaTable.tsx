@@ -103,7 +103,7 @@ export default function CompactSchemaTable({
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, true, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
 
-    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, '', true);
+    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, editableSchemaMetadata, '', true);
 
     const shortenedRows = useMemo(() => rows.slice(0, numberOfRowsToShow), [rows, numberOfRowsToShow]);
     const hasSeeMore = rows.length > numberOfRowsToShow;
@@ -229,6 +229,7 @@ export default function CompactSchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaPrimaryKeys={schemaMetadata?.primaryKeys}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
