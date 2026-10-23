@@ -33,7 +33,11 @@ record IncidentSource {
   * Reference to an URN related to the source of an incident.
   */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "queryByDefault": false,
+      "copyToOther": true
+    }
   }
   sourceUrn: optional Urn
 }

@@ -71,7 +71,8 @@ record AssertionInfo includes CustomProperties, ExternalReference {
         "fieldName": "creator",
         "fieldType": "URN",
         "hasValuesFieldName": "hasCreator",
-        "filterNameOverride": "Created By"
+        "filterNameOverride": "Created By",
+        "v3": { "enabled": false }
       }
     }
     source: optional AssertionSource
@@ -116,7 +117,11 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     */
     @Searchable = {
       "fieldType": "URN",
-      "fieldName": "entity"
+      "fieldName": "entity",
+      "v3": {
+        "queryByDefault": false,
+        "copyToOther": true
+      }
     }
     entityUrn: optional Urn
 }

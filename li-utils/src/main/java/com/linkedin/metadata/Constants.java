@@ -577,6 +577,7 @@ public class Constants {
   public static final String SEARCH_TEMPLATE_FULLTEXT_URN = "urn:li:searchTemplate:fulltext";
   public static final String SEARCH_TEMPLATE_LIGHT_URN = "urn:li:searchTemplate:light";
   public static final String SEARCH_TEMPLATE_LIST_URN = "urn:li:searchTemplate:list";
+  public static final String SEARCH_TEMPLATE_LIST_BY_URN_URN = "urn:li:searchTemplate:listUrn";
   public static final String SEARCH_TEMPLATE_STRUCTURED_URN = "urn:li:searchTemplate:structured";
   public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
   public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
@@ -588,6 +589,7 @@ public class Constants {
           "fulltext",
           "light",
           "list",
+          "listUrn",
           "structured",
           "exact",
           "structuredExact",

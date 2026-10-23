@@ -677,6 +677,15 @@ fieldConfigurations:
 
 ## Search V3 query templates
 
+For one token on a dataset, the shipped bodies place `name_1`, `description_1`, tags, glossary terms, `other`, and `.stemmed` as follows.
+
+- `light` reads `lightFieldsJson`: `name` and `qualifiedName`, including `.stemmed`. `name_1`, `description_1`, tags, glossary terms, and `other` are absent.
+- `fulltext`, which a lineage page uses after `light` misses, reads `defaultQueryFieldsJson`. Tags, glossary terms, and `other` are in that list as `.text` and `.stemmed`. `name.stemmed` and `qualifiedName.stemmed` also have a prefix clause. `name_1` and `description_1` are absent.
+- `exact` includes none of the six.
+- `structured` includes tags, glossary terms, `other`, and those `.stemmed` subfields in the spliced field list. `name_1` and `description_1` are absent.
+
+Degree-1 schema name and description stay out of the default list because their `v3.queryByDefault` is false.
+
 Search V3 can rank with a Mustache JSON body stored on a `searchTemplate` entity (`urn:li:searchTemplate:<id>`). The enable and disable switches for Search V3, including this one, are listed in [Environment Variables](../deploy/environment-vars.md#search-v3-feature-switches). Templates are off until both Search V3 keyword read and `SEARCH_V3_TEMPLATES_ENABLED` are on. That flag stays off in the shipped configuration. Parity tests still record intentional DSL differences, and container tests have not replaced a production compatibility window, so templates are not the configured default. Until the flag is on, search keeps today's Java query builder and `search_config.yaml` `queryConfigurations`. System update always searches with the templates in the shipped bootstrap file and treats structured properties and other stored lookups as empty, because that job runs before those aspects are written. GMS reads the stored template. Until that aspect exists, GMS uses the same shipped file and the same empty lookups. A stored template replaces the file and restores normal resolution.
 
 The bootstrapped templates are not editable except by the DataHub system actor. Every shipped id is a system template id. `search` is the single-query fulltext router. `searchLight` inherits its routes and starts an ordinary query on `light`. `fulltext` is the full query and `light` is its cheaper first rung. `list` is an empty query or `*`. `exact` is a fully quoted query. `structured` is the seed when fulltext is off. `structuredExact` is a quoted structured query, and it starts as a child of `structured`. Lineage search uses the same seeds as entity search. The graph walk adds a URN filter outside the template. Browse text uses the `search` router. Browse path, depth, and group aggregation stay in Java. `identity` is the template for a DataHub URN (`urn:li:` plus an entity type) or an `s3://`, `gs://`, or `hdfs://` path. GraphQL rewrites each `/` to `\/` before search, and the identity route accepts both forms.
