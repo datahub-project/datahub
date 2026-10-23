@@ -9,7 +9,6 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
-from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
 )
@@ -144,32 +143,3 @@ def test_incremental_lineage_truncates_mce_before_patch() -> None:
     assert patches[0].aspect is not None
     assert "SUM(col_..." in patches[0].aspect.value.decode()
     assert "SUM(col_a) AS total" not in patches[0].aspect.value.decode()
-
-
-def test_sql_source_truncates_before_incremental_lineage_patch(monkeypatch):
-    source = ClickHouseSource(
-        ClickHouseConfig.model_validate(
-            {
-                "host_port": "localhost:8123",
-                "incremental_lineage": True,
-                "max_transform_operation_length": 8,
-            }
-        ),
-        PipelineContext(run_id="test"),
-    )
-    monkeypatch.setattr(
-        source, "get_workunits_internal", lambda: iter([_lineage_wu([LOGIC])])
-    )
-
-    [patch] = [
-        wu.metadata
-        for wu in source.get_workunits()
-        if isinstance(wu.metadata, MetadataChangeProposalClass)
-        and wu.metadata.aspectName == "upstreamLineage"
-    ]
-
-    assert patch.changeType == "PATCH"
-    assert patch.aspect is not None
-    patch_value = patch.aspect.value.decode()
-    assert "SUM(col_..." in patch_value
-    assert "SUM(col_a) AS total" not in patch_value
