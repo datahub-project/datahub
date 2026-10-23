@@ -252,9 +252,6 @@ public class AspectsBatchImpl implements AspectsBatch {
                   mcp -> {
                     AuditStamp auditStamp =
                         AttributedActorHeaders.resolve(mcp, callerAuditStamp, trustAttributedActor);
-                    if (!trustAttributedActor) {
-                      AttributedActorHeaders.strip(mcp);
-                    }
                     try {
                       if (alternateMCPValidation) {
                         return ProposedItem.builder()

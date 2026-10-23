@@ -4,6 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class AttributedActorHeaders {
 
-  public static final String ATTRIBUTED_ACTOR = "X-DataHub-Attributed-Actor";
+  public static final String ATTRIBUTED_ACTOR = Constants.ATTRIBUTED_ACTOR_HEADER_NAME;
 
   private AttributedActorHeaders() {}
 
@@ -37,8 +38,7 @@ public final class AttributedActorHeaders {
     mcp.getHeaders().put(ATTRIBUTED_ACTOR, actorUrn);
   }
 
-  /** Removes the header so an untrusted value is not forwarded (MCL headers copy the MCP's). */
-  public static void strip(@Nonnull MetadataChangeProposal mcp) {
+  private static void strip(@Nonnull MetadataChangeProposal mcp) {
     if (!mcp.hasHeaders()) {
       return;
     }
