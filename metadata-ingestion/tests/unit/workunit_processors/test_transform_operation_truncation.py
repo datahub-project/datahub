@@ -194,6 +194,35 @@ def test_upsert_size_guard_shortens_logic_until_aspect_fits() -> None:
     assert processor.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 1
 
 
+def test_upsert_size_guard_drops_edges_when_cut_logic_still_too_big() -> None:
+    source_report = SourceReport()
+    processor = EnsureAspectSizeProcessor.create(
+        WorkunitProcessorContext(
+            source_report=source_report,
+            pipeline_context=MagicMock(),
+            source_config=None,
+            platform=None,
+        )
+    )
+    # Budget for two label-only entries, so five still overflow after the cut.
+    processor.payload_constraint = processor._upstream_lineage_serialized_size(
+        _lineage(["SQL"] * 2)
+    )
+    lineage = _lineage(["SQL: " + ("x" * 2000)] * 5)
+
+    processor.ensure_upstream_lineage_size(DOWNSTREAM, lineage)
+
+    assert len(lineage.upstreams) == 1
+    assert lineage.fineGrainedLineages is not None
+    assert 0 < len(lineage.fineGrainedLineages) < 5
+    assert all(f.transformOperation == "SQL" for f in lineage.fineGrainedLineages)
+    assert processor.report.num_truncations_by_aspect["upstreamLineage"] == 1
+    assert any(
+        "field-set-level fine-grained lineages" in " ".join(w.context or [])
+        for w in source_report.warnings
+    )
+
+
 def test_sql_source_truncates_before_incremental_lineage_patch(monkeypatch):
     source = ClickHouseSource(
         ClickHouseConfig.model_validate(
