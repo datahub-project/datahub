@@ -24,6 +24,8 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,12 +34,24 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ListDataProductAssetsResolverTest {
 
   private static final Urn ASSET_A = Urn.createFromTuple("dataset", "urn-a");
   private static final Urn ASSET_B = Urn.createFromTuple("dataset", "urn-b");
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testGetUrnsToFilterOn_noFilters_returnsAllAssets() {

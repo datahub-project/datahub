@@ -583,7 +583,7 @@ public class ReindexConfig {
             normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES)));
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                handling().isTolerant()
+                handling().toleratesUnknownEntityAspect()
                     ? withoutFieldsMissingFromTarget(currentProperties, targetProperties)
                     : currentProperties,
                 targetProperties);
@@ -1140,7 +1140,8 @@ public class ReindexConfig {
     /**
      * Drops field definitions (keys of a {@code properties} map, at any depth) that the live
      * mapping has and the target doesn't. After a rollback the live index was built by a newer
-     * version whose mapping is a superset of this version's, e.g. fields of aspects only it knows.
+     * version whose mapping is a superset of this version's: fields of aspects only it knows, or
+     * fields it added to aspects this version knows. Applied only while unknown data is tolerated.
      * Those fields don't need this version's reindex; top-level ones were already ignored, and this
      * applies the same rule to nested objects such as {@code _aspects}. Field parameters are not
      * dropped, so removing one (e.g. {@code ignore_above}) still counts as a change.

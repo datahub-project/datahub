@@ -48,6 +48,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -80,6 +81,11 @@ public class CriterionFilterAspectsBlockingStepTest {
   private Upgrade upgrade;
   private UpgradeReport upgradeReport;
   private MockedStatic<EntityUtils> entityUtilsMock;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setup() {

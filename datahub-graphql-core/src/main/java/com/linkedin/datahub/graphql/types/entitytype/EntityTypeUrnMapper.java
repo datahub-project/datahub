@@ -121,7 +121,7 @@ public class EntityTypeUrnMapper {
    */
   @Nonnull
   public static EntityType getEntityTypeOrOther(String entityTypeUrn) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       return getEntityType(entityTypeUrn);
     }
     return isValidEntityType(entityTypeUrn) ? getEntityType(entityTypeUrn) : EntityType.OTHER;

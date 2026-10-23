@@ -387,7 +387,7 @@ public class ESAggregatedStatsDAO {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       // As before tolerance: the checks below built their exception without throwing it.
       return aspectSpec;
     }

@@ -19,7 +19,7 @@ public class LoadIndicesResult {
   @Override
   public String toString() {
     // Reported only when unknown data is tolerated, so the text is unchanged otherwise.
-    return handling().isTolerant()
+    return handling().toleratesUnknownEntityAspect()
         ? String.format(
             "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d, unknownToRegistrySkipped=%d}",
             rowsProcessed,

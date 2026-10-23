@@ -53,6 +53,8 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -66,11 +68,13 @@ import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.script.Script;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class UpdateGraphIndicesServiceTest {
+
   private static final Urn TEST_URN =
       UrnUtils.getUrn(
           "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pet_profiles,PROD)");
@@ -81,6 +85,16 @@ public class UpdateGraphIndicesServiceTest {
   private ESBulkProcessor mockESBulkProcessor;
   private ESGraphWriteDAO mockWriteDAO;
   private ESGraphQueryDAO mockReadDAO;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeTest
   public void beforeTest() {

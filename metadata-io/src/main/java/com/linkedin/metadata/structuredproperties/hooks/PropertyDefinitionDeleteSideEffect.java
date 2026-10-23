@@ -124,7 +124,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
             .searchRetriever(retrieverContext.getSearchRetriever())
             // Without a registry (strict handling) every listed entity type is searched.
             .entityRegistry(
-                handling().isTolerant()
+                handling().toleratesUnknownEntityAspect()
                     ? retrieverContext.getAspectRetriever().getEntityRegistry()
                     : null)
             .count(SEARCH_SCROLL_SIZE)

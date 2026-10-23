@@ -11,10 +11,8 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.RegistryKnowledge;
-import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,20 +98,6 @@ public final class UnknownEntityUrnStripper {
     final Walk walk = new Walk(entityRegistry, false);
     walk.prune(aspect.data(), aspect.schema());
     return walk.found;
-  }
-
-  /**
-   * True when an aspect that fails validation can be attributed to a newer version: it was written
-   * under a newer schema version, or it still references an entity type the registry doesn't know.
-   * Callers skip such aspects and treat any other validation failure as a real error.
-   */
-  public static boolean isFromNewerVersion(
-      @Nullable final RecordTemplate aspect,
-      @Nullable final SystemMetadata systemMetadata,
-      @Nullable final AspectSpec aspectSpec,
-      @Nonnull final EntityRegistry entityRegistry) {
-    return RegistryKnowledge.isWrittenByNewerSchema(systemMetadata, aspectSpec)
-        || (aspect != null && referencesUnknownEntityType(aspect, entityRegistry));
   }
 
   /** The urns in {@code value} whose entity type the registry doesn't know. */

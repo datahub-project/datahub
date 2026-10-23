@@ -29,6 +29,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -52,10 +54,12 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class TraceServiceImplTest {
+
   private static final String TEST_TRACE_ID_FUTURE =
       SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(
           Instant.now().toEpochMilli() + 1000);
@@ -74,6 +78,16 @@ public class TraceServiceImplTest {
   private TraceServiceImpl traceService;
   private static final OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() throws Exception {

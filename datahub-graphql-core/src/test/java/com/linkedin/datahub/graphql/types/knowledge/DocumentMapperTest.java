@@ -42,12 +42,15 @@ import com.linkedin.knowledge.RelatedAssetArray;
 import com.linkedin.knowledge.RelatedDocument;
 import com.linkedin.knowledge.RelatedDocumentArray;
 import com.linkedin.metadata.key.DocumentKey;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredProperties;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 import org.mockito.MockedStatic;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -80,6 +83,16 @@ public class DocumentMapperTest {
   private Urn platformUrn;
   private Urn platformInstanceUrn;
   private QueryContext mockQueryContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() throws URISyntaxException {

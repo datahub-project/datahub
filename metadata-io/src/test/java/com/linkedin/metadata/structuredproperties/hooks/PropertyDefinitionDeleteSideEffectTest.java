@@ -34,6 +34,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
@@ -43,10 +45,12 @@ import jakarta.json.JsonPatch;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PropertyDefinitionDeleteSideEffectTest {
+
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -80,6 +84,16 @@ public class PropertyDefinitionDeleteSideEffectTest {
   private CachingAspectRetriever mockAspectRetriever;
   private SearchRetriever mockSearchRetriever;
   private RetrieverContext retrieverContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

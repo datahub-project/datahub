@@ -20,6 +20,8 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.key.VersionSetKey;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
@@ -32,6 +34,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -53,6 +56,16 @@ public class VersionPropertiesValidatorTest {
   private MockAspectRetriever mockAspectRetriever;
   private GraphRetriever mockGraphRetriever;
   private RetrieverContext retrieverContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

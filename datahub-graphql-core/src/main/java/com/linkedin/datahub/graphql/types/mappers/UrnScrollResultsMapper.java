@@ -31,7 +31,7 @@ public class UrnScrollResultsMapper<T extends RecordTemplate, E extends Entity> 
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    if (handling().isTolerant()) {
+    if (handling().toleratesUnknownEntityAspect()) {
       result.setSearchResults(UrnSearchResultsMapper.mapKnownResults(context, input.getEntities()));
     } else {
       result.setSearchResults(

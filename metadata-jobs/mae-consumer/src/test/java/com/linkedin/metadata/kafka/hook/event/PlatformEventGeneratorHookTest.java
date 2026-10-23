@@ -60,6 +60,8 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.eventgenerator.*;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
@@ -78,6 +80,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.Map;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -87,6 +90,7 @@ import org.testng.annotations.Test;
  * <p>TODO: Include more Schema Field Tests for tags, terms and schema-changes.
  */
 public class PlatformEventGeneratorHookTest {
+
   private static final long EVENT_TIME = 123L;
 
   private static final String TEST_DATASET_URN =
@@ -106,6 +110,16 @@ public class PlatformEventGeneratorHookTest {
   private SystemEntityClient mockProcessInstanceEntityClient;
   private PlatformEventGeneratorHook _entityChangeEventHook;
   private OperationContext opContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {

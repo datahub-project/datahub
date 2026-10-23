@@ -114,7 +114,7 @@ public class MCLKafkaListener
     if (isDroppedByConfig(event, aspectsToDrop)) {
       return true;
     }
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       // As before tolerance, and without reading the urn, which throws for a malformed one.
       return false;
     }

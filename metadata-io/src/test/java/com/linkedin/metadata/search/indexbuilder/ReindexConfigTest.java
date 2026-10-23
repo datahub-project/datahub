@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.*;
@@ -27,6 +28,11 @@ public class ReindexConfigTest {
   private static final String PROPERTIES_KEY = "properties";
   private static final String TYPE_KEY = "type";
   private static final String IGNORE_ABOVE_KEY = "ignore_above";
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   private static SearchClientShim<?> es8SettingsComparisonShim() {
     SearchClientShim<?> shim = mock(SearchClientShim.class);

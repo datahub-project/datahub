@@ -15,6 +15,8 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.Map;
 import java.util.Optional;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UnknownSchemaValuesTest {
@@ -27,6 +29,16 @@ public class UnknownSchemaValuesTest {
                   + "   \"symbols\": [ \"A\", \"B\" ] } },"
                   + " { \"name\": \"value\", \"optional\": true, \"type\": [ \"string\", \"double\" ] },"
                   + " { \"name\": \"count\", \"optional\": true, \"type\": \"long\" } ] }");
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testEnumSymbolOrUnionMemberFromANewerVersion() {
@@ -64,6 +76,20 @@ public class UnknownSchemaValuesTest {
     UnknownSchemaValues.failsOnlyOnUnknownValues(aspect);
 
     assertEquals(aspect.data().get("fieldFromNewerBuild"), "x");
+  }
+
+  @Test
+  public void testOnlyTheEnumFlagAttributesThemToANewerVersion() {
+    EntityRegistry registry = mock(EntityRegistry.class);
+    when(registry.findEntitySpec(anyString())).thenReturn(Optional.empty());
+    RecordTemplate aspect = record(Map.of("kind", "C"));
+
+    assertTrue(
+        TolerantHandling.of(false, true, entityType -> true)
+            .isFromNewerVersion(aspect, null, null, registry));
+    assertFalse(
+        TolerantHandling.of(true, false, entityType -> true)
+            .isFromNewerVersion(aspect, null, null, registry));
   }
 
   @Test

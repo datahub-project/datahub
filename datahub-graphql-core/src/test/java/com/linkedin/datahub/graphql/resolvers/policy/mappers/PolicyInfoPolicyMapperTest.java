@@ -23,6 +23,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -30,6 +31,8 @@ import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.policy.PolicyMatchFilter;
 import java.util.List;
 import java.util.Map;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -43,6 +46,16 @@ import org.testng.annotations.Test;
  * such a policy.
  */
 public class PolicyInfoPolicyMapperTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   private static DataHubPolicyInfo policyInfo(final String type, final String state) {
     final DataHubPolicyInfo info = new DataHubPolicyInfo();

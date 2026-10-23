@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -44,6 +46,16 @@ public class UnknownReferenceMergerTest {
   private static final Urn OTHER_BOT = UrnUtils.getUrn("urn:li:entityFromNewerBuild:bot2");
 
   private final EntityRegistry registry = registry();
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testWritingBackWhatWasReadKeepsTheStoredAspect() {

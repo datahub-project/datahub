@@ -14,13 +14,18 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * How this process treats data its entity registry doesn't know: entity types, aspects and
- * references written by a newer version and read after a zero-downtime upgrade rollback.
+ * How this process treats data a newer version wrote, read after a zero-downtime upgrade rollback:
+ * entity types, aspects and references its entity registry doesn't know, and enum symbols or union
+ * members its schemas don't define.
  *
  * <p>Every behavior that differs between tolerating such data and failing on it goes through this
  * interface, so one implementation is chosen per process ({@link UnknownDataHandlings}) instead of
- * each call site checking a flag. {@link TolerantHandling} skips and strips; a strict
- * implementation keeps the behavior from before this tolerance existed.
+ * each call site checking a flag. The two kinds are tolerated separately ({@code
+ * featureFlags.unknownEntityAspectToleranceEnabled} and {@code
+ * featureFlags.unknownEnumToleranceEnabled}, both defaulting to env {@code
+ * UNKNOWN_DATA_TOLERANCE_ENABLED}, which turns on both for a rollback): {@link TolerantHandling}
+ * skips and strips what its flags tolerate; {@link StrictHandling}, with both off, keeps the
+ * behavior from before this tolerance existed.
  */
 public interface UnknownDataHandling {
 
@@ -100,8 +105,8 @@ public interface UnknownDataHandling {
    * rejects.
    *
    * @param stored supplies the stored aspect as written, before any read dropped references, or
-   *     null if none. Reading it parses the stored row, so it is called only when unknown data is
-   *     tolerated.
+   *     null if none. Reading it parses the stored row, so it is called only when unknown entity
+   *     types, aspects and references are tolerated.
    */
   @Nonnull
   UnknownReferenceMerger.MergeResult mergeStoredReferences(
@@ -126,6 +131,25 @@ public interface UnknownDataHandling {
       @Nullable AspectSpec aspectSpec,
       @Nonnull EntityRegistry registry);
 
-  /** For one-off branches that don't fit a method above: true when unknown data is tolerated. */
-  boolean isTolerant();
+  /**
+   * For one-off branches that don't fit a method above: true when entity types, aspects and
+   * references the registry doesn't know are tolerated ({@code
+   * featureFlags.unknownEntityAspectToleranceEnabled}).
+   */
+  boolean toleratesUnknownEntityAspect();
+
+  /**
+   * For one-off branches that don't fit a method above: true when enum symbols and union members a
+   * newer version added are tolerated ({@code featureFlags.unknownEnumToleranceEnabled}).
+   */
+  boolean toleratesUnknownEnum();
+
+  /**
+   * For one-off branches about a stored row a newer version wrote, whatever it holds: true when
+   * either kind of unknown data is tolerated (both default to env {@code
+   * UNKNOWN_DATA_TOLERANCE_ENABLED}).
+   */
+  default boolean toleratesUnknownData() {
+    return toleratesUnknownEntityAspect() || toleratesUnknownEnum();
+  }
 }

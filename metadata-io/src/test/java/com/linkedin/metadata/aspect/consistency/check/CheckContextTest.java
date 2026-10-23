@@ -10,10 +10,13 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -28,6 +31,16 @@ public class CheckContextTest {
   private static final Urn TEST_URN_2 = UrnUtils.getUrn("urn:li:assertion:test-assertion-2");
   private static final Urn TEST_URN_3 =
       UrnUtils.getUrn("urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD),mon1)");
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
