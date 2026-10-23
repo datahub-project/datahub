@@ -28,7 +28,7 @@ from unittest.mock import patch
 import oracledb
 import sqlalchemy.engine
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
-from sqlalchemy import create_engine, event, inspect, sql
+from sqlalchemy import create_engine, event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.engine.reflection import Inspector
@@ -791,16 +791,30 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
         return url
 
+    def urn_database_name(self) -> Optional[str]:
+        """Database component of entity URNs, or None when URNs are two-part.
+
+        Single source of truth for everything that must agree with the crawl's
+        URNs: get_identifier, get_db_schema and the default_db handed to the SQL
+        parser. Note this is the recipe's value, not the name looked up in
+        Oracle (get_db_name); with service_name and no urn_db_name, URNs stay
+        two-part even though a database name could be detected.
+        """
+        if not self.add_database_name_to_urn:
+            return None
+        if self.database:
+            return self.database
+        if self.urn_db_name:
+            # get_db_name normalises via the dialect; replicate that here so
+            # entity URNs and lineage URNs share the same db casing.
+            return normalize_db_name(self.urn_db_name)
+        return None
+
     def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
-        if self.add_database_name_to_urn:
-            db = self.database
-            if not db and self.urn_db_name:
-                # get_db_name normalises via the dialect; replicate that here so
-                # entity URNs and lineage URNs share the same db casing.
-                db = normalize_db_name(self.urn_db_name)
-            if db:
-                return f"{db}.{regular}"
+        db = self.urn_database_name()
+        if db:
+            return f"{db}.{regular}"
         return regular
 
     @classmethod
@@ -1608,31 +1622,30 @@ class OracleSource(SQLAlchemySource):
     def _is_allowed_table(self, name: str) -> bool:
         """Apply the recipe's schema/table filters to tables referenced by parsed SQL.
 
-        V$SQL and view/procedure definitions reference tables the schema crawl never
-        visited. Without this gate the aggregator emits usage, operations and query
-        subjects for those tables, creating container-less datasets outside the
-        configured schema_pattern / table_pattern.
+        The aggregator calls this for every table the SQL parser resolves from
+        V$SQL statements and view definitions (procedure lineage has its own
+        parser and does not pass through here). Without this gate it emits
+        usage, operations and query subjects for tables the schema crawl never
+        visited, creating container-less datasets outside schema_pattern /
+        table_pattern. V$SQL's SQL-level system-schema exclusion only covers the
+        parsing schema, not the tables a statement references.
 
-        `name` is the URN name without platform instance: `schema.table`, or
-        `db.schema.table` when add_database_name_to_urn is set.
+        `name` is the URN name without platform instance, in the same shape
+        get_identifier produces, so get_db_schema is reused to split it rather
+        than re-implementing the add_database_name_to_urn branching.
 
         Only the recipe patterns decide. Oracle system schemas are not rejected
         here: the crawl ingests them when schema_pattern allows it, and lineage
-        on those entities must follow. V$SQL already excludes them in SQL.
+        on those entities must follow. Because the parser cannot tell tables
+        from views, a name passes when either table_pattern or view_pattern
+        allows it; a table denied by table_pattern is let back in by a
+        permissive view_pattern.
         """
-        parts = name.split(".")
-        if self.config.add_database_name_to_urn:
-            if len(parts) < 3:
-                return False
-            schema = parts[-2]
-        else:
-            if len(parts) < 2:
-                return False
-            schema = parts[0]
-
+        if "." not in name:
+            return False
+        _, schema = self.get_db_schema(name)
         if not self.config.schema_pattern.allowed(schema):
             return False
-        # The parser cannot tell tables from views, so accept either pattern.
         return self.config.table_pattern.allowed(
             name
         ) or self.config.view_pattern.allowed(name)
@@ -1727,17 +1740,10 @@ class OracleSource(SQLAlchemySource):
                 if len(parts) >= 3:
                     return parts[-3], parts[-2]  # db, schema
                 elif len(parts) >= 2:
-                    # Identifier is missing the db component — fall back to config.
-                    # Using str(None) here would produce "None.schema.table" URNs.
-                    # Normalise urn_db_name the same way as get_identifier so that
-                    # view-lineage default_db matches entity URN db components.
-                    urn_db = (
-                        normalize_db_name(self.config.urn_db_name)
-                        if self.config.urn_db_name
-                        else None
-                    )
-                    db_name = self.config.database or urn_db or None
-                    return db_name, parts[-2]  # db (or None), schema
+                    # Identifier is missing the db component — fall back to the
+                    # recipe's database so view-lineage default_db matches entity
+                    # URN db components (None rather than "None.schema.table").
+                    return self.config.urn_database_name(), parts[-2]
             else:
                 if len(parts) >= 2:
                     return None, parts[-2]  # schema only; no db in URNs
@@ -2423,17 +2429,11 @@ class OracleSource(SQLAlchemySource):
 
         try:
             with engine.connect() as conn:
-                inspector = inspect(conn)
-                # The parser fills a missing database from default_db, so only pass it
-                # when entity URNs carry the database too. Otherwise parsed tables
-                # become db.schema.table while the crawl emits schema.table, and
-                # usage lands on a second, container-less set of URNs. Mirrors
-                # get_db_schema, which view and procedure lineage use.
-                default_db = (
-                    self.get_db_name(inspector)
-                    if self.config.add_database_name_to_urn
-                    else None
-                )
+                # The parser fills a missing database from default_db, so it must
+                # be exactly the database component of entity URNs (None when they
+                # are two-part). Anything else, including the name detected via
+                # get_db_name, puts usage on a second, container-less set of URNs.
+                default_db = self.config.urn_database_name()
                 result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:
