@@ -20,14 +20,14 @@ query getRootGlossaryNodes {
     }
 }
 
-query getRelatedTerms($urn: String!, $count: Int = 10, $skipSiblingsSearch: Boolean = false) {
+query getRelatedTerms($urn: String!, $skipSiblingsSearch: Boolean = false) {
     glossaryTerm(urn: $urn) {
         urn
         type
         exists
         name
         hierarchicalName
-        isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: 0, count: $count }) {
+        isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: 0, count: 10 }) {
             start
             count
             total
@@ -37,7 +37,7 @@ query getRelatedTerms($urn: String!, $count: Int = 10, $skipSiblingsSearch: Bool
                 }
             }
         }
-        hasRelatedTerms: relationships(input: { types: ["HasA"], direction: OUTGOING, start: 0, count: $count }) {
+        hasRelatedTerms: relationships(input: { types: ["HasA"], direction: OUTGOING, start: 0, count: 10 }) {
             start
             count
             total
@@ -47,7 +47,7 @@ query getRelatedTerms($urn: String!, $count: Int = 10, $skipSiblingsSearch: Bool
                 }
             }
         }
-        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: 0, count: $count }) {
+        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: 0, count: 10 }) {
             start
             count
             total
@@ -57,7 +57,7 @@ query getRelatedTerms($urn: String!, $count: Int = 10, $skipSiblingsSearch: Bool
                 }
             }
         }
-        containedBy: relationships(input: { types: ["HasA"], direction: INCOMING, start: 0, count: $count }) {
+        containedBy: relationships(input: { types: ["HasA"], direction: INCOMING, start: 0, count: 10 }) {
             start
             count
             total

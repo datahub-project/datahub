@@ -1,3 +1,4 @@
+import { useApolloClient } from '@apollo/client';
 import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,7 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
     const refetch = useRefetch();
+    const client = useApolloClient();
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     const [removeRelatedTerms] = useRemoveRelatedTermsMutation();
@@ -40,6 +42,8 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                 toast.loading(t('glossaryTerm.removing'), { duration: 2 });
                 setTimeout(() => {
                     refetch();
+                    // The Related Terms tab reads getRelatedTerms, which this mutation does not update.
+                    client.refetchQueries({ include: ['getRelatedTerms'] }).catch(() => undefined);
                     toast.success(t('glossaryTerm.removedSuccess'), { duration: 2 });
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab

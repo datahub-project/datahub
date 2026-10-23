@@ -7,16 +7,9 @@ import GlossaryRelatedTerms from '@app/entityV2/glossaryTerm/profile/GlossaryRel
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-const { entityState, relatedTermsQuery, relatedTermsRefetch } = vi.hoisted(() => ({
-    relatedTermsRefetch: vi.fn(),
+const { entityState, relatedTermsQuery } = vi.hoisted(() => ({
     entityState: {
         urn: '',
-        entityData: null as {
-            urn?: string;
-            hasRelatedTerms?: { relationships: Array<{ entity: { urn: string } }> };
-        } | null,
-        loading: false,
-        refetch: vi.fn(),
     },
     relatedTermsQuery: vi.fn(),
 }));
@@ -24,10 +17,7 @@ const { entityState, relatedTermsQuery, relatedTermsRefetch } = vi.hoisted(() =>
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useEntityData: () => ({
         urn: entityState.urn,
-        entityData: entityState.entityData,
-        loading: entityState.loading,
     }),
-    useRefetch: () => entityState.refetch,
 }));
 
 vi.mock('@graphql/glossary.generated', () => ({
@@ -40,15 +30,20 @@ vi.mock('@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult', () => (
     ),
 }));
 
+const currentTerm = {
+    glossaryTerm: {
+        urn: 'urn:li:glossaryTerm:current',
+        hasRelatedTerms: {
+            relationships: [{ entity: { urn: 'urn:li:glossaryTerm:child' } }],
+        },
+    },
+};
+
 describe('Glossary Related Terms', () => {
     beforeEach(() => {
         entityState.urn = '';
-        entityState.entityData = null;
-        entityState.loading = false;
-        entityState.refetch.mockClear();
         relatedTermsQuery.mockReset();
-        relatedTermsRefetch.mockClear();
-        relatedTermsQuery.mockReturnValue({ data: undefined, loading: false, refetch: relatedTermsRefetch });
+        relatedTermsQuery.mockReturnValue({ data: undefined, loading: false, error: undefined });
     });
 
     it('renders and print hasRelatedTerms detail by default', async () => {
@@ -63,21 +58,12 @@ describe('Glossary Related Terms', () => {
         expect(getByText('Inherits')).toBeInTheDocument();
     });
 
-    it('shows the next term relationships when the tab stays mounted across navigation', async () => {
+    it('shows this term from getRelatedTerms and ignores a cached payload for another term', async () => {
         entityState.urn = 'urn:li:glossaryTerm:current';
-        entityState.entityData = {
-            urn: 'urn:li:glossaryTerm:current',
-            hasRelatedTerms: { relationships: [{ entity: { urn: 'urn:li:glossaryTerm:next' } }] },
-        };
         relatedTermsQuery.mockReturnValue({
-            data: {
-                glossaryTerm: {
-                    urn: 'urn:li:glossaryTerm:current',
-                    hasRelatedTerms: { relationships: [{ entity: { urn: 'urn:li:glossaryTerm:next' } }] },
-                },
-            },
+            data: currentTerm,
             loading: false,
-            refetch: relatedTermsRefetch,
+            error: undefined,
         });
 
         const { rerender } = render(
@@ -88,17 +74,21 @@ describe('Glossary Related Terms', () => {
             </MockedProvider>,
         );
         await waitFor(() => {
-            expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:next');
+            expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:child');
         });
         expect(relatedTermsQuery).toHaveBeenCalledWith(
-            expect.objectContaining({ variables: { urn: 'urn:li:glossaryTerm:current', count: 100 } }),
+            expect.objectContaining({
+                variables: { urn: 'urn:li:glossaryTerm:current' },
+                fetchPolicy: 'cache-and-network',
+            }),
         );
 
         entityState.urn = 'urn:li:glossaryTerm:next';
-        entityState.entityData = { urn: 'urn:li:glossaryTerm:current' };
-        entityState.loading = false;
-        relatedTermsQuery.mockReturnValue({ data: undefined, loading: true, refetch: relatedTermsRefetch });
-
+        relatedTermsQuery.mockReturnValue({
+            data: currentTerm,
+            loading: true,
+            error: undefined,
+        });
         rerender(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -107,12 +97,7 @@ describe('Glossary Related Terms', () => {
             </MockedProvider>,
         );
         expect(screen.queryByTestId('related-results')).not.toBeInTheDocument();
-        await waitFor(() => expect(entityState.refetch).toHaveBeenCalled());
 
-        entityState.entityData = {
-            urn: 'urn:li:glossaryTerm:next',
-            hasRelatedTerms: { relationships: [] },
-        };
         relatedTermsQuery.mockReturnValue({
             data: {
                 glossaryTerm: {
@@ -126,9 +111,8 @@ describe('Glossary Related Terms', () => {
                 },
             },
             loading: false,
-            refetch: relatedTermsRefetch,
+            error: undefined,
         });
-
         rerender(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -139,100 +123,14 @@ describe('Glossary Related Terms', () => {
         expect(screen.getByTestId('related-results')).toHaveTextContent(
             'urn:li:glossaryTerm:child-a,urn:li:glossaryTerm:child-b',
         );
-        expect(relatedTermsRefetch).not.toHaveBeenCalled();
     });
 
-    it('shows the updated profile list after a removal and refetches the tab query', async () => {
-        const kept = { entity: { urn: 'urn:li:glossaryTerm:kept' } };
-        const removed = { entity: { urn: 'urn:li:glossaryTerm:removed' } };
+    it('shows an empty list when the query fails before any relationships arrive', async () => {
         entityState.urn = 'urn:li:glossaryTerm:current';
-        entityState.entityData = {
-            urn: 'urn:li:glossaryTerm:current',
-            hasRelatedTerms: { relationships: [kept, removed] },
-        };
         relatedTermsQuery.mockReturnValue({
-            data: {
-                glossaryTerm: {
-                    urn: 'urn:li:glossaryTerm:current',
-                    hasRelatedTerms: { relationships: [kept, removed] },
-                },
-            },
+            data: undefined,
             loading: false,
-            refetch: relatedTermsRefetch,
-        });
-
-        const { rerender } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <GlossaryRelatedTerms />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        await waitFor(() => {
-            expect(screen.getByTestId('related-results')).toHaveTextContent(
-                'urn:li:glossaryTerm:kept,urn:li:glossaryTerm:removed',
-            );
-        });
-
-        entityState.entityData = {
-            urn: 'urn:li:glossaryTerm:current',
-            hasRelatedTerms: { relationships: [kept] },
-        };
-        relatedTermsQuery.mockReturnValue({
-            data: {
-                glossaryTerm: {
-                    urn: 'urn:li:glossaryTerm:current',
-                    hasRelatedTerms: { relationships: [kept, removed] },
-                },
-            },
-            loading: true,
-            refetch: relatedTermsRefetch,
-        });
-
-        rerender(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <GlossaryRelatedTerms />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-
-        await waitFor(() => expect(relatedTermsRefetch).toHaveBeenCalled());
-        expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:kept');
-
-        relatedTermsQuery.mockReturnValue({
-            data: {
-                glossaryTerm: {
-                    urn: 'urn:li:glossaryTerm:current',
-                    hasRelatedTerms: { relationships: [kept, removed] },
-                },
-            },
-            loading: false,
-            refetch: relatedTermsRefetch,
-        });
-        rerender(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <GlossaryRelatedTerms />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        expect(screen.getByTestId('related-results')).toHaveTextContent('urn:li:glossaryTerm:kept');
-    });
-
-    it('shows an empty list when the tab query settles empty before the profile urn catches up', async () => {
-        entityState.urn = 'urn:li:glossaryTerm:empty';
-        entityState.entityData = { urn: 'urn:li:glossaryTerm:previous' };
-        entityState.loading = false;
-        relatedTermsQuery.mockReturnValue({
-            data: {
-                glossaryTerm: {
-                    urn: 'urn:li:glossaryTerm:empty',
-                    hasRelatedTerms: { relationships: [] },
-                },
-            },
-            loading: false,
-            refetch: relatedTermsRefetch,
+            error: new Error('related terms failed'),
         });
 
         render(
@@ -245,31 +143,5 @@ describe('Glossary Related Terms', () => {
 
         await waitFor(() => expect(screen.getByTestId('related-results')).toBeInTheDocument());
         expect(screen.getByTestId('related-results')).toHaveTextContent('');
-    });
-
-    it('retries the profile refetch when the cached term is still behind and the first refetch fails', async () => {
-        entityState.urn = 'urn:li:glossaryTerm:next';
-        entityState.entityData = { urn: 'urn:li:glossaryTerm:current' };
-        entityState.loading = false;
-        entityState.refetch.mockRejectedValueOnce(new Error('profile refetch failed'));
-        entityState.refetch.mockResolvedValueOnce({});
-
-        const { rerender } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <GlossaryRelatedTerms />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-
-        await waitFor(() => expect(entityState.refetch).toHaveBeenCalledTimes(2));
-        rerender(
-            <MockedProvider mocks={mocks} addTypename={false}>
-                <TestPageContainer>
-                    <GlossaryRelatedTerms />
-                </TestPageContainer>
-            </MockedProvider>,
-        );
-        expect(entityState.refetch).toHaveBeenCalledTimes(2);
     });
 });

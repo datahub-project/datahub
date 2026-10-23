@@ -1,22 +1,28 @@
 import { Loader } from '@components';
 import { Menu } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import {
-    glossaryRelatedTermsArePending,
-    glossaryRelationshipSignature,
-    pickGlossaryRelatedRelationships,
-    relationshipEntries,
-} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTerms.utils';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import GlossaryRelatedTermsResult from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 
 import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';
 
-// Matches the graph client's default page size. The summary module keeps the query default of 10.
-const RELATED_TERMS_PAGE_SIZE = 100;
+const RELATED_TERM_MENU_KEYS = Object.keys(RelatedTermTypes);
+
+type RelationshipGroup = {
+    relationships?: ReadonlyArray<{ entity?: { urn?: string } | null } | null> | null;
+} | null;
+
+function relationshipsForGroup(term: object | null | undefined, key: string) {
+    if (!term) {
+        return [];
+    }
+    const group = (term as Record<string, RelationshipGroup>)[key];
+    const relationships = group?.relationships;
+    return Array.isArray(relationships) ? relationships : [];
+}
 
 const DetailWrapper = styled.div`
     display: inline-flex;
@@ -39,132 +45,33 @@ const Content = styled.div`
 `;
 
 export default function GlossayRelatedTerms() {
-    const { urn, entityData, loading: profileLoading } = useEntityData();
-    const refetch = useRefetch();
+    const { urn } = useEntityData();
     const [selectedKey, setSelectedKey] = useState('');
-    const menuOptionsArray = Object.keys(RelatedTermTypes);
-    const succeededProfileUrn = useRef<string | null>(null);
-    const profileRefetchInFlight = useRef<string | null>(null);
-    const profileRefetchAttempts = useRef<{ urn: string; count: number } | null>(null);
-    const [profileRefetchAttempt, setProfileRefetchAttempt] = useState(0);
-    const seenProfileSignature = useRef<{ urn: string; signature: string } | null>(null);
-    const awaitingProfileSignature = useRef<string | null>(null);
 
-    const {
-        data,
-        loading: fetchedLoading,
-        error: fetchedError,
-        refetch: refetchRelatedTerms,
-    } = useGetRelatedTermsQuery({
-        variables: { urn, count: RELATED_TERMS_PAGE_SIZE },
+    // The profile query is cache-first and stays mounted across terms, so reading relationships
+    // from it shows the previous term. This query follows the urn on screen.
+    const { data, loading, error } = useGetRelatedTermsQuery({
+        variables: { urn },
         skip: !urn,
         fetchPolicy: 'cache-and-network',
         notifyOnNetworkStatusChange: true,
     });
 
     useEffect(() => {
-        if (menuOptionsArray && menuOptionsArray.length > 0 && selectedKey.length === 0) {
-            setSelectedKey(menuOptionsArray[0]);
+        if (RELATED_TERM_MENU_KEYS.length > 0 && selectedKey.length === 0) {
+            setSelectedKey(RELATED_TERM_MENU_KEYS[0]);
         }
-    }, [menuOptionsArray, selectedKey]);
-
-    // cache-first can keep the previous term after the route changes, and its own fetch often
-    // leaves `loading` false. Refetch only while this urn is still behind, and only remember the
-    // urn after that refetch resolves so a failure can try again.
-    useEffect(() => {
-        if (!urn || profileLoading || entityData?.urn === urn || succeededProfileUrn.current === urn) {
-            return;
-        }
-        if (profileRefetchInFlight.current === urn) {
-            return;
-        }
-        const previousAttempts = profileRefetchAttempts.current;
-        const attemptsForUrn = previousAttempts?.urn === urn ? previousAttempts.count : 0;
-        // One retry. The empty tab no longer waits on this request, and a rejected refetch must
-        // not schedule itself forever.
-        if (attemptsForUrn >= 2) {
-            return;
-        }
-        const requested = urn;
-        profileRefetchAttempts.current = { urn: requested, count: attemptsForUrn + 1 };
-        profileRefetchInFlight.current = requested;
-        Promise.resolve()
-            .then(() => refetch())
-            .then(() => {
-                succeededProfileUrn.current = requested;
-                if (profileRefetchInFlight.current === requested) {
-                    profileRefetchInFlight.current = null;
-                }
-            })
-            .catch(() => {
-                if (profileRefetchInFlight.current === requested) {
-                    profileRefetchInFlight.current = null;
-                }
-                setProfileRefetchAttempt((attempt) => attempt + 1);
-            });
-    }, [urn, profileLoading, entityData?.urn, refetch, profileRefetchAttempt]);
-
-    const profileForUrn =
-        entityData?.urn === urn ? (entityData as Record<string, { relationships?: ReadonlyArray<unknown> }>) : null;
-    const profileReady = !profileLoading && entityData?.urn === urn;
-    const profileSignature = profileForUrn ? glossaryRelationshipSignature(profileForUrn, menuOptionsArray) : '';
-
-    // The first snapshot for a urn is already covered by the query above. A later change is an
-    // add or remove, which only refetches the profile.
-    useEffect(() => {
-        if (!urn || !profileReady) {
-            return;
-        }
-        const seen = seenProfileSignature.current;
-        seenProfileSignature.current = { urn, signature: profileSignature };
-        if (!seen || seen.urn !== urn) {
-            awaitingProfileSignature.current = null;
-            return;
-        }
-        if (seen.signature === profileSignature) {
-            return;
-        }
-        awaitingProfileSignature.current = profileSignature;
-        refetchRelatedTerms();
-    }, [urn, profileReady, profileSignature, refetchRelatedTerms]);
+    }, [selectedKey]);
 
     const onMenuClick = ({ key }) => {
         setSelectedKey(key);
     };
 
-    const fetchedTerm = data?.glossaryTerm?.urn === urn ? data.glossaryTerm : null;
-    const fetchedForUrn = Boolean(data) && (data?.glossaryTerm == null || data.glossaryTerm.urn === urn);
-    const fetchedSettled = !fetchedLoading && fetchedForUrn;
-    const fetchFailed = Boolean(fetchedError) && !fetchedLoading;
-    const fetchedSignature = fetchedTerm
-        ? glossaryRelationshipSignature(
-              fetchedTerm as Record<string, { relationships?: ReadonlyArray<unknown> }>,
-              menuOptionsArray,
-          )
-        : null;
-    if (
-        awaitingProfileSignature.current !== null &&
-        (fetchFailed || (fetchedSettled && fetchedSignature === awaitingProfileSignature.current))
-    ) {
-        awaitingProfileSignature.current = null;
-    }
-    const relationships = pickGlossaryRelatedRelationships(
-        relationshipEntries(profileForUrn, selectedKey),
-        relationshipEntries(
-            fetchedTerm as Record<string, { relationships?: ReadonlyArray<unknown> }> | null,
-            selectedKey,
-        ),
-        {
-            fetchedSettled,
-            holdForProfile: profileReady && awaitingProfileSignature.current !== null && !fetchFailed,
-            fetchFailed,
-        },
-    );
-    const pending = glossaryRelatedTermsArePending({
-        urn,
-        relationshipCount: relationships.length,
-        fetchedSettled,
-    });
+    const termForUrn = data?.glossaryTerm?.urn === urn ? data.glossaryTerm : null;
+    const relationships = relationshipsForGroup(termForUrn, selectedKey);
+    // A cached payload for the previous term is not this page. Keep the loader up until this urn
+    // arrives. A finished error still renders the empty tab so the add action is available.
+    const showLoader = Boolean(urn) && !termForUrn && loading;
 
     return (
         <DetailWrapper>
@@ -177,7 +84,7 @@ export default function GlossayRelatedTerms() {
                         onMenuClick(key);
                     }}
                 >
-                    {menuOptionsArray.map((option) => (
+                    {RELATED_TERM_MENU_KEYS.map((option) => (
                         <Menu.Item data-testid={option} key={option}>
                             {getRelatedTermTypeLabel(RelatedTermTypes[option])}
                         </Menu.Item>
@@ -185,8 +92,8 @@ export default function GlossayRelatedTerms() {
                 </Menu>
             </MenuWrapper>
             <Content>
-                {pending && <Loader />}
-                {!pending && selectedKey && (profileReady || data?.glossaryTerm?.urn === urn) && (
+                {showLoader && <Loader />}
+                {!showLoader && selectedKey && (termForUrn || error) && (
                     <GlossaryRelatedTermsResult
                         key={`${urn}-${selectedKey}`}
                         glossaryRelatedTermType={RelatedTermTypes[selectedKey]}
