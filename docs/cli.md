@@ -516,8 +516,10 @@ string, and `recipe validate` warns about it. Use `${DATAHUB_GMS_URL}` and `${DA
 A reference that takes part of a value (`${X:0:8}`, `${#X}`) is refused with exit code 2, since
 only whole values can be masked in the output.
 
-**Exploring what a source contains.** Start with `probe methods`, which is connection-free and
-lists what this connector offers — each command's parameters and what it returns:
+**Exploring what a source contains.** A source that can be probed lists `Probe` among its
+capabilities in `datahub recipe describe <source_type>`, and in its connector docs. Start with
+`probe methods`, which is connection-free and lists what this connector offers — each command's
+parameters and what it returns:
 
 ```shell
 datahub recipe probe methods --recipe my_recipe.yml

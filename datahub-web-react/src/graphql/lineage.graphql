@@ -28,7 +28,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -123,7 +123,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         status {
@@ -175,7 +175,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         parentContainers {
@@ -229,7 +229,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         parentContainers {
             ...parentContainersFields
@@ -455,7 +455,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -500,7 +500,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -906,7 +906,7 @@ fragment entityLineageV2 on Entity {
             description
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
     }
 }

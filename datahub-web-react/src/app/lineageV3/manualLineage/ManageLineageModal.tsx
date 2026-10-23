@@ -12,17 +12,18 @@ import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManual
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@src/app/shared/ClickOutside';
+import ClickOutside from '@src/app/sharedV2/ClickOutside';
 
 import { useUpdateLineageMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
 
 const MODAL_WIDTH_PX = 1400;
+const MODAL_Z_INDEX = 2000; // Over node tooltips
 
 const StyledModal = styled(Modal)`
     top: 30px;
@@ -88,7 +89,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
         filterManualLineageUrns(adjacencyList[direction].get(node.urn) || [], validEntityTypes),
     );
     const [isSaving, setIsSaving] = useState(false);
-    const [isExitConfirmationOpen, setIsExitConfirmationOpen] = useState(false);
+    const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
@@ -140,15 +141,10 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
-            setIsExitConfirmationOpen(true);
+            setIsExitConfirmOpen(true);
         } else {
             closeModal();
         }
-    };
-
-    const confirmExit = () => {
-        setIsExitConfirmationOpen(false);
-        closeModal();
     };
 
     const modalButtons = useMemo(
@@ -182,7 +178,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 open
                 onCancel={onCancelSelect}
                 style={{ padding: 0 }}
-                zIndex={2000} // Over node tooltips
+                zIndex={MODAL_Z_INDEX}
                 buttons={modalButtons}
             >
                 <ModalContentContainer>
@@ -218,15 +214,15 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 </ModalContentContainer>
             </StyledModal>
             <ConfirmationModal
-                isOpen={isExitConfirmationOpen}
-                handleClose={() => setIsExitConfirmationOpen(false)}
-                handleConfirm={confirmExit}
+                isOpen={isExitConfirmOpen}
+                handleClose={() => setIsExitConfirmOpen(false)}
+                handleConfirm={closeModal}
                 modalTitle={t('manualLineage.exitConfirmTitle')}
                 modalText={t('manualLineage.exitConfirmText', {
                     count: entitiesToAdd.length + entitiesToRemove.length,
                 })}
                 confirmButtonText={tcAction('yes')}
-                zIndex={2100} // Above ManageLineageModal (zIndex 2000)
+                zIndex={MODAL_Z_INDEX + 1} // Above this modal, otherwise the confirm opens hidden behind it
             />
         </ClickOutside>
     );

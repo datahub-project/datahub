@@ -56,6 +56,15 @@ OBJECT_TYPE_TASK_CHAINS: Final[str] = "taskchains"
 # hang off this; hoisted so the three call sites in client.py can't drift.
 DWAAS_SPACES_BASE: Final[str] = "/dwaas-core/api/v1/spaces"
 
+# dwaas-core list endpoints take BARE `top`/`skip`, not the OData `$`-prefixed ones
+# the consumption catalog uses. Page size for walking them.
+DWAAS_LIST_PAGE_SIZE: Final[int] = 200
+DWAAS_PARAM_TOP: Final[str] = "top"
+DWAAS_PARAM_SKIP: Final[str] = "skip"
+# Ceiling on pages walked per listing so a server that ignores `skip` (re-serving the
+# first page forever) can't loop unbounded; at 200 rows this still covers 200k objects.
+DWAAS_LIST_MAX_PAGES: Final[int] = 1000
+
 # The catalog's supportsAnalyticalQueries flag routes a CSN fetch to views vs
 # analyticmodels, but it is not a reliable indicator of the design-time type, so
 # a 404 on the primary route is retried under the sibling type. localtables has
@@ -156,6 +165,11 @@ CSN_REF: Final[str] = "ref"
 CSN_AS: Final[str] = "as"
 CSN_JOIN: Final[str] = "join"
 CSN_ARGS: Final[str] = "args"
+CSN_MIXIN: Final[str] = "mixin"
+CSN_ID: Final[str] = "id"
+# Namespace of objects SAP generates inside a space (e.g. `SAP.TIME.*` time
+# dimension tables), whose technical names contain dots.
+SAP_OBJECT_NAMESPACE: Final[str] = "SAP"
 CSN_FUNC: Final[str] = "func"
 CSN_XPR: Final[str] = "xpr"
 CSN_CASE: Final[str] = "case"

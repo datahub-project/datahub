@@ -3,7 +3,10 @@ import pathlib
 import pytest
 
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    _CLICKHOUSE_DICTIONARY_FUNCTIONS,
+    sqlglot_lineage,
+)
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
@@ -772,16 +775,34 @@ FROM staged
     )
 
 
-def test_databricks_case_sensitive_column_lineage() -> None:
-    # Regression guard for case-insensitive dialects (Databricks/Spark/Hive/Redshift/
-    # Trino/...). Unlike Snowflake, these fold identifiers *even when quoted*. A
-    # SELECT * over a schema with mixed-case columns expands to the columns' real
-    # casing (betStatusId), so the lineage lookup must not be re-folded. Passing the
+def test_hive_select_star_mixed_case_column_lineage() -> None:
+    # Regression guard for dialects that fold identifiers *even when quoted*
+    # (Spark/Hive/Redshift/Trino/...) and aren't in DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    # so their schema keeps its mixed case. A SELECT * expands to the columns' real
+    # casing (eventId), so the lineage lookup must not be re-folded. Passing the
     # lookup column as quoted=True alone is not enough here -- it case-folds
-    # "betStatusId" to "betstatusid", the column is no longer found, and the upstream
-    # edge is silently dropped. Marking the identifier case_sensitive keeps it
-    # verbatim. This mirrors the Unity Catalog view-lineage path. See
-    # https://github.com/tobymao/sqlglot/issues/7733.
+    # "eventId" to "eventid", the column is no longer found, and the upstream edge
+    # is silently dropped. Marking the identifier case_sensitive keeps it verbatim.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        "SELECT * FROM my_schema.events",
+        dialect="hive",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)": {
+                "eventId": "BIGINT",
+                "userId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_hive_select_star_mixed_case_column_lineage.json",
+    )
+
+
+def test_databricks_case_sensitive_column_lineage() -> None:
+    # Databricks matches columns case-insensitively, so the schema is folded before
+    # the SELECT * expansion. With no output table, the output columns still take
+    # their upstream column's declared casing (betStatusId). This mirrors the Unity
+    # Catalog view-lineage path and a dbt model compiled to a bare SELECT.
     assert_sql_result(
         "SELECT * FROM hive_metastore.bronze_kambi.bet",
         dialect="databricks",
@@ -795,6 +816,62 @@ def test_databricks_case_sensitive_column_lineage() -> None:
         },
         expected_file=RESOURCE_DIR
         / "test_databricks_case_sensitive_column_lineage.json",
+    )
+
+
+def test_databricks_explicit_mixed_case_columns() -> None:
+    # Databricks folds every query column to lowercase, even backticked ones. Unlike
+    # SELECT *, which expands from the schema, named columns only resolve to the
+    # schema's mixed-case fields through the case-insensitive lookup.
+    assert_sql_result(
+        """
+SELECT o.orderId, `customerId`, amountUsd
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+                "amountUsd": "DOUBLE",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_databricks_explicit_mixed_case_columns.json",
+    )
+
+
+def test_databricks_multi_upstream_mixed_case_columns() -> None:
+    # A column fed by several upstream columns of the same name (UNION, COALESCE)
+    # takes their casing when they agree, as a single upstream column does.
+    assert_sql_result(
+        """
+SELECT COALESCE(o.orderId, p.orderId) AS orderId, o.customerId
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+UNION ALL
+SELECT orderId, customerId
+FROM my_catalog.my_schema.orders_archive
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_multi_upstream_mixed_case_columns.json",
     )
 
 
@@ -2171,6 +2248,51 @@ FROM db1.events
     )
 
 
+def test_clickhouse_typed_dictget_lineage() -> None:
+    assert_sql_result(
+        """\
+SELECT
+    dictGetString('db.string_dict', 'value', id) AS string_value,
+    dictGetUInt64OrDefault('db.default_dict', 'value', id, 0) AS default_value
+FROM db.src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        expected_file=RESOURCE_DIR / "test_clickhouse_typed_dictget.json",
+    )
+
+
+@pytest.mark.parametrize("function_name", sorted(_CLICKHOUSE_DICTIONARY_FUNCTIONS))
+@pytest.mark.parametrize("dictionary_arg", ["'db.my_dict'", "my_dict"])
+def test_clickhouse_dictionary_function_adds_dictionary_upstream(
+    function_name: str, dictionary_arg: str
+) -> None:
+    # Guards against a sqlglot upgrade parsing a dict* function into a typed node
+    # instead of exp.Anonymous, which would silently drop the dictionary upstream.
+    result = sqlglot_lineage(
+        f"SELECT {function_name}({dictionary_arg}, 'value', id) AS v FROM db.src",
+        schema_resolver=SchemaResolver(platform="clickhouse"),
+        default_schema="db",
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.my_dict,PROD)"
+        in result.in_tables
+    )
+
+
+def test_clickhouse_dict_prefixed_function_is_not_a_dictionary() -> None:
+    assert_sql_result(
+        """\
+SELECT dictLookup(t.payload, 'k') AS v
+FROM db.src t
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_dict_prefixed_non_dictionary.json",
+    )
+
+
 def test_clickhouse_table_function_is_not_a_table() -> None:
     assert_sql_result(
         """\
@@ -2279,6 +2401,171 @@ FROM db1.raw_events
         dialect="clickhouse",
         expected_file=RESOURCE_DIR
         / "test_clickhouse_dictget_in_materialized_view.json",
+    )
+
+
+def test_clickhouse_bare_dictget_resolves_global_xml_dictionary() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_resolves_global_xml_dictionary.json",
+    )
+
+
+def test_clickhouse_bare_dictget_does_not_replace_same_named_table() -> None:
+    """Pins precedence: a global dictionary beats the same name in the current database."""
+    assert_sql_result(
+        """\
+INSERT INTO target (v, w)
+SELECT dictGet('My_Dict', 'v', id) AS v, w
+FROM db.My_Dict
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "w": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+                "w": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_same_named_table.json",
+    )
+
+
+def test_clickhouse_bare_dictget_falls_back_to_current_database() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('Ddl_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.Ddl_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_falls_back_to_current_database.json",
+    )
+
+
+def test_clickhouse_bare_dictget_ignores_case_folded_global() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_ignores_case_folded_global.json",
+    )
+
+
+def test_clickhouse_bare_dictget_unqualified_target_keeps_db_urn() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO My_Dict
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_unqualified_target_keeps_db_urn.json",
+    )
+
+
+def test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target (v, w)
+SELECT dictGet('My_Dict', 'v', id) AS v, w
+FROM My_Dict
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "w": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+                "w": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn.json",
     )
 
 

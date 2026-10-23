@@ -65,6 +65,31 @@ def probe_api_url(base_url: str, path: str) -> str:
     return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
 
 
+def _refuse_rewritten_path(base_url: str, path: str) -> None:
+    """Refuse a path the client would rewrite before sending it: a dot segment
+    ("/./x"), a needlessly encoded character ("%73" for "s"), lower-case hex,
+    or an unencoded space or non-ASCII character.
+
+    The gate already matches the rewritten path, but a provider handed the
+    caller's spelling could branch on it and miss what was really requested.
+    Refusing it means every provider sees the path that goes on the wire.
+    Only the path is compared: query parameters are matched decoded.
+    """
+    raw = probe_api_url(base_url, path)
+    prepared = requests.Request(READ_METHOD, raw).prepare().url or ""
+    sent = urlsplit(prepared).path
+    if urlsplit(raw).path == sent:
+        return
+    base_path = urlsplit(base_url).path.rstrip("/")
+    shown = sent[len(base_path) :] if sent.startswith(base_path + "/") else sent
+    raise ApiScopeError(
+        f"'{path}' is not written as it would be sent: the client would request "
+        f"'{shown}'. Use that spelling -- no '.' segments, no percent-encoding "
+        f"of letters or digits, upper-case hex, and spaces and non-ASCII "
+        f"characters percent-encoded"
+    )
+
+
 def _effective_path(base_url: str, path: str) -> Tuple[str, FrozenSet[str]]:
     """The path the client will request, relative to the base, and the names of
     the query parameters sent with it.
@@ -135,6 +160,8 @@ def check_api_request(
     if any(segment == ".." for segment in decoded.split("?")[0].split("/")):
         # Traversal would aim the credentials outside the base.
         raise ApiScopeError(f"'{path}' may not traverse outside its base path")
+
+    _refuse_rewritten_path(base_url or _SYNTHETIC_BASE, path)
 
     # Match the path the client will really request ("%3F" is "?" only to a
     # decoder, so "x%3F/../.." still traverses on the wire). A synthetic base

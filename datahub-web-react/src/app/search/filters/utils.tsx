@@ -3,9 +3,9 @@ import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { IconStyleType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { FilterOptionType } from '@app/search/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -18,9 +18,9 @@ import {
     STRUCTURED_PROPERTIES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { DATE_TYPE_URN } from '@src/app/sharedV2/constants';
 import dayjs from '@utils/dayjs';
 
 import {
@@ -30,26 +30,9 @@ import {
     Domain,
     Entity,
     EntityType,
-    FacetFilterInput,
-    FacetMetadata,
     GlossaryTerm,
     StructuredPropertyEntity,
 } from '@types';
-
-// either adds or removes selectedFilterValues to/from activeFilters for a given filterField
-export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
-    let newFilters = activeFilters;
-    if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
-        newFilters = activeFilters
-            .map((f) => (f.field === filterField ? { ...f, values: selectedFilterValues } : f))
-            .filter((f) => !(f.values?.length === 0));
-    } else {
-        newFilters = [...activeFilters, { field: filterField, values: selectedFilterValues }].filter(
-            (f) => !(f.values?.length === 0),
-        );
-    }
-    return newFilters;
-}
 
 export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[], filterValue: string) {
     const parentFilterValues = filterValue.includes(FILTER_DELIMITER)
@@ -62,14 +45,6 @@ export function isFilterOptionSelected(selectedFilterOptions: FilterOptionType[]
 
 export function isAnyOptionSelected(selectedFilterOptions: FilterOptionType[], filterValues?: string[]) {
     return selectedFilterOptions.some((option) => filterValues?.some((filterValue) => filterValue === option.value));
-}
-
-export function getFilterEntity(filterField: string, filterValue: string, availableFilters: FacetMetadata[] | null) {
-    return (
-        availableFilters
-            ?.find((facet) => facet.field === filterField)
-            ?.aggregations.find((agg) => agg.value === filterValue)?.entity || null
-    );
 }
 
 export const PlatformIcon = styled.img<{ size?: number }>`
