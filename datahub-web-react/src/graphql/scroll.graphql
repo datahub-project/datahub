@@ -38,7 +38,7 @@ fragment downloadSearchResults on Entity {
             typeNames
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -108,7 +108,7 @@ fragment downloadSearchResults on Entity {
             ...dataPlatformInstanceFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -152,7 +152,7 @@ fragment downloadSearchResults on Entity {
             ...dataPlatformInstanceFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -190,7 +190,7 @@ fragment downloadSearchResults on Entity {
             ...dataPlatformInstanceFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -220,7 +220,7 @@ fragment downloadSearchResults on Entity {
             description
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         ...entityDataProduct
         deprecation {
@@ -255,7 +255,7 @@ fragment downloadSearchResults on Entity {
             ...parentNodesFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
     }
     ... on GlossaryNode {
@@ -395,7 +395,7 @@ fragment downloadSearchResults on Entity {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
     }
 }

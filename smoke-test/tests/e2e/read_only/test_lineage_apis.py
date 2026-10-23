@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.CATALOG)
 
+# Sync lineage walks have a relationship budget (maxRelations), so an unbounded walk from an
+# arbitrary dataset fails on deployments with large lineage graphs.
+LINEAGE_MAX_HOPS = 2
+
 
 def _find_urn_with_lineage(auth_session) -> str:
     """Find a URN that has upstream lineage, or any dataset URN as fallback."""
@@ -79,7 +83,11 @@ def test_search_across_lineage_api(auth_session):
 
     # Call searchAcrossLineage with UPSTREAM direction
     result = search_across_lineage(
-        auth_session, urn=urn, direction="UPSTREAM", count=10
+        auth_session,
+        urn=urn,
+        direction="UPSTREAM",
+        count=10,
+        max_hops=LINEAGE_MAX_HOPS,
     )
 
     # Validate response structure
@@ -107,7 +115,11 @@ def test_scroll_across_lineage_api(auth_session):
 
     # First call: get initial results without scrollId
     result = scroll_across_lineage(
-        auth_session, urn=urn, direction="UPSTREAM", count=10
+        auth_session,
+        urn=urn,
+        direction="UPSTREAM",
+        count=10,
+        max_hops=LINEAGE_MAX_HOPS,
     )
 
     # Validate response structure
@@ -137,6 +149,7 @@ def test_scroll_across_lineage_api(auth_session):
             direction="UPSTREAM",
             scroll_id=next_scroll_id,
             count=10,
+            max_hops=LINEAGE_MAX_HOPS,
         )
 
         # Validate second page response

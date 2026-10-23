@@ -1,4 +1,5 @@
 import logging
+import re
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
@@ -121,6 +122,22 @@ class LookMLSourceConfig(
         "have a corresponding entry here. "
         "If a deploy key is not provided, the ingestion system will use the same deploy key as the main project. "
         "When providing a local directory path (string), the directory must exist at config validation time.",
+    )
+    remote_dependency_domain_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for the hosts permitted for `remote_dependency` URLs "
+            "in `manifest.lkml`. Patterns match from the start of the host string and "
+            "are case-insensitive; anchor with `^...$` for an exact match. "
+            "Unanchored `allow` entries are rejected at config validation. "
+            "For example, to allow `github.com` and its subdomains use "
+            "`allow: ['^github\\.com$', '.*\\.github\\.com$']`. "
+            "Hosts matching a `deny` pattern are always skipped. "
+            "`manifest.lkml` lives in the LookML repo, so committers can change these "
+            "URLs; this field is the operator-controlled allowlist. "
+            "Loopback, link-local, and cloud-metadata hosts are always rejected "
+            "regardless of this pattern, as are schemes other than `https` and SSH."
+        ),
     )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,
@@ -258,6 +275,44 @@ class LookMLSourceConfig(
                 f"This may cause resource exhaustion. Using 100 instead."
             )
             return 100
+        return v
+
+    @field_validator("remote_dependency_domain_pattern")
+    def validate_remote_dependency_domain_pattern(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        # AllowDenyPattern compiles patterns lazily, so a malformed regex would
+        # pass config load and only crash later inside check_remote_dependency_url,
+        # which has no handler. Compile here (allow and deny both, since a bad deny
+        # crashes at use too) so a typo is a load-time error, not a failed run.
+        for pattern in [*v.allow, *v.deny]:
+            try:
+                re.compile(pattern)
+            except re.error as e:
+                raise ValueError(
+                    f"remote_dependency_domain_pattern entry '{pattern}' is not a "
+                    f"valid regular expression: {e}"
+                ) from e
+        # AllowDenyPattern matches from the start of the string, so an unanchored
+        # allow entry like "github.com" also permits "github.com.evil.example". On
+        # this security-relevant field that is a bypass, so require anchoring.
+        unanchored = [p for p in v.allow if p != ".*" and not p.endswith("$")]
+        if unanchored:
+            raise ValueError(
+                "remote_dependency_domain_pattern allow entries must be anchored "
+                f"with '$' (for example '^github\\.com$'); {unanchored} would also "
+                "match sub-hosts such as 'github.com.evil.example'"
+            )
+        # A trailing "$" only anchors the last alternation branch, so "|" can hide
+        # an unanchored branch (e.g. "^github\.com\.evil|^github\.com$"). Reject it;
+        # use one list entry per host instead.
+        alternation = [p for p in v.allow if "|" in p]
+        if alternation:
+            raise ValueError(
+                "remote_dependency_domain_pattern allow entries must not use '|' "
+                f"alternation; {alternation} can hide an unanchored branch. Use a "
+                "separate allow entry per host instead"
+            )
         return v
 
     @model_validator(mode="before")

@@ -22,6 +22,7 @@ from openlineage.client.run import Dataset as OpenLineageDataset
 from datahub_airflow_plugin import _datahub_ol_adapter as adapter
 from datahub_airflow_plugin._datahub_ol_adapter import (
     _sanitize_ol_dataset_name,
+    translate_ol_datasets,
     translate_ol_to_datahub_urn,
 )
 
@@ -264,7 +265,7 @@ class TestTranslateOlToDatahubUrn:
         )
         assert urn == (
             "urn:li:dataset:(urn:li:dataPlatform:s3,"
-            "2563508/mp_master_event/2024.11.30/data.json,PROD)"
+            "events-daily/2563508/mp_master_event/2024.11.30/data.json,PROD)"
         )
 
     def test_custom_env_propagated(self) -> None:
@@ -274,3 +275,107 @@ class TestTranslateOlToDatahubUrn:
         )
         assert urn.endswith(",DEV)")
         assert ".None." not in urn
+
+
+class TestObjectStorageNormalization:
+    """Path datasets must get the same URN the Java openlineage-converter (Spark
+    agent, GMS OpenLineage endpoint) and DataHub's S3/GCS sources produce."""
+
+    @pytest.mark.parametrize(
+        ("namespace", "name", "expected"),
+        [
+            # Same inputs as the Java HdfsPathDatasetTest cases.
+            ("s3://my-bucket", "foo/tests/bar.avro", "s3,my-bucket/foo/tests/bar.avro"),
+            (
+                "s3a://my-bucket",
+                "foo/tests/bar.avro",
+                "s3,my-bucket/foo/tests/bar.avro",
+            ),
+            (
+                "gs://my-bucket",
+                "foo/tests/bar.avro",
+                "gcs,my-bucket/foo/tests/bar.avro",
+            ),
+            ("gcs://my-bucket", "events", "gcs,my-bucket/events"),
+            # Leading and trailing slashes do not leak into the name.
+            ("gs://my-bucket", "/events/daily/", "gcs,my-bucket/events/daily"),
+            # A bucket-root reference ("/" in OL) is the bucket itself.
+            ("s3://athena-results", "/", "s3,athena-results"),
+            (
+                "abfss://container@account.dfs.core.windows.net",
+                "path/data",
+                "abs,container@account.dfs.core.windows.net/path/data",
+            ),
+            ("file:///", "tmp/data.csv", "file,/tmp/data.csv"),
+            # Separators on both sides are joined with one slash, not two.
+            ("s3://my-bucket/", "/key/a.csv", "s3,my-bucket/key/a.csv"),
+            # The filesystem root must not lose the scheme delimiter (used to crash).
+            ("file:///", "", "file,/"),
+            # Schemes are case-insensitive (RFC 3986).
+            ("GS://my-bucket", "events", "gcs,my-bucket/events"),
+        ],
+    )
+    def test_matches_java_converter(
+        self, namespace: str, name: str, expected: str
+    ) -> None:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace=namespace, name=name), env="PROD"
+        )
+        assert urn == f"urn:li:dataset:(urn:li:dataPlatform:{expected},PROD)"
+
+    def test_bare_file_namespace_unchanged(self) -> None:
+        # Airflow providers mostly emit local paths as namespace "file" with no
+        # scheme separator; the Java converter leaves those untouched too.
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace="file", name="/tmp/tmpab12/out.csv")
+        )
+        assert (
+            urn == "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/out.csv,PROD)"
+        )
+
+    def test_hdfs_is_not_rewritten(self) -> None:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace="hdfs://namenode:8020", name="/warehouse/t")
+        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:hdfs,/warehouse/t,PROD)"
+
+    def test_disabled_keeps_legacy_urn(self) -> None:
+        urn = translate_ol_to_datahub_urn(
+            OpenLineageDataset(namespace="gs://my-bucket", name="foo/bar.avro"),
+            normalize_object_storage=False,
+        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:gs,foo/bar.avro,PROD)"
+
+
+class TestTranslateOlDatasets:
+    """OpenLineage `file` references are worker-local scratch paths by default."""
+
+    DATASETS = [
+        OpenLineageDataset(namespace="file", name="/tmp/tmpab12/out.csv"),
+        OpenLineageDataset(namespace="file:///", name="tmp/tmpab12/in.csv"),
+        OpenLineageDataset(namespace="gs://my-bucket", name="events/part-0.json"),
+    ]
+
+    def test_skips_file_references_by_default(self) -> None:
+        assert translate_ol_datasets(
+            self.DATASETS,
+            "Input",
+            env="PROD",
+            normalize_object_storage=True,
+            capture_file_datasets=False,
+        ) == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/part-0.json,PROD)"
+        ]
+
+    def test_keeps_file_references_when_enabled(self) -> None:
+        assert translate_ol_datasets(
+            self.DATASETS,
+            "Input",
+            env="PROD",
+            normalize_object_storage=True,
+            capture_file_datasets=True,
+        ) == [
+            "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/out.csv,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/tmpab12/in.csv,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/events/part-0.json,PROD)",
+        ]

@@ -8,9 +8,9 @@ import { useDomainsContext } from '@app/domain/DomainsContext';
 import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
 import useListDomains from '@app/domain/useListDomains';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
-import { BodyContainer, BodyGridExpander } from '@app/shared/components';
-import { RotatingTriangle } from '@app/shared/sidebar/components';
-import useToggle from '@app/shared/useToggle';
+import { BodyContainer, BodyGridExpander } from '@app/sharedV2/components';
+import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
+import useToggle from '@app/sharedV2/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain } from '@types';
@@ -122,7 +122,7 @@ export default function DomainNode({
                         <RotatingTriangle
                             isOpen={isOpen && !isClosing}
                             onClick={toggle}
-                            testId={`open-domain-action-item-${domain.urn}`}
+                            dataTestId={`open-domain-action-item-${domain.urn}`}
                         />
                     </ButtonWrapper>
                 )}

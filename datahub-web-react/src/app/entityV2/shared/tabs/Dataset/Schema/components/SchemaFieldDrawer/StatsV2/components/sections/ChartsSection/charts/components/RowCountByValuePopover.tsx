@@ -5,7 +5,7 @@ import styled, { useTheme } from 'styled-components';
 import { Text } from '@src/alchemy-components';
 import { DEFAULT_COLOR_SCHEME, getColorSchemeParams } from '@src/alchemy-components/components/BarChart/constants';
 import { Datum } from '@src/alchemy-components/components/BarChart/types';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@src/app/sharedV2/formatNumber';
 
 interface RowCountByValuePopoverProps {
     datum: Datum;

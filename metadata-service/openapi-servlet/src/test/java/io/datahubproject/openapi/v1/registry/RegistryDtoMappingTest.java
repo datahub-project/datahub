@@ -27,7 +27,7 @@ public class RegistryDtoMappingTest {
 
   @Test
   public void testAspectAnnotationDtoMapsSchemaVersion() {
-    AspectAnnotation annotation = new AspectAnnotation("domains", false, false, null, 2L);
+    AspectAnnotation annotation = new AspectAnnotation("domains", false, false, null, 2L, false);
 
     AspectAnnotationDto dto = AspectAnnotationDto.fromAspectAnnotation(annotation);
 
@@ -37,7 +37,7 @@ public class RegistryDtoMappingTest {
 
   @Test
   public void testAspectAnnotationDtoMapsDefaultSchemaVersion() {
-    AspectAnnotation annotation = new AspectAnnotation("status", false, false, null, 1L);
+    AspectAnnotation annotation = new AspectAnnotation("status", false, false, null, 1L, false);
 
     AspectAnnotationDto dto = AspectAnnotationDto.fromAspectAnnotation(annotation);
 
