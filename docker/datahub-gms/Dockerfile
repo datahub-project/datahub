@@ -28,7 +28,11 @@ COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-COPY metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
+# WAR_FILE selects the boot archive: war.war (default, slim) or war-onnx.war (datahub-gms-onnx
+# variant, which bundles the ONNX/DJL native libs). Destination filename stays war.war so start.sh
+# is unchanged.
+ARG WAR_FILE=war.war
+COPY metadata-service/war/build/libs/${WAR_FILE} /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

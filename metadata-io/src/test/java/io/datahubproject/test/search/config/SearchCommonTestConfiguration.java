@@ -16,9 +16,13 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -70,7 +74,9 @@ public class SearchCommonTestConfiguration {
   }
 
   @Bean(name = "queryOperationContext")
-  public OperationContext queryOperationContext() {
+  public OperationContext queryOperationContext(
+      @Autowired(required = false) @Qualifier("searchClientShim")
+          SearchClientShim<?> searchClient) {
     OperationContext testOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     // Create IndexConvention for the SearchContext
@@ -83,18 +89,20 @@ public class SearchCommonTestConfiguration {
     // Create real SearchContext using ESUtils methods to populate searchableFieldTypes
     MappingsBuilder mappingsBuilder =
         createDelegatingMappingsBuilder(TEST_OS_SEARCH_CONFIG.getEntityIndex());
-    SearchContext searchContext =
+    SearchContext.SearchContextBuilder searchContextBuilder =
         SearchContext.builder()
             .indexConvention(indexConvention)
             .searchableFieldTypes(
                 ESUtils.buildSearchableFieldTypes(
                     testOpContext.getEntityRegistry(), mappingsBuilder))
             .searchableFieldPaths(
-                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
-            .build();
+                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()));
+    if (searchClient != null) {
+      searchContextBuilder.searchClusterAccess(SearchClusterAccess.fixed(searchClient));
+    }
 
     return testOpContext.toBuilder()
-        .searchContext(searchContext)
+        .searchContext(searchContextBuilder.build())
         .build(testOpContext.getSessionAuthentication(), true);
   }
 

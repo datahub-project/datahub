@@ -15,7 +15,7 @@ Structured properties have values that are typed and support constraints.
 Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
 :::note Value size limit
-String-backed structured property values (`string`, `rich_text`, `date`, and `urn` types) are indexed as Elasticsearch / OpenSearch keywords. Each value may be at most **32,766 UTF-8 bytes** by default (configurable via `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structuredProperties.keywordMaxLength`). Writes that exceed this Lucene keyword term limit are rejected by `StructuredPropertiesValidator`. Prefer shorter values for searchable properties; store large free-form content as entity documentation instead. Number values are not subject to this limit. See the [feature guide limitations](../../../docs/features/feature-guides/properties/overview.md#value-size-for-text-and-rich-text-properties).
+String-backed structured property values (`string`, `rich_text`, `date`, and `urn` types) are indexed as Elasticsearch / OpenSearch keywords. Each value may be at most **32,766 UTF-8 bytes** by default (configurable via `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structuredProperties.keywordMaxLength`). Writes that exceed this Lucene keyword term limit are rejected by `StructuredPropertiesValidator` unless `STRUCTURED_PROPERTIES_DROP_OVERSIZED_KEYWORD_VALUES_FROM_INDEX` is `true`, in which case the value is stored in primary storage and omitted from the search index. Prefer shorter values for searchable properties; store large free-form content as entity documentation instead. Number values are not subject to this limit. See the [feature guide limitations](../../../docs/features/feature-guides/properties/overview.md#value-size-for-text-and-rich-text-properties).
 :::
 
 ### Goal Of This Guide
@@ -89,6 +89,12 @@ For example, below file represents a property `io.acryl.privacy.retentionTime`. 
       description: Use this for datasets that drive monthly reporting but contain pii
     - value: 365
       description: Use this for non-sensitive data that can be retained for longer
+  structured_property_settings:
+    is_hidden: false
+    show_as_asset_badge: true
+    show_in_asset_summary: true
+    show_in_columns_table: false
+    show_in_search_filters: true
 ```
 
 Use the CLI to create your properties:

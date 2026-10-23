@@ -66,7 +66,7 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
     }
 
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const platformIcon = properties?.platform?.properties?.logoUrl;
+    const platformIcon = entityRegistry.getPlatformProperties?.(entity.type, entity)?.properties?.logoUrl;
 
     const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, entity.type);
 

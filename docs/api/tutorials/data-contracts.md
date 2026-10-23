@@ -42,31 +42,21 @@ To create or update a Data Contract, simply use the `upsertDataContract` GraphQL
 
 ```graphql
 mutation upsertDataContract {
-    upsertDataContract(
-      input: {
-        entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,purchases,PROD)", # Table to Create Contract for
-        freshness: [
-            {
-                assertionUrn: "urn:li:assertion:your-freshness-assertion-id",
-            }
-        ],
-        schema: [
-            {
-                assertionUrn: "urn:li:assertion:your-schema-assertion-id",
-            }
-        ],
-        dataQuality: [
-            {
-                assertionUrn: "urn:li:assertion:your-column-assertion-id-1",
-            },
-            {
-                assertionUrn: "urn:li:assertion:your-column-assertion-id-2",
-            }
-        ]
-      }) {
-        urn
-      }
-  )
+  upsertDataContract(
+    input: {
+      entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,purchases,PROD)" # Table to Create Contract for
+      freshness: [
+        { assertionUrn: "urn:li:assertion:your-freshness-assertion-id" }
+      ]
+      schema: [{ assertionUrn: "urn:li:assertion:your-schema-assertion-id" }]
+      dataQuality: [
+        { assertionUrn: "urn:li:assertion:your-column-assertion-id-1" }
+        { assertionUrn: "urn:li:assertion:your-column-assertion-id-2" }
+      ]
+    }
+  ) {
+    urn
+  }
 }
 ```
 
@@ -88,31 +78,21 @@ If you want to update an existing Data Contract, you can use the same API, but a
 
 ```graphql
 mutation upsertDataContract {
-    upsertDataContract(
-      urn: "urn:li:dataContract:your-existing-contract-id",
-      input: {
-        freshness: [
-            {
-                assertionUrn: "urn:li:assertion:your-freshness-assertion-id",
-            }
-        ],
-        schema: [
-            {
-                assertionUrn: "urn:li:assertion:your-schema-assertion-id",
-            }
-        ],
-        dataQuality: [
-            {
-                assertionUrn: "urn:li:assertion:your-column-assertion-id-1",
-            },
-            {
-                assertionUrn: "urn:li:assertion:your-column-assertion-id-2",
-            }
-        ]
-      }) {
-        urn
-      }
-  )
+  upsertDataContract(
+    urn: "urn:li:dataContract:your-existing-contract-id"
+    input: {
+      freshness: [
+        { assertionUrn: "urn:li:assertion:your-freshness-assertion-id" }
+      ]
+      schema: [{ assertionUrn: "urn:li:assertion:your-schema-assertion-id" }]
+      dataQuality: [
+        { assertionUrn: "urn:li:assertion:your-column-assertion-id-1" }
+        { assertionUrn: "urn:li:assertion:your-column-assertion-id-2" }
+      ]
+    }
+  ) {
+    urn
+  }
 }
 ```
 

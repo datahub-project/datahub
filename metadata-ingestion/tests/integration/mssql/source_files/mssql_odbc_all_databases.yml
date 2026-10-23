@@ -14,6 +14,7 @@ source:
     uri_args:
       driver: "ODBC Driver 18 for SQL Server"
       TrustServerCertificate: "yes"
+      Encrypt: "yes"
 
 sink:
   type: file

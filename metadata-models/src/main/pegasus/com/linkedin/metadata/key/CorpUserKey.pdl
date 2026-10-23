@@ -11,6 +11,9 @@ record CorpUserKey {
   * The name of the AD/LDAP user.
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "ldap",
     "fieldType": "WORD_GRAM",
     "boostScore": 2.0,

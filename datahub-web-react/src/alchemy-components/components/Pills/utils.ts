@@ -107,7 +107,7 @@ const getFilledStyles = (colorStyles: ColorStyles): CSSObject => ({
 
 const getOutlineStyles = (colorStyles: ColorStyles): CSSObject => ({
     backgroundColor: 'transparent',
-    border: `1px solid ${colorStyles.bgColor}`,
+    border: `1px solid ${colorStyles.borderColor}`,
     color: colorStyles.primaryColor,
     '&:hover': {
         backgroundColor: colorStyles.hoverColor,

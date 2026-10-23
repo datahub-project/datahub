@@ -18,7 +18,7 @@ import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.web.client.RestTemplate;
 import org.testng.annotations.Test;
 
-@ActiveProfiles("test")
+@ActiveProfiles({"mce", "test"})
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     classes = {MceConsumerApplication.class, MceConsumerApplicationTestConfiguration.class},

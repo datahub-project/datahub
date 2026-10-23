@@ -31,6 +31,7 @@ import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
@@ -112,7 +113,11 @@ public class EntityUtils {
       return defaultValue;
     }
     try {
-      RecordTemplate aspect = entityService.getAspect(opContext, urn, aspectName, 0);
+      // Callers read this aspect in order to write it back. A replica snapshot would clobber a
+      // newer primary row.
+      RecordTemplate aspect =
+          entityService.getAspect(
+              opContext.withReadPreference(ReadPreference.PRIMARY), urn, aspectName, 0);
       if (aspect == null) {
         return defaultValue;
       }

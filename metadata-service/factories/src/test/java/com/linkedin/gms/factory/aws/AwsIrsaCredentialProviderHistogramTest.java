@@ -15,6 +15,7 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -64,6 +65,58 @@ public class AwsIrsaCredentialProviderHistogramTest {
         AwsClientFactory factory = new AwsClientFactory();
         assertNull(factory.objectStorageS3Client(null));
         factory.shutdown();
+      }
+    } finally {
+      Files.deleteIfExists(tokenFile);
+    }
+  }
+
+  @Test(timeOut = 60_000)
+  public void sharedCredentialsProviderDoesNotGrowLiveWebIdentityStsProviders() throws Exception {
+    Path tokenFile = Files.createTempFile("datahub-irsa", ".token");
+    Files.writeString(tokenFile, "e30.e30.e30");
+    System.setProperty("aws.region", "us-east-1");
+    System.setProperty("aws.roleArn", TEST_ROLE_ARN);
+    System.setProperty("aws.webIdentityTokenFile", tokenFile.toAbsolutePath().toString());
+    System.setProperty("AWS_ENDPOINT_URL", "http://127.0.0.1:1");
+
+    try {
+      if (measureExplicitWebIdentityProviderGrowth() <= 0) {
+        throw new SkipException(
+            "gcClassHistogram did not observe live "
+                + WEB_IDENTITY_PROVIDER_CLASS
+                + " instances; histogram assertion is not meaningful");
+      }
+
+      int before = countLiveWebIdentityStsProviders();
+      DefaultCredentialsProvider shared = DefaultCredentialsProvider.builder().build();
+      try {
+        try {
+          shared.resolveCredentials();
+        } catch (RuntimeException ignored) {
+          // Fake IRSA token / unreachable STS is expected; the provider must still materialize.
+        }
+        for (int i = 0; i < 8; i++) {
+          StsClient client =
+              StsClient.builder()
+                  .region(Region.US_EAST_1)
+                  .credentialsProvider(shared)
+                  .endpointOverride(URI.create("http://127.0.0.1:1"))
+                  .build();
+          client.close();
+        }
+        int after = countLiveWebIdentityStsProviders();
+        org.testng.Assert.assertTrue(
+            after - before <= 1,
+            "shared DefaultCredentialsProvider must not grow live "
+                + WEB_IDENTITY_PROVIDER_CLASS
+                + " (before="
+                + before
+                + ", after="
+                + after
+                + ")");
+      } finally {
+        shared.close();
       }
     } finally {
       Files.deleteIfExists(tokenFile);

@@ -8,7 +8,7 @@ import { EntityActionProps } from '@app/entity/shared/components/styled/search/E
 import { FilterSet } from '@app/entity/shared/components/styled/search/types';
 import { UnionType } from '@app/search/utils/constants';
 
-import { FacetFilterInput } from '@types';
+import { FacetFilterInput, SearchFlags } from '@types';
 
 const SearchContainer = styled.div`
     height: 500px;
@@ -36,6 +36,7 @@ type Props = {
     applyView?: boolean;
     isViewAllMode?: boolean | false;
     handleViewAllClickWarning?: () => void;
+    searchFlags?: SearchFlags;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -53,6 +54,7 @@ export const EmbeddedListSearchModal = ({
     applyView,
     isViewAllMode,
     handleViewAllClickWarning,
+    searchFlags,
 }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     // Component state
@@ -106,6 +108,7 @@ export const EmbeddedListSearchModal = ({
                     applyView={applyView}
                     isViewAllMode={isViewAllMode}
                     handleViewAllClickWarning={handleViewAllClickWarning}
+                    searchFlags={searchFlags}
                 />
             </SearchContainer>
         </Modal>

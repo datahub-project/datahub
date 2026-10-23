@@ -1,9 +1,8 @@
-import { Button, Menu, Text } from '@components';
+import { Button, Menu, Text, toast } from '@components';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +17,7 @@ import { getTagColor } from '@app/tags/utils';
 import { UnionType } from '@src/app/search/utils/constants';
 import { generateOrFilters } from '@src/app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@src/app/search/utils/navigateToSearchUrl';
-import { useEntityRegistry, useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useGetTagQuery } from '@src/graphql/tag.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -120,7 +119,7 @@ export const TagDescriptionColumn = React.memo(({ tagUrn }: { tagUrn: string }) 
 });
 
 export const TagOwnersColumn = React.memo(({ tagUrn }: { tagUrn: string }) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { data, loading: ownerLoading } = useGetTagQuery({
         variables: { urn: tagUrn },
         fetchPolicy: 'cache-first',
@@ -151,7 +150,8 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets only — result body is unused.
+                count: 0,
                 orFilters: generateOrFilters(UnionType.OR, entityFilters),
             },
         },
@@ -275,7 +275,7 @@ export const TagActionsColumn = React.memo(
         const [isEditDeprecationModalVisible, setIsEditDeprecationModalVisible] = React.useState(false);
 
         const handleUndeprecate = async () => {
-            message.loading({ content: tf('updating') });
+            toast.loading(tf('updating'));
             try {
                 await batchUpdateDeprecation({
                     variables: {
@@ -285,16 +285,13 @@ export const TagActionsColumn = React.memo(
                         },
                     },
                 });
-                message.destroy();
-                message.success({ content: te('deprecation.markedUnDeprecatedSuccess'), duration: 2 });
+                toast.destroy();
+                toast.success(te('deprecation.markedUnDeprecatedSuccess'), { duration: 2 });
                 refetch();
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: te('deprecation.updateError', { errorMessage: e.message || '' }),
-                        duration: 2,
-                    });
+                    toast.error(te('deprecation.updateError', { errorMessage: e.message || '' }), { duration: 2 });
                 }
             }
         };

@@ -56,7 +56,7 @@ export const Preview = ({
             parentEntities={domain.parentDomains?.domains}
             snippet={<DomainEntitiesSnippet domain={domain} />}
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
-            entityIcon={<DomainColoredIcon domain={domain as Domain} size={28} />}
+            entityIcon={<DomainColoredIcon domain={domain as Domain} size={20} fontSize={12} />}
             deprecation={deprecation}
             refetchDeprecation={() => handleDeprecateDomainComplete(false)}
             headerDropdownItems={headerDropdownItems}

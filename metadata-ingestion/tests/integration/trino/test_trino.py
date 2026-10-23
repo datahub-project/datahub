@@ -7,7 +7,7 @@ import time_machine
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.trino import ConnectorDetail, TrinoConfig
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
@@ -72,7 +72,7 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
                     profile_pattern=AllowDenyPattern(
                         allow=["postgresqldb.librarydb.*"]
                     ),
-                    profiling=GEProfilingConfig(
+                    profiling=ProfilingConfig(
                         enabled=True,
                         include_field_null_count=True,
                         include_field_distinct_count=True,

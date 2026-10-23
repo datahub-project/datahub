@@ -7,7 +7,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.usage.instrumentation.UsageMetadataChangeProposalEnricher;
 import com.linkedin.metadata.utils.arch.OperationContextExempt;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -161,14 +160,4 @@ public abstract class EventProducer {
 
   @OperationContextExempt(reason = "Pure topic-name lookup; no per-event context needed.")
   public abstract String getPlatformEventTopicName();
-
-  /**
-   * Creates an entry on the history log of when the indices were last rebuilt with the latest
-   * configuration.
-   *
-   * @param opContext per-event operation context.
-   * @param event the history event to send to the DataHub Upgrade history topic
-   */
-  public abstract void produceDataHubUpgradeHistoryEvent(
-      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event);
 }
