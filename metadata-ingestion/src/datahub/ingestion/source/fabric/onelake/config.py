@@ -9,7 +9,6 @@ from datahub.configuration.common import AllowDenyPattern, Enables, Filters
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
-    TransformOperationLengthConfigMixin,
 )
 from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
@@ -126,7 +125,6 @@ class FabricOneLakeSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
-    TransformOperationLengthConfigMixin,
 ):
     """Configuration for Fabric OneLake source.
 
