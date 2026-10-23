@@ -464,9 +464,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             else:
                 logger.info(f"Fetching audit log into {audit_log_file}")
 
-                with self.report.copy_history_fetch_timer:
-                    for copy_entry in self.fetch_copy_history():
-                        queries.append(copy_entry)
+                # Copy history only yields lineage mappings, so skip the scan when lineage is off.
+                if self.config.include_lineage:
+                    with self.report.copy_history_fetch_timer:
+                        for copy_entry in self.fetch_copy_history():
+                            queries.append(copy_entry)
 
                 with self.report.query_log_fetch_timer:
                     for entry in self.fetch_query_log(users):

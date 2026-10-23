@@ -545,7 +545,8 @@ class TestSnowflakeQueriesExtractorOptimization:
         ):
             list(extractor.get_workunits_internal())
 
-            mock_fetch_copy_history.assert_called_once()
+            # copy history only feeds lineage, so it is skipped when lineage is off
+            mock_fetch_copy_history.assert_not_called()
             mock_fetch_query_log.assert_called_once()
 
     def test_fetch_queries_when_operations_enabled(self):
@@ -569,7 +570,8 @@ class TestSnowflakeQueriesExtractorOptimization:
         ):
             list(extractor.get_workunits_internal())
 
-            mock_fetch_copy_history.assert_called_once()
+            # copy history only feeds lineage, so it is skipped when lineage is off
+            mock_fetch_copy_history.assert_not_called()
             mock_fetch_query_log.assert_called_once()
 
     def test_fetch_queries_when_any_single_feature_enabled(self):
@@ -599,8 +601,9 @@ class TestSnowflakeQueriesExtractorOptimization:
             ):
                 list(extractor.get_workunits_internal())
 
-                # Verify fetches were called
-                mock_fetch_copy_history.assert_called_once()
+                assert mock_fetch_copy_history.call_count == (
+                    1 if feature == "include_lineage" else 0
+                )
                 mock_fetch_query_log.assert_called_once()
 
     def test_report_counts_with_disabled_features(self):
