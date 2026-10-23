@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.utilities.str_enum import StrEnum
 
 
@@ -37,6 +38,14 @@ class DremioOwnerType(StrEnum):
 
     USER = "USER"
     GROUP = "GROUP"
+
+
+class DremioFieldType(BaseModel):
+    data_type: SchemaFieldDataTypeClass
+    native_data_type: str
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class DremioContainerPathIndex(BaseModel):

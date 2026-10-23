@@ -67,34 +67,34 @@ class TestSchemaFieldTypeMapper:
         ],
     )
     def test_known_type_mapping(self, data_type, expected_class):
-        field_type, native = SchemaFieldTypeMapper.get_field_type(data_type)
-        assert isinstance(field_type.type, expected_class)
-        assert native == data_type
+        field_type = SchemaFieldTypeMapper.get_field_type(data_type)
+        assert isinstance(field_type.data_type.type, expected_class)
+        assert field_type.native_data_type == data_type
 
     def test_unknown_type_falls_back_to_null(self):
-        field_type, native = SchemaFieldTypeMapper.get_field_type("jsonb")
-        assert isinstance(field_type.type, NullTypeClass)
-        assert native == "jsonb"
+        field_type = SchemaFieldTypeMapper.get_field_type("jsonb")
+        assert isinstance(field_type.data_type.type, NullTypeClass)
+        assert field_type.native_data_type == "jsonb"
 
     def test_empty_type_falls_back_to_null(self):
-        field_type, native = SchemaFieldTypeMapper.get_field_type("")
-        assert isinstance(field_type.type, NullTypeClass)
-        assert native == "NULL"
+        field_type = SchemaFieldTypeMapper.get_field_type("")
+        assert isinstance(field_type.data_type.type, NullTypeClass)
+        assert field_type.native_data_type == "NULL"
 
     def test_data_size_appended_to_native_type(self):
-        _, native = SchemaFieldTypeMapper.get_field_type(
+        field_type = SchemaFieldTypeMapper.get_field_type(
             "character varying", data_size=255
         )
-        assert native == "character varying(255)"
+        assert field_type.native_data_type == "character varying(255)"
 
     def test_data_size_none_omitted(self):
-        _, native = SchemaFieldTypeMapper.get_field_type("integer", data_size=None)
-        assert native == "integer"
+        field_type = SchemaFieldTypeMapper.get_field_type("integer", data_size=None)
+        assert field_type.native_data_type == "integer"
 
     def test_type_lookup_is_case_insensitive(self):
         """The mapper lowercases input before lookup, so uppercase types resolve correctly."""
-        field_type, _ = SchemaFieldTypeMapper.get_field_type("INTEGER")
-        assert isinstance(field_type.type, NumberTypeClass)
+        field_type = SchemaFieldTypeMapper.get_field_type("INTEGER")
+        assert isinstance(field_type.data_type.type, NumberTypeClass)
 
 
 class TestDremioAspectsExternalUrl:

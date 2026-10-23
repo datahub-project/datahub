@@ -75,11 +75,11 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
         root_container_type=DremioEntityContainerType.SPACE,
     )
 
-    assert {(tuple(f.path or []), f.name) for f in folders} == {
-        (("my_space",), "Gold"),
-        (("my_space", "Gold"), "Conformed"),
-        (("my_space", "Gold", "Conformed"), "dims"),
-    }
+    assert sorted(".".join([*(f.path or []), f.name]) for f in folders) == [
+        "my_space.Gold",
+        "my_space.Gold.Conformed",
+        "my_space.Gold.Conformed.dims",
+    ]
 
 
 def _container(name: str, path: List[str], container_type: str) -> dict:
