@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(Ingestion / SAP Datasphere)** Lineage to objects SAP generates inside a space, such as the `SAP.TIME.*` time dimension tables and views, now points at the dataset in that space (for example `my_space.sap.time.m_time_dimension`). Previously the edge pointed at `sap.time.m_time_dimension` with no space, a dataset that is never ingested, so the lineage did not connect. **Action:** none. If you see orphan `sap.time.*` datasets without a space from earlier runs, you can delete them.
+- #20643 **(Ingestion / SAP Datasphere)** Lineage to objects SAP generates inside a space, such as the `SAP.TIME.*` time dimension tables and views, now points at the dataset in that space (for example `my_space.sap.time.m_time_dimension`). Previously the edge pointed at `sap.time.m_time_dimension` with no space, a dataset that is never ingested, so the lineage did not connect. **Action:** none. If you see orphan `sap.time.*` datasets without a space from earlier runs, you can delete them.
 
 - **(GMS / Search V3 default query)** An unqualified Search V3 query reads `name`, `qualifiedName`, `description`, `tags`, `glossaryTerms`, and `other`. Reference fields such as platform, platform instance, container, domains, data product, and applications stay exact filters and copy their names into `other`. A dataset key name is indexed in `name` with the display name. **Action:** none if Search V3 write was never turned on. Otherwise rebuild the V3 indexes with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. See [Search and Graph Reindexing](./restore-indices.md).
 
