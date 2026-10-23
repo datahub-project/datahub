@@ -990,7 +990,11 @@ class SqlParsingAggregator(Closeable):
             override_dialect=observed.override_dialect,
         )
         if parsed.debug_info.error:
-            query_id = observed.query_hash or generate_hash(observed.query)
+            query_id = (
+                observed.query_hash
+                or parsed.query_fingerprint
+                or generate_hash(observed.query)
+            )
             logger.debug(f"Failed to parse query {query_id}: {parsed.debug_info.error}")
             # The report is uploaded to DataHub, so it must not quote the SQL.
             self.report.observed_query_parse_failures.append(
