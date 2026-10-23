@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
 import static com.linkedin.metadata.Constants.MDC_ENTITY_TYPE;
 import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
@@ -11,9 +12,11 @@ import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
 import com.linkedin.metadata.trace.TraceServiceImpl;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -33,6 +36,8 @@ public class MCLKafkaListener
     extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
 
   private static final String WILDCARD = "*";
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(MCLKafkaListener.class, "MCL");
 
   @Override
   public void consumeBatch(@Nonnull List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
@@ -62,20 +67,71 @@ public class MCLKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
-    return shouldSkipMcl(event, aspectsToDrop);
+    return shouldSkipMcl(event, aspectsToDrop, systemOperationContext);
+  }
+
+  @Override
+  protected void logSkipped(MetadataChangeLog event) {
+    if (isDroppedByConfig(event, aspectsToDrop)) {
+      super.logSkipped(event);
+    } else {
+      logSkippedAsUnknown(event);
+    }
+  }
+
+  /**
+   * An MCL skipped because the registry doesn't know its entity type or aspect was already counted
+   * and logged (at most once a minute) by the guard, so only its urn and aspect are logged here: a
+   * backlog of a newer version's events would otherwise log every payload.
+   */
+  static void logSkippedAsUnknown(MetadataChangeLog event) {
+    log.debug(
+        "Skipping MCL unknown to the registry: {} {}",
+        event.getEntityUrn(),
+        event.hasAspectName() ? event.getAspectName() : null);
+  }
+
+  static boolean isDroppedByConfig(
+      MetadataChangeLog event, Map<String, Set<String>> aspectsToDrop) {
+    String entityType = event.hasEntityType() ? event.getEntityType() : null;
+    String aspectName = event.hasAspectName() ? event.getAspectName() : null;
+    return aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
+        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName);
   }
 
   /**
    * Shared filter: returns {@code true} when this MCL's entity-type + aspect matches the
-   * aspects-to-drop configuration. Used by both the Kafka listeners and the pgQueue batch handler.
+   * aspects-to-drop configuration, or its entity type is not in the registry. Used by both the
+   * Kafka listeners and the pgQueue batch handler.
    */
   public static boolean shouldSkipMcl(
-      MetadataChangeLog event, Map<String, Set<String>> aspectsToDrop) {
+      MetadataChangeLog event,
+      Map<String, Set<String>> aspectsToDrop,
+      @Nonnull OperationContext opContext) {
     String entityType = event.hasEntityType() ? event.getEntityType() : null;
     String aspectName = event.hasAspectName() ? event.getAspectName() : null;
 
-    return aspectsToDrop.getOrDefault(entityType, Collections.emptySet()).contains(aspectName)
-        || aspectsToDrop.getOrDefault(WILDCARD, Collections.emptySet()).contains(aspectName);
+    if (isDroppedByConfig(event, aspectsToDrop)) {
+      return true;
+    }
+    if (!handling().isTolerant()) {
+      // As before tolerance, and without reading the urn, which throws for a malformed one.
+      return false;
+    }
+
+    // After a rollback, MCLs written by the newer build can name entity types or aspects this build
+    // does not know. No hook can process them, and hooks that look up their specs would throw and
+    // skip the rest of their batch.
+    return !handling()
+        .admitEvent(
+            UNKNOWN_DATA,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            // Reading a malformed urn throws; pass null so the MCL reaches the hooks, which handle
+            // it as they did before tolerance.
+            UnknownDataGuard.urnOrNull(event::getEntityUrn),
+            entityType,
+            aspectName);
   }
 
   @Override

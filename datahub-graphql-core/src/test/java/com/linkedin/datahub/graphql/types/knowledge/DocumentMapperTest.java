@@ -338,6 +338,27 @@ public class DocumentMapperTest {
   }
 
   @Test
+  public void testDocumentSourceTypeFromANewerVersionShowsAsExternal() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+    DocumentInfo documentInfo = new DocumentInfo();
+    DocumentContents contents = new DocumentContents();
+    contents.setText(TEST_CONTENT);
+    documentInfo.setContents(contents);
+    AuditStamp stamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(actorUrn);
+    documentInfo.setCreated(stamp);
+    documentInfo.setLastModified(stamp);
+    DocumentSource source = new DocumentSource();
+    source.setSourceType(com.linkedin.knowledge.DocumentSourceType.NATIVE);
+    source.data().put("sourceType", "SOURCE_TYPE_FROM_NEWER_BUILD");
+    documentInfo.setSource(source);
+    addAspectToResponse(entityResponse, DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+
+    Document result = DocumentMapper.map(null, entityResponse);
+
+    assertEquals(result.getInfo().getSource().getSourceType(), DocumentSourceType.EXTERNAL);
+  }
+
+  @Test
   public void testMapDocumentSourceNative() throws URISyntaxException {
     // Setup entity response with NATIVE source
     EntityResponse entityResponse = createBasicEntityResponse();

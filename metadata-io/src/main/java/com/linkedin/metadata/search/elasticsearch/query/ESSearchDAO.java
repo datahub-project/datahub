@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -1272,6 +1273,13 @@ public class ESSearchDAO {
       @Nullable String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
+    // An entity type this registry doesn't know (e.g. requested by a client built for a newer
+    // version after a rollback) is a bad request, not a query failure.
+    if (handling().isTolerant()
+        && opContext.getEntityRegistry().findEntitySpec(entityName).isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Unknown entity type for autocomplete: %s", entityName));
+    }
     if (EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
       opContext
           .getMetricUtils()
@@ -1718,7 +1726,9 @@ public class ESSearchDAO {
         urns.stream()
             .flatMap(
                 urn ->
-                    Optional.ofNullable(entityRegistry.getEntitySpec(urn.getEntityType()))
+                    // Urns of entity types this registry doesn't know are left out.
+                    handling()
+                        .entitySpecForData(entityRegistry, urn.getEntityType())
                         .map(spec -> Map.entry(urn, spec))
                         .stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));

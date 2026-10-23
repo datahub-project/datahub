@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.form;
 
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -21,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -60,7 +62,10 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     com.linkedin.form.FormInfo gmsFormInfo = new com.linkedin.form.FormInfo(dataMap);
     FormInfo formInfo = new FormInfo();
     formInfo.setName(gmsFormInfo.getName());
-    formInfo.setType(FormType.valueOf(gmsFormInfo.getType().toString()));
+    // A form type only a newer version knows shows as COMPLETION (the schema's default), not the
+    // stronger VERIFICATION.
+    formInfo.setType(
+        UnknownEnumValues.map(FormType.class, gmsFormInfo.getType(), FormType.COMPLETION));
     if (gmsFormInfo.hasDescription()) {
       formInfo.setDescription(gmsFormInfo.getDescription());
     }
@@ -75,7 +80,15 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     if (gmsFormInfo.hasPrompts()) {
       gmsFormInfo
           .getPrompts()
-          .forEach(FormPrompt -> formPrompts.add(mapFormPrompt(FormPrompt, formUrn)));
+          .forEach(
+              FormPrompt -> {
+                // Prompt types only a newer version knows (e.g. after a rollback) are skipped.
+                if (!handling().isTolerant()
+                    || UnknownEnumValues.mapOrNull(FormPromptType.class, FormPrompt.getType())
+                        != null) {
+                  formPrompts.add(mapFormPrompt(FormPrompt, formUrn));
+                }
+              });
     }
     return formPrompts;
   }

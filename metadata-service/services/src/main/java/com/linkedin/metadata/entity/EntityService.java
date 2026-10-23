@@ -10,6 +10,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -169,6 +171,15 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final Set<String> aspectNames) {
     return getLatestAspects(opContext, urns, aspectNames, true);
   }
+
+  /**
+   * The latest stored aspect as readers see it (references to entity types this registry doesn't
+   * know removed), including whether it was written by a newer version, or empty when there is
+   * none.
+   */
+  @Nonnull
+  Optional<SystemAspect> getLatestSystemAspect(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName);
 
   Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull OperationContext opContext,
@@ -628,6 +639,12 @@ public interface EntityService<U extends ChangeMCP> {
   SearchIndicesService getUpdateIndicesService();
 
   void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
+
+  /**
+   * Lists the aspects stored for a urn at hard delete, so rows of aspects this registry doesn't
+   * know (written by a newer version before a rollback) are deleted too.
+   */
+  void setSystemMetadataService(@Nullable SystemMetadataService systemMetadataService);
 
   /** Flush the Kafka event producer to release buffered messages. */
   void flushEventProducer();

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
@@ -28,7 +29,11 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownEntityUrnStripper;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
@@ -36,6 +41,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,6 +52,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EntityUtils {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(EntityUtils.class, "stored aspect of");
+  private static final UnknownDataGuard UNKNOWN_REFERENCES =
+      UnknownDataGuard.forSite(EntityUtils.class, "references to unknown entity types in");
 
   private EntityUtils() {}
 
@@ -258,32 +268,117 @@ public class EntityUtils {
    * @param rawAspects raw aspects to convert
    * @return map converted aspects
    */
+  /** True when the stored row's system metadata carries a newer schema version than its spec. */
+  private static boolean isWrittenByNewerSchema(
+      @Nonnull final EntityAspect raw,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityRegistry entityRegistry) {
+    if (raw.getSystemMetadata() == null) {
+      return false;
+    }
+    try {
+      final SystemMetadata systemMetadata =
+          RecordUtils.toRecordTemplate(SystemMetadata.class, raw.getSystemMetadata());
+      return handling()
+          .isWrittenByNewerSchema(
+              systemMetadata,
+              entityRegistry.findAspectSpec(urn.getEntityType(), raw.getAspect()).orElse(null));
+    } catch (RuntimeException unreadableSystemMetadata) {
+      return false;
+    }
+  }
+
   @Nonnull
   public static List<SystemAspect> toSystemAspects(
       @Nonnull final OperationFingerprint operationContext,
       @Nonnull final RetrieverContext retrieverContext,
       @Nonnull Collection<EntityAspect> rawAspects) {
     EntityRegistry entityRegistry = retrieverContext.getAspectRetriever().getEntityRegistry();
+    final Optional<MetricUtils> metrics =
+        operationContext instanceof OperationContext opContext
+            ? opContext.getMetricUtils()
+            : Optional.empty();
 
-    // Build
+    // Build — skip rows whose entity or aspect is not in the current registry
+    // (can happen after a rollback when the older build encounters rows written by the newer one)
     List<SystemAspect> systemAspects =
         rawAspects.stream()
             .map(
                 raw -> {
                   Urn urn = UrnUtils.getUrn(raw.getUrn());
-                  AspectSpec aspectSpec =
-                      entityRegistry
-                          .getEntitySpec(urn.getEntityType())
-                          .getAspectSpec(raw.getAspect());
 
-                  // TODO: aspectSpec can be null here
-                  Preconditions.checkState(
-                      aspectSpec != null,
-                      String.format("Aspect %s could not be found", raw.getAspect()));
+                  // Also skips urns whose key references an unknown entity type (e.g. a schema
+                  // field of an entity type only a newer version has).
+                  if (!handling()
+                      .admitEvent(
+                          UNKNOWN_DATA,
+                          entityRegistry,
+                          metrics,
+                          urn,
+                          urn.getEntityType(),
+                          raw.getAspect())) {
+                    return null;
+                  }
+                  if (!handling().isTolerant()) {
+                    // Strict handling fails on an unknown entity type or aspect, as before.
+                    final AspectSpec aspectSpec =
+                        handling()
+                            .entitySpecForData(entityRegistry, urn.getEntityType())
+                            .map(entitySpec -> entitySpec.getAspectSpec(raw.getAspect()))
+                            .orElse(null);
+                    Preconditions.checkState(
+                        aspectSpec != null,
+                        String.format("Aspect %s could not be found", raw.getAspect()));
+                  }
 
-                  return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
+                  try {
+                    return EntityAspect.EntitySystemAspect.builder().forUpdate(raw, entityRegistry);
+                  } catch (RuntimeException conversionFailure) {
+                    // One row a newer version wrote must not fail the whole read; any other
+                    // conversion failure is still an error.
+                    if (!handling().isTolerant()
+                        || !isWrittenByNewerSchema(raw, urn, entityRegistry)) {
+                      throw conversionFailure;
+                    }
+                    UNKNOWN_DATA.skippedBecause(
+                        metrics,
+                        urn.getEntityType() + "/" + raw.getAspect() + "/unreadable",
+                        "it was written under a newer schema and can't be read here: "
+                            + conversionFailure.getMessage(),
+                        urn);
+                    return null;
+                  }
                 })
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
+
+    // Read Strip: references to entity types this registry doesn't know (written by a newer version
+    // before a rollback) are removed on read as they are on write, so no reader (GraphQL, OpenAPI,
+    // Rest.li, hooks, read-modify-write) sees them.
+    systemAspects.forEach(
+        systemAspect -> {
+          if (systemAspect.getRecordTemplate() != null) {
+            final UnknownEntityUrnStripper.StripResult stripped =
+                handling().stripReporting(systemAspect.getRecordTemplate(), entityRegistry);
+            // Decided on the stored value, before the strip removes what would show it, so steps
+            // that can't validate the aspect can tell data from a newer version from a real error.
+            if (systemAspect instanceof EntityAspect.EntitySystemAspect entitySystemAspect) {
+              entitySystemAspect.setFromNewerVersion(
+                  stripped.referencedUnknownEntityType()
+                      || handling()
+                          .isWrittenByNewerSchema(
+                              systemAspect.getSystemMetadata(), systemAspect.getAspectSpec()));
+            }
+            final int removed = stripped.removed();
+            if (removed > 0) {
+              UNKNOWN_REFERENCES.skippedBecause(
+                  metrics,
+                  systemAspect.getAspectName(),
+                  removed + " removed on read from " + systemAspect.getAspectName(),
+                  systemAspect.getUrn());
+            }
+          }
+        });
 
     // Read Mutate
     Map<Pair<EntitySpec, AspectSpec>, List<ReadItem>> grouped =
@@ -301,11 +396,18 @@ public class EntityUtils {
         systemAspect ->
             RecordTemplateValidator.validateTrim(
                 systemAspect.getRecordTemplate(),
-                validationFailure ->
-                    log.warn(
-                        String.format(
-                            "Failed to validate record %s against its schema.",
-                            systemAspect.getRecordTemplate()))));
+                validationFailure -> {
+                  // Enum symbols or union members a newer version added don't bump the schema
+                  // version, so this failure is what shows the aspect came from that version.
+                  if (systemAspect instanceof EntityAspect.EntitySystemAspect entitySystemAspect
+                      && handling().failsOnlyOnValuesFromNewerVersion(validationFailure)) {
+                    entitySystemAspect.setFromNewerVersion(true);
+                  }
+                  log.warn(
+                      String.format(
+                          "Failed to validate record %s against its schema.",
+                          systemAspect.getRecordTemplate()));
+                }));
 
     // TODO consider applying write validation plugins
 

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -157,13 +159,26 @@ public class ChangeItemImpl implements ChangeMCP {
         this.headers = Map.of();
       }
 
-      ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
-      log.debug("entity type = {}", this.urn.getEntityType());
+      if (handling().isTolerant()) {
+        // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
+        // version before a rollback) must fail as a ValidationException, like an unknown aspect,
+        // not as the IllegalArgumentException batch building treats as "skip silently".
+        entitySpec(
+            ValidationApiUtils.validateEntity(
+                aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
 
-      entitySpec(
-          ValidationApiUtils.validateEntity(
-              aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
-      log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+        log.debug("entity type = {}", this.urn.getEntityType());
+      } else {
+        ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
+        log.debug("entity type = {}", this.urn.getEntityType());
+
+        entitySpec(
+            ValidationApiUtils.validateEntity(
+                aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
+        log.debug("entity spec = {}", this.entitySpec);
+      }
 
       aspectSpec(ValidationApiUtils.validateAspect(this.entitySpec, this.aspectName));
       log.debug("aspect spec = {}", this.aspectSpec);
@@ -172,8 +187,8 @@ public class ChangeItemImpl implements ChangeMCP {
         this.recordTemplate = convertToRecordTemplate(this.metadataChangeProposal, aspectSpec);
       }
 
-      ValidationApiUtils.validateRecordTemplate(
-          this.entitySpec, this.urn, this.recordTemplate, aspectRetriever);
+      ValidationApiUtils.validateWrittenRecordTemplate(
+          this.entitySpec, this.aspectSpec, this.urn, this.recordTemplate, aspectRetriever);
 
       if (this.systemMetadata == null) {
         // generate default

@@ -3,6 +3,7 @@ package com.linkedin.metadata.structuredproperties.hooks;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.AuditStamp;
@@ -121,6 +122,11 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
             .propertyUrn(propertyUrn)
             .definition(definition)
             .searchRetriever(retrieverContext.getSearchRetriever())
+            // Without a registry (strict handling) every listed entity type is searched.
+            .entityRegistry(
+                handling().isTolerant()
+                    ? retrieverContext.getAspectRetriever().getEntityRegistry()
+                    : null)
             .count(SEARCH_SCROLL_SIZE)
             .build();
 
@@ -133,6 +139,15 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
         .flatMap(
             scrollResult ->
                 scrollResult.getEntities().stream()
+                    // Skip hits of entity types unknown to this build (e.g. after a version
+                    // rollback); their properties cannot be patched here.
+                    .filter(
+                        entity ->
+                            !handling()
+                                .isUnknown(
+                                    retrieverContext.getAspectRetriever().getEntityRegistry(),
+                                    entity.getEntity().getEntityType(),
+                                    null))
                     .map(
                         entity -> {
                           GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();

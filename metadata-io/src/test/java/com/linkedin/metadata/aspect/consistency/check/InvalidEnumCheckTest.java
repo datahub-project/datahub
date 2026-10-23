@@ -17,6 +17,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -101,6 +103,70 @@ public class InvalidEnumCheckTest {
     assertNull(
         issue.getHardDeleteUrns(),
         "hardDeleteUrns should be null for DELETE_ASPECT (uses batchItems)");
+  }
+
+  /** An enum symbol written under a newer schema version is drift, not corruption. */
+  @Test
+  public void testInvalidEnumWrittenByNewerSchema_NoIssue() {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:newerSchemaEnumTest");
+    EntityResponse response = createAssertionWithRawType(assertionUrn, "TYPE_FROM_NEWER_BUILD");
+    response
+        .getAspects()
+        .get(ASSERTION_INFO_ASPECT_NAME)
+        .setSystemMetadata(new com.linkedin.mxe.SystemMetadata().setSchemaVersion(1_000_000L));
+
+    List<ConsistencyIssue> issues = check.check(buildContext(), Map.of(assertionUrn, response));
+
+    assertTrue(issues.isEmpty(), "Enum values from a newer schema must not be deleted");
+  }
+
+  /**
+   * An enum symbol a newer version added doesn't bump the schema version, so its row is stamped
+   * with this version's. Invalid only on that value at this version: data from that version, not
+   * corruption. A row stamped with an older version (a removed symbol bumps it) is still reported.
+   */
+  @Test
+  public void testInvalidEnumAtCurrentSchemaVersion_NoIssue_OlderVersionReported() {
+    long current =
+        buildContext()
+            .getOperationContext()
+            .getEntityRegistry()
+            .getEntitySpec(ASSERTION_ENTITY_NAME)
+            .getAspectSpec(ASSERTION_INFO_ASPECT_NAME)
+            .getSchemaVersion();
+    Urn atCurrent = UrnUtils.getUrn("urn:li:assertion:currentSchemaEnumTest");
+    Urn atOlder = UrnUtils.getUrn("urn:li:assertion:olderSchemaEnumTest");
+
+    List<ConsistencyIssue> issues =
+        check.check(
+            buildContext(),
+            Map.of(
+                atCurrent, withSchemaVersion(atCurrent, current),
+                atOlder, withSchemaVersion(atOlder, current - 1)));
+
+    assertEquals(issues.size(), 1);
+    assertEquals(issues.get(0).getEntityUrn(), atOlder);
+
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    try {
+      assertEquals(
+          check
+              .check(buildContext(), Map.of(atCurrent, withSchemaVersion(atCurrent, current)))
+              .size(),
+          1,
+          "Without tolerance an invalid enum is reported as before");
+    } finally {
+      UnknownDataHandlings.reset();
+    }
+  }
+
+  private EntityResponse withSchemaVersion(Urn assertionUrn, long schemaVersion) {
+    EntityResponse response = createAssertionWithRawType(assertionUrn, "TYPE_FROM_NEWER_BUILD");
+    response
+        .getAspects()
+        .get(ASSERTION_INFO_ASPECT_NAME)
+        .setSystemMetadata(new com.linkedin.mxe.SystemMetadata().setSchemaVersion(schemaVersion));
+    return response;
   }
 
   /** Test that a valid enum value produces no issues. */

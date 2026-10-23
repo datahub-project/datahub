@@ -6,6 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -610,6 +611,17 @@ public abstract class GenericEntitiesController<
       } else {
         entityService.deleteUrn(opContext, urn);
       }
+    } else if (handling().isTolerant()) {
+      // Resolve every name first, so a request naming an unknown aspect deletes nothing.
+      final List<String> aspectNames =
+          aspects.stream()
+              .map(
+                  aspectName ->
+                      RequestInputUtil.requireAspectSpec(entitySpec, aspectName).getName())
+              .collect(Collectors.toList());
+      aspectNames.forEach(
+          aspectName ->
+              entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
     } else {
       aspects.stream()
           .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
@@ -689,32 +701,41 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
-    lookupAspectSpec(urn, aspectName)
-        .ifPresent(
-            aspectSpec -> {
-              if (aspectSpec.isTimeseries()) {
-                Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
-                    timeseriesAspectService.getLatestTimeseriesAspectValues(
-                        opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
-                com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
-                    latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
-                if (latestAspect != null) {
-                  Long latestTs =
-                      new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
-                          .getTimestampMillis();
-                  timeseriesAspectService.deleteAspectValues(
-                      opContext,
-                      urn.getEntityType(),
-                      aspectSpec.getName(),
-                      QueryUtils.newFilter(
-                          CriterionUtils.buildCriterion(
-                              TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
-                }
-              } else {
-                entityService.deleteAspect(
-                    opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
-              }
-            });
+    final AspectSpec aspectSpec;
+    if (handling().isTolerant()) {
+      // An unknown aspect (e.g. one written by a newer version before a rollback) fails loudly:
+      // silently returning 200 would leave the row in place while telling the caller it is gone.
+      aspectSpec =
+          RequestInputUtil.requireAspectSpec(
+              entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+    } else {
+      final Optional<AspectSpec> maybeAspectSpec = lookupAspectSpec(urn, aspectName);
+      if (maybeAspectSpec.isEmpty()) {
+        return;
+      }
+      aspectSpec = maybeAspectSpec.get();
+    }
+    if (aspectSpec.isTimeseries()) {
+      Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
+          timeseriesAspectService.getLatestTimeseriesAspectValues(
+              opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
+      com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
+          latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
+      if (latestAspect != null) {
+        Long latestTs =
+            new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
+                .getTimestampMillis();
+        timeseriesAspectService.deleteAspectValues(
+            opContext,
+            urn.getEntityType(),
+            aspectSpec.getName(),
+            QueryUtils.newFilter(
+                CriterionUtils.buildCriterion(
+                    TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
+      }
+    } else {
+      entityService.deleteAspect(opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
+    }
   }
 
   @Tag(name = "Generic Aspects")
@@ -752,7 +773,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec =
+        handling().isTolerant()
+            ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
+            : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().getAspectRetriever(),
@@ -826,7 +850,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec =
+        handling().isTolerant()
+            ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
+            : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
 
     MetadataChangeProposal mcp =
         new MetadataChangeProposal()

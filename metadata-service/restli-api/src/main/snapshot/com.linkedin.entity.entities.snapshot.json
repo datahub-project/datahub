@@ -6690,6 +6690,11 @@
           } ]
         }
       }
+    }, {
+      "name" : "aspectsLeftInPlace",
+      "type" : "long",
+      "doc" : "Rows of the run left in place because this version doesn't know their entity type or aspect\n(written by a newer version before a rollback). Absent when none were left.",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.run.UnsafeEntityInfo", {
     "type" : "record",

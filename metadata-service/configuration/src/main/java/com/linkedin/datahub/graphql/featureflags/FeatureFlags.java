@@ -87,6 +87,10 @@ public class FeatureFlags {
   private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
+  // How data this version's entity registry doesn't know (written by a newer version, read after a
+  // zero-downtime upgrade rollback) is treated: skipped and stripped when on, failing as it did
+  // before this tolerance existed when off.
+  private boolean unknownDataToleranceEnabled = true;
   private boolean i18nEnabled = true;
   private boolean timeseriesAspectBatchLoadEnabled = true;
   private boolean timeseriesAspectAggBatchLoadEnabled = true;

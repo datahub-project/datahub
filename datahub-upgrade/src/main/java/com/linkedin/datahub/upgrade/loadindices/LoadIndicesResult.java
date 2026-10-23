@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import lombok.Data;
 
 @Data
@@ -12,15 +14,26 @@ public class LoadIndicesResult {
   public long timeElasticsearchWriteMs = 0;
   // Aspects skipped by the skipConversionErrors escape hatch (0 unless the hatch is enabled).
   public long conversionErrorsSkipped = 0;
+  public long unknownToRegistrySkipped = 0;
 
   @Override
   public String toString() {
-    return String.format(
-        "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d}",
-        rowsProcessed,
-        urnsProcessed,
-        timeSqlQueryMs,
-        timeElasticsearchWriteMs,
-        conversionErrorsSkipped);
+    // Reported only when unknown data is tolerated, so the text is unchanged otherwise.
+    return handling().isTolerant()
+        ? String.format(
+            "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d, unknownToRegistrySkipped=%d}",
+            rowsProcessed,
+            urnsProcessed,
+            timeSqlQueryMs,
+            timeElasticsearchWriteMs,
+            conversionErrorsSkipped,
+            unknownToRegistrySkipped)
+        : String.format(
+            "LoadIndicesResult{rowsProcessed=%d, urnsProcessed=%d, timeSqlQueryMs=%d, timeElasticsearchWriteMs=%d, conversionErrorsSkipped=%d}",
+            rowsProcessed,
+            urnsProcessed,
+            timeSqlQueryMs,
+            timeElasticsearchWriteMs,
+            conversionErrorsSkipped);
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.kafka.config.CDCProcessorCondition;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -52,6 +54,8 @@ import org.springframework.stereotype.Component;
 })
 @RequiredArgsConstructor
 public class CDCProcessor {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(CDCProcessor.class, "CDC row");
 
   // Constants for CDC JSON field names
   private static final String CDC_PAYLOAD_FIELD = "payload";
@@ -207,11 +211,32 @@ public class CDCProcessor {
     // Step 5: Deserialize the "metadata" JSON strings to RecordTemplate objects
     Urn entityUrn = Urn.createFromString(urn);
     String entityType = entityUrn.getEntityType();
-    AspectSpec aspectSpec =
-        systemOperationContext
-            .getEntityRegistry()
-            .getEntitySpec(entityType)
-            .getAspectSpec(aspectName);
+    final AspectSpec aspectSpec;
+    if (handling().isTolerant()) {
+      // A row of an entity type or aspect this registry doesn't know, or whose urn key references
+      // one (written by a newer version before a rollback), is skipped before any metadata is
+      // deserialized, as the MCL consumers do.
+      if (!handling()
+          .admitEvent(
+              UNKNOWN_DATA,
+              systemOperationContext.getEntityRegistry(),
+              systemOperationContext.getMetricUtils(),
+              entityUrn,
+              entityType,
+              aspectName)) {
+        return Optional.empty();
+      }
+      aspectSpec =
+          handling()
+              .aspectSpecForData(systemOperationContext.getEntityRegistry(), entityType, aspectName)
+              .orElseThrow();
+    } else {
+      aspectSpec =
+          systemOperationContext
+              .getEntityRegistry()
+              .getEntitySpec(entityType)
+              .getAspectSpec(aspectName);
+    }
 
     RecordTemplate oldValue = null;
     if (beforeMetadata != null) {

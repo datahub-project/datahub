@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
@@ -472,7 +473,7 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
       @Nonnull RetrieverContext retrieverContext) {
     final EntitySpec entitySpec =
         Optional.ofNullable(retrieverContext.getAspectRetriever().getEntityRegistry())
-            .map(registry -> registry.getEntitySpec(assetUrn.getEntityType()))
+            .flatMap(registry -> handling().entitySpecForData(registry, assetUrn.getEntityType()))
             .orElse(null);
     if (entitySpec == null || entitySpec.getAspectSpec(DATA_PRODUCTS_ASPECT_NAME) == null) {
       log.warn(

@@ -9,6 +9,7 @@ import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJEC
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -38,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -247,11 +249,15 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         continue;
       }
 
-      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
-
-      if (entitySpec != null) {
-        String indexKey = V3IndexKeys.resolve(entitySpec);
-        searchGroupToEntitySpecs.computeIfAbsent(indexKey, k -> new ArrayList<>()).add(entitySpec);
+      // An entity type this registry doesn't know (e.g. added by a newer version before a
+      // rollback) is skipped, so the mapping is still updated for the property's known types.
+      final Optional<EntitySpec> entitySpec =
+          handling().entitySpecForData(opContext.getEntityRegistry(), entityTypeName);
+      if (entitySpec.isPresent()) {
+        String indexKey = V3IndexKeys.resolve(entitySpec.get());
+        searchGroupToEntitySpecs
+            .computeIfAbsent(indexKey, k -> new ArrayList<>())
+            .add(entitySpec.get());
       } else {
         log.warn("Missing entitySpec for entity type: {}", entityTypeName);
       }

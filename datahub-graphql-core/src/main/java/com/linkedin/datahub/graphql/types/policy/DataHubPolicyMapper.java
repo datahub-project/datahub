@@ -17,10 +17,13 @@ import com.linkedin.datahub.graphql.generated.PolicyState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.datahub.graphql.generated.ResourceFilter;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyCriterionValue;
+import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -47,6 +50,12 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATAHUB_POLICY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+    final EnvelopedAspect infoAspect = aspectMap.get(DATAHUB_POLICY_INFO_ASPECT_NAME);
+    if (infoAspect != null
+        && PolicyInfoPolicyMapper.isUnrepresentable(
+            new DataHubPolicyInfo(infoAspect.getValue().data()), entityResponse.getUrn())) {
+      return null;
+    }
     MappingHelper<DataHubPolicy> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(context, DATAHUB_POLICY_INFO_ASPECT_NAME, this::mapDataHubPolicyInfo);
     return mappingHelper.getResult();
@@ -56,9 +65,13 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
       @Nullable QueryContext context, @Nonnull DataHubPolicy policy, @Nonnull DataMap dataMap) {
     DataHubPolicyInfo policyInfo = new DataHubPolicyInfo(dataMap);
     policy.setDescription(policyInfo.getDescription());
-    // Careful - we assume no other Policy types or states have been ingested using a backdoor.
-    policy.setPolicyType(PolicyType.valueOf(policyInfo.getType()));
-    policy.setState(PolicyState.valueOf(policyInfo.getState()));
+    // Type/state are free-form strings; a value this version doesn't know (ingested via the API, or
+    // written by a newer version before a rollback) falls back, as in PolicyInfoPolicyMapper.
+    policy.setPolicyType(
+        UnknownEnumValues.fromString(PolicyType.class, policyInfo.getType(), PolicyType.METADATA));
+    policy.setState(
+        UnknownEnumValues.fromString(
+            PolicyState.class, policyInfo.getState(), PolicyState.INACTIVE));
     policy.setName(policyInfo.getDisplayName()); // Rebrand to 'name'
     policy.setPrivileges(policyInfo.getPrivileges());
     policy.setActors(mapActors(policyInfo.getActors()));
@@ -125,7 +138,8 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
                                   .map(c -> mapValue(context, c))
                                   .collect(Collectors.toList()))
                           .setCondition(
-                              PolicyMatchCondition.valueOf(criterion.getCondition().name()))
+                              UnknownEnumValues.mapOrNull(
+                                  PolicyMatchCondition.class, criterion.getCondition()))
                           .setStructuredPropertyValues(
                               hasStructuredProps
                                   ? criterion.getStructuredPropertyValues().stream()

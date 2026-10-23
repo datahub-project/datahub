@@ -4,6 +4,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.annotations.VisibleForTesting;
@@ -32,6 +33,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -157,30 +159,65 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
-    final String entityName = urnToEntityName(urns.iterator().next());
+    if (!handling().isTolerant()) {
+      // As before tolerance: the whole batch is fetched as the first urn's entity type.
+      final String entityName = urnToEntityName(urns.iterator().next());
+      return RestliUtils.toTask(opContext,
+          () -> {
+            final Set<String> projectedAspects =
+                aspectNames == null
+                    ? opContext.getEntityAspectNames(entityName)
+                    : new HashSet<>(Arrays.asList(aspectNames));
+            try {
+              Map<Urn, EntityResponse> response =
+                  _entityService.getEntitiesV2(
+                      opContext,
+                      entityName,
+                      urns,
+                      projectedAspects,
+                      alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
+              EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
+              return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format(
+                      "Failed to batch get entities with urns: %s, projectedAspects: %s",
+                      urns, projectedAspects),
+                  e);
+            }
+          },
+          MetricRegistry.name(this.getClass(), "batchGet"));
+    }
+    // A batch can mix entity types (including types only a newer version knows, after a
+    // rollback), so the projected aspects are resolved and fetched per entity type.
+    final Map<String, Set<Urn>> urnsByEntityName =
+        urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
     return RestliUtils.toTask(opContext,
         () -> {
-          final Set<String> projectedAspects =
-              aspectNames == null
-                  ? opContext.getEntityAspectNames(entityName)
-                  : new HashSet<>(Arrays.asList(aspectNames));
-          try {
-            Map<Urn, EntityResponse> response =
-                _entityService.getEntitiesV2(
-                    opContext,
-                    entityName,
-                    urns,
-                    projectedAspects,
-                    alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
-            EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
-            return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
-          } catch (Exception e) {
-            throw new RuntimeException(
-                String.format(
-                    "Failed to batch get entities with urns: %s, projectedAspects: %s",
-                    urns, projectedAspects),
-                e);
+          final Map<Urn, EntityResponse> response = new HashMap<>();
+          for (Map.Entry<String, Set<Urn>> group : urnsByEntityName.entrySet()) {
+            final Set<String> projectedAspects =
+                aspectNames == null
+                    ? opContext.getEntityAspectNames(group.getKey())
+                    : new HashSet<>(Arrays.asList(aspectNames));
+            try {
+              response.putAll(
+                  _entityService.getEntitiesV2(
+                      opContext,
+                      group.getKey(),
+                      group.getValue(),
+                      projectedAspects,
+                      alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect));
+            } catch (Exception e) {
+              throw new RuntimeException(
+                  String.format(
+                      "Failed to batch get entities with urns: %s, projectedAspects: %s",
+                      group.getValue(), projectedAspects),
+                  e);
+            }
           }
+          EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(opContext, response);
+          return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
         },
         MetricRegistry.name(this.getClass(), "batchGet"));
   }

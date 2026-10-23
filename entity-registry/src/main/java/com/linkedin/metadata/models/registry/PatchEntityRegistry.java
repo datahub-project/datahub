@@ -272,6 +272,13 @@ public class PatchEntityRegistry implements EntityRegistry {
     return entityNameToSpec.get(lowercaseEntityName);
   }
 
+  /** Looks the name up in this registry's map, so a miss doesn't build an exception. */
+  @Nonnull
+  @Override
+  public Optional<EntitySpec> findEntitySpec(@Nonnull final String entityName) {
+    return Optional.ofNullable(entityNameToSpec.get(entityName.toLowerCase()));
+  }
+
   @Nonnull
   @Override
   public EventSpec getEventSpec(@Nonnull String eventName) {

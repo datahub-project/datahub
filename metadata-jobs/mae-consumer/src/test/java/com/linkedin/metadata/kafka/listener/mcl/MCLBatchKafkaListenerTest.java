@@ -130,6 +130,38 @@ public class MCLBatchKafkaListenerTest {
   }
 
   @Test
+  public void testConsumeBatchFiltersEntityTypesUnknownToRegistry() throws Exception {
+    MetadataChangeLog keptFirst = createTestMCL("datasetProperties", ChangeType.UPSERT);
+    MetadataChangeLog unknownEntity = createTestMCL("datasetProperties", ChangeType.UPSERT);
+    unknownEntity.setEntityType("entityFromNewerBuild");
+    MetadataChangeLog keptLast = createTestMCL("ownership", ChangeType.UPSERT);
+
+    List<ConsumerRecord<String, GenericRecord>> records =
+        List.of(
+            createMockConsumerRecord(0), createMockConsumerRecord(1), createMockConsumerRecord(2));
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils
+          .when(() -> EventUtils.avroToPegasusMCL(any()))
+          .thenReturn(keptFirst)
+          .thenReturn(unknownEntity)
+          .thenReturn(keptLast);
+
+      listener.consumeBatch(records);
+
+      verify(mockHook1)
+          .invokeBatch(
+              any(OperationContext.class),
+              argThat(
+                  events ->
+                      events.size() == 2
+                          && events.contains(keptFirst)
+                          && events.contains(keptLast)
+                          && !events.contains(unknownEntity)));
+    }
+  }
+
+  @Test
   public void testConsumeBatchFiltersWildcardDroppedAspects() throws Exception {
     MetadataChangeLog kept = createTestMCL("datasetProperties", ChangeType.UPSERT);
     MetadataChangeLog dropped = createTestMCL("status", ChangeType.UPSERT);

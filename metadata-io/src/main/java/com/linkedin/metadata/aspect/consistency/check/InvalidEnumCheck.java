@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.consistency.check;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -21,6 +23,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -165,6 +169,17 @@ public class InvalidEnumCheck extends AbstractEntityCheck {
         continue;
       }
 
+      // An aspect written under a newer schema version (e.g. by a newer version before a rollback)
+      // can hold enum symbols this version doesn't know; that is drift, not corruption, so it is
+      // never reported for deletion.
+      if (handling().isWrittenByNewerSchema(entry.getValue().getSystemMetadata(), aspectSpec)) {
+        log.debug(
+            "Aspect {} on entity {} was written under a newer schema version, skipping",
+            aspectName,
+            urn);
+        continue;
+      }
+
       DataMap dataMap = entry.getValue().getValue().data();
       RecordDataSchema schema = aspectSpec.getPegasusSchema();
 
@@ -173,6 +188,18 @@ public class InvalidEnumCheck extends AbstractEntityCheck {
           ValidateDataAgainstSchema.validate(dataMap, schema, VALIDATION_OPTIONS);
 
       if (!result.isValid()) {
+        // An enum symbol a newer version added doesn't bump the schema version, so its rows are
+        // stamped with this version's. Invalid only on such values at this version means data from
+        // that version, never reported for deletion; a removed symbol bumps the version, so stale
+        // rows carry an older one and are still reported.
+        if (isAtCurrentSchemaVersion(entry.getValue().getSystemMetadata(), aspectSpec)
+            && handling().failsOnlyOnValuesFromNewerVersion(result)) {
+          log.debug(
+              "Aspect {} on entity {} holds values only a newer version defines, skipping",
+              aspectName,
+              urn);
+          continue;
+        }
         // Check if any error is an enum validation error
         String enumError = findEnumValidationError(result);
         if (enumError != null) {
@@ -224,5 +251,12 @@ public class InvalidEnumCheck extends AbstractEntityCheck {
       }
     }
     return null;
+  }
+
+  private static boolean isAtCurrentSchemaVersion(
+      @Nullable final SystemMetadata systemMetadata, @Nonnull final AspectSpec aspectSpec) {
+    return systemMetadata != null
+        && systemMetadata.hasSchemaVersion()
+        && systemMetadata.getSchemaVersion() >= aspectSpec.getSchemaVersion();
   }
 }

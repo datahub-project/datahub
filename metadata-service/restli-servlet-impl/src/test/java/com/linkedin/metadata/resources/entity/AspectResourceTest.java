@@ -37,6 +37,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -51,6 +53,7 @@ import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -93,6 +96,11 @@ public class AspectResourceTest {
     aspectResource.setSystemOperationContext(opContext);
     aspectResource.setEntitySearchService(mock(EntitySearchService.class));
     entityRegistry = opContext.getEntityRegistry();
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -222,5 +230,48 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
+  }
+
+  @Test
+  public void testKeyOnlyProposalOfUnknownEntityTypeIsBadRequest() throws URISyntaxException {
+    // A key-only proposal (no urn) for an entity type this registry doesn't know, e.g. sent by a
+    // client built for a newer version: a 400, not a 500.
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType("entityFromNewerBuild");
+    mcp.setAspectName("status");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    RestLiServiceException error =
+        org.testng.Assert.expectThrows(
+            RestLiServiceException.class, () -> aspectResource.ingestProposal(mcp, "false"));
+
+    org.testng.Assert.assertEquals(error.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+  }
+
+  @Test
+  public void testStrictHandlingHasNoUnknownEntityTypePreCheck() throws URISyntaxException {
+    // Without tolerance the proposal goes straight to the authorization checks, as before: it may
+    // fail there, but never with the tolerant 400 for an unknown entity type.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType("entityFromNewerBuild");
+    mcp.setAspectName("status");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new com.linkedin.common.Status()));
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+
+    try {
+      aspectResource.ingestProposal(mcp, "false");
+    } catch (RestLiServiceException e) {
+      org.testng.Assert.assertNotEquals(e.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+    } catch (RuntimeException e) {
+      // The pre-tolerance failure resolving the unknown entity type during authorization.
+    }
   }
 }

@@ -45,6 +45,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -482,7 +483,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
-    return deleteUrnExcept(opContext, txContext, urn, Set.of());
+    return deleteUrnExcept(opContext, txContext, urn, Set.of(), Set.of());
   }
 
   @Override
@@ -491,6 +492,26 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nullable TransactionContext txContext,
       @Nonnull final String urn,
       @Nonnull final Set<String> keptAspectNames) {
+    return deleteUrnExcept(opContext, txContext, urn, keptAspectNames, Set.of());
+  }
+
+  @Override
+  public boolean deletesUrnByAspectName() {
+    return true;
+  }
+
+  /**
+   * Cassandra deletes rows by aspect name, so aspects this registry doesn't know (written by a
+   * newer version before a rollback) are only deleted when named in {@code storedAspectNames};
+   * otherwise they would come back after re-upgrading.
+   */
+  @Override
+  public int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames,
+      @Nonnull final Set<String> storedAspectNames) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -502,8 +523,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     String entityType = urnObj.getEntityType();
 
     // Get all aspect names for this entity type
-    Set<String> allAspectNames =
-        opContext.getEntityRegistryContext().getEntityAspectNames(entityType);
+    final Set<String> allAspectNames =
+        new HashSet<>(opContext.getEntityRegistryContext().getEntityAspectNames(entityType));
+    allAspectNames.addAll(storedAspectNames);
 
     // Create list of non-key aspect names
     List<String> nonKeyAspectNames =

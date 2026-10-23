@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.entitytype;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.metadata.Constants;
@@ -108,6 +110,20 @@ public class EntityTypeUrnMapper {
     }
     final String entityName = ENTITY_TYPE_URN_TO_NAME.get(entityTypeUrn);
     return EntityTypeMapper.getType(entityName);
+  }
+
+  /**
+   * Like {@link #getEntityType}, but returns {@link EntityType#OTHER} for an entity type urn this
+   * build does not know. Use it when mapping stored data, which after a version rollback can name
+   * entity types only a newer build registered. When unknown data isn't tolerated it is exactly
+   * {@link #getEntityType}.
+   */
+  @Nonnull
+  public static EntityType getEntityTypeOrOther(String entityTypeUrn) {
+    if (!handling().isTolerant()) {
+      return getEntityType(entityTypeUrn);
+    }
+    return isValidEntityType(entityTypeUrn) ? getEntityType(entityTypeUrn) : EntityType.OTHER;
   }
 
   @Nonnull

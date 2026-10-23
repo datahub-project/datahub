@@ -179,6 +179,32 @@ public class CassandraAspectDaoTest {
   }
 
   @Test
+  public void testDeleteUrnAlsoDeletesNamedAspectsUnknownToRegistry() {
+    // A newer version can store aspects this registry doesn't know (read after a rollback); a hard
+    // delete must remove them too, or they come back after re-upgrading.
+    testDao.setWritable(true);
+    ResultSet deleteResult = mock(ResultSet.class);
+    ExecutionInfo executionInfo = mock(ExecutionInfo.class);
+    when(executionInfo.getErrors()).thenReturn(Collections.emptyList());
+    when(deleteResult.getExecutionInfo()).thenReturn(executionInfo);
+    when(mockSession.execute(any(SimpleStatement.class))).thenReturn(deleteResult);
+
+    testDao.deleteUrnExcept(
+        opContext,
+        null,
+        "urn:li:corpuser:testDeleteUnknownAspect",
+        Set.of(),
+        Set.of("aspectFromNewerBuild"));
+
+    org.mockito.ArgumentCaptor<SimpleStatement> statements =
+        org.mockito.ArgumentCaptor.forClass(SimpleStatement.class);
+    verify(mockSession, times(2)).execute(statements.capture());
+    assertTrue(
+        statements.getAllValues().get(0).getQuery().contains("aspectFromNewerBuild"),
+        "The non-key delete must include named aspects the registry doesn't know");
+  }
+
+  @Test
   public void testSetWritableToggle() {
     testDao.setWritable(true);
 

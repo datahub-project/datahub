@@ -11,7 +11,10 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -19,6 +22,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -116,5 +120,80 @@ public class BatchGetEntitiesResolverTest {
     assertEquals(batchGetResponse.size(), 2);
     assertEquals(batchGetResponse.get(0), mockResponseEntity);
     assertEquals(batchGetResponse.get(1), mockResponseEntity);
+  }
+
+  @Test
+  /**
+   * Tests that a urn whose entity type is unknown to this build (mapped to a null placeholder, e.g.
+   * a type added by a newer build before a version rollback) leaves a null in its slot instead of
+   * failing the whole batch, and the other entities keep their positions.
+   */
+  public void testUnknownEntityTypePlaceholderLeavesNullSlot() throws Exception {
+    Function entityProvider = mock(Function.class);
+    List<Entity> inputEntities =
+        getRequestEntities(ImmutableList.of("urn:li:dataset:1", "urn:li:dataset:2"));
+    when(entityProvider.apply(any()))
+        .thenReturn(Arrays.asList(inputEntities.get(0), null, inputEntities.get(1)));
+
+    BatchGetEntitiesResolver resolver =
+        new BatchGetEntitiesResolver(
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
+
+    DataLoaderRegistry mockDataLoaderRegistry = mock(DataLoaderRegistry.class);
+    when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(mockDataLoaderRegistry);
+    DataLoader mockDataLoader = mock(DataLoader.class);
+    when(mockDataLoaderRegistry.getDataLoader(any())).thenReturn(mockDataLoader);
+
+    Dataset loaded1 = new Dataset();
+    loaded1.setUrn("urn:li:dataset:1");
+    Dataset loaded2 = new Dataset();
+    loaded2.setUrn("urn:li:dataset:2");
+    when(mockDataLoader.loadMany(any()))
+        .thenReturn(CompletableFuture.completedFuture(ImmutableList.of(loaded1, loaded2)));
+
+    List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
+
+    assertEquals(batchGetResponse.size(), 3);
+    assertEquals(batchGetResponse.get(0), loaded1);
+    assertNull(batchGetResponse.get(1));
+    assertEquals(batchGetResponse.get(2), loaded2);
+  }
+
+  @AfterMethod
+  public void resetHandling() {
+    UnknownDataHandlings.reset();
+  }
+
+  @Test
+  /** Tests that without tolerance a null placeholder fails the batch, as before. */
+  public void testStrictNullPlaceholderFailsBatch() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Function entityProvider = mock(Function.class);
+    List<Entity> inputEntities = getRequestEntities(ImmutableList.of("urn:li:dataset:1"));
+    when(entityProvider.apply(any())).thenReturn(Arrays.asList(inputEntities.get(0), null));
+
+    BatchGetEntitiesResolver resolver =
+        new BatchGetEntitiesResolver(
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
+
+    assertThrows(NullPointerException.class, () -> resolver.get(_dataFetchingEnvironment));
+  }
+
+  @Test
+  /** Tests that a request containing only unknown entity types returns nulls without loading. */
+  public void testOnlyUnknownEntityTypePlaceholders() throws Exception {
+    Function entityProvider = mock(Function.class);
+    when(entityProvider.apply(any())).thenReturn(Arrays.asList(null, null));
+
+    BatchGetEntitiesResolver resolver =
+        new BatchGetEntitiesResolver(
+            ImmutableList.of(new DatasetType(_entityClient)), entityProvider);
+    DataLoaderRegistry mockDataLoaderRegistry = mock(DataLoaderRegistry.class);
+    when(_dataFetchingEnvironment.getDataLoaderRegistry()).thenReturn(mockDataLoaderRegistry);
+
+    List<Entity> batchGetResponse = resolver.get(_dataFetchingEnvironment).join();
+
+    assertEquals(batchGetResponse, Arrays.asList(null, null));
+    verify(mockDataLoaderRegistry, never()).getDataLoader(any());
   }
 }

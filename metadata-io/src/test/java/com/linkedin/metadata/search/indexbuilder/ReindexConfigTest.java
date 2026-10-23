@@ -8,12 +8,15 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.*;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.common.settings.Settings;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -43,6 +46,11 @@ public class ReindexConfigTest {
   @BeforeMethod
   void setUp() {
     // Reset any static state if needed
+  }
+
+  @AfterMethod
+  void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -231,6 +239,141 @@ public class ReindexConfigTest {
     Assert.assertTrue(config.requiresApplyMappings());
     Assert.assertTrue(config.isPureMappingsAddition());
     Assert.assertFalse(config.requiresReindex()); // Pure addition should not require reindex
+  }
+
+  @Test
+  void testNestedFieldsOnlyInCurrentMappingDoNotRequireReindex() {
+    // After a rollback the live index was built by a newer version whose mapping is a superset,
+    // e.g. extra aspects under a nested object such as _aspects. They need no reindex here.
+    Map<String, Object> target =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of("status", Map.of("type", "keyword")))));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of(
+                        "status", Map.of("type", "keyword"),
+                        "aspectFromNewerBuild", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testStrictHandlingComparesNestedFieldsOnlyInCurrentMapping() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Map<String, Object> target =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of("status", Map.of("type", "keyword")))));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "_aspects",
+                Map.of(
+                    "type",
+                    "object",
+                    PROPERTIES_KEY,
+                    Map.of(
+                        "status", Map.of("type", "keyword"),
+                        "aspectFromNewerBuild", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresApplyMappings());
+  }
+
+  @Test
+  void testObjectChangedToKeywordStillRequiresReindex() {
+    // Pruning only drops field definitions the target lacks; a field the target now types
+    // differently (an object turned keyword) is still a change that needs a reindex.
+    Map<String, Object> target =
+        Map.of(PROPERTIES_KEY, Map.of("changed_field", Map.of("type", "keyword")));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of(
+                "changed_field",
+                Map.of(
+                    "type", "object", PROPERTIES_KEY, Map.of("child", Map.of("type", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testRemovedFieldParameterStillRequiresReindex() {
+    // Only whole field definitions missing from the target are ignored; a parameter removed from
+    // a field both have is still a change.
+    Map<String, Object> target =
+        Map.of(PROPERTIES_KEY, Map.of("existing_field", Map.of("type", "keyword")));
+    Map<String, Object> current =
+        Map.of(
+            PROPERTIES_KEY,
+            Map.of("existing_field", Map.of("type", "keyword", IGNORE_ABOVE_KEY, 256)));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(current)
+            .targetMappings(target)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .build();
+
+    Assert.assertTrue(config.requiresReindex());
   }
 
   @Test

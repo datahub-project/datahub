@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
@@ -13,6 +14,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -40,6 +42,8 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
@@ -60,6 +64,7 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -81,6 +86,11 @@ public class AspectsBatchImplTest {
             Snapshot.class.getClassLoader().getResourceAsStream("AspectsBatchImplTest.yaml"));
     this.testRegistry =
         new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @BeforeMethod
@@ -397,6 +407,60 @@ public class AspectsBatchImplTest {
                             ByteString.copyString("{\"foo\":\"bar\"}", StandardCharsets.UTF_8))),
             auditStamp,
             testRegistry);
+  }
+
+  @Test
+  public void unknownEntityTypeRejectsBatchLikeUnknownAspect() {
+    // A sync batch naming an entity type or aspect this registry doesn't know (e.g. sent by a
+    // client built for a newer version) is rejected the same way for both, rather than the unknown
+    // entity type being dropped silently while the call reports success.
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    MetadataChangeProposal unknownEntityType =
+        upsert(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"), STATUS_ASPECT_NAME);
+    MetadataChangeProposal unknownAspect =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            "aspectFromNewerBuild");
+
+    for (MetadataChangeProposal unknown : List.of(unknownEntityType, unknownAspect)) {
+      assertThrows(
+          ValidationException.class,
+          () ->
+              AspectsBatchImpl.builder()
+                  .mcps(
+                      ImmutableList.of(known, unknown),
+                      AuditStampUtils.createDefaultAuditStamp(),
+                      retrieverContext));
+    }
+  }
+
+  @Test
+  public void strictHandlingValidatesUrnBeforeEntityType() {
+    // Strict handling keeps the original order: urn validation fails first, with the
+    // IllegalArgumentException batch building skips, instead of a ValidationException.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Urn unknownEntityType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            DeleteItemImpl.builder()
+                .urn(unknownEntityType)
+                .aspectName(STATUS_ASPECT_NAME)
+                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .build(mockAspectRetriever));
+  }
+
+  private static MetadataChangeProposal upsert(Urn urn, String aspectName) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(urn)
+        .setEntityType(urn.getEntityType())
+        .setAspectName(aspectName)
+        .setChangeType(ChangeType.UPSERT)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
   }
 
   @Test

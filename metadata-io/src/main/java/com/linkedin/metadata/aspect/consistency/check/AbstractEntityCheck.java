@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.consistency.check;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.UNVERSIONED_ASPECT_VERSION;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -372,6 +373,9 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * @return true if the entity exists and is soft-deleted
    */
   protected boolean isReferencedEntitySoftDeleted(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    if (isUnknownEntityType(ctx, urn)) {
+      return false;
+    }
     // Check if entity exists including soft-deleted
     boolean existsIncludingSoftDeleted =
         ctx.getEntityService().exists(ctx.getOperationContext(), urn, true);
@@ -399,7 +403,20 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
    * @return true if the entity exists (even if soft-deleted)
    */
   protected boolean referencedEntityExists(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    if (isUnknownEntityType(ctx, urn)) {
+      return true;
+    }
     return ctx.getEntityService().exists(ctx.getOperationContext(), urn, true);
+  }
+
+  /**
+   * A reference to an entity type this registry doesn't know (written by a newer version before a
+   * rollback) can't be checked here: {@code exists()} reports such urns as missing. Treat it as
+   * present so no fix deletes data that version still uses.
+   */
+  protected static boolean isUnknownEntityType(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
+    return handling()
+        .isUnknown(ctx.getOperationContext().getEntityRegistry(), urn.getEntityType(), null);
   }
 
   // ============================================================================
