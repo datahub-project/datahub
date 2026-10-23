@@ -103,7 +103,6 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROP_SPACE_NAME,
     PROP_VALUE_FALSE,
     PROP_VALUE_TRUE,
-    SAP_GENERATED_OBJECT_PREFIXES,
     SAP_OBJECT_NAMESPACE,
     SCALE_WARNING_URN_THRESHOLD,
     SCHEMA_FIELD_URN_PREFIX,
@@ -147,6 +146,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     TransformOp,
     UpstreamRef,
     dedup_preserving_order,
+    is_sap_generated_object,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -2120,7 +2120,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if (
             locator.explicit_space
             and locator.space == SAP_OBJECT_NAMESPACE
-            and not locator.name.startswith(SAP_GENERATED_OBJECT_PREFIXES)
+            and not is_sap_generated_object(locator.name)
             and ref not in self._reported_sap_refs
         ):
             self._reported_sap_refs.add(ref)

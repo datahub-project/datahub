@@ -216,6 +216,10 @@ class UpstreamColRef(BaseModel):
     col: str
 
 
+def is_sap_generated_object(ref: str) -> bool:
+    return any(ref.startswith(prefix) for prefix in SAP_GENERATED_OBJECT_PREFIXES)
+
+
 class ObjectLocator(BaseModel):
     # A dotted CSN reference is `SPACE.name`, except objects Datasphere generates
     # inside a space (time data, TCUR* currency conversion views), which keep their
@@ -231,7 +235,7 @@ class ObjectLocator(BaseModel):
 
     @classmethod
     def from_ref(cls, ref: str, default_space: str) -> "ObjectLocator":
-        if not ref.startswith(SAP_GENERATED_OBJECT_PREFIXES):
+        if not is_sap_generated_object(ref):
             prefix, _, rest = ref.partition(".")
             if prefix and rest:
                 return cls(space=prefix, name=rest, explicit_space=True)
