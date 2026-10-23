@@ -407,6 +407,26 @@ class MicroStrategyConfig(
             "keeps governing dossiers."
         ),
     )
+    emit_chapter_page_structured_properties: bool = Field(
+        default=False,
+        description=(
+            "Also record each dossier visualization chart's chapter and page "
+            "as DataHub structured properties, so charts can be filtered by "
+            "chapter and page in search and the placement is read by AI "
+            "tools: `io.acryl.microstrategy.chapter` (MicroStrategy Chapter, "
+            "text), `io.acryl.microstrategy.page` (MicroStrategy Page, text) "
+            "and `io.acryl.microstrategy.pagePosition` (MicroStrategy Page "
+            "Position, a number: the page's 1-based position within its "
+            "chapter, the same value as the `microstrategyPageIndex` custom "
+            "property). The `microstrategyChapter` and `microstrategyPage` "
+            "custom properties are emitted regardless. The three property "
+            "definitions (applicable to charts) are created in DataHub on "
+            "the first run with this flag on and re-emitted unchanged after "
+            "that; each run replaces the chart's structured property values "
+            "with these. A visualization the dossier does not place on a "
+            "page gets no values. Default is false."
+        ),
+    )
     extract_usage_statistics: bool = Field(
         default=False,
         description=(

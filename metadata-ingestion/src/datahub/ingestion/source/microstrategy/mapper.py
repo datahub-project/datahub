@@ -29,11 +29,15 @@ from datahub.ingestion.source.microstrategy.constants import (
     DERIVED_TAG_URN,
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
+    MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES,
     MSTR_CUBE_SUBTYPES,
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
+    MSTR_STRUCTURED_PROPERTY_CHAPTER,
+    MSTR_STRUCTURED_PROPERTY_PAGE,
+    MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
     MSTR_WHITESPACE_RE,
     TEMPORAL_TAG_URN,
     USAGE_TARGET_DASHBOARD,
@@ -96,17 +100,28 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    PropertyCardinalityClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     SubTypesClass,
     TagAssociationClass,
     TimeWindowSizeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+from datahub.metadata.urns import (
+    ChartUrn,
+    DatasetUrn,
+    DataTypeUrn,
+    EntityTypeUrn,
+    SchemaFieldUrn,
+    StructuredPropertyUrn,
+)
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -766,6 +781,14 @@ class MicroStrategyMapper:
                 typeNames=[BIAssetSubTypes.MICROSTRATEGY_VISUALIZATION]
             ),
         ).as_workunit()
+        if self.config.emit_chapter_page_structured_properties:
+            placement = self._chapter_page_structured_properties(visualization)
+            if placement is not None:
+                self.report.report_chart_with_chapter_page_structured_properties()
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=chart_urn,
+                    aspect=placement,
+                ).as_workunit()
         yield from add_entity_to_container(
             container_key=parent_key,
             entity_type="chart",
@@ -1435,6 +1458,78 @@ class MicroStrategyMapper:
             }.items()
             if value
         }
+
+    @staticmethod
+    def chapter_page_structured_property_definitions() -> List[
+        MetadataChangeProposalWrapper
+    ]:
+        """Definitions of the chart structured properties that place a
+        visualization in its dossier (emit_chapter_page_structured_properties),
+        in display order: chapter, page, page position. Single-valued and
+        scoped to charts. Identical on every run, so re-emitting them is an
+        idempotent upsert that creates them on the first run and leaves them
+        alone after that."""
+        return [
+            MetadataChangeProposalWrapper(
+                entityUrn=StructuredPropertyUrn(qualified_name).urn(),
+                aspect=StructuredPropertyDefinitionClass(
+                    qualifiedName=qualified_name,
+                    displayName=display_name,
+                    description=description,
+                    valueType=DataTypeUrn(f"datahub.{value_type}").urn(),
+                    cardinality=PropertyCardinalityClass.SINGLE,
+                    entityTypes=[
+                        EntityTypeUrn(f"datahub.{ChartUrn.ENTITY_TYPE}").urn()
+                    ],
+                ),
+            )
+            for qualified_name, display_name, value_type, description in (
+                MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES
+            )
+        ]
+
+    @staticmethod
+    def _chapter_page_structured_properties(
+        visualization: Visualization,
+    ) -> Optional[StructuredPropertiesClass]:
+        """The visualization's chapter name, page name and page position as
+        structured property values, or None when the dossier definition did
+        not place it on a page. The page position is the page's 1-based
+        position within its chapter -- the same number the
+        microstrategyPageIndex custom property carries -- and not the
+        visualization's position on the page, which the definition does not
+        expose. A value the definition lacks is simply not assigned."""
+        assignments: List[StructuredPropertyValueAssignmentClass] = []
+        if visualization.chapter_name:
+            assignments.append(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=StructuredPropertyUrn(
+                        MSTR_STRUCTURED_PROPERTY_CHAPTER
+                    ).urn(),
+                    values=[visualization.chapter_name],
+                )
+            )
+        if visualization.page_name:
+            assignments.append(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=StructuredPropertyUrn(
+                        MSTR_STRUCTURED_PROPERTY_PAGE
+                    ).urn(),
+                    values=[visualization.page_name],
+                )
+            )
+        if visualization.page_index is not None:
+            assignments.append(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=StructuredPropertyUrn(
+                        MSTR_STRUCTURED_PROPERTY_PAGE_POSITION
+                    ).urn(),
+                    values=[float(visualization.page_index)],
+                )
+            )
+        if not assignments:
+            return None
+        return StructuredPropertiesClass(properties=assignments)
 
     def _dataset_custom_properties(
         self,

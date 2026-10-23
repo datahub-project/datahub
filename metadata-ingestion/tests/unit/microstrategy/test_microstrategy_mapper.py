@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Iterable, Optional, Type, TypeVar
+from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeVar
 
 import pytest
 
@@ -32,8 +32,11 @@ from datahub.metadata.schema_classes import (
     DashboardInfoClass,
     DatasetPropertiesClass,
     InputFieldsClass,
+    PropertyCardinalityClass,
     SchemaFieldClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
     SubTypesClass,
     UpstreamLineageClass,
     _Aspect,
@@ -172,6 +175,7 @@ def _mapper(
     folder_pattern: Optional[Dict[str, object]] = None,
     extract_metric_formula_lineage: bool = False,
     dataset_field_order: str = "report",
+    emit_chapter_page_structured_properties: bool = False,
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
@@ -184,6 +188,9 @@ def _mapper(
             "extract_report_sql_lineage": extract_report_sql_lineage,
             "metric_glossary_term_mapping": metric_glossary_term_mapping or {},
             "extract_metric_formula_lineage": extract_metric_formula_lineage,
+            "emit_chapter_page_structured_properties": (
+                emit_chapter_page_structured_properties
+            ),
             **({"folder_pattern": folder_pattern} if folder_pattern else {}),
         }
     )
@@ -2721,6 +2728,158 @@ def test_chart_properties_omit_placement_for_visualization_without_a_page() -> N
 
     assert properties["microstrategyVisualizationKey"] == "viz-1"
     assert not set(_PLACEMENT_PROPERTY_KEYS) & set(properties)
+
+
+_CHAPTER_PROPERTY_URN = "urn:li:structuredProperty:io.acryl.microstrategy.chapter"
+_PAGE_PROPERTY_URN = "urn:li:structuredProperty:io.acryl.microstrategy.page"
+_PAGE_POSITION_PROPERTY_URN = (
+    "urn:li:structuredProperty:io.acryl.microstrategy.pagePosition"
+)
+
+
+def _chart_structured_properties(
+    mapper: MicroStrategyMapper, dashboard: DashboardDefinition
+) -> Dict[str, Optional[List[Tuple[str, List[object]]]]]:
+    """Visualization key -> (property urn, values) pairs of the chart's
+    structuredProperties aspect, or None when the chart has no such aspect."""
+    found: Dict[str, Optional[List[Tuple[str, List[object]]]]] = {}
+    for visualization in dashboard.visualizations:
+        aspect = _maybe_aspect(
+            mapper.gen_chart_workunits(
+                "project-1", dashboard, visualization, mapper.project_key("project-1")
+            ),
+            StructuredPropertiesClass,
+        )
+        found[visualization.key] = (
+            None
+            if aspect is None
+            else [
+                (assignment.propertyUrn, list(assignment.values))
+                for assignment in aspect.properties
+            ]
+        )
+    return found
+
+
+def test_chart_structured_properties_are_off_by_default() -> None:
+    mapper = _mapper()
+    dashboard = _paged_definition()
+
+    assert _chart_structured_properties(mapper, dashboard) == {
+        "viz-a": None,
+        "viz-b": None,
+        "viz-c": None,
+        "viz-d": None,
+    }
+    assert mapper.report.charts_with_chapter_page_structured_properties == 0
+
+
+def test_chart_structured_properties_record_chapter_page_and_position() -> None:
+    mapper = _mapper(emit_chapter_page_structured_properties=True)
+    dashboard = _paged_definition()
+
+    assert _chart_structured_properties(mapper, dashboard) == {
+        "viz-a": [
+            (_CHAPTER_PROPERTY_URN, ["Overview"]),
+            (_PAGE_PROPERTY_URN, ["Summary"]),
+            (_PAGE_POSITION_PROPERTY_URN, [1.0]),
+        ],
+        "viz-b": [
+            (_CHAPTER_PROPERTY_URN, ["Overview"]),
+            (_PAGE_PROPERTY_URN, ["Trend"]),
+            (_PAGE_POSITION_PROPERTY_URN, [2.0]),
+        ],
+        "viz-c": [
+            (_CHAPTER_PROPERTY_URN, ["Detail"]),
+            (_PAGE_PROPERTY_URN, ["By Region"]),
+            (_PAGE_POSITION_PROPERTY_URN, [1.0]),
+        ],
+        "viz-d": [
+            (_CHAPTER_PROPERTY_URN, ["Detail"]),
+            (_PAGE_PROPERTY_URN, ["By Store"]),
+            (_PAGE_POSITION_PROPERTY_URN, [2.0]),
+        ],
+    }
+    assert mapper.report.charts_with_chapter_page_structured_properties == 4
+
+
+def test_chart_structured_properties_agree_with_the_custom_properties() -> None:
+    # The structured values duplicate the custom properties exactly; in
+    # particular pagePosition carries the microstrategyPageIndex number.
+    mapper = _mapper(emit_chapter_page_structured_properties=True)
+    dashboard = _paged_definition()
+
+    for visualization in dashboard.visualizations:
+        workunits = list(
+            mapper.gen_chart_workunits(
+                "project-1", dashboard, visualization, mapper.project_key("project-1")
+            )
+        )
+        custom = _aspect(workunits, ChartInfoClass).customProperties
+        by_urn = {
+            assignment.propertyUrn: list(assignment.values)
+            for assignment in _aspect(workunits, StructuredPropertiesClass).properties
+        }
+        assert by_urn == {
+            _CHAPTER_PROPERTY_URN: [custom["microstrategyChapter"]],
+            _PAGE_PROPERTY_URN: [custom["microstrategyPage"]],
+            _PAGE_POSITION_PROPERTY_URN: [float(custom["microstrategyPageIndex"])],
+        }
+
+
+def test_chart_without_a_page_gets_no_structured_properties() -> None:
+    mapper = _mapper(emit_chapter_page_structured_properties=True)
+    dashboard = DashboardDefinition.from_api_response(
+        object_id="dash-loose",
+        object_name="Loose Dossier",
+        response={
+            "definition": {
+                "datasets": [{"id": "ds-1", "name": "Sales Cube"}],
+                "visualizations": [{"key": "viz-1", "name": "Loose"}],
+            }
+        },
+    )
+
+    assert _chart_structured_properties(mapper, dashboard) == {"viz-1": None}
+    assert mapper.report.charts_with_chapter_page_structured_properties == 0
+
+
+def test_chapter_page_structured_property_definitions_list_chapter_first() -> None:
+    definitions = MicroStrategyMapper.chapter_page_structured_property_definitions()
+
+    assert [definition.entityUrn for definition in definitions] == [
+        _CHAPTER_PROPERTY_URN,
+        _PAGE_PROPERTY_URN,
+        _PAGE_POSITION_PROPERTY_URN,
+    ]
+    aspects: List[StructuredPropertyDefinitionClass] = []
+    for definition in definitions:
+        assert isinstance(definition.aspect, StructuredPropertyDefinitionClass)
+        aspects.append(definition.aspect)
+    assert [
+        (aspect.qualifiedName, aspect.displayName, aspect.valueType)
+        for aspect in aspects
+    ] == [
+        (
+            "io.acryl.microstrategy.chapter",
+            "MicroStrategy Chapter",
+            "urn:li:dataType:datahub.string",
+        ),
+        (
+            "io.acryl.microstrategy.page",
+            "MicroStrategy Page",
+            "urn:li:dataType:datahub.string",
+        ),
+        (
+            "io.acryl.microstrategy.pagePosition",
+            "MicroStrategy Page Position",
+            "urn:li:dataType:datahub.number",
+        ),
+    ]
+    for aspect in aspects:
+        assert aspect.cardinality == PropertyCardinalityClass.SINGLE
+        assert aspect.entityTypes == ["urn:li:entityType:datahub.chart"]
+        assert aspect.description
 
 
 def _unsorted_objects_definition() -> DashboardDefinition:

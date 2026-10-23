@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.microstrategy.client import (
     MicroStrategyAPIError,
@@ -39,6 +40,8 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
     UpstreamLineageClass,
 )
 
@@ -3658,3 +3661,173 @@ def test_document_model_probe_is_capped_per_project() -> None:
         "document_id=doc-1",
         "document_id=doc-5",
     ]
+
+
+_CHAPTER_PROPERTY_URN = "urn:li:structuredProperty:io.acryl.microstrategy.chapter"
+_PAGE_PROPERTY_URN = "urn:li:structuredProperty:io.acryl.microstrategy.page"
+_PAGE_POSITION_PROPERTY_URN = (
+    "urn:li:structuredProperty:io.acryl.microstrategy.pagePosition"
+)
+_DEFINITION_URNS = [
+    _CHAPTER_PROPERTY_URN,
+    _PAGE_PROPERTY_URN,
+    _PAGE_POSITION_PROPERTY_URN,
+]
+
+
+class _PagedDossierClient:
+    """One project with one dossier of two pages, one visualization each."""
+
+    def login(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def list_projects(self) -> List[Project]:
+        return [_PROJECT]
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {"id": "dash-1", "name": "Sales", "type": "55"}
+                )
+            ]
+        )
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "definition": {
+                "datasets": [{"id": "ds-1", "name": "Sales Cube"}],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "name": "Overview",
+                        "pages": [
+                            {
+                                "key": "pg-1",
+                                "name": "Summary",
+                                "visualizations": [{"key": "viz-a", "name": "A"}],
+                            },
+                            {
+                                "key": "pg-2",
+                                "name": "Trend",
+                                "visualizations": [{"key": "viz-b", "name": "B"}],
+                            },
+                        ],
+                    }
+                ],
+            }
+        }
+
+
+def _paged_dossier_source(extra_config: Dict[str, Any]) -> MicroStrategySource:
+    source = _source(
+        {
+            "extract_reports": False,
+            "extract_cubes": False,
+            "extract_source_warehouses": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_derived_metrics": False,
+            "extract_warehouse_lineage": False,
+            **extra_config,
+        }
+    )
+    source.client = _PagedDossierClient()  # type: ignore[assignment]
+    return source
+
+
+def _definition_urns(workunits: List[Any]) -> List[str]:
+    return [
+        workunit.get_urn()
+        for workunit in workunits
+        if workunit.get_aspect_of_type(StructuredPropertyDefinitionClass) is not None
+    ]
+
+
+def _structured_property_values(
+    workunits: List[Any],
+) -> Dict[str, List[Tuple[str, List[object]]]]:
+    values: Dict[str, List[Tuple[str, List[object]]]] = {}
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(StructuredPropertiesClass)
+        if aspect is not None:
+            values[workunit.get_urn()] = [
+                (assignment.propertyUrn, list(assignment.values))
+                for assignment in aspect.properties
+            ]
+    return values
+
+
+def test_chapter_page_structured_properties_off_by_default_emit_nothing() -> None:
+    source = _paged_dossier_source({})
+
+    workunits = list(source.get_workunits_internal())
+
+    assert _definition_urns(workunits) == []
+    assert _structured_property_values(workunits) == {}
+    assert source.report.chapter_page_structured_property_definitions_emitted == 0
+    assert source.report.charts_with_chapter_page_structured_properties == 0
+    # The charts themselves are still there, with their custom properties.
+    chart_urn = source.mapper.chart_urn("project-1", "dash-1", "viz-a")
+    assert chart_urn in {workunit.get_urn() for workunit in workunits}
+
+
+def test_chapter_page_structured_property_definitions_precede_the_charts() -> None:
+    source = _paged_dossier_source({"emit_chapter_page_structured_properties": True})
+
+    workunits = list(source.get_workunits_internal())
+
+    # Three definitions, once each, in display order, all ahead of any chart.
+    assert _definition_urns(workunits) == _DEFINITION_URNS
+    urns = [workunit.get_urn() for workunit in workunits]
+    last_definition = max(urns.index(urn) for urn in _DEFINITION_URNS)
+    first_chart = min(
+        index for index, urn in enumerate(urns) if urn.startswith("urn:li:chart:")
+    )
+    assert last_definition < first_chart
+    assert source.report.chapter_page_structured_property_definitions_emitted == 3
+    assert _structured_property_values(workunits) == {
+        source.mapper.chart_urn("project-1", "dash-1", "viz-a"): [
+            (_CHAPTER_PROPERTY_URN, ["Overview"]),
+            (_PAGE_PROPERTY_URN, ["Summary"]),
+            (_PAGE_POSITION_PROPERTY_URN, [1.0]),
+        ],
+        source.mapper.chart_urn("project-1", "dash-1", "viz-b"): [
+            (_CHAPTER_PROPERTY_URN, ["Overview"]),
+            (_PAGE_PROPERTY_URN, ["Trend"]),
+            (_PAGE_POSITION_PROPERTY_URN, [2.0]),
+        ],
+    }
+    assert source.report.charts_with_chapter_page_structured_properties == 2
+
+
+def test_chapter_page_structured_property_definitions_sync_through_graph() -> None:
+    source = _paged_dossier_source({"emit_chapter_page_structured_properties": True})
+    graph = mock.MagicMock()
+    source.ctx.graph = graph
+
+    workunits = list(source.get_workunits_internal())
+
+    # With a graph the definitions are persisted synchronously before any
+    # chart value can reach GMS, and are not also emitted as work units.
+    assert [
+        call.args[0].entityUrn for call in graph.emit_mcp.call_args_list
+    ] == _DEFINITION_URNS
+    assert all(
+        call.kwargs == {"emit_mode": EmitMode.SYNC_PRIMARY}
+        for call in graph.emit_mcp.call_args_list
+    )
+    assert _definition_urns(workunits) == []
+    assert source.report.chapter_page_structured_property_definitions_emitted == 3
+    assert len(_structured_property_values(workunits)) == 2

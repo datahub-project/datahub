@@ -146,3 +146,22 @@ def test_folder_path_pattern_defaults_to_allow_all() -> None:
             "folder_path_pattern": {"deny": ["^Adhoc_RMA/Shared Reports/Archive"]},
         }
     ).folder_path_pattern.allowed("Adhoc_RMA/Shared Reports/Archive/Old")
+
+
+def test_chapter_page_structured_properties_default_to_false() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+
+    assert config.emit_chapter_page_structured_properties is False
+
+
+def test_chapter_page_structured_properties_can_be_enabled() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "emit_chapter_page_structured_properties": True,
+        }
+    )
+
+    assert config.emit_chapter_page_structured_properties is True

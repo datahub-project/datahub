@@ -1,5 +1,5 @@
 import re
-from typing import Dict
+from typing import Dict, Tuple
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
@@ -516,4 +516,34 @@ MSTR_OBJECT_TIMESTAMP_FORMATS = (
     "%Y-%m-%dT%H:%M:%S.%f%z",
     "%Y-%m-%dT%H:%M:%S%z",
     "%Y-%m-%d %H:%M:%S%z",
+)
+
+# Structured properties that place a dossier visualization chart in its
+# chapter and page (emit_chapter_page_structured_properties). Each entry is
+# the property's qualified name (the id of its urn:li:structuredProperty:
+# URN), display name, DataHub data type and description. The definitions are
+# emitted in this order, which is the order the UI lists them in: chapter
+# above page, then the page's position within its chapter.
+MSTR_STRUCTURED_PROPERTY_CHAPTER = "io.acryl.microstrategy.chapter"
+MSTR_STRUCTURED_PROPERTY_PAGE = "io.acryl.microstrategy.page"
+MSTR_STRUCTURED_PROPERTY_PAGE_POSITION = "io.acryl.microstrategy.pagePosition"
+MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] = (
+    (
+        MSTR_STRUCTURED_PROPERTY_CHAPTER,
+        "MicroStrategy Chapter",
+        "string",
+        "Name of the dossier chapter the visualization sits in.",
+    ),
+    (
+        MSTR_STRUCTURED_PROPERTY_PAGE,
+        "MicroStrategy Page",
+        "string",
+        "Name of the dossier page the visualization sits on.",
+    ),
+    (
+        MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
+        "MicroStrategy Page Position",
+        "number",
+        "1-based position of the visualization's page within its chapter.",
+    ),
 )

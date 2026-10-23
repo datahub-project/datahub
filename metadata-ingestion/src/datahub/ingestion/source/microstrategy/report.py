@@ -35,6 +35,11 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     # Report Services documents' dataset edges (emit_document_dataset_edges),
     # counted apart from the opt-in dossier fallback above.
     document_dataset_edges: int = 0
+    # emit_chapter_page_structured_properties: the chart property definitions
+    # emitted this run (3 when the flag is on, 0 when off) and the
+    # visualization charts given chapter/page values.
+    chapter_page_structured_property_definitions_emitted: int = 0
+    charts_with_chapter_page_structured_properties: int = 0
     sessions_reauthenticated: int = 0
     usage_rows_scanned: int = 0
     usage_buckets_emitted: int = 0
@@ -222,6 +227,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_document_dataset_edges(self, count: int) -> None:
         self.document_dataset_edges += count
+
+    def report_chapter_page_structured_property_definition_emitted(self) -> None:
+        self.chapter_page_structured_property_definitions_emitted += 1
+
+    def report_chart_with_chapter_page_structured_properties(self) -> None:
+        self.charts_with_chapter_page_structured_properties += 1
 
     def report_unresolved_visualization(self) -> None:
         self.unresolved_visualizations += 1

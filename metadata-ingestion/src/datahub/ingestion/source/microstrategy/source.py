@@ -15,6 +15,7 @@ import requests
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -260,6 +261,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client.login()
         auth_lost = False
         try:
+            if self.config.emit_chapter_page_structured_properties:
+                yield from self._emit_chapter_page_structured_property_definitions()
             projects = self.client.list_projects()
             for index, project in enumerate(projects, start=1):
                 if not self.config.project_pattern.allowed(project.name):
@@ -313,6 +316,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         finally:
             self._warn_if_every_sql_view_failed()
             self.client.close()
+
+    def _emit_chapter_page_structured_property_definitions(
+        self,
+    ) -> Iterable[MetadataWorkUnit]:
+        """The three chart structured property definitions, once per run and
+        ahead of every chart that carries a value. GMS validates a
+        structuredProperties assignment against the definition already in
+        its database, and the REST sink's default async batching could
+        deliver a chart's values before the definition that makes them valid,
+        so with a graph at hand the definitions are written synchronously
+        first (as the Glue source does for its column parameter properties).
+        Without a graph (file sink, tests) they are ordinary work units
+        emitted before any other."""
+        for definition in self.mapper.chapter_page_structured_property_definitions():
+            if self.ctx.graph is not None:
+                self.ctx.graph.emit_mcp(definition, emit_mode=EmitMode.SYNC_PRIMARY)
+            else:
+                yield definition.as_workunit()
+            self.report.report_chapter_page_structured_property_definition_emitted()
 
     def _warn_if_every_sql_view_failed(self) -> None:
         """SQL-view lineage that fails on every single statement is almost
