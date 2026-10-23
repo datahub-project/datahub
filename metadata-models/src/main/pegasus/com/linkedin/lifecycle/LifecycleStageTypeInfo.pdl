@@ -20,7 +20,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "lifecycleStageTypeInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record LifecycleStageTypeInfo {
   /**
