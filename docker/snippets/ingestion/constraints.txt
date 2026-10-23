@@ -74,7 +74,10 @@ nbconvert>=7.17.0
 # path was decoded twice when determining a link filename; fixed in 26.2. Previous floor
 # here was >=26.0, which allowed all four. Mirrored in metadata-ingestion/pyproject.toml
 # [tool.uv] constraint-dependencies so the shipped lock agrees.
-pip>=26.2
+# 26.2.1 vendors certifi 2026.6.17 (GHSA-6q48-6c7w-9gw2, CRITICAL); 26.2.2 re-vendors
+# the fixed certifi 2026.10.19. pip's vendored copies are invisible to dependency
+# floors, so the only constraint-level lever is the pip version itself.
+pip>=26.2.2
 wheel>=0.46.2
 flask>=3.1.3
 fonttools>=4.60.2

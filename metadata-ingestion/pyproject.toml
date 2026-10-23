@@ -2102,6 +2102,13 @@ constraint-dependencies = [
     # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
     # constraint files pin setuptools, so a base floor breaks those installs).
     "setuptools>=83.0.0",
+    # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
+    # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
+    # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
+    # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
+    # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
+    # as datahub/constraints.txt and constrains every executor-built venv.
+    "pip>=26.2.2",  # 26.2.1 vendors certifi 2026.6.17 (GHSA-6q48-6c7w-9gw2); 26.2.2 fixes
     # anyio: CVE-2026-64847 (process-pool workers block on undrained stderr);
     # fixed in 4.14.2. Not in setup.py: Airflow constraints pin anyio==4.10.0
     # (3.0.x), 4.11.0 (3.1.x), 4.13.0 (3.2.x). Enforced here at lock time.
@@ -2114,13 +2121,6 @@ constraint-dependencies = [
     # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
     # snippet: docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
-    # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
-    # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
-    # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
-    # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
-    # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
-    # as datahub/constraints.txt and constrains every executor-built venv.
-    "pip>=26.2",
     # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
     # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
     # docker/snippets/ingestion/constraints.txt.
