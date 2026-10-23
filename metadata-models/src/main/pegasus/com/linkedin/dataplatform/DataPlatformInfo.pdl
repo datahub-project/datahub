@@ -21,6 +21,7 @@ record DataPlatformInfo {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -39,6 +40,7 @@ record DataPlatformInfo {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },

@@ -25,7 +25,6 @@ record SemanticModelKey {
     "addToFilters": true,
     "filterNameOverride": "Platform",
     "v3": {
-      "queryByDefault": false,
       "copyToOther": true
     }
   }
@@ -37,6 +36,9 @@ record SemanticModelKey {
    * `id` on the same platform without colliding.
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
     "filterNameOverride": "Path"

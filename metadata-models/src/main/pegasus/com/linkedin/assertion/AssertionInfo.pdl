@@ -92,6 +92,7 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       "hasValuesFieldName": "hasDescription",
       "sanitizeRichText": true,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "description",
         "mappings": [
           { "type": "KEYWORD", "index": false, "docValues": false },
@@ -119,7 +120,6 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       "fieldType": "URN",
       "fieldName": "entity",
       "v3": {
-        "queryByDefault": false,
         "copyToOther": true
       }
     }

@@ -19,6 +19,9 @@ record IncidentInfo {
   * The type of incident
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "addToFilters": true,
     "filterNameOverride": "Type"
   }
@@ -28,6 +31,9 @@ record IncidentInfo {
   * An optional custom incident type. Present only if type is 'CUSTOM'.
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "addToFilters": true,
     "filterNameOverride": "Other Type"
   }
@@ -40,6 +46,7 @@ record IncidentInfo {
     "fieldType": "WORD_GRAM",
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -57,6 +64,7 @@ record IncidentInfo {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -78,6 +86,9 @@ record IncidentInfo {
   }
   @Searchable = {
     "/*": {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "URN"
     }
   }
@@ -111,6 +122,8 @@ record IncidentInfo {
 
   /**
    * The time at which the incident actually started (may be before the date it was raised).
+   * Time is a long typeref, so the /time path does not resolve. Search reads the top-level
+   * v3 flag, which keeps this field in the unqualified query.
    */
   @Searchable = {
     "/time": {
@@ -122,7 +135,10 @@ record IncidentInfo {
             { "type": "DATETIME" }
           ]
         }
-      }
+      },
+    "v3": {
+      "queryByDefault": true
+    }
   }
   startedAt: optional Time
 

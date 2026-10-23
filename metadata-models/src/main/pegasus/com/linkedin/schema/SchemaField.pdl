@@ -21,7 +21,6 @@ record SchemaField {
     "v3": {
       "searchLabel": "name",
       "degree": 1,
-      "queryByDefault": false,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -55,7 +54,6 @@ record SchemaField {
       "searchLabel": "description",
       "degree": 1,
       "boostScore": 0.5,
-      "queryByDefault": false,
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
         { "subfield": "text", "type": "TEXT" },
@@ -79,7 +77,6 @@ record SchemaField {
     "v3": {
       "searchLabel": "name",
       "degree": 1,
-      "queryByDefault": false,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -134,7 +131,6 @@ record SchemaField {
         "searchLabel": "tags",
         "degree": 1,
         "boostScore": 0.25,
-        "queryByDefault": false,
         "mappings": [
           { "type": "URN" }
         ]
@@ -177,7 +173,6 @@ record SchemaField {
         "searchLabel": "glossaryTerms",
         "degree": 1,
         "boostScore": 0.25,
-        "queryByDefault": false,
         "mappings": [
           { "type": "URN" }
         ]
