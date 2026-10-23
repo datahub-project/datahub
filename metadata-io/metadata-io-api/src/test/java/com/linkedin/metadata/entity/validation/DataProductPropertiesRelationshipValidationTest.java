@@ -53,7 +53,14 @@ public class DataProductPropertiesRelationshipValidationTest {
       {"mlModel", UrnUtils.getUrn("urn:li:mlModel:(urn:li:dataPlatform:sagemaker,example,PROD)")},
       {"notebook", UrnUtils.getUrn("urn:li:notebook:(hex,abc123)")},
       // The case that fails today — added to the whitelist in this change.
-      {"document", UrnUtils.getUrn("urn:li:document:2fa9f2fb-b911-4300-ad2b-1859fc178f01")}
+      {"document", UrnUtils.getUrn("urn:li:document:2fa9f2fb-b911-4300-ad2b-1859fc178f01")},
+      {"service", UrnUtils.getUrn("urn:li:service:example-service")},
+      {"api", UrnUtils.getUrn("urn:li:api:example-api")},
+      {"application", UrnUtils.getUrn("urn:li:application:example-app")},
+      {"repository", UrnUtils.getUrn("urn:li:repository:github.example/example-repo")},
+      {"aiAgent", UrnUtils.getUrn("urn:li:aiAgent:example-agent")},
+      {"agentSkill", UrnUtils.getUrn("urn:li:agentSkill:example-skill")},
+      {"role", UrnUtils.getUrn("urn:li:role:example-role")}
     };
   }
 
