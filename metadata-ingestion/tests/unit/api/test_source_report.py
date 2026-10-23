@@ -23,3 +23,14 @@ def test_report_to_string_sampled():
     print(str)
     report_as_dict = json.loads(str)
     assert len(report_as_dict["warnings"]) == 11
+
+
+def test_report_caps_exception_text():
+    source_report = SourceReport()
+    source_report.warning(
+        "key1", "ctx", exc=ValueError("x" * 5000 + "secret_tail"), log=False
+    )
+
+    context = source_report.warnings[0].context[0]
+    assert "ValueError" in context
+    assert "secret_tail" not in context

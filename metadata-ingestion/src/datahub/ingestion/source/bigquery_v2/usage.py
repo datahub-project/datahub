@@ -297,6 +297,14 @@ class BigQueryUsageState(Closeable):
         )
 
 
+def _audit_event_job_name(audit_event: AuditEvent) -> Optional[str]:
+    if audit_event.query_event:
+        return audit_event.query_event.job_name
+    if audit_event.read_event:
+        return audit_event.read_event.jobName
+    return None
+
+
 class BigQueryUsageExtractor:
     """
     This plugin extracts the following:
@@ -482,7 +490,7 @@ class BigQueryUsageExtractor:
             except Exception as e:
                 self.report.warning(
                     message="Unable to store usage event",
-                    context=f"{audit_event}",
+                    context=f"job {_audit_event_job_name(audit_event)}",
                     exc=e,
                 )
 
@@ -507,7 +515,7 @@ class BigQueryUsageExtractor:
                 except Exception as e:
                     self.report.warning(
                         message="Unable to generate operation workunit",
-                        context=f"{audit_event}",
+                        context=f"job {_audit_event_job_name(audit_event)}",
                         exc=e,
                     )
 
@@ -907,7 +915,7 @@ class BigQueryUsageExtractor:
             except Exception as e:
                 self.report.warning(
                     message="Unable to parse usage log entry",
-                    context=f"`{entry}` for project {project_id}",
+                    context=f"log entry for project {project_id}",
                     exc=e,
                 )
 

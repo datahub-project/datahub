@@ -523,7 +523,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing user row",
-                        context=f"{row}",
                         exc=e,
                     )
         return users
@@ -555,7 +554,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing copy history row",
-                        context=f"{row}",
+                        context=f"downstream table {row.get('DOWNSTREAM_TABLE_NAME')}",
                         exc=e,
                     )
                 else:
@@ -613,7 +612,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing query log row",
-                        context=f"{row}",
+                        context=f"query {row.get('QUERY_ID')}",
                         exc=e,
                     )
 
