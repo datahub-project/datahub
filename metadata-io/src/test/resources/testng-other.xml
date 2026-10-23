@@ -41,8 +41,7 @@
             </class>
             <!-- These switch the process-wide UnknownDataHandlings strategy (TolerantHandling before
                  each test, strict after), which would leak into classes running alongside them here
-                 (parallel="classes"). They run one class at a time: in testng-opensearch.xml, or in
-                 the unknown-data-handling test below. -->
+                 (parallel="classes"). They run one class at a time in testng-opensearch.xml. -->
             <class name="com.linkedin.metadata.aspect.consistency.ConsistencyServiceTest">
                 <methods>
                     <exclude name=".*" />
@@ -154,16 +153,6 @@
 
     <!-- Classes that switch the process-wide UnknownDataHandlings strategy and aren't in
          testng-opensearch.xml: run one class at a time so the switch can't leak. -->
-    <test name="unknown-data-handling" parallel="none">
-        <classes>
-            <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest"/>
-            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
-            <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest"/>
-            <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest"/>
-            <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest"/>
-        </classes>
-    </test>
-
     <!-- Additional test execution for EbeanEntityServiceTest with CDC mode -->
     <test name="ebean-entity-service-cdc">
         <parameter name="cdcMode" value="true"/>
