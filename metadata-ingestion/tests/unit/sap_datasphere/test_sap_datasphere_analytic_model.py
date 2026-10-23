@@ -177,6 +177,32 @@ def test_projection_source_columns_resolves_from_aliases(from_):
     }
 
 
+def test_projection_source_columns_aliased_from_is_addressed_by_alias_only():
+    # Once aliased, the source name no longer qualifies refs; a mixin of that
+    # name does.
+    csn_def = _select(
+        {"ref": ["fact"], "as": "f"},
+        [{"ref": ["f", "amount"]}, {"ref": ["fact", "name"]}],
+        mixin={"fact": {"type": "cds.Association", "target": "SPACE.dim"}},
+    )
+
+    assert _sources(csn_def) == {
+        "amount": "fact/amount",
+        "name": "SPACE.dim/name",
+    }
+
+
+def test_projection_source_columns_ambiguous_join_key_keeps_both_sources():
+    # `Y` names two objects, so it is dropped, but the join still has two
+    # sources and unqualified refs must not resolve to the one left.
+    csn_def = _select(
+        _join({"ref": ["X"], "as": "Y"}, {"ref": ["Z.Y"]}),
+        [{"ref": ["Y", "a"]}, {"ref": ["Z.Y", "c"]}, {"ref": ["b"]}],
+    )
+
+    assert _sources(csn_def) == {"c": "Z.Y/c"}
+
+
 def test_projection_source_columns_resolves_join_aliases():
     csn_def = _select(
         _join(
@@ -238,9 +264,10 @@ def test_projection_source_columns_resolves_mixin_association_targets():
     [
         {"SELECT": {"from": {"ref": ["SPACE.fact"]}}, "as": "sub"},
         {"ref": ["SPACE.fact", "_toDim"], "as": "sub"},
+        {"ref": [{"args": {"p": {"val": 1}}}], "as": "sub"},
         None,
     ],
-    ids=["subquery", "path_expression", "no_from"],
+    ids=["subquery", "path_expression", "parameterized_without_id", "no_from"],
 )
 def test_projection_source_columns_skips_refs_of_unresolved_from(from_):
     csn_def = _select(

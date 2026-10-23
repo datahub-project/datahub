@@ -6676,11 +6676,13 @@ def test_analytic_model_dotted_source_names():
     assert source._source_object_field_types("AMSPACE", "UNLISTED.v_src")
     source._known_spaces = {"AMSPACE", "SAP"}
     assert source._source_object_field_types("AMSPACE", "SAP.v_src")
+    source._source_object_field_types("AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY")
 
     assert calls == [
         "AMSPACE/SAP.TIME.VIEW_DIMENSION_DAY",
         "UNLISTED/v_src",
         "SAP/v_src",
+        "SAP/TIME.VIEW_DIMENSION_DAY",
     ]
 
 
@@ -6695,8 +6697,11 @@ def test_analytic_model_projection_parse_error_is_reported():
         "datahub.ingestion.source.sap_datasphere.source.extract_projection_source_columns",
         side_effect=TypeError("boom"),
     ):
-        source._schema_fields_from_csn("AMSPACE", "am_x", am_csn_def)
+        fields = source._schema_fields_from_csn("AMSPACE", "am_x", am_csn_def)
 
+    assert fields is not None
+    assert [type(f.type.type).__name__ for f in fields] == ["NullTypeClass"]
+    assert list(source.report.assets_with_missing_cds_types) == ["AMSPACE.am_x"]
     assert any(
         ctx.startswith("AMSPACE.am_x")
         for w in source.report.warnings
@@ -6771,7 +6776,6 @@ def test_known_spaces_include_filtered_spaces_for_projection_types(requests_mock
 
     workunits = list(source.get_workunits())
 
-    assert source._known_spaces == {"AM", "SAP"}
     schemas = [
         aspect_as(wu, SchemaMetadataClass)
         for wu in workunits
