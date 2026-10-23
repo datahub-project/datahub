@@ -36,7 +36,9 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
     ContainerPropertiesClass,
+    DashboardInfoClass,
     DatasetPropertiesClass,
+    OwnershipClass,
     SchemaMetadataClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
@@ -3759,3 +3761,462 @@ def test_chapter_page_structured_property_definitions_sync_through_graph() -> No
     assert _definition_urns(workunits) == []
     assert source.report.chapter_page_structured_property_definitions_emitted == 3
     assert len(_structured_property_values(workunits)) == 2
+
+
+class _SharedReportClient:
+    """Two dashboards that both embed one grid report ("ds-shared"): a dossier
+    whose visualization reads it and, by default, a Report Services document
+    (else a second dossier, for the SQL-view path). The report library holds
+    that report plus one no dashboard uses."""
+
+    def __init__(self, second: str = "document", with_sql: bool = False) -> None:
+        self.second = second
+        self.with_sql = with_sql
+        self.sql_view_reads: List[str] = []
+        self.report_definitions: List[str] = []
+        self.report_instances: List[str] = []
+
+    def list_project_datasources(self, project_id: str) -> List[Datasource]:
+        return [
+            Datasource.model_validate(
+                {
+                    "id": "source-1",
+                    "name": "Sales Warehouse",
+                    "database": {
+                        "type": "snow_flake",
+                        "name": "SALES_DB",
+                        "schema": "SALES",
+                    },
+                }
+            )
+        ]
+
+    def create_report_instance(self, project_id: str, report_id: str) -> str:
+        self.report_instances.append(report_id)
+        return f"ri-{report_id}"
+
+    def get_report_sql_view(
+        self, project_id: str, report_id: str, instance_id: str
+    ) -> SqlView:
+        table = report_id.replace("-", "_")
+        return SqlView(sql_statement=f"select amt from fact_{table}")
+
+    def delete_report_instance(self, *args: Any) -> bool:
+        return True
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        dossier = {"type": "55", "subtype": "14081", "viewMedia": 1879072805}
+        document = {"type": "55", "subtype": "14081"}
+        second = (
+            {"id": "doc-1", "name": "Sales Document", **document}
+            if self.second == "document"
+            else {"id": "dash-2", "name": "Cost Dossier", **dossier}
+        )
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        **item,
+                        "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+                    }
+                )
+                for item in (
+                    {"id": "dash-1", "name": "Sales Dossier", **dossier},
+                    second,
+                )
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
+
+    def _dataset(self) -> Dict[str, Any]:
+        dataset: Dict[str, Any] = {
+            "id": "ds-shared",
+            "name": "Retail Sales Yesterday",
+            "description": "Embedded copy",
+            "availableObjects": {
+                "metrics": [
+                    {
+                        "id": "M-NET",
+                        "name": "Net Sales Retail Amt",
+                        "dataType": "double",
+                    }
+                ]
+            },
+        }
+        if self.with_sql:
+            dataset["sourceWarehouse"] = {
+                "id": "source-1",
+                "name": "Sales Warehouse",
+                "database": {
+                    "type": "snow_flake",
+                    "name": "SALES_DB",
+                    "schema": "SALES",
+                },
+            }
+        return dataset
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        if dossier_id == "doc-1":
+            raise MicroStrategyAPIError("not a dossier")
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [self._dataset()],
+                    "chapters": [
+                        {
+                            "key": "ch",
+                            "pages": [
+                                {
+                                    "key": "pg",
+                                    "name": "P",
+                                    "visualizations": [
+                                        {
+                                            "key": f"viz-{dossier_id}",
+                                            "name": "Sales Grid",
+                                            "datasets": ["ds-shared"],
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            }
+        }
+
+    def get_document_definition(
+        self, project_id: str, document_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [self._dataset()],
+                    "chapters": [{"key": "ch-1", "name": "Summary", "pages": []}],
+                }
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Retail Sales Yesterday",
+                "type": "3",
+                "subtype": "768",
+                "owner": {"username": "report_owner"},
+                "ancestors": [
+                    {"id": "f-1", "name": "Shared Reports"},
+                    {"id": "f-2", "name": "Salon Retail Sales"},
+                ],
+            }
+        )
+
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                self.get_object_info(project_id, "ds-shared", 3),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "report-solo",
+                        "name": "Standalone Report",
+                        "type": "3",
+                        "subtype": "768",
+                        "ancestors": [
+                            {"id": "f-1", "name": "Shared Reports"},
+                            {"id": "f-3", "name": "Ad Hoc"},
+                        ],
+                    }
+                ),
+            ]
+        )
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.report_definitions.append(report_id)
+        return {
+            "result": {
+                "definition": {
+                    "description": "The report's own description",
+                    "dataSource": {"id": "cube-1", "name": "Sales Cube"},
+                    "availableObjects": {
+                        "metrics": [
+                            {
+                                "id": "M-NET",
+                                "name": "Net Sales Retail Amt",
+                                "dataType": "double",
+                            },
+                            {
+                                "id": "M-GROSS",
+                                "name": "Gross Sales Amt",
+                                "dataType": "double",
+                            },
+                        ]
+                    },
+                    "prompts": [{"id": "p-1"}],
+                }
+            }
+        }
+
+    def create_dossier_instance(self, project_id: str, dossier_id: str) -> str:
+        return f"i-{dossier_id}"
+
+    def create_document_instance(self, project_id: str, document_id: str) -> str:
+        return f"i-{document_id}"
+
+    def delete_dossier_instance(self, *args: Any) -> bool:
+        return True
+
+    def delete_document_instance(self, *args: Any) -> bool:
+        return True
+
+    def get_dossier_datasets_sql(
+        self, project_id: str, dossier_id: str, instance_id: str
+    ) -> List[Dict[str, Any]]:
+        self.sql_view_reads.append(dossier_id)
+        return [
+            {"id": "ds-shared", "sqlStatement": "select net_sales_amt from fact_sales"}
+        ]
+
+
+def _per_report_source(
+    extra_config: Optional[Dict[str, Any]] = None,
+) -> MicroStrategySource:
+    config: Dict[str, Any] = {
+        "dataset_identity": "per_report",
+        # The fake clients serve no predefined folders; folder labels are
+        # covered by their own tests.
+        "use_predefined_folder_names": False,
+        "extract_warehouse_lineage": False,
+        "extract_visualization_details": False,
+        "extract_dashboard_dependencies": False,
+        "extract_metric_expressions": False,
+        "extract_model_lineage": False,
+        "extract_derived_metrics": False,
+        "extract_source_warehouses": False,
+    }
+    config.update(extra_config or {})
+    return _source(config)
+
+
+def _aspects_by_urn(workunits: List[Any], aspect_type: Any) -> Dict[str, Any]:
+    found: Dict[str, Any] = {}
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(aspect_type)
+        if aspect is not None:
+            assert workunit.get_urn() not in found, "aspect emitted twice"
+            found[workunit.get_urn()] = aspect
+    return found
+
+
+_SHARED_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.ds-shared,PROD)"
+)
+
+
+def test_per_report_shared_report_is_one_dataset_linked_from_both_dashboards() -> None:
+    source = _per_report_source()
+    client = _SharedReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    properties = _aspects_by_urn(workunits, DatasetPropertiesClass)
+    assert list(properties) == [_SHARED_URN]
+    shared = properties[_SHARED_URN]
+    assert shared.qualifiedName == "project-1.ds-shared"
+    assert shared.name == "Retail Sales Yesterday"
+    assert shared.customProperties["microstrategyReportId"] == "ds-shared"
+    assert shared.customProperties["microstrategyDashboardCount"] == "2"
+    assert shared.customProperties["microstrategyDashboardIds"] == "dash-1,doc-1"
+    assert shared.customProperties["microstrategyObjectSubtype"] == "768"
+    assert "microstrategyDashboardId" not in shared.customProperties
+    assert shared.externalUrl == (
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/ds-shared"
+    )
+    # The dossier's visualization and the document both link to that one entity.
+    charts = _aspects_by_urn(workunits, ChartInfoClass)
+    assert [chart.inputs for chart in charts.values()] == [[_SHARED_URN]]
+    dashboards = _aspects_by_urn(workunits, DashboardInfoClass)
+    document = dashboards[source.mapper.dashboard_urn("project-1", "doc-1")]
+    assert document.datasetEdges is not None
+    assert [edge.destinationUrn for edge in document.datasetEdges] == [_SHARED_URN]
+    dossier = dashboards[source.mapper.dashboard_urn("project-1", "dash-1")]
+    assert dossier.datasetEdges is None
+    # Filed under the report's own folder, owned by the report's owner.
+    own_folder = source.mapper.folder_key(
+        "project-1", "Shared Reports/Salon Retail Sales"
+    ).as_urn()
+    assert _dataset_container_parents(workunits) == {_SHARED_URN: own_folder}
+    ownership = _aspects_by_urn(workunits, OwnershipClass)
+    assert ownership[_SHARED_URN].owners[0].owner == "urn:li:corpuser:report_owner"
+    assert source.report.reports_deduplicated == 1
+    assert source.report.report_datasets_emitted == 1
+    assert source.report.datasets_scanned == 1
+    # One object lookup serves both dashboards and the emission.
+    assert source.report.dataset_object_lookups == 1
+
+
+def test_per_dashboard_default_keeps_one_dataset_per_dashboard() -> None:
+    source = _per_report_source({"dataset_identity": "per_dashboard"})
+    source.client = _SharedReportClient()  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    properties = _aspects_by_urn(workunits, DatasetPropertiesClass)
+    assert sorted(properties) == [
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.dash-1.ds-shared,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.doc-1.ds-shared,PROD)",
+    ]
+    for urn, dataset_properties in properties.items():
+        assert dataset_properties.qualifiedName == urn.split(",")[1]
+        assert "microstrategyDashboardId" in dataset_properties.customProperties
+    charts = _aspects_by_urn(workunits, ChartInfoClass)
+    assert [chart.inputs for chart in charts.values()] == [
+        [
+            "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.dash-1.ds-shared,PROD)"
+        ]
+    ]
+    assert source.report.reports_deduplicated == 0
+    assert source.report.report_datasets_emitted == 0
+    assert source.report.datasets_scanned == 2
+
+
+def test_per_report_report_pass_upgrades_schema_and_emits_no_chart() -> None:
+    source = _per_report_source(
+        {"extract_reports": True, "extract_independent_reports": True}
+    )
+    client = _SharedReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    solo_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,project-1.report-solo,PROD)"
+    )
+    properties = _aspects_by_urn(workunits, DatasetPropertiesClass)
+    assert sorted(properties) == [_SHARED_URN, solo_urn]
+    # The shared report keeps its one entity; its schema and description now
+    # come from the report's own definition rather than the dossier's copy.
+    schemas = _aspects_by_urn(workunits, SchemaMetadataClass)
+    assert [f.fieldPath for f in schemas[_SHARED_URN].fields] == [
+        "Gross Sales Amt",
+        "Net Sales Retail Amt",
+    ]
+    shared = properties[_SHARED_URN]
+    assert shared.description == "The report's own description"
+    assert shared.customProperties["microstrategyDashboardCount"] == "2"
+    assert shared.customProperties["microstrategyReportPromptCount"] == "1"
+    assert shared.customProperties["microstrategyReportSourceId"] == "cube-1"
+    assert shared.customProperties["microstrategyReportSourceName"] == "Sales Cube"
+    # The independent report is the same kind of entity, under its own folder.
+    solo = properties[solo_urn]
+    assert solo.customProperties["microstrategyDashboardCount"] == "0"
+    assert "microstrategyDashboardIds" not in solo.customProperties
+    assert solo.externalUrl == (
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/report-solo"
+    )
+    assert (
+        _dataset_container_parents(workunits)[solo_urn]
+        == source.mapper.folder_key("project-1", "Shared Reports/Ad Hoc").as_urn()
+    )
+    # No `Report` chart, and no report-scoped source dataset: the only chart
+    # is the dossier's visualization.
+    assert list(_aspects_by_urn(workunits, ChartInfoClass)) == [
+        source.mapper.chart_urn("project-1", "dash-1", "viz-dash-1")
+    ]
+    assert source.mapper.report_urn("project-1", "report-solo") not in {
+        workunit.get_urn() for workunit in workunits
+    }
+    assert client.report_definitions == ["ds-shared", "report-solo"]
+    assert source.report.reports_scanned == 2
+    assert source.report.charts_scanned == 1
+    assert source.report.report_datasets_emitted == 2
+    assert source.report.reports_deduplicated == 1
+
+
+def test_per_report_extract_cubes_off_still_emits_report_pass_datasets() -> None:
+    source = _per_report_source(
+        {
+            "extract_cubes": False,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+        }
+    )
+    source.client = _SharedReportClient()  # type: ignore[assignment]
+
+    workunits = list(source._process_project(_PROJECT))
+
+    # Both reports were seen by the report pass, so both are emitted; the
+    # visualization still points at the shared one.
+    assert len(_aspects_by_urn(workunits, DatasetPropertiesClass)) == 2
+    source = _per_report_source({"extract_cubes": False})
+    source.client = _SharedReportClient()  # type: ignore[assignment]
+    workunits = list(source._process_project(_PROJECT))
+    assert _aspects_by_urn(workunits, DatasetPropertiesClass) == {}
+    charts = _aspects_by_urn(workunits, ChartInfoClass)
+    assert [chart.inputs for chart in charts.values()] == [[_SHARED_URN]]
+
+
+def test_per_report_parses_a_shared_report_sql_view_once() -> None:
+    source = _per_report_source({"extract_warehouse_lineage": True})
+    client = _SharedReportClient(second="dossier", with_sql=True)
+    source.client = client  # type: ignore[assignment]
+
+    with mock.patch.object(
+        source.lineage,
+        "warehouse_lineage_from_sql",
+        wraps=source.lineage.warehouse_lineage_from_sql,
+    ) as parse:
+        workunits = list(source._process_project(_PROJECT))
+
+    # Each dossier execution still yields its SQL view, but the shared
+    # report's SQL is parsed for the first dossier only.
+    assert client.sql_view_reads == ["dash-1", "dash-2"]
+    assert parse.call_count == 1
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert [upstream.dataset for upstream in lineage[_SHARED_URN].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_db.sales.fact_sales,PROD)"
+    ]
+    assert source.report.warehouse_lineage_edges == 1
+    assert source.report.reports_deduplicated == 1
+
+
+def test_per_report_report_pass_does_not_execute_a_report_a_dossier_settled() -> None:
+    source = _per_report_source(
+        {
+            "extract_warehouse_lineage": True,
+            "extract_report_sql_lineage": True,
+            "extract_source_warehouses": True,
+            "extract_reports": True,
+            "extract_independent_reports": True,
+        }
+    )
+    client = _SharedReportClient(with_sql=True)
+    source.client = client  # type: ignore[assignment]
+
+    with mock.patch.object(
+        source.lineage,
+        "warehouse_lineage_from_sql",
+        wraps=source.lineage.warehouse_lineage_from_sql,
+    ) as parse:
+        workunits = list(source._process_project(_PROJECT))
+
+    # The dossier's SQL view settled ds-shared, so the report pass opens an
+    # instance (an execution) only for the report no dashboard embeds.
+    assert client.report_instances == ["report-solo"]
+    assert parse.call_count == 2
+    lineage = _aspects_by_urn(workunits, UpstreamLineageClass)
+    assert {
+        urn.split(",")[1]: [u.dataset.split(",")[1] for u in aspect.upstreams]
+        for urn, aspect in lineage.items()
+    } == {
+        "project-1.ds-shared": ["sales_db.sales.fact_sales"],
+        "project-1.report-solo": ["sales_db.sales.fact_report_solo"],
+    }
