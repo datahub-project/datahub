@@ -106,6 +106,7 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -854,6 +855,46 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
+  @Test
+  public void testV3CriteriaAndSortsSelectTheCanonicalSharedField() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "createdAt", Condition.GREATER_THAN_OR_EQUAL_TO, "1")))));
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchSourceBuilder source =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(
+                    flags -> flags.setFulltext(false).setSkipAggregates(true)),
+                "*",
+                filter,
+                List.of(new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source();
+    String query = source.query().toString();
+
+    assertTrue(query.contains("\"sourceCreatedAt\""), query);
+    assertTrue(query.contains("\"_entityType\""), query);
+    assertTrue(query.contains("\"dataset\""), query);
+    assertEquals(((FieldSortBuilder) source.sorts().get(0)).getFieldName(), "sourceCreatedAt");
+  }
+
   /**
    * Keyword conditions on an unindexed label are left out. A group with nothing left matches
    * nothing. Indexed siblings in the same AND stay.
@@ -1364,8 +1405,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   /**
    * Of other, V3 matched fields fetch only what names or tags an entity: a document's text,
    * semantic text and custom properties are searched but never fetched, even when highlighting
-   * names them. Document title is labeled name, so the fetched value is the aspect field that
-   * stores it. copy_to does not put that value in the name field's _source.
+   * names them. Title stays a root because some entities index it under that name, so a document
+   * title is fetched as {@code title}. The shared mapping fetches {@code name} as well.
    */
   @Test
   public void testV3DocumentSearchFetchesNoFreeText() {
@@ -1388,9 +1429,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(query.contains("other.text"), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
     assertTrue(fetched.contains("urn"), fetched.toString());
-    assertTrue(fetched.contains("_aspects.documentInfo.title"), fetched.toString());
-    assertFalse(fetched.contains("title"), fetched.toString());
-    assertFalse(fetched.contains("name"), fetched.toString());
+    assertTrue(fetched.contains("name"), fetched.toString());
+    assertTrue(fetched.contains("title"), fetched.toString());
+    assertFalse(fetched.contains("_aspects.documentInfo.title"), fetched.toString());
     assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
 
     OperationContext naming =
@@ -1401,14 +1442,16 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .setSkipHighlighting(false)
                     .setCustomHighlightingFields(
                         new StringArray(List.of("name", "text", "customProperties"))));
-    assertEquals(
+    Set<String> highlighted =
         Set.of(
             handler
                 .getSearchRequest(naming, "runbook", null, null, 0, 10, List.of())
                 .source()
                 .fetchSource()
-                .includes()),
-        Set.of("urn", "_aspects.documentInfo.title"));
+                .includes());
+    assertTrue(highlighted.contains("urn"), highlighted.toString());
+    assertTrue(highlighted.contains("name"), highlighted.toString());
+    assertTrue(Collections.disjoint(highlighted, freeText), highlighted.toString());
   }
 
   /**

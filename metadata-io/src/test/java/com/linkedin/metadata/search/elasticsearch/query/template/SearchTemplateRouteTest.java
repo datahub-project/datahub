@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_EXACT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_IDENTITY_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIGHT_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_STRUCTURED_EXACT_URN;
@@ -73,8 +74,10 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertEquals(
         selector.select(opContext, "s3:\\/\\/bucket\\/key", true, null).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
-    assertEquals(selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
-    assertEquals(selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    assertEquals(
+        selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
+    assertEquals(
+        selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
     assertEquals(
         selector.select(opContext, "\\/q \"orders\"", true, null).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_EXACT_URN);
@@ -136,6 +139,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
     MergedSearchTemplate searchLight =
         classpath.load(opContext, "urn:li:searchTemplate:searchLight");
+    assertEquals(SearchTemplateRoutes.decide(searchLight, "*").target(), SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
         SearchTemplateRoutes.decide(searchLight, "urn:orders").target(), SEARCH_TEMPLATE_LIGHT_URN);
     assertEquals(
@@ -616,7 +620,8 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
     OperationContext scrolled = coordinator.bind(opContext, "*", true);
     assertEquals(
-        scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(), SEARCH_TEMPLATE_LIST_URN);
+        scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(),
+        SEARCH_TEMPLATE_LIST_BY_URN_URN);
 
     OperationContext routed = coordinator.bind(opContext, "customer orders");
     OperationContext pinned =
