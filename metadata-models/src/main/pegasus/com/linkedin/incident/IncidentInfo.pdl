@@ -100,9 +100,6 @@ record IncidentInfo {
   * (We probably should have modeled as an enum)
   */
   @Searchable = {
-    "v3": {
-      "queryByDefault": true
-    },
     "addToFilters": true,
     "filterNameOverride": "Priority"
   }
