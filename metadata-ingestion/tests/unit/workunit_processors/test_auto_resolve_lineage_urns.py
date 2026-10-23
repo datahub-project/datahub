@@ -283,6 +283,76 @@ def test_no_matches_settles_nothing() -> None:
     assert _pick_match(UPPER, []) is None
 
 
+# --- choosing a column out of the schema's casings ---------------------------------
+
+
+def test_a_column_present_verbatim_is_never_rewritten() -> None:
+    # The sibling casing existing is no reason to point the edge away from a column
+    # that is present exactly as written.
+    processor, _provide, patcher = _make_processor(
+        {UPPER: {"COL_A": "int", "Col_A": "int"}}
+    )
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="COL_A")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(UPPER, "COL_A")]
+    assert _fine_grained(out).matchType == LineageMatchTypeClass.EXACT
+    assert processor.report.num_column_urns_normalized == 0
+    assert processor.report.num_columns_ambiguous == 0
+
+
+def test_an_undecidable_column_collision_is_left_alone_and_flagged() -> None:
+    # Nothing to choose on, so picking one would emit an edge to a column the source
+    # never named, and EXACT would certify a column that nothing matched.
+    processor, _provide, patcher = _make_processor(
+        {UPPER: {"COL_A": "int", "Col_A": "int"}}
+    )
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="col_a")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(UPPER, "col_a")]
+    assert _fine_grained(out).matchType == LineageMatchTypeClass.UNRESOLVED
+    assert processor.report.num_columns_ambiguous == 1
+    assert processor.report.num_refs_unresolved == 1
+    assert processor.report.num_column_urns_normalized == 0
+    # The sample names the column, which is the thing the operator has to go and look at.
+    assert sorted(processor.report.unresolved_refs_sample) == [
+        make_schema_field_urn(UPPER, "col_a")
+    ]
+
+
+def test_an_undecidable_column_is_left_whole_even_when_its_parent_could_heal() -> None:
+    # Healing the parent alone would still leave the edge on an unknown column, so the
+    # field reference is left as emitted -- the table-level upstream heals separately.
+    processor, _provide, patcher = _make_processor(
+        {LOWER: {"COL_A": "int", "Col_A": "int"}}
+    )
+    try:
+        [out] = list(
+            processor.process(iter([_upstream_wu(UPPER, fine_grained_field="col_a")]))
+        )
+    finally:
+        patcher.stop()
+
+    assert _fine_grained(out).upstreams == [make_schema_field_urn(UPPER, "col_a")]
+    assert _fine_grained(out).matchType == LineageMatchTypeClass.UNRESOLVED
+    assert processor.report.num_columns_ambiguous == 1
+    assert processor.report.num_column_urns_normalized == 0
+    # The table-level reference is healed regardless of the column's verdict.
+    assert _stored_upstream(out) == LOWER
+    assert (
+        _upstream_aspect(out).upstreams[0].matchType == LineageMatchTypeClass.NORMALIZED
+    )
+
+
 # --- table-level dataset URN casing -----------------------------------------------
 
 
@@ -1934,7 +2004,7 @@ def test_columns_are_fetched_for_a_slice_whose_schemas_were_never_loaded():
 
 # --- what checking a column actually established -------------------------------------
 #
-# match_columns_to_schema echoes an unmatched column straight back, so an unchanged field
+# match_column_to_schema echoes an unmatched column straight back, so an unchanged field
 # path alone cannot tell "already correct" from "not in the schema" from "never checked".
 
 
