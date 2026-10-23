@@ -515,6 +515,15 @@ def get_kafka_schema_registry_url() -> Optional[str]:
     return os.getenv("KAFKA_SCHEMAREGISTRY_URL")
 
 
+def get_kafka_auto_register_schemas() -> bool:
+    """Auto-register MCE/MCP schemas with the Kafka Schema Registry (default: True).
+
+    Set to "false" when the ingestion user only has read access to the Schema
+    Registry; the schemas must then be pre-registered.
+    """
+    return os.getenv("DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS", "true").lower() == "true"
+
+
 def get_spark_version() -> Optional[str]:
     """Spark version (for S3 source)."""
     return os.getenv("SPARK_VERSION")
