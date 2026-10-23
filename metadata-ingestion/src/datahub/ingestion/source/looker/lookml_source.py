@@ -1,15 +1,19 @@
+import ipaddress
 import logging
 import pathlib
+import socket
 import tempfile
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from urllib.parse import urlparse
 
 import lkml
 import lkml.simple
 from looker_sdk.error import SDKError
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.git import GitInfo
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -262,6 +266,297 @@ class LookerManifest:
     remote_dependencies: List[LookerRemoteDependency]
 
 
+# git:// is omitted: it is unauthenticated and not a typical Looker remote_dependency URL.
+_ALLOWED_GIT_SCHEMES = frozenset({"https", "ssh"})
+# A parsed clone host is only ever ASCII letters, digits, and .:-_ (hostnames,
+# IPv4, bracket-stripped IPv6). Reject anything else -- percent-encoding, IPv6
+# zone ids, backslashes, non-ASCII/IDN, control bytes -- because git/libcurl may
+# decode or IDNA-normalize it into a different, possibly blocked host than the
+# validator sees. Reject-on-ambiguity beats trying to match every decode.
+_SAFE_HOST_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789.:-_")
+_BLOCKED_GIT_HOSTNAMES = frozenset(
+    {
+        "localhost.localdomain",
+        "metadata",
+        "metadata.google.internal",
+        "metadata.goog",
+    }
+)
+# Only metadata IPs the generic _is_blocked_ip checks miss. Loopback, unspecified,
+# and link-local (incl. 169.254.169.254 / 169.254.170.2) are already covered there.
+_BLOCKED_GIT_IPS = frozenset(
+    {
+        ipaddress.ip_address("fd00:ec2::254"),  # AWS IMDS over IPv6 (unique-local)
+        ipaddress.ip_address(
+            "100.100.100.200"
+        ),  # AliCloud metadata (globally routable)
+        ipaddress.ip_address("192.0.0.192"),  # Oracle Cloud IMDS
+    }
+)
+
+
+@dataclass(frozen=True)
+class RemoteDependencyUrlCheck:
+    allowed: bool
+    reason: Optional[str] = None
+    hostname: Optional[str] = None
+
+
+def _normalize_hostname(hostname: str) -> str:
+    """Normalize a hostname for denylist/allowlist comparison."""
+    h = hostname.strip().lower()
+    if h.endswith("."):
+        h = h[:-1]  # trailing FQDN root dot
+    return h
+
+
+def _parse_ip(
+    hostname: str,
+) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
+    """Parse a hostname as an IP literal. Handles alternative IPv4 encodings
+    (decimal/hex/octal) and IPv4-mapped IPv6, which curl/git accept but
+    ``ipaddress.ip_address`` does not."""
+    normalized = _normalize_hostname(hostname)
+    try:
+        return ipaddress.ip_address(normalized)
+    except ValueError:
+        pass
+    if normalized.startswith("::ffff:"):
+        return _parse_ipv4_loose(normalized[len("::ffff:") :])
+    return _parse_ipv4_loose(normalized)
+
+
+def _parse_ipv4_loose(s: str) -> Optional[ipaddress.IPv4Address]:
+    """Parse inet_aton-style IPv4 forms libcurl/git accept but
+    ``ipaddress.ip_address`` rejects: per-octet octal/hex (``0177.0.0.1``),
+    single-integer decimal/octal/hex (``2130706433``), and 2-/3-part short
+    forms (``127.1``, ``127.0.1``)."""
+    try:
+        return ipaddress.IPv4Address(socket.inet_aton(s))
+    except (OSError, ValueError):
+        # ValueError covers AddressValueError, an embedded null, and a lone
+        # surrogate (UnicodeError); a malformed host must not abort the run.
+        return None
+
+
+def _scp_userhost(url: str) -> Optional[str]:
+    """The ``[user@]host`` part of an scp URL: the text before the first colon
+    outside an IPv6 ``[ ]`` group. None if the brackets are unbalanced or there
+    is no such colon."""
+    depth = 0
+    for i, ch in enumerate(url):
+        if ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth < 0:
+                return None
+        elif ch == ":" and depth == 0:
+            return url[:i]
+    return None
+
+
+def _scp_host(url: str) -> Optional[str]:
+    """Host of an scp-style ``[user@]host:path`` Git URL. The host is the text
+    after the last ``@``, or a single bracketed ``[ipv6]`` group that is the
+    whole host token (``git@[::1]:p`` -> ``::1``). git and ssh resolve
+    multi-bracket authorities such as ``[a]@[b]`` inconsistently, so anything
+    that is not one of those two clean shapes is rejected rather than guessed
+    at, since a real remote_dependency URL is never that shape."""
+    if "@" not in url or ":" not in url:
+        return None
+    userhost = _scp_userhost(url)
+    if userhost is None:
+        return None
+    if "[" in userhost or "]" in userhost:
+        # A legitimate bracketed host is a single [ ] pair that IS the whole
+        # host token, optionally preceded by 'user@'. Reject every other bracket
+        # shape instead of guessing which of several hosts git/ssh will use.
+        if (
+            userhost.count("[") != 1
+            or userhost.count("]") != 1
+            or not userhost.endswith("]")
+        ):
+            return None
+        open_i = userhost.index("[")
+        if userhost[:open_i] and not userhost[:open_i].endswith("@"):
+            return None
+        host = userhost[open_i + 1 : -1]
+    else:
+        host = userhost.rsplit("@", 1)[-1]
+    if not host or any(c in host for c in "[]@/"):
+        return None
+    return host
+
+
+def _hostname_from_git_url(url: str) -> Optional[str]:
+    """Extract the hostname from an HTTPS, SSH, or scp-style Git URL."""
+    stripped = url.strip()
+    if not stripped:
+        return None
+
+    if "://" not in stripped:
+        host = _scp_host(stripped)
+        return _normalize_hostname(host) if host else None
+
+    try:
+        parsed = urlparse(stripped)
+    except ValueError:
+        return None
+    if parsed.hostname:
+        return _normalize_hostname(parsed.hostname)
+    return None
+
+
+def _is_blocked_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
+    # Unwrap IPv4-mapped IPv6 so literal blocked IPs (e.g. AliCloud 100.100.100.200)
+    # are caught; is_loopback/is_link_local don't flag their mapped forms.
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    if ip in _BLOCKED_GIT_IPS:
+        return True
+    return bool(
+        ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast
+    )
+
+
+def _is_blocked_git_host(hostname: str) -> bool:
+    normalized = _normalize_hostname(hostname)
+    # RFC 6761 6.3 reserves the entire .localhost TLD for loopback, so block it by
+    # name rather than trusting our resolver to agree with git's on *.localhost.
+    if normalized == "localhost" or normalized.endswith(".localhost"):
+        return True
+    if normalized in _BLOCKED_GIT_HOSTNAMES:
+        return True
+    ip = _parse_ip(normalized)
+    if ip is not None:
+        return _is_blocked_ip(ip)
+    return False
+
+
+def _resolves_to_blocked_ip(hostname: str) -> bool:
+    """Reject a DNS name that resolves to a blocked IP right now.
+
+    This is not DNS-rebinding protection: git re-resolves the host at clone time,
+    so a host that returns a public IP here and a blocked IP at clone is still
+    cloned. Closing that needs IP pinning or executor egress limits, not a
+    pre-flight check.
+    """
+    if _parse_ip(hostname) is not None:
+        return False  # IP literal, handled by _is_blocked_git_host
+    try:
+        infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except (OSError, ValueError) as e:
+        # Fail open: an unresolvable host cannot be cloned anyway, and split-horizon
+        # DNS on the executor is legitimate. getaddrinfo IDNA-encodes a str host, so a
+        # bad label (empty or >63 chars) raises UnicodeError (a ValueError, not an
+        # OSError); catch it here or it aborts the run. Log so a skip stays visible.
+        logger.debug(f"DNS check skipped for {hostname}: {e}")
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if _is_blocked_ip(ip):
+            return True
+    return False
+
+
+def check_remote_dependency_url(
+    url: str,
+    allowed_pattern: Optional[AllowDenyPattern] = None,
+) -> RemoteDependencyUrlCheck:
+    """Validate a manifest.lkml remote_dependency URL before git clone."""
+    if not isinstance(url, str):
+        # lkml parses `url: { ... }` / `url: [ ... ]` to a dict/list and
+        # LookerRemoteDependency does not enforce str, so guard before .strip().
+        return RemoteDependencyUrlCheck(
+            allowed=False, reason="remote_dependency URL is not a string"
+        )
+    stripped = url.strip()
+    if not stripped:
+        return RemoteDependencyUrlCheck(
+            allowed=False, reason="remote_dependency URL is empty"
+        )
+
+    scheme: Optional[str] = None
+    if "://" in stripped:
+        try:
+            parsed = urlparse(stripped)
+        except ValueError as exc:
+            return RemoteDependencyUrlCheck(
+                allowed=False, reason=f"invalid Git URL: {exc}"
+            )
+        if "\\" in parsed.netloc:
+            # A backslash in the authority is parsed differently by browsers,
+            # libcurl, and urlparse; reject rather than guess which host wins.
+            return RemoteDependencyUrlCheck(
+                allowed=False, reason="backslash in URL authority is not allowed"
+            )
+        scheme = (parsed.scheme or "").lower()
+        if scheme not in _ALLOWED_GIT_SCHEMES:
+            return RemoteDependencyUrlCheck(
+                allowed=False,
+                reason=(
+                    f"scheme '{scheme}' is not allowed; "
+                    "use https:// or an SSH Git URL (git@host:path or ssh://)"
+                ),
+            )
+    elif not (stripped.startswith("git@") or ("@" in stripped and ":" in stripped)):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=(
+                "URL must be https://, ssh://, or an SCP-style Git URL such as "
+                "git@host:org/repo.git"
+            ),
+        )
+
+    hostname = _hostname_from_git_url(stripped)
+    if not hostname:
+        return RemoteDependencyUrlCheck(
+            allowed=False, reason="could not parse a hostname from the Git URL"
+        )
+
+    if not all(c in _SAFE_HOST_CHARS for c in hostname):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=(
+                f"hostname '{hostname}' has characters not allowed in a Git host "
+                "(percent-encoding, IPv6 zone id, or non-ASCII)"
+            ),
+            hostname=hostname,
+        )
+
+    if _is_blocked_git_host(hostname):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=f"hostname '{hostname}' is not allowed (loopback, link-local, or metadata)",
+            hostname=hostname,
+        )
+
+    if allowed_pattern is not None and not allowed_pattern.allowed(hostname):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=(
+                f"hostname '{hostname}' does not match remote_dependency_domain_pattern"
+            ),
+            hostname=hostname,
+        )
+
+    if _resolves_to_blocked_ip(hostname):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=(
+                f"hostname '{hostname}' resolves to a blocked IP "
+                "(loopback, link-local, or metadata)"
+            ),
+            hostname=hostname,
+        )
+
+    return RemoteDependencyUrlCheck(allowed=True, hostname=hostname)
+
+
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.GA)
@@ -508,11 +803,14 @@ class LookMLSource(StatefulIngestionSourceBase):
             project_name=manifest_dict.get("project_name"),
             constants=manifest_dict.get("constants", []),
             local_dependencies=[
-                x["project"] for x in manifest_dict.get("local_dependencys", [])
+                x["project"]
+                for x in manifest_dict.get("local_dependencies", [])
+                if x.get("project")
             ],
             remote_dependencies=[
                 LookerRemoteDependency(name=x["name"], url=x["url"], ref=x.get("ref"))
-                for x in manifest_dict.get("remote_dependencys", [])
+                for x in manifest_dict.get("remote_dependencies", [])
+                if x.get("name") and x.get("url")
             ],
         )
         return manifest
@@ -637,6 +935,25 @@ class LookMLSource(StatefulIngestionSourceBase):
             if remote_project.name in self.base_projects_folder:
                 # In case a remote_dependency is specified in the project_dependencies config,
                 # we don't need to clone it again.
+                continue
+
+            url_check = check_remote_dependency_url(
+                url=remote_project.url,
+                allowed_pattern=self.source_config.remote_dependency_domain_pattern,
+            )
+            if not url_check.allowed:
+                self.reporter.warning(
+                    title="Skipped remote LookML dependency",
+                    message=(
+                        "Did not clone a remote_dependency from manifest.lkml because "
+                        "its URL is not allowed."
+                    ),
+                    context=(
+                        f"project={remote_project.name}, "
+                        f"url={GitClone.sanitize_repo_url(remote_project.url)}, "
+                        f"reason={url_check.reason}"
+                    ),
+                )
                 continue
 
             p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")

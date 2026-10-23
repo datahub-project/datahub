@@ -156,6 +156,78 @@ private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key
 private_key_password: <Password for your private key>
 ```
 
+##### Workload Identity Federation (keyless)
+
+When ingestion runs on AWS, Azure or GCP, [Workload Identity Federation](https://docs.snowflake.com/en/user-guide/workload-identity-federation) lets the ingestion process authenticate with the cloud identity it already has. There is no password, private key or token to store, distribute or rotate.
+
+This requires the ingestion process to run **on** that cloud: the Snowflake connector reads a short-lived attestation from the cloud's instance metadata service. It does not work from a laptop or from any host outside the three supported providers.
+
+| Config option                                     | Value                                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `authentication_type`                             | `WORKLOAD_IDENTITY_AUTHENTICATOR`                                                           |
+| `workload_identity_provider`                      | Required. One of `AWS`, `AZURE` or `GCP`, matching the cloud the ingestion process runs on. |
+| `username`, `password`, `private_key` and `token` | Not used by this authentication type. Omit them.                                            |
+
+On the Snowflake side, create a service user whose workload identity is the cloud identity your ingestion runs as, then grant it your DataHub role. Use the statement for your cloud:
+
+```sql
+-- AWS: the ARN of the IAM role attached to the EC2 instance, ECS task or EKS pod
+CREATE USER datahub_user
+  WORKLOAD_IDENTITY = (
+    TYPE = AWS
+    ARN = '<amazon_resource_identifier>'
+  )
+  TYPE = SERVICE
+  DEFAULT_ROLE = datahub_role
+  DEFAULT_WAREHOUSE = '<your-warehouse>';
+```
+
+```sql
+-- Azure: the object ID of the managed identity assigned to the VM, Function or AKS pod
+CREATE USER datahub_user
+  WORKLOAD_IDENTITY = (
+    TYPE = AZURE
+    ISSUER = 'https://login.microsoftonline.com/<tenant_id>/v2.0'
+    SUBJECT = '<managed_identity_object_id>'
+  )
+  TYPE = SERVICE
+  DEFAULT_ROLE = datahub_role
+  DEFAULT_WAREHOUSE = '<your-warehouse>';
+```
+
+```sql
+-- GCP: the unique ID of the service account attached to the GCE VM, Cloud Run service or GKE pod
+CREATE USER datahub_user
+  WORKLOAD_IDENTITY = (
+    TYPE = GCP
+    SUBJECT = '<unique_id_of_service_account>'
+  )
+  TYPE = SERVICE
+  DEFAULT_ROLE = datahub_role
+  DEFAULT_WAREHOUSE = '<your-warehouse>';
+```
+
+```sql
+GRANT ROLE datahub_role TO USER datahub_user;
+```
+
+Configuring a workload identity on a service user requires `OWNERSHIP` on that user, or the `MODIFY PROGRAMMATIC AUTHENTICATION METHODS` privilege on it.
+
+Then pass the following values in the recipe config instead of a password:
+
+```yml
+authentication_type: WORKLOAD_IDENTITY_AUTHENTICATOR
+workload_identity_provider: AWS # or AZURE, or GCP
+```
+
+On Azure the connector requests the token for Snowflake's published Entra resource, so the recipe needs nothing beyond these two values. That resource is only the token's audience and does not pick the identity: to use a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable (see the notes below). In the rare case that Snowflake's resource is not the right audience, pass `workload_identity_entra_resource` under `connect_args`.
+
+A few environment notes:
+
+- **Azure**: with a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable to that identity's client ID on the process that runs ingestion (for UI-based ingestion, the executor or worker pod), so the connector requests a token for the right identity. This is environment configuration, not a recipe field.
+- **AWS**: the region is read from `AWS_REGION` or `AWS_DEFAULT_REGION`, falling back to the instance metadata service. The connector needs `boto3`, which it installs by default.
+- **Domains**: the attestation audience is the literal `snowflakecomputing.com`, so workload identity is not expected to work with the `snowflake_domain: snowflakecomputing.cn` setting.
+
 ##### Okta OAuth
 
 To set up Okta OAuth authentication, roughly follow the four steps in [this guide](https://docs.snowflake.com/en/user-guide/oauth-okta).

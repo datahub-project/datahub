@@ -37,8 +37,14 @@ FILE_FIELDS = (
     "webViewLink,owners(emailAddress),lastModifyingUser(emailAddress)"
 )
 LIST_FIELDS = f"nextPageToken,files({FILE_FIELDS})"
+FILE_WITH_PARENTS_FIELDS = f"{FILE_FIELDS},parents,trashed"
+# Folder levels `explain` climbs from a Doc looking for a configured root.
+MAX_FOLDER_DEPTH = 100
 ABOUT_FIELDS = "user(emailAddress)"
 DRIVE_FIELDS = "id,name,createdTime"
+DRIVES_LIST_FIELDS = f"nextPageToken,drives({DRIVE_FIELDS})"
+# The largest page drives.list accepts.
+DRIVES_PAGE_SIZE = 100
 ORDER_BY = "folder,name"
 
 CHILDREN_QUERY_TEMPLATE = (
@@ -51,6 +57,7 @@ API_FILES_LIST = "files.list"
 API_FILES_GET = "files.get"
 API_FILES_EXPORT = "files.export"
 API_DRIVES_GET = "drives.get"
+API_DRIVES_LIST = "drives.list"
 API_ABOUT_GET = "about.get"
 
 PROP_FILE_ID = "drive_file_id"
@@ -81,6 +88,8 @@ FAILURE_EXPORT_FAILED = "export_failed"
 
 DRIVE_URL_FOLDER_ID_RE = re.compile(r"/folders/([A-Za-z0-9_-]+)")
 DRIVE_URL_QUERY_ID_RE = re.compile(r"[?&]id=([A-Za-z0-9_-]+)")
+# https://docs.google.com/document/d/<id>/edit and https://drive.google.com/file/d/<id>
+DRIVE_URL_FILE_ID_RE = re.compile(r"/d/([A-Za-z0-9_-]+)")
 DRIVE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,}$")
 PLATFORM_INSTANCE_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
@@ -98,4 +107,31 @@ IMAGE_PLACEHOLDER_WITH_ALT = "*[Image: {alt}]*"
 EXCESS_BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 EXPORT_TOO_LARGE_REASON = "exportSizeLimitExceeded"
+HTTP_FORBIDDEN = 403
 HTTP_NOT_FOUND = 404
+# Drive answers quota exhaustion with 403 too; that is not an access problem.
+RATE_LIMIT_REASONS = frozenset({"rateLimitExceeded", "userRateLimitExceeded"})
+
+# OAuth token-endpoint error codes (RFC 6749 section 5.2) that a service account
+# hits during setup.
+OAUTH_UNAUTHORIZED_CLIENT = "unauthorized_client"
+OAUTH_INVALID_GRANT = "invalid_grant"
+
+# Docs carry no subtype, so the probe names their kind itself; folders use
+# DocumentSubTypes.FOLDER, as ingestion does.
+KIND_GOOGLE_DOC = "Google Doc"
+# Scalar facts on probe listing records, which `probe filter --from-run` hands back
+# to the verdict override: the folder paths above a folder, and the folder paths
+# down to a Doc's folder, root first and newline-separated (a Drive name has none).
+ATTR_ANCESTORS = "ancestors"
+ATTR_FOLDERS = "folders"
+CHAIN_SEPARATOR = "\n"
+
+ROOT_KIND_SHARED_DRIVE = "shared_drive"
+ROOT_KIND_SHARED_DRIVE_FOLDER = "shared_drive_folder"
+ROOT_KIND_MY_DRIVE_FOLDER = "my_drive_folder"
+ROOT_PROBLEM_NOT_FOUND = "not_found_or_not_shared"
+ROOT_PROBLEM_FORBIDDEN = "forbidden"
+ROOT_PROBLEM_NOT_A_FOLDER = "not_a_folder"
+CREDENTIAL_SERVICE_ACCOUNT = "service_account"
+CREDENTIAL_APPLICATION_DEFAULT = "application_default"

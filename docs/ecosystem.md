@@ -16,6 +16,7 @@ DataHub is part of a rich ecosystem of tools and integrations.
 | **[datahub-helm](https://github.com/acryldata/datahub-helm)**                                 | Production-ready Helm charts for Kubernetes deployment              | [Charts](https://artifacthub.io/packages/helm/datahub/datahub) |
 | **[analytics-agent](https://github.com/datahub-project/analytics-agent)**                     | Open-source talk-to-data agent grounded in your DataHub catalog     | [Guide](features/feature-guides/analytics-agent.md)            |
 | **[datahub-skills](https://github.com/datahub-project/datahub-skills)**                       | Agent skills for search, lineage, enrichment, and quality workflows | [Guide](dev-guides/agent-context/skills.md)                    |
+| **[datahub-cloud-ai-plugins](https://github.com/datahub-project/datahub-cloud-ai-plugins)**   | DataHub Cloud plugin for Claude, ChatGPT, and Codex                 | [Guide](dev-guides/agent-context/plugins.md)                   |
 | **[static-assets](https://github.com/datahub-project/static-assets)**                         | Logos, images, and brand assets for DataHub                         | -                                                              |
 
 ## Community Plugins & Integrations

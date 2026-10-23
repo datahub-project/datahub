@@ -8,12 +8,12 @@ import { ENTITY_INDEX_FILTER_NAME } from '@app/search/utils/constants';
 import { DOMAINS_FILTER_NAME, OWNERS_FILTER_NAME, TAGS_FILTER_NAME } from '@app/searchV2/utils/constants';
 
 import { ScrollAcrossEntitiesQueryVariables } from '@graphql/search.generated';
-import { EntityType, FacetFilterInput, FilterOperator, SortOrder } from '@types';
+import { EntityType, FacetFilterInput, SortOrder } from '@types';
 
 export const GLOSSARY_SCROLL_COUNT = DEFAULT_GLOSSARY_CHILDREN_COUNT;
 
 export type GetGlossaryScrollInputArgs = {
-    /** Parent node URN for children; null = roots (`parentNode` NOT EXISTS). Ignored when `ignoreParentScope`. */
+    /** Parent node URN for children; null = roots (`hasParentNode` false). Ignored when `ignoreParentScope`. */
     parentNode: string | null;
     scrollId?: string | null;
     sort?: GlossarySidebarSortValue;
@@ -50,7 +50,9 @@ export function getGlossaryScrollInput({
     if (!ignoreParentScope) {
         const parentFilter: FacetFilterInput = parentNode
             ? { field: 'parentNode', values: [parentNode] }
-            : { field: 'parentNode', condition: FilterOperator.Exists, negated: true };
+            : // `hasParentNode` is only indexed from the info aspect, so this also excludes terms that are
+              // referenced by assets but never defined (no glossaryTermInfo).
+              { field: 'hasParentNode', values: ['false'] };
         filters.push(parentFilter);
     }
 

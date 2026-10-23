@@ -8,7 +8,7 @@ import {
     getInitialLookbackWindowType,
     isProfileOutsideMaxLookback,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
-import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { toLocalDateString } from '@app/sharedV2/time/timeUtils';
 
 type ManualRange<T extends string> = {
     urn: string | null | undefined;

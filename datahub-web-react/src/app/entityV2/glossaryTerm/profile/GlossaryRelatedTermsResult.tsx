@@ -7,7 +7,7 @@ import AddRelatedTermsModal from '@app/entityV2/glossaryTerm/profile/AddRelatedT
 import RelatedTerm from '@app/entityV2/glossaryTerm/profile/RelatedTerm';
 import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { CustomIcon } from '@app/sharedV2/icons/customIcons/CustomIcon';
 import addTerm from '@app/sharedV2/icons/customIcons/add-term.svg';
 import { Button } from '@src/alchemy-components';
