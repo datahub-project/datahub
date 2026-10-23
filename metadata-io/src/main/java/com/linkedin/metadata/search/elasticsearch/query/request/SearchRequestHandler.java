@@ -757,7 +757,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
     Map<String, List<String>> searched =
         v3SearchQueryBuilder.searchedFields(opContext, entitySpecs);
-    return SearchHighlightSelection.sourcePaths(selected, searched, searched.keySet());
+    return SearchHighlightSelection.sourcePaths(
+        selected,
+        searched,
+        searched.keySet(),
+        v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs));
   }
 
   /** YAML highlight configuration is the base set when no template is executing. */

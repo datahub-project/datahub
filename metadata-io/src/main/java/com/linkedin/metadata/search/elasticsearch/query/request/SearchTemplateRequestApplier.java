@@ -305,7 +305,11 @@ public final class SearchTemplateRequestApplier {
     for (String field : template.queriedFields()) {
       queried.add(baseQueryField(field));
     }
-    return SearchHighlightSelection.sourcePaths(template.highlights(), searched, queried);
+    return SearchHighlightSelection.sourcePaths(
+        template.highlights(),
+        searched,
+        queried,
+        v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs));
   }
 
   /** No sort, or only descending {@code _score} / {@code score}, keeps rescore. */

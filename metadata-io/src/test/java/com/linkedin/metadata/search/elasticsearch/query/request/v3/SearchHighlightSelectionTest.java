@@ -74,7 +74,32 @@ public class SearchHighlightSelectionTest {
             "tags_1", List.of("tags"));
     assertEquals(
         SearchHighlightSelection.sourcePaths(
-            List.of("name", "description", "notSearched"), searched, List.of("name", "tags_1")),
+            List.of("name", "description", "notSearched"),
+            searched,
+            List.of("name", "tags_1"),
+            List.of()),
         List.of("name"));
+  }
+
+  /** A structured property is its own source path, whether queried directly or through copyTo. */
+  @Test
+  public void testSourcePathsKeepSelectedStructuredProperties() {
+    Map<String, List<String>> searched = Map.of("name", List.of("name"));
+    assertEquals(
+        SearchHighlightSelection.sourcePaths(
+            List.of("structuredProperties.copied", "structuredProperties.queried"),
+            searched,
+            List.of("name", "structuredProperties.queried"),
+            List.of("structuredProperties.copied")),
+        List.of("structuredProperties.copied", "structuredProperties.queried"));
+
+    // A property this query does not read is dropped, as any other unqueried field is
+    assertTrue(
+        SearchHighlightSelection.sourcePaths(
+                List.of("structuredProperties.other"),
+                searched,
+                List.of("name"),
+                List.of("structuredProperties.copied"))
+            .isEmpty());
   }
 }

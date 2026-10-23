@@ -70,13 +70,16 @@ public final class SearchHighlightSelection {
 
   /**
    * Source paths for highlight names the query actually searches. Aspect paths and fields the query
-   * does not read are left out.
+   * does not read are left out. A structured property is its own path: {@code copy_to} does not put
+   * its value on the shared field in {@code _source}, so a selected property is read where it is
+   * stored.
    */
   @Nonnull
   public static List<String> sourcePaths(
       @Nonnull Collection<String> highlightNames,
       @Nonnull Map<String, List<String>> searched,
-      @Nonnull Collection<String> queriedRoots) {
+      @Nonnull Collection<String> queriedRoots,
+      @Nonnull Collection<String> structuredProperties) {
     Set<String> queried = new LinkedHashSet<>();
     for (String root : queriedRoots) {
       String indexed = indexedRoot(root);
@@ -85,8 +88,13 @@ public final class SearchHighlightSelection {
       }
     }
     Map<String, List<String>> selected = new LinkedHashMap<>();
+    List<String> properties = new ArrayList<>();
     for (String name : normalize(highlightNames)) {
-      if (queried.contains(name) && searched.containsKey(name)) {
+      if (name.startsWith(V3SearchFields.STRUCTURED_PROPERTIES + ".")) {
+        if (queried.contains(name) || structuredProperties.contains(name)) {
+          properties.add(name);
+        }
+      } else if (queried.contains(name) && searched.containsKey(name)) {
         selected.put(name, searched.get(name));
       }
     }
@@ -96,6 +104,7 @@ public final class SearchHighlightSelection {
         paths.add(path);
       }
     }
+    paths.addAll(properties);
     return paths;
   }
 
