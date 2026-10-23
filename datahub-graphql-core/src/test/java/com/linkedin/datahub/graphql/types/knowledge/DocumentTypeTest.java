@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,12 +26,23 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.knowledge.DocumentContents;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.DocumentKey;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.ExecutionResult;
+import graphql.GraphQL;
 import graphql.execution.DataFetcherResult;
+import graphql.schema.idl.RuntimeWiring;
+import graphql.schema.idl.SchemaGenerator;
+import graphql.schema.idl.SchemaParser;
+import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.mockito.Mockito;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class DocumentTypeTest {
@@ -131,6 +143,127 @@ public class DocumentTypeTest {
 
     // Assert second element is null.
     assertNull(result.get(1));
+  }
+
+  @DataProvider
+  public Object[][] viewAuthorizationEnabled() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "viewAuthorizationEnabled")
+  public void testBatchLoadWithDeniedDocument(boolean viewAuthorizationEnabled) throws Exception {
+    Urn visibleUrn = Urn.createFromString(TEST_DOCUMENT_1_URN);
+    Urn deniedUrn = Urn.createFromString(TEST_DOCUMENT_2_URN);
+    String missingUrn = "urn:li:document:missing";
+    Map<Urn, EntityResponse> entities =
+        ImmutableMap.of(
+            visibleUrn, createEntityResponse(visibleUrn),
+            deniedUrn, createEntityResponse(deniedUrn));
+    EntityClient client = Mockito.mock(EntityClient.class);
+    Mockito.when(client.batchGetV2(any(), Mockito.anyString(), Mockito.anySet(), Mockito.anySet()))
+        .thenAnswer(
+            invocation -> {
+              // Return only requested entities, as the real client does. An early authorization
+              // filter must not be masked by a mock returning unrequested documents.
+              Map<Urn, EntityResponse> requestedEntities = new HashMap<>();
+              for (Urn urn : invocation.<Set<Urn>>getArgument(2)) {
+                if (entities.containsKey(urn)) {
+                  requestedEntities.put(urn, entities.get(urn));
+                }
+              }
+              return requestedEntities;
+            });
+
+    QueryContext context =
+        getMockAllowContextForResource(
+            "urn:li:corpuser:test",
+            PoliciesConfig.VIEW_ENTITY_PAGE_PRIVILEGE.getType(),
+            visibleUrn);
+    OperationContext opContext = context.getOperationContext();
+    Mockito.when(context.getOperationContext())
+        .thenReturn(
+            opContext.toBuilder()
+                .operationContextConfig(
+                    opContext.getOperationContextConfig().toBuilder()
+                        .viewAuthorizationConfiguration(
+                            ViewAuthorizationConfiguration.builder()
+                                .enabled(viewAuthorizationEnabled)
+                                .build())
+                        .build())
+                .build(opContext.getSessionActorContext(), false));
+
+    List<DataFetcherResult<Document>> result =
+        new DocumentType(client)
+            .batchLoad(
+                ImmutableList.of(TEST_DOCUMENT_2_URN, missingUrn, TEST_DOCUMENT_1_URN), context);
+
+    assertEquals(result.size(), 3);
+    assertNotNull(result.get(0), "Denied documents must not null out SearchResult.entity");
+    Document deniedDocument = result.get(0).getData();
+    assertEquals(deniedDocument.getUrn(), TEST_DOCUMENT_2_URN);
+    assertEquals(deniedDocument.getType(), EntityType.DOCUMENT);
+    assertNotNull(deniedDocument.getPlatform(), "Document.platform is non-nullable");
+    if (viewAuthorizationEnabled) {
+      assertNull(deniedDocument.getInfo());
+      assertNull(deniedDocument.getOwnership());
+    } else {
+      assertEquals(deniedDocument.getInfo().getContents().getText(), "Test content");
+      assertNotNull(deniedDocument.getOwnership());
+    }
+    assertNull(result.get(1), "Truly missing documents must still return null");
+    Document visibleDocument = result.get(2).getData();
+    assertEquals(visibleDocument.getUrn(), TEST_DOCUMENT_1_URN);
+    assertEquals(visibleDocument.getInfo().getTitle(), "Test Tutorial");
+    assertEquals(visibleDocument.getInfo().getContents().getText(), "Test content");
+    assertNotNull(visibleDocument.getOwnership());
+
+    // Exercise the non-null search response contract, including a request for document details.
+    GraphQL graphQL =
+        GraphQL.newGraphQL(
+                new SchemaGenerator()
+                    .makeExecutableSchema(
+                        new SchemaParser()
+                            .parse(
+                                """
+                                type Query { searchResults: [SearchResult!]! }
+                                type SearchResult { entity: Document! }
+                                type Document { urn: String!, info: DocumentInfo }
+                                type DocumentInfo { title: String, contents: DocumentContent }
+                                type DocumentContent { text: String }
+                                """),
+                        RuntimeWiring.newRuntimeWiring()
+                            .type(
+                                "Query",
+                                wiring ->
+                                    wiring.dataFetcher(
+                                        "searchResults",
+                                        env ->
+                                            ImmutableList.of(
+                                                ImmutableMap.of("entity", result.get(0)),
+                                                ImmutableMap.of("entity", result.get(2)))))
+                            .build()))
+            .build();
+    ExecutionResult searchResult =
+        graphQL.execute("{ searchResults { entity { urn info { title contents { text } } } } }");
+    assertTrue(searchResult.getErrors().isEmpty(), searchResult.getErrors().toString());
+    Map<String, Object> data = searchResult.getData();
+    assertEquals(((List<?>) data.get("searchResults")).size(), 2);
+  }
+
+  private static EntityResponse createEntityResponse(Urn urn) {
+    return new EntityResponse()
+        .setEntityName(Constants.DOCUMENT_ENTITY_NAME)
+        .setUrn(urn)
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    Constants.DOCUMENT_KEY_ASPECT_NAME,
+                    new EnvelopedAspect()
+                        .setValue(new Aspect(new DocumentKey().setId(urn.getId()).data())),
+                    Constants.DOCUMENT_INFO_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(TEST_DOCUMENT_1_INFO.data())),
+                    Constants.OWNERSHIP_ASPECT_NAME,
+                    new EnvelopedAspect().setValue(new Aspect(TEST_DOCUMENT_1_OWNERSHIP.data())))));
   }
 
   @Test
