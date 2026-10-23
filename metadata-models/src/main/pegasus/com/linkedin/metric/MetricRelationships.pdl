@@ -22,7 +22,12 @@ record MetricRelationships {
   @Searchable = {
     "fieldName": "parentMetric",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentMetric"
+    "hasValuesFieldName": "hasParentMetric",
+    "v3": {
+      "searchLabel": "parent",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasParent",
+    }
   }
   parentMetric: optional Urn
 

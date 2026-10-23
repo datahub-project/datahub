@@ -73,7 +73,12 @@ record DomainProperties includes CustomProperties {
   @Searchable = {
     "fieldName": "parentDomain",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentDomain"
+    "hasValuesFieldName": "hasParentDomain",
+    "v3": {
+      "searchLabel": "parent",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasParent",
+    }
   }
   parentDomain: optional Urn
 }

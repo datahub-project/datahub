@@ -1677,8 +1677,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   public Map<String, List<String>> searchedFields(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
-    final Map<String, List<String>> fields =
-        cachedFullTextFields(opContext.getEntityRegistry(), entitySpecs);
+    final Map<String, List<String>> fields = cachedFullTextFields(opContext.getEntityRegistry());
     final Map<String, List<String>> configured =
         configuredFields(
             fields,
@@ -1696,12 +1695,12 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   public List<SearchFieldConfig> searchedFieldConfigs(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
-    final Collection<EntitySpec> indexGroup =
-        V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs);
+    final Collection<EntitySpec> searchable =
+        V3SearchFields.searchableEntitySpecs(opContext.getEntityRegistry());
     return applySearchFieldConfiguration(
             opContext,
-            indexGroup,
-            getStandardFields(opContext, indexGroup),
+            searchable,
+            getStandardFields(opContext, searchable),
             customizedQueryHandler.resolveFieldConfiguration(
                 opContext.getSearchContext().getSearchFlags(),
                 CustomConfiguration::getSearchFieldConfigDefault))
@@ -1717,9 +1716,9 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Nonnull
   public List<SearchFieldConfig> templateBaseFieldConfigs(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
-    final Collection<EntitySpec> indexGroup =
-        V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs);
-    return getStandardFields(opContext, indexGroup).stream()
+    final Collection<EntitySpec> searchable =
+        V3SearchFields.searchableEntitySpecs(opContext.getEntityRegistry());
+    return getStandardFields(opContext, searchable).stream()
         .filter(SearchFieldConfig::isQueryByDefault)
         .toList();
   }
@@ -1742,8 +1741,8 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     return supportedFields(
         withSharedFields(
             super.getStandardFields(opContext, entitySpecs),
-            cachedFullTextFields(opContext.getEntityRegistry(), entitySpecs),
-            cachedAnalyzerSubfields(opContext.getEntityRegistry(), entitySpecs),
+            cachedFullTextFields(opContext.getEntityRegistry()),
+            cachedAnalyzerSubfields(opContext.getEntityRegistry()),
             opContext,
             entitySpecs),
         entitySpecs);
@@ -1755,8 +1754,8 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     return supportedFields(
         withSharedFields(
             super.getStandardFields(opContext, entitySpec),
-            cachedFullTextFields(opContext.getEntityRegistry(), List.of(entitySpec)),
-            cachedAnalyzerSubfields(opContext.getEntityRegistry(), List.of(entitySpec)),
+            cachedFullTextFields(opContext.getEntityRegistry()),
+            cachedAnalyzerSubfields(opContext.getEntityRegistry()),
             opContext,
             List.of(entitySpec)),
         List.of(entitySpec));
@@ -1774,7 +1773,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       @Nonnull Set<SearchFieldConfig> fields,
       @Nullable String label) {
     final Map<String, List<String>> fullTextFields =
-        cachedFullTextFields(opContext.getEntityRegistry(), entitySpecs);
+        cachedFullTextFields(opContext.getEntityRegistry());
     final Map<String, List<String>> selected = configuredFields(fullTextFields, label);
     if (selected == null) {
       // A replace that names only property paths selects no shared field, which otherwise falls
@@ -1833,9 +1832,8 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   @Nonnull
-  private Map<String, List<String>> cachedFullTextFields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
-    return V3SearchFieldModel.forIndexGroup(entityRegistry, entitySpecs).fullTextFields();
+  private Map<String, List<String>> cachedFullTextFields(@Nonnull EntityRegistry entityRegistry) {
+    return V3SearchFieldModel.forSearchableEntities(entityRegistry).fullTextFields();
   }
 
   /**
@@ -1903,9 +1901,8 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   @Nonnull
-  private Map<String, Set<String>> cachedAnalyzerSubfields(
-      @Nonnull EntityRegistry entityRegistry, @Nonnull Collection<EntitySpec> entitySpecs) {
-    return V3SearchFieldModel.forIndexGroup(entityRegistry, entitySpecs).analyzerSubfields();
+  private Map<String, Set<String>> cachedAnalyzerSubfields(@Nonnull EntityRegistry entityRegistry) {
+    return V3SearchFieldModel.forSearchableEntities(entityRegistry).analyzerSubfields();
   }
 
   @Nonnull

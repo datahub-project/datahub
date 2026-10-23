@@ -25,7 +25,7 @@ DataHub Metrics is a **catalog for metric definitions**, transforming how your t
 - **Lineage from KPI to source and consumers** — Trace every metric through the logical datasets it reads down to the physical tables and columns that feed it, and out to the Charts, Dashboards, and Datasets that consume it.
 - **AI-ready context** — Attach synonyms, natural-language instructions, and example questions to every metric so agents and Ask DataHub can resolve natural language questions against cataloged definitions instead of guessing.
 - **Governed like everything else** — Metrics and Semantic Models are full DataHub entities: owners, domains, tags, glossary terms, structured properties, and documentation all attach to them the same way they attach to Datasets.
-- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views today; dbt Semantic Layer, Databricks metric views, and BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
+- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views and dbt today, Cube and MicroStrategy in alpha; Databricks metric views and more BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
 
 ## What's Included
 
@@ -217,7 +217,7 @@ Future releases will ensure AI Context feeds directly into Ask DataHub and any a
 We're actively investing in the Metrics experience. Near-term work includes:
 
 - **Metrics & Semantic Models via DataHub MCP** so agents can retrieve them during agentic workflows.
-- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views to cover dbt Semantic Layer / MetricFlow, Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
+- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views and dbt to cover Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
 - **Column-level lineage from source columns through to metrics.** Full column-to-metric impact analysis — see which KPIs are affected by a change to a raw column.
 - **Lineage visualization improvements.** Cleaner node labels, collapsed intermediate nodes, and a Semantic Model container view that reduces graph noise.
 - **AI-native discovery.** Ask DataHub resolving natural-language questions to cataloged metric definitions using synonyms and expression-aware SQL.

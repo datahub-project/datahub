@@ -29,7 +29,10 @@ record FormActorAssignment {
   @Searchable = {
     "/*": {
       "fieldName": "assignedOwnershipTypes",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "queryByDefault": false
+      }
     }
   }
   ownershipTypes: optional array[Urn]
@@ -40,7 +43,10 @@ record FormActorAssignment {
   @Searchable = {
     "/*": {
       "fieldName": "assignedGroups",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "queryByDefault": false
+      }
     }
   }
   groups: optional array[Urn]
@@ -51,7 +57,10 @@ record FormActorAssignment {
   @Searchable = {
     "/*": {
       "fieldName": "assignedUsers",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "queryByDefault": false
+      }
     }
   }
   users: optional array[Urn]

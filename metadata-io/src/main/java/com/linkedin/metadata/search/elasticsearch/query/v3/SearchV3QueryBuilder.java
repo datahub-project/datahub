@@ -358,7 +358,7 @@ public class SearchV3QueryBuilder {
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
     List<String> lightFields = shape.nameOnly ? identityFields : analyzed;
     SearchFieldResolver fieldResolver =
-        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, analyzed);
     context.put(
@@ -930,7 +930,7 @@ public class SearchV3QueryBuilder {
       }
     }
     SearchFieldResolver resolver =
-        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Optional<QueryBuilder> built =
         StructuredQueryRouting.build(query, shared, properties, resolver);
     return built.map(QueryBuilder::toString).orElse("{\"match_none\":{}}");
