@@ -177,15 +177,12 @@ public class GraphQLEngineTest {
   }
 
   @Test
-  public void testQueryCostIsComputedOncePerBooleanCombination() {
+  public void testQueryCostIsComputedOncePerConditionCombination() {
     graphQLEngine = buildEngineWithLimits(10, 1000);
     String query =
         "query q($deep: Boolean = false) { node { child @include(if: $deep) { name } } }";
 
     graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
-    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
-    graphQLEngine.execute(query, null, Map.of("deep", true), mockQueryContext);
-
     GraphqlDocumentCache.Entry entry =
         graphQLEngine
             .getDocumentCache()
@@ -194,6 +191,20 @@ public class GraphQLEngineTest {
                 () -> {
                   throw new AssertionError("document should be cached");
                 });
+    // Replace the cached result with one that fails the depth limit. The same request fails only if
+    // it uses the cached result instead of walking the query again.
+    entry
+        .costs()
+        .replaceAll(
+            (key, cost) ->
+                new QueryCostInstrumentation.OperationCost(Integer.MAX_VALUE, 0, List.of()));
+    ExecutionResult again = graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+    assertTrue(again.getErrors().get(0).getMessage().contains("maximum query depth exceeded"));
+
+    // A different condition value has its own result.
+    ExecutionResult deep =
+        graphQLEngine.execute(query, null, Map.of("deep", true), mockQueryContext);
+    assertTrue(deep.getErrors().isEmpty());
     assertEquals(entry.costs().size(), 2);
   }
 

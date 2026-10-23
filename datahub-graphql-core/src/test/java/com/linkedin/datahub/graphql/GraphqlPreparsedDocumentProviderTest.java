@@ -50,7 +50,7 @@ public class GraphqlPreparsedDocumentProviderTest {
   }
 
   @Test
-  public void testHandsTheCacheEntrysQueryCostsToTheRequest() {
+  public void testHandsTheCacheEntryToTheRequest() {
     GraphqlDocumentCache cache = new GraphqlDocumentCache(1024 * 1024);
     GraphqlPreparsedDocumentProvider provider = new GraphqlPreparsedDocumentProvider(cache);
     ExecutionInput executionInput = ExecutionInput.newExecutionInput().query("{ hello }").build();
@@ -60,8 +60,8 @@ public class GraphqlPreparsedDocumentProviderTest {
         .join();
 
     assertSame(
-        executionInput.getGraphQLContext().get(QueryCostInstrumentation.COSTS_CONTEXT_KEY),
-        cache.getOrCompute("{ hello }", () -> parseAndValidate(executionInput)).costs());
+        executionInput.getGraphQLContext().get(QueryCostInstrumentation.ENTRY_CONTEXT_KEY),
+        cache.getOrCompute("{ hello }", () -> parseAndValidate(executionInput)));
   }
 
   @Test

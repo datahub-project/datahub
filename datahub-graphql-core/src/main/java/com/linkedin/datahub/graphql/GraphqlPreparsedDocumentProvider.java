@@ -8,8 +8,8 @@ import java.util.function.Function;
 
 /**
  * Adapts {@link GraphqlDocumentCache} to graphql-java's {@link PreparsedDocumentProvider} SPI. It
- * also passes the cost results of the cache entry to {@link QueryCostInstrumentation}, through the
- * {@code GraphQLContext} of the request.
+ * also passes the cache entry to {@link QueryCostInstrumentation}, through the {@code
+ * GraphQLContext} of the request.
  *
  * <p>The cache key is the query text only. That's correct today because DataHub never sets a
  * per-request {@code Locale} (which can localize validation error messages) or the internal
@@ -32,9 +32,11 @@ final class GraphqlPreparsedDocumentProvider implements PreparsedDocumentProvide
     GraphqlDocumentCache.Entry entry =
         cache.getOrCompute(
             executionInput.getQuery(), () -> parseAndValidateFunction.apply(executionInput));
-    executionInput
-        .getGraphQLContext()
-        .put(QueryCostInstrumentation.COSTS_CONTEXT_KEY, entry.costs());
+    if (cache.isEnabled()) {
+      // An entry that is not cached has no results to reuse, so the instrumentation walks the
+      // query.
+      executionInput.getGraphQLContext().put(QueryCostInstrumentation.ENTRY_CONTEXT_KEY, entry);
+    }
     return CompletableFuture.completedFuture(entry.document());
   }
 }

@@ -10,6 +10,7 @@ import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.execution.values.InputInterceptor;
 import graphql.execution.values.legacycoercing.LegacyCoercingInputInterceptor;
+import graphql.parser.Parser;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
@@ -17,6 +18,7 @@ import graphql.schema.idl.SchemaParser;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.testng.annotations.BeforeMethod;
@@ -32,6 +34,7 @@ public class QueryCostInstrumentationTest {
                       """
                       type Query {
                         hello: String
+                        greeting(loud: Boolean): String
                         node: Node
                         search(input: SearchInput): SearchResults
                         searchWithDefault(input: SearchInput = {count: 7}): SearchResults
@@ -71,12 +74,31 @@ public class QueryCostInstrumentationTest {
   private static final Pattern EXCEEDED =
       Pattern.compile("^maximum query (?:depth|complexity) exceeded (\\d+) > -1$");
 
-  private static GraphQL graphQL(int maxDepth, int maxComplexity) {
+  private static GraphQL graphQL(int maxDepth, int maxComplexity, GraphqlDocumentCache cache) {
     return GraphQL.newGraphQL(SCHEMA)
         .instrumentation(new QueryCostInstrumentation(maxDepth, maxComplexity))
-        .preparsedDocumentProvider(
-            new GraphqlPreparsedDocumentProvider(new GraphqlDocumentCache(1024 * 1024)))
+        .preparsedDocumentProvider(new GraphqlPreparsedDocumentProvider(cache))
         .build();
+  }
+
+  /** Replaces each cached result of the query with one that fails any depth limit. */
+  private static void replaceWithFailingCost(GraphqlDocumentCache cache, String query) {
+    cachedCosts(cache, query)
+        .replaceAll(
+            (key, cost) ->
+                new QueryCostInstrumentation.OperationCost(Integer.MAX_VALUE, 0, List.of()));
+  }
+
+  /** The cost results that the cache keeps for a query that already ran. */
+  private static Map<QueryCostInstrumentation.CostKey, QueryCostInstrumentation.OperationCost>
+      cachedCosts(GraphqlDocumentCache cache, String query) {
+    return cache
+        .getOrCompute(
+            query,
+            () -> {
+              throw new AssertionError("the query should be cached");
+            })
+        .costs();
   }
 
   private static ExecutionResult execute(
@@ -119,8 +141,8 @@ public class QueryCostInstrumentationTest {
 
   @BeforeMethod
   public void setUp() {
-    depthProbe = graphQL(-1, Integer.MAX_VALUE);
-    complexityProbe = graphQL(Integer.MAX_VALUE, -1);
+    depthProbe = graphQL(-1, Integer.MAX_VALUE, new GraphqlDocumentCache(1024 * 1024));
+    complexityProbe = graphQL(Integer.MAX_VALUE, -1, new GraphqlDocumentCache(1024 * 1024));
   }
 
   private int depth(String query) {
@@ -172,6 +194,61 @@ public class QueryCostInstrumentationTest {
     assertEquals(complexity(query, Map.of("skip", true)), 1);
     assertEquals(complexity(query, Map.of("skip", false)), 3);
     assertEquals(complexity(query, Map.of("skip", true)), 1);
+  }
+
+  @Test
+  public void testConditionVariablesComeFromSkipAndIncludeOnly() {
+    String query =
+        "query q($a: Boolean!, $b: Boolean!, $loud: Boolean) {"
+            + " hello @skip(if: $a) greeting(loud: $loud) node @include(if: true) { ...F } }"
+            + " fragment F on Node { name @include(if: $b) }";
+
+    assertEquals(
+        QueryCostInstrumentation.conditionVariables(Parser.parse(query)), Set.of("a", "b"));
+  }
+
+  @Test
+  public void testOtherVariablesShareTheCachedResult() {
+    GraphqlDocumentCache cache = new GraphqlDocumentCache(1024 * 1024);
+    GraphQL graphQL = graphQL(10, 1000, cache);
+    String query =
+        "query q($loud: Boolean, $skip: Boolean!) {"
+            + " greeting(loud: $loud) node @skip(if: $skip) { name } }";
+
+    execute(graphQL, query, Map.of("loud", true, "skip", false));
+    execute(graphQL, query, Map.of("loud", false, "skip", false));
+
+    assertEquals(cachedCosts(cache, query).size(), 1);
+  }
+
+  @Test
+  public void testFullCacheMakesRoomForNewCombinations() {
+    GraphqlDocumentCache cache = new GraphqlDocumentCache(1024 * 1024);
+    GraphQL graphQL = graphQL(10, 1000, cache);
+    String query =
+        "query q($a: Boolean!, $b: Boolean!, $c: Boolean!, $d: Boolean!, $e: Boolean!) {"
+            + " a: hello @include(if: $a) b: hello @include(if: $b) c: hello @include(if: $c)"
+            + " d: hello @include(if: $d) e: hello @include(if: $e) }";
+
+    // Fill the cache, then send one more combination.
+    int last = QueryCostInstrumentation.MAX_CACHED_COSTS;
+    for (int combination = 0; combination <= last; combination++) {
+      execute(graphQL, query, conditions(combination));
+    }
+
+    // The last combination is cached: its next request uses the cached result.
+    replaceWithFailingCost(cache, query);
+    ExecutionResult result = execute(graphQL, query, conditions(last));
+    assertTrue(result.getErrors().get(0).getMessage().contains("maximum query depth exceeded"));
+  }
+
+  private static Map<String, Object> conditions(int combination) {
+    return Map.of(
+        "a", (combination & 1) != 0,
+        "b", (combination & 2) != 0,
+        "c", (combination & 4) != 0,
+        "d", (combination & 8) != 0,
+        "e", (combination & 16) != 0);
   }
 
   @Test
@@ -238,7 +315,7 @@ public class QueryCostInstrumentationTest {
   @Test
   public void testChecksTheOperationThatRuns() {
     String query = "query Deep { node { child { name } } } query Shallow { hello }";
-    GraphQL graphQL = graphQL(2, Integer.MAX_VALUE);
+    GraphQL graphQL = graphQL(2, Integer.MAX_VALUE, new GraphqlDocumentCache(1024 * 1024));
 
     assertNull(executeOperation(graphQL, query, "Deep").getData());
     assertTrue(executeOperation(graphQL, query, "Shallow").getErrors().isEmpty());
@@ -248,7 +325,11 @@ public class QueryCostInstrumentationTest {
 
   @Test
   public void testQueryWithinLimitsRuns() {
-    ExecutionResult result = execute(graphQL(3, 4), "{ node { name child { name } } }", Map.of());
+    ExecutionResult result =
+        execute(
+            graphQL(3, 4, new GraphqlDocumentCache(1024 * 1024)),
+            "{ node { name child { name } } }",
+            Map.of());
 
     assertTrue(result.getErrors().isEmpty(), String.valueOf(result.getErrors()));
     assertNotNull(result.getData());
@@ -256,7 +337,9 @@ public class QueryCostInstrumentationTest {
 
   @Test
   public void testDepthIsCheckedBeforeComplexity() {
-    ExecutionResult result = execute(graphQL(1, 1), "{ node { name } }", Map.of());
+    ExecutionResult result =
+        execute(
+            graphQL(1, 1, new GraphqlDocumentCache(1024 * 1024)), "{ node { name } }", Map.of());
 
     assertNull(result.getData());
     assertEquals(result.getErrors().size(), 1);

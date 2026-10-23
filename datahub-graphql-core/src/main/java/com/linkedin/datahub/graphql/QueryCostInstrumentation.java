@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql;
 
+import graphql.Directives;
 import graphql.ExecutionResult;
 import graphql.GraphQLContext;
 import graphql.analysis.QueryTraversalOptions;
@@ -14,17 +15,26 @@ import graphql.execution.instrumentation.InstrumentationState;
 import graphql.execution.instrumentation.SimpleInstrumentationContext;
 import graphql.execution.instrumentation.SimplePerformantInstrumentation;
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
+import graphql.language.Argument;
+import graphql.language.Directive;
+import graphql.language.Document;
 import graphql.language.Field;
 import graphql.language.FragmentSpread;
-import graphql.language.OperationDefinition;
+import graphql.language.Node;
+import graphql.language.NodeTraverser;
+import graphql.language.NodeVisitorStub;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
-import graphql.language.VariableDefinition;
+import graphql.language.VariableReference;
 import graphql.schema.GraphQLFieldDefinition;
+import graphql.util.TraversalControl;
+import graphql.util.TraverserContext;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -48,10 +58,10 @@ import javax.annotation.Nullable;
  *
  * <p>To calculate the depth and the fields, this class walks the query with {@link QueryTraverser}.
  * This is slow for large queries, so the class caches the result. Only the query, the operation and
- * the values of the Boolean variables can change the result, because {@code @skip} and
- * {@code @include} use only Boolean values. The results are cached in the {@link
- * GraphqlDocumentCache} entry of the query. {@link GraphqlPreparsedDocumentProvider} passes them to
- * this class through the {@code GraphQLContext} of the request.
+ * the values of the variables that {@code @skip} and {@code @include} read can change the result.
+ * The results are cached in the {@link GraphqlDocumentCache} entry of the query. {@link
+ * GraphqlPreparsedDocumentProvider} passes the entry to this class through the {@code
+ * GraphQLContext} of the request.
  *
  * <p>The value of an {@code input} argument can be different for each request. So, they are
  * resolved separately per request.
@@ -64,23 +74,26 @@ final class QueryCostInstrumentation extends SimplePerformantInstrumentation {
   private static final String ENTITY_FIELD = "entity";
   private static final String SEARCH_RESULT_FIELDS_FRAGMENT = "searchResultFields";
 
-  /**
-   * GraphQLContext key of the cost results for the query: a {@code Map<CostKey, OperationCost>}.
-   */
-  static final String COSTS_CONTEXT_KEY = "datahub.queryCosts";
+  private static final String IF_ARG = "if";
+
+  /** GraphQLContext key of the {@link GraphqlDocumentCache.Entry} of the query. */
+  static final String ENTRY_CONTEXT_KEY = "datahub.documentCacheEntry";
 
   /**
    * Maximum number of results to store for one query. This limit stops a query with many Boolean
-   * variables from blowing up memory. Past the limit, each request walks the query again.
+   * variables from blowing up memory. At the limit, the stored results are removed, so that new
+   * combinations of variable values can be stored.
    */
-  private static final int MAX_CACHED_COSTS = 16;
+  static final int MAX_CACHED_COSTS = 16;
 
   private final int maxDepth;
   private final int maxComplexity;
 
   private record InputField(Field field, GraphQLFieldDefinition definition, boolean isLineage) {}
 
-  /** An operation in the query, and the values of its Boolean variables. */
+  /**
+   * An operation in the query, and the values of the variables that its @skip and @include read.
+   */
   record CostKey(@Nullable String operationName, List<Object> conditions) {}
 
   record OperationCost(int depth, int fieldCount, List<InputField> inputFields) {}
@@ -108,28 +121,52 @@ final class QueryCostInstrumentation extends SimplePerformantInstrumentation {
   }
 
   private OperationCost operationCost(ExecutionContext context) {
-    OperationDefinition operation = context.getOperationDefinition();
-    Map<String, Object> variables = context.getCoercedVariables().toMap();
-    // Only Boolean variables can change @skip and @include. Other variables get null in the key.
-    List<Object> conditions = new ArrayList<>();
-    for (VariableDefinition variable : operation.getVariableDefinitions()) {
-      Object value = variables.get(variable.getName());
-      conditions.add(value instanceof Boolean ? value : null);
-    }
     // Null if the engine does not use GraphqlPreparsedDocumentProvider.
-    Map<CostKey, OperationCost> costs = context.getGraphQLContext().get(COSTS_CONTEXT_KEY);
-    if (costs == null) {
+    GraphqlDocumentCache.Entry entry = context.getGraphQLContext().get(ENTRY_CONTEXT_KEY);
+    if (entry == null) {
       return traverse(context);
     }
-    CostKey key = new CostKey(operation.getName(), conditions);
-    OperationCost cost = costs.get(key);
+    Map<String, Object> variables = context.getCoercedVariables().toMap();
+    List<Object> conditions = new ArrayList<>();
+    for (String name : entry.conditionVariables()) {
+      conditions.add(variables.get(name));
+    }
+    CostKey key = new CostKey(context.getOperationDefinition().getName(), conditions);
+    OperationCost cost = entry.costs().get(key);
     if (cost == null) {
       cost = traverse(context);
-      if (costs.size() < MAX_CACHED_COSTS) {
-        costs.put(key, cost);
+      if (entry.costs().size() >= MAX_CACHED_COSTS) {
+        entry.costs().clear();
       }
+      entry.costs().put(key, cost);
     }
     return cost;
+  }
+
+  /** Names of the variables that the {@code @skip} and {@code @include} directives read. */
+  static Set<String> conditionVariables(@Nullable Document document) {
+    if (document == null) {
+      return Set.of();
+    }
+    Set<String> names = new HashSet<>();
+    new NodeTraverser()
+        .depthFirst(
+            new NodeVisitorStub() {
+              @Override
+              public TraversalControl visitDirective(
+                  Directive directive, TraverserContext<Node> context) {
+                Argument condition = directive.getArgument(IF_ARG);
+                if ((Directives.SkipDirective.getName().equals(directive.getName())
+                        || Directives.IncludeDirective.getName().equals(directive.getName()))
+                    && condition != null
+                    && condition.getValue() instanceof VariableReference reference) {
+                  names.add(reference.getName());
+                }
+                return TraversalControl.CONTINUE;
+              }
+            },
+            document);
+    return Set.copyOf(names);
   }
 
   /**

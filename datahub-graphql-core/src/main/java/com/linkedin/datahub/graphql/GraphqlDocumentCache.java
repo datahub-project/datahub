@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
@@ -45,9 +46,14 @@ final class GraphqlDocumentCache {
   static final long DEFAULT_MAXIMUM_WEIGHT_BYTES = 25L * 1024 * 1024;
   private static final int WEIGHT_MULTIPLIER = 5;
 
+  /**
+   * A parsed document, the names of the variables that its {@code @skip} and {@code @include} read,
+   * and its cost results.
+   */
   record Entry(
       PreparsedDocumentEntry document,
       int weight,
+      Set<String> conditionVariables,
       ConcurrentMap<QueryCostInstrumentation.CostKey, QueryCostInstrumentation.OperationCost>
           costs) {}
 
@@ -108,13 +114,18 @@ final class GraphqlDocumentCache {
   Entry getOrCompute(
       @Nonnull String query, @Nonnull Supplier<PreparsedDocumentEntry> parseAndValidateFunction) {
     if (!enabled) {
-      return new Entry(parseAndValidateFunction.get(), 0, new ConcurrentHashMap<>());
+      return new Entry(parseAndValidateFunction.get(), 0, Set.of(), new ConcurrentHashMap<>());
     }
     byte[] utf8 = query.getBytes(StandardCharsets.UTF_8);
-    return cache.get(
-        digest(utf8),
-        key ->
-            new Entry(parseAndValidateFunction.get(), weightOf(utf8), new ConcurrentHashMap<>()));
+    return cache.get(digest(utf8), key -> newEntry(parseAndValidateFunction.get(), weightOf(utf8)));
+  }
+
+  private static Entry newEntry(PreparsedDocumentEntry document, int weight) {
+    return new Entry(
+        document,
+        weight,
+        QueryCostInstrumentation.conditionVariables(document.getDocument()),
+        new ConcurrentHashMap<>());
   }
 
   /** Read-only: never populates the cache, so a caller can't cache an unvalidated document. */
