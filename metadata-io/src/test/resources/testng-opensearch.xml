@@ -61,6 +61,14 @@
             <class name="com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidatorTest"/>
             <class name="com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffectTest"/>
             <class name="com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceUnitTest"/>
+            <!-- Tolerance tests in classes that switch the process-wide UnknownDataHandlings, which
+                 otherwise sit only in unwired suites (testOther runs classes in parallel, which
+                 would leak the switch). This suite runs them one at a time. -->
+            <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest"/>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
+            <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest"/>
+            <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest"/>
+            <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest"/>
             <class name="com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilderTest"/>
             <!-- Ratchet against new getEntitySpec(<urn>.getEntityType()) lookups. -->
             <class name="com.linkedin.metadata.lint.UrnDerivedRegistryLookupLintTest"/>

@@ -1417,10 +1417,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.rollbackRun(
         opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-soft")), "run-a-soft", false);
 
-    assertTrue(
-        DataTemplateUtil.areEqual(
-            new Status().setRemoved(true),
-            _entityServiceImpl.getLatestAspect(opContext, urn, statusName)));
+    // Checks the removed flag rather than the whole aspect: a soft delete may set other Status
+    // fields as well (e.g. lifecycleState).
+    Status status = (Status) _entityServiceImpl.getLatestAspect(opContext, urn, statusName);
+    assertNotNull(status);
+    assertTrue(status.isRemoved());
   }
 
   private void ingestForRollback(
