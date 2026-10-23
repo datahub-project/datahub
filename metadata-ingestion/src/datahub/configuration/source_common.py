@@ -64,7 +64,8 @@ class TransformOperationLengthConfigMixin(ConfigModel):
     max_transform_operation_length: Optional[int] = Field(
         default=None,
         ge=0,
-        description="When emitting incremental lineage patches, cuts each column's "
+        description="Applies to dataset upstreamLineage only; data-job lineage is not affected. "
+        "When emitting incremental lineage patches, cuts each column's "
         "transformation logic to this many characters followed by `...`, when that "
         "makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps "
         "only the label, and removes logic that has no label. Unset keeps the full "
