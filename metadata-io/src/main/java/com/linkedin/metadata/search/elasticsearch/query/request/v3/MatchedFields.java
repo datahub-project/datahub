@@ -2,9 +2,9 @@ package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.DATAHUB_STOP_WORDS_LIST;
 
-import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
 import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -96,6 +96,38 @@ public final class MatchedFields {
   }
 
   /**
+   * One pass over the fetched values. Each field stops at its first match. The explanation is
+   * filled only when {@code includeExplain} is set, from that same match.
+   */
+  @Nonnull
+  public SearchHitMatches matches(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names,
+      final boolean includeExplain) {
+    if (lastQueryForms.isEmpty()) {
+      return SearchHitMatches.EMPTY;
+    }
+    final List<MatchedField> matchedFields = new ArrayList<>();
+    final List<MatchEvidence> evidence = new ArrayList<>();
+    for (String field : fields) {
+      final String reported = names.getOrDefault(field, field);
+      for (Object value : values(at(source, field))) {
+        final String text = String.valueOf(value);
+        final int match = firstMatch(text);
+        if (match >= 0) {
+          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
+          if (includeExplain) {
+            evidence.add(evidence(reported, text, match));
+          }
+          break;
+        }
+      }
+    }
+    return new SearchHitMatches(matchedFields, evidence);
+  }
+
+  /**
    * {@code names} reports a fetched path under another name. A nulled URN label is fetched from the
    * aspect field that stores its parsed name.
    */
@@ -104,27 +136,7 @@ public final class MatchedFields {
       @Nonnull final Map<String, Object> source,
       @Nonnull final Collection<String> fields,
       @Nonnull final Map<String, String> names) {
-    final List<MatchedField> matchedFields = new ArrayList<>();
-    if (lastQueryForms.isEmpty()) {
-      return matchedFields;
-    }
-    for (String field : fields) {
-      final String reported = names.getOrDefault(field, field);
-      final List<?> fieldValues = values(at(source, field));
-      if (StructuredPropertyUtils.isStructuredPropertyField(field)) {
-        addStrongest(matchedFields, reported, fieldValues);
-        continue;
-      }
-      for (Object value : fieldValues) {
-        final String text = String.valueOf(value);
-        final int match = firstMatch(text);
-        if (match >= 0) {
-          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
-          break;
-        }
-      }
-    }
-    return matchedFields;
+    return matches(source, fields, names, false).matched();
   }
 
   /**
@@ -137,81 +149,7 @@ public final class MatchedFields {
       @Nonnull final Map<String, Object> source,
       @Nonnull final Collection<String> fields,
       @Nonnull final Map<String, String> names) {
-    final List<MatchEvidence> evidence = new ArrayList<>();
-    if (lastQueryForms.isEmpty()) {
-      return evidence;
-    }
-    for (String field : fields) {
-      final String reported = names.getOrDefault(field, field);
-      final List<?> fieldValues = values(at(source, field));
-      if (StructuredPropertyUtils.isStructuredPropertyField(field)) {
-        addStrongestEvidence(evidence, reported, fieldValues);
-        continue;
-      }
-      for (Object value : fieldValues) {
-        final String text = String.valueOf(value);
-        final int match = firstMatch(text);
-        if (match >= 0) {
-          evidence.add(evidence(reported, text, match));
-          break;
-        }
-      }
-    }
-    return evidence;
-  }
-
-  /**
-   * The array value that matches most closely. {@code copy_to} indexes every value, and the stored
-   * destination field does not hold them, so the evidence is chosen here.
-   */
-  private void addStrongest(
-      @Nonnull final List<MatchedField> matchedFields,
-      @Nonnull final String field,
-      @Nonnull final List<?> fieldValues) {
-    String bestText = null;
-    int bestMatch = -1;
-    int bestRank = Integer.MAX_VALUE;
-    for (Object value : fieldValues) {
-      final String text = String.valueOf(value);
-      final int match = firstMatch(text);
-      if (match < 0) {
-        continue;
-      }
-      final int rank = matchRank(text, match);
-      if (rank < bestRank) {
-        bestRank = rank;
-        bestMatch = match;
-        bestText = text;
-      }
-    }
-    if (bestText != null) {
-      matchedFields.add(new MatchedField().setName(field).setValue(fragment(bestText, bestMatch)));
-    }
-  }
-
-  private void addStrongestEvidence(
-      @Nonnull final List<MatchEvidence> evidence,
-      @Nonnull final String field,
-      @Nonnull final List<?> fieldValues) {
-    String bestText = null;
-    int bestMatch = -1;
-    int bestRank = Integer.MAX_VALUE;
-    for (Object value : fieldValues) {
-      final String text = String.valueOf(value);
-      final int match = firstMatch(text);
-      if (match < 0) {
-        continue;
-      }
-      final int rank = matchRank(text, match);
-      if (rank < bestRank) {
-        bestRank = rank;
-        bestMatch = match;
-        bestText = text;
-      }
-    }
-    if (bestText != null) {
-      evidence.add(evidence(field, bestText, bestMatch));
-    }
+    return matches(source, fields, names, true).explain();
   }
 
   @Nonnull

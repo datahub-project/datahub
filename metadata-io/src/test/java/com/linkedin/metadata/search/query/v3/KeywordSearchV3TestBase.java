@@ -121,6 +121,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -145,6 +146,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -1151,26 +1153,134 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     }
   }
 
-  /** Full-text hits report the source field they matched on ("Matched on" in the UI). */
+  /**
+   * Matched fields ("Matched on" in the UI) are opt-in. A shipped template names no highlight
+   * field, so a hit of the default query reports none.
+   */
   @Test
-  public void testSearchReportsMatchedFields() {
+  public void testSearchReportsNoMatchedFieldsWithoutOptIn() {
+    SearchEntity hit = onlyHit("customers", flags -> flags);
+    assertEquals(hit.getEntity(), CUSTOMERS);
+    assertEquals(matchedFieldNames(hit), List.of());
+  }
+
+  /**
+   * A request opts fields in for that call. Both the name and the description of this hit hold the
+   * query, and only the opted-in field is reported, with the value the document stores. Opting the
+   * name in reads every source of that label, which for a dataset includes the key id.
+   */
+  @Test
+  public void testSearchReportsOptedInMatchedFields() {
+    SearchEntity byName = onlyHit("customers", optIn("name"));
+    assertEqualsNoOrder(
+        matchedFieldNames(byName).toArray(),
+        new String[] {"name", "id"},
+        byName.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(byName, "name"), "customers");
+    assertEquals(matchedFieldValue(byName, "id"), "sales.customers");
+
+    SearchEntity byDescription = onlyHit("customers", optIn("description"));
+    assertEquals(
+        matchedFieldNames(byDescription),
+        List.of("description"),
+        byDescription.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(byDescription, "description"), CUSTOMERS_DESCRIPTION);
+
+    SearchEntity both = onlyHit("customers", optIn("name", "description"));
+    assertEqualsNoOrder(
+        matchedFieldNames(both).toArray(),
+        new String[] {"name", "id", "description"},
+        both.getMatchedFields().toString());
+  }
+
+  /**
+   * A structured property is read where it is stored: {@code copy_to} fills the shared field the
+   * query reads, which {@code _source} does not hold.
+   */
+  @Test
+  public void testSearchReportsOptedInStructuredPropertyMatchedFields() {
+    String field = "structuredProperties." + LEGACY_EXCLUDED.getId();
+    SearchEntity withProperty = onlyHit("nightjar", optIn(field));
+    assertEquals(withProperty.getEntity(), ORDERS);
+    assertEquals(matchedFieldNames(withProperty), List.of(field));
+    assertEquals(matchedFieldValue(withProperty, field), "nightjar");
+
+    // The query matched the property, not the name, so opting the name in reports nothing
+    assertEquals(matchedFieldNames(onlyHit("nightjar", optIn("name"))), List.of());
+  }
+
+  /** A field the query does not read is dropped, as are an aspect path and a wildcard. */
+  @Test
+  public void testSearchDropsMatchedFieldsTheQueryDoesNotRead() {
+    for (String field :
+        List.of(
+            "owners",
+            "_aspects.datasetProperties.name",
+            "*",
+            "structuredProperties." + HIDDEN_LABEL.getId())) {
+      assertEquals(matchedFieldNames(onlyHit("customers", optIn(field))), List.of(), field);
+    }
+  }
+
+  /** {@code skipHighlighting} clears the set a request opted in. */
+  @Test
+  public void testSkipHighlightingClearsOptedInMatchedFields() {
+    SearchEntity hit =
+        onlyHit("customers", flags -> optIn("name").apply(flags).setSkipHighlighting(true));
+    assertEquals(matchedFieldNames(hit), List.of());
+  }
+
+  /** {@code customHighlightingFields} replaces the set instead of adjusting it. */
+  @Test
+  public void testCustomHighlightingFieldsReplaceMatchedFields() {
+    SearchEntity hit =
+        onlyHit(
+            "customers",
+            flags -> optIn("name").apply(flags).setCustomHighlightingFields(names("description")));
+    assertEquals(matchedFieldNames(hit), List.of("description"));
+  }
+
+  @Nonnull
+  private static UnaryOperator<SearchFlags> optIn(@Nonnull String... fields) {
+    return flags -> flags.setHighlightFields(new HighlightFieldOverrides().setAdd(names(fields)));
+  }
+
+  /** The one hit of a full-text dataset search. */
+  @Nonnull
+  private SearchEntity onlyHit(
+      @Nonnull String query, @Nonnull UnaryOperator<SearchFlags> searchFlags) {
     SearchEntityArray hits =
         searchService
             .search(
-                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                opContext.withSearchFlags(flags -> searchFlags.apply(flags.setFulltext(true))),
                 List.of(DATASET_ENTITY_NAME),
-                "orders",
+                query,
                 null,
                 null,
                 0,
                 10)
             .getEntities();
-    assertUrns(hits, ORDERS);
-    List<String> matchedFields =
-        hits.get(0).getMatchedFields().stream()
-            .map(MatchedField::getName)
-            .collect(Collectors.toList());
-    assertTrue(matchedFields.contains("name"), matchedFields.toString());
+    assertEquals(hits.size(), 1, hits.toString());
+    return hits.get(0);
+  }
+
+  @Nonnull
+  private static StringArray names(@Nonnull String... fields) {
+    return new StringArray(List.of(fields));
+  }
+
+  @Nonnull
+  private static List<String> matchedFieldNames(@Nonnull SearchEntity hit) {
+    return hit.getMatchedFields().stream().map(MatchedField::getName).collect(Collectors.toList());
+  }
+
+  @Nonnull
+  private static String matchedFieldValue(@Nonnull SearchEntity hit, @Nonnull String field) {
+    return hit.getMatchedFields().stream()
+        .filter(matched -> field.equals(matched.getName()))
+        .map(MatchedField::getValue)
+        .findFirst()
+        .orElseThrow(() -> new AssertionError(field + " not in " + hit.getMatchedFields()));
   }
 
   /**

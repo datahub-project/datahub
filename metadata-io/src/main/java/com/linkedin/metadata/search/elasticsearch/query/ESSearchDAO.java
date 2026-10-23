@@ -50,6 +50,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.HighlightCarry;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseBudget;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryIntent;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
@@ -640,6 +641,27 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
+    HighlightCarry.begin();
+    try {
+      return applyHighlightCarry(
+          opContext,
+          searchRanked(
+              opContext, entityNames, input, postFilters, sortCriteria, from, size, facets));
+    } finally {
+      HighlightCarry.clear();
+    }
+  }
+
+  @Nonnull
+  private SearchResult searchRanked(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
     if (templateReads(opContext)) {
       final int hybridFetchSize =
           hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
@@ -710,6 +732,17 @@ public class ESSearchDAO {
     return hybridFetchSize > 0
         ? rerankHybrid(opContext, entityNames, input, result, from, size)
         : result;
+  }
+
+  @Nonnull
+  private SearchResult applyHighlightCarry(
+      @Nonnull OperationContext opContext, @Nonnull SearchResult result) {
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    boolean explain = flags != null && Boolean.TRUE.equals(flags.isIncludeExplain());
+    if (result.getEntities() != null) {
+      HighlightCarry.apply(result.getEntities(), explain);
+    }
+    return result;
   }
 
   @VisibleForTesting

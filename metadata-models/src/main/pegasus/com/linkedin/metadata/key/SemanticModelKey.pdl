@@ -25,6 +25,7 @@ record SemanticModelKey {
     "addToFilters": true,
     "filterNameOverride": "Platform",
     "v3": {
+      "searchLabel": "platform",
       "copyToOther": true
     }
   }

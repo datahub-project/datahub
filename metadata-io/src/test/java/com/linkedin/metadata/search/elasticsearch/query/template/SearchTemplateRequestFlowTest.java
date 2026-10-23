@@ -798,6 +798,36 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
             .highlights()
             .contains("tags_1"));
+
+    OperationContext adjusted =
+        bound.withSearchFlags(
+            flags -> {
+              HighlightFieldOverrides request = new HighlightFieldOverrides();
+              request.setRemove(new StringArray("tags_1"));
+              request.setAdd(new StringArray("name.ngram"));
+              return flags.setHighlightFields(request);
+            });
+    assertEquals(
+        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
+            .render(adjusted, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
+            .highlights(),
+        List.of("name"));
+
+    OperationContext override =
+        bound.withSearchFlags(
+            flags -> flags.setCustomHighlightingFields(new StringArray("description.delimited")));
+    assertEquals(
+        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
+            .render(override, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
+            .highlights(),
+        List.of("description"));
+
+    OperationContext skipped = override.withSearchFlags(flags -> flags.setSkipHighlighting(true));
+    assertTrue(
+        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
+            .render(skipped, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
+            .highlights()
+            .isEmpty());
   }
 
   @Test
@@ -876,13 +906,16 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     added.add(tags);
     fields.setAdd(added);
     template.setFields(fields);
+    HighlightFieldOverrides highlights = new HighlightFieldOverrides();
+    highlights.setAdd(new StringArray("name"));
+    template.setHighlightFields(highlights);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = v3Config();
     SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
     OperationContext searching =
         opContext
             .withSearchFlags(
-                flags -> flags.setFulltext(true).setSkipHighlighting(true).setSkipAggregates(true))
+                flags -> flags.setFulltext(true).setSkipHighlighting(false).setSkipAggregates(true))
             .withResolvedSearchTemplate(
                 new ResolvedSearchTemplate(SEARCH_TEMPLATE_FULLTEXT_URN, 1L, "fulltext", null));
     SearchRequestHandler handler =
@@ -1271,7 +1304,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         null,
         null,
         null,
-        List.of(),
+        List.of("name"),
         List.of("name"),
         query,
         Map.of(),
