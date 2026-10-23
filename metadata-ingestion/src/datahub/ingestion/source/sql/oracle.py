@@ -14,6 +14,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     NoReturn,
     Optional,
     Tuple,
@@ -29,6 +30,7 @@ import sqlalchemy.engine
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 from sqlalchemy import create_engine, event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
@@ -66,6 +68,7 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
+    register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -395,12 +398,16 @@ VSQL_DML_COMMAND_TYPES = (
     OracleSQLCommandType.MERGE,
 )
 
+# sql_text is VARCHAR2(1000) and cuts long statements mid-token; sql_fulltext is the
+# CLOB holding the complete statement. The cheap VARCHAR2 column still drives the
+# V$SQL self-filter below.
 VSQL_USAGE_QUERY = (
     """
     SELECT * FROM (
-        SELECT 
+        SELECT
             sql_id,
             sql_text,
+            sql_fulltext,
             parsing_schema_name,
             executions,
             elapsed_time/1000000 as elapsed_seconds,
@@ -420,6 +427,14 @@ VSQL_USAGE_QUERY = (
     )
     WHERE ROWNUM <= :max_queries
 """
+)
+
+# sqlglot's Oracle dialect fails on an empty optimizer hint ("Failed to parse ' '
+# into Hint"), which ETL tools emit routinely. A hint is only meaningful right
+# after the statement verb, so only that position is matched and string literals
+# elsewhere in the statement are left alone.
+_EMPTY_HINT_PATTERN = re.compile(
+    r"\b(SELECT|INSERT|UPDATE|DELETE|MERGE)\s+/\*\+\s*\*/", re.IGNORECASE
 )
 
 
@@ -534,6 +549,19 @@ extra_oracle_types = {
     make_sqlalchemy_type("XMLTYPE"),
 }
 assert ischema_names
+
+# These types are only known to SQLAlchemy through the ischema_names patch in
+# get_workunits. Without a mapping, every such column logs "Unable to map column
+# types" and is emitted with an empty parsed type. XMLTYPE is stored and rendered
+# as text, matching the xml mapping in sql_types; the spatial object types are
+# structured, so they map to a record.
+for _oracle_type in extra_oracle_types:
+    register_custom_type(
+        _oracle_type,
+        models.StringTypeClass
+        if _oracle_type.__name__ == "XMLTYPE"
+        else models.RecordTypeClass,
+    )
 
 
 def _raise_err(exc: Exception) -> NoReturn:
@@ -2357,6 +2385,36 @@ class OracleSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url()
         return create_engine(url, **self.config.options)
 
+    def _vsql_query_text(self, row: Union[RowMapping, Mapping[str, Any]]) -> str:
+        """Return the complete statement text for a V$SQL row.
+
+        Prefers sql_fulltext and falls back to sql_text, which Oracle caps at
+        1000 characters. SQLAlchemy's Oracle dialect fetches the CLOB as a string
+        (auto_convert_lobs, on by default); when that is disabled a LOB object
+        arrives and is read here. A failed read falls back to sql_text with a
+        warning so one bad row cannot stop extraction for the whole run.
+
+        Empty optimizer hints are removed before parsing. The aggregator
+        reformats query text before storing it, so the stored text is never
+        byte-identical to what ran in any case.
+        """
+        text = row.get("sql_fulltext")
+        if text is not None and not isinstance(text, str):
+            try:
+                text = text.read()
+            except oracledb.DatabaseError as e:
+                self.report.warning(
+                    title="Could not read full SQL text from V$SQL",
+                    message="Falling back to sql_text, which Oracle caps at 1000 "
+                    "characters; longer statements may fail to parse.",
+                    context=f"sql_id={row.get('sql_id')}",
+                    exc=e,
+                )
+                text = None
+        if not text:
+            text = row.get("sql_text") or ""
+        return _EMPTY_HINT_PATTERN.sub(r"\1", text)
+
     def _check_vsql_prerequisites(
         self, engine: sqlalchemy.engine.Engine
     ) -> VSqlPrerequisiteCheckResult:
@@ -2404,7 +2462,9 @@ class OracleSource(SQLAlchemySource):
                 result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:
-                    sql_text = row["sql_text"]
+                    sql_text = self._vsql_query_text(row)
+                    if not sql_text:
+                        continue
 
                     if self.config.query_exclude_patterns:
                         should_exclude = False
