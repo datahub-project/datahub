@@ -104,9 +104,16 @@ TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
 DERIVED_TAG_URN = "urn:li:tag:Derived"
 
 # Entity kinds usage buckets can attach to (dashboards get
-# DashboardUsageStatistics, report charts get ChartUsageStatistics).
+# DashboardUsageStatistics, report charts get ChartUsageStatistics, and under
+# dataset_identity=per_report the report datasets get DatasetUsageStatistics).
 USAGE_TARGET_DASHBOARD = "dashboard"
 USAGE_TARGET_CHART = "chart"
+USAGE_TARGET_DATASET = "dataset"
+
+# dataset_identity values: one dataset entity per (dashboard, dataset) pair,
+# or one per MicroStrategy report object per project.
+DATASET_IDENTITY_PER_DASHBOARD = "per_dashboard"
+DATASET_IDENTITY_PER_REPORT = "per_report"
 
 # Sentinel MicroStrategy returns for "no object", which must never be emitted as
 # a real object id.

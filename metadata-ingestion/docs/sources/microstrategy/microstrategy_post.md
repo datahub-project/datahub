@@ -35,6 +35,10 @@ Dashboard/Dossier -> Report -> MicroStrategy Report Source Dataset
 
 Set `extract_report_sql_lineage: true` only when you also want optional coarse report source dataset -> warehouse table lineage from the report SQL-view API. This setting is disabled by default and does not emit direct warehouse edges to reports or dashboards.
 
+#### Dataset Identity
+
+By default (`dataset_identity: per_dashboard`) a dataset entity is keyed by the dossier or document that embeds it, so a report used by several dashboards appears once per dashboard, and with `extract_reports` the same report is also a `Report` chart with its own source dataset. Set `dataset_identity: per_report` to emit one dataset entity per MicroStrategy report (grid report or cube) per project, keyed `<project>.<report>`, filed under the report's own folder, with every visualization and document that uses the report pointing at that single entity, so lineage reads `warehouse table -> report dataset -> every dashboard that uses it`. Under `per_report`, `extract_reports` adds independent reports as the same kind of dataset and emits no `Report` chart; report usage statistics attach to the dataset instead. Switching schemes changes every dataset URN: with stateful ingestion the previous entities are soft-deleted on the next run, so raise `stateful_ingestion.fail_safe_threshold` for that run. The `reports_deduplicated` and `report_datasets_emitted` report counters show the effect. See `docs/sources/microstrategy/dataset-identity.md` for the full design.
+
 #### Source Warehouses
 
 When `extract_source_warehouses: true`, the connector calls MicroStrategy datasource management APIs for each project and records a source warehouse summary on the project container. The summary includes the datasource count, source database types, datasource types, and DBMS names exposed by MicroStrategy.

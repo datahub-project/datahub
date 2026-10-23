@@ -516,6 +516,31 @@ class MicroStrategyConfig(
             "column header is clicked."
         ),
     )
+    dataset_identity: Literal["per_dashboard", "per_report"] = Field(
+        default="per_dashboard",
+        description=(
+            "What one DataHub dataset entity stands for. `per_dashboard` (the "
+            "default, the historical behaviour) keys each dataset by the "
+            "dossier or document that embeds it (`<project>.<dashboard>."
+            "<dataset>`), so a report used by N dashboards is N identically "
+            "named entities, and with `extract_reports` the same report is "
+            "also a chart plus a report-scoped dataset. `per_report` keys the "
+            "dataset by the MicroStrategy report object itself "
+            "(`<project>.<report>`): one entity per report (grid report or "
+            "cube) per project, filed under the report's own folder, with its "
+            "schema from its own definition when `extract_reports` fetched "
+            "one (else the first dashboard that embeds it), warehouse lineage "
+            "computed once, and every visualization and document that uses "
+            "the report linking to that single entity; with `extract_reports` "
+            "the `Report` chart is not emitted and report usage statistics "
+            "attach to the dataset. Switching schemes changes every dataset "
+            "URN: with stateful ingestion the previous scheme's entities are "
+            "soft-deleted as stale on the next run, so raise "
+            "`stateful_ingestion.fail_safe_threshold` for that run when more "
+            "than the default percentage of entities would change. See "
+            "docs/sources/microstrategy/dataset-identity.md."
+        ),
+    )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
         default_factory=dict,
         description=(

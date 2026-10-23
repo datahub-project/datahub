@@ -10,6 +10,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
     TEMPORAL_TAG_URN,
+    USAGE_TARGET_DATASET,
 )
 from datahub.ingestion.source.microstrategy.lineage import WarehouseLineageContext
 from datahub.ingestion.source.microstrategy.mapper import MicroStrategyMapper
@@ -25,13 +26,16 @@ from datahub.ingestion.source.microstrategy.models import (
     extract_folder_parts,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
+from datahub.ingestion.source.microstrategy.usage import UsageBucket
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
+    DatasetUsageStatisticsClass,
     InputFieldsClass,
+    OwnershipClass,
     PropertyCardinalityClass,
     SchemaFieldClass,
     SchemaMetadataClass,
@@ -176,12 +180,14 @@ def _mapper(
     extract_metric_formula_lineage: bool = False,
     dataset_field_order: str = "report",
     emit_chapter_page_structured_properties: bool = False,
+    dataset_identity: str = "per_dashboard",
 ) -> MicroStrategyMapper:
     config = MicroStrategyConfig.model_validate(
         {
             "base_url": "https://mstr.example.com/MicroStrategyLibrary",
             "platform_instance": "prod",
             "dataset_field_order": dataset_field_order,
+            "dataset_identity": dataset_identity,
             "emit_dashboard_dataset_edges": emit_dashboard_dataset_edges,
             "emit_document_dataset_edges": emit_document_dataset_edges,
             "extract_warehouse_lineage": extract_warehouse_lineage,
@@ -3065,3 +3071,87 @@ def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> No
         "Qty Var PY %",
         "SALES PLAN",
     ]
+
+
+def test_dataset_urn_is_dashboard_scoped_by_default_and_report_scoped_per_report() -> (
+    None
+):
+    dataset = DatasetObject.model_validate({"id": "DS-1", "name": "Sales Cube"})
+
+    per_dashboard = _mapper().lineage
+    assert per_dashboard.dataset_urn("project-1", "dash-1", dataset) == (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.dash-1.ds-1,PROD)"
+    )
+    assert (
+        per_dashboard.dataset_qualified_name("project-1", "dash-1", dataset)
+        == "project-1.dash-1.ds-1"
+    )
+
+    per_report = _mapper(dataset_identity="per_report").lineage
+    # The parent plays no part: the same report under any dashboard, or
+    # under none, is the one URN.
+    assert per_report.dataset_urn("project-1", "dash-1", dataset) == (
+        "urn:li:dataset:(urn:li:dataPlatform:microstrategy,prod.project-1.ds-1,PROD)"
+    )
+    assert per_report.dataset_urn("project-1", "dash-2", dataset) == (
+        per_report.dataset_urn("project-1", None, dataset)
+    )
+    assert (
+        per_report.dataset_qualified_name("project-1", None, dataset)
+        == "project-1.ds-1"
+    )
+
+
+def test_report_dataset_without_dashboards_links_cube_to_project() -> None:
+    mapper = _mapper(dataset_identity="per_report")
+    cube = MicroStrategyObject.model_validate(
+        {"id": "cube-1", "name": "Sales Cube", "type": "3", "subtype": "776"}
+    )
+    dataset = DatasetObject.model_validate({"id": "cube-1", "name": "Sales Cube"})
+
+    workunits = list(
+        mapper.gen_report_dataset_workunits(
+            "project-1",
+            dataset,
+            mapper.project_key("project-1"),
+            dataset_object=cube,
+            dashboard_ids=[],
+        )
+    )
+
+    properties = _aspect(workunits, DatasetPropertiesClass)
+    # Library has no cube viewer and no dashboard embeds it, so the link
+    # lands on the project rather than on a non-existent parent.
+    assert properties.externalUrl == (
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1"
+    )
+    assert properties.customProperties["microstrategyDashboardCount"] == "0"
+    assert _aspect(workunits, SubTypesClass).typeNames == ["Cube"]
+    assert _maybe_aspect(workunits, OwnershipClass) is None
+    assert mapper.report.report_datasets_emitted == 1
+
+
+def test_usage_bucket_for_report_dataset_emits_dataset_usage_statistics() -> None:
+    mapper = _mapper(dataset_identity="per_report")
+    bucket = UsageBucket(
+        object_guid="DS-1",
+        project_guid="P-1",
+        object_name="Sales Cube",
+        bucket_start_ms=1_700_000_000_000,
+        view_count=5,
+        user_counts={"bob": 3, "alice": 2},
+    )
+
+    workunits = list(
+        mapper.gen_usage_workunits(USAGE_TARGET_DATASET, "urn:li:dataset:x", bucket)
+    )
+
+    aspect = _aspect(workunits, DatasetUsageStatisticsClass)
+    assert aspect.totalSqlQueries == 5
+    assert aspect.uniqueUserCount == 2
+    assert aspect.userCounts is not None
+    assert [(count.user, count.count) for count in aspect.userCounts] == [
+        ("urn:li:corpuser:alice", 2),
+        ("urn:li:corpuser:bob", 3),
+    ]
+    assert mapper.report.usage_buckets_emitted == 1
