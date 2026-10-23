@@ -2,7 +2,7 @@
 # full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via BASE_IMAGE.
 # The full variant has additional deps preinstalled, like a JRE, Oracle client, and MSSQL ODBC driver.
 ARG APP_ENV=full
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.12
 ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base (Wolfi)

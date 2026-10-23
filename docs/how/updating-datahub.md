@@ -49,6 +49,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(Docker / datahub-actions)** The default Python runtime in the `datahub-actions` image is now Python 3.12 rather than Python 3.11. **Action:** rebuild custom `datahub-actions` images and verify connector and plugin dependencies support Python 3.12 before deploying them.
+
 - **(GMS / Search V3 default query)** An unqualified Search V3 query reads `name`, `qualifiedName`, `description`, `tags`, `glossaryTerms`, and `other`. Reference fields such as platform, platform instance, container, domains, data product, and applications stay exact filters and copy their names into `other`. A dataset key name is indexed in `name` with the display name. **Action:** none if Search V3 write was never turned on. Otherwise rebuild the V3 indexes with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. See [Search and Graph Reindexing](./restore-indices.md).
 
 - **(GMS / Search V3 embeddings)** The Search V3 mapping is shared, so when semantic search is enabled for any entity the vector field is on every V3 index, including entities that do not store vectors. OpenSearch creates each of those indexes with `index.knn: true`. Elasticsearch uses field-level `dense_vector` and does not set `index.knn`. An existing OpenSearch V3 index created without `index.knn` cannot gain the vector field in place. **Action:** none for a new deploy, and none on Elasticsearch. On OpenSearch, if any V3 index already exists without `index.knn`, set `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX=true` and run system-update, or recreate the V3 indexes.
