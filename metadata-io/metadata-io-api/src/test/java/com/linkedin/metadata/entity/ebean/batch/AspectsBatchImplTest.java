@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
 import com.datahub.context.OperationFingerprint;
@@ -511,6 +512,17 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         batch.getItems().iterator().next().getAuditStamp().getActor().toString(), SYSTEM_ACTOR);
+  }
+
+  @Test
+  public void untrustedHeaderIsStripped() {
+    MetadataChangeProposal mcp = statusProposal("a", "urn:li:corpuser:alice");
+
+    AspectsBatchImpl.builder()
+        .mcps(List.of(mcp), systemAuditStamp(), retrieverContext, false, false)
+        .build(null);
+
+    assertFalse(mcp.getHeaders().containsKey(AttributedActorHeaders.ATTRIBUTED_ACTOR));
   }
 
   /** Converts unsupported to status aspect */

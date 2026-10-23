@@ -33,12 +33,20 @@ public final class AttributedActorHeaders {
     if (!mcp.hasHeaders()) {
       mcp.setHeaders(new StringMap());
     }
+    strip(mcp);
+    mcp.getHeaders().put(ATTRIBUTED_ACTOR, actorUrn);
+  }
+
+  /** Removes the header so an untrusted value is not forwarded (MCL headers copy the MCP's). */
+  public static void strip(@Nonnull MetadataChangeProposal mcp) {
+    if (!mcp.hasHeaders()) {
+      return;
+    }
     StringMap headers = mcp.getHeaders();
     headers.keySet().stream()
         .filter(ATTRIBUTED_ACTOR::equalsIgnoreCase)
         .collect(Collectors.toList())
         .forEach(headers::remove);
-    headers.put(ATTRIBUTED_ACTOR, actorUrn);
   }
 
   /**

@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List
+from typing import Dict, List
 from urllib.parse import quote
 
 import pytest
@@ -18,7 +18,13 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import MlModelUrn
 from tests.e2e.restli.restli_test import MetadataChangeProposalInvalidWrapper
-from tests.e2e.utils import delete_urn, delete_urns, unique_dataset_urn, with_test_retry
+from tests.e2e.utils import (
+    delete_urn,
+    delete_urns,
+    get_admin_username,
+    unique_dataset_urn,
+    with_test_retry,
+)
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -185,15 +191,17 @@ def test_async_ingest_attributes_caller(auth_session, graph_client):
         wait_for_writes_to_sync(mcp_only=True)
 
         @with_test_retry()
-        def _stored_actor() -> str:
+        def _stored_audit_stamp() -> Dict[str, str]:
             resp = auth_session.get(
                 f"{auth_session.gms_url()}/openapi/v3/entity/dataset/{quote(dataset_urn, safe='')}/status",
                 params={"systemMetadata": "true"},
             )
             resp.raise_for_status()
-            return resp.json()["auditStamp"]["actor"]
+            return resp.json()["auditStamp"]
 
-        assert _stored_actor() == "urn:li:corpuser:datahub"
+        audit_stamp = _stored_audit_stamp()
+        assert audit_stamp["actor"] == f"urn:li:corpuser:{get_admin_username()}"
+        assert audit_stamp["impersonator"] == "urn:li:corpuser:__datahub_system"
     finally:
         try:
             delete_urn(graph_client, dataset_urn)
