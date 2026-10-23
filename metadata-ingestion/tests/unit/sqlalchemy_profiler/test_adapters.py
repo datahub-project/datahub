@@ -646,6 +646,16 @@ class TestPostgresAdapter:
         assert "pg_namespace" in sql
         assert row_count == 98765
 
+    def test_get_estimated_row_count_treats_negative_reltuples_as_unknown(
+        self, adapter, mock_table
+    ):
+        """PG14+ reports reltuples = -1 for a never-analyzed table or a partitioned parent."""
+        mock_conn = MagicMock()
+        mock_conn.execute_rows.return_value.scalar.return_value = -1
+
+        assert adapter.get_estimated_row_count(mock_table, mock_conn) is None
+        assert adapter.get_row_count(mock_table, mock_conn, use_estimation=True) == 0
+
 
 class TestRedshiftAdapter:
     """Test cases for RedshiftAdapter."""
