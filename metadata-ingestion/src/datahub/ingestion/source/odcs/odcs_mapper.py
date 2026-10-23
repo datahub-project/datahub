@@ -1,6 +1,8 @@
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
+from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
@@ -24,6 +26,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_constants import (
     ASSERTION_SCHEMA_COMPLIANCE,
+    DEPRECATION_ACTOR,
     LOGICAL_TYPE_MAP,
     METRIC_DUPLICATE_COUNT,
     METRIC_DUPLICATE_VALUES,
@@ -76,6 +79,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSServer,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -90,6 +94,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DataQualityContractClass,
     DatasetPropertiesClass,
+    DeprecationClass,
     EdgeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
@@ -232,6 +237,30 @@ def _override_for_server(
     return next((m for m in overrides if m.match_any), None)
 
 
+# AWS Glue endpoints, including FIPS and China regions.
+_GLUE_ENDPOINT_HOST = re.compile(r"^glue(-fips)?\.[a-z0-9-]+\.amazonaws\.com(\.cn)?$")
+
+
+def _is_iceberg_server(server: ODCSServer) -> bool:
+    return (server.type or "").strip().lower() == "iceberg"
+
+
+def _platform_for_server(server: ODCSServer) -> Optional[str]:
+    """DataHub platform for a server's spec-required `type`.
+
+    An `iceberg` server whose REST catalog is AWS Glue
+    (`https://glue.<region>.amazonaws.com/iceberg`) holds tables the Glue
+    connector catalogs, so it binds to `glue`; other Iceberg catalogs bind to
+    `iceberg`. Either way the Iceberg namespace qualifies the table name. The
+    caller refuses a `catalogUrl` holding an unresolved variable.
+    """
+    if _is_iceberg_server(server):
+        host = urlparse(server.catalogUrl or "").hostname or ""
+        if _GLUE_ENDPOINT_HOST.match(host):
+            return "glue"
+    return SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
+
+
 def _resolve_server(
     contract: ODCSContract, config: ODCSSourceConfig
 ) -> Tuple[Optional[ResolvedServer], Optional[str]]:
@@ -249,7 +278,7 @@ def _resolve_server(
         mapping = _override_for_server(server.server, config.server_overrides)
         platform = (
             mapping.platform if mapping is not None and mapping.platform else None
-        ) or SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
+        ) or _platform_for_server(server)
         if platform:
             return ResolvedServer(
                 server=server, platform=platform, mapping=mapping
@@ -276,11 +305,36 @@ def _compose_physical_name(
     `(name, None, passthrough)` on success or `(None, reason, False)` when the
     name cannot be composed. Lowercasing applies only to platforms whose
     connectors lowercase by default (see LOWERCASE_BY_DEFAULT_PLATFORMS).
+    Values containing an unresolved `${...}` variable are refused.
     """
+    # ODCS v3.2 (RFC 0050) allows ${VAR} / ${VAR:-default} in any string. This
+    # source does not resolve them; composing one into a URN would bind the
+    # logical dataset to a dataset that does not exist.
+    if "${" in table:
+        return (
+            None,
+            f"physicalName '{table}' contains an unresolved ODCS variable; "
+            "resolve it or supply a physical_urn_overrides entry",
+            False,
+        )
+    if _is_iceberg_server(server) and "${" in (server.catalogUrl or ""):
+        # The catalogUrl picks the platform (glue vs iceberg), so a variable
+        # there makes the URN a guess.
+        return (
+            None,
+            f"server '{server.server}' catalogUrl '{server.catalogUrl}' contains an "
+            "unresolved ODCS variable; resolve it or supply a "
+            "physical_urn_overrides entry",
+            False,
+        )
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
-    parts_spec = PLATFORM_NAME_PARTS.get(platform)
+    parts_spec = (
+        PLATFORM_NAME_PARTS["iceberg"]
+        if _is_iceberg_server(server)
+        else PLATFORM_NAME_PARTS.get(platform)
+    )
     if parts_spec is None:
         return (
             None,
@@ -292,6 +346,14 @@ def _compose_physical_name(
     missing: List[str] = []
     for attr in parts_spec:
         value = getattr(server, attr)
+        if value and "${" in str(value):
+            return (
+                None,
+                f"server '{server.server}' {attr.rstrip('_')} '{value}' contains an "
+                "unresolved ODCS variable; resolve it or supply a "
+                "physical_urn_overrides entry",
+                False,
+            )
         if value:
             values.append(str(value))
         else:
@@ -624,6 +686,48 @@ def _institutional_memory_mcp(
     )
 
 
+def _deprecation(contract: ODCSContract, deprecated: bool) -> DeprecationClass:
+    return DeprecationClass(
+        deprecated=deprecated,
+        note=f"Marked deprecated in ODCS contract {contract.id}" if deprecated else "",
+        actor=DEPRECATION_ACTOR,
+    )
+
+
+def _field_aspect_mcps(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject, logical_urn: str
+) -> List[MetadataChangeProposalWrapper]:
+    """Per-field `deprecation` and `aiContext` aspects (ODCS v3.2).
+
+    An explicit `deprecated` (true or false) is asserted, so reverting the flag
+    in the contract clears the deprecation; an absent key emits nothing.
+    """
+    mcps: List[MetadataChangeProposalWrapper] = []
+    for field_path, prop in _walk_properties(schema_entry.properties):
+        field_urn = make_schema_field_urn(logical_urn, field_path)
+        if prop.deprecated is not None:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=field_urn,
+                    aspect=_deprecation(contract, prop.deprecated),
+                )
+            )
+        names = [
+            s if isinstance(s, str) else s.synonym
+            for s in prop.synonyms or []
+            # RFC 0041: a deprecated synonym is a former name, not a current one.
+            if isinstance(s, str) or str(s.status or "").strip().lower() != "deprecated"
+        ]
+        synonyms = [name for name in names if name]
+        if synonyms:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=field_urn, aspect=AiContextClass(synonyms=synonyms)
+                )
+            )
+    return mcps
+
+
 def odcs_to_logical_dataset_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -721,6 +825,15 @@ def odcs_to_logical_dataset_mcps(
     inst_mem = _institutional_memory_mcp(logical_urn, schema_entry, contract)
     if inst_mem is not None:
         mcps.append(inst_mem)
+
+    if schema_entry.deprecated is not None:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=logical_urn,
+                aspect=_deprecation(contract, schema_entry.deprecated),
+            )
+        )
+    mcps.extend(_field_aspect_mcps(contract, schema_entry, logical_urn))
 
     return mcps, schema_result.unmapped_types
 
@@ -1411,6 +1524,25 @@ def odcs_to_assertion_mcps(
     return assertion_urns, mcps, trace
 
 
+def _without_measures(schema_entry: ODCSSchemaObject) -> ODCSSchemaObject:
+    """The schema entry minus v3.2 `semanticType: measure` properties.
+
+    A measure is an aggregate expression (`transformLogic`), not a column of the
+    physical table, so the schema-compliance assertion must not require it.
+    """
+
+    def keep(props: Optional[List[ODCSProperty]]) -> Optional[List[ODCSProperty]]:
+        if props is None:
+            return None
+        return [
+            p.model_copy(update={"properties": keep(p.properties)})
+            for p in props
+            if str(p.semanticType or "").strip().lower() != "measure"
+        ]
+
+    return schema_entry.model_copy(update={"properties": keep(schema_entry.properties)})
+
+
 def odcs_to_schema_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -1425,7 +1557,7 @@ def odcs_to_schema_assertion_mcps(
     rather than an implied one. Returns (None, []) when the entry declares no
     properties — there is no schema to assert.
     """
-    schema_result = build_schema_metadata(schema_entry)
+    schema_result = build_schema_metadata(_without_measures(schema_entry))
     if schema_result.schema_metadata is None:
         return None, []
     assertion_urn = make_assertion_urn(
