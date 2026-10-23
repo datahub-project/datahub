@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, ClassVar, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -217,6 +217,15 @@ class DremioFolder(DremioContainer):
     root_container_type: Optional[str] = None
 
 
+_EMITTED_CONTAINER_TYPES = frozenset(
+    (
+        DremioEntityContainerType.SOURCE,
+        DremioEntityContainerType.SPACE,
+        DremioEntityContainerType.FOLDER,
+    )
+)
+
+
 class DremioCatalog:
     api: DremioAPIOperations
     edition: DremioEdition
@@ -226,17 +235,32 @@ class DremioCatalog:
         self.edition = api.edition
         # TABLE_SCHEMA can case folders differently from the catalog walk.
         self._container_paths = DremioContainerPathIndex()
+        self._containers_indexed = False
+        self._unresolved_container_paths: Set[str] = set()
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
+        if not self._containers_indexed:
+            for container in self.api.get_all_containers():
+                if container.container_type in _EMITTED_CONTAINER_TYPES:
+                    self._container_paths.add([*(container.path or []), container.name])
+            self._containers_indexed = True
+
         for dataset_details in self.api.get_all_tables_and_columns():
             dremio_dataset = DremioDataset(
                 dataset_details=dataset_details,
                 api_operations=self.api,
             )
-            dremio_dataset.container_path = self._container_paths.resolve(
-                dremio_dataset.path
-            )
+            container_path = self._container_paths.resolve(dremio_dataset.path)
+            unresolved = ".".join(dremio_dataset.path)
+            if (
+                container_path is None
+                and unresolved
+                and unresolved not in self._unresolved_container_paths
+            ):
+                self._unresolved_container_paths.add(unresolved)
+                self.api.report.datasets_with_unresolved_container.append(unresolved)
+            dremio_dataset.container_path = container_path or dremio_dataset.path
 
             yield dremio_dataset
 
@@ -250,6 +274,7 @@ class DremioCatalog:
                 [*dremio_container.path, dremio_container.container_name]
             )
             yield dremio_container
+        self._containers_indexed = True
 
     def _to_container(
         self, container: DremioContainerResponse

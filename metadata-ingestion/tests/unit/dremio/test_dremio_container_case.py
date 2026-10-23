@@ -11,10 +11,18 @@ from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog
 from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerPathIndex,
     DremioContainerResponse,
+    DremioDatasetColumn,
     DremioEntityContainerType,
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.dremio.dremio_source import DremioSource
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
+    StringTypeClass,
+)
 
 FOLDER = DremioEntityContainerType.FOLDER.lower()
 CONTAINER = DremioEntityContainerType.CONTAINER
@@ -92,14 +100,22 @@ def _dataset(table_schema: str, table_name: str) -> dict:
         "TABLE_NAME": table_name,
         "TABLE_SCHEMA": table_schema,
         "LOCATION_ID": None,
-        "COLUMNS": [],
+        "COLUMNS": [
+            {
+                "name": "col_a",
+                "ordinal_position": 1,
+                "is_nullable": "YES",
+                "data_type": "character varying",
+                "column_size": 255,
+            }
+        ],
     }
 
 
-@pytest.fixture
-def catalog() -> DremioCatalog:
+def _mock_api() -> Mock:
     api = Mock()
     api.edition = DremioEdition.COMMUNITY
+    api.report = DremioSourceReport()
     api.get_description_for_resource.return_value = None
     api.get_tags_for_resource.return_value = None
     api.get_all_containers.return_value = [
@@ -110,30 +126,109 @@ def catalog() -> DremioCatalog:
             _container(
                 "Conformed", ["my_space", "Gold"], DremioEntityContainerType.FOLDER
             ),
+            _container("my_source", [], DremioEntityContainerType.SOURCE),
         )
     ]
     api.get_all_tables_and_columns.return_value = [
         _dataset("[MY_SPACE, gold, CONFORMED, my_view]", "my_view"),
+        _dataset("[MY_SOURCE, my_source_table]", "my_source_table"),
         _dataset("[other_space, my_table]", "my_table"),
     ]
-    return DremioCatalog(api)
+    return api
 
 
-def test_dataset_points_at_emitted_parent_container(catalog):
-    aspects = DremioAspects(
+def _aspects() -> DremioAspects:
+    return DremioAspects(
         platform="dremio",
         ui_url="https://dremio.example.com",
         env="PROD",
         ingest_owner=False,
     )
-    list(catalog.get_containers())
-    datasets = {d.resource_name: d for d in catalog.get_datasets()}
 
-    view = datasets["my_view"]
-    assert view.path == ["MY_SPACE", "gold", "CONFORMED"]
-    container_class = aspects._create_container_class(view)
-    assert container_class is not None
-    assert container_class.container == aspects.get_container_urn(
+
+def test_dataset_points_at_emitted_parent_container():
+    api = _mock_api()
+    # get_datasets() runs first on purpose: it must not rely on get_containers().
+    datasets = {d.resource_name: d for d in DremioCatalog(api).get_datasets()}
+    aspects = _aspects()
+
+    view_container = aspects._create_container_class(datasets["my_view"])
+    assert view_container is not None
+    assert view_container.container == aspects.get_container_urn(
         name="Conformed", path=["my_space", "Gold"]
     )
+    assert datasets["my_source_table"].container_path == ["my_source"]
+
     assert datasets["my_table"].container_path == ["other_space"]
+    assert list(api.report.datasets_with_unresolved_container) == ["other_space"]
+
+
+@pytest.mark.parametrize(
+    "emitted, lookup, expected",
+    [
+        ([["src", "Data"]], ["SRC", "data"], ["src", "Data"]),
+        ([["src", "Data"], ["src", "data"]], ["src", "data"], ["src", "data"]),
+        ([["src", "Data"], ["src", "data"]], ["SRC", "DATA"], None),
+        ([["src", "Data"]], ["src", "other"], None),
+    ],
+)
+def test_container_path_index_prefers_exact_then_unique_case_insensitive(
+    emitted, lookup, expected
+):
+    index = DremioContainerPathIndex()
+    for path in emitted:
+        index.add(path)
+    assert index.resolve(lookup) == expected
+
+
+def test_source_emits_no_orphan_dataset_containers(monkeypatch):
+    session = Mock()
+    session.post.return_value.json.return_value = {"token": "dummy-token"}
+    session.post.return_value.status_code = 200
+    monkeypatch.setattr("requests.Session", Mock(return_value=session))
+    source = DremioSource(
+        DremioSourceConfig(
+            hostname="dummy-host",
+            port=9047,
+            tls=False,
+            username="dummy-user",
+            password="dummy-password",
+        ),
+        Mock(run_id="test-run-id"),
+    )
+    api = _mock_api()
+    api.report = source.report
+    source.dremio_catalog = DremioCatalog(api)
+
+    workunits = list(source.get_workunits_internal())
+
+    emitted = {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(ContainerPropertiesClass) is not None
+    }
+    dataset_parents = {
+        aspect.container
+        for wu in workunits
+        if wu.get_urn().startswith("urn:li:dataset:")
+        and (aspect := wu.get_aspect_of_type(ContainerClass)) is not None
+    }
+    assert dataset_parents
+    assert dataset_parents - emitted == {
+        _aspects().get_container_urn(path=["other_space"])
+    }
+
+
+def test_schema_field_keeps_native_type_and_nullability():
+    field = _aspects()._create_schema_field(
+        DremioDatasetColumn(
+            name="col_a",
+            ordinal_position=1,
+            is_nullable="YES",
+            data_type="character varying",
+            column_size=255,
+        )
+    )
+    assert isinstance(field.type.type, StringTypeClass)
+    assert field.nativeDataType == "character varying(255)"
+    assert field.nullable is True

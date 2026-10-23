@@ -1,7 +1,7 @@
 import json
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Set, Union
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.utilities.str_enum import StrEnum
@@ -41,28 +41,41 @@ class DremioOwnerType(StrEnum):
 
 
 class DremioFieldType(BaseModel):
-    data_type: SchemaFieldDataTypeClass
+    schema_field_type: SchemaFieldDataTypeClass
     native_data_type: str
 
     class Config:
         arbitrary_types_allowed = True
+        frozen = True
 
 
 class DremioContainerPathIndex(BaseModel):
     """Emitted container paths, matched case-insensitively like Dremio identifiers."""
 
-    paths: Dict[str, List[str]] = Field(default_factory=dict)
+    _exact: Set[str] = PrivateAttr(default_factory=set)
+    _by_folded_key: Dict[str, List[List[str]]] = PrivateAttr(default_factory=dict)
 
     @staticmethod
     def _key(path: List[str]) -> str:
         # JSON keeps segments distinct even when a name contains a dot.
-        return json.dumps([part.lower() for part in path])
+        return json.dumps(path)
 
     def add(self, path: List[str]) -> None:
-        self.paths.setdefault(self._key(path), path)
+        if self._key(path) in self._exact:
+            return
+        self._exact.add(self._key(path))
+        folded = self._key([part.lower() for part in path])
+        self._by_folded_key.setdefault(folded, []).append(path)
 
-    def resolve(self, path: List[str]) -> List[str]:
-        return self.paths.get(self._key(path), path)
+    def resolve(self, path: List[str]) -> Optional[List[str]]:
+        """The emitted casing of `path`, or None if no container or more than
+        one (a case-sensitive source can hold `Data` and `data`) matches."""
+        if self._key(path) in self._exact:
+            return path
+        matches = self._by_folded_key.get(self._key([part.lower() for part in path]))
+        if matches and len(matches) == 1:
+            return matches[0]
+        return None
 
 
 class DremioContainerResponse(BaseModel):

@@ -68,17 +68,17 @@ class TestSchemaFieldTypeMapper:
     )
     def test_known_type_mapping(self, data_type, expected_class):
         field_type = SchemaFieldTypeMapper.get_field_type(data_type)
-        assert isinstance(field_type.data_type.type, expected_class)
+        assert isinstance(field_type.schema_field_type.type, expected_class)
         assert field_type.native_data_type == data_type
 
     def test_unknown_type_falls_back_to_null(self):
         field_type = SchemaFieldTypeMapper.get_field_type("jsonb")
-        assert isinstance(field_type.data_type.type, NullTypeClass)
+        assert isinstance(field_type.schema_field_type.type, NullTypeClass)
         assert field_type.native_data_type == "jsonb"
 
     def test_empty_type_falls_back_to_null(self):
         field_type = SchemaFieldTypeMapper.get_field_type("")
-        assert isinstance(field_type.data_type.type, NullTypeClass)
+        assert isinstance(field_type.schema_field_type.type, NullTypeClass)
         assert field_type.native_data_type == "NULL"
 
     def test_data_size_appended_to_native_type(self):
@@ -94,7 +94,7 @@ class TestSchemaFieldTypeMapper:
     def test_type_lookup_is_case_insensitive(self):
         """The mapper lowercases input before lookup, so uppercase types resolve correctly."""
         field_type = SchemaFieldTypeMapper.get_field_type("INTEGER")
-        assert isinstance(field_type.data_type.type, NumberTypeClass)
+        assert isinstance(field_type.schema_field_type.type, NumberTypeClass)
 
 
 class TestDremioAspectsExternalUrl:

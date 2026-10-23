@@ -7,6 +7,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import (
     TopKDict,
     float_top_k_dict,
@@ -24,6 +25,11 @@ class DremioSourceReport(
     num_datasets_failed: int = 0
     containers_scanned: int = 0
     containers_filtered: int = 0
+    # Dataset schema paths that matched no emitted container, or several that
+    # differ only by case; their datasets keep their own path.
+    datasets_with_unresolved_container: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Count of *lineage references* (not edges) dropped by
     # schema_pattern / dataset_pattern. Increments once per filtered

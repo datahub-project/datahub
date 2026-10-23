@@ -122,7 +122,7 @@ class SchemaFieldTypeMapper:
             schema_field_type = SchemaFieldDataTypeClass(type=NullTypeClass())
 
         return DremioFieldType(
-            data_type=schema_field_type, native_data_type=native_data_type
+            schema_field_type=schema_field_type, native_data_type=native_data_type
         )
 
 
@@ -503,7 +503,7 @@ class DremioAspects:
         )
         return SchemaFieldClass(
             fieldPath=column.name,
-            type=field_type.data_type,
+            type=field_type.schema_field_type,
             nativeDataType=field_type.native_data_type,
             nullable=column.is_nullable == "YES",
         )
