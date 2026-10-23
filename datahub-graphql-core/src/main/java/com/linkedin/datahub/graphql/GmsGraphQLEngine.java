@@ -1587,7 +1587,8 @@ public class GmsGraphQLEngine {
                   new UpdateParentNodeResolver(this.entityService, this.entityClient))
               .dataFetcher(
                   "deleteGlossaryEntity",
-                  new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
+                  new DeleteGlossaryEntityResolver(
+                      this.entityClient, this.entityService, this.entityVersioningService))
               .dataFetcher(
                   "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
               .dataFetcher(
