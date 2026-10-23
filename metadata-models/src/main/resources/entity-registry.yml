@@ -331,6 +331,7 @@ entities:
       - displayProperties
       - assetSettings
       - globalTags
+      - versionProperties
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
