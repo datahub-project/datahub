@@ -316,7 +316,7 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
           .recordTemplate(prepared.getRecordTemplate())
           .auditStamp(prepared.getAuditStamp())
           .systemMetadata(withAppSource(systemMetadata))
-          .headers(versionHeaders(systemMetadata != null ? systemMetadata.getVersion() : null))
+          .headers(versionHeaders(systemMetadata.getVersion()))
           .build(opContext.getAspectRetriever());
     } catch (ValidationException e) {
       // Decided on the stored value when it was read, before references only a newer version

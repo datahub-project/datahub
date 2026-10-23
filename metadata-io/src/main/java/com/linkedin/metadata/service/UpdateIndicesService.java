@@ -179,8 +179,8 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Nonnull
   private LinkedHashMap<Urn, List<MCLItem>> groupForStrategies(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    // Skip MCLs with unknown entities/aspects (can happen after rollback when
-    // older build encounters rows written by the newer one).
+    // While unknown data is tolerated, skip MCLs with unknown entities/aspects (can happen after
+    // rollback when older build encounters rows written by the newer one).
     EntityRegistry entityRegistry = opContext.getAspectRetriever().getEntityRegistry();
     List<MCLItem> mclItems =
         events.stream()

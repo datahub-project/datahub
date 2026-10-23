@@ -18,10 +18,11 @@ import javax.annotation.Nullable;
  * entity types, aspects and references its entity registry doesn't know, and enum symbols or union
  * members its schemas don't define.
  *
- * <p>Every behavior that differs between tolerating such data and failing on it goes through this
- * interface, so one implementation is chosen per process ({@link UnknownDataHandlings}) instead of
- * each call site checking a flag. The two kinds are tolerated separately ({@code
- * featureFlags.unknownEntityAspectToleranceEnabled} and {@code
+ * <p>One implementation is chosen per process ({@link UnknownDataHandlings}). Shared behavior (what
+ * to admit, strip or merge) goes through the methods below; call sites whose tolerant path differs
+ * in a way no method covers branch on {@link #toleratesUnknownEntityAspect()}, {@link
+ * #toleratesUnknownEnum()} or {@link #toleratesUnknownData()}. The two kinds are tolerated
+ * separately ({@code featureFlags.unknownEntityAspectToleranceEnabled} and {@code
  * featureFlags.unknownEnumToleranceEnabled}, both defaulting to env {@code
  * UNKNOWN_DATA_TOLERANCE_ENABLED}, which turns on both for a rollback): {@link TolerantHandling}
  * skips and strips what its flags tolerate; {@link StrictHandling}, with both off, keeps the

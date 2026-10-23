@@ -1075,11 +1075,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       List<EnvelopedAspect> aspects =
           urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
 
-      // Strict handling keeps building the key aspect even when it isn't added, as before.
-      if (!alwaysIncludeKeyAspect && handling().toleratesUnknownEntityAspect()) {
-        result.put(urn, aspects);
-        continue;
-      }
       EnvelopedAspect keyAspect =
           EntityUtils.getKeyEnvelopedAspect(urn, opContext.getEntityRegistry());
       // Add key aspect if it does not exist in the returned aspects
