@@ -442,9 +442,10 @@ public class DatahubSparkListener extends SparkListener {
 
   /**
    * Decide whether OpenLineage's built-in dataset-name trimmers (on by default since OL 1.39) run.
-   * They collide with DataHub's PathSpec ({@code RemovePathPatternUtils}), which runs afterward:
-   * the trimmer strips partition segments before PathSpec matches, causing double-transformation
-   * and breaking {@code path_spec} patterns that reference those segments. Resolution order:
+   * They collide with DataHub's PathSpec (applied by the converter's {@code HdfsPathDataset}),
+   * which runs afterward: the trimmer strips partition segments before PathSpec matches, causing
+   * double-transformation and breaking {@code path_spec} patterns that reference those segments.
+   * Resolution order:
    *
    * <ul>
    *   <li>if the user pinned OpenLineage's native {@code disabledTrimmers} key directly, respect
