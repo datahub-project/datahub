@@ -103,6 +103,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROP_SPACE_NAME,
     PROP_VALUE_FALSE,
     PROP_VALUE_TRUE,
+    SAP_OBJECT_NAMESPACE,
     SCALE_WARNING_URN_THRESHOLD,
     SCHEMA_FIELD_URN_PREFIX,
     SEMANTIC_CURRENCY,
@@ -227,6 +228,14 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
 }
 
 
+def _space_name(space: object) -> Optional[str]:
+    if isinstance(space, dict):
+        name = space.get(CATALOG_FIELD_NAME)
+        if isinstance(name, str) and name:
+            return name
+    return None
+
+
 @platform_name("SAP Datasphere")
 @config_class(SapDatasphereConfig)
 @support_status(SupportStatus.ALPHA)
@@ -307,6 +316,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # to copy scalar types into analytic-model elements (which carry none). One
         # CSN fetch per distinct source object, reused across analytic models.
         self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
+        # Every space the catalog lists, including filtered ones. A listed space
+        # wins over the SAP namespace when reading a dotted `SPACE.name` ref.
+        self._known_spaces: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -391,15 +403,19 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             yield from get_predefined_tag_workunits()
             self._sap_tags_emitted = True
 
-        for space in self._safe_list_spaces():
-            if not isinstance(space, dict) or not space.get(CATALOG_FIELD_NAME):
+        spaces = list(self._safe_list_spaces())
+        self._known_spaces = {
+            name for name in (_space_name(space) for space in spaces) if name
+        }
+        for space in spaces:
+            space_name = _space_name(space)
+            if space_name is None:
                 self.report.warning(
                     title="Skipped malformed Datasphere space record",
                     message="Space record from catalog API is missing the 'name' field; skipping.",
                     context=str(space),
                 )
                 continue
-            space_name: str = space[CATALOG_FIELD_NAME]
             space_label: str = space.get(CATALOG_FIELD_LABEL) or space_name
             self.report.spaces_scanned += 1
             if not self.config.space_pattern.allowed(space_name):
@@ -2052,8 +2068,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         try:
             source_columns = extract_projection_source_columns(csn_def)
         except Exception as e:
-            logger.debug(
-                "Could not map %s.%s projection: %s", space_name, asset_name, e
+            self.report.warning(
+                title="Could not map analytic-model projection",
+                message="Column types could not be copied from the projection's source objects.",
+                context=f"{space_name}.{asset_name}",
+                exc=e,
             )
             return missing
         elements = csn_def.get(CSN_KEY_ELEMENTS)
@@ -2106,16 +2125,21 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _source_object_field_types(
         self, default_space: str, source_object: str
     ) -> Dict[str, SchemaFieldClass]:
-        cached = self._source_field_type_cache.get(source_object)
+        # A dotted name is `SPACE.name` unless it is in the SAP namespace of
+        # objects generated in the model's own space. The catalog does not list
+        # every space a model can read from, so other prefixes stay spaces. Only
+        # VIEWS is probed (its 404 retry also covers analytic models); a
+        # local/remote table source is not resolved and its columns fall back to
+        # the measure heuristic or stay NullType.
+        prefix, _, rest = source_object.partition(".")
+        if rest and (prefix in self._known_spaces or prefix != SAP_OBJECT_NAMESPACE):
+            space, name = prefix, rest
+        else:
+            space, name = default_space, source_object
+        cache_key = f"{space}.{name}"
+        cached = self._source_field_type_cache.get(cache_key)
         if cached is not None:
             return cached
-        # A projection ref is space-qualified (``SPACE.name``); a bare name is a
-        # same-space source. NOTE: only VIEWS is probed (its 404 retry also covers
-        # analytic models) — a local/remote-table source is not resolved and its
-        # columns fall back to the measure heuristic or stay NullType.
-        space, _, name = source_object.partition(".")
-        if not name:
-            space, name = default_space, source_object
         field_map: Dict[str, SchemaFieldClass] = {}
         csn_obj = self._client.fetch_object_definition(space, OBJECT_TYPE_VIEWS, name)
         definition = self._csn_definition(csn_obj, name)
@@ -2128,7 +2152,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             field_map = {
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
-        self._source_field_type_cache[source_object] = field_map
+        self._source_field_type_cache[cache_key] = field_map
         return field_map
 
     def _apply_column_pattern(

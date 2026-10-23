@@ -165,6 +165,11 @@ CSN_REF: Final[str] = "ref"
 CSN_AS: Final[str] = "as"
 CSN_JOIN: Final[str] = "join"
 CSN_ARGS: Final[str] = "args"
+CSN_MIXIN: Final[str] = "mixin"
+CSN_ID: Final[str] = "id"
+# Namespace of objects SAP generates inside a space (e.g. `SAP.TIME.*` time
+# dimension tables), whose technical names contain dots.
+SAP_OBJECT_NAMESPACE: Final[str] = "SAP"
 CSN_FUNC: Final[str] = "func"
 CSN_XPR: Final[str] = "xpr"
 CSN_CASE: Final[str] = "case"

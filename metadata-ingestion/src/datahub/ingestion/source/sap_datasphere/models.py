@@ -1,6 +1,7 @@
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     Literal,
@@ -231,6 +232,25 @@ class SourceColumnRef(BaseModel):
 
     source_object: str
     column: str
+
+
+class FromSources(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    # `as` alias, or the name and its implicit alias (last dotted segment) when
+    # there is none -> source object, for the FROM of an analytic-model projection.
+    by_name: Dict[str, str] = Field(default_factory=dict)
+    # Every source object, including ones whose keys were dropped as ambiguous.
+    objects: FrozenSet[str] = frozenset()
+    # False when part of the FROM is a subquery or path expression, so an
+    # unqualified column may come from a source missing from `by_name`.
+    complete: bool = True
+
+    @property
+    def single_source(self) -> Optional[str]:
+        if self.complete and len(self.objects) == 1:
+            return next(iter(self.objects))
+        return None
 
 
 # Transform-operation labels DataHub's UI recognises for its transformation badge.
