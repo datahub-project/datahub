@@ -83,7 +83,8 @@ record QueryProperties includes CustomProperties {
     },
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "createdBy"
+      "fieldName": "createdBy",
+      "v3": { "enabled": false }
     }
   }
   created: AuditStamp
@@ -104,7 +105,8 @@ record QueryProperties includes CustomProperties {
     }
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "lastModifiedBy"
+      "fieldName": "lastModifiedBy",
+      "v3": { "enabled": false }
     }
   }
   lastModified: AuditStamp

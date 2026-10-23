@@ -894,8 +894,15 @@ public class ESUtils {
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
-        Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
+        // urn is a synthetic keyword root on every entity index, not an annotated entity field.
+        Optional<SearchableAnnotation.FieldType> fieldTypeForDefault =
+            DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(sortCriterion.getField())
+                ? Optional.of(SearchableAnnotation.FieldType.KEYWORD)
+                : Optional.empty();
         for (EntitySpec entitySpec : entitySpecs) {
+          if (fieldTypeForDefault.isPresent()) {
+            break;
+          }
           List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
           for (SearchableFieldSpec fieldSpec : fieldSpecs) {
             SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();

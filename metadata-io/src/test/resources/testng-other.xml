@@ -45,6 +45,7 @@
             <class name="com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.OnnxEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.ClassicalEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfigMappingDiffTest"/>
         </classes>
     </test>
 
