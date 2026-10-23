@@ -2169,18 +2169,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
     def _find_activity_by_name(
         self, pipeline: PipelineResource, activity_name: str
     ) -> Optional[Activity]:
-        """BFS over a pipeline's activities (including nested container
-        children) to find the activity with the given name."""
-        activities_to_process: deque[Activity] = deque(pipeline.activities or [])
-        visited_activity_ids: set[int] = set()
-        while activities_to_process:
-            activity = activities_to_process.popleft()
-            if id(activity) in visited_activity_ids:
-                continue
-            visited_activity_ids.add(id(activity))
+        """Find the activity with the given name among a pipeline's
+        activities, including nested container children."""
+        for activity in self._walk_activities(pipeline.activities or []):
             if activity.name == activity_name:
                 return activity
-            activities_to_process.extend(self._get_nested_activities(activity))
         return None
 
     def _emit_dynamic_lineage_augmentation(
