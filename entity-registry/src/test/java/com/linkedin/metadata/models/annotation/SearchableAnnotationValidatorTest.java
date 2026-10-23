@@ -799,13 +799,13 @@ public class SearchableAnnotationValidatorTest {
     overlay.put("searchLabel", searchLabel);
     overlay.put("degree", degree);
     overlay.put("boostScore", v3BoostScore);
+    if (queryByDefault != null) {
+      overlay.put("queryByDefault", queryByDefault);
+    }
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldName", fieldName);
     annotationMap.put("fieldType", fieldType);
     annotationMap.put("boostScore", boostScore);
-    if (queryByDefault != null) {
-      annotationMap.put("queryByDefault", queryByDefault);
-    }
     annotationMap.put("v3", overlay);
     return SearchableAnnotation.fromPegasusAnnotationObject(
         annotationMap, fieldName, DataSchema.Type.STRING, "test");
