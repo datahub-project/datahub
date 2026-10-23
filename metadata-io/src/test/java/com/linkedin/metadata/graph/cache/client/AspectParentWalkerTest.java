@@ -1,12 +1,14 @@
 package com.linkedin.metadata.graph.cache.client;
 
 import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.domain.DomainProperties;
@@ -91,10 +93,45 @@ public class AspectParentWalkerTest {
     assertTrue(AspectParentWalker.isAncestorOf(opContext, spec, GRANDCHILD, ROOT));
   }
 
-  private void mockParents(Map<Urn, Urn> parentByUrn) {
+  @Test
+  public void orderedParentsStopsAtSoftDeletedParent() {
+    Map<Urn, Urn> parentByUrn = new LinkedHashMap<>();
+    parentByUrn.put(GRANDCHILD, CHILD);
+    parentByUrn.put(CHILD, ROOT);
+    parentByUrn.put(ROOT, null);
+    mockParents(parentByUrn, Set.of(CHILD));
+
+    // CHILD is soft-deleted, so the chain ends there -- ROOT is not reported even though it is
+    // live, because it is only reachable through the deleted CHILD.
+    List<Urn> parents = AspectParentWalker.orderedParents(opContext, spec, GRANDCHILD, 10);
+    assertEquals(parents, List.of());
+  }
+
+  @Test
+  public void orderedParentsTruncatesAtSoftDeletedAncestor() {
+    Map<Urn, Urn> parentByUrn = new LinkedHashMap<>();
+    parentByUrn.put(GRANDCHILD, CHILD);
+    parentByUrn.put(CHILD, ROOT);
+    parentByUrn.put(ROOT, null);
+    mockParents(parentByUrn, Set.of(ROOT));
+
+    List<Urn> parents = AspectParentWalker.orderedParents(opContext, spec, GRANDCHILD, 10);
+    assertEquals(parents, List.of(CHILD));
+  }
+
+  @Test
+  public void orderedParentsTreatsStatusReadFailureAsLive() {
+    Map<Urn, Urn> parentByUrn = new LinkedHashMap<>();
+    parentByUrn.put(GRANDCHILD, CHILD);
+    parentByUrn.put(CHILD, null);
     when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
         .thenAnswer(
             invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<String> aspectNames = invocation.getArgument(2);
+              if (aspectNames.contains(STATUS_ASPECT_NAME)) {
+                throw new RuntimeException("status read failed");
+              }
               @SuppressWarnings("unchecked")
               Set<Urn> urns = invocation.getArgument(1);
               Map<Urn, Map<String, Aspect>> result = new LinkedHashMap<>();
@@ -106,6 +143,47 @@ public class AspectParentWalkerTest {
                 }
                 result.put(
                     urn, Map.of(DOMAIN_PROPERTIES_ASPECT_NAME, new Aspect(properties.data())));
+              }
+              return result;
+            });
+
+    // Failing open: a transient status read failure must not silently truncate the breadcrumb.
+    List<Urn> parents = AspectParentWalker.orderedParents(opContext, spec, GRANDCHILD, 10);
+    assertEquals(parents, List.of(CHILD));
+  }
+
+  private void mockParents(Map<Urn, Urn> parentByUrn) {
+    mockParents(parentByUrn, Set.of());
+  }
+
+  /**
+   * @param softDeleted urns whose {@code status} aspect reports {@code removed = true}
+   */
+  private void mockParents(Map<Urn, Urn> parentByUrn, Set<Urn> softDeleted) {
+    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              @SuppressWarnings("unchecked")
+              Set<String> aspectNames = invocation.getArgument(2);
+              Map<Urn, Map<String, Aspect>> result = new LinkedHashMap<>();
+              for (Urn urn : urns) {
+                Map<String, Aspect> aspects = new LinkedHashMap<>();
+                if (aspectNames.contains(DOMAIN_PROPERTIES_ASPECT_NAME)) {
+                  Urn parent = parentByUrn.get(urn);
+                  DomainProperties properties = new DomainProperties();
+                  if (parent != null) {
+                    properties.setParentDomain(parent);
+                  }
+                  aspects.put(DOMAIN_PROPERTIES_ASPECT_NAME, new Aspect(properties.data()));
+                }
+                if (aspectNames.contains(STATUS_ASPECT_NAME)) {
+                  aspects.put(
+                      STATUS_ASPECT_NAME,
+                      new Aspect(new Status().setRemoved(softDeleted.contains(urn)).data()));
+                }
+                result.put(urn, aspects);
               }
               return result;
             });
