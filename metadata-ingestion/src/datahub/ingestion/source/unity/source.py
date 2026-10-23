@@ -87,6 +87,7 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.genie import GenieSpaceExtractor
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -785,6 +786,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
+        if self.config.include_genie_spaces:
+            with self.report.new_stage("Ingest Genie agents"):
+                yield from GenieSpaceExtractor(
+                    config=self.config,
+                    client=self.unity_catalog_api_proxy.genie,
+                    report=self.report,
+                    table_urn_builder=self.gen_dataset_urn,
+                    platform_instance=self.platform_instance_name,
+                    metastore=metastore.id if metastore else None,
+                ).get_workunits()
         if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)
 

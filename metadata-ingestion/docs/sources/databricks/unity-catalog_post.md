@@ -1,5 +1,39 @@
 ### Capabilities
 
+#### Genie Agents
+
+Set `include_genie_spaces: true` to ingest Genie Agents as external AI agents with subtype `Genie Agent`.
+Use `genie_space_pattern` to filter by space ID. The ingestion identity needs
+at least **CAN EDIT** on each selected space to export its configuration through
+the [Genie management API](https://databricks-sdk-py.readthedocs.io/en/latest/workspace/dashboards/genie.html).
+
+The connector extracts names, descriptions, text instructions, and Databricks
+platform associations. Agent identity uses the workspace URL, space ID, and
+environment, so renaming a space does not change its URN. Keep the workspace URL
+stable between runs.
+
+Tables and metric views listed in the exported configuration become upstream
+datasets, using the same dataset URNs as ordinary Unity Catalog ingestion.
+These edges describe configured dependencies, not observed query activity.
+Set `include_table_lineage: false` to disable their emission.
+
+Genie discovery is workspace-wide and independent of catalog, schema, and table
+filters. Dependencies can reference datasets excluded by those filters. Spaces
+returned by the API are ingested independently; dashboard companion spaces are
+not folded into dashboards. Workspace folder containers, SQL function tools,
+benchmarks, and runtime access history are not extracted.
+
+An inaccessible space, incomplete export, unsupported export version, oversized
+metadata payload, or listing failure is reported as an ingestion failure,
+preventing stateful stale-entity deletion for that run. Export versions 1 and 2
+are supported. Oversized metadata is rejected before any aspects for that space
+are emitted; instructions and declared dependencies are not silently truncated.
+A valid empty source list emits empty lineage to remove obsolete dependencies
+when `incremental_lineage` is disabled (the default). With `incremental_lineage`
+enabled, new dependencies are added and previously reported dependencies remain.
+
+The server must support the `aiAgent` entity.
+
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
 #### Metric Views
