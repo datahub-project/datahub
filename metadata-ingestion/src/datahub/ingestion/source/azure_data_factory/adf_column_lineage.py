@@ -254,10 +254,64 @@ def translator_has_explicit_mappings(translator: dict[str, Any]) -> bool:
     return bool(mappings_list and isinstance(mappings_list, list))
 
 
+def build_lowercase_column_map(
+    schema: Optional[DatasetSchemaInfo],
+) -> dict[str, str]:
+    """Build a lowercase-column-name -> real-casing lookup from a
+    dataset's schema, for resolving auto-mapped column names against a
+    sink's actual casing (see match_sink_column_casing) in O(1) per
+    column instead of rescanning the full column list each time - the
+    same schema is typically matched against many source columns in one
+    auto-mapping pass.
+
+    A sink schema with two distinct columns differing only by case (e.g.
+    "Name" and "name") is ambiguous - there's no way to know which one a
+    given source column should resolve to - so such a key is left out of
+    the map entirely rather than arbitrarily picking whichever column
+    happened to be seen last; match_sink_column_casing then falls back
+    to the source column's own casing for it, same as an unmatched one.
+    """
+    if not schema or not schema.columns:
+        return {}
+    column_map: dict[str, str] = {}
+    ambiguous_keys: set[str] = set()
+    for col in schema.columns:
+        if not col:
+            continue
+        key = col.lower()
+        if key in column_map and column_map[key] != col:
+            ambiguous_keys.add(key)
+            continue
+        column_map[key] = col
+    for key in ambiguous_keys:
+        del column_map[key]
+    return column_map
+
+
+def match_sink_column_casing(column: str, sink_columns_by_lower: dict[str, str]) -> str:
+    """Resolve a column name to the sink's own field-path casing via a
+    precomputed lowercase lookup (see build_lowercase_column_map),
+    matching case-insensitively (ADF's own name-based auto-mapping
+    matches source and sink columns case-insensitively, mirroring
+    case-insensitive default collations like SQL Server's). Falls back
+    to the given column name unchanged when there's no match - the best
+    guess otherwise available.
+
+    Using the sink's actual casing instead of assuming it matches the
+    source's matters because the downstream schemaField URN otherwise
+    references a field DataHub's schema for that dataset doesn't
+    actually have (e.g. source "Ship_Date" vs a sink physically
+    named "ship_date"), which silently fails to render as a lineage
+    edge even though the aspect data looks populated.
+    """
+    return sink_columns_by_lower.get(column.lower(), column)
+
+
 def infer_auto_mappings_by_name(
     source_urn: str,
     sink_urn: str,
     source_schema: Optional[DatasetSchemaInfo],
+    sink_schema: Optional[DatasetSchemaInfo] = None,
 ) -> list[FineGrainedLineageClass]:
     """Infer 1:1 column mappings from a source schema by name.
 
@@ -269,10 +323,16 @@ def infer_auto_mappings_by_name(
     itself, for a source table this connector has no direct schema
     access to (e.g. a dynamic "SELECT *" query).
 
+    See match_sink_column_casing for why the sink's own schema (when
+    available) is used to resolve each mapped column's downstream
+    casing, rather than assuming it matches the source's.
+
     Reference: https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping#default-mapping
     """
     if not source_schema or not source_schema.columns:
         return []
+
+    sink_columns_by_lower = build_lowercase_column_map(sink_schema)
 
     lineages: list[FineGrainedLineageClass] = []
     for col in source_schema.columns:
@@ -283,7 +343,7 @@ def infer_auto_mappings_by_name(
                 source_urn,
                 col,
                 sink_urn,
-                col,  # Auto-mapped: same column name
+                match_sink_column_casing(col, sink_columns_by_lower),
             )
         )
     return lineages
@@ -346,19 +406,34 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         source_urn = str(inlets[0])
         sink_urn = str(outlets[0])
 
-        # Get source schema for auto-mapping inference
-        # The schema resolver may raise an exception if the backend is unavailable
-        source_schema: Optional[DatasetSchemaInfo] = None
-        try:
-            source_schema = schema_resolver(source_urn)
-        except Exception as e:
-            logger.debug(f"Failed to resolve schema for {source_urn}: {e}")
+        # Schema resolution (for auto-mapping inference - the sink schema
+        # lets auto-mapping match the sink's actual column casing instead
+        # of assuming it matches the source's, see
+        # infer_auto_mappings_by_name) is only needed in the auto-mapping
+        # fallback paths below, not when an explicit translator supplies
+        # its own mappings - resolved lazily so a Copy activity with a
+        # real translator never pays for two schema lookups it won't use.
+        def resolve_source_schema() -> Optional[DatasetSchemaInfo]:
+            try:
+                return schema_resolver(source_urn)
+            except Exception as e:
+                logger.debug(f"Failed to resolve schema for {source_urn}: {e}")
+                return None
+
+        def resolve_sink_schema() -> Optional[DatasetSchemaInfo]:
+            try:
+                return schema_resolver(sink_urn)
+            except Exception as e:
+                logger.debug(f"Failed to resolve schema for {sink_urn}: {e}")
+                return None
 
         # Get translator - check SDK-flattened attribute first, then typeProperties
         translator = self._get_translator(activity)
         if not translator:
             # No explicit translator - try auto-mapping if we have source schema
-            return self._infer_auto_mappings(source_urn, sink_urn, source_schema)
+            return self._infer_auto_mappings(
+                source_urn, sink_urn, resolve_source_schema(), resolve_sink_schema()
+            )
 
         # Extract mappings based on translator format
         lineages = self._parse_translator(translator, source_urn, sink_urn)
@@ -369,7 +444,10 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
             translator_type = self._get_translator_type(translator)
             if translator_type == "TabularTranslator":
                 lineages = self._infer_auto_mappings(
-                    source_urn, sink_urn, source_schema
+                    source_urn,
+                    sink_urn,
+                    resolve_source_schema(),
+                    resolve_sink_schema(),
                 )
 
         return lineages
@@ -433,6 +511,7 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         source_urn: str,
         sink_urn: str,
         source_schema: Optional[DatasetSchemaInfo],
+        sink_schema: Optional[DatasetSchemaInfo] = None,
     ) -> list[FineGrainedLineageClass]:
         """Infer 1:1 column mappings from source schema.
 
@@ -440,4 +519,6 @@ class CopyActivityColumnLineageExtractor(ColumnLineageExtractor):
         is TabularTranslator, ADF auto-maps columns by name. We replicate this
         behavior by creating identity mappings for each source column.
         """
-        return infer_auto_mappings_by_name(source_urn, sink_urn, source_schema)
+        return infer_auto_mappings_by_name(
+            source_urn, sink_urn, source_schema, sink_schema
+        )

@@ -40,6 +40,12 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     datasets_with_lineage: int = 0
     unresolved_dynamic_properties: int = 0  # Dataset typeProperties using dynamic
     # content (e.g. @dataset().table_name) that could not be resolved
+    dynamic_lineage_sibling_jobs_emitted: int = 0  # Sibling DataJobs minted for a
+    # single distinct (source, sink) pair on an activity observed feeding
+    # multiple distinct sources/sinks (e.g. a ForEach-looped Copy activity)
+    dynamic_lineage_pairs_over_cap: int = 0  # Distinct pairs that exceeded
+    # max_dynamic_lineage_pairs_per_activity and fell back to the less
+    # precise union-onto-the-parent-job lineage instead of a sibling DataJob
 
     # Column-level lineage metrics
     column_lineage_extracted: int = 0  # Number of column mappings extracted
@@ -141,6 +147,17 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
             context=f"dataset={dataset_name}, expression={expression}",
             log=False,
         )
+
+    def report_dynamic_lineage_sibling_emitted(self) -> None:
+        """Increment sibling DataJobs emitted for a many-to-many
+        dynamic-lineage fan-out counter."""
+        self.dynamic_lineage_sibling_jobs_emitted += 1
+
+    def report_dynamic_lineage_pairs_over_cap(self, count: int) -> None:
+        """Record distinct source/sink pairs that exceeded
+        max_dynamic_lineage_pairs_per_activity and fell back to the
+        unioned-onto-the-parent-job lineage."""
+        self.dynamic_lineage_pairs_over_cap += count
 
     def report_column_lineage_extracted(self) -> None:
         """Increment column lineage mappings counter."""
