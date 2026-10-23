@@ -552,7 +552,7 @@ class BigQueryQueriesExtractor(Closeable):
             except Exception as e:
                 self.structured_report.warning(
                     "Error parsing query log row",
-                    context=f"{row}",
+                    context=f"job {row.get('job_id')} in project {row.get('project_id')}",
                     exc=e,
                 )
             else:

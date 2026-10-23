@@ -2615,3 +2615,37 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     ]
     assert len(query_properties) == 1
     assert query_properties[0].customProperties == _DAG_A_LABELS
+
+
+def test_parse_failures_do_not_quote_sql() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    unparseable = "select 'secret_literal' from ((("
+    view_urn = DatasetUrn("redshift", "dev.public.broken_view")
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query=unparseable,
+            default_db="dev",
+            default_schema="public",
+            query_hash="query_123",
+        )
+    )
+    aggregator.add_view_definition(
+        view_urn=view_urn,
+        view_definition=unparseable,
+        default_db="dev",
+        default_schema="public",
+    )
+    list(aggregator.gen_metadata())
+
+    report = aggregator.report
+    assert list(report.observed_query_parse_failures) == [
+        "ParseError on query query_123"
+    ]
+    assert report.views_parse_failures[view_urn.urn()] == "ParseError"
+    assert "secret_literal" not in str(report.as_obj())
