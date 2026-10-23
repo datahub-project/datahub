@@ -237,6 +237,7 @@ export enum EntityProfileTab {
  * translated, so always target a sidebar tab (e.g. from an onboarding step) by one of these values.
  */
 export enum EntitySidebarTabKey {
+    ABOUT = 'About',
     SUMMARY = 'Summary',
     LINEAGE = 'Lineage',
     COLUMNS = 'Columns',

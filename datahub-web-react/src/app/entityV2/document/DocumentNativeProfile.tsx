@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
@@ -140,6 +141,7 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
 
     const sidebarTabs = [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: t('tab.properties'),
             component: PropertiesTab,
             icon: ListBullets,

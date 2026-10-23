@@ -15,7 +15,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { DashboardPreview } from '@app/entityV2/dashboard/preview/DashboardPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -284,6 +284,7 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -294,6 +295,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
