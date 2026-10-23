@@ -4,11 +4,11 @@ title: "Deploying DataHub on AWS ECS"
 
 # Deploying DataHub on AWS ECS
 
-> **Community-supported deployment path.** This guide describes a community-supported deployment of DataHub OSS on Amazon Elastic Container Service (ECS). The recommended production path is Kubernetes with Helm charts — see [Deploying to AWS (EKS)](https://docs.datahub.com/docs/deploy/aws). 
+> **Community-supported deployment path.** This guide describes a community-supported deployment of DataHub OSS on Amazon Elastic Container Service (ECS). The recommended production path is Kubernetes with Helm charts — see [Deploying to AWS (EKS)](https://docs.datahub.com/docs/deploy/aws).
 
 > **Scope.** This guide describes a functional reference deployment. It does not cover full production hardening, observability, high availability, or cost optimization. Treat every configuration value in this guide as a starting point, not a sizing recommendation.
 
-> The Terraform templates are a generalized version of a real DataHub v0.14.1 deployment on ECS. They are not the exact files used in that deployment and have not been deployed as is, so review and test them in your own environment before use.
+> The Terraform templates are a generalized version of a real DataHub v0.14.1 deployment on ECS. They are not the exact files used in that deployment and have not been deployed as-is, so review and test them in your own environment before use.
 
 > DataHub's environment variables and default configuration change between releases. If you are following this guide with a different DataHub version or need information on other configuration not listed here, cross-check the variables below against the current [Deployment Environment Variables](https://docs.datahub.com/docs/deploy/environment-vars) and [Docker Images](https://docs.datahub.com/docs/docker) reference before applying them.
 
@@ -51,7 +51,7 @@ The deployment also uses a one-time ECS task for DataHub System Update. The Data
   <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-ecs-architecture.svg"/>
 </p>
 
-*If your environment should not be publicly accessible at all, remove the ALB from the public subnet, and reach Frontend through a VPN or other private connectivity.*
+_If your environment should not be publicly accessible at all, remove the ALB from the public subnet, and reach Frontend through a VPN or other private connectivity._
 
 ## Provision the infrastructure
 
@@ -84,10 +84,10 @@ Provision an Amazon RDS MySQL database that is accessible from the ECS tasks ([A
 
 > ⚠️ **Example configuration used in this implementation — not a sizing recommendation.**
 
-| Setting | Value |
-|---|---|
-| Engine | MySQL |
-| Storage | 20 GB |
+| Setting        | Value       |
+| -------------- | ----------- |
+| Engine         | MySQL       |
+| Storage        | 20 GB       |
 | Instance class | db.t3.small |
 
 Store the database password in AWS Secrets Manager ([AWS reference](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html)).
@@ -100,12 +100,12 @@ Provision an Amazon MSK cluster that is accessible from the ECS tasks ([AWS refe
 
 > ⚠️ **Example configuration used in this implementation — not a sizing recommendation.**
 
-| Setting | Value |
-|---|---|
-| Number of nodes | 3 |
-| Instance type | kafka.t3.small |
-| EBS storage | 50 GB |
-| Encryption | TLS |
+| Setting         | Value          |
+| --------------- | -------------- |
+| Number of nodes | 3              |
+| Instance type   | kafka.t3.small |
+| EBS storage     | 50 GB          |
+| Encryption      | TLS            |
 
 Configure DataHub with the MSK broker endpoints.
 
@@ -132,13 +132,13 @@ Provision an Amazon OpenSearch Service domain that is accessible from the ECS ta
 
 > ⚠️ **Example configuration used in this implementation — not a sizing recommendation.**
 
-| Setting | Value |
-|---|---|
-| Number of instances | 3 |
-| Instance type | t3.medium.search |
-| EBS storage | 50 GB gp3 |
-| Encryption | Enabled |
-| HTTPS | Enforced |
+| Setting             | Value            |
+| ------------------- | ---------------- |
+| Number of instances | 3                |
+| Instance type       | t3.medium.search |
+| EBS storage         | 50 GB gp3        |
+| Encryption          | Enabled          |
+| HTTPS               | Enforced         |
 
 When IAM authentication is enabled for OpenSearch, set the following variables in the GMS service:
 
@@ -169,11 +169,11 @@ Create an ECS service for the DataHub Frontend ([AWS reference](https://docs.aws
 
 > ⚠️ **Example configuration used in this implementation — not a sizing recommendation.**
 
-| Setting | Value |
-|---|---|
-| Port | 9002 |
-| CPU | 1024 |
-| Memory | 2048 MiB |
+| Setting | Value    |
+| ------- | -------- |
+| Port    | 9002     |
+| CPU     | 1024     |
+| Memory  | 2048 MiB |
 
 ### Expose Frontend to users
 
@@ -226,11 +226,11 @@ Create an ECS service for GMS ([AWS reference](https://docs.aws.amazon.com/Amazo
 
 > ⚠️ **Example configuration used in this implementation — not a sizing recommendation.**
 
-| Setting | Value |
-|---|---|
-| Port | 8080 |
-| CPU | 1024 |
-| Memory | 2048 MiB |
+| Setting | Value    |
+| ------- | -------- |
+| Port    | 8080     |
+| CPU     | 1024     |
+| Memory  | 2048 MiB |
 
 Configure GMS to connect to RDS MySQL DB, MSK, and OpenSearch.
 
@@ -300,7 +300,7 @@ DATAHUB_TOKEN_SERVICE_SIGNING_KEY
 DATAHUB_TOKEN_SERVICE_SALT
 ```
 
-These are **required on DataHub 1.5 and later**.  Treat both values as secrets. Store them in AWS Secrets Manager and provide them to the GMS task through ECS secrets, as with the other credentials in this guide.
+These are **required on DataHub 1.5 and later**. Treat both values as secrets. Store them in AWS Secrets Manager and provide them to the GMS task through ECS secrets, as with the other credentials in this guide.
 
 ## Deploy the Actions service
 
@@ -308,10 +308,10 @@ Create an ECS service for DataHub Actions ([AWS reference](https://docs.aws.amaz
 
 > ⚠️ **Example configuration used in this implementation — not a sizing recommendation.**
 
-| Setting | Value |
-|---|---|
-| CPU | 1024 |
-| Memory | 2048 MiB |
+| Setting | Value    |
+| ------- | -------- |
+| CPU     | 1024     |
+| Memory  | 2048 MiB |
 
 ### Configure Kafka
 
@@ -328,11 +328,11 @@ Pin the base image to a DataHub release tag or an immutable commit tag. Avoid `l
 This reference deployment requires custom configuration for the Actions service.
 
 1. Remove the default configuration that is not required by your deployment in the custom Dockerfile:
-    ```
-    RUN rm -f /etc/datahub/actions/system/conf/*
-    ```
+   ```
+   RUN rm -f /etc/datahub/actions/system/conf/*
+   ```
 2. Update `executor.yaml`.
-3. Update any other yaml files for Actions configuration for your setup ([Datahub Github](https://github.com/datahub-project/datahub/tree/master/docker/datahub-actions/config))
+3. Update any other yaml files for Actions configuration for your setup ([DataHub GitHub](https://github.com/datahub-project/datahub/tree/master/docker/datahub-actions/config))
 4. Copy all files to:
    ```
    /etc/datahub/actions/system/conf/
@@ -451,7 +451,7 @@ After provisioning the infrastructure:
 3. Verify that GMS can be resolved through Cloud Map or the configured load balancer.
 4. Verify that GMS can connect to RDS.
 5. Verify that GMS, Actions, and the System Update task can connect to MSK.
-6. Verify that GMS can authenticate to OpenSearch using the ECS execution role.
+6. Verify that GMS can authenticate to OpenSearch using the ECS task role.
 7. Verify that the ECS tasks can retrieve the required secrets from Secrets Manager.
 8. Verify that Frontend can communicate with GMS.
 9. Verify that Actions can authenticate with GMS and consume Kafka messages.
@@ -484,7 +484,7 @@ Verify:
 - HTTPS configuration
 - `OPENSEARCH_USE_AWS_IAM_AUTH`
 - `AWS_REGION`
-- ECS execution role permissions
+- ECS task role permissions
 - VPC and security-group connectivity
 
 ### Actions cannot connect to GMS
