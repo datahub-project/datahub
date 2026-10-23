@@ -12,7 +12,7 @@ import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile
 import useGlossaryRelatedTermsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedTermsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -209,6 +209,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
