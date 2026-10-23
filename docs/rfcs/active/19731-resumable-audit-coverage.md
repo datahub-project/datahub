@@ -133,6 +133,12 @@ Additional assertion events increase storage and UI noise. Context revalidation 
 - Record gaps as ordinary failures: visible, but conflates a data violation with an inability to determine one.
 - Add a dedicated coverage aspect immediately: more expressive, with greater model, indexing, and UI cost than first testing an existing-assertion convention.
 
+## Related work
+
+- DataHub's custom assertions and their `SUCCESS`, `FAILURE` and `ERROR` results provide the storage and the outcome vocabulary used here. This proposal adds no new evaluator.
+- [#18966](https://github.com/datahub-project/datahub/pull/18966) discusses unverified execution evidence and leaves fleet-wide coverage to future work. In datahub-skills, [#97](https://github.com/datahub-project/datahub-skills/pull/97) records version-bound proof gaps, and [#128](https://github.com/datahub-project/datahub-skills/pull/128) makes the scope and the unavailable fields of a metadata coverage report explicit.
+- What this proposal adds is resumable accounting per check: stable check identities, an applicability check before a prior result is reused, and separate counts of attempted and unattempted checks within a declared budget.
+
 ## Rollout / Adoption Strategy
 
 Start with an opt-in external-auditor example using existing custom assertions. Validate lifecycle and report semantics before proposing a common SDK planner. Native assertion schedules and current quality summaries keep their existing behavior. Any later first-party coverage UI or model changes should receive separate implementation review.
