@@ -6567,6 +6567,7 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
     source = SapDatasphereSource(PipelineContext(run_id="test-am-types"), cfg)
+    source._known_spaces = {"SRCSPACE"}
 
     source_view_csn = {
         "definitions": {
@@ -6625,12 +6626,13 @@ def test_analytic_model_types_resolved_from_source_and_measure_heuristic():
 
 
 def test_analytic_model_source_field_types_cached_across_lookups():
-    # The source object's CSN is fetched once and reused, so multiple analytic
-    # models sharing a fact source don't refetch it.
+    # The source object's CSN is fetched once per space and reused, so multiple
+    # analytic models sharing a fact source don't refetch it.
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
     source = SapDatasphereSource(PipelineContext(run_id="test-am-cache"), cfg)
+    source._known_spaces = {"SRCSPACE", "SPACE_A", "SPACE_B"}
 
     calls: List[str] = []
 
@@ -6640,7 +6642,7 @@ def test_analytic_model_source_field_types_cached_across_lookups():
         technical_name: str,
         _try_alternate: bool = True,
     ) -> Optional[JsonDict]:
-        calls.append(technical_name)
+        calls.append(f"{space}/{technical_name}")
         return {"definitions": {"v_src": {"elements": {"c": {"type": "cds.String"}}}}}
 
     source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
@@ -6648,14 +6650,44 @@ def test_analytic_model_source_field_types_cached_across_lookups():
     first = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
     second = source._source_object_field_types("AMSPACE", "SRCSPACE.v_src")
     assert "c" in first and first is second
-    assert calls == ["v_src"]
 
-    # A bare name resolves against the model's space, so the same name in
-    # another space is a separate lookup.
+    # A bare name resolves against the model's space; a qualified ref to the
+    # same space is a cache hit.
     source._source_object_field_types("SPACE_A", "v_src")
     source._source_object_field_types("SPACE_B", "v_src")
-    source._source_object_field_types("SPACE_A", "v_src")
-    assert calls == ["v_src", "v_src", "v_src"]
+    source._source_object_field_types("SPACE_A", "SPACE_A.v_src")
+    assert calls == ["SRCSPACE/v_src", "SPACE_A/v_src", "SPACE_B/v_src"]
+
+
+def test_analytic_model_dotted_same_space_source_name():
+    # SAP time objects have dotted names; `SAP` is not a space, so the whole
+    # name is looked up in the model's space.
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="test-am-dotted"), cfg)
+    source._known_spaces = {"AMSPACE"}
+
+    calls: List[str] = []
+
+    def _fetch(
+        space: str,
+        object_type: str,
+        technical_name: str,
+        _try_alternate: bool = True,
+    ) -> Optional[JsonDict]:
+        calls.append(f"{space}/{technical_name}")
+        return {
+            "definitions": {
+                technical_name: {"elements": {"DATE_SQL": {"type": "cds.Date"}}}
+            }
+        }
+
+    source._client.fetch_object_definition = _fetch  # type: ignore[method-assign]
+
+    fields = source._source_object_field_types("AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY")
+    assert "DATE_SQL" in fields
+    assert calls == ["AMSPACE/SAP.TIME.VIEW_DIMENSION_DAY"]
 
 
 def test_connections_auth_valueerror_aborts_run(requests_mock, monkeypatch):

@@ -99,8 +99,15 @@ def register_handlers(
     def _spaces_handler(request: WerkzeugRequest) -> WerkzeugResponse:
         if on_request is not None:
             on_request(request)
+        # The source objects' space is listed (so `FINANCE_DATA.x` refs resolve
+        # there) but excluded by the recipe's space_pattern.
+        spaces = json.loads(_fixture_text("catalog_spaces.json"))
+        spaces["value"].extend(
+            {"name": space, "label": space}
+            for space in sorted({space for space, _ in SOURCE_OBJECT_VIEWS})
+        )
         return WerkzeugResponse(
-            _fixture_text("catalog_spaces.json"),
+            json.dumps(spaces),
             status=200,
             content_type="application/json",
         )
@@ -251,6 +258,8 @@ def build_recipe(base_url: str, sink_url: Optional[str] = None) -> str:
         "    include_lineage: true\n"
         "    include_view_definitions: true\n"
         "    include_local_tables: true\n"
+        "    space_pattern:\n"
+        f"      allow: ['^{SPACE}$']\n"
         "    stateful_ingestion:\n"
         "      enabled: false\n"
         f"{sink_block}"

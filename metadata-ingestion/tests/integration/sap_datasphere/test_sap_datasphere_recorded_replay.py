@@ -72,6 +72,7 @@ def test_sap_datasphere_recorded_replay_cold_start_oauth(
                 "include_lineage": True,
                 "include_view_definitions": True,
                 "include_local_tables": True,
+                "space_pattern": {"allow": [f"^{SPACE}$"]},
                 "stateful_ingestion": {"enabled": False},
             },
         },

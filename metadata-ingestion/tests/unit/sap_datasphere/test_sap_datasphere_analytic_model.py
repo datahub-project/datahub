@@ -201,6 +201,7 @@ def test_projection_source_columns_resolves_mixin_association_targets():
                 "columns": [
                     {"ref": ["_dim", "name"], "as": "dim_name"},
                     {"ref": ["_broken", "col_x"]},
+                    {"ref": ["_dim"]},
                     {"ref": ["amount"]},
                 ],
             }
@@ -212,6 +213,7 @@ def test_projection_source_columns_resolves_mixin_association_targets():
     assert result["dim_name"].source_object == "SPACE.dim"
     assert result["dim_name"].column == "name"
     assert "col_x" not in result
+    assert "_dim" not in result
     # The mixin target is not a second FROM source, so unqualified refs still
     # resolve to the single FROM object.
     assert result["amount"].source_object == "SPACE.fact"
@@ -231,6 +233,38 @@ def test_projection_source_columns_resolves_implicit_from_alias():
 
     assert result["renamed_a"].source_object == "SPACE.v_source"
     assert result["renamed_a"].column == "col_a"
+
+
+def test_projection_source_columns_resolves_parameterized_from():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {
+                    "ref": [{"id": "SPACE.fact", "args": {"p_year": {"val": 2024}}}],
+                    "as": "f",
+                },
+                "columns": [{"ref": ["f", "amount"]}, {"ref": ["region"]}],
+            }
+        }
+    }
+
+    result = extract_projection_source_columns(csn_def)
+
+    assert result["amount"].source_object == "SPACE.fact"
+    assert result["region"].source_object == "SPACE.fact"
+
+
+def test_projection_source_columns_skips_qualifiers_of_unparsed_from():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"SELECT": {"from": {"ref": ["SPACE.fact"]}}, "as": "sub"},
+                "columns": [{"ref": ["sub", "amount"]}, {"ref": ["region"]}],
+            }
+        }
+    }
+
+    assert extract_projection_source_columns(csn_def) == {}
 
 
 def test_projection_source_columns_skips_multi_segment_navigation():

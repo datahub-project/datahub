@@ -14,6 +14,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ASSOC_TARGET,
     CSN_COLUMNS,
     CSN_FROM,
+    CSN_ID,
     CSN_JOIN,
     CSN_KEY_QUERY,
     CSN_MIXIN,
@@ -68,8 +69,12 @@ def _from_sources(node: object) -> Dict[str, str]:
     if not isinstance(node, dict):
         return {}
     ref = node.get(CSN_REF)
-    if isinstance(ref, list) and ref and isinstance(ref[0], str):
-        name = ref[0]
+    if isinstance(ref, list) and ref:
+        # A parameterized source is `{"id": name, "args": ...}`.
+        head = ref[0].get(CSN_ID) if isinstance(ref[0], dict) else ref[0]
+        if not isinstance(head, str):
+            return {}
+        name = head
         sources = {name: name}
         alias = node.get(CSN_AS)
         if isinstance(alias, str) and alias:
@@ -114,7 +119,9 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     single_source = next(iter(distinct_sources)) if len(distinct_sources) == 1 else None
     # A mixin association qualifies refs to its target, but unqualified refs
     # still read from FROM only.
-    sources = {**_mixin_targets(select.get(CSN_MIXIN)), **from_sources}
+    mixins = _mixin_targets(select.get(CSN_MIXIN))
+    sources = {**mixins, **from_sources}
+    has_from = CSN_FROM in select
     out: Dict[str, SourceColumnRef] = {}
     for col in columns:
         if not isinstance(col, dict):
@@ -123,15 +130,18 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
         if not (isinstance(ref, list) and ref):
             continue
         if len(ref) == 1:
+            # A bare mixin name publishes the association, not a column.
+            if ref[0] in mixins:
+                continue
             projected_source = single_source
             column = ref[0]
         elif len(ref) == 2:
             qualifier, column = ref[0], ref[-1]
             if not isinstance(qualifier, str) or qualifier == PROJECTION_ALIAS:
                 continue
-            # An unknown qualifier is not a fetchable object; with no parseable
-            # FROM, keep the old behaviour of treating it as the object name.
-            projected_source = sources.get(qualifier) if sources else qualifier
+            # An unknown qualifier is not a fetchable object. Only CSN without
+            # any FROM keeps the old behaviour of treating it as the object name.
+            projected_source = sources.get(qualifier) if has_from else qualifier
         else:
             # Three or more segments navigate an association; CSN dotted names
             # keep `SPACE.view` in one segment, so these are never object refs.

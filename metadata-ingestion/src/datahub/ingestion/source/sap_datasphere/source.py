@@ -307,6 +307,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # to copy scalar types into analytic-model elements (which carry none). One
         # CSN fetch per distinct source object, reused across analytic models.
         self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
+        # Every space the catalog lists, including filtered ones; it tells a
+        # `SPACE.name` projection ref from a same-space name containing a dot.
+        self._known_spaces: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -391,7 +394,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             yield from get_predefined_tag_workunits()
             self._sap_tags_emitted = True
 
-        for space in self._safe_list_spaces():
+        spaces = list(self._safe_list_spaces())
+        self._known_spaces = {
+            space[CATALOG_FIELD_NAME]
+            for space in spaces
+            if isinstance(space, dict)
+            and isinstance(space.get(CATALOG_FIELD_NAME), str)
+        }
+        for space in spaces:
             if not isinstance(space, dict) or not space.get(CATALOG_FIELD_NAME):
                 self.report.warning(
                     title="Skipped malformed Datasphere space record",
@@ -2106,12 +2116,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _source_object_field_types(
         self, default_space: str, source_object: str
     ) -> Dict[str, SchemaFieldClass]:
-        # A projection ref is space-qualified (``SPACE.name``); a bare name is a
-        # same-space source. NOTE: only VIEWS is probed (its 404 retry also covers
-        # analytic models) — a local/remote-table source is not resolved and its
-        # columns fall back to the measure heuristic or stay NullType.
+        # A projection ref is space-qualified (``SPACE.name``) only when the
+        # prefix is a listed space; otherwise it is a same-space name, which can
+        # itself contain dots (``SAP.TIME.VIEW_DIMENSION_DAY``). NOTE: only VIEWS
+        # is probed (its 404 retry also covers analytic models) — a local/remote
+        # table source is not resolved and its columns fall back to the measure
+        # heuristic or stay NullType.
         space, _, name = source_object.partition(".")
-        if not name:
+        if not name or space not in self._known_spaces:
             space, name = default_space, source_object
         cache_key = f"{space}.{name}"
         cached = self._source_field_type_cache.get(cache_key)
