@@ -141,6 +141,8 @@ public class V3SearchDocumentProjectorTest {
     assertTrue(datasetProjection.rootFields().path("urnName").isMissingNode());
     assertEquals(datasetProjection.rootFields().get("urn_name").asText(), "sales.orders");
     assertTrue(datasetProjection.rootFields().path("name").isMissingNode());
+    // glossaryTermKey keeps field name id, so the shared model retains that root.
+    assertEquals(datasetProjection.rootFields().get("id").asText(), "sales.orders");
 
     EntitySpec schemaField = registry.getEntitySpec("schemaField");
     SchemaFieldKey schemaFieldKey =

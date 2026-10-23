@@ -2026,6 +2026,9 @@ constraint-dependencies = [
     # CVE-2026-102946: fixed in joserfc 1.7.4. Transitive via authlib, whose own floor
     # (joserfc>=1.6.8) still admits vulnerable versions.
     "joserfc>=1.7.4,<2.0.0",
+    # CVE-2026-114603: fixed in opentelemetry-api 1.45.1. Transitive via
+    # google-cloud-logging / mlflow-skinny.
+    "opentelemetry-api>=1.45.1",
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
@@ -2047,7 +2050,7 @@ constraint-dependencies = [
     # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
     # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
     # as datahub/constraints.txt and constrains every executor-built venv.
-    "pip>=26.2",
+    "pip>=26.2.2",  # 26.2.1 vendors certifi 2026.6.17 (GHSA-6q48-6c7w-9gw2); 26.2.2 fixes
     # anyio: CVE-2026-64847 (process-pool workers block on undrained stderr);
     # fixed in 4.14.2. setup.py floors at >=4.10.0 (Airflow 3.0 pin); >=4.14.2
     # is enforced here at lock time only.

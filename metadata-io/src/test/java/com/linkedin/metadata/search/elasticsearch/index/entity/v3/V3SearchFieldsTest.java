@@ -38,19 +38,7 @@ public class V3SearchFieldsTest {
 
     assertEquals(
         fields.keySet(),
-        Set.of(
-            ENTITY_NAME,
-            QUALIFIED_NAME,
-            DESCRIPTION,
-            OTHER,
-            "tags",
-            "glossaryTerms",
-            "platform",
-            "container",
-            "domains",
-            "dataProduct",
-            "platformInstance",
-            "applications"));
+        Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, OTHER, "tags", "glossaryTerms"));
     // Matched fields follow this order, so the catch-all comes last
     assertEquals(List.copyOf(fields.keySet()).get(fields.size() - 1), OTHER);
     assertTrue(fields.get(ENTITY_NAME).contains("name"), fields.toString());
@@ -73,11 +61,21 @@ public class V3SearchFieldsTest {
             .contains("_aspects.globalTags.tags__urn_name"),
         V3SearchFields.storedParsedNameFields(List.of(dataset())).toString());
     assertEquals(fields.get("glossaryTerms"), List.of("glossaryTerms"), fields.toString());
-    assertEquals(fields.get("platform"), List.of("platform"), fields.toString());
-    assertEquals(fields.get("container"), List.of("container"), fields.toString());
-    assertEquals(fields.get("domains"), List.of(), fields.toString());
     assertFalse(fields.containsKey("owners"), fields.toString());
-    assertFalse(fields.get(OTHER).contains("platform"), fields.toString());
+    assertFalse(fields.containsKey("platform"), fields.toString());
+    // Reference fields stay out of the default query and copy their names into other
+    assertTrue(
+        fields
+            .get(OTHER)
+            .containsAll(
+                List.of(
+                    "platform",
+                    "container",
+                    "domains",
+                    "dataProduct",
+                    "platformInstance",
+                    "applications")),
+        fields.get(OTHER).toString());
     assertFalse(fields.get(OTHER).contains("tags"), fields.toString());
     // A field that feeds a named shared field does not also land in other
     assertTrue(
@@ -147,7 +145,7 @@ public class V3SearchFieldsTest {
     assertFalse(datasetSources.contains("editedName"), datasetSources.toString());
     assertTrue(datasetSources.contains("tags"), datasetSources.toString());
     assertTrue(datasetSources.contains("glossaryTerms"), datasetSources.toString());
-    assertTrue(datasetSources.contains("platform"), datasetSources.toString());
+    assertFalse(datasetSources.contains("platform"), datasetSources.toString());
     assertTrue(
         datasetSources.stream().noneMatch(List.of("customProperties", "domains")::contains),
         datasetSources.toString());

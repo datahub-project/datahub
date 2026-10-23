@@ -358,7 +358,7 @@ public class SearchV3QueryBuilder {
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
     List<String> lightFields = shape.nameOnly ? identityFields : analyzed;
     SearchFieldResolver fieldResolver =
-        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, analyzed);
     context.put(
@@ -400,6 +400,7 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.NAME_KEYWORD,
         exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
+    context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
@@ -930,7 +931,7 @@ public class SearchV3QueryBuilder {
       }
     }
     SearchFieldResolver resolver =
-        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Optional<QueryBuilder> built =
         StructuredQueryRouting.build(query, shared, properties, resolver);
     return built.map(QueryBuilder::toString).orElse("{\"match_none\":{}}");

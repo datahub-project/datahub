@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_EXACT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_IDENTITY_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
@@ -555,6 +556,7 @@ abstract class SearchTemplateFixture {
     store(SEARCH_TEMPLATE_SEARCH_URN, search);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, pinned("Fulltext", ROUTE_QUERY));
     store(SEARCH_TEMPLATE_LIST_URN, pinned("List", "{ \"match_all\": {} }"));
+    store(SEARCH_TEMPLATE_LIST_BY_URN_URN, pinned("List by URN", "{ \"match_all\": {} }"));
     store(SEARCH_TEMPLATE_EXACT_URN, pinned("Exact", "{ \"match_all\": {} }"));
     store(SEARCH_TEMPLATE_IDENTITY_URN, pinned("Identity", "{ \"match_all\": {} }"));
     SearchTemplateProperties structured =
@@ -578,7 +580,7 @@ abstract class SearchTemplateFixture {
         route(
             "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)",
             SEARCH_TEMPLATE_IDENTITY_URN),
-        route("^\\*?$", SEARCH_TEMPLATE_LIST_URN),
+        route("^\\*?$", SEARCH_TEMPLATE_LIST_BY_URN_URN),
         route("^\\\\/q [\"'].+[\"']$", SEARCH_TEMPLATE_STRUCTURED_EXACT_URN),
         route("^\\\\/q .*", SEARCH_TEMPLATE_STRUCTURED_URN),
         route("^[\"'].+[\"']$", SEARCH_TEMPLATE_EXACT_URN),

@@ -69,7 +69,11 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldName": "parentDataProduct",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentDataProduct"
+    "hasValuesFieldName": "hasParentDataProduct",
+    "v3": {
+      "queryByDefault": false,
+      "copyToOther": true
+    }
   }
   parentDataProduct: optional Urn
 }
