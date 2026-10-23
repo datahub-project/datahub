@@ -1407,18 +1407,11 @@ class DremioAPIOperations:
             # Fall back to name if no ID is present (some sources have one but not the other).
             resource_id = container.id or container.name
             if resource_id:
-                try:
-                    sub_containers = self.get_containers_for_location(
-                        resource_id=resource_id,
-                        path=[container.name],
-                        root_container_type=container.container_type,
-                    )
-                except Exception as exc:
-                    self.report.warning(
-                        message="Failed to list sub-containers; datasets under them get no matching container",
-                        context=container.name,
-                        exc=exc,
-                    )
+                sub_containers = self.get_containers_for_location(
+                    resource_id=resource_id,
+                    path=[container.name],
+                    root_container_type=container.container_type,
+                )
 
             return [container] + sub_containers
 
@@ -1501,7 +1494,7 @@ class DremioAPIOperations:
                         child_path = container.get("path")
                         if not child_path:
                             self.report.warning(
-                                message="Dremio catalog child has no path; skipped it",
+                                message="Dremio catalog child has no path; it and its sub-folders were skipped",
                                 context=f"{'.'.join(entity_path)}: {container.get('name') or container.get('id')}",
                             )
                             continue
@@ -1512,14 +1505,9 @@ class DremioAPIOperations:
                         )
 
             except Exception as exc:
-                logger.info(
-                    "Location {} contains no tables or views. Skipping...".format(
-                        location_id
-                    )
-                )
                 self.report.warning(
-                    message="Failed to get tables or views",
-                    context=f"{location_id}",
+                    message="Failed to list Dremio folder; it and its sub-folders were skipped",
+                    context=f"{'.'.join(entity_path or [])} ({location_id})",
                     exc=exc,
                 )
 

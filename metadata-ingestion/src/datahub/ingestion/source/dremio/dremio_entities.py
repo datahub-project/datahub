@@ -12,6 +12,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 
 # Import Pydantic models from separate module to avoid circular dependencies
 from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerMatch,
     DremioContainerPathIndex,
     DremioContainerResponse,
     DremioDatasetColumn,
@@ -71,7 +72,8 @@ class DremioDataset:
     resource_id: str
     resource_name: str
     path: List[str]
-    # `path` cased as the catalog walk emitted it; set by DremioCatalog.
+    # Parent container path set by DremioCatalog: `path` in the casing the walk
+    # emitted, `path` itself when no container matched, or [] when several did.
     container_path: Optional[List[str]] = None
     location_id: str
     columns: List[DremioDatasetColumn]
@@ -233,19 +235,29 @@ class DremioCatalog:
     def __init__(self, api: DremioAPIOperations):
         self.api = api
         self.edition = api.edition
+        self._container_responses: Optional[List[DremioContainerResponse]] = None
         # TABLE_SCHEMA can case folders differently from the catalog walk.
         self._container_paths = DremioContainerPathIndex()
-        self._containers_indexed = False
+        # Warn once per schema path, not once per dataset.
         self._unresolved_container_paths: Set[str] = set()
+
+    def _all_containers(self) -> List[DremioContainerResponse]:
+        # One catalog walk per run, shared by the source map, container emission
+        # and dataset parent resolution.
+        if self._container_responses is None:
+            self._container_responses = list(self.api.get_all_containers())
+            for container in self._container_responses:
+                if container.container_type in _EMITTED_CONTAINER_TYPES:
+                    self._container_paths.add(container.full_path)
+        return self._container_responses
+
+    def discard_container(self, container: DremioContainer) -> None:
+        """Stop resolving datasets to a container that failed to emit."""
+        self._container_paths.discard([*container.path, container.container_name])
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
-        if not self._containers_indexed:
-            for container in self.api.get_all_containers():
-                if container.container_type in _EMITTED_CONTAINER_TYPES:
-                    self._container_paths.add([*(container.path or []), container.name])
-            self._containers_indexed = True
-
+        self._all_containers()
         for dataset_details in self.api.get_all_tables_and_columns():
             dremio_dataset = DremioDataset(
                 dataset_details=dataset_details,
@@ -258,22 +270,28 @@ class DremioCatalog:
             yield dremio_dataset
 
     def _resolve_container_path(self, path: List[str]) -> List[str]:
-        resolved = self._container_paths.resolve(path)
-        if resolved is not None or not path:
-            return resolved or path
-        ambiguous = self._container_paths.is_ambiguous(path)
+        if not path:
+            return path
+        resolution = self._container_paths.resolve(path)
+        if resolution.path is not None:
+            return resolution.path
+        ambiguous = resolution.match == DremioContainerMatch.AMBIGUOUS
         joined = ".".join(path)
         if joined not in self._unresolved_container_paths:
             self._unresolved_container_paths.add(joined)
-            self.api.report.warning(
-                title="Dataset container not resolved",
-                message=(
+            if ambiguous:
+                message = (
                     "Schema path matches containers that differ only by case; "
                     "its datasets get no container"
-                    if ambiguous
-                    else "Schema path matches no emitted container; its datasets "
-                    "point at a container that was not emitted this run"
-                ),
+                )
+            else:
+                message = (
+                    "Schema path matches no emitted container; its datasets point "
+                    "at a container that was not emitted this run"
+                )
+            self.api.report.warning(
+                title="Dataset container not resolved",
+                message=message,
                 context=joined,
             )
         # Several candidates means any choice could be wrong.
@@ -281,18 +299,10 @@ class DremioCatalog:
 
     def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
-        # Index only this walk, so a container missing from it isn't resolved.
-        self._container_paths = DremioContainerPathIndex()
-        self._containers_indexed = False
-        for container in self.api.get_all_containers():
+        for container in self._all_containers():
             dremio_container = self._to_container(container)
-            if dremio_container is None:
-                continue
-            self._container_paths.add(
-                [*dremio_container.path, dremio_container.container_name]
-            )
-            yield dremio_container
-        self._containers_indexed = True
+            if dremio_container is not None:
+                yield dremio_container
 
     def _to_container(
         self, container: DremioContainerResponse

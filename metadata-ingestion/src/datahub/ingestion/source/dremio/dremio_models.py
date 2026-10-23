@@ -49,6 +49,19 @@ class DremioFieldType(BaseModel):
         frozen = True
 
 
+class DremioContainerMatch(StrEnum):
+    EXACT = "EXACT"
+    CASE_INSENSITIVE = "CASE_INSENSITIVE"
+    AMBIGUOUS = "AMBIGUOUS"
+    MISSING = "MISSING"
+
+
+class DremioContainerPathResolution(BaseModel):
+    match: DremioContainerMatch
+    # The emitted casing; set only for EXACT and CASE_INSENSITIVE.
+    path: Optional[List[str]] = None
+
+
 class DremioContainerPathIndex(BaseModel):
     """Emitted container paths, matched case-insensitively like Dremio identifiers."""
 
@@ -60,30 +73,41 @@ class DremioContainerPathIndex(BaseModel):
         # JSON keeps segments distinct even when a name contains a dot.
         return json.dumps(path)
 
+    @classmethod
+    def _folded_key(cls, path: List[str]) -> str:
+        return cls._key([part.lower() for part in path])
+
     def add(self, path: List[str]) -> None:
-        if self._key(path) in self._exact:
+        key = self._key(path)
+        if key in self._exact:
             return
-        self._exact.add(self._key(path))
-        folded = self._key([part.lower() for part in path])
-        self._by_folded_key.setdefault(folded, []).append(path)
+        self._exact.add(key)
+        self._by_folded_key.setdefault(self._folded_key(path), []).append(list(path))
 
-    def resolve(self, path: List[str]) -> Optional[List[str]]:
-        """The emitted casing of `path`, or None if no container or more than
-        one (a case-sensitive source can hold `Data` and `data`) matches."""
+    def discard(self, path: List[str]) -> None:
+        key = self._key(path)
+        if key not in self._exact:
+            return
+        self._exact.remove(key)
+        matches = self._by_folded_key.get(self._folded_key(path), [])
+        matches[:] = [m for m in matches if m != path]
+
+    def resolve(self, path: List[str]) -> DremioContainerPathResolution:
         if self._key(path) in self._exact:
-            return path
-        matches = self._folded_matches(path)
+            return DremioContainerPathResolution(
+                match=DremioContainerMatch.EXACT, path=list(path)
+            )
+        matches = self._by_folded_key.get(self._folded_key(path), [])
         if len(matches) == 1:
-            return matches[0]
-        return None
-
-    def is_ambiguous(self, path: List[str]) -> bool:
-        return (
-            self._key(path) not in self._exact and len(self._folded_matches(path)) > 1
+            return DremioContainerPathResolution(
+                match=DremioContainerMatch.CASE_INSENSITIVE, path=list(matches[0])
+            )
+        # A case-sensitive source can hold both `Data` and `data`.
+        return DremioContainerPathResolution(
+            match=DremioContainerMatch.AMBIGUOUS
+            if matches
+            else DremioContainerMatch.MISSING
         )
-
-    def _folded_matches(self, path: List[str]) -> List[List[str]]:
-        return self._by_folded_key.get(self._key([part.lower() for part in path]), [])
 
 
 class DremioContainerResponse(BaseModel):
@@ -102,6 +126,10 @@ class DremioContainerResponse(BaseModel):
     # folder inherits its root container's subtype for browse-path
     # prefixing.
     root_container_type: Optional[str] = None
+
+    @property
+    def full_path(self) -> List[str]:
+        return [*(self.path or []), self.name]
 
     class Config:
         # Allow extra fields from API without failing

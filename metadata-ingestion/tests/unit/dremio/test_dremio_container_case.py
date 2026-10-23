@@ -13,7 +13,6 @@ from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioContainerPathIndex,
     DremioContainerResponse,
-    DremioDatasetColumn,
     DremioEntityContainerType,
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
@@ -21,7 +20,6 @@ from datahub.ingestion.source.dremio.dremio_source import DremioSource
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
-    StringTypeClass,
 )
 
 FOLDER = DremioEntityContainerType.FOLDER.lower()
@@ -50,8 +48,8 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
         "space-id": {
             "entityType": "space",
             "children": [
-                {"id": "gold", "type": CONTAINER, "path": ["my_space", "Gold"]},
                 {"id": "no-path", "name": "orphan", "type": CONTAINER, "path": []},
+                {"id": "gold", "type": CONTAINER, "path": ["my_space", "Gold"]},
             ],
         },
         "gold": {
@@ -129,12 +127,15 @@ def _mock_api() -> Mock:
                 "Conformed", ["my_space", "Gold"], DremioEntityContainerType.FOLDER
             ),
             _container("my_source", [], DremioEntityContainerType.SOURCE),
+            _container("my_home", [], DremioEntityContainerType.HOME),
         )
     ]
     api.get_all_tables_and_columns.return_value = [
         _dataset("[MY_SPACE, gold, CONFORMED, my_view]", "my_view"),
         _dataset("[MY_SOURCE, my_source_table]", "my_source_table"),
         _dataset("[other_space, my_table]", "my_table"),
+        _dataset("[other_space, my_table_2]", "my_table_2"),
+        _dataset("[my_home, my_home_table]", "my_home_table"),
     ]
     return api
 
@@ -162,7 +163,22 @@ def test_dataset_points_at_emitted_parent_container():
     assert datasets["my_source_table"].container_path == ["my_source"]
 
     assert datasets["my_table"].container_path == ["other_space"]
-    assert [list(w.context) for w in api.report.warnings] == [["other_space"]]
+    # Not emitted as a container, so not resolvable either.
+    assert datasets["my_home_table"].container_path == ["my_home"]
+    warned = [context for w in api.report.warnings for context in w.context]
+    assert sorted(warned) == ["my_home", "other_space"]
+
+
+def test_failed_container_is_no_longer_resolved():
+    api = _mock_api()
+    catalog = DremioCatalog(api)
+    conformed = next(
+        c for c in catalog.get_containers() if c.container_name == "Conformed"
+    )
+    catalog.discard_container(conformed)
+
+    datasets = {d.resource_name: d for d in catalog.get_datasets()}
+    assert datasets["my_view"].container_path == ["MY_SPACE", "gold", "CONFORMED"]
 
 
 def test_ambiguous_case_match_gets_no_container():
@@ -193,6 +209,7 @@ def test_ambiguous_case_match_gets_no_container():
         ([["src", "Data"], ["src", "data"]], ["src", "data"], ["src", "data"]),
         ([["src", "Data"], ["src", "data"]], ["SRC", "DATA"], None),
         ([["src", "Data"]], ["src", "other"], None),
+        ([["a", "b.c"]], ["a.b", "c"], None),
     ],
 )
 def test_container_path_index_prefers_exact_then_unique_case_insensitive(
@@ -201,7 +218,7 @@ def test_container_path_index_prefers_exact_then_unique_case_insensitive(
     index = DremioContainerPathIndex()
     for path in emitted:
         index.add(path)
-    assert index.resolve(lookup) == expected
+    assert index.resolve(lookup).path == expected
 
 
 def test_source_emits_no_orphan_dataset_containers(monkeypatch):
@@ -224,6 +241,7 @@ def test_source_emits_no_orphan_dataset_containers(monkeypatch):
     source.dremio_catalog = DremioCatalog(api)
 
     workunits = list(source.get_workunits_internal())
+    assert api.get_all_containers.call_count == 1
 
     emitted = {
         wu.get_urn()
@@ -238,20 +256,6 @@ def test_source_emits_no_orphan_dataset_containers(monkeypatch):
     }
     assert dataset_parents
     assert dataset_parents - emitted == {
-        _aspects().get_container_urn(path=["other_space"])
+        _aspects().get_container_urn(path=["other_space"]),
+        _aspects().get_container_urn(path=["my_home"]),
     }
-
-
-def test_schema_field_keeps_native_type_and_nullability():
-    field = _aspects()._create_schema_field(
-        DremioDatasetColumn(
-            name="col_a",
-            ordinal_position=1,
-            is_nullable="YES",
-            data_type="character varying",
-            column_size=255,
-        )
-    )
-    assert isinstance(field.type.type, StringTypeClass)
-    assert field.nativeDataType == "character varying(255)"
-    assert field.nullable is True

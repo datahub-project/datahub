@@ -6,7 +6,10 @@ from datahub.ingestion.source.dremio.dremio_aspects import (
     DremioAspects,
     SchemaFieldTypeMapper,
 )
-from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioDatasetColumn,
+    DremioDatasetType,
+)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -211,3 +214,18 @@ class TestDremioAspectsViewProperties:
         dataset = _make_dataset(dataset_type=DremioDatasetType.VIEW)
         dataset.sql_definition = ""
         assert aspects._create_view_properties(dataset) is None
+
+
+def test_schema_field_keeps_native_type_and_nullability():
+    field = _make_aspects()._create_schema_field(
+        DremioDatasetColumn(
+            name="col_a",
+            ordinal_position=1,
+            is_nullable="YES",
+            data_type="character varying",
+            column_size=255,
+        )
+    )
+    assert isinstance(field.type.type, StringTypeClass)
+    assert field.nativeDataType == "character varying(255)"
+    assert field.nullable is True
