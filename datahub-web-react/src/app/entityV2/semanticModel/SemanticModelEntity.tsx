@@ -36,7 +36,7 @@ const DefinitionTab = lazyProfileComponent('DefinitionTab', () =>
     })),
 );
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE]);
+const headerDropdownItems = new Set([EntityMenuItems.CHANGE_HISTORY, EntityMenuItems.SHARE]);
 
 export class SemanticModelEntity implements Entity<SemanticModel> {
     type: EntityType = EntityType.SemanticModel;
