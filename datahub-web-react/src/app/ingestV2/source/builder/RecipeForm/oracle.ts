@@ -175,6 +175,9 @@ export const ORACLE_PROFILING_ENABLED: RecipeField = {
 
 export const includeQueryUsageFieldPath = 'source.config.include_query_usage';
 export const includeUsageStatsFieldPath = 'source.config.include_usage_stats';
+// Written by earlier versions of this form. It is a Looker option; the Oracle
+// source rejects it as an unknown field, so recipes carrying it fail at startup.
+export const legacyExtractUsageHistoryFieldPath = 'source.config.extract_usage_history';
 export const ORACLE_INCLUDE_QUERY_USAGE: RecipeField = {
     name: 'include_query_usage',
     label: 'Extract Usage',
@@ -183,10 +186,19 @@ export const ORACLE_INCLUDE_QUERY_USAGE: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: includeQueryUsageFieldPath,
     rules: null,
+    getValueFromRecipeOverride: (recipe) => {
+        // A recipe saved by the old form shows as checked so that saving it
+        // again rewrites the legacy key into the two valid flags.
+        const legacyValue = get(recipe, legacyExtractUsageHistoryFieldPath);
+        if (legacyValue !== undefined) return !!legacyValue;
+        // Usage needs both flags; a recipe with only one set produces none.
+        return !!get(recipe, includeQueryUsageFieldPath) && !!get(recipe, includeUsageStatsFieldPath);
+    },
     // Usage from V$SQL needs both flags: include_query_usage reads the query
     // history and include_usage_stats turns it into usage statistics.
     setValueOnRecipeOverride: (recipe, value) => {
-        let updatedRecipe = set({ ...recipe }, includeQueryUsageFieldPath, value);
+        let updatedRecipe = omit({ ...recipe }, legacyExtractUsageHistoryFieldPath);
+        updatedRecipe = set(updatedRecipe, includeQueryUsageFieldPath, value);
         updatedRecipe = set(updatedRecipe, includeUsageStatsFieldPath, value);
         return updatedRecipe;
     },

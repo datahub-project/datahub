@@ -224,6 +224,10 @@ export const GLUE_PROFILING_ENABLED: RecipeField = {
 
 export const GLUE_REMOVE_STALE_METADATA_ENABLED: RecipeField = {
     ...REMOVE_STALE_METADATA_ENABLED,
+    // Keep the i18n label lazy; spreading snapshots it before translations load.
+    get label() {
+        return REMOVE_STALE_METADATA_ENABLED.label;
+    },
     tooltip:
         'Automatically remove deleted tables from DataHub. Maintains catalog accuracy when Glue tables are dropped.',
 };
