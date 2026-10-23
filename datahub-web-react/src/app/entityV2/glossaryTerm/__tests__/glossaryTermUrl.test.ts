@@ -13,6 +13,16 @@ describe('glossaryTermUrlPreservingTab', () => {
         ).toBe(`${BASE}/Related Terms?is_lineage_mode=false`);
     });
 
+    it('keeps lineage mode and drops search state from the current tab', () => {
+        expect(
+            glossaryTermUrlPreservingTab(
+                BASE,
+                '/glossaryTerm/urn:li:glossaryTerm:current/Related Assets',
+                'Related Assets?is_lineage_mode=false&page=2&query=pii',
+            ),
+        ).toBe(`${BASE}/Related Assets?is_lineage_mode=false`);
+    });
+
     it('drops the tab while editing documentation and when the current page is not a glossary term', () => {
         expect(
             glossaryTermUrlPreservingTab(

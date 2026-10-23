@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -78,7 +78,13 @@ describe('Glossary Related Terms', () => {
         });
         expect(relatedTermsQuery).toHaveBeenCalledWith(
             expect.objectContaining({
-                variables: { urn: 'urn:li:glossaryTerm:current' },
+                variables: {
+                    urn: 'urn:li:glossaryTerm:current',
+                    isRelatedTermsCount: 10,
+                    hasRelatedTermsCount: 10,
+                    isAChildrenCount: 10,
+                    containedByCount: 10,
+                },
                 fetchPolicy: 'cache-and-network',
             }),
         );
@@ -123,6 +129,64 @@ describe('Glossary Related Terms', () => {
         expect(screen.getByTestId('related-results')).toHaveTextContent(
             'urn:li:glossaryTerm:child-a,urn:li:glossaryTerm:child-b',
         );
+    });
+
+    it('asks for the next page of the selected group', async () => {
+        entityState.urn = 'urn:li:glossaryTerm:current';
+        const relationships = Array.from({ length: 10 }, (_, index) => ({
+            entity: { urn: `urn:li:glossaryTerm:child-${index}` },
+        }));
+        relatedTermsQuery.mockReturnValue({
+            data: {
+                glossaryTerm: {
+                    urn: 'urn:li:glossaryTerm:current',
+                    hasRelatedTerms: { total: 11, relationships },
+                },
+            },
+            loading: false,
+            error: undefined,
+        });
+
+        render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.click(await screen.findByTestId('load-more-related-terms'));
+
+        expect(relatedTermsQuery).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+                variables: expect.objectContaining({
+                    hasRelatedTermsCount: 20,
+                    isRelatedTermsCount: 10,
+                    isAChildrenCount: 10,
+                    containedByCount: 10,
+                }),
+            }),
+        );
+    });
+
+    it('shows an empty list when the query settles without a term', async () => {
+        entityState.urn = 'urn:li:glossaryTerm:current';
+        relatedTermsQuery.mockReturnValue({
+            data: { glossaryTerm: null },
+            loading: false,
+            error: undefined,
+        });
+
+        render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <GlossaryRelatedTerms />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(screen.getByTestId('related-results')).toBeInTheDocument());
+        expect(screen.getByTestId('related-results')).toHaveTextContent('');
     });
 
     it('shows an empty list when the query fails before any relationships arrive', async () => {

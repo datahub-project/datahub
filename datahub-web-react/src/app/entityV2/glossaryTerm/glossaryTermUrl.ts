@@ -9,10 +9,12 @@ const GLOSSARY_TERM_TABS = new Set<string>([
     EntityTabPath.PROPERTIES,
 ]);
 
+const LINEAGE_MODE_PARAM = 'is_lineage_mode';
+
 /**
- * Glossary term previews are opened from the term that is already on screen.
- * Keep that term's tab (for example Related Terms) instead of dropping it, which
- * leaves the profile with no selected tab and an empty pane.
+ * Keep the glossary term tab a preview was opened from. Without a tab,
+ * EntityTabs redirects to the first enabled tab (Summary, when that tab is shown).
+ * Only is_lineage_mode is carried over. Search, filters, and page belong to the current term.
  */
 export function glossaryTermUrlPreservingTab(baseUrl: string, pathname: string, activeTabPath: string): string {
     const onGlossaryTermProfile = pathname.split('/').filter(Boolean)[0] === 'glossaryTerm';
@@ -36,5 +38,17 @@ export function glossaryTermUrlPreservingTab(baseUrl: string, pathname: string, 
     if (!GLOSSARY_TERM_TABS.has(decodedTab)) {
         return baseUrl;
     }
-    return `${baseUrl}/${tabPath}${query}`;
+    return `${baseUrl}/${tabPath}${lineageModeQuery(query)}`;
+}
+
+function lineageModeQuery(query: string): string {
+    if (!query) {
+        return '';
+    }
+    const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query);
+    const lineageMode = params.get(LINEAGE_MODE_PARAM);
+    if (lineageMode === null) {
+        return '';
+    }
+    return `?${LINEAGE_MODE_PARAM}=${encodeURIComponent(lineageMode)}`;
 }

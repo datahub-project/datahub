@@ -7,6 +7,7 @@ import styled from 'styled-components/macro';
 import { SelectOption } from '@components/components/Select/types';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { refreshRelatedTerms } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
@@ -78,8 +79,8 @@ function AddRelatedTermsModal(props: Props) {
                 setTimeout(() => {
                     toast.success(t('glossaryTerm.addedRelatedTermsSuccess'), { duration: 2 });
                     refetch();
-                    // The Related Terms tab reads getRelatedTerms, which this mutation does not update.
-                    client.refetchQueries({ include: ['getRelatedTerms'] }).catch(() => undefined);
+                    // The Related Terms tab and its count read getRelatedTerms, which this mutation does not update.
+                    refreshRelatedTerms(client);
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
                     reloadByKeyType([

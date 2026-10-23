@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { refreshRelatedTerms } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
@@ -42,8 +43,8 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                 toast.loading(t('glossaryTerm.removing'), { duration: 2 });
                 setTimeout(() => {
                     refetch();
-                    // The Related Terms tab reads getRelatedTerms, which this mutation does not update.
-                    client.refetchQueries({ include: ['getRelatedTerms'] }).catch(() => undefined);
+                    // The Related Terms tab and its count read getRelatedTerms, which this mutation does not update.
+                    refreshRelatedTerms(client);
                     toast.success(t('glossaryTerm.removedSuccess'), { duration: 2 });
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
