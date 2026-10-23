@@ -12,7 +12,7 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 const Section = styled.div<{ removePadding?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: ${(props) => {
         if (props.$isShowNavBarRedesign) {
-            return props.removePadding ? '8px 20px 4px 20px' : '5px 5px 8px 5px';
+            return props.removePadding ? '8px 20px 4px 20px' : '5px';
         }
         return props.removePadding ? '8px 20px 4px 20px' : '8px 12px 0px 12px';
     }};

@@ -96,6 +96,45 @@ describe('generateOrFilters', () => {
         ]);
     });
 
+    it('should apply negation to parent entity type values (Type is not Datasets)', () => {
+        const filters = [
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                values: ['DATASET'],
+                condition: FilterOperator.Equal,
+                negated: true,
+            },
+        ];
+        const orFilters = generateOrFilters(UnionType.AND, filters);
+
+        expect(orFilters).toMatchObject([
+            {
+                and: [{ field: '_entityType', values: ['DATASET'], negated: true }],
+            },
+        ]);
+    });
+
+    it('should apply negation to subtype only when value is nested (Type is not table)', () => {
+        const filters = [
+            {
+                field: ENTITY_SUB_TYPE_FILTER_NAME,
+                values: ['DATASET␞table'],
+                condition: FilterOperator.Equal,
+                negated: true,
+            },
+        ];
+        const orFilters = generateOrFilters(UnionType.AND, filters);
+
+        expect(orFilters).toMatchObject([
+            {
+                and: [
+                    { field: '_entityType', values: ['DATASET'], negated: false },
+                    { field: 'typeNames', values: ['table'], negated: true },
+                ],
+            },
+        ]);
+    });
+
     it('should generate orFilters and exclude filters with a provided exclude field', () => {
         const filters = [
             { field: ENTITY_FILTER_NAME, values: ['DATASET', 'CONTAINER'] },

@@ -10,10 +10,7 @@ import { TabButtonItem } from '@components/components/ButtonTabs/types';
 import CreateLogicalModelButton from '@app/entityV2/shared/logicalModels/CreateLogicalModelButton';
 import { SEARCH_RESULTS_FILTERS_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useSearchContext } from '@app/search/context/SearchContext';
-import SearchFilterOptions from '@app/searchV2/filters/SearchFilterOptions';
-import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
-import { RecommendedFilters } from '@app/searchV2/recommendation/RecommendedFilters';
-import { useGetRecommendedFilters } from '@app/searchV2/recommendation/useGetRecommendedFilters';
+import SearchFilterBar from '@app/searchV2/filters/SearchFilterBar';
 import SearchSortSelect from '@app/searchV2/sorting/SearchSortSelect';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -42,7 +39,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    padding: 16px 0px 8px 0px;
+    padding: 12px 0;
     border: 1px solid ${(props) => props.theme.colors.border};
     box-shadow: ${(props) => (props.$isShowNavBarRedesign ? props.theme.colors.shadowSm : props.theme.colors.shadowXs)};
 `;
@@ -50,18 +47,15 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 const FiltersContainerTop = styled.div`
     display: flex;
     flex-direction: row;
+    align-items: flex-start;
     justify-content: space-between;
+    gap: 12px;
     padding-left: 16px;
     padding-right: 16px;
-    padding-bottom: 8px;
 `;
 
 const FULL_CARD_VIEW_KEY = 'full';
 const COMPACT_CARD_VIEW_KEY = 'compact';
-
-const SelectedFiltersContainer = styled.div`
-    padding: 4px 16px 8px 16px;
-`;
 
 // remove legacy filter options as well as new _index and browsePathV2 filter from dropdowns
 const FILTERS_TO_REMOVE = [
@@ -88,11 +82,6 @@ const ControlsContainer = styled.div`
     align-self: start;
 `;
 
-const RecommendedFiltersContainer = styled.div`
-    border-top: 1px solid ${(props) => props.theme.colors.border};
-    padding: 16px 16px 8px 16px;
-`;
-
 interface Props {
     loading: boolean;
     availableFilters: FacetMetadata[];
@@ -117,7 +106,7 @@ export default function SearchFilters({
     basicFilters = false,
     onChangeFilters,
     onChangeUnionType,
-    onClearFilters,
+    onClearFilters: _onClearFilters,
     query,
     viewUrn,
     totalResults,
@@ -130,7 +119,6 @@ export default function SearchFilters({
     // Filter out the available filters if `basicFilters` is true
     const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const filters = basicFilters ? filteredFilters : availableFilters;
-    const recommendedFilters = useGetRecommendedFilters(filters, activeFilters);
 
     const viewTabs: TabButtonItem[] = useMemo(
         () => [
@@ -159,12 +147,13 @@ export default function SearchFilters({
     return (
         <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <FiltersContainerTop>
-                <SearchFilterOptions
+                <SearchFilterBar
                     loading={loading}
                     availableFilters={filters}
                     activeFilters={activeFilters}
                     unionType={unionType}
                     onChangeFilters={onChangeFilters}
+                    onChangeUnionType={onChangeUnionType}
                 />
                 <ControlsContainer>
                     <SearchSortSelect
@@ -189,28 +178,6 @@ export default function SearchFilters({
                     />
                 </ControlsContainer>
             </FiltersContainerTop>
-            {activeFilters.length > 0 && (
-                <SelectedFiltersContainer>
-                    <SelectedSearchFilters
-                        availableFilters={filters}
-                        selectedFilters={activeFilters}
-                        unionType={unionType}
-                        onChangeFilters={onChangeFilters}
-                        onChangeUnionType={onChangeUnionType}
-                        onClearFilters={onClearFilters}
-                        showUnionType
-                    />
-                </SelectedFiltersContainer>
-            )}
-            {(totalResults || 0) > 0 && recommendedFilters.length > 0 && (
-                <RecommendedFiltersContainer>
-                    <RecommendedFilters
-                        availableFilters={filters}
-                        selectedFilters={activeFilters}
-                        onChangeFilters={onChangeFilters}
-                    />
-                </RecommendedFiltersContainer>
-            )}
         </Container>
     );
 }
