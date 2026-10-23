@@ -39,17 +39,6 @@ from datahub.ingestion.source.sap_datasphere.models import (
     dedup_preserving_order,
 )
 
-
-def is_qualified(name: str) -> bool:
-    # A dotted target is already space-qualified (cross-space or a built-in
-    # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
-    # Dot-heuristic, not a real parse: a same-space object whose technical name
-    # legitimately contains a dot would be mis-treated as already-qualified, but
-    # Datasphere technical names are effectively alphanumeric/underscore so this
-    # is not observed in practice. Shared by query-FROM and business-layer keys.
-    return "." in name
-
-
 # CDS navigation element types — both name a target entity for lineage purposes.
 _NAVIGATION_TYPES = frozenset({CSN_TYPE_ASSOCIATION, CSN_TYPE_COMPOSITION})
 
@@ -159,22 +148,15 @@ class CsnLineageExtractor:
         return selects
 
     def extract_upstream_refs(self, csn_def: dict) -> List[UpstreamRef]:
-        """A dotted ref (e.g. ``SAP_BW.V_X`` or a built-in ``SAP.TIME.*``) is already
-        space-qualified and used as-is; a bare technical name is a same-space
-        sibling that the source layer prefixes with the asset's space. Setting
-        ``qualified`` here (rather than blindly in the source) is what keeps a
-        cross-space FROM ref from being double-prefixed into a phantom URN.
-        """
+        """FROM refs as written; the source layer decides whether a dotted name
+        is cross-space or a same-space name containing a dot."""
         query = csn_def.get(CSN_KEY_QUERY)
         names: List[str] = []
         for select in self._iter_selects(query):
             from_clause = select.get(CSN_FROM)
             if from_clause is not None:
                 self._walk_from(from_clause, names)
-        return [
-            UpstreamRef(name=name, qualified=is_qualified(name))
-            for name in dedup_preserving_order(names)
-        ]
+        return [UpstreamRef(name=name) for name in dedup_preserving_order(names)]
 
     def _walk_from(self, node: object, out: List[str]) -> None:
         if not isinstance(node, dict):
@@ -287,11 +269,7 @@ class CsnLineageExtractor:
                     # A field projected through a CDS association navigates to the
                     # association's target entity.
                     target = association_map[alias]
-                    out.append(
-                        UpstreamColRef(
-                            qname=target, col=col, qualified=is_qualified(target)
-                        )
-                    )
+                    out.append(UpstreamColRef(qname=target, col=col))
                 elif alias in alias_map:
                     out.append(UpstreamColRef(qname=alias_map[alias], col=col))
                 else:
@@ -591,7 +569,7 @@ class CsnLineageExtractor:
             if target in seen:
                 continue
             seen.add(target)
-            targets.append(UpstreamRef(name=target, qualified=is_qualified(target)))
+            targets.append(UpstreamRef(name=target))
         return targets
 
     def remote_source(self, csn_def: dict) -> Optional[str]:

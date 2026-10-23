@@ -16,6 +16,7 @@ from datahub.ingestion.source.sap_datasphere.lineage import (
 from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
+    ObjectLocator,
     UpstreamColRef,
     UpstreamRef,
 )
@@ -40,7 +41,7 @@ def test_lineage_from_simple_select_extracts_one_upstream():
     }
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
-    assert upstreams == [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION", qualified=True)]
+    assert upstreams == [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION")]
 
 
 def test_lineage_returns_empty_when_no_query():
@@ -75,13 +76,13 @@ def test_lineage_handles_join_with_two_refs():
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
     assert set(upstreams) == {
-        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION", qualified=True),
-        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION_TMONTH", qualified=True),
+        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION_TMONTH"),
     }
 
 
-def test_cross_space_from_ref_is_qualified_not_space_prefixed():
-    """Regression: a dotted FROM ref (``SPACE.OBJECT``) is already space-qualified; double-prefixing a cross-space ref into a phantom URN dropped the real lineage edge."""
+def test_from_refs_are_kept_as_written():
+    """The extractor keeps dotted and bare FROM refs verbatim; the source layer decides which dotted names are cross-space."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -100,8 +101,8 @@ def test_cross_space_from_ref_is_qualified_not_space_prefixed():
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
     assert set(refs) == {
-        UpstreamRef(name="SAP_BW.V_VCOPSER03_N045", qualified=True),
-        UpstreamRef(name="LOCAL_DIM", qualified=False),
+        UpstreamRef(name="SAP_BW.V_VCOPSER03_N045"),
+        UpstreamRef(name="LOCAL_DIM"),
     }
 
 
@@ -129,7 +130,7 @@ def test_walk_from_handles_inline_subquery():
         "query": {"SELECT": {"from": {"SELECT": {"from": {"ref": ["INNER_TABLE"]}}}}},
     }
     refs = extractor.extract_upstream_refs(csn_def)
-    assert refs == [UpstreamRef(name="INNER_TABLE", qualified=False)]
+    assert refs == [UpstreamRef(name="INNER_TABLE")]
 
 
 def test_walk_from_handles_doubly_nested_subquery():
@@ -143,7 +144,7 @@ def test_walk_from_handles_doubly_nested_subquery():
         },
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
-    assert refs == [UpstreamRef(name="DEEP", qualified=False)]
+    assert refs == [UpstreamRef(name="DEEP")]
 
 
 def test_lineage_skips_non_string_ref_element():
@@ -1092,7 +1093,7 @@ def test_association_projection_skip_is_silent_not_unresolved():
 
 
 def test_used_association_target_becomes_table_upstream():
-    """An association referenced by the query turns its target into a table-level upstream; a dotted target is flagged qualified so the source layer emits it as-is."""
+    """An association referenced by the query turns its target into a table-level upstream; the source layer resolves its space."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1111,9 +1112,7 @@ def test_used_association_target_becomes_table_upstream():
         },
     }
     targets = CsnLineageExtractor().extract_association_targets(csn_def)
-    assert [(t.name, t.qualified) for t in targets] == [
-        ("SAP.TIME.M_TIME_DIMENSION_TDAY", True)
-    ]
+    assert [t.name for t in targets] == ["SAP.TIME.M_TIME_DIMENSION_TDAY"]
 
 
 def test_declared_but_unused_association_is_not_a_lineage_edge():
@@ -1156,11 +1155,11 @@ def test_association_qualified_column_ref_resolves_to_target():
     pairs = extractor.extract_column_lineage(csn_def)
     by_col = {p.downstream_col: p for p in pairs}
     assert by_col["CUSTOMER_NAME"].upstream_refs == [
-        UpstreamColRef(qname="CUSTOMERS", col="NAME", qualified=False)
+        UpstreamColRef(qname="CUSTOMERS", col="NAME")
     ]
     # And the association target is a table-level upstream.
     targets = extractor.extract_association_targets(csn_def)
-    assert [(t.name, t.qualified) for t in targets] == [("CUSTOMERS", False)]
+    assert [t.name for t in targets] == ["CUSTOMERS"]
 
 
 def test_used_composition_target_and_projected_column_resolve_to_target():
@@ -1184,10 +1183,10 @@ def test_used_composition_target_and_projected_column_resolve_to_target():
     extractor = CsnLineageExtractor()
     by_col = {p.downstream_col: p for p in extractor.extract_column_lineage(csn_def)}
     assert by_col["ITEM_SKU"].upstream_refs == [
-        UpstreamColRef(qname="ORDER_ITEMS", col="SKU", qualified=False)
+        UpstreamColRef(qname="ORDER_ITEMS", col="SKU")
     ]
     targets = extractor.extract_association_targets(csn_def)
-    assert [(t.name, t.qualified) for t in targets] == [("ORDER_ITEMS", False)]
+    assert [t.name for t in targets] == ["ORDER_ITEMS"]
 
 
 def test_union_collects_upstreams_from_all_branches():
@@ -1206,8 +1205,8 @@ def test_union_collects_upstreams_from_all_branches():
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
     assert set(refs) == {
-        UpstreamRef(name="SALES_EU", qualified=False),
-        UpstreamRef(name="SALES_US", qualified=False),
+        UpstreamRef(name="SALES_EU"),
+        UpstreamRef(name="SALES_US"),
     }
 
 
@@ -1286,3 +1285,18 @@ def test_parse_remote_table_source_strips_sql_quoted_identifier():
     source = parse_remote_table_source(entity)
     assert source is not None
     assert source.qualified_name == "SAPTCH./BIC/AEADOSCM282"
+
+
+@pytest.mark.parametrize(
+    "ref, known_spaces, expected",
+    [
+        ("V_LOCAL", {"S"}, "S/V_LOCAL"),
+        ("SAP.TIME.VIEW_DIMENSION_DAY", {"S"}, "S/SAP.TIME.VIEW_DIMENSION_DAY"),
+        ("FINANCE.V_SALES", {"S"}, "FINANCE/V_SALES"),
+        ("SAP.V_SALES", {"S", "SAP"}, "SAP/V_SALES"),
+    ],
+    ids=["bare", "sap_namespace", "unlisted_space", "listed_space_named_sap"],
+)
+def test_object_locator_resolves_space(ref, known_spaces, expected):
+    locator = ObjectLocator.from_ref(ref, "S", known_spaces)
+    assert f"{locator.space}/{locator.name}" == expected

@@ -30,6 +30,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     JsonDict,
     ResolvedPlatform,
     UpstreamColRef,
+    UpstreamRef,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -5134,7 +5135,8 @@ def test_business_layer_passthrough_qualified_cross_space_keys():
 
 
 def test_business_layer_mixed_bare_and_qualified_keys():
-    # Realistic star schema: same-space fact/dim plus a built-in time dimension.
+    # Realistic star schema: same-space fact/dim plus a generated time dimension,
+    # which lives in the model's space despite its dotted name.
     src = _bl_source("bl-mixed-keys")
     csn = _business_layer_csn(
         "am_orders",
@@ -5154,8 +5156,29 @@ def test_business_layer_mixed_bare_and_qualified_keys():
         "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
         "my_space.v_fact_orders,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
-        "sap.time.m_time_dimension,PROD)",
+        "my_space.sap.time.m_time_dimension,PROD)",
     }
+
+
+def test_query_lineage_resolves_dotted_upstreams():
+    src = _bl_source("query-lineage-dotted")
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [
+            UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+            UpstreamRef(name="FINANCE.V_SALES"),
+            UpstreamRef(name="V_LOCAL"),
+        ],
+    )
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,finance.v_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v_local,PROD)",
+    ]
 
 
 def test_business_layer_keeps_fgl_for_bare_same_space_keys():
