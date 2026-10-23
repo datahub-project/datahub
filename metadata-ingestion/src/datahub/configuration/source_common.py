@@ -60,6 +60,19 @@ class LowerCaseDatasetUrnConfigMixin(ConfigModel):
     )
 
 
+class TransformOperationLengthConfigMixin(ConfigModel):
+    max_transform_operation_length: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Maximum characters of each column's transformation logic kept in "
+        "column-level lineage of datasets and data jobs. Longer logic is cut to this "
+        "length and ends with `...`. `0` keeps only the `SQL` or `COPY` label, and "
+        "removes logic that has no label. Unset keeps the full logic. With "
+        "`incremental_lineage`, entries stored before a change stay alongside the new "
+        "ones until a run with `incremental_lineage: false`.",
+    )
+
+
 class DatasetLineageProviderConfigBase(EnvConfigMixin):
     """
     Any non-Dataset source that produces lineage to Datasets should inherit this class.

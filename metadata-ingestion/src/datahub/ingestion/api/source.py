@@ -636,6 +636,7 @@ class Source(Closeable, metaclass=ABCMeta):
             AutoStatusAspectProcessor,
             AutoWorkunitsReporterProcessor,
             EnsureAspectSizeProcessor,
+            EnsureTransformOperationLengthProcessor,
             ValidateDuplicateSchemaFieldPathsProcessor,
             ValidateEmptySchemaFieldPathsProcessor,
             ValidateInputFieldsProcessor,
@@ -678,6 +679,8 @@ class Source(Closeable, metaclass=ABCMeta):
             ValidateEmptySchemaFieldPathsProcessor,
             AutoBrowsePathV2Processor,
             AutoResolveLineageUrnsProcessor,
+            # Before incremental lineage, which turns upstreamLineage into patches.
+            EnsureTransformOperationLengthProcessor,
             AutoIncrementalLineageProcessor,
             AutoIncrementalPropertiesProcessor,
             AutoIncrementalOwnershipProcessor,
