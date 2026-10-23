@@ -93,7 +93,7 @@ Browsing starts at the term and expands into the implementations. The duplicatio
 
 Metrics can be built from other metrics via `derivedFrom`. Use this when a metric's definition is literally a function of other named metrics — for example, `arpu = total_mrr / active_customer_count` — not just a different SQL projection over the same datasets.
 
-Downstream consumers of either base metric will see the derived metric as an impacted node when either upstream changes. The dbt source emits `derivedFrom` edges automatically for dbt `ratio`, `derived`, `cumulative`, and `conversion` metrics.
+`derivedFrom` is a lineage edge, so the derived metric appears downstream of each base metric: impact analysis on `total_mrr` or `active_customer_count` includes `arpu`. The dbt source emits `derivedFrom` edges automatically for dbt `ratio`, `derived`, and `conversion` metrics.
 
 ---
 
@@ -131,7 +131,7 @@ Ingestion from BI tools will populate these edges automatically as those connect
 
 The order of preference, in descending order:
 
-1. **Native semantic-layer ingestion — the primary path.** Supported today for Snowflake Semantic Views and dbt. Databricks metric views, Cube.dev, AtScale, and LookML are on the roadmap.
+1. **Native semantic-layer ingestion — the primary path.** Supported today for Snowflake Semantic Views and dbt, with Cube and MicroStrategy in alpha. Databricks metric views, AtScale, and LookML are on the roadmap.
 2. **Python SDK — only when ingestion doesn't yet cover your source.** For in-house semantic layers, custom YAML registries, or sources we don't ingest yet. Treat this as a stopgap that lets you run ahead of native connector coverage, not as the long-term home for your definitions. See the [Python SDK section of the feature guide](./metrics-and-semantic-models.md#from-the-datahub-python-sdk) and the full [SDK tutorial](../../api/tutorials/semantic-models.md) for code.
 3. **DataHub UI edits — only for business metadata.** Owners, descriptions, tags, glossary term links, structured property values, deprecation.
 
@@ -149,11 +149,7 @@ The Snowflake connector reads `SEMANTIC VIEW` objects defined in-warehouse (requ
 - **AI Context** carried over from Snowflake synonyms where present
 - **Column-level lineage** from the physical table to the Semantic Model Dataset
 
-Enable it in the recipe with `semantic_views.enabled: true`. The full recipe shape lives in the [feature guide's Snowflake section](./metrics-and-semantic-models.md#from-snowflake-semantic-views).
-
-:::caution Semantic Field Annotation is create-only
-`semanticFieldAnnotation` (per-field semantic metadata like type, aggregation, expression) is anchored on the `schemaField` URN, not stored as a dataset aspect. If you need to change a field's annotation, re-emit the full Semantic Model Dataset rather than attempting a read-modify-write on just the field.
-:::
+Enable it in the recipe with `semantic_views.enabled: true`. On DataHub Cloud 2.1.0 or later with Metrics enabled, that's all you need. On DataHub Core (OSS), also set `semantic_views.emit_semantic_model_entities: true`; without it, semantic views are ingested as legacy `Semantic View` datasets instead. The full recipe shape lives in the [feature guide's Snowflake section](./metrics-and-semantic-models.md#from-snowflake-semantic-views).
 
 ### From dbt (semantic layer and metrics)
 
@@ -174,7 +170,7 @@ source:
     emit_semantic_model_entities: true
 ```
 
-The flag is tri-state — unset means "follow the server" (enabled on recent DataHub Cloud, off on OSS), `true` always requests emission, `false` always disables it. Nothing about the datasets changes when you flip it, so you can turn it on and off freely with no URN change and no migration.
+The flag is tri-state — unset means "follow the server" (enabled on recent DataHub Cloud, off on OSS), `true` always requests emission, `false` always disables it. Turning it on only adds metadata: a semantic-model reference on each semantic model's dataset and per-field semantic annotations. Dataset URNs and everything the connector already emits for those datasets stay the same, so no migration is needed.
 
 **Join semantics** follow dbt's own MetricFlow conventions: a semantic model declaring an entity as `foreign`, `unique`, or `natural` joins to every semantic model declaring an entity of the **same name** as `primary`, `unique`, or `natural`. The source re-emits those join relationships on the `semanticModel` entity.
 
@@ -190,7 +186,11 @@ The flag is tri-state — unset means "follow the server" (enabled on recent Dat
 
 Teams with semantic metadata outside of our supported connectors — custom YAML, in-house tooling, MetricFlow-equivalent frameworks — can emit Metric and Semantic Model entities programmatically. See the [Python SDK section of the feature guide](./metrics-and-semantic-models.md#from-the-datahub-python-sdk) and the full [SDK tutorial](../../api/tutorials/semantic-models.md) for the code.
 
-Keep the YAML/SDK calls in the same repo as the pipeline that produces the data so the metric definition and the SQL it describes stay in sync. Run CI on a `--dry-run` emit before merging; the SDK is additive on most aspects, so business metadata edited in the DataHub UI (owners, terms, documentation) is preserved across subsequent SDK emissions.
+Keep the YAML/SDK calls in the same repo as the pipeline that produces the data so the metric definition and the SQL it describes stay in sync. `client.entities.upsert` writes each aspect the script sets in full, so set only the fields the script owns: if the script sets owners or glossary terms, every run replaces the ones added in the DataHub UI.
+
+:::caution Field annotations don't round-trip through the SDK
+Per-field semantic annotations (`semanticFieldAnnotation`) and field-level AI Context are stored on each field's `schemaField` URN, not on the dataset. `client.entities.get(...)` returns a Semantic Model Dataset as a plain `Dataset` without them, so to change one, build a fresh `SemanticModelDataset` with its fields instead of fetching, editing, and re-upserting the dataset.
+:::
 
 ### Don't fabricate what the source doesn't tell you
 
@@ -246,10 +246,6 @@ The cross-platform pattern — multiple metrics tied to one term, one per platfo
 
 1. Picking one implementation to be the production version
 2. Marking the others deprecated with the production URN as the replacement
-
-### Letting ingestion-created tags accumulate without curation
-
-Snowflake Semantic Views emits per-field `Dimension` and `Measure` tags automatically. Treat these as noise unless your team actively uses them for filtering — otherwise exclude them in your ingestion recipe or curate them on the way in.
 
 ---
 
