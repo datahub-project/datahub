@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, ClassVar, Dict, Iterator, List, Optional, Tuple
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -12,6 +12,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 
 # Import Pydantic models from separate module to avoid circular dependencies
 from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerPathIndex,
     DremioContainerResponse,
     DremioDatasetColumn,
     DremioDatasetResponse,
@@ -20,10 +21,6 @@ from datahub.ingestion.source.dremio.dremio_models import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _case_insensitive_key(path: List[str]) -> Tuple[str, ...]:
-    return tuple(part.lower() for part in path)
 
 
 class DremioGlossaryTerm:
@@ -227,9 +224,8 @@ class DremioCatalog:
     def __init__(self, api: DremioAPIOperations):
         self.api = api
         self.edition = api.edition
-        # TABLE_SCHEMA can case folders differently from the catalog walk, and
-        # Dremio identifiers are case-insensitive.
-        self._container_paths: Dict[Tuple[str, ...], List[str]] = {}
+        # TABLE_SCHEMA can case folders differently from the catalog walk.
+        self._container_paths = DremioContainerPathIndex()
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
@@ -238,8 +234,8 @@ class DremioCatalog:
                 dataset_details=dataset_details,
                 api_operations=self.api,
             )
-            dremio_dataset.container_path = self._container_paths.get(
-                _case_insensitive_key(dremio_dataset.path), dremio_dataset.path
+            dremio_dataset.container_path = self._container_paths.resolve(
+                dremio_dataset.path
             )
 
             yield dremio_dataset
@@ -250,9 +246,8 @@ class DremioCatalog:
             dremio_container = self._to_container(container)
             if dremio_container is None:
                 continue
-            full_path = [*dremio_container.path, dremio_container.container_name]
-            self._container_paths.setdefault(
-                _case_insensitive_key(full_path), full_path
+            self._container_paths.add(
+                [*dremio_container.path, dremio_container.container_name]
             )
             yield dremio_container
 

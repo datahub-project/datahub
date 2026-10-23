@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -36,6 +37,23 @@ class DremioOwnerType(StrEnum):
 
     USER = "USER"
     GROUP = "GROUP"
+
+
+class DremioContainerPathIndex(BaseModel):
+    """Emitted container paths, matched case-insensitively like Dremio identifiers."""
+
+    paths: Dict[str, List[str]] = Field(default_factory=dict)
+
+    @staticmethod
+    def _key(path: List[str]) -> str:
+        # JSON keeps segments distinct even when a name contains a dot.
+        return json.dumps([part.lower() for part in path])
+
+    def add(self, path: List[str]) -> None:
+        self.paths.setdefault(self._key(path), path)
+
+    def resolve(self, path: List[str]) -> List[str]:
+        return self.paths.get(self._key(path), path)
 
 
 class DremioContainerResponse(BaseModel):
