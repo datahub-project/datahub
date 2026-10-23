@@ -21,6 +21,7 @@ record ContainerProperties includes CustomProperties, ExternalReference {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -39,6 +40,7 @@ record ContainerProperties includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "qualifiedName",
       "mappings": [
         { "type": "KEYWORD" },
@@ -57,6 +59,7 @@ record ContainerProperties includes CustomProperties, ExternalReference {
     "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

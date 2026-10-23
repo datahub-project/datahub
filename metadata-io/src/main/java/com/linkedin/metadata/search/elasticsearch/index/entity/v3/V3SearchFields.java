@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -53,7 +54,9 @@ import javax.annotation.Nullable;
  *       1 ({@code name_1});
  *   <li>a string field queried by default in V3 that names none copies into the root field {@code
  *       other}. A field with {@code v3.queryByDefault: false} is excluded even when V2 queries it
- *       by default. An entity whose fields name no {@code name} sends the field its {@code
+ *       by default. {@code v3.copyToOther: true} also copies into {@code other}, including a URN's
+ *       parsed name, and keeps the field's own root. {@code searchLabel} does not: the label
+ *       replaces that root. An entity whose fields name no {@code name} sends the field its {@code
  *       _entityName} alias names to {@code name} instead. The urn and fields of an entity a
  *       reference field names ({@code @SearchableRef}) only ever copy into {@code other}, and
  *       matched fields do not report them.
@@ -493,8 +496,10 @@ public final class V3SearchFields {
 
   /**
    * Where the parsed name is copied. A URN root receives the logical field whether or not it is
-   * included in full text. A shared URN label receives the same name. A full-text URN with no
-   * parsed root copies the name to {@code other}.
+   * included in full text. A declared label receives the parsed name, including a label shared with
+   * non-URN fields such as {@code name_1}, whether or not the URN is in the default query. A
+   * full-text URN with no parsed root and no label copies the name to {@code other}. {@code
+   * v3.copyToOther} copies the parsed name to {@code other} as well as the field's own root.
    */
   @Nonnull
   public static List<String> parsedNameDestinations(
@@ -521,11 +526,14 @@ public final class V3SearchFields {
       }
       if (roots.parsedKeywordLabels().contains(label)) {
         destinations.add(parsedKeywordField(label));
-      } else if (contributesFullTextUrn(fieldSpec)) {
+      } else {
         destinations.add(label);
       }
     }
     if (destinations.isEmpty() && contributesFullTextUrn(fieldSpec)) {
+      destinations.add(OTHER);
+    }
+    if (copiesToOther(fieldSpec) && !destinations.contains(OTHER)) {
       destinations.add(OTHER);
     }
     return List.copyOf(destinations);
@@ -783,7 +791,8 @@ public final class V3SearchFields {
 
   /**
    * The shared fields the root field of these source fields copies into. A label on any source wins
-   * over the fallback to {@code other}, so a root field never lands in both.
+   * over the fallback to {@code other}. {@code v3.copyToOther} adds {@code other} without replacing
+   * the source root.
    */
   @Nonnull
   public static Set<String> destinations(
@@ -797,6 +806,9 @@ public final class V3SearchFields {
           .filter(fieldSpec -> !isExactUrn(fieldSpec))
           .map(fieldSpec -> entityNameFallbacks.contains(fieldSpec) ? ENTITY_NAME : OTHER)
           .forEach(destinations::add);
+    }
+    if (sourceFieldSpecs.stream().anyMatch(V3SearchFields::copiesToOther)) {
+      destinations.add(OTHER);
     }
     return destinations;
   }
@@ -965,6 +977,19 @@ public final class V3SearchFields {
                 spec -> spec.getSearchableAnnotation().getFieldName(),
                 LinkedHashMap::new,
                 Collectors.toList()));
+  }
+
+  /**
+   * Registry entities that declare at least one {@code @Searchable} field, in name order. The
+   * shared V3 mapping and the query field model are both built from this list.
+   */
+  @Nonnull
+  public static List<EntitySpec> searchableEntitySpecs(
+      @Nonnull final EntityRegistry entityRegistry) {
+    return entityRegistry.getEntitySpecs().values().stream()
+        .filter(spec -> !spec.getSearchableFieldSpecs().isEmpty())
+        .sorted(Comparator.comparing(EntitySpec::getName))
+        .collect(Collectors.toList());
   }
 
   /**
@@ -1158,6 +1183,9 @@ public final class V3SearchFields {
       @Nonnull final String destination,
       @Nonnull final Set<SearchableFieldSpec> entityNameFallbacks,
       final boolean groupHasLabel) {
+    if (OTHER.equals(destination) && copiesToOther(fieldSpec)) {
+      return true;
+    }
     final Set<String> specLabels = labels(fieldSpec);
     if (!specLabels.isEmpty()) {
       return specLabels.contains(destination);
@@ -1195,6 +1223,11 @@ public final class V3SearchFields {
     return destinations;
   }
 
+  private static boolean copiesToOther(@Nonnull final SearchableFieldSpec fieldSpec) {
+    final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    return annotation.isV3Searchable() && annotation.isCopyToOther();
+  }
+
   private static boolean isQueriedByDefault(@Nonnull final SearchableFieldSpec fieldSpec) {
     final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
     return annotation.isV3Searchable()
@@ -1208,13 +1241,21 @@ public final class V3SearchFields {
    */
   private static Stream<SearchableFieldSpec> sourceFieldSpecs(
       @Nonnull final EntitySpec entitySpec) {
-    return entitySpec.getAspectSpecs().stream()
-        .filter(aspectSpec -> !STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()))
-        .map(AspectSpec::getSearchableFieldSpecs)
-        .flatMap(List::stream)
-        .filter(
-            spec ->
-                spec.getSearchableAnnotation().isV3Searchable()
-                    && !OBJECT_FIELD_TYPES.contains(spec.getSearchableAnnotation().getFieldType()));
+    List<AspectSpec> aspects = entitySpec.getAspectSpecs();
+    Stream<SearchableFieldSpec> specs;
+    if (aspects == null || aspects.isEmpty()) {
+      List<SearchableFieldSpec> direct = entitySpec.getSearchableFieldSpecs();
+      specs = direct == null ? Stream.empty() : direct.stream();
+    } else {
+      specs =
+          aspects.stream()
+              .filter(aspectSpec -> !STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()))
+              .map(AspectSpec::getSearchableFieldSpecs)
+              .flatMap(List::stream);
+    }
+    return specs.filter(
+        spec ->
+            spec.getSearchableAnnotation().isV3Searchable()
+                && !OBJECT_FIELD_TYPES.contains(spec.getSearchableAnnotation().getFieldType()));
   }
 }

@@ -12,10 +12,12 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -70,7 +72,7 @@ public class AspectMappingBuilder {
                         searchableFieldSpec -> {
                           aspectFields.putAll(
                               MultiEntityMappingsBuilder.getAspectMappingsForField(
-                                  searchableFieldSpec, aspectName, indexGroup));
+                                  searchableFieldSpec, aspectName));
                           copySharedHasValues(searchableFieldSpec, aspectFields);
                         });
               }
@@ -131,8 +133,9 @@ public class AspectMappingBuilder {
   /**
    * The aspect boolean keeps the name the document writes and copies onto the degree's root name.
    * Degree 0 copies {@code hasDescription} onto {@code hasDescription}. Degree 1 copies it onto
-   * {@code hasDescription_1}. Only a true is written, so the root field never holds both true and
-   * false.
+   * {@code hasDescription_1}. A {@code v3.hasValuesFieldName} is an additional copy target, so
+   * {@code hasParentNode} also copies onto {@code hasParent}. Only a true is written, so the root
+   * field never holds both true and false.
    */
   private static void copySharedHasValues(
       @Nonnull SearchableFieldSpec fieldSpec, @Nonnull Map<String, Object> aspectFields) {
@@ -140,16 +143,29 @@ public class AspectMappingBuilder {
     if (!resolved.isV3Searchable() || resolved.indexedFieldName().isEmpty()) {
       return;
     }
-    resolved
-        .getHasValuesFieldName()
-        .ifPresent(
-            declaredName -> {
-              String rootName = resolved.indexedHasValuesFieldName().orElse(declaredName);
-              Map<String, Object> mapping = new HashMap<>();
-              mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
-              mapping.put(COPY_TO, List.of(rootName));
-              aspectFields.put(declaredName, mapping);
-            });
+    Optional<String> declared = resolved.getHasValuesFieldName();
+    if (declared != null && declared.isPresent()) {
+      String rootName = resolved.indexedHasValuesFieldName().orElse(declared.get());
+      List<String> destinations = new ArrayList<>();
+      destinations.add(rootName);
+      SearchableAnnotation.sharedHasValuesName(resolved)
+          .filter(name -> !destinations.contains(name))
+          .ifPresent(destinations::add);
+      putHasValuesCopy(aspectFields, declared.get(), destinations);
+      return;
+    }
+    SearchableAnnotation.sharedHasValuesName(resolved)
+        .ifPresent(name -> putHasValuesCopy(aspectFields, name, List.of(name)));
+  }
+
+  private static void putHasValuesCopy(
+      @Nonnull Map<String, Object> aspectFields,
+      @Nonnull String fieldName,
+      @Nonnull List<String> destinations) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
+    mapping.put(COPY_TO, destinations);
+    aspectFields.put(fieldName, mapping);
   }
 
   /**

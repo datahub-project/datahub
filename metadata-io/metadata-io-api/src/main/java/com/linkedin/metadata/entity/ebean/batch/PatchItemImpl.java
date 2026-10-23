@@ -325,7 +325,14 @@ public class PatchItemImpl implements PatchMCP {
               .templateDefault(templateDefault)
               .build();
       return ChangeItemImpl.fromPatch(
-          urn, aspectSpec, recordTemplate, genericPatchTemplate, auditStamp, aspectRetriever);
+          urn,
+          aspectSpec,
+          recordTemplate,
+          genericPatchTemplate,
+          getMetadataChangeProposal(),
+          getSystemMetadata(),
+          auditStamp,
+          aspectRetriever);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

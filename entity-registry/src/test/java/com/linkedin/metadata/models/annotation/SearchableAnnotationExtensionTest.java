@@ -732,6 +732,20 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
+  public void testUnsetV3QueryByDefaultStaysOutOfTheDefaultQuery() {
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "TEXT");
+    annotationMap.put("queryByDefault", true);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "title", DataSchema.Type.STRING, "testField");
+
+    assertTrue(annotation.isQueryByDefault());
+    assertFalse(annotation.resolvedForV3().isQueryByDefault());
+  }
+
+  @Test
   public void testV3OverlayCanDisableSearch() {
     DataMap overlay = new DataMap();
     overlay.put("enabled", false);
@@ -872,6 +886,83 @@ public class SearchableAnnotationExtensionTest {
         () ->
             SearchableAnnotation.fromPegasusAnnotationObject(
                 badFlag, "name", DataSchema.Type.STRING, "testField"));
+  }
+
+  @Test
+  public void testCopyToOtherKeepsTheRoot() {
+    DataMap v3 = new DataMap();
+    v3.put("copyToOther", true);
+    v3.put("queryByDefault", false);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "schemaField", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isCopyToOther());
+    assertTrue(annotation.resolvedForV3().isCopyToOther());
+    assertFalse(annotation.resolvedForV3().isQueryByDefault());
+    assertTrue(annotation.resolvedForV3().getSearchLabel().isEmpty());
+    assertEquals(annotation.resolvedForV3().getFieldName(), "schemaField");
+  }
+
+  @Test
+  public void testCopyToOtherAllowsLabelThatIsTheRoot() {
+    DataMap v3 = new DataMap();
+    v3.put("copyToOther", true);
+    v3.put("queryByDefault", false);
+    v3.put("searchLabel", "platform");
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "platform", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isCopyToOther());
+    assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "platform");
+  }
+
+  @Test
+  public void testCopyToOtherRejectsSearchLabel() {
+    DataMap v3 = new DataMap();
+    v3.put("copyToOther", true);
+    v3.put("searchLabel", "name");
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("v3", v3);
+
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "schemaField", DataSchema.Type.STRING, "test context"));
+  }
+
+  @Test
+  public void testV3HasValuesFieldNameKeepsTheTopLevelName() {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", "parent");
+    v3.put("queryByDefault", false);
+    v3.put("hasValuesFieldName", "hasParent");
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldName", "parentNode");
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("hasValuesFieldName", "hasParentNode");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "parentNode", DataSchema.Type.STRING, "test context");
+    SearchableAnnotation resolved = annotation.resolvedForV3();
+
+    assertEquals(resolved.getHasValuesFieldName().get(), "hasParentNode");
+    assertEquals(resolved.getV3HasValuesFieldName().get(), "hasParent");
+    assertEquals(resolved.indexedHasValuesFieldName().get(), "hasParentNode");
+    assertEquals(resolved.indexedSharedHasValuesFieldName().get(), "hasParent");
   }
 
   private static DataMap labeled(String fieldType, String searchLabel) {

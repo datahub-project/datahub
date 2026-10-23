@@ -20,6 +20,7 @@ record RoleProperties {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -37,6 +38,7 @@ record RoleProperties {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

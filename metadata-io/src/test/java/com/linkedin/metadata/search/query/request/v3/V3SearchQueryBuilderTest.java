@@ -1028,10 +1028,16 @@ public class V3SearchQueryBuilderTest {
 
     Map<String, List<String>> remaining =
         configured.searchedFields(withFieldConfiguration("nothing"), DATASET);
-    assertFalse(remaining.containsKey(ENTITY_NAME), remaining.toString());
-    assertFalse(remaining.containsKey(OTHER), remaining.toString());
+    // Removing every remaining shared label leaves nothing, so the base fields are restored.
+    // Reference fields such as platform are not in that base set.
+    assertTrue(remaining.containsKey(ENTITY_NAME), remaining.toString());
+    assertTrue(remaining.containsKey(QUALIFIED_NAME), remaining.toString());
+    assertTrue(remaining.containsKey(DESCRIPTION), remaining.toString());
+    assertTrue(remaining.containsKey("tags"), remaining.toString());
+    assertTrue(remaining.containsKey("glossaryTerms"), remaining.toString());
+    assertTrue(remaining.containsKey(OTHER), remaining.toString());
+    assertFalse(remaining.containsKey("platform"), remaining.toString());
     assertFalse(remaining.containsKey("urnName"), remaining.toString());
-    assertTrue(remaining.containsKey("platform"), remaining.toString());
     assertFalse(
         remaining.keySet().stream().anyMatch(key -> key.contains("__urn_name")),
         remaining.toString());
@@ -1249,7 +1255,10 @@ public class V3SearchQueryBuilderTest {
     assertTrue(names.contains("description.text"), names.toString());
     assertFalse(names.contains("urnName.text"), names.toString());
     assertFalse(names.contains("urnName.stemmed"), names.toString());
-    assertTrue(names.contains("platform.text"), names.toString());
+    assertTrue(names.contains("qualifiedName.text"), names.toString());
+    assertTrue(names.contains("glossaryTerms.text"), names.toString());
+    assertTrue(names.contains("other.text"), names.toString());
+    assertFalse(names.contains("platform.text"), names.toString());
     assertTrue(names.contains("tags.text"), names.toString());
     assertFalse(names.contains("platform.urnName.text"), names.toString());
     assertFalse(names.contains("tags.urnName.text"), names.toString());

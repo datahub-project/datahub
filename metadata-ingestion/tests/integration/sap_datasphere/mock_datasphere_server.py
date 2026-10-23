@@ -3,12 +3,10 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
 
+from werkzeug.wrappers import Request as WerkzeugRequest, Response as WerkzeugResponse
+
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer
-    from werkzeug.wrappers import (
-        Request as WerkzeugRequest,
-        Response as WerkzeugResponse,
-    )
 
 RECORDED_DIR = Path(__file__).parent / "fixtures" / "recorded"
 
@@ -36,11 +34,13 @@ LOCAL_TABLE_NAMES = [
 ANALYTIC_MODEL_NAMES = [
     "Test_Analytic_Model",
 ]
-# Source objects an analytic model projects from. These are not catalog assets;
-# the connector probes them via the /views/ endpoint (by the projection's
-# source-object name) to recover the analytic model's typeless column types.
+# Synthetic stand-ins for the objects Test_Analytic_Model projects from; they
+# live in a space the catalog does not list, as on the recorded tenant.
+SOURCE_OBJECT_SPACE = "FINANCE_DATA"
 SOURCE_OBJECT_VIEW_NAMES = [
-    "FINANCE_DATASALES_A",
+    "SALES_ALL_GE",
+    "BusinessPartner_DIM_GE",
+    "Purchasing_Power_DIM_GE",
 ]
 
 
@@ -50,12 +50,10 @@ def _fixture_text(rel: str) -> str:
 
 def _paged_list_handler(
     payload: str,
-) -> Callable[["WerkzeugRequest"], "WerkzeugResponse"]:
+) -> Callable[[WerkzeugRequest], WerkzeugResponse]:
     # The dwaas-core list endpoints page via bare top/skip and end on an empty page.
     # Fixtures fit in one page, so serve them at skip=0 and an empty list afterward.
-    from werkzeug.wrappers import Response as WerkzeugResponse
-
-    def handler(request: "WerkzeugRequest") -> "WerkzeugResponse":
+    def handler(request: WerkzeugRequest) -> WerkzeugResponse:
         skip = int(request.args.get("skip", "0"))
         body = payload if skip == 0 else "[]"
         return WerkzeugResponse(body, content_type="application/json")
@@ -70,15 +68,9 @@ def _assets_payload_rewritten(base_url: str) -> str:
 def register_handlers(
     httpserver: "HTTPServer",
     base_url: str,
-    on_token: Optional[Callable[["WerkzeugRequest"], None]] = None,
-    on_request: Optional[Callable[["WerkzeugRequest"], None]] = None,
+    on_token: Optional[Callable[[WerkzeugRequest], None]] = None,
+    on_request: Optional[Callable[[WerkzeugRequest], None]] = None,
 ) -> None:
-    # Imported lazily so the module imports even without the optional werkzeug dep.
-    from werkzeug.wrappers import (
-        Request as WerkzeugRequest,
-        Response as WerkzeugResponse,
-    )
-
     # Permissive for any grant so the server works for every auth mode; the
     # test layers grant-type assertions on top via on_token.
     def _token_handler(request: WerkzeugRequest) -> WerkzeugResponse:
@@ -149,11 +141,9 @@ def register_handlers(
             content_type="application/json",
         )
 
-    # Source objects projected by an analytic model, probed via /views/ to
-    # resolve the model's typeless (measure) columns.
     for name in SOURCE_OBJECT_VIEW_NAMES:
         httpserver.expect_request(
-            f"/dwaas-core/api/v1/spaces/{SPACE}/views/{name}",
+            f"/dwaas-core/api/v1/spaces/{SOURCE_OBJECT_SPACE}/views/{name}",
             method="GET",
         ).respond_with_data(
             _fixture_text(f"views/{name}.json"),
@@ -176,11 +166,7 @@ def register_handlers(
     ).respond_with_handler(
         # A real tenant lists every design-time View, including ones not
         # exposed in the catalog.
-        _paged_list_handler(
-            json.dumps(
-                [{"technicalName": n} for n in VIEW_NAMES + SOURCE_OBJECT_VIEW_NAMES]
-            )
-        ),
+        _paged_list_handler(json.dumps([{"technicalName": n} for n in VIEW_NAMES])),
     )
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/analyticmodels",

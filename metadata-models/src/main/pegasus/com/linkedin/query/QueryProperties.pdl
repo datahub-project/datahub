@@ -20,7 +20,11 @@ record QueryProperties includes CustomProperties {
   /**
    * The source of the Query
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   source: enum QuerySource {
     /**
      * The query was entered manually by a user (via the UI).
@@ -40,6 +44,7 @@ record QueryProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -57,6 +62,7 @@ record QueryProperties includes CustomProperties {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -83,7 +89,8 @@ record QueryProperties includes CustomProperties {
     },
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "createdBy"
+      "fieldName": "createdBy",
+      "v3": { "enabled": false }
     }
   }
   created: AuditStamp
@@ -104,7 +111,8 @@ record QueryProperties includes CustomProperties {
     }
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "lastModifiedBy"
+      "fieldName": "lastModifiedBy",
+      "v3": { "enabled": false }
     }
   }
   lastModified: AuditStamp
