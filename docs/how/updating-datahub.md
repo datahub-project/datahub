@@ -199,6 +199,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(GMS / Lifecycle stages)** DataHub now bootstraps six lifecycle stages for glossary terms: Published, Draft, In Review, Rejected, Deprecated, and Archived. Draft, In Review, Rejected, and Archived terms are hidden from default search. A stage that already exists with the same URN (for example, one created from the earlier commented-out examples) is left unchanged. Nothing changes for a term until a stage is set on it. **Action:** none.
+
 - **(GMS / Glossary versioning)** Glossary terms can be versioned (`versionProperties`). With entity versioning on (`ENTITY_VERSIONING_ENABLED=true`), the new `createGlossaryTermVersion` mutation creates a term and links it to a version set, by default copying the previous version's metadata. When a DRAFT lifecycle stage applies to glossary terms, the new version starts in DRAFT so the previous one stays the latest until it is published. When the latest version of any versioned entity moves into a lifecycle stage with `hideInSearch`, the newest visible version becomes the latest. When a version returns to a visible stage and is the newest visible version, it becomes the latest again. **Action:** none.
 
 - **(GMS / Lifecycle stages)** Lifecycle stage settings gain `userAssignable` (default `true`; set `false` for system-managed stages). `listLifecycleStages` takes an optional `entityType`, and `userAssignable` then reflects whether the stage can be assigned to that type. `EntityPrivileges.canEditLifecycleStage` tells clients whether the viewer may set a stage. Lifecycle stage changes on documents and glossary terms now appear in their change history under the new `LIFECYCLE` change category. **Action:** none.
