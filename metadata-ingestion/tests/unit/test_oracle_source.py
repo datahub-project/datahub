@@ -1,7 +1,7 @@
 import os
 import unittest.mock
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -13,6 +13,7 @@ from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
 from datahub.ingestion.source.sql.oracle import (
@@ -1322,6 +1323,61 @@ class TestOracleSource:
             assert any("TEST_SCHEMA" in c for c in warning.context)
 
 
+def _oracle_config(**overrides: object) -> OracleConfig:
+    base: Dict[str, object] = {
+        "username": "test_user",
+        "password": "test_pass",
+        "host_port": "localhost:1521",
+        "service_name": "test_service",
+    }
+    if "database" in overrides:
+        # database and service_name are mutually exclusive.
+        base.pop("service_name")
+    base.update(overrides)
+    return OracleConfig.model_validate(base)
+
+
+def _vsql_row(sql_id: str, sql_text: str, **extra: object) -> Dict[str, object]:
+    return {
+        "sql_id": sql_id,
+        "sql_text": sql_text,
+        "parsing_schema_name": "HR",
+        "first_load_time": "2024-01-01/12:00:00",
+        **extra,
+    }
+
+
+def _vsql_engine(rows: List[Dict[str, object]]) -> Mock:
+    """Engine whose V$SQL query returns `rows` through the SA 2.0 mappings() API."""
+    engine = Mock()
+    conn = Mock()
+    result = Mock()
+    result.mappings.return_value = rows
+    conn.execute.return_value = result
+    conn.__enter__ = Mock(return_value=conn)
+    conn.__exit__ = Mock(return_value=None)
+    engine.connect.return_value = conn
+    return engine
+
+
+def _populate_from_vsql(
+    source: OracleSource, rows: List[Dict[str, object]]
+) -> List[MetadataChangeProposalWrapper]:
+    """Run the V$SQL extraction into the real aggregator and collect its output."""
+    with (
+        patch.object(source, "_get_metadata_engine", return_value=_vsql_engine(rows)),
+        patch.object(
+            source,
+            "_check_vsql_prerequisites",
+            return_value=VSqlPrerequisiteCheckResult(
+                is_accessible=True, message="V$SQL accessible"
+            ),
+        ),
+    ):
+        source._populate_aggregator_from_queries()
+        return list(source.aggregator.gen_metadata())
+
+
 class TestOracleQueryExtraction:
     """Test Oracle query extraction from V$SQL."""
 
@@ -1452,56 +1508,54 @@ class TestOracleQueryExtraction:
         assert queries[1].query == "SELECT COUNT(*) FROM SALES.ORDERS"
         assert queries[1].default_schema == "SALES"
 
-    def test_extract_queries_passes_default_db_when_urns_include_database(self, ctx):
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "include_query_usage": True,
-                "add_database_name_to_urn": True,
-            }
-        )
+    @pytest.mark.parametrize(
+        ("overrides", "expected_default_db"),
+        [
+            pytest.param({}, None, id="two-part urns"),
+            pytest.param(
+                {"add_database_name_to_urn": True},
+                None,
+                id="service_name without urn_db_name keeps two-part urns",
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "database": "orcl"},
+                "orcl",
+                id="database",
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "urn_db_name": "ORCL"},
+                "orcl",
+                id="urn_db_name normalised",
+            ),
+        ],
+    )
+    def test_extract_queries_default_db_matches_entity_urns(
+        self, ctx, overrides, expected_default_db
+    ):
+        """default_db must equal the database component of entity URNs.
+
+        The parser fills a missing database from it, so any other value (such
+        as the name detected in Oracle) puts usage on URNs the crawl never emits.
+        """
+        config = _oracle_config(include_query_usage=True, **overrides)
         source = OracleSource(config, ctx)
+        engine = _vsql_engine([_vsql_row("q1", "SELECT * FROM HR.EMPLOYEES")])
 
-        mock_engine = Mock()
-        mock_conn = Mock()
-        mock_result = Mock()
-        mock_result.mappings.return_value = [
-            {
-                "sql_id": "abc123",
-                "sql_text": "SELECT * FROM HR.EMPLOYEES",
-                "parsing_schema_name": "HR",
-                "executions": 1,
-                "elapsed_seconds": 0.1,
-                "first_load_time": "2024-01-15/10:30:00",
-            }
-        ]
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = Mock(return_value=mock_conn)
-        mock_conn.__exit__ = Mock(return_value=None)
-        mock_engine.connect.return_value = mock_conn
-
-        with (
-            patch("sqlalchemy.inspect", return_value=Mock()),
-            patch.object(source, "get_db_name", return_value="testdb"),
-        ):
-            queries = list(source._extract_queries_from_vsql(mock_engine))
+        queries = list(source._extract_queries_from_vsql(engine))
 
         assert len(queries) == 1
-        assert queries[0].default_db == "testdb"
+        assert queries[0].default_db == expected_default_db
+        expected_urn_name = (
+            f"{expected_default_db}.hr.employees"
+            if expected_default_db
+            else "hr.employees"
+        )
+        assert config.get_identifier("hr", "employees") == expected_urn_name
 
     def test_is_allowed_table_applies_schema_and_table_filters(self, ctx):
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "schema_pattern": {"allow": ["hr", "sales"]},
-                "table_pattern": {"deny": [".*\\.tmp_.*"]},
-            }
+        config = _oracle_config(
+            schema_pattern={"allow": ["hr", "sales"]},
+            table_pattern={"deny": [".*\\.tmp_.*"]},
         )
         source = OracleSource(config, ctx)
 
@@ -1514,51 +1568,55 @@ class TestOracleQueryExtraction:
     def test_is_allowed_table_honours_allowed_system_schema(self, ctx):
         # Recipes may deliberately ingest SYSTEM; lineage on those entities must
         # not be filtered away by a hard-coded system-schema list.
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "schema_pattern": {"allow": ["^system$"]},
-            }
+        source = OracleSource(
+            _oracle_config(schema_pattern={"allow": ["^system$"]}), ctx
         )
-        source = OracleSource(config, ctx)
 
         assert source._is_allowed_table("system.product_privs")
         assert not source._is_allowed_table("hr.employees")
 
-    def test_is_allowed_table_with_database_in_urn(self, ctx):
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "add_database_name_to_urn": True,
-                "schema_pattern": {"allow": ["hr"]},
-            }
+    @pytest.mark.parametrize(
+        ("overrides", "allowed", "denied"),
+        [
+            pytest.param(
+                {"database": "orcl"},
+                "orcl.hr.employees",
+                "orcl.finance.ledger",
+                id="database in urns",
+            ),
+            pytest.param(
+                {},
+                "hr.employees",
+                "finance.ledger",
+                id="service_name without urn_db_name keeps two-part urns",
+            ),
+        ],
+    )
+    def test_is_allowed_table_splits_names_like_get_identifier(
+        self, ctx, overrides, allowed, denied
+    ):
+        """With add_database_name_to_urn on, names are split via get_db_schema.
+
+        That keeps the filter in step with get_identifier, which still emits
+        two-part names for service_name without urn_db_name; rejecting those
+        would silently drop all view lineage in that configuration.
+        """
+        config = _oracle_config(
+            add_database_name_to_urn=True,
+            schema_pattern={"allow": ["hr"]},
+            **overrides,
         )
         source = OracleSource(config, ctx)
 
-        assert source._is_allowed_table("orcl.hr.employees")
-        assert not source._is_allowed_table("orcl.finance.ledger")
-        # Two-part names cannot be matched against a three-tier filter.
-        assert not source._is_allowed_table("hr.employees")
+        assert config.get_identifier("hr", "employees") == allowed
+        assert source._is_allowed_table(allowed)
+        assert not source._is_allowed_table(denied)
+        assert not source._is_allowed_table("employees")
 
     def test_aggregator_receives_allowed_table_filter(self, ctx):
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "schema_pattern": {"allow": ["hr"]},
-            }
-        )
-        source = OracleSource(config, ctx)
-        hr_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
-        other_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,finance.ledger,PROD)"
+        source = OracleSource(_oracle_config(schema_pattern={"allow": ["hr"]}), ctx)
+        hr_urn = make_dataset_urn("oracle", "hr.employees", "PROD")
+        other_urn = make_dataset_urn("oracle", "finance.ledger", "PROD")
 
         assert source.aggregator.is_allowed_table(hr_urn)
         assert not source.aggregator.is_allowed_table(other_urn)
@@ -1566,66 +1624,32 @@ class TestOracleQueryExtraction:
     def test_vsql_usage_lands_on_filtered_two_tier_urns(self, ctx):
         """End to end through the real aggregator: V$SQL rows in, MCPs out.
 
-        Guards the two customer-facing symptoms of ING-3691: usage must attach
-        to the same two-tier URNs the schema crawl emits (no database prefix
-        unless add_database_name_to_urn is set), and tables outside the recipe
+        Guards the two customer-facing symptoms: usage must attach to the same
+        two-tier URNs the schema crawl emits (no database prefix unless
+        add_database_name_to_urn is set), and tables outside the recipe
         filters must get no usage, lineage or query subjects.
         """
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "include_query_usage": True,
-                "include_usage_stats": True,
-                "include_operational_stats": True,
-                "schema_pattern": {"allow": ["^hr$"]},
-                "start_time": "2024-01-01T00:00:00Z",
-                "end_time": "2024-01-02T00:00:00Z",
-            }
+        config = _oracle_config(
+            include_query_usage=True,
+            include_usage_stats=True,
+            include_operational_stats=True,
+            schema_pattern={"allow": ["^hr$"]},
+            start_time="2024-01-01T00:00:00Z",
+            end_time="2024-01-02T00:00:00Z",
         )
         source = OracleSource(config, ctx)
 
-        def row(sql_id: str, sql_text: str) -> dict:
-            return {
-                "sql_id": sql_id,
-                "sql_text": sql_text,
-                "parsing_schema_name": "HR",
-                "first_load_time": "2024-01-01/12:00:00",
-            }
-
-        mock_rows = [
-            row("allowed", "SELECT * FROM HR.EMPLOYEES"),
-            row("denied", "SELECT * FROM FINANCE.LEDGER"),
-            row(
-                "denied_write",
-                "INSERT INTO FINANCE.ARCHIVE SELECT * FROM HR.EMPLOYEES",
-            ),
-        ]
-        mock_engine = Mock()
-        mock_conn = Mock()
-        mock_result = Mock()
-        mock_result.mappings.return_value = mock_rows
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = Mock(return_value=mock_conn)
-        mock_conn.__exit__ = Mock(return_value=None)
-        mock_engine.connect.return_value = mock_conn
-
-        with (
-            patch("sqlalchemy.inspect", return_value=Mock()),
-            patch.object(source, "get_db_name", return_value="testdb"),
-            patch.object(source, "_get_metadata_engine", return_value=mock_engine),
-            patch.object(
-                source,
-                "_check_vsql_prerequisites",
-                return_value=VSqlPrerequisiteCheckResult(
-                    is_accessible=True, message="V$SQL accessible"
+        mcps = _populate_from_vsql(
+            source,
+            [
+                _vsql_row("allowed", "SELECT * FROM HR.EMPLOYEES"),
+                _vsql_row("denied", "SELECT * FROM FINANCE.LEDGER"),
+                _vsql_row(
+                    "denied_write",
+                    "INSERT INTO FINANCE.ARCHIVE SELECT * FROM HR.EMPLOYEES",
                 ),
-            ),
-        ):
-            source._populate_aggregator_from_queries()
-            mcps = list(source.aggregator.gen_metadata())
+            ],
+        )
 
         employees_urn = make_dataset_urn("oracle", "hr.employees", "PROD")
         usage_urns = {
@@ -1650,7 +1674,7 @@ class TestOracleQueryExtraction:
 
         assert source.report.sql_aggregator is not None
         assert source.report.sql_aggregator.num_observed_queries_failed == 0
-        # Two-tier URN, no "testdb." prefix, matching what the crawl emits.
+        # Two-tier URN, no database prefix, matching what the crawl emits.
         assert usage_urns == {employees_urn}
         # The write into a denied schema yields no lineage or operation there.
         assert lineage_urns == set()
@@ -1658,8 +1682,9 @@ class TestOracleQueryExtraction:
         # Queries may still name the denied tables as subjects, but only when
         # they also touch an allowed table; the denied-only query is dropped.
         assert employees_urn in query_subject_urns
-        assert make_dataset_urn("oracle", "finance.ledger", "PROD") not in (
-            query_subject_urns
+        assert (
+            make_dataset_urn("oracle", "finance.ledger", "PROD")
+            not in query_subject_urns
         )
 
     def test_extract_queries_with_exclude_patterns(self, ctx):
