@@ -2125,15 +2125,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _source_object_field_types(
         self, default_space: str, source_object: str
     ) -> Dict[str, SchemaFieldClass]:
-        # A projection ref is space-qualified (``SPACE.name``) only when the
-        # prefix is a listed space; otherwise it is a same-space name, which can
-        # itself contain dots (``SAP.TIME.VIEW_DIMENSION_DAY``). NOTE: only VIEWS
-        # is probed (its 404 retry also covers analytic models) — a local/remote
-        # table source is not resolved and its columns fall back to the measure
-        # heuristic or stay NullType.
         # A dotted name is `SPACE.name` unless it is in the SAP namespace of
         # objects generated in the model's own space. The catalog does not list
-        # every space a model can read from, so other prefixes stay spaces.
+        # every space a model can read from, so other prefixes stay spaces. Only
+        # VIEWS is probed (its 404 retry also covers analytic models); a
+        # local/remote table source is not resolved and its columns fall back to
+        # the measure heuristic or stay NullType.
         prefix, _, rest = source_object.partition(".")
         if rest and (prefix in self._known_spaces or prefix != SAP_OBJECT_NAMESPACE):
             space, name = prefix, rest
