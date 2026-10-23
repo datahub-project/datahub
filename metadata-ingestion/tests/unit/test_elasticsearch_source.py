@@ -1,20 +1,27 @@
 import json
 import logging
 import re
-from typing import Any, Dict, List, Tuple, cast
-from unittest.mock import create_autospec, patch
+from typing import Any, Callable, Dict, Iterator, List, Tuple, cast
+from unittest.mock import MagicMock, create_autospec, patch
 
+import boto3
 import pydantic
 import pytest
+from botocore.credentials import Credentials, RefreshableCredentials
+from botocore.exceptions import ClientError
 from opensearchpy.client.indices import IndicesClient
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
     ElasticsearchSource,
     ElasticsearchSourceConfig,
+    ElasticsearchSourceReport,
     ElasticToSchemaFieldConverter,
     _api_key_authorization,
+    _AwsConfigCredentials,
     collapse_urn,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -2608,3 +2615,202 @@ def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> N
     list(source.get_workunits_internal())
     assert client.indices.get_alias.call_args.args == ()
     assert client.indices.get_alias.call_args.kwargs == {}
+
+
+_AWS_KEYS_CONFIG: Dict[str, Any] = {
+    "aws_access_key_id": "AKIAEXAMPLE",
+    "aws_secret_access_key": "secret",
+    "aws_region": "us-east-1",
+}
+
+
+@pytest.mark.parametrize(
+    "extra_auth",
+    [
+        {"username": "user", "password": "pass"},
+        {"password": "pass"},
+        {"api_key": ["id", "key"]},
+    ],
+)
+def test_aws_config_rejects_other_auth_methods(extra_auth: Dict[str, Any]) -> None:
+    with pytest.raises(pydantic.ValidationError, match="aws_config"):
+        ElasticsearchSourceConfig.model_validate(
+            {"aws_config": _AWS_KEYS_CONFIG, **extra_auth}
+        )
+
+
+def test_aws_config_requires_region() -> None:
+    with pytest.raises(pydantic.ValidationError, match="aws_region"):
+        ElasticsearchSourceConfig.model_validate(
+            {
+                "aws_config": {
+                    k: v for k, v in _AWS_KEYS_CONFIG.items() if k != "aws_region"
+                }
+            }
+        )
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_aws_config_signs_requests_with_sigv4(
+    mock_opensearch: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Explicit keys must win regardless of the developer's ambient AWS profile.
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+    ElasticsearchSource.create(
+        {
+            "host": "search-domain.us-east-1.es.amazonaws.com:443",
+            "aws_config": _AWS_KEYS_CONFIG,
+        },
+        PipelineContext(run_id="test"),
+    )
+    _, kwargs = mock_opensearch.call_args
+    assert "headers" not in kwargs
+
+    signed = kwargs["http_auth"](
+        "GET", "https://search-domain.us-east-1.es.amazonaws.com/_cat/indices", None
+    )
+    assert signed["Authorization"].startswith(
+        "AWS4-HMAC-SHA256 Credential=AKIAEXAMPLE/"
+    )
+    assert "/us-east-1/es/aws4_request" in signed["Authorization"]
+
+
+_ROLE = "arn:aws:iam::123456789012:role/Example"
+
+
+class _FakeClock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def fake_clock() -> Iterator[_FakeClock]:
+    clock = _FakeClock()
+    with patch("datahub.ingestion.source.elastic_search.time.monotonic", clock):
+        yield clock
+
+
+def _session_with_keys(access_key: str) -> MagicMock:
+    session = MagicMock(spec=boto3.Session)
+    session.get_credentials.return_value = Credentials(access_key, "secret", "token")
+    return session
+
+
+def _session_with_refreshable_credentials() -> MagicMock:
+    metadata = {
+        "access_key": "REFRESHABLE",
+        "secret_key": "secret",
+        "token": "token",
+        "expiry_time": "2999-01-01T00:00:00Z",
+    }
+    session = MagicMock(spec=boto3.Session)
+    session.get_credentials.return_value = RefreshableCredentials.create_from_metadata(
+        metadata=metadata, refresh_using=lambda: metadata, method="test"
+    )
+    return session
+
+
+def test_aws_credentials_refetched_for_assumed_role(fake_clock: _FakeClock) -> None:
+    aws_config = AwsConnectionConfig(aws_region="us-east-1", aws_role=_ROLE)
+    credentials = _AwsConfigCredentials(aws_config, ElasticsearchSourceReport())
+    with patch.object(
+        AwsConnectionConfig,
+        "get_session",
+        side_effect=[_session_with_keys("FIRST"), _session_with_keys("SECOND")],
+    ) as get_session:
+        assert credentials.get_frozen_credentials().access_key == "FIRST"
+        fake_clock.now += 30
+        assert credentials.get_frozen_credentials().access_key == "FIRST"
+        fake_clock.now += 31
+        assert credentials.get_frozen_credentials().access_key == "SECOND"
+    assert get_session.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "aws_config, make_session",
+    [
+        pytest.param(
+            {"aws_region": "us-east-1", "aws_profile": "example"},
+            lambda: _session_with_keys("ONLY"),
+            id="no-role",
+        ),
+        pytest.param(
+            {"aws_region": "us-east-1", "aws_role": _ROLE},
+            _session_with_refreshable_credentials,
+            id="role-is-ambient-identity",
+        ),
+    ],
+)
+def test_aws_credentials_resolved_once_when_self_refreshing(
+    fake_clock: _FakeClock,
+    aws_config: Dict[str, Any],
+    make_session: Callable[[], Any],
+) -> None:
+    credentials = _AwsConfigCredentials(
+        AwsConnectionConfig.model_validate(aws_config), ElasticsearchSourceReport()
+    )
+    with patch.object(
+        AwsConnectionConfig, "get_session", return_value=make_session()
+    ) as get_session:
+        for _ in range(3):
+            credentials.get_frozen_credentials()
+            fake_clock.now += 3600
+    assert get_session.call_count == 1
+
+
+def test_aws_credential_refresh_failure_keeps_current_credentials(
+    fake_clock: _FakeClock,
+) -> None:
+    report = ElasticsearchSourceReport()
+    aws_config = AwsConnectionConfig(aws_region="us-east-1", aws_role=_ROLE)
+    credentials = _AwsConfigCredentials(aws_config, report)
+    throttled = ClientError(
+        {"Error": {"Code": "Throttling", "Message": "Rate exceeded"}}, "AssumeRole"
+    )
+    with patch.object(
+        AwsConnectionConfig,
+        "get_session",
+        side_effect=[
+            _session_with_keys("FIRST"),
+            throttled,
+            _session_with_keys("SECOND"),
+        ],
+    ):
+        assert credentials.get_frozen_credentials().access_key == "FIRST"
+        fake_clock.now += 61
+        assert credentials.get_frozen_credentials().access_key == "FIRST"
+        assert len(report.warnings) == 1
+        assert credentials.get_frozen_credentials().access_key == "SECOND"
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_aws_config_without_credentials_fails_at_startup(mock_opensearch: Any) -> None:
+    no_credentials = MagicMock(spec=boto3.Session)
+    no_credentials.get_credentials.return_value = None
+    with (
+        patch.object(AwsConnectionConfig, "get_session", return_value=no_credentials),
+        pytest.raises(ConfigurationError),
+    ):
+        ElasticsearchSource.create(
+            {"aws_config": {"aws_region": "us-east-1"}},
+            PipelineContext(run_id="test"),
+        )
+    mock_opensearch.assert_not_called()
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_aws_config_unknown_profile_fails_at_startup(mock_opensearch: Any) -> None:
+    with pytest.raises(ConfigurationError):
+        ElasticsearchSource.create(
+            {
+                "aws_config": {
+                    "aws_region": "us-east-1",
+                    "aws_profile": "datahub-test-profile-that-does-not-exist",
+                }
+            },
+            PipelineContext(run_id="test"),
+        )
+    mock_opensearch.assert_not_called()
