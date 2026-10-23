@@ -328,7 +328,7 @@ function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.Re
 /** Sanitized HTML, with file spans replaced by the file card. */
 export function readOnlyHtmlToReact(html: string): React.ReactNode {
     if (typeof DOMParser === 'undefined') {
-        return <div dangerouslySetInnerHTML={{ __html: html }} />;
+        return null;
     }
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return Array.from(doc.body.childNodes).map((node, index) => nodeToReact(node, `readonly-${index}`));
