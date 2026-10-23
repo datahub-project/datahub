@@ -1287,40 +1287,45 @@ def test_parse_remote_table_source_strips_sql_quoted_identifier():
 
 
 @pytest.mark.parametrize(
-    "ref, known_spaces, expected",
+    "ref, expected",
     [
-        ("V_LOCAL", {"S"}, ObjectLocator(space="S", name="V_LOCAL")),
+        ("V_LOCAL", ObjectLocator(space="S", name="V_LOCAL")),
         (
             "SAP.TIME.VIEW_DIMENSION_DAY",
-            {"S"},
             ObjectLocator(space="S", name="SAP.TIME.VIEW_DIMENSION_DAY"),
         ),
         (
             "SAP.CURRENCY.VIEW.TCURR",
-            {"S"},
             ObjectLocator(space="S", name="SAP.CURRENCY.VIEW.TCURR"),
         ),
-        ("SAP.V_SALES", {"S"}, ObjectLocator(space="SAP", name="V_SALES")),
-        ("FINANCE.V_SALES", {"S"}, ObjectLocator(space="FINANCE", name="V_SALES")),
         (
-            "SAP.TIME.VIEW_DIMENSION_DAY",
-            {"S", "SAP"},
-            ObjectLocator(space="SAP", name="TIME.VIEW_DIMENSION_DAY"),
+            "SAP.V_SALES",
+            ObjectLocator(space="SAP", name="V_SALES", explicit_space=True),
         ),
-        (".V_SALES", {"S"}, ObjectLocator(space="S", name=".V_SALES")),
+        (
+            "FINANCE.V_SALES",
+            ObjectLocator(space="FINANCE", name="V_SALES", explicit_space=True),
+        ),
+        (
+            "SAP.SAP.TIME.VIEW_DIMENSION_DAY",
+            ObjectLocator(
+                space="SAP", name="SAP.TIME.VIEW_DIMENSION_DAY", explicit_space=True
+            ),
+        ),
+        (".V_SALES", ObjectLocator(space="S", name=".V_SALES")),
     ],
     ids=[
         "bare",
         "generated_time",
         "generated_currency",
-        "unlisted_sap_prefix",
-        "unlisted_space",
-        "listed_space_named_sap",
+        "sap_prefix_outside_generated",
+        "other_space",
+        "space_named_sap_own_time_data",
         "empty_prefix",
     ],
 )
-def test_object_locator_resolves_space(ref, known_spaces, expected):
-    assert ObjectLocator.from_ref(ref, "S", known_spaces) == expected
+def test_object_locator_resolves_space(ref, expected):
+    assert ObjectLocator.from_ref(ref, "S") == expected
 
 
 def test_column_refs_use_the_same_aliases_as_type_resolution():
@@ -1353,3 +1358,5 @@ def test_column_refs_use_the_same_aliases_as_type_resolution():
         "name": [UpstreamColRef(qname="SPACE.dim", col="name")],
         "code": [],
     }
+    code_pair = next(p for p in pairs if p.downstream_col == "code")
+    assert any("unknown alias" in reason for reason in code_pair.unresolved_refs)

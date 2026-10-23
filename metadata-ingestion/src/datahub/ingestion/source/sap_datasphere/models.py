@@ -1,5 +1,4 @@
 from typing import (
-    AbstractSet,
     Any,
     Dict,
     FrozenSet,
@@ -219,29 +218,23 @@ class UpstreamColRef(BaseModel):
 
 class ObjectLocator(BaseModel):
     # A dotted CSN reference is `SPACE.name`, except objects Datasphere generates
-    # inside a space (time data, TCUR* currency conversion views), which keep
-    # their dotted name in the referencing space. A listed space named SAP still
-    # wins. The catalog does not list every space a model can read from, so other
-    # prefixes are spaces whether listed or not.
+    # inside a space (time data, TCUR* currency conversion views), which keep their
+    # dotted name in the referencing space. Technical names contain no dots, so a
+    # space named SAP cannot hold `TIME.X`; a reference to that space's own time
+    # data is written `SAP.SAP.TIME.X`, which still splits on the first dot.
     model_config = ConfigDict(frozen=True)
 
     space: str
     name: str
+    # True when the reference carried its own `SPACE.` prefix.
+    explicit_space: bool = False
 
     @classmethod
-    def from_ref(
-        cls, ref: str, default_space: str, known_spaces: AbstractSet[str]
-    ) -> "ObjectLocator":
-        prefix, _, rest = ref.partition(".")
-        if (
-            prefix
-            and rest
-            and (
-                prefix in known_spaces
-                or not ref.startswith(SAP_GENERATED_OBJECT_PREFIXES)
-            )
-        ):
-            return cls(space=prefix, name=rest)
+    def from_ref(cls, ref: str, default_space: str) -> "ObjectLocator":
+        if not ref.startswith(SAP_GENERATED_OBJECT_PREFIXES):
+            prefix, _, rest = ref.partition(".")
+            if prefix and rest:
+                return cls(space=prefix, name=rest, explicit_space=True)
         return cls(space=default_space, name=ref)
 
     @property

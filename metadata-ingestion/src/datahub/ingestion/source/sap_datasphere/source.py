@@ -103,6 +103,8 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROP_SPACE_NAME,
     PROP_VALUE_FALSE,
     PROP_VALUE_TRUE,
+    SAP_GENERATED_OBJECT_PREFIXES,
+    SAP_OBJECT_NAMESPACE,
     SCALE_WARNING_URN_THRESHOLD,
     SCHEMA_FIELD_URN_PREFIX,
     SEMANTIC_CURRENCY,
@@ -311,15 +313,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # resolution; stays None when the feature is off or no graph is available.
         self._graph_resolver: Optional[ExternalUrnGraphResolver] = None
         self._graph_resolver_unavailable_warned = False
-        # Source object -> {column: typed SchemaField}, used
-        # to copy scalar types into analytic-model elements (which carry none). One
-        # CSN fetch per distinct source object, reused across analytic models.
-        self._source_field_type_cache: Dict[
-            ObjectLocator, Dict[str, SchemaFieldClass]
-        ] = {}
-        # Every space the catalog lists, including filtered ones; see
-        # ObjectLocator for how it is used.
-        self._known_spaces: Set[str] = set()
+        # `space.name` of a source object -> {column: typed SchemaField}; copies
+        # scalar types into analytic-model elements, which carry none. One CSN
+        # fetch per distinct source object, reused across analytic models.
+        self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
+        self._reported_sap_refs: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -404,11 +402,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             yield from get_predefined_tag_workunits()
             self._sap_tags_emitted = True
 
-        spaces = list(self._safe_list_spaces())
-        self._known_spaces = {
-            name for name in (_space_name(space) for space in spaces) if name
-        }
-        for space in spaces:
+        for space in self._safe_list_spaces():
             space_name = _space_name(space)
             if space_name is None:
                 self.report.warning(
@@ -1865,9 +1859,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urn_by_name: Dict[str, str] = {}
         for ref in upstream_refs:
             locator = self._locate(ref.name, space_name)
-            if locator.name != ref.name:
-                # Written with a space prefix: use as-is on the sap-datasphere
-                # platform.
+            if locator.explicit_space:
                 upstream_urn = self._qualified_upstream_urn(locator.qualified_name)
             else:
                 upstream_urn = self._dataset_urn(
@@ -2124,7 +2116,16 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         return True
 
     def _locate(self, ref: str, default_space: str) -> ObjectLocator:
-        return ObjectLocator.from_ref(ref, default_space, self._known_spaces)
+        locator = ObjectLocator.from_ref(ref, default_space)
+        if (
+            locator.explicit_space
+            and locator.space == SAP_OBJECT_NAMESPACE
+            and not locator.name.startswith(SAP_GENERATED_OBJECT_PREFIXES)
+            and ref not in self._reported_sap_refs
+        ):
+            self._reported_sap_refs.add(ref)
+            self.report.sap_refs_outside_generated_prefixes.append(ref)
+        return locator
 
     def _source_object_field_types(
         self, default_space: str, source_object: str
@@ -2133,7 +2134,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # local/remote table source is not resolved and its columns fall back to
         # the measure heuristic or stay NullType.
         locator = self._locate(source_object, default_space)
-        cached = self._source_field_type_cache.get(locator)
+        cached = self._source_field_type_cache.get(locator.qualified_name)
         if cached is not None:
             return cached
         field_map: Dict[str, SchemaFieldClass] = {}
@@ -2150,7 +2151,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             field_map = {
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
-        self._source_field_type_cache[locator] = field_map
+        self._source_field_type_cache[locator.qualified_name] = field_map
         return field_map
 
     def _apply_column_pattern(

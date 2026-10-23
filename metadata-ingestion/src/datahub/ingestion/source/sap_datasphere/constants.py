@@ -171,6 +171,9 @@ CSN_ID: Final[str] = "id"
 # (`SAP.TIME.VIEW_DIMENSION_DAY`) and TCUR* currency conversion views
 # (`SAP.CURRENCY.VIEW.TCURR`). Their technical names contain dots.
 SAP_GENERATED_OBJECT_PREFIXES: Final[Tuple[str, ...]] = ("SAP.TIME.", "SAP.CURRENCY.")
+# Namespace of SAP-delivered objects; a `SAP.` reference outside the prefixes
+# above may be a generated namespace this connector does not know yet.
+SAP_OBJECT_NAMESPACE: Final[str] = "SAP"
 CSN_FUNC: Final[str] = "func"
 CSN_XPR: Final[str] = "xpr"
 CSN_CASE: Final[str] = "case"

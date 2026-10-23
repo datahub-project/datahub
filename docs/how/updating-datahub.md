@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- #20643 **(Ingestion / SAP Datasphere)** Lineage to the time and currency conversion objects that SAP Datasphere creates inside a space (`SAP.TIME.*`, `SAP.CURRENCY.*`) now points at the dataset in that space, for example `my_space.sap.time.m_time_dimension`. Previously it pointed at a dataset with no space prefix that is never ingested, so the lineage did not connect. **Action:** none; the next ingestion run replaces the old lineage edges.
+- #20643 **(Ingestion / SAP Datasphere)** Lineage to the time and currency conversion objects that SAP Datasphere creates inside a space (`SAP.TIME.*`, `SAP.CURRENCY.*`) now points at the dataset in that space, for example `my_space.sap.time.m_time_dimension`. Previously it pointed at a dataset with no space prefix that is never ingested, so the lineage did not connect. **Action:** none for lineage; the next ingestion run replaces the old edges. If earlier runs left space-less `sap.time.*` or `sap.currency.*` placeholder datasets in DataHub, they are not removed automatically and can be deleted with `datahub delete`.
 
 - **(GMS / Search V3 default query)** An unqualified Search V3 query reads `name`, `qualifiedName`, `description`, `tags`, `glossaryTerms`, and `other`. Reference fields such as platform, platform instance, container, domains, data product, and applications stay exact filters and copy their names into `other`. A dataset key name is indexed in `name` with the display name. **Action:** none if Search V3 write was never turned on. Otherwise rebuild the V3 indexes with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. See [Search and Graph Reindexing](./restore-indices.md).
 
