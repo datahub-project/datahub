@@ -1294,6 +1294,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             orchestrator=PLATFORM,
             flow_id=child_flow_id,
             env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
 
         # Look up child pipeline from cache to get its first activity

@@ -1137,8 +1137,9 @@ def test_adf_source_dynamic_lineage_via_pipeline_run_parameters(tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+@pytest.mark.parametrize("platform_instance", [None, "my_adf"])
 def test_adf_source_dynamic_lineage_augmentation_preserves_execute_pipeline_edge(
-    tmp_path,
+    tmp_path, platform_instance
 ):
     """Regression test: dataJobInputOutput MCPs replace the whole aspect
     rather than merging. _emit_pipeline_lineage writes an ExecutePipeline
@@ -1276,6 +1277,7 @@ def test_adf_source_dynamic_lineage_augmentation_preserves_execute_pipeline_edge
                             "include_execution_history": True,
                             "execution_history_days": 7,
                             "env": "DEV",
+                            "platform_instance": platform_instance,
                         },
                     },
                     "sink": {
@@ -1289,11 +1291,24 @@ def test_adf_source_dynamic_lineage_augmentation_preserves_execute_pipeline_edge
             pipeline.raise_from_status()
 
     events = json.loads(output_file.read_text())
+    # The edge must land on the real child job, whose flow id carries the
+    # ADF platform_instance when one is set - not on a placeholder without it.
+    flow_prefix = f"{platform_instance}." if platform_instance else ""
+    child_job_urn = (
+        "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,"
+        f"{flow_prefix}{factory_name}.ChildPipeline,DEV),ChildCopy)"
+    )
+    child_job_urns = {
+        e.get("entityUrn")
+        for e in events
+        if e.get("entityUrn", "").endswith(",ChildCopy)")
+    }
+    assert child_job_urns == {child_job_urn}
     child_lineage_aspects = [
         e
         for e in events
         if e.get("aspectName") == "dataJobInputOutput"
-        and e.get("entityUrn", "").endswith(",ChildCopy)")
+        and e.get("entityUrn") == child_job_urn
     ]
     assert len(child_lineage_aspects) >= 2, (
         "expected both the ExecutePipeline edge and the dynamic lineage "
