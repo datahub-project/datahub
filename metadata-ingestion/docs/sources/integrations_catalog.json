@@ -962,6 +962,12 @@
     "description": "Data observability platform that detects, resolves, and prevents data quality issues across your data stack.",
     "img_path": "img/logos/platforms/monte-carlo.svg"
   },
+  "qualytics": {
+    "platform_type": "Data Quality",
+    "title": "Qualytics",
+    "description": "Data quality platform that profiles, infers and enforces quality checks across your data, and records the anomalies they find.",
+    "img_path": "img/logos/platforms/qualytics.png"
+  },
   "sisense": {
     "api_connector": true,
     "platform_type": "BI Tool",
