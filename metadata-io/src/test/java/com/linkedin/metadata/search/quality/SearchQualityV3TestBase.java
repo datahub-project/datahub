@@ -42,6 +42,7 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -383,7 +384,10 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
     List<SearchQualityReport.ProbeScore> probes = new ArrayList<>();
     for (JsonNode judgment : file.path("judgments")) {
       String group = judgment.path("group").asText();
-      if ("semantic-probe".equals(group) || "sort".equals(group) || "field-probe".equals(group)) {
+      if ("semantic-probe".equals(group)
+          || "sort".equals(group)
+          || "field-probe".equals(group)
+          || "autocomplete".equals(group)) {
         continue;
       }
       if ("benchmark".equals(group)) {
@@ -503,6 +507,56 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
     Path report = writeReport("fieldProbes", 0.0, List.of(), probes);
     assertEquals(seen, 6, "field probes were not loaded");
     assertTrue(failures.isEmpty(), withReport(String.join("\n", failures), report));
+  }
+
+  /** Prefix suggestions. These queries are not part of either nDCG floor. */
+  @Test
+  public void testAutocompleteProbes() throws Exception {
+    JsonNode file = SearchQualityPack.judgments();
+    List<String> failures = new ArrayList<>();
+    int seen = 0;
+    for (JsonNode judgment : file.path("judgments")) {
+      if (!"autocomplete".equals(judgment.path("group").asText())) {
+        continue;
+      }
+      seen++;
+      String entityType = judgment.path("entityTypes").get(0).asText();
+      AutoCompleteResult result =
+          searchService.autoComplete(
+              opContext, entityType, judgment.path("query").asText(), null, null, 10);
+      if (result.getSuggestions().size() != result.getEntities().size()) {
+        failures.add(judgment.path("id").asText() + " suggestions and entities differ");
+      }
+      List<String> urns = new ArrayList<>();
+      result.getEntities().forEach(entity -> urns.add(entity.getUrn().toString()));
+      List<String> expected = new ArrayList<>();
+      judgment.path("expectedUrns").forEach(node -> expected.add(node.asText()));
+      for (String urn : expected) {
+        if (!urns.contains(urn)) {
+          failures.add(judgment.path("id").asText() + " missing " + urn + " got " + urns);
+        }
+      }
+      if (expected.isEmpty() && !result.getSuggestions().isEmpty()) {
+        failures.add(
+            judgment.path("id").asText()
+                + " expected no suggestions, got "
+                + result.getSuggestions());
+      }
+      if (judgment.hasNonNull("expectedSuggestion") && !expected.isEmpty()) {
+        int index = urns.indexOf(expected.get(0));
+        String suggestion = judgment.path("expectedSuggestion").asText();
+        if (index < 0 || !suggestion.equals(result.getSuggestions().get(index))) {
+          failures.add(
+              judgment.path("id").asText()
+                  + " suggestion "
+                  + result.getSuggestions()
+                  + " for "
+                  + urns);
+        }
+      }
+    }
+    assertEquals(seen, 3, "autocomplete probes were not loaded");
+    assertTrue(failures.isEmpty(), String.join("\n", failures));
   }
 
   /**

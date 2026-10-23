@@ -431,7 +431,7 @@ It takes the following parameters:
   `"v3": { "queryByDefault": false }` to change that for Search V3 only.
 
 - **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false.
-  Search V2 reads the field for typeahead. Search V3 does not serve autocomplete, so the flag has no effect on a V3 index.
+  Search V2 reads the field for typeahead. Search V3 autocomplete prefixes `name.text`, or the caller's resolved field, and does not read this flag.
 
 - **addToFilters**: boolean (optional) - Whether or not to add field to filters. Defaults to false
 
@@ -612,7 +612,7 @@ An indexed keyword root automatically provides the case-preserving `.keyword` re
 
 When `mappings` is omitted, `KEYWORD` is an indexed keyword root. `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM`, `URN` and `URN_PARTIAL` use that root plus `text` and `stemmed` on the label. `DATETIME`, `BOOLEAN`, `COUNT` and `DOUBLE` are one native root. Browse path v2 keeps its path analyzer on the source field. Browse path v1 is not a Search V3 type: those fields stay on V2 and are dropped from the V3 index. Bundled shared labels use explicit mappings so their contract does not depend on fallback. The top-level `fieldType` is still the V2 mapping.
 
-Full-text search reads shared root fields instead of every searchable field. Search V3 does not serve autocomplete.
+Full-text search reads shared root fields instead of every searchable field. Search V3 autocomplete prefixes the shared `name` field.
 The browse path v2 root keeps its path analyzer. Cross-aspect system metadata is the root `_system` object: `created.time`, `created.actor`, `modified.time`, `modified.actor`, `lastObserved`, `runId`, and `lastRunId`. It is not the same as the root `runId`, `systemCreated`, or `systemIndexModified` fields. Each searchable string field copies into:
 
 - the root field its `v3.searchLabel` or `entityFieldName` names. The label is the semantic bucket, so an ingested

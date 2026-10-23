@@ -584,6 +584,8 @@ public class Constants {
       "urn:li:searchTemplate:structuredExact";
   public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
   public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
+  public static final String SEARCH_TEMPLATE_AUTOCOMPLETE_URN =
+      "urn:li:searchTemplate:autocomplete";
   public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
       Set.of(
           "fulltext",
@@ -595,7 +597,8 @@ public class Constants {
           "structuredExact",
           "identity",
           "search",
-          "searchLight");
+          "searchLight",
+          "autocomplete");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
