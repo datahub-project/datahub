@@ -31,6 +31,11 @@ from datahub.sdk._shared import (
     TagsInputType,
     TermsInputType,
 )
+from datahub.sdk._upstream_metrics import (
+    HasUpstreamMetrics,
+    UpstreamMetricsInputType,
+    _reject_metric_as_dataset_input,
+)
 from datahub.sdk.chart import Chart
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
@@ -47,6 +52,7 @@ class Dashboard(
     HasTags,
     HasTerms,
     HasDomain,
+    HasUpstreamMetrics,
     Entity,
 ):
     """Represents a dashboard in DataHub."""
@@ -84,6 +90,7 @@ class Dashboard(
         input_datasets: Optional[Sequence[Union[DatasetUrnOrStr, Dataset]]] = None,
         charts: Optional[Sequence[Union[ChartUrnOrStr, Chart]]] = None,
         dashboards: Optional[Sequence[Union[DashboardUrnOrStr, Dashboard]]] = None,
+        upstream_metrics: Optional[UpstreamMetricsInputType] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -123,6 +130,8 @@ class Dashboard(
             charts,
             dashboards,
         )
+        if upstream_metrics is not None:
+            self.set_upstream_metrics(upstream_metrics)
         self._init_standard_aspects(
             parent_container, subtype, owners, links, tags, terms, domain
         )
@@ -328,10 +337,14 @@ class Dashboard(
     def set_input_datasets(
         self, input_datasets: Sequence[Union[DatasetUrnOrStr, Dataset]]
     ) -> None:
-        """Set the input datasets of the dashboard."""
+        """Set the input datasets of the dashboard.
+
+        Metric URNs are rejected. Declare them with ``set_upstream_metrics``.
+        """
         props = self._ensure_dashboard_props()
         dataset_edges = props.datasetEdges or []
         for dataset in input_datasets:
+            _reject_metric_as_dataset_input(dataset)
             if isinstance(dataset, Dataset):
                 dataset_urn = dataset.urn
             else:
@@ -340,7 +353,11 @@ class Dashboard(
         props.datasetEdges = dataset_edges
 
     def add_input_dataset(self, input_dataset: Union[DatasetUrnOrStr, Dataset]) -> None:
-        """Add an input dataset to the dashboard."""
+        """Add an input dataset to the dashboard.
+
+        Metric URNs are rejected. Declare them with ``set_upstream_metrics``.
+        """
+        _reject_metric_as_dataset_input(input_dataset)
         if isinstance(input_dataset, Dataset):
             input_dataset_urn = input_dataset.urn
         else:
