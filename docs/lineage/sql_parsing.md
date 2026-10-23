@@ -70,7 +70,7 @@ By default DataHub ships sqlglot with its mypyc-compiled C extensions (`sqlglot[
 
 ### Limiting column transformation logic length
 
-Column-level lineage stores the SQL that computes each column. For very long queries this can make lineage aspects large. Sources that parse SQL into column-level lineage accept `max_transform_operation_length` to cap it:
+Column-level lineage stores the SQL that computes each column. For very long queries this can make lineage aspects large. `max_transform_operation_length` caps it on SQLAlchemy-based sources, Snowflake, BigQuery, Redshift, Unity Catalog, the `snowflake-queries`, `bigquery-queries` and `sql-queries` sources, Glue, Dremio, Sigma, Matillion and Fabric OneLake:
 
 ```yaml
 source:
@@ -80,4 +80,4 @@ source:
     max_transform_operation_length: 1000
 ```
 
-Logic longer than the limit is cut and ends with `...`. `0` keeps only the `SQL` or `COPY` label. Unset (the default) keeps the full logic.
+Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic. With `incremental_lineage`, entries stored before a change stay alongside the new ones until a run with `incremental_lineage: false`.
