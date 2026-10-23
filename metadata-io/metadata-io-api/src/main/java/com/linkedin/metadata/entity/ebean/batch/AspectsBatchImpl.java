@@ -230,12 +230,28 @@ public class AspectsBatchImpl implements AspectsBatch {
         AuditStamp auditStamp,
         RetrieverContext retrieverContext,
         boolean alternateMCPValidation) {
+      return mcps(mcps, auditStamp, retrieverContext, alternateMCPValidation, false);
+    }
+
+    /**
+     * @param trustAttributedActor true only for system-authenticated writers (the MCE consumer),
+     *     whose queued MCPs carry the original caller in {@link
+     *     AttributedActorHeaders#ATTRIBUTED_ACTOR}
+     */
+    public AspectsBatchImplBuilder mcps(
+        Collection<MetadataChangeProposal> mcps,
+        AuditStamp callerAuditStamp,
+        RetrieverContext retrieverContext,
+        boolean alternateMCPValidation,
+        boolean trustAttributedActor) {
 
       retrieverContext(retrieverContext);
       items(
           mcps.stream()
               .map(
                   mcp -> {
+                    AuditStamp auditStamp =
+                        AttributedActorHeaders.resolve(mcp, callerAuditStamp, trustAttributedActor);
                     try {
                       if (alternateMCPValidation) {
                         return ProposedItem.builder()
