@@ -7,6 +7,7 @@ import {
     CategoryOption,
     filterChangeEntries,
     getCategoryOptions,
+    resolveActorName,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { ChangeCategoryType, EntityType } from '@src/types.generated';
 
@@ -190,5 +191,40 @@ describe('filterChangeEntries', () => {
         const displayTexts = ['tag stuff', 'doc stuff', 'Owner added: "Alice Smith"'];
         const result = filterChangeEntries(entries, ALL_CATEGORIES, ALL_CATEGORIES, 'alice@datahub.com', displayTexts);
         expect(result).toHaveLength(0);
+    });
+});
+
+describe('resolveActorName', () => {
+    const SERVICE_ACCOUNT_URN = 'urn:li:corpuser:service_00000000-0000-4000-8000-000000000001';
+
+    it('returns null when actorUrn is missing', () => {
+        expect(resolveActorName(undefined, new Map())).toBeNull();
+        expect(resolveActorName(null, new Map())).toBeNull();
+    });
+
+    it('prefers the resolved display name from nameMap over the raw username', () => {
+        const nameMap = new Map([[SERVICE_ACCOUNT_URN, 'example_ingestion_service']]);
+        expect(resolveActorName(SERVICE_ACCOUNT_URN, nameMap)).toBe('example_ingestion_service');
+    });
+
+    it('falls back to the raw URN trailing segment when nameMap has no entry for the actor', () => {
+        expect(resolveActorName(SERVICE_ACCOUNT_URN, new Map())).toBe('service_00000000-0000-4000-8000-000000000001');
+    });
+
+    it('falls back to the raw URN trailing segment when nameMap is undefined', () => {
+        expect(resolveActorName(SERVICE_ACCOUNT_URN, undefined)).toBe('service_00000000-0000-4000-8000-000000000001');
+    });
+
+    it('produces the same string as before for a human user whose username is their email', () => {
+        // Regression guard: this is the case that "looked correct" pre-fix purely by
+        // convention (username == email), not because it was actually resolved.
+        const humanUrn = 'urn:li:corpuser:jane.doe@example.com';
+        expect(resolveActorName(humanUrn, new Map())).toBe('jane.doe@example.com');
+        expect(resolveActorName(humanUrn, new Map([[humanUrn, 'jane.doe@example.com']]))).toBe('jane.doe@example.com');
+    });
+
+    it('resolves the system actor to its display name when present in nameMap', () => {
+        const systemUrn = 'urn:li:corpuser:__datahub_system';
+        expect(resolveActorName(systemUrn, new Map([[systemUrn, 'Datahub System']]))).toBe('Datahub System');
     });
 });
