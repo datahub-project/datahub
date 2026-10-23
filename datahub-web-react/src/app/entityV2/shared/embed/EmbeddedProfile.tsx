@@ -1,5 +1,5 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
+import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -11,7 +11,7 @@ import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/uti
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { TabContextType } from '@app/entityV2/shared/types';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, Exact } from '@types';
 
@@ -20,7 +20,6 @@ const LoadingWrapper = styled.div`
     align-items: center;
     justify-content: center;
     height: 85vh;
-    font-size: 50px;
 `;
 
 const SidebarWrapper = styled.div`
@@ -48,7 +47,7 @@ interface Props<T> {
 }
 
 export default function EmbeddedProfile<T>({ urn, entityType, getOverrideProperties, useEntityQuery }: Props<T>) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const {
         entityData,
         rootEntityData,
@@ -87,7 +86,7 @@ export default function EmbeddedProfile<T>({ urn, entityType, getOverridePropert
         >
             {loading && (
                 <LoadingWrapper>
-                    <LoadingOutlined />
+                    <Loader size="xl" />
                 </LoadingWrapper>
             )}
             {!loading && entityData && entityData.type && (

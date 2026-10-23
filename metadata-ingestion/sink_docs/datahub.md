@@ -263,7 +263,7 @@ sink:
   type: "datahub-lite"
 ```
 
-By default, `datahub-lite` uses a **DuckDB** database and will write to a database file located under **~/.datahub/lite/**.
+By default, `datahub-lite` uses a **SQLite** database and will write to a database file located under **~/.datahub/lite/**. A **DuckDB** engine is also available. See [Choosing a storage engine](../../docs/datahub_lite.md#choosing-a-storage-engine).
 
 To configure the location, you can specify it directly in the config:
 
@@ -273,9 +273,9 @@ source:
 sink:
   type: "datahub-lite"
   config:
-    type: "duckdb"
+    type: "sqlite"
     config:
-      file: "<path_to_duckdb_file>"
+      file: "<path_to_sqlite_file>"
 ```
 
 :::note
@@ -288,14 +288,14 @@ DataHub Lite currently doesn't support stateful ingestion, so you'll have to tur
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field    | Required | Default                                      | Description                                                                                                                      |
-| -------- | -------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `type`   |          | duckdb                                       | Type of DataHub Lite implementation to use                                                                                       |
-| `config` |          | `{"file": "~/.datahub/lite/datahub.duckdb"}` | Config dictionary to pass through to the DataHub Lite implementation. See below for fields accepted by the DuckDB implementation |
+| Field    | Required | Default                                  | Description                                                                                   |
+| -------- | -------- | ---------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `type`   |          | sqlite                                   | Storage engine to use: `sqlite` or `duckdb`                                                   |
+| `config` |          | `{"file": "~/.datahub/lite/datahub.db"}` | Config dictionary to pass through to the storage engine. Both engines accept the fields below |
 
-#### DuckDB Config Details
+#### Storage Engine Config Details
 
-| Field     | Required | Default                            | Description                                                                                                                                                        |
-| --------- | -------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `file`    |          | `"~/.datahub/lite/datahub.duckdb"` | File to use for DuckDB storage                                                                                                                                     |
-| `options` |          | `{}`                               | Options dictionary to pass through to DuckDB library. See [the official spec](https://duckdb.org/docs/sql/configuration.html) for the options supported by DuckDB. |
+| Field     | Required | Default                        | Description                                                                                                                                                                                                        |
+| --------- | -------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `file`    |          | `"~/.datahub/lite/datahub.db"` | Database file                                                                                                                                                                                                      |
+| `options` |          | `{}`                           | Passed through to the engine. SQLite applies each entry as a `PRAGMA` ([spec](https://www.sqlite.org/pragma.html)); DuckDB as a connection config setting ([spec](https://duckdb.org/docs/sql/configuration.html)) |

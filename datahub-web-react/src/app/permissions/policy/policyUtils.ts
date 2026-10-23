@@ -2,6 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 
 import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
+    EntityType,
     PolicyMatchCondition,
     PolicyMatchCriterion,
     PolicyMatchCriterionValue,
@@ -14,6 +15,8 @@ import {
 } from '@types';
 
 export const DEFAULT_PAGE_SIZE = 10;
+
+const INGESTION_SOURCE_ENTITY_TYPE = 'dataHubIngestionSource';
 
 export const EMPTY_POLICY = {
     type: PolicyType.Metadata,
@@ -42,6 +45,9 @@ export const EMPTY_POLICY = {
 export const mapResourceTypeToEntityType = (resourceType: string, resourcePrivilegesArr: Array<ResourcePrivileges>) => {
     const resourcePrivileges = resourcePrivilegesArr.filter((privs) => privs.resourceType === resourceType);
     if (resourcePrivileges.length === 1) {
+        if (resourcePrivileges[0].resourceType === INGESTION_SOURCE_ENTITY_TYPE) {
+            return EntityType.IngestionSource;
+        }
         return resourcePrivileges[0].entityType;
     }
     return null;
@@ -143,9 +149,6 @@ export const getFieldCondition = (
 export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {
     return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
 };
-
-/** A cleared input must yield [] — setFieldValues only drops a criterion when the list is empty. */
-export const toStartsWithValues = (value: string): string[] => (value ? [value] : []);
 
 export const setFieldValues = (
     filter: PolicyMatchFilter,

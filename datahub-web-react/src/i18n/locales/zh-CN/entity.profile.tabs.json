@@ -53,6 +53,7 @@
     "properties.save.error": "无法保存结构化属性。出现了问题。",
     "properties.search.placeholder": "搜索...",
     "properties.searchInProperties.placeholder": "在属性中搜索...",
+    "properties.showCountMoreValues": "显示另外 {{count}} 个值（共 {{total, number}} 个）",
     "properties.structuredProperty.title": "结构化属性",
     "properties.updated.success": "结构化属性更新成功！"
 }

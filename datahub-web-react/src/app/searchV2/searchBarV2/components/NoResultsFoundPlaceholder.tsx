@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Button, Text } from '@src/alchemy-components';
+import { Button } from '@components/components/Button';
+import { Text } from '@components/components/Text';
 
 const Container = styled.div`
     display: flex;

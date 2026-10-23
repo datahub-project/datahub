@@ -1,0 +1,30 @@
+server:
+  port: 9091
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus, metrics, health, info
+  health:
+    elasticsearch:
+      enabled: false
+    neo4j:
+      enabled: false
+spring:
+  mvc:
+    servlet:
+      path: /
+entityClient:
+  impl: restli
+# Non-GMS cache defaults. ENTITY_GRAPH_CACHE_ENABLED and the other env vars still override.
+datahub:
+  gms:
+    entityGraphCache:
+      enabled: ${ENTITY_GRAPH_CACHE_ENABLED:false}
+    rateLimits:
+      endpoint:
+        enabled: ${RATE_LIMITS_ENDPOINT_ENABLED:false}
+      scoped:
+        enabled: ${RATE_LIMITS_SCOPED_ENABLED:false}
+searchService:
+  cacheImplementation: ${SEARCH_SERVICE_CACHE_IMPLEMENTATION:caffeine}

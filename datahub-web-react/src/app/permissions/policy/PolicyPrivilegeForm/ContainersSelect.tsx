@@ -1,4 +1,4 @@
-import { Input } from '@components';
+import { MultiValueInput } from '@components';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -7,7 +7,6 @@ import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/Enti
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { EntityType, PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -32,10 +31,6 @@ const SelectContainer = styled.div`
     min-width: 0;
 `;
 
-const StyledInput = styled(Input)`
-    width: 100%;
-`;
-
 export default function ContainersSelect({
     containerSelectValue,
     containers,
@@ -47,7 +42,6 @@ export default function ContainersSelect({
     const { t } = useTranslation('settings.permissions');
 
     const isStartsWithCondition = containerCondition === PolicyMatchCondition.StartsWith;
-    const startsWithValue = isStartsWithCondition && containerSelectValue.length > 0 ? containerSelectValue[0] : '';
 
     const handleConditionChange = useClearOnConditionChange(
         containerCondition,
@@ -69,10 +63,11 @@ export default function ContainersSelect({
             />
             <SelectContainer>
                 {isStartsWithCondition ? (
-                    <StyledInput
+                    <MultiValueInput
                         placeholder={t('privilegeForm.containerPrefixPlaceholder')}
-                        value={startsWithValue}
-                        onChange={(e) => onContainersChange(toStartsWithValues(e.target.value))}
+                        values={containerSelectValue}
+                        onUpdate={onContainersChange}
+                        width="full"
                     />
                 ) : (
                     <EntitySearchSelect

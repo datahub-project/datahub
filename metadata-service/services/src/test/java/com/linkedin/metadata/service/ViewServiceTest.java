@@ -390,13 +390,15 @@ public class ViewServiceTest {
   @Test
   private void testDeleteViewSuccess() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final EntityClient.ReferencesCleanup references = mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
 
     final ViewService service = new ViewService(mockClient);
 
     service.deleteView(mock(OperationContext.class), TEST_VIEW_URN);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_VIEW_URN));
+        .deleteEntityThenReferences(any(OperationContext.class), Mockito.eq(TEST_VIEW_URN));
   }
 
   @Test
@@ -407,7 +409,7 @@ public class ViewServiceTest {
 
     Mockito.doThrow(new RemoteInvocationException())
         .when(mockClient)
-        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_VIEW_URN));
+        .deleteEntityThenReferences(any(OperationContext.class), Mockito.eq(TEST_VIEW_URN));
 
     // Throws wrapped exception
     Assert.assertThrows(

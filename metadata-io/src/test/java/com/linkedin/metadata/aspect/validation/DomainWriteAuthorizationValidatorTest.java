@@ -94,6 +94,10 @@ public class DomainWriteAuthorizationValidatorTest {
     domainWriteUtilsMock
         .when(() -> DomainWriteAuthorizationUtils.loadPersistedDomains(any(), any(), any()))
         .thenReturn(Map.of());
+    // Static mock returns null for unstubbed methods; keep the before-set intact.
+    domainWriteUtilsMock
+        .when(() -> DomainWriteAuthorizationUtils.existingDomainsOnly(any(), any(), any()))
+        .thenAnswer(invocation -> invocation.getArgument(2));
 
     aspectRetriever = mock(AspectRetriever.class);
     retrieverContext = mock(RetrieverContext.class);

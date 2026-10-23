@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
  * Immutable, type-keyed container of {@link Enrichment} values carried on {@code
  * OperationFingerprint} / {@code OperationContext}.
  *
- * <p>One entry per concrete {@link Enrichment} implementation class. Retrieval is typed via {@link
+ * <p>One entry per {@link Enrichment#enrichmentType()} key. Retrieval is typed via {@link
  * #get(Class)} — no string keys, no casts at call sites. See {@link Enrichment} for the extension
  * pattern rationale.
  *
@@ -38,7 +38,7 @@ public final class EnrichmentBundle {
     }
     final Map<Class<? extends Enrichment>, Enrichment> map = new LinkedHashMap<>();
     for (Enrichment enrichment : enrichments) {
-      map.put(enrichment.getClass(), enrichment);
+      map.put(enrichment.enrichmentType(), enrichment);
     }
     return new EnrichmentBundle(map);
   }
@@ -49,8 +49,9 @@ public final class EnrichmentBundle {
   }
 
   /**
-   * Return the enrichment stored under {@code type} (i.e. the enrichment whose concrete class is
-   * exactly {@code type}), or empty if no such enrichment is present. No subclass lookup.
+   * Return the enrichment stored under {@code type} (i.e. the enrichment whose {@link
+   * Enrichment#enrichmentType()} is exactly {@code type}), or empty if no such enrichment is
+   * present. No subclass lookup.
    */
   @Nonnull
   public <T extends Enrichment> Optional<T> get(@Nonnull final Class<T> type) {
@@ -63,8 +64,8 @@ public final class EnrichmentBundle {
 
   /**
    * Return a new {@link EnrichmentBundle} containing everything in this container plus {@code
-   * additional}. If an enrichment of the same concrete class is already present, {@code additional}
-   * replaces it (last-writer-wins). This instance is unchanged.
+   * additional}. If an enrichment with the same key is already present, {@code additional} replaces
+   * it (last-writer-wins). This instance is unchanged.
    */
   @Nonnull
   public EnrichmentBundle plus(@Nonnull final Enrichment additional) {
@@ -73,7 +74,7 @@ public final class EnrichmentBundle {
 
   /**
    * Return a new {@link EnrichmentBundle} merging {@code other} on top of this one — entries in
-   * {@code other} replace same-class entries here. This instance is unchanged.
+   * {@code other} replace same-key entries here. This instance is unchanged.
    */
   @Nonnull
   public EnrichmentBundle plus(@Nonnull final EnrichmentBundle other) {
@@ -107,12 +108,12 @@ public final class EnrichmentBundle {
     private Builder() {}
 
     /**
-     * Add {@code enrichment}, replacing any prior value stored under the same concrete class.
-     * Returns {@code this} for chaining.
+     * Add {@code enrichment}, replacing any prior value stored under the same key. Returns {@code
+     * this} for chaining.
      */
     @Nonnull
     public Builder add(@Nonnull final Enrichment enrichment) {
-      byType.put(enrichment.getClass(), enrichment);
+      byType.put(enrichment.enrichmentType(), enrichment);
       return this;
     }
 

@@ -5,6 +5,7 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -64,6 +65,7 @@ public class SystemOperationContextFactory {
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final SearchClusterRegistry searchClusterRegistry,
       @Nonnull final ConfigurationProvider configurationProvider,
       @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
@@ -93,7 +95,8 @@ public class SystemOperationContextFactory {
             components,
             entityRegistry,
             mappingsBuilder,
-            configurationProvider.getElasticSearch().getSearch());
+            configurationProvider.getElasticSearch().getSearch(),
+            searchClusterRegistry);
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -147,6 +150,7 @@ public class SystemOperationContextFactory {
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final SearchClusterRegistry searchClusterRegistry,
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final SystemTelemetryContext systemTelemetryContext,
       @Qualifier("mappingsBuilder") @Nonnull final MappingsBuilder mappingsBuilder,
@@ -169,7 +173,8 @@ public class SystemOperationContextFactory {
             components,
             entityRegistry,
             mappingsBuilder,
-            configurationProvider.getElasticSearch().getSearch());
+            configurationProvider.getElasticSearch().getSearch(),
+            searchClusterRegistry);
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -207,9 +212,11 @@ public class SystemOperationContextFactory {
       @Nonnull BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull MappingsBuilder mappingsBuilder,
-      @Nullable SearchConfiguration searchConfiguration) {
+      @Nullable SearchConfiguration searchConfiguration,
+      @Nonnull SearchClusterRegistry searchClusterRegistry) {
     return SearchContext.builder()
         .indexConvention(components.getIndexConvention())
+        .searchClusterAccess(searchClusterRegistry)
         .searchableFieldTypes(ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
         .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
         .defaultSearchEntityNames(

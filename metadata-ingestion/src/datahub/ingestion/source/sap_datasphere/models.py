@@ -1,6 +1,7 @@
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     Literal,
@@ -233,6 +234,25 @@ class SourceColumnRef(BaseModel):
     column: str
 
 
+class FromSources(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    # `as` alias, or the name and its implicit alias (last dotted segment) when
+    # there is none -> source object, for the FROM of an analytic-model projection.
+    by_name: Dict[str, str] = Field(default_factory=dict)
+    # Every source object, including ones whose keys were dropped as ambiguous.
+    objects: FrozenSet[str] = frozenset()
+    # False when part of the FROM is a subquery or path expression, so an
+    # unqualified column may come from a source missing from `by_name`.
+    complete: bool = True
+
+    @property
+    def single_source(self) -> Optional[str]:
+        if self.complete and len(self.objects) == 1:
+            return next(iter(self.objects))
+        return None
+
+
 # Transform-operation labels DataHub's UI recognises for its transformation badge.
 TransformOp = Literal["IDENTITY", "RENAME", "AGGREGATE", "TRANSFORMATION", "EXPRESSION"]
 
@@ -446,3 +466,12 @@ class UnionMergeSlot(BaseModel):
     refs: List[UpstreamColRef] = Field(default_factory=list)
     unresolved: List[str] = Field(default_factory=list)
     op: Optional[TransformOp] = None
+
+
+class CatalogListing(BaseModel):
+    # Filled while a space's consumption-catalog assets are listed, so design-time
+    # View discovery can skip catalog assets and stand down when the listing
+    # failed (a failed listing says nothing about exposure). Holds dataset names
+    # (_build_dataset_name) so matching follows URN case rules, not raw strings.
+    dataset_names: Set[str] = Field(default_factory=set)
+    failed: bool = False

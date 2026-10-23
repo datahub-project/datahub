@@ -2,6 +2,15 @@
 
 We always welcome contributions to help make DataHub better. Take a moment to read this document if you would like to contribute.
 
+## Setting Up Your Development Environment
+
+To build DataHub from source and run your local changes:
+
+1. Follow the [Developer's Guide](developers.md) to install the required tools and build the project.
+2. Use [Using Docker Images During Development](docker/development.md) to run your local build (for example, `./gradlew quickstartDebug`) and reload changes as you work.
+
+Just want to try DataHub without building it? Use the [Quickstart Guide](quickstart.md) instead.
+
 ## Provide Feedback
 
 Have ideas about how to make DataHub better? Head over to [DataHub Feature Requests](https://feature-requests.datahubproject.io/) and tell us all about it!
@@ -38,18 +47,14 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 ### Product-update CTA merge check
 
 The Cloud/Core "What's New" toast CTA is a live URL republished from
-`product-update.json` / `product-update-saas.json`. GitHub Actions job
-`product_update_cta_live` GET-probes those links on every PR targeting `master`
-(and `releases/**` / `hotfixes/**`). It is not part of Gradle, so the rest of CI
-can go green while a blog post is still unpublished.
+`product-update.json` / `product-update-saas.json`. Lint job
+`product_update_release_sync` GET-probes those links when a PR hits the
+product-update-sync path filter (the JSON files, release notes, or related
+cigate). Unrelated PRs skip that job. The Gradle release-sync tests stay
+hermetic; the probe is a following step so a 404 does not fail unit tests.
 
-**Repo admins:** add `product_update_cta_live` as a **required status check** on
-`master` (classic branch protection or a ruleset). Until that is set, the job
-is advisory and will not block merge. Do not require
-`rerun_failed_product_update_cta`.
-
-After the URL returns 2xx, re-run that one job (or wait up to 15 minutes for the
-scheduled retry in `product-update CTA rerun`). Do not rerun the full CI suite.
+After the URL returns 2xx, re-run `product_update_release_sync`. Do not rerun
+the full CI suite. There is no scheduled retry.
 
 ### PR Title Format
 

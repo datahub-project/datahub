@@ -118,6 +118,7 @@
     "users.columns.name": "Név",
     "users.columns.role": "Szerepkör",
     "users.columns.status": "Állapot",
+    "users.copyUrn": "Urn másolása",
     "users.deleteUser": "Felhasználó törlése",
     "users.emptyTitle": "Nincsenek felhasználók!",
     "users.groups.overflowTitle": "Csoportok",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Állapot",
     "users.statusFilter.suspended": "Felfüggesztve",
     "users.statusInactive": "Inaktív",
-    "users.statusNoUrn": "Nincs URN"
+    "users.statusNoUrn": "Nincs URN",
+    "users.urnCopied": "Urn a vágólapra másolva"
 }

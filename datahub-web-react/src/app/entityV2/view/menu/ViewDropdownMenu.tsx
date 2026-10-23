@@ -1,5 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { Modal } from 'antd';
+import { Menu, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,8 +9,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ViewBuilder } from '@app/entityV2/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entityV2/view/cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entityV2/view/utils';
-import { Menu, notification } from '@src/alchemy-components';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertViewToBuilderState } from '@app/entityV2/view/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { MenuItemType } from '@src/alchemy-components/components/Menu/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -49,6 +49,8 @@ type Props = {
     onClickPreview?: () => void;
     onClickDelete?: () => void;
     selectView?: () => void;
+    // Called once a menu action finishes, e.g. so a parent dropdown can close itself.
+    onActionComplete?: () => void;
 };
 
 export const ViewDropdownMenu = ({
@@ -60,6 +62,7 @@ export const ViewDropdownMenu = ({
     onClickPreview,
     onClickDelete,
     selectView,
+    onActionComplete,
 }: Props) => {
     const { t } = useTranslation('entity.views');
     const { t: tc } = useTranslation('common.actions');
@@ -72,6 +75,7 @@ export const ViewDropdownMenu = ({
     const [deleteViewMutation] = useDeleteViewMutation();
 
     const [viewBuilderState, setViewBuilderState] = useState(DEFAULT_VIEW_BUILDER_STATE);
+    const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
 
     const setUserDefault = (viewUrn: string | null) => {
         updateUserViewSettingMutation({
@@ -84,6 +88,7 @@ export const ViewDropdownMenu = ({
             .then(({ errors }) => {
                 if (!errors) {
                     if (viewUrn && selectView) selectView();
+                    else onActionComplete?.();
                     userContext.updateState({
                         ...userContext.state,
                         views: {
@@ -99,11 +104,7 @@ export const ViewDropdownMenu = ({
                 }
             })
             .catch(() => {
-                notification.error({
-                    message: t('updateDefaultError'),
-                    description: t('errorDescription'),
-                    duration: 3,
-                });
+                toast.error(t('updateDefaultError'), { duration: 3 });
             });
     };
 
@@ -124,6 +125,7 @@ export const ViewDropdownMenu = ({
                             globalDefaultViewUrn: viewUrn,
                         },
                     });
+                    onActionComplete?.();
                     analytics.event({
                         type: EventType.SetGlobalDefaultViewEvent,
                         urn: viewUrn,
@@ -131,11 +133,7 @@ export const ViewDropdownMenu = ({
                 }
             })
             .catch(() => {
-                notification.error({
-                    message: t('updateOrgDefaultError'),
-                    description: t('errorDescription'),
-                    duration: 3,
-                });
+                toast.error(t('updateOrgDefaultError'), { duration: 3 });
             });
     };
 
@@ -171,18 +169,11 @@ export const ViewDropdownMenu = ({
                             selectedViewUrn: undefined,
                         });
                     }
-                    notification.success({
-                        message: t('deleteSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('deleteSuccess'), { duration: 2 });
                 }
             })
             .catch(() => {
-                notification.error({
-                    message: t('deleteError'),
-                    description: t('errorDescription'),
-                    duration: 3,
-                });
+                toast.error(t('deleteError'), { duration: 3 });
             });
     };
 
@@ -190,18 +181,19 @@ export const ViewDropdownMenu = ({
         if (onClickDelete) {
             onClickDelete();
         } else {
-            Modal.confirm({
-                title: t('deleteConfirm.title', { name: view.name }),
-                content: t('deleteConfirm.content'),
-                onOk() {
-                    deleteView(view.urn);
-                },
-                onCancel() {},
-                okText: tc('yes'),
-                maskClosable: true,
-                closable: true,
-            });
+            setIsDeleteConfirmationOpen(true);
         }
+    };
+
+    const deleteConfirmedView = () => {
+        setIsDeleteConfirmationOpen(false);
+        deleteView(view.urn);
+        onActionComplete?.();
+    };
+
+    const cancelDeleteView = () => {
+        setIsDeleteConfirmationOpen(false);
+        onActionComplete?.();
     };
 
     const canManageGlobalViews = userContext.platformPrivileges?.manageGlobalViews;
@@ -308,11 +300,20 @@ export const ViewDropdownMenu = ({
                 <ViewBuilder
                     mode={viewBuilderState.mode}
                     urn={view.urn}
-                    initialState={view}
+                    initialState={convertViewToBuilderState(view)}
                     onSubmit={onViewBuilderClose}
                     onCancel={onViewBuilderClose}
                 />
             )}
+            <ConfirmationModal
+                isOpen={isDeleteConfirmationOpen}
+                handleClose={cancelDeleteView}
+                handleConfirm={deleteConfirmedView}
+                modalTitle={t('deleteConfirm.title', { name: view.name })}
+                modalText={t('deleteConfirm.content')}
+                confirmButtonText={tc('yes')}
+                isDeleteModal
+            />
         </>
     );
 };

@@ -10,12 +10,13 @@ import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
-import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.util.List;
@@ -61,7 +62,7 @@ public class UpdateIndicesStrategyFactory {
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacyMappingsBuilder") V2MappingsBuilder mappingsBuilder,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
       @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
           boolean coalesceBatchUpdates) {
@@ -113,22 +114,29 @@ public class UpdateIndicesStrategyFactory {
       TimeseriesAspectService timeseriesAspectService,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       EntityDocumentIdHasher entityDocumentIdHasher,
+      ConfigurationProvider configProvider,
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
-      @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled) {
+      @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
+      @Qualifier("incrementalReindexWriteTargets") @Nullable
+          IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
 
     log.info("Creating UpdateIndicesV3Strategy bean");
-    return new UpdateIndicesV3Strategy(
-        v3Config,
-        elasticSearchService,
-        searchDocumentTransformer,
-        timeseriesAspectService,
-        timeseriesWriteThrottleCache,
-        entityDocumentIdHasher,
-        documentContributors == null ? List.of() : documentContributors,
-        v2Enabled);
+    return UpdateIndicesV3Strategy.builder()
+        .v3Config(v3Config)
+        .elasticSearchService(elasticSearchService)
+        .searchDocumentTransformer(searchDocumentTransformer)
+        .timeseriesAspectService(timeseriesAspectService)
+        .timeseriesThrottleCache(timeseriesWriteThrottleCache)
+        .entityDocumentIdHasher(entityDocumentIdHasher)
+        .documentContributors(documentContributors == null ? List.of() : documentContributors)
+        .v2Enabled(v2Enabled)
+        .semanticSearchConfiguration(
+            configProvider.getElasticSearch().getEntityIndex().getSemanticSearch())
+        .incrementalReindexWriteTargets(incrementalReindexWriteTargets)
+        .build();
   }
 }

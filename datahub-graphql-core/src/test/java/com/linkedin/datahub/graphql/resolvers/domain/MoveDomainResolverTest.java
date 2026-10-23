@@ -5,14 +5,18 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.MoveDomainInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MoveDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
@@ -143,6 +147,28 @@ public class MoveDomainResolverTest {
     setupTests(mockEnv, mockService, mockClient);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    verifyNoIngestProposal(mockService);
+  }
+
+  @Test
+  public void testGetFailureSelfParent() throws Exception {
+    EntityService<?> mockService = Mockito.mock(EntityService.class);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(DOMAIN_URN)), eq(true)))
+        .thenReturn(true);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument("input"))
+        .thenReturn(new MoveDomainInput(DOMAIN_URN, DOMAIN_URN));
+
+    MoveDomainResolver resolver = new MoveDomainResolver(mockService, mockClient);
+    setupTests(mockEnv, mockService, mockClient);
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    assertTrue(exception.getCause() instanceof DataHubGraphQLException);
+    assertEquals(
+        ((DataHubGraphQLException) exception.getCause()).errorCode(),
+        DataHubGraphQLErrorCode.BAD_REQUEST);
     verifyNoIngestProposal(mockService);
   }
 

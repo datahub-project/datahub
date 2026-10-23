@@ -281,7 +281,8 @@ def apply_databricks_proxy_fix():
 
         # Apply the patch
         patched_open = _create_patched_open_method(original_open)
-        thrift_http.THttpClient.open = patched_open
+        # Intentional monkeypatch of the third-party thrift client method.
+        thrift_http.THttpClient.open = patched_open  # type: ignore[method-assign]
         logger.info("Successfully applied databricks-sql proxy authentication fix")
 
         # Verify the patch was applied

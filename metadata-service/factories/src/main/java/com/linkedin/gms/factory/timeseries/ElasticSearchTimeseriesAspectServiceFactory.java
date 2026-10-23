@@ -3,6 +3,8 @@ package com.linkedin.gms.factory.timeseries;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
@@ -25,6 +27,8 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Autowired private SearchClusterRegistry searchClusterRegistry;
+
   @Bean(name = "elasticSearchTimeseriesAspectService")
   @Nonnull
   protected ElasticSearchTimeseriesAspectService getInstance(
@@ -32,14 +36,17 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
       final ConfigurationProvider configurationProvider,
       final MetricUtils metricUtils) {
     return new ElasticSearchTimeseriesAspectService(
-        components.getSearchClient(),
-        components.getBulkProcessor(),
-        components.getConfig().getBulkProcessor().getNumRetries(),
+        searchClusterRegistry.clientFor(SearchComponent.TIMESERIES),
+        searchClusterRegistry.bulkProcessorFor(SearchComponent.TIMESERIES),
+        searchClusterRegistry
+            .configFor(SearchComponent.TIMESERIES)
+            .getBulkProcessor()
+            .getNumRetries(),
         queryFilterRewriteChain,
         configurationProvider.getTimeseriesAspectService(),
         entityRegistry,
         components.getIndexConvention(),
-        components.getIndexBuilder(),
+        searchClusterRegistry.indexBuilderFor(SearchComponent.TIMESERIES),
         metricUtils);
   }
 }

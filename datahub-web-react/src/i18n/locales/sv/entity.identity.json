@@ -118,6 +118,7 @@
     "users.columns.name": "Namn",
     "users.columns.role": "Roll",
     "users.columns.status": "Status",
+    "users.copyUrn": "Kopiera URN",
     "users.deleteUser": "Ta bort användare",
     "users.emptyTitle": "Inga användare!",
     "users.groups.overflowTitle": "Grupper",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Avstängd",
     "users.statusInactive": "Inaktiv",
-    "users.statusNoUrn": "Ingen URN"
+    "users.statusNoUrn": "Ingen URN",
+    "users.urnCopied": "URN kopierad till urklipp"
 }

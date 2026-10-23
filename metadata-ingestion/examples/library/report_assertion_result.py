@@ -1,9 +1,6 @@
-import logging
 import time
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-log = logging.getLogger(__name__)
 
 graph = DataHubGraph(
     config=DatahubClientConfig(
@@ -26,4 +23,4 @@ res = graph.report_assertion_result(
 )
 
 if res:
-    log.info("Successfully reported Assertion Result!")
+    print("Successfully reported Assertion Result!")
