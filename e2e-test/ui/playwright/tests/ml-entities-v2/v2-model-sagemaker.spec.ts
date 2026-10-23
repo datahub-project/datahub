@@ -17,6 +17,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { MLEntitiesPage } from '../../pages/ml-entities.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Test Data Constants
 const TEST_DATA = {
@@ -51,7 +52,7 @@ test.describe('SageMaker Models', () => {
       mlEntitiesPage = new MLEntitiesPage(page, logger, logDir);
     });
 
-    test('can visit sagemaker models and groups', async ({ logger }) => {
+    test('can visit sagemaker models and groups', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ logger }) => {
       logger.step('Navigate to SageMaker model - Summary tab');
       await mlEntitiesPage.navigateToMLModel(TEST_DATA.SAGEMAKER_MODEL_URN);
 
