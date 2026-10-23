@@ -6738,7 +6738,7 @@ def test_analytic_model_source_field_types_cached_across_lookups():
 
 def test_analytic_model_dotted_source_names():
     # Generated objects such as `SAP.TIME.*` live in the model's own space; any
-    # other prefix is a space, listed or not, unless a listed space is named SAP.
+    # other dotted prefix, including `SAP.`, is a space.
     source = _am_source("test-am-dotted")
     calls = _stub_view_fetch(
         source,
