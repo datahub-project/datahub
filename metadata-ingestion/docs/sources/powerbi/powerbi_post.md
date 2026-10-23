@@ -84,8 +84,31 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 8.  Amazon Redshift
 9.  Amazon Athena
 10. Starburst / Trino
+11. Microsoft Fabric OneLake, for DirectLake tables and for SQL analytics endpoints listed in `fabric_sql_endpoint_to_fabric_onelake`
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
+
+#### Fabric OneLake
+
+DirectLake tables lineage to `fabric-onelake`. The upstream dataset name is `{workspaceId}.{itemId}.{schema}.{table}`, the same name the `fabric-onelake` source emits for a lakehouse or warehouse table. `server_to_platform_instance` for that path is keyed by the Power BI workspace id.
+
+Import and DirectQuery use `Sql.Database`, or an ODBC SQL Server connection, against the item's SQL analytics endpoint. That M-query is also how Power BI connects to Microsoft SQL Server, so a host is emitted as `mssql` unless you map it:
+
+```yaml
+source:
+  type: powerbi
+  config:
+    fabric_sql_endpoint_to_fabric_onelake:
+      contoso.datawarehouse.fabric.microsoft.com:
+        workspace_id: ff23fbe3-7418-42f8-a675-9f10eb2b78cb
+        item_id: 2afa2dbd-555b-48c8-b082-35d94f4b7836 # lakehouse or warehouse GUID
+        platform_instance: contoso # omit when the fabric-onelake recipe sets none
+        env: PROD
+```
+
+`item_id` is the lakehouse or warehouse GUID, not the SQL analytics endpoint GUID. The SQL database name in `Sql.Database` is not part of the `fabric-onelake` dataset name. Host matching ignores case, a `tcp:` prefix, and a trailing `,1433` port. Every SQL Server host absent from this map stays on `mssql`.
+
+`platform_instance`, `env`, and `convert_lineage_urns_to_lowercase` (default `true`) have to match the `fabric-onelake` recipe, including that source's `convert_urns_to_lowercase`, or the lineage URN will not join to the ingested table. If you override `dataset_type_mapping`, keep `FabricOneLake` in it.
 
 #### Oracle TNS Aliases and Inline Native Queries
 

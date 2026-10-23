@@ -345,3 +345,54 @@ class TestPowerBiConfig:
         )
         assert config.is_platform_in_dataset_type_mapping("PostgreSQL") is True
         assert config.is_platform_in_dataset_type_mapping("Unknown") is False
+
+
+_FABRIC_ENDPOINT = {
+    "abc.datawarehouse.fabric.microsoft.com": {
+        "workspace_id": "ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
+        "item_id": "2afa2dbd-555b-48c8-b082-35d94f4b7836",
+    }
+}
+
+
+def test_fabric_sql_endpoint_duplicate_host_rejected():
+    with pytest.raises(ValidationError, match="duplicate hosts"):
+        PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            fabric_sql_endpoint_to_fabric_onelake={
+                "abc.datawarehouse.fabric.microsoft.com": _FABRIC_ENDPOINT[
+                    "abc.datawarehouse.fabric.microsoft.com"
+                ],
+                "ABC.datawarehouse.fabric.microsoft.com,1433": _FABRIC_ENDPOINT[
+                    "abc.datawarehouse.fabric.microsoft.com"
+                ],
+            },
+        )
+
+
+def test_fabric_sql_endpoint_requires_fabric_onelake_mapping():
+    with pytest.raises(ValidationError, match="FabricOneLake"):
+        PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            dataset_type_mapping={"Sql": "mssql"},
+            fabric_sql_endpoint_to_fabric_onelake=_FABRIC_ENDPOINT,
+        )
+
+
+def test_fabric_sql_endpoint_blank_item_id_rejected():
+    with pytest.raises(ValidationError):
+        PowerBiDashboardSourceConfig(
+            tenant_id="fake",
+            client_id="foo",
+            client_secret="bar",
+            fabric_sql_endpoint_to_fabric_onelake={
+                "abc.datawarehouse.fabric.microsoft.com": {
+                    "workspace_id": "ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
+                    "item_id": "  ",
+                }
+            },
+        )
