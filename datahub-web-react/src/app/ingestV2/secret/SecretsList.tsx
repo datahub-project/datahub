@@ -134,7 +134,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 removeSecretFromListSecretsCache(urn, client, page, pageSize);
             })
             .catch((e: unknown) => {
-                toast.destroy();
                 if (e instanceof Error) {
                     toast.error(t('secret.removeError', { errorMessage: e.message || '' }), { duration: 3 });
                 }
@@ -178,7 +177,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 );
             })
             .catch((e) => {
-                toast.destroy();
                 toast.error(t('secret.updateErrorLower', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
@@ -213,7 +211,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 }, 3000);
             })
             .catch((e) => {
-                toast.destroy();
                 toast.error(t('secret.updateError', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };

@@ -243,6 +243,7 @@ export const IntroduceYourselfMainContent = () => {
     const [selectedTitle, setSelectedTitle] = useState('');
     const [isPlatformDropdownOpen, setIsPlatformDropdownOpen] = useState(false);
     const platformSelectRef = useRef<HTMLDivElement | null>(null);
+    const platformTriggerRef = useRef<HTMLButtonElement | null>(null);
 
     const { loading: viewsLoading, data: globalViewsData } = useListGlobalViewsQuery({
         variables: {
@@ -310,8 +311,20 @@ export const IntroduceYourselfMainContent = () => {
                 setIsPlatformDropdownOpen(false);
             }
         };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+            event.preventDefault();
+            setIsPlatformDropdownOpen(false);
+            platformTriggerRef.current?.focus();
+        };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
     }, [isPlatformDropdownOpen]);
 
     const { setIsUserInitializing } = useContext(OnboardingContext);
@@ -470,6 +483,7 @@ export const IntroduceYourselfMainContent = () => {
                         <GearSix size={18} />
                     </LeadingIcon>
                     <PlatformSelectTrigger
+                        ref={platformTriggerRef}
                         type="button"
                         data-testid="introduce-data-source-select"
                         $open={isPlatformDropdownOpen}
