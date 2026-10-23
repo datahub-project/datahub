@@ -12,6 +12,7 @@ import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
 import { TabType } from '@app/entityV2/group/types';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -92,6 +93,7 @@ export default function GroupProfile({ urn }: Props) {
 
     const finalTabs = [
         {
+            key: EntitySidebarTabKey.ABOUT,
             name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,

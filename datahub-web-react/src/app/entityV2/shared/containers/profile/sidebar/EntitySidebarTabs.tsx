@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 
@@ -321,7 +322,7 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                             tab={
                                 <TabIconContainer
                                     $isSelected={isSelected}
-                                    data-testid={`entity-sidebar-tab-${tab.name}`}
+                                    data-testid={`entity-sidebar-tab-${tab.key}`}
                                     data-sidebar-tab={tab.key}
                                 >
                                     <IconWrapper $isSelected={isSelected}>
@@ -333,14 +334,14 @@ export const EntitySidebarTabs = <T,>({ tabs, selectedTab, onSelectTab, hideColl
                                     </IconWrapper>
                                     <TabTextWithTooltip
                                         text={(() => {
-                                            switch (name) {
-                                                case 'Summary':
+                                            switch (tab.key) {
+                                                case EntitySidebarTabKey.SUMMARY:
                                                     return t('sidebar.tabs.summaryLabel');
-                                                case 'Properties':
+                                                case EntitySidebarTabKey.PROPERTIES:
                                                     return t('sidebar.tabs.propsAbbreviation');
-                                                case 'Columns':
+                                                case EntitySidebarTabKey.COLUMNS:
                                                     return t('sidebar.tabs.columnsLabel');
-                                                case 'Lineage':
+                                                case EntitySidebarTabKey.LINEAGE:
                                                     return t('sidebar.tabs.lineageLabel');
                                                 default:
                                                     return name;
