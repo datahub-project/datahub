@@ -103,6 +103,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROP_SPACE_NAME,
     PROP_VALUE_FALSE,
     PROP_VALUE_TRUE,
+    SAP_OBJECT_NAMESPACE,
     SCALE_WARNING_URN_THRESHOLD,
     SCHEMA_FIELD_URN_PREFIX,
     SEMANTIC_CURRENCY,
@@ -315,10 +316,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # to copy scalar types into analytic-model elements (which carry none). One
         # CSN fetch per distinct source object, reused across analytic models.
         self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
-        # Every space the catalog lists, including filtered ones; it tells a
-        # `SPACE.name` projection ref from a same-space name containing a dot.
+        # Every space the catalog lists, including filtered ones. A listed space
+        # wins over the SAP namespace when reading a dotted `SPACE.name` ref.
         self._known_spaces: Set[str] = set()
-        self._unlisted_space_prefixes_warned: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -2131,8 +2131,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # is probed (its 404 retry also covers analytic models) — a local/remote
         # table source is not resolved and its columns fall back to the measure
         # heuristic or stay NullType.
+        # A dotted name is `SPACE.name` unless it is in the SAP namespace of
+        # objects generated in the model's own space. The catalog does not list
+        # every space a model can read from, so other prefixes stay spaces.
         prefix, _, rest = source_object.partition(".")
-        if rest and prefix in self._known_spaces:
+        if rest and (prefix in self._known_spaces or prefix != SAP_OBJECT_NAMESPACE):
             space, name = prefix, rest
         else:
             space, name = default_space, source_object
@@ -2153,22 +2156,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
         self._source_field_type_cache[cache_key] = field_map
-        if (
-            not field_map
-            and rest
-            and space == default_space
-            and prefix not in self._unlisted_space_prefixes_warned
-        ):
-            self._unlisted_space_prefixes_warned.add(prefix)
-            self.report.warning(
-                title="Projection source in an unlisted space",
-                message=(
-                    "A projection source's prefix is not a space the catalog lists, "
-                    "and no same-space object has that name. It may be a space the "
-                    "ingestion user cannot see; column types from it are unresolved."
-                ),
-                context=source_object,
-            )
         return field_map
 
     def _apply_column_pattern(

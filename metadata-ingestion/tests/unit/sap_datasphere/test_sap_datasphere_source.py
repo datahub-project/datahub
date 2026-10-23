@@ -6660,37 +6660,28 @@ def test_analytic_model_source_field_types_cached_across_lookups():
     assert calls == ["SRCSPACE/v_src", "SPACE_A/v_src", "SPACE_B/v_src"]
 
 
-def test_analytic_model_dotted_source_names_split_only_on_known_spaces():
-    # SAP time objects have dotted names; `SAP` is not a space, so the whole
-    # name is looked up in the model's space unless a listed space prefixes it.
-    source = _am_source("test-am-dotted", {"AMSPACE", "OTHER"})
+def test_analytic_model_dotted_source_names():
+    # Generated objects such as `SAP.TIME.*` live in the model's own space; any
+    # other prefix is a space, listed or not, unless a listed space is named SAP.
+    source = _am_source("test-am-dotted", {"AMSPACE"})
     calls = _stub_view_fetch(
-        source, {"SAP.TIME.VIEW_DIMENSION_DAY": {"DATE_SQL": {"type": "cds.Date"}}}
+        source,
+        {
+            "SAP.TIME.VIEW_DIMENSION_DAY": {"DATE_SQL": {"type": "cds.Date"}},
+            "v_src": {"c": {"type": "cds.String"}},
+        },
     )
 
-    same_space = source._source_object_field_types(
-        "AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY"
-    )
-    cross_space = source._source_object_field_types(
-        "AMSPACE", "OTHER.SAP.TIME.VIEW_DIMENSION_DAY"
-    )
+    assert source._source_object_field_types("AMSPACE", "SAP.TIME.VIEW_DIMENSION_DAY")
+    assert source._source_object_field_types("AMSPACE", "UNLISTED.v_src")
+    source._known_spaces = {"AMSPACE", "SAP"}
+    assert source._source_object_field_types("AMSPACE", "SAP.v_src")
 
-    assert "DATE_SQL" in same_space and "DATE_SQL" in cross_space
     assert calls == [
         "AMSPACE/SAP.TIME.VIEW_DIMENSION_DAY",
-        "OTHER/SAP.TIME.VIEW_DIMENSION_DAY",
+        "UNLISTED/v_src",
+        "SAP/v_src",
     ]
-    assert not source.report.warnings
-
-
-def test_analytic_model_source_in_unlisted_space_is_reported_once():
-    source = _am_source("test-am-unlisted", {"AMSPACE"})
-    _stub_view_fetch(source, {})
-
-    assert source._source_object_field_types("AMSPACE", "HIDDEN.v_a") == {}
-    assert source._source_object_field_types("AMSPACE", "HIDDEN.v_b") == {}
-
-    assert [list(w.context) for w in source.report.warnings] == [["HIDDEN.v_a"]]
 
 
 def test_analytic_model_projection_parse_error_is_reported():
@@ -6714,13 +6705,15 @@ def test_analytic_model_projection_parse_error_is_reported():
 
 
 def test_known_spaces_include_filtered_spaces_for_projection_types(requests_mock):
+    # A listed space named SAP must win over the SAP object namespace, even when
+    # space_pattern filters it out.
     tenant = "https://myco.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
         json={
             "value": [
                 {"name": "AM", "label": "AM"},
-                {"name": "SRC", "label": "SRC"},
+                {"name": "SAP", "label": "SAP"},
                 {"name": "", "label": "blank"},
                 {"label": "no-name"},
             ]
@@ -6750,7 +6743,7 @@ def test_known_spaces_include_filtered_spaces_for_projection_types(requests_mock
                     "elements": {"dim_a": {"@EndUserText.label": "A"}},
                     "query": {
                         "SELECT": {
-                            "from": {"ref": ["SRC.v_src"], "as": "s"},
+                            "from": {"ref": ["SAP.v_src"], "as": "s"},
                             "columns": [{"ref": ["s", "dim_a"]}],
                         }
                     },
@@ -6759,7 +6752,7 @@ def test_known_spaces_include_filtered_spaces_for_projection_types(requests_mock
         },
     )
     requests_mock.get(
-        f"{tenant}/dwaas-core/api/v1/spaces/SRC/views/v_src",
+        f"{tenant}/dwaas-core/api/v1/spaces/SAP/views/v_src",
         json={
             "definitions": {
                 "v_src": {"elements": {"dim_a": {"type": "cds.String", "length": 5}}}
@@ -6778,7 +6771,7 @@ def test_known_spaces_include_filtered_spaces_for_projection_types(requests_mock
 
     workunits = list(source.get_workunits())
 
-    assert source._known_spaces == {"AM", "SRC"}
+    assert source._known_spaces == {"AM", "SAP"}
     schemas = [
         aspect_as(wu, SchemaMetadataClass)
         for wu in workunits

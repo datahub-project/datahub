@@ -35,7 +35,7 @@ ANALYTIC_MODEL_NAMES = [
     "Test_Analytic_Model",
 ]
 # Synthetic stand-ins for the objects Test_Analytic_Model projects from; they
-# live in a space the recipe lists but does not ingest.
+# live in a space the catalog does not list, as on the recorded tenant.
 SOURCE_OBJECT_SPACE = "FINANCE_DATA"
 SOURCE_OBJECT_VIEW_NAMES = [
     "SALES_ALL_GE",
@@ -92,15 +92,11 @@ def register_handlers(
         _token_handler
     )
 
-    spaces = json.loads(_fixture_text("catalog_spaces.json"))
-    spaces["value"].append({"name": SOURCE_OBJECT_SPACE, "label": SOURCE_OBJECT_SPACE})
-    spaces_payload = json.dumps(spaces)
-
     def _spaces_handler(request: WerkzeugRequest) -> WerkzeugResponse:
         if on_request is not None:
             on_request(request)
         return WerkzeugResponse(
-            spaces_payload,
+            _fixture_text("catalog_spaces.json"),
             status=200,
             content_type="application/json",
         )
@@ -251,8 +247,6 @@ def build_recipe(base_url: str, sink_url: Optional[str] = None) -> str:
         "    include_lineage: true\n"
         "    include_view_definitions: true\n"
         "    include_local_tables: true\n"
-        "    space_pattern:\n"
-        f"      allow: ['^{SPACE}$']\n"
         "    stateful_ingestion:\n"
         "      enabled: false\n"
         f"{sink_block}"
