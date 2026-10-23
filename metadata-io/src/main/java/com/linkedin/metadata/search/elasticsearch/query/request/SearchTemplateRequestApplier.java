@@ -199,8 +199,9 @@ public final class SearchTemplateRequestApplier {
         matcher.hasQueryWords() ? matchedFieldSources(opContext, template) : List.of();
     Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
     boolean explain = explains(opContext);
+    boolean deferred = HighlightCarry.isDeferred();
     return hit -> {
-      if (!HighlightCarry.isDeferred()) {
+      if (!deferred) {
         return matchFields(hit, template, query, matcher, sources, labels, explain);
       }
       Map<String, Object> source = hit.getSourceAsMap();

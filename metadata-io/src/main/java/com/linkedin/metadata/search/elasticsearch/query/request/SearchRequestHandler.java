@@ -1086,12 +1086,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
     final Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
     SearchFlags flags = opContext.getSearchContext().getSearchFlags();
     boolean explain = flags != null && Boolean.TRUE.equals(flags.isIncludeExplain());
+    boolean deferred = HighlightCarry.isDeferred();
     return hit -> {
       Map<String, Object> source = hit.getSourceAsMap();
       if (source == null) {
         return SearchHitMatches.EMPTY;
       }
-      if (HighlightCarry.isDeferred()) {
+      if (deferred) {
         Object urn = source.get("urn");
         if (urn != null) {
           HighlightCarry.stash(

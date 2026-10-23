@@ -17,16 +17,11 @@ import javax.annotation.Nonnull;
  */
 public final class HighlightCarry {
   private static final ThreadLocal<Pending> PENDING = new ThreadLocal<>();
-  private static final ThreadLocal<Integer> DEPTH = ThreadLocal.withInitial(() -> 0);
 
   private HighlightCarry() {}
 
   public static void begin() {
-    int depth = DEPTH.get();
-    if (depth == 0) {
-      PENDING.set(new Pending());
-    }
-    DEPTH.set(depth + 1);
+    PENDING.set(new Pending());
   }
 
   public static boolean isDeferred() {
@@ -74,13 +69,7 @@ public final class HighlightCarry {
   }
 
   public static void clear() {
-    int depth = DEPTH.get() - 1;
-    if (depth <= 0) {
-      PENDING.remove();
-      DEPTH.remove();
-    } else {
-      DEPTH.set(depth);
-    }
+    PENDING.remove();
   }
 
   private static final class Pending {
