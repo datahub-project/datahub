@@ -2,6 +2,7 @@ package com.linkedin.metadata.client;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.AuditStamp;
@@ -9,6 +10,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
@@ -25,6 +27,7 @@ import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
+import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.event.EventProducer;
@@ -48,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -433,5 +437,45 @@ public class JavaEntityClientTest {
     String urnStr = client.ingestProposal(opContext, mcp, false);
 
     assertEquals(urnStr, "urn:li:container:orderingTest");
+  }
+
+  private AuditStamp ingestAndCaptureStamp(OperationContext callerContext)
+      throws RemoteInvocationException {
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(UrnUtils.getUrn("urn:li:container:attributed"))
+            .setAspectName("status")
+            .setEntityType("container")
+            .setChangeType(ChangeType.UPSERT)
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+    AttributedActorHeaders.stamp(mcp, "urn:li:corpuser:alice");
+    ArgumentCaptor<AspectsBatch> batch = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), batch.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    getJavaEntityClient().ingestProposal(callerContext, mcp, false);
+
+    return batch.getValue().getItems().iterator().next().getAuditStamp();
+  }
+
+  @Test
+  void systemCallerHonorsAttributedActor() throws RemoteInvocationException {
+    AuditStamp stamp = ingestAndCaptureStamp(opContext);
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(
+        stamp.getImpersonator().toString(),
+        opContext.getSessionAuthentication().getActor().toUrnStr());
+  }
+
+  @Test
+  void userCallerIgnoresAttributedActor() throws RemoteInvocationException {
+    AuditStamp stamp =
+        ingestAndCaptureStamp(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                UrnUtils.getUrn("urn:li:corpuser:bob")));
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:bob");
+    assertNull(stamp.getImpersonator(GetMode.NULL));
   }
 }
