@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, ClassVar, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -12,6 +12,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 
 # Import Pydantic models from separate module to avoid circular dependencies
 from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerResponse,
     DremioDatasetColumn,
     DremioDatasetResponse,
     DremioDatasetType,
@@ -19,6 +20,10 @@ from datahub.ingestion.source.dremio.dremio_models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _case_insensitive_key(path: List[str]) -> Tuple[str, ...]:
+    return tuple(part.lower() for part in path)
 
 
 class DremioGlossaryTerm:
@@ -69,6 +74,8 @@ class DremioDataset:
     resource_id: str
     resource_name: str
     path: List[str]
+    # `path` cased as the catalog walk emitted it; set by DremioCatalog.
+    container_path: Optional[List[str]] = None
     location_id: str
     columns: List[DremioDatasetColumn]
     sql_definition: Optional[str]
@@ -220,6 +227,9 @@ class DremioCatalog:
     def __init__(self, api: DremioAPIOperations):
         self.api = api
         self.edition = api.edition
+        # TABLE_SCHEMA can case folders differently from the catalog walk, and
+        # Dremio identifiers are case-insensitive.
+        self._container_paths: Dict[Tuple[str, ...], List[str]] = {}
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
@@ -228,40 +238,56 @@ class DremioCatalog:
                 dataset_details=dataset_details,
                 api_operations=self.api,
             )
+            dremio_dataset.container_path = self._container_paths.get(
+                _case_insensitive_key(dremio_dataset.path), dremio_dataset.path
+            )
 
             yield dremio_dataset
 
     def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
         for container in self.api.get_all_containers():
-            container_type = container.container_type
-            if container_type == DremioEntityContainerType.SOURCE:
-                yield DremioSourceContainer(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
-                    api_operations=self.api,
-                    dremio_source_type=container.source_type or "",
-                    root_path=container.root_path,
-                    database_name=container.database_name,
-                )
-            elif container_type == DremioEntityContainerType.SPACE:
-                yield DremioSpace(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
-                    api_operations=self.api,
-                )
-            elif container_type == DremioEntityContainerType.FOLDER:
-                folder = DremioFolder(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
-                    api_operations=self.api,
-                )
-                if container.root_container_type is not None:
-                    folder.root_container_type = container.root_container_type
-                yield folder
+            dremio_container = self._to_container(container)
+            if dremio_container is None:
+                continue
+            full_path = [*dremio_container.path, dremio_container.container_name]
+            self._container_paths.setdefault(
+                _case_insensitive_key(full_path), full_path
+            )
+            yield dremio_container
+
+    def _to_container(
+        self, container: DremioContainerResponse
+    ) -> Optional[DremioContainer]:
+        container_type = container.container_type
+        if container_type == DremioEntityContainerType.SOURCE:
+            return DremioSourceContainer(
+                container_name=container.name,
+                location_id=container.id,
+                path=container.path or [],
+                api_operations=self.api,
+                dremio_source_type=container.source_type or "",
+                root_path=container.root_path,
+                database_name=container.database_name,
+            )
+        if container_type == DremioEntityContainerType.SPACE:
+            return DremioSpace(
+                container_name=container.name,
+                location_id=container.id,
+                path=container.path or [],
+                api_operations=self.api,
+            )
+        if container_type == DremioEntityContainerType.FOLDER:
+            folder = DremioFolder(
+                container_name=container.name,
+                location_id=container.id,
+                path=container.path or [],
+                api_operations=self.api,
+            )
+            if container.root_container_type is not None:
+                folder.root_container_type = container.root_container_type
+            return folder
+        return None
 
     def get_sources(self) -> Iterator[DremioSourceContainer]:
         """Get all Dremio source containers (external data connections) as an iterator."""

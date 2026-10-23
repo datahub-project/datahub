@@ -1496,7 +1496,15 @@ class DremioAPIOperations:
                 # Recursively process child containers
                 for container in response.get("children", []):
                     if container.get("type") == DremioEntityContainerType.CONTAINER:
-                        traverse_path(container.get("id"), container.get("path"))
+                        # The listing can case the parent segments differently
+                        # from the parent itself, so only the last one is used.
+                        child_path = container.get("path")
+                        traverse_path(
+                            container.get("id"),
+                            [*entity_path, child_path[-1]]
+                            if child_path
+                            else child_path,
+                        )
 
             except Exception as exc:
                 logger.info(

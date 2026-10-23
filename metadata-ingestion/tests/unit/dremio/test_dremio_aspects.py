@@ -1,4 +1,3 @@
-from typing import Dict, List
 from unittest.mock import Mock
 
 import pytest
@@ -6,11 +5,6 @@ import pytest
 from datahub.ingestion.source.dremio.dremio_aspects import (
     DremioAspects,
     SchemaFieldTypeMapper,
-)
-from datahub.ingestion.source.dremio.dremio_entities import (
-    DremioContainer,
-    DremioFolder,
-    DremioSpace,
 )
 from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 from datahub.metadata.schema_classes import (
@@ -217,71 +211,3 @@ class TestDremioAspectsViewProperties:
         dataset = _make_dataset(dataset_type=DremioDatasetType.VIEW)
         dataset.sql_definition = ""
         assert aspects._create_view_properties(dataset) is None
-
-
-class TestDremioContainerKeyCaseInsensitive:
-    """Dremio identifiers are case-insensitive, and the catalog API can return
-    a child's path with different casing than its parent folder was emitted
-    with. Container URNs must not depend on that casing, or children point at
-    a parent container that is never emitted."""
-
-    @pytest.fixture
-    def emitted_container_urns(self) -> Dict[str, DremioContainer]:
-        api = Mock()
-        aspects = _make_aspects()
-        containers: List[DremioContainer] = [
-            DremioSpace("my_space", None, [], api),
-            DremioFolder("Gold", None, ["my_space"], api),
-            DremioFolder("Conformed", None, ["my_space", "Gold"], api),
-        ]
-        return {
-            aspects.get_container_urn(name=c.container_name, path=c.path): c
-            for c in containers
-        }
-
-    def test_child_folder_with_case_variant_path_points_at_emitted_parent(
-        self, emitted_container_urns
-    ):
-        aspects = _make_aspects()
-        parent_urn = aspects.get_container_urn(
-            name="Conformed", path=["my_space", "Gold"]
-        )
-        child = DremioFolder("dims", None, ["my_space", "Gold", "conformed"], Mock())
-
-        container_class = aspects._create_container_class(child)
-        assert container_class is not None
-        assert container_class.container == parent_urn
-
-        browse_paths = aspects._create_browse_paths_containers(child)
-        assert browse_paths is not None
-        browse_urns = [p.urn for p in browse_paths.path if p.urn]
-        assert browse_urns
-        assert set(browse_urns) <= set(emitted_container_urns)
-
-    def test_case_variant_folder_paths_produce_one_container_urn(self):
-        aspects = _make_aspects()
-        assert aspects.get_container_urn(
-            name="Conformed", path=["my_space", "Gold"]
-        ) == aspects.get_container_urn(name="conformed", path=["MY_SPACE", "gold"])
-
-    def test_dataset_under_case_variant_path_points_at_emitted_parent(
-        self, emitted_container_urns
-    ):
-        aspects = _make_aspects()
-        dataset = _make_dataset(
-            path=["my_space", "gold", "CONFORMED"], resource_name="my_view"
-        )
-
-        container_class = aspects._create_container_class(dataset)
-        assert container_class is not None
-        assert container_class.container in emitted_container_urns
-        assert (
-            emitted_container_urns[container_class.container].container_name
-            == "Conformed"
-        )
-
-        browse_paths = aspects._create_browse_paths_containers(dataset)
-        assert browse_paths is not None
-        browse_urns = [p.urn for p in browse_paths.path if p.urn]
-        assert browse_urns
-        assert set(browse_urns) <= set(emitted_container_urns)

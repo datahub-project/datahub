@@ -156,14 +156,11 @@ class DremioAspects:
         if path:
             key = ".".join(path) + "." + name if name else ".".join(path)
 
-        # Dremio identifiers are case-insensitive and the catalog API can return
-        # a child's path with different casing than its parent, so fold the key
-        # (as dataset URNs already are) to keep one URN per container.
         return DremioContainerKey(
             platform=self.platform,
             instance=self.platform_instance,
             env=str(self.env),
-            key=key.lower() if key else key,
+            key=key,
         )
 
     def get_container_urn(
@@ -397,8 +394,11 @@ class DremioAspects:
     def _create_container_class(
         self, entity: Union[DremioContainer, DremioDataset]
     ) -> Optional[ContainerClass]:
-        if entity.path:
-            return ContainerClass(container=self.get_container_urn(path=entity.path))
+        path = entity.path
+        if isinstance(entity, DremioDataset):
+            path = entity.container_path or entity.path
+        if path:
+            return ContainerClass(container=self.get_container_urn(path=path))
         return None
 
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:
