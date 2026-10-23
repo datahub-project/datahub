@@ -35,9 +35,8 @@ class AutoIncrementalLineageProcessor(
 
     def __init__(self, ctx: WorkunitProcessorContext) -> None:
         super().__init__(ctx)
-        max_length = getattr(ctx.source_config, "max_transform_operation_length", None)
-        self.max_transform_operation_length: Optional[int] = (
-            max_length if isinstance(max_length, int) else None
+        self.max_transform_operation_length: Optional[int] = getattr(
+            ctx.source_config, "max_transform_operation_length", None
         )
 
     @classmethod
