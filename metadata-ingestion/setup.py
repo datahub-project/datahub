@@ -685,7 +685,8 @@ plugins: Dict[str, Set[str]] = {
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
     # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
-    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
+    # aws_common provides credential resolution for optional AWS IAM (SigV4) auth.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",

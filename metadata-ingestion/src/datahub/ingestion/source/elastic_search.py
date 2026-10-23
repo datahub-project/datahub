@@ -8,13 +8,20 @@ from dataclasses import dataclass, field
 from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
-from opensearchpy import OpenSearch
-from pydantic import field_validator
+from botocore.credentials import (
+    Credentials,
+    ReadOnlyCredentials,
+    RefreshableCredentials,
+)
+from botocore.exceptions import BotoCoreError, ClientError
+from opensearchpy import OpenSearch, Urllib3AWSV4SignerAuth
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
+    ConfigurationError,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
@@ -38,6 +45,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -77,6 +85,10 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
+
+# SigV4 service name for Amazon OpenSearch Service managed domains.
+_AWS_SIGV4_SERVICE = "es"
+_ASSUMED_ROLE_RECHECK_INTERVAL_SECONDS = 60.0
 
 
 class ElasticToSchemaFieldConverter:
@@ -327,6 +339,10 @@ class ElasticsearchSourceConfig(
         The main case where you would want to have multiple of these if the name where you are trying to remove suffix from have different formats.
         e.g. ending with -YYYY-MM-DD as well as ending -epochtime would require you to have 2 regex patterns to remove the suffixes across all URNs.""",
     )
+    aws_config: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="AWS connection settings for IAM authentication against an Amazon OpenSearch Service domain. When set, every request is signed with AWS Signature Version 4 using the resolved credentials (explicit keys, profile, role assumption, or the default credential chain). aws_region is required. Cannot be combined with username/password or api_key. OpenSearch Serverless collections are not supported.",
+    )
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
@@ -343,6 +359,25 @@ class ElasticsearchSourceConfig(
                     entry = entry[: -len(suffix)]
             validate_host_port(entry)
         return host_val
+
+    @model_validator(mode="after")
+    def validate_aws_auth(self) -> "ElasticsearchSourceConfig":
+        if self.aws_config is None:
+            return self
+        if (
+            self.username is not None
+            or self.password is not None
+            or self.api_key is not None
+        ):
+            raise ValueError(
+                "aws_config cannot be combined with username/password or api_key; "
+                "configure exactly one authentication method."
+            )
+        if not self.aws_config.aws_region:
+            raise ValueError(
+                "aws_config.aws_region is required for AWS IAM (SigV4) authentication."
+            )
+        return self
 
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
@@ -366,6 +401,80 @@ def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
     return f"ApiKey {token}"
 
 
+class _AwsConfigCredentials:
+    """Credentials source for opensearch-py's SigV4 signer, which calls
+    get_frozen_credentials() on every request.
+
+    Credentials from an aws_role assumption are static: AwsConnectionConfig re-assumes
+    the role once they are within 5 minutes of expiry, so re-fetching the session
+    every minute picks that up without rebuilding a boto3 session on every request.
+    """
+
+    def __init__(
+        self, aws_config: AwsConnectionConfig, report: "ElasticsearchSourceReport"
+    ) -> None:
+        self._aws_config = aws_config
+        self._report = report
+        self._credentials: Optional[Credentials] = None
+        self._fetched_at = 0.0
+
+    def _needs_recheck(self) -> bool:
+        # RefreshableCredentials (profile, instance profile, IRSA, ...) renew
+        # themselves; only static credentials from a role assumption need re-fetching.
+        return (
+            self._aws_config.allowed_cred_refresh()
+            and not isinstance(self._credentials, RefreshableCredentials)
+            and time.monotonic() - self._fetched_at
+            >= _ASSUMED_ROLE_RECHECK_INTERVAL_SECONDS
+        )
+
+    def _resolve(self) -> Credentials:
+        credentials = self._aws_config.get_session().get_credentials()
+        if credentials is None:
+            raise ConfigurationError(
+                "No AWS credentials could be resolved from aws_config. Set "
+                "aws_access_key_id/aws_secret_access_key, aws_profile or aws_role, "
+                "or make credentials available through the default AWS chain."
+            )
+        return credentials
+
+    def get_frozen_credentials(self) -> ReadOnlyCredentials:
+        if self._credentials is None:
+            self._credentials = self._resolve()
+            self._fetched_at = time.monotonic()
+        elif self._needs_recheck():
+            try:
+                self._credentials = self._resolve()
+                self._fetched_at = time.monotonic()
+            except (BotoCoreError, ClientError, ConfigurationError, ValueError) as e:
+                # Re-assumption starts 5 minutes before expiry, so the current
+                # credentials are usually still valid; keep signing with them and
+                # retry on the next request instead of failing the run on a blip.
+                self._report.warning(
+                    title="AWS credential refresh failed",
+                    message="Continuing with the current credentials and retrying on the next request.",
+                    exc=e,
+                )
+        return self._credentials.get_frozen_credentials()
+
+
+def _aws_sigv4_auth(
+    aws_config: AwsConnectionConfig, report: "ElasticsearchSourceReport"
+) -> Urllib3AWSV4SignerAuth:
+    region = aws_config.aws_region
+    assert region, "aws_region is enforced by ElasticsearchSourceConfig validation"
+    credentials = _AwsConfigCredentials(aws_config, report)
+    # Resolve once up front so missing or invalid credentials fail at startup rather
+    # than surfacing as a wrapped ConnectionError on the first request.
+    try:
+        credentials.get_frozen_credentials()
+    except (BotoCoreError, ClientError, ValueError) as e:
+        raise ConfigurationError(
+            f"Failed to resolve AWS credentials from aws_config: {e}"
+        ) from e
+    return Urllib3AWSV4SignerAuth(credentials, region, _AWS_SIGV4_SERVICE)
+
+
 @platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
 @support_status(SupportStatus.GA)
@@ -381,6 +490,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
+        self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         # opensearch-py has no api_key param and silently drops unknown kwargs, so it must be
         # sent as an Authorization header instead.
         extra_client_args: Dict[str, Any] = {}
@@ -388,9 +498,14 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             extra_client_args["headers"] = {
                 "Authorization": _api_key_authorization(self.source_config.api_key)
             }
+        http_auth: Optional[Union[Tuple[str, str], Urllib3AWSV4SignerAuth]] = (
+            self.source_config.http_auth
+        )
+        if self.source_config.aws_config is not None:
+            http_auth = _aws_sigv4_auth(self.source_config.aws_config, self.report)
         self.client = OpenSearch(
             self.source_config.host,
-            http_auth=self.source_config.http_auth,
+            http_auth=http_auth,
             use_ssl=self.source_config.use_ssl,
             verify_certs=self.source_config.verify_certs,
             ca_certs=self.source_config.ca_certs,
@@ -401,7 +516,6 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
             url_prefix=self.source_config.url_prefix,
             **extra_client_args,
         )
-        self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
         self.cat_response: Optional[List[Dict[str, Any]]] = None

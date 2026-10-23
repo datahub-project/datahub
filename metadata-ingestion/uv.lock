@@ -888,6 +888,8 @@ dynamodb = [
     { name = "botocore" },
 ]
 elasticsearch = [
+    { name = "boto3" },
+    { name = "botocore" },
     { name = "cachetools" },
     { name = "opensearch-py" },
 ]
@@ -1712,6 +1714,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'docs'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'doris'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'dynamodb'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'elasticsearch'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'excel'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'gcs'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'gcs-slim'", specifier = ">=1.35.0,<2.0.0" },
@@ -1747,6 +1750,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'docs'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'doris'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'dynamodb'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'elasticsearch'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'excel'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'gcs'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'gcs-slim'", specifier = "!=1.23.0,<2.0.0" },
