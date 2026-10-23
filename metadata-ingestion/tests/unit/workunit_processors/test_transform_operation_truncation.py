@@ -1,5 +1,4 @@
 from typing import List, Optional
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -13,9 +12,6 @@ from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
 from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
     AutoIncrementalLineageProcessor,
-)
-from datahub.ingestion.workunit_processors.ensure_aspect_size import (
-    EnsureAspectSizeProcessor,
 )
 from datahub.ingestion.workunit_processors.transform_operation import (
     truncate_transform_operation,
@@ -148,79 +144,6 @@ def test_incremental_lineage_truncates_mce_before_patch() -> None:
     assert patches[0].aspect is not None
     assert "SUM(col_..." in patches[0].aspect.value.decode()
     assert "SUM(col_a) AS total" not in patches[0].aspect.value.decode()
-
-
-def test_upsert_size_guard_leaves_logic_when_aspect_fits() -> None:
-    processor = EnsureAspectSizeProcessor.create(
-        WorkunitProcessorContext(
-            source_report=SourceReport(),
-            pipeline_context=MagicMock(),
-            source_config=None,
-            platform=None,
-        )
-    )
-    lineage = _lineage([LOGIC])
-
-    processor.ensure_upstream_lineage_size(DOWNSTREAM, lineage)
-
-    assert lineage.fineGrainedLineages is not None
-    assert lineage.fineGrainedLineages[0].transformOperation == LOGIC
-    assert processor.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
-
-
-def test_upsert_size_guard_shortens_logic_until_aspect_fits() -> None:
-    processor = EnsureAspectSizeProcessor.create(
-        WorkunitProcessorContext(
-            source_report=SourceReport(),
-            pipeline_context=MagicMock(),
-            source_config=None,
-            platform=None,
-        )
-    )
-    # Tiny budget so the long expression must be cut, while table-level upstream stays.
-    processor.payload_constraint = 900
-    long_logic = "SQL: " + ("x" * 2000)
-    lineage = _lineage([long_logic])
-
-    processor.ensure_upstream_lineage_size(DOWNSTREAM, lineage)
-
-    assert lineage.fineGrainedLineages is not None
-    truncated = lineage.fineGrainedLineages[0].transformOperation
-    assert truncated is not None
-    assert truncated != long_logic
-    assert truncated.startswith("SQL: ")
-    assert truncated.endswith("...")
-    assert len(lineage.upstreams) == 1
-    assert processor.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 1
-
-
-def test_upsert_size_guard_drops_edges_when_cut_logic_still_too_big() -> None:
-    source_report = SourceReport()
-    processor = EnsureAspectSizeProcessor.create(
-        WorkunitProcessorContext(
-            source_report=source_report,
-            pipeline_context=MagicMock(),
-            source_config=None,
-            platform=None,
-        )
-    )
-    # Budget for two label-only entries, so five still overflow after the cut.
-    processor.payload_constraint = processor._upstream_lineage_serialized_size(
-        _lineage(["SQL"] * 2)
-    )
-    lineage = _lineage(["SQL: " + ("x" * 2000)] * 5)
-
-    processor.ensure_upstream_lineage_size(DOWNSTREAM, lineage)
-
-    assert len(lineage.upstreams) == 1
-    assert lineage.fineGrainedLineages is not None
-    assert 0 < len(lineage.fineGrainedLineages) < 5
-    assert all(f.transformOperation == "SQL" for f in lineage.fineGrainedLineages)
-    assert processor.report.num_truncations_by_aspect["upstreamLineage"] == 1
-    assert any(
-        "field-set-level fine-grained lineages" in " ".join(w.context or [])
-        for w in source_report.warnings
-    )
 
 
 def test_sql_source_truncates_before_incremental_lineage_patch(monkeypatch):

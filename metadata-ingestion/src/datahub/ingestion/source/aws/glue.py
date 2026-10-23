@@ -32,10 +32,7 @@ from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-    TransformOperationLengthConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -297,7 +294,6 @@ class GlueSourceConfig(
     DatasetSourceConfigMixin,
     AwsSourceConfig,
     IncrementalPropertiesConfigMixin,
-    TransformOperationLengthConfigMixin,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,

@@ -7,10 +7,7 @@ from pydantic import ConfigDict, Field, SecretStr, ValidationInfo, field_validat
 
 from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-    TransformOperationLengthConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.matillion_dpc.constants import (
@@ -227,10 +224,7 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
 
 
 class MatillionSourceConfig(
-    BaseTimeWindowConfig,
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    TransformOperationLengthConfigMixin,
+    BaseTimeWindowConfig, StatefulIngestionConfigBase, DatasetSourceConfigMixin
 ):
     api_config: MatillionAPIConfig = Field(description="Matillion API configuration")
 

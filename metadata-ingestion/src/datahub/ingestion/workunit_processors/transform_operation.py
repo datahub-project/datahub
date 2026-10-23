@@ -21,11 +21,6 @@ def truncate_transform_operation(value: str, max_length: int) -> Optional[str]:
     return f"{label}: {truncated}" if label else truncated
 
 
-def logic_length(value: str) -> int:
-    match = _LABEL_PREFIX.match(value)
-    return len(value[match.end() :]) if match else len(value)
-
-
 def apply_transform_operation_length(
     fine_grained_lineages: Optional[List[FineGrainedLineageClass]],
     max_length: int,
