@@ -61,9 +61,6 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
-from datahub.ingestion.workunit_processors.ensure_transform_operation_length import (
-    EnsureTransformOperationLengthProcessor,
-)
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -244,7 +241,6 @@ class SqlQueriesSource(Source):
         return [
             AutoWorkunitsReporterProcessor,
             AutoIncrementalLineageProcessor,
-            EnsureTransformOperationLengthProcessor,
         ]
 
     def get_workunits_internal(

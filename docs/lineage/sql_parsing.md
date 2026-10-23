@@ -70,14 +70,15 @@ By default DataHub ships sqlglot with its mypyc-compiled C extensions (`sqlglot[
 
 ### Limiting column transformation logic length
 
-Column-level lineage stores the SQL that computes each column. For very long queries this can make lineage aspects large. `max_transform_operation_length` caps it on SQLAlchemy-based sources, Snowflake, BigQuery, Redshift, Unity Catalog, the `snowflake-queries`, `bigquery-queries` and `sql-queries` sources, Glue, Dremio, Sigma, Matillion and Fabric OneLake:
+Column-level lineage stores the SQL that computes each column. For very long queries this can make lineage aspects large, and with `incremental_lineage` the expression is also part of every fine-grained patch path. `max_transform_operation_length` sets a fixed cut for those patches on SQLAlchemy-based sources, Snowflake, BigQuery, Redshift, Unity Catalog, the `snowflake-queries`, `bigquery-queries` and `sql-queries` sources, Glue, Dremio, Sigma, Matillion and Fabric OneLake:
 
 ```yaml
 source:
   type: mysql
   config:
     # ...
+    incremental_lineage: true
     max_transform_operation_length: 1000
 ```
 
-Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic. With `incremental_lineage`, entries stored before a change stay alongside the new ones until a run with `incremental_lineage: false`.
+Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic in patches. For non-incremental upserts, oversized `upstreamLineage` aspects shorten transform logic only as far as needed to fit the payload limit, then drop excess lineage edges. With `incremental_lineage`, entries stored before a change stay alongside the new ones until a run with `incremental_lineage: false`.

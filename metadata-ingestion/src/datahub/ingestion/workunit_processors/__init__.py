@@ -34,9 +34,6 @@ from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
     EnsureAspectSizeProcessor,
 )
-from datahub.ingestion.workunit_processors.ensure_transform_operation_length import (
-    EnsureTransformOperationLengthProcessor,
-)
 from datahub.ingestion.workunit_processors.validate_duplicate_schema_field_paths import (
     ValidateDuplicateSchemaFieldPathsProcessor,
 )
@@ -60,7 +57,6 @@ __all__ = [
     "AutoStatusAspectProcessor",
     "AutoWorkunitsReporterProcessor",
     "EnsureAspectSizeProcessor",
-    "EnsureTransformOperationLengthProcessor",
     "ValidateDuplicateSchemaFieldPathsProcessor",
     "ValidateEmptySchemaFieldPathsProcessor",
     "ValidateInputFieldsProcessor",

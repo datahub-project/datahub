@@ -22,7 +22,7 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -647,7 +647,7 @@ class TestSqlQueriesSource:
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
 
-    def test_max_transform_operation_length_truncates_column_logic(
+    def test_max_transform_operation_length_truncates_incremental_patch(
         self, pipeline_context, query_file_with
     ):
         path = query_file_with(
@@ -661,20 +661,22 @@ class TestSqlQueriesSource:
             pipeline_context,
             path,
             use_schema_resolver=False,
+            incremental_lineage=True,
             max_transform_operation_length=5,
         )
 
-        operations = [
-            fgl.transformOperation
+        patches = [
+            wu.metadata
             for wu in source.get_workunits()
-            if (lineage := wu.get_aspect_of_type(UpstreamLineageClass))
-            for fgl in lineage.fineGrainedLineages or []
+            if isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == "upstreamLineage"
         ]
-        assert len(operations) == 1
-        assert operations[0] is not None
-        assert operations[0].startswith("SQL: ")
-        assert len(operations[0]) == len("SQL: ") + 5 + len("...")
-        assert operations[0].endswith("...")
+        assert len(patches) == 1
+        assert patches[0].aspect is not None
+        patch_value = patches[0].aspect.value.decode()
+        assert "SQL: " in patch_value
+        assert "..." in patch_value
+        assert "col_a + col_b" not in patch_value
 
 
 # ── Error handling tests ─────────────────────────────────────────────────
