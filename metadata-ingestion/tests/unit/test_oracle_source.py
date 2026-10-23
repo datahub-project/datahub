@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
+import oracledb
 import pytest
 import sqlalchemy.exc
 from pydantic import ValidationError
@@ -30,7 +31,6 @@ from datahub.ingestion.source.sql.oracle import (
     VSqlPrerequisiteCheckResult,
     _preload_oracle_client_libs,
     _sql_type_list,
-    before_cursor_execute,
     extra_oracle_types,
 )
 from datahub.ingestion.source.sql.sql_common import get_column_type
@@ -44,6 +44,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     QuerySubjectsClass,
     RecordTypeClass,
+    StringTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -1861,78 +1862,52 @@ class TestOracleQueryExtraction:
             + " OR ".join(f"A = {i}" for i in range(400))
         )
         assert len(long_query) > 1000
+        hinted = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        literal = "SELECT '/*+ */' AS marker FROM HR.S"
 
         lob = Mock()
         lob.read.return_value = "SELECT * FROM HR.FROM_LOB"
+        broken_lob = Mock()
+        broken_lob.read.side_effect = oracledb.DatabaseError(
+            "ORA-22922: nonexistent LOB value"
+        )
 
-        mock_rows = [
-            {
-                "sql_id": "full",
-                "sql_text": long_query[:1000],
-                "sql_fulltext": long_query,
-                "parsing_schema_name": "HR",
-                "first_load_time": "2024-01-15/10:30:00",
-            },
-            {
-                "sql_id": "fallback",
-                "sql_text": "SELECT 1 FROM HR.SMALL",
-                "sql_fulltext": None,
-                "parsing_schema_name": "HR",
-                "first_load_time": "2024-01-15/10:30:00",
-            },
-            {
-                "sql_id": "hint",
-                "sql_text": "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S",
-                "sql_fulltext": "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S",
-                "parsing_schema_name": "HR",
-                "first_load_time": "2024-01-15/10:30:00",
-            },
-            {
-                "sql_id": "lob",
-                "sql_text": "SELECT * FROM HR.FROM_LOB",
-                "sql_fulltext": lob,
-                "parsing_schema_name": "HR",
-                "first_load_time": "2024-01-15/10:30:00",
-            },
-        ]
+        engine = _vsql_engine(
+            [
+                _vsql_row("full", long_query[:1000], sql_fulltext=long_query),
+                _vsql_row("fallback", "SELECT 1 FROM HR.SMALL", sql_fulltext=None),
+                _vsql_row("hint", hinted, sql_fulltext=hinted),
+                _vsql_row("literal", literal, sql_fulltext=literal),
+                _vsql_row("lob", "SELECT * FROM HR.FROM_LOB", sql_fulltext=lob),
+                _vsql_row(
+                    "broken_lob", "SELECT * FROM HR.BROKEN", sql_fulltext=broken_lob
+                ),
+            ]
+        )
 
-        mock_engine = Mock()
-        mock_conn = Mock()
-        mock_result = Mock()
-        mock_result.mappings.return_value = mock_rows
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = Mock(return_value=mock_conn)
-        mock_conn.__exit__ = Mock(return_value=None)
-        mock_engine.connect.return_value = mock_conn
-
-        with patch("sqlalchemy.inspect", return_value=Mock()):
-            queries = {
-                q.session_id: q.query
-                for q in source._extract_queries_from_vsql(mock_engine)
-            }
+        queries = {
+            q.session_id: q.query for q in source._extract_queries_from_vsql(engine)
+        }
 
         assert queries["sql_id:full"] == long_query
         assert queries["sql_id:fallback"] == "SELECT 1 FROM HR.SMALL"
-        assert queries["sql_id:hint"] == "INSERT  INTO HR.T (A) SELECT A FROM HR.S"
+        assert queries["sql_id:hint"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
+        # Only a hint right after the statement verb is removed; literals stay.
+        assert queries["sql_id:literal"] == literal
         assert queries["sql_id:lob"] == "SELECT * FROM HR.FROM_LOB"
+        # A LOB that cannot be read falls back to sql_text and warns, instead of
+        # aborting the extraction for every remaining row.
+        assert queries["sql_id:broken_lob"] == "SELECT * FROM HR.BROKEN"
+        assert len(source.report.warnings) == 1
 
     def test_long_hinted_and_delete_queries_parse_cleanly(self, ctx):
-        """End to end through the real aggregator for the ING-3647 cases.
+        """End to end through the real aggregator for the truncation fixes.
 
         A statement longer than V$SQL.sql_text's 1000 characters, an empty
         optimizer hint, and a DELETE must all parse: lineage is produced for
         the writes and neither parse-failure counter moves.
         """
-        config = OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "include_query_usage": True,
-            }
-        )
-        source = OracleSource(config, ctx)
+        source = OracleSource(_oracle_config(include_query_usage=True), ctx)
 
         # Cutting this at 1000 chars leaves the IN list unbalanced, so the
         # truncated text cannot parse; only the full text can.
@@ -1945,41 +1920,14 @@ class TestOracleQueryExtraction:
         hinted_query = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
         delete_query = "DELETE FROM HR.T WHERE A = 1"
 
-        def row(sql_id: str, sql_text: str) -> dict:
-            return {
-                "sql_id": sql_id,
-                "sql_text": sql_text[:1000],
-                "sql_fulltext": sql_text,
-                "parsing_schema_name": "HR",
-                "first_load_time": "2024-01-01/12:00:00",
-            }
-
-        mock_engine = Mock()
-        mock_conn = Mock()
-        mock_result = Mock()
-        mock_result.mappings.return_value = [
-            row("long", long_query),
-            row("hint", hinted_query),
-            row("delete", delete_query),
-        ]
-        mock_conn.execute.return_value = mock_result
-        mock_conn.__enter__ = Mock(return_value=mock_conn)
-        mock_conn.__exit__ = Mock(return_value=None)
-        mock_engine.connect.return_value = mock_conn
-
-        with (
-            patch("sqlalchemy.inspect", return_value=Mock()),
-            patch.object(source, "_get_metadata_engine", return_value=mock_engine),
-            patch.object(
-                source,
-                "_check_vsql_prerequisites",
-                return_value=VSqlPrerequisiteCheckResult(
-                    is_accessible=True, message="V$SQL accessible"
-                ),
-            ),
-        ):
-            source._populate_aggregator_from_queries()
-            mcps = list(source.aggregator.gen_metadata())
+        mcps = _populate_from_vsql(
+            source,
+            [
+                _vsql_row("long", long_query[:1000], sql_fulltext=long_query),
+                _vsql_row("hint", hinted_query, sql_fulltext=hinted_query),
+                _vsql_row("delete", delete_query, sql_fulltext=delete_query),
+            ],
+        )
 
         report = source.aggregator.report
         assert report.num_observed_queries == 3
@@ -1998,28 +1946,16 @@ class TestOracleQueryExtraction:
             make_dataset_urn("oracle", "hr.s", "PROD")
         }
 
-    def test_metadata_engine_converts_lobs(self, config_with_query_usage, ctx):
-        source = OracleSource(config_with_query_usage, ctx)
-        engine = Mock()
-
-        with (
-            patch(
-                "datahub.ingestion.source.sql.oracle.create_engine",
-                return_value=engine,
-            ),
-            patch("datahub.ingestion.source.sql.oracle.event") as mock_event,
-        ):
-            assert source._get_metadata_engine() is engine
-
-        mock_event.listen.assert_called_once_with(
-            engine, "before_cursor_execute", before_cursor_execute
-        )
-
-    def test_extra_oracle_types_map_to_record_type(self):
+    def test_extra_oracle_types_map_to_datahub_types(self):
         report = SQLSourceReport()
         for oracle_type in extra_oracle_types:
             field_type = get_column_type(report, "hr.t", oracle_type())
-            assert isinstance(field_type.type, RecordTypeClass)
+            expected = (
+                StringTypeClass
+                if oracle_type.__name__ == "XMLTYPE"
+                else RecordTypeClass
+            )
+            assert isinstance(field_type.type, expected), oracle_type.__name__
         assert not report.infos
 
     def test_query_usage_integration_flow(self, ctx):
