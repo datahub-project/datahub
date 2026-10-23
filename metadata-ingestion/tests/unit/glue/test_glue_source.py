@@ -510,17 +510,21 @@ def test_database_resource_link_without_owner_catalog_reports_missing_target() -
     assert "Failed to read resource-link owner schema from Glue" not in titles
 
 
-def test_resource_link_upstream_merged_with_storage_lineage():
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_resource_link_upstream_merged_with_storage_lineage(
+    include_column_lineage: bool,
+) -> None:
     # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
     # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
-    # UpstreamLineage aspect on the dataset, not two aspects that clobber each other.
+    # UpstreamLineage aspect on the dataset, not two aspects that clobber each other. With column
+    # lineage on, that aspect must carry both the storage and the owner column edges.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
             aws_region="us-east-1",
             platform_instance="consumer_inst",
             emit_storage_lineage=True,
-            include_column_lineage=False,
+            include_column_lineage=include_column_lineage,
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
@@ -559,6 +563,18 @@ def test_resource_link_upstream_merged_with_storage_lineage():
         in datasets
     )
     assert any("dataPlatform:s3" in d for d in datasets)
+
+    column_upstreams = [
+        upstream
+        for fgl in upstream_aspects[0].fineGrainedLineages or []
+        for upstream in fgl.upstreams or []
+    ]
+    if include_column_lineage:
+        assert len(column_upstreams) == 2
+        assert make_schema_field_urn(OWNER_TABLE_URN, "txn_id") in column_upstreams
+        assert any("dataPlatform:s3" in u for u in column_upstreams)
+    else:
+        assert column_upstreams == []
 
 
 def test_resource_link_no_self_lineage_when_owner_unresolved():

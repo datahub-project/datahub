@@ -1956,17 +1956,22 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_lineage_if_enabled(
         self,
         mce: MetadataChangeEventClass,
-        extra_upstreams: Optional[List[UpstreamClass]] = None,
+        resource_link_upstreams: Optional[List[UpstreamClass]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the dataset's UpstreamLineage, combining storage lineage with any ``extra_upstreams``.
+        """Emit the dataset's UpstreamLineage, combining storage lineage with ``resource_link_upstreams``.
 
-        This method is the single owner of the dataset's own ``UpstreamLineage`` aspect: callers pass
-        additional upstream edges (e.g. the Lake Formation resource-link edge) and this method folds
-        them into the one aspect that targets ``dataset_urn`` — so two independent sources can't emit
-        two full-replace aspects on the same URN and clobber each other.
+        This method is the single owner of the dataset's own ``UpstreamLineage`` aspect: the Lake
+        Formation resource-link edge is folded into the one aspect that targets ``dataset_urn`` — so
+        two independent sources can't emit two full-replace aspects on the same URN and clobber each
+        other.
+
+        ``resource_link_upstreams`` must only hold COPY edges from a resource link to the shared table
+        it points at: the link is a 1:1 copy with the owner's schema, so when
+        ``include_column_lineage`` is enabled each link column is mapped to the same-named owner
+        column. Don't pass other kinds of upstream here, or they get fabricated column lineage.
         """
         dataset_urn = mce.proposedSnapshot.urn
-        extra_upstreams = extra_upstreams or []
+        resource_link_upstreams = resource_link_upstreams or []
         schema_metadata: Optional[SchemaMetadataClass] = (
             mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
         )
@@ -2035,11 +2040,9 @@ class GlueSource(StatefulIngestionSourceBase):
                         ),
                     ).as_workunit()
 
-        # The extra upstreams are resource-link edges: a link is a 1:1 copy of the owner's table and
-        # its schema is the owner's, so each column maps to the same-named owner column.
         link_fine_grained: List[FineGrainedLineageClass] = []
         if self.source_config.include_column_lineage and schema_metadata:
-            for upstream in extra_upstreams:
+            for upstream in resource_link_upstreams:
                 link_fine_grained.extend(
                     self.get_fine_grained_lineages(
                         dataset_urn, upstream.dataset, schema_metadata, schema_metadata
@@ -2047,13 +2050,13 @@ class GlueSource(StatefulIngestionSourceBase):
                     or []
                 )
 
-        upstreams = storage_upstreams + extra_upstreams
+        upstreams = storage_upstreams + resource_link_upstreams
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=upstreams,
-                    fineGrainedLineages=storage_fine_grained + link_fine_grained
+                    fineGrainedLineages=(storage_fine_grained + link_fine_grained)
                     or None,
                 ),
             ).as_workunit()
