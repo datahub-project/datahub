@@ -251,10 +251,6 @@ class DremioCatalog:
                     self._container_paths.add(container.full_path)
         return self._container_responses
 
-    def discard_container(self, container: DremioContainer) -> None:
-        """Stop resolving datasets to a container that failed to emit."""
-        self._container_paths.discard([*container.path, container.container_name])
-
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
         self._all_containers()

@@ -2,6 +2,7 @@ from typing import Dict, List
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
@@ -9,7 +10,7 @@ from datahub.ingestion.source.dremio.dremio_api import (
 )
 from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
-from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog
+from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog, DremioFolder
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioContainerPathIndex,
     DremioContainerResponse,
@@ -49,6 +50,7 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
             "entityType": "space",
             "children": [
                 {"id": "no-path", "name": "orphan", "type": CONTAINER, "path": []},
+                {"id": "broken", "type": CONTAINER, "path": ["my_space", "Broken"]},
                 {"id": "gold", "type": CONTAINER, "path": ["my_space", "Gold"]},
             ],
         },
@@ -74,7 +76,14 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
         },
         "dims": {"entityType": FOLDER, "children": []},
     }
-    dremio_api.get = Mock(side_effect=lambda url: responses[url.rsplit("/", 1)[-1]])
+
+    def get(url: str) -> dict:
+        resource_id = url.rsplit("/", 1)[-1]
+        if resource_id == "broken":
+            raise requests.HTTPError("listing failed")
+        return responses[resource_id]
+
+    dremio_api.get = Mock(side_effect=get)
 
     folders = dremio_api.get_containers_for_location(
         resource_id="space-id",
@@ -82,7 +91,10 @@ def test_walk_builds_child_paths_from_the_parent_path(dremio_api):
         root_container_type=DremioEntityContainerType.SPACE,
     )
 
-    assert len(dremio_api.report.warnings) == 1
+    warned = [context for w in dremio_api.report.warnings for context in w.context]
+    assert len(warned) == 2
+    assert any("orphan" in context for context in warned)
+    assert any("my_space.Broken (broken)" in context for context in warned)
     assert sorted(".".join([*(f.path or []), f.name]) for f in folders) == [
         "my_space.Gold",
         "my_space.Gold.Conformed",
@@ -122,7 +134,10 @@ def _mock_api() -> Mock:
         DremioContainerResponse.model_validate(c)
         for c in (
             _container("my_space", [], DremioEntityContainerType.SPACE.value),
-            _container("Gold", ["my_space"], DremioEntityContainerType.FOLDER),
+            {
+                **_container("Gold", ["my_space"], DremioEntityContainerType.FOLDER),
+                "root_container_type": DremioEntityContainerType.SPACE,
+            },
             _container(
                 "Conformed", ["my_space", "Gold"], DremioEntityContainerType.FOLDER
             ),
@@ -169,18 +184,6 @@ def test_dataset_points_at_emitted_parent_container():
     assert sorted(warned) == ["my_home", "other_space"]
 
 
-def test_failed_container_is_no_longer_resolved():
-    api = _mock_api()
-    catalog = DremioCatalog(api)
-    conformed = next(
-        c for c in catalog.get_containers() if c.container_name == "Conformed"
-    )
-    catalog.discard_container(conformed)
-
-    datasets = {d.resource_name: d for d in catalog.get_datasets()}
-    assert datasets["my_view"].container_path == ["MY_SPACE", "gold", "CONFORMED"]
-
-
 def test_ambiguous_case_match_gets_no_container():
     api = _mock_api()
     api.get_all_containers.return_value = [
@@ -210,6 +213,7 @@ def test_ambiguous_case_match_gets_no_container():
         ([["src", "Data"], ["src", "data"]], ["SRC", "DATA"], None),
         ([["src", "Data"]], ["src", "other"], None),
         ([["a", "b.c"]], ["a.b", "c"], None),
+        ([["src", "Data"], ["src", "Data"]], ["SRC", "DATA"], ["src", "Data"]),
     ],
 )
 def test_container_path_index_prefers_exact_then_unique_case_insensitive(
@@ -221,7 +225,7 @@ def test_container_path_index_prefers_exact_then_unique_case_insensitive(
     assert index.resolve(lookup).path == expected
 
 
-def test_source_emits_no_orphan_dataset_containers(monkeypatch):
+def test_dataset_parents_are_emitted_containers_except_unwalked_paths(monkeypatch):
     session = Mock()
     session.post.return_value.json.return_value = {"token": "dummy-token"}
     session.post.return_value.status_code = 200
@@ -242,6 +246,11 @@ def test_source_emits_no_orphan_dataset_containers(monkeypatch):
 
     workunits = list(source.get_workunits_internal())
     assert api.get_all_containers.call_count == 1
+    gold = next(
+        c for c in source.dremio_catalog.get_containers() if c.container_name == "Gold"
+    )
+    assert isinstance(gold, DremioFolder)
+    assert gold.root_container_type == DremioEntityContainerType.SPACE
 
     emitted = {
         wu.get_urn()

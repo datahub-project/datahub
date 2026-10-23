@@ -84,14 +84,6 @@ class DremioContainerPathIndex(BaseModel):
         self._exact.add(key)
         self._by_folded_key.setdefault(self._folded_key(path), []).append(list(path))
 
-    def discard(self, path: List[str]) -> None:
-        key = self._key(path)
-        if key not in self._exact:
-            return
-        self._exact.remove(key)
-        matches = self._by_folded_key.get(self._folded_key(path), [])
-        matches[:] = [m for m in matches if m != path]
-
     def resolve(self, path: List[str]) -> DremioContainerPathResolution:
         if self._key(path) in self._exact:
             return DremioContainerPathResolution(

@@ -368,7 +368,6 @@ class DremioSource(StatefulIngestionSourceBase):
                         f"Dremio container {container.container_name} emitted successfully"
                     )
                 except Exception as exc:
-                    self.dremio_catalog.discard_container(container)
                     self.report.num_containers_failed += 1
                     self.report.failure(
                         message="Failed to process Dremio container",

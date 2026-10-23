@@ -1492,7 +1492,7 @@ class DremioAPIOperations:
                 for container in response.get("children", []):
                     if container.get("type") == DremioEntityContainerType.CONTAINER:
                         child_path = container.get("path")
-                        if not child_path:
+                        if not child_path or not isinstance(child_path[-1], str):
                             self.report.warning(
                                 message="Dremio catalog child has no path; it and its sub-folders were skipped",
                                 context=f"{'.'.join(entity_path)}: {container.get('name') or container.get('id')}",
@@ -1506,7 +1506,7 @@ class DremioAPIOperations:
 
             except Exception as exc:
                 self.report.warning(
-                    message="Failed to list Dremio folder; it and its sub-folders were skipped",
+                    message="Failed to list Dremio container; its sub-folders were skipped",
                     context=f"{'.'.join(entity_path or [])} ({location_id})",
                     exc=exc,
                 )
