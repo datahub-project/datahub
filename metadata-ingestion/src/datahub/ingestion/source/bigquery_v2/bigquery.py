@@ -380,7 +380,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
         except Exception as e:
             # Don't abort the run on a state read error; a failure blocks soft-deletes.
-            logger.warning(f"Could not read the last checkpoint for {project_id}: {e}")
+            logger.warning(
+                "Could not read the last stale-entity checkpoint; "
+                f"treating {project_id} as previously ingested: {e}"
+            )
             return True
         if last is None:
             return False

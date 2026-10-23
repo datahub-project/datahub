@@ -259,7 +259,8 @@ class BigQuerySchemaGenerator:
         graph: Optional[DataHubGraph] = None,
         sharing_handler: Optional[BigQuerySharingHandler] = None,
         *,
-        project_in_last_state: Callable[[str], bool],
+        # Default: every project counts as ingested before, so the failure stays.
+        project_in_last_state: Callable[[str], bool] = lambda _: True,
     ):
         self.config = config
         self.report = report

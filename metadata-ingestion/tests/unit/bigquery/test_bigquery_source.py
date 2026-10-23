@@ -9,6 +9,7 @@ import pytest
 import time_machine
 from google.api_core.exceptions import BadRequest, Forbidden, GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
+from google.rpc.error_details_pb2 import ErrorInfo
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -3087,14 +3088,22 @@ def test_bigquery_off_named_project_stays_a_failure(tmp_path: Path) -> None:
     assert "mistype" in (failures[0].message or "")
 
 
-def test_dataset_listing_permission_error_stays_a_failure(tmp_path: Path) -> None:
-    source, _ = _run_off_project(
-        tmp_path,
-        stateful=_CLEAN_UP_ON,
-        error=Forbidden(
-            "Access Denied: Project off-proj: User does not have permission"
+@pytest.mark.parametrize(
+    "error",
+    [
+        Forbidden("Access Denied: Project off-proj: User does not have permission"),
+        # Activation is checked on the calling project, so every project hits this.
+        Forbidden(
+            "BigQuery API has not been used in project 123 before or it is disabled.",
+            error_info=ErrorInfo(reason="SERVICE_DISABLED", domain="googleapis.com"),
         ),
-    )
+    ],
+    ids=["permission-denied", "api-off-in-calling-project"],
+)
+def test_dataset_listing_other_errors_stay_a_failure(
+    tmp_path: Path, error: Exception
+) -> None:
+    source, _ = _run_off_project(tmp_path, stateful=_CLEAN_UP_ON, error=error)
 
     assert [f.title for f in source.report.failures] == [
         "Unable to get datasets for project"
