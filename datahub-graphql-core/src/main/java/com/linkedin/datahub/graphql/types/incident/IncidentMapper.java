@@ -65,10 +65,7 @@ public class IncidentMapper {
       result.setAssignees(mapAssignees(info.getAssignees(GetMode.NULL)));
       // TODO: Support multiple entities per incident.
       // Use the first linked entity GraphQL can map, skipping entity types the registry doesn't
-      // know (e.g. after a rollback). With none left, only `entity` stays unset, so queries that
-      // don't select it still get the incident; a null incident would null the non-null search hit
-      // or list that loaded it. `Incident.entity` is non-null in the schema, so a query that
-      // selects it still fails on this incident.
+      // know (e.g. after a rollback). With none left, `entity` stays unset.
       if (handling().toleratesUnknownEntityAspect()) {
         final Entity linkedEntity = KnownEntities.mapFirst(context, info.getEntities());
         if (linkedEntity != null) {
