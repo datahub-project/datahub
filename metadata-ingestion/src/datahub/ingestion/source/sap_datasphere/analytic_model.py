@@ -77,24 +77,29 @@ def _from_sources(node: object) -> FromSources:
         if not isinstance(name, str):
             return FromSources(complete=False)
         alias = node.get(CSN_AS)
-        if not (isinstance(alias, str) and alias):
-            alias = name.rsplit(".", 1)[-1]
-        return FromSources(by_name={name: name, alias: name})
+        if isinstance(alias, str) and alias:
+            # Once aliased, the source is only addressable by its alias.
+            keys = {alias: name}
+        else:
+            keys = {name: name, name.rsplit(".", 1)[-1]: name}
+        return FromSources(by_name=keys, objects=frozenset({name}))
     args = node.get(CSN_ARGS)
     if not (node.get(CSN_JOIN) and isinstance(args, list)):
         return FromSources(complete=False)
     by_name: Dict[str, str] = {}
     ambiguous: Set[str] = set()
+    objects: Set[str] = set()
     complete = True
     for arg in args:
         part = _from_sources(arg)
         complete = complete and part.complete
+        objects.update(part.objects)
         for key, name in part.by_name.items():
             if by_name.setdefault(key, name) != name:
                 ambiguous.add(key)
     for key in ambiguous:
         del by_name[key]
-    return FromSources(by_name=by_name, complete=complete)
+    return FromSources(by_name=by_name, objects=frozenset(objects), complete=complete)
 
 
 def _mixin_targets(mixin: object) -> Dict[str, str]:
