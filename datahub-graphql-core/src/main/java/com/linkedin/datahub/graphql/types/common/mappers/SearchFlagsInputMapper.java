@@ -6,11 +6,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
+import com.linkedin.datahub.graphql.generated.HighlightFieldOverrides;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
-import com.linkedin.search.template.HighlightFieldOverrides;
 import java.net.URISyntaxException;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -76,9 +76,9 @@ public class SearchFlagsInputMapper
           new StringArray(searchFlags.getCustomHighlightingFields()));
     }
     if (searchFlags.getHighlightFields() != null) {
-      com.linkedin.datahub.graphql.generated.HighlightFieldOverrides input =
-          searchFlags.getHighlightFields();
-      HighlightFieldOverrides overrides = new HighlightFieldOverrides();
+      HighlightFieldOverrides input = searchFlags.getHighlightFields();
+      com.linkedin.search.template.HighlightFieldOverrides overrides =
+          new com.linkedin.search.template.HighlightFieldOverrides();
       if (input.getAdd() != null) {
         overrides.setAdd(new StringArray(input.getAdd()));
       }
