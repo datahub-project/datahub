@@ -740,6 +740,34 @@ def test_isolation_continues_when_a_pass_recovers_at_least_one_record():
     assert sink.report.batches_rejected_while_isolation_suppressed == 0
 
 
+def test_a_pass_that_isolates_one_record_does_not_trip_the_breaker():
+    """When only one record of a rejected batch did not land, isolating it costs one
+    call and finds the culprit exactly; recovering nothing there says nothing about a
+    systemic failure, so it must not count toward suppressing isolation."""
+    landed = _status_mcp("landed")
+    poison = _status_mcp("poison")
+    poison_error = _rejected("record rejected", {"status": 422})
+
+    def emit_mcps(events, emit_mode=None):
+        if len(events) > 1:
+            # The first chunk (landed) was accepted, the second (poison) rejected.
+            raise _chunked(OperationalError("batch rejected", {"status": 422}), [1])
+        raise poison_error
+
+    mock_emitter = MagicMock()
+    mock_emitter.emit_mcps.side_effect = emit_mcps
+    sink = _make_sink(mock_emitter)
+
+    passes = _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS + 2
+    for _ in range(passes):
+        with pytest.raises(BatchItemFailures) as exc_info:
+            sink._emit_batch_wrapper([(landed,), (poison,)])
+        assert exc_info.value.outcomes == [None, poison_error]
+
+    assert sink.report.batches_rejected == passes
+    assert sink.report.batches_rejected_while_isolation_suppressed == 0
+
+
 def test_isolation_skips_records_whose_chunk_already_landed():
     """Re-emitting a landed chunk re-applies PATCH and CREATE writes, so only records
     that did not land may be re-sent."""

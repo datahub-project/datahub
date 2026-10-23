@@ -73,8 +73,8 @@ _DEFAULT_REST_SINK_MAX_THREADS = get_rest_sink_default_max_threads()
 # Isolation does one HTTP round trip per record, each with its own retry ladder, so a
 # systemic client error (a permission denial, a model mismatch) turns "the batch failed"
 # into max_per_batch sequential failures per rejected batch. Once this many
-# consecutive isolation passes recover nothing, stop paying that cost and fail the
-# records that did not land with the batch error.
+# consecutive isolation passes over two or more records recover nothing, stop paying
+# that cost and fail the records that did not land with the batch error.
 _MAX_CONSECUTIVE_ZERO_RECOVERY_ISOLATIONS = 3
 
 # Client errors that say nothing about which record is at fault: auth, request timeout
@@ -726,7 +726,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         with self._isolation_lock:
             if recovered > 0:
                 self._consecutive_zero_recovery_isolations = 0
-            else:
+            # Only a pass over several records counts against isolation: one over a
+            # single record (the rest of the batch landed) costs one call and pins the
+            # culprit exactly, which says nothing about a systemic failure.
+            elif attempted >= 2:
                 self._consecutive_zero_recovery_isolations += 1
                 if (
                     self._consecutive_zero_recovery_isolations
