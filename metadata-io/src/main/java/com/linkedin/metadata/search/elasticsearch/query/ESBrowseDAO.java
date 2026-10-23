@@ -289,6 +289,7 @@ public class ESBrowseDAO {
 
     applyDefaultSearchFilters(
         opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
+    ESUtils.filterNonPrimarySiblings(null, queryBuilder, searchConfiguration.getSearch());
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));

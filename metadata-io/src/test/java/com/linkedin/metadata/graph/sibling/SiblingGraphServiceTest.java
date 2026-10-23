@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -15,7 +16,9 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -1072,5 +1075,72 @@ public class SiblingGraphServiceTest {
     mockResult.setRelationships(relationships);
 
     return mockResult;
+  }
+
+  @Test
+  public void testGetLineageCountSeparateSiblingsCountsOnlyTheEntity() {
+    when(_graphService.getLineageRegistry()).thenReturn(opContext.getLineageRegistry());
+    when(_graphService.getLineageCount(
+            any(OperationContext.class),
+            eq(Set.of(datasetFourUrn)),
+            any(LineageGraphFilters.class),
+            eq(100)))
+        .thenReturn(
+            new LineageCountResult(3, List.of(datasetOneUrn, datasetTwoUrn, datasetThreeUrn)));
+
+    EntityLineageResult result =
+        _client.getLineageCount(
+            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 100, true, false);
+
+    assertEquals(result.getTotal().intValue(), 3);
+    assertEquals(result.getFiltered().intValue(), 0);
+    assertEquals(result.getRelationships().size(), 0);
+  }
+
+  @Test
+  public void testGetLineageCountMergedCountsTheGroupAndCollapsesSiblingResults() {
+    when(_graphService.getLineageRegistry()).thenReturn(opContext.getLineageRegistry());
+    // datasetFour's sibling group is {four, five}; the count is asked for the whole group.
+    Siblings groupAspect = new Siblings();
+    groupAspect.setSiblings(new UrnArray(ImmutableList.of(datasetFiveUrn)));
+    groupAspect.setPrimary(true);
+    when(_mockEntityService.getLatestAspect(
+            any(OperationContext.class), eq(datasetFourUrn), eq(SIBLINGS_ASPECT_NAME)))
+        .thenReturn(groupAspect);
+    when(_graphService.getLineageCount(
+            any(OperationContext.class),
+            eq(Set.of(datasetFourUrn, datasetFiveUrn)),
+            any(LineageGraphFilters.class),
+            eq(100)))
+        .thenReturn(
+            new LineageCountResult(3, List.of(datasetOneUrn, datasetTwoUrn, datasetThreeUrn)));
+
+    // Among the results, datasetTwo is the non-primary sibling of datasetOne: a combined result
+    // shows the pair once, so it is reported as filtered.
+    Siblings onePrimary = new Siblings();
+    onePrimary.setSiblings(new UrnArray(ImmutableList.of(datasetTwoUrn)));
+    onePrimary.setPrimary(true);
+    Siblings twoSecondary = new Siblings();
+    twoSecondary.setSiblings(new UrnArray(ImmutableList.of(datasetOneUrn)));
+    twoSecondary.setPrimary(false);
+    when(_mockEntityService.getLatestAspects(
+            any(OperationContext.class), any(Set.class), eq(ImmutableSet.of(SIBLINGS_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                datasetOneUrn, List.of(onePrimary),
+                datasetTwoUrn, List.of(twoSecondary),
+                datasetThreeUrn, List.of()));
+    // datasetThree no longer exists: a ghost, also filtered.
+    when(_mockEntityService.exists(
+            any(OperationContext.class), any(Collection.class), any(Boolean.class)))
+        .thenReturn(Set.of(datasetOneUrn));
+
+    EntityLineageResult result =
+        _client.getLineageCount(
+            opContext, datasetFourUrn, LineageDirection.UPSTREAM, 100, false, false);
+
+    assertEquals(result.getTotal().intValue(), 3);
+    assertEquals(result.getFiltered().intValue(), 2);
+    assertEquals(result.getRelationships().size(), 0);
   }
 }

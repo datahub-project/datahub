@@ -19,6 +19,7 @@ import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -122,6 +123,15 @@ public class ESUtils {
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
   public static final String LIFECYCLE_STAGE = "lifecycleStage";
+  public static final String SIBLINGS = "siblings";
+  public static final String HAS_SIBLINGS = "hasSiblings";
+  public static final String SIBLINGS_PRIMARY = "siblingsPrimary";
+  private static final String DATASET_URN_PREFIX = "urn:li:" + DATASET_ENTITY_NAME + ":";
+
+  /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
+  private static final Set<String> SIBLING_FILTER_FIELDS =
+      Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
+
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -1754,6 +1764,45 @@ public class ESUtils {
         opContext.getSearchContext().getSearchFlags(),
         hiddenLifecycleStageUrns);
     EntityFilter.applyEntityTypeFilter(filterQuery, entityNames, entityIndexConfiguration);
+    return filterQuery;
+  }
+
+  /**
+   * Hides non-primary members of dataset sibling groups so a group surfaces as one result. A no-op
+   * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on. A caller whose filter
+   * already references a siblings field (the sibling list on an entity page, the "has siblings"
+   * facet) is asking about the group itself and is left alone. Only documents that carry {@code
+   * siblingsPrimary=false} are hidden, so documents indexed before the field existed stay visible.
+   * Each document carries only its own flag, so a group in which no member is marked primary cannot
+   * be told apart from the non-primary member of a normal group: every member of such a group is
+   * hidden. Groups must have exactly one primary member for this to be safe.
+   */
+  @Nonnull
+  public static BoolQueryBuilder filterNonPrimarySiblings(
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nullable SearchConfiguration searchConfiguration) {
+    if (searchConfiguration == null || !searchConfiguration.isHideNonPrimarySiblings()) {
+      return filterQuery;
+    }
+    if (filter != null && filter.getOr() != null) {
+      for (ConjunctiveCriterion or : filter.getOr()) {
+        for (Criterion criterion : or.getAnd()) {
+          String field = criterion.getField();
+          if (field.endsWith(KEYWORD_SUFFIX)) {
+            field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
+          }
+          if (SIBLING_FILTER_FIELDS.contains(field)) {
+            return filterQuery;
+          }
+        }
+      }
+    }
+    filterQuery.mustNot(
+        QueryBuilders.boolQuery()
+            .filter(QueryBuilders.prefixQuery("urn", DATASET_URN_PREFIX))
+            .filter(QueryBuilders.termQuery(HAS_SIBLINGS, true))
+            .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false)));
     return filterQuery;
   }
 
