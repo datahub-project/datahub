@@ -227,6 +227,14 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
 }
 
 
+def _space_name(space: object) -> Optional[str]:
+    if isinstance(space, dict):
+        name = space.get(CATALOG_FIELD_NAME)
+        if isinstance(name, str) and name:
+            return name
+    return None
+
+
 @platform_name("SAP Datasphere")
 @config_class(SapDatasphereConfig)
 @support_status(SupportStatus.ALPHA)
@@ -310,6 +318,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # Every space the catalog lists, including filtered ones; it tells a
         # `SPACE.name` projection ref from a same-space name containing a dot.
         self._known_spaces: Set[str] = set()
+        self._unlisted_space_prefixes_warned: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -396,20 +405,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
         spaces = list(self._safe_list_spaces())
         self._known_spaces = {
-            space[CATALOG_FIELD_NAME]
-            for space in spaces
-            if isinstance(space, dict)
-            and isinstance(space.get(CATALOG_FIELD_NAME), str)
+            name for name in (_space_name(space) for space in spaces) if name
         }
         for space in spaces:
-            if not isinstance(space, dict) or not space.get(CATALOG_FIELD_NAME):
+            space_name = _space_name(space)
+            if space_name is None:
                 self.report.warning(
                     title="Skipped malformed Datasphere space record",
                     message="Space record from catalog API is missing the 'name' field; skipping.",
                     context=str(space),
                 )
                 continue
-            space_name: str = space[CATALOG_FIELD_NAME]
             space_label: str = space.get(CATALOG_FIELD_LABEL) or space_name
             self.report.spaces_scanned += 1
             if not self.config.space_pattern.allowed(space_name):
@@ -2062,8 +2068,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         try:
             source_columns = extract_projection_source_columns(csn_def)
         except Exception as e:
-            logger.debug(
-                "Could not map %s.%s projection: %s", space_name, asset_name, e
+            self.report.warning(
+                title="Could not map analytic-model projection",
+                message="Column types could not be copied from the projection's source objects.",
+                context=f"{space_name}.{asset_name}",
+                exc=e,
             )
             return missing
         elements = csn_def.get(CSN_KEY_ELEMENTS)
@@ -2122,8 +2131,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # is probed (its 404 retry also covers analytic models) — a local/remote
         # table source is not resolved and its columns fall back to the measure
         # heuristic or stay NullType.
-        space, _, name = source_object.partition(".")
-        if not name or space not in self._known_spaces:
+        prefix, _, rest = source_object.partition(".")
+        if rest and prefix in self._known_spaces:
+            space, name = prefix, rest
+        else:
             space, name = default_space, source_object
         cache_key = f"{space}.{name}"
         cached = self._source_field_type_cache.get(cache_key)
@@ -2142,6 +2153,22 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
         self._source_field_type_cache[cache_key] = field_map
+        if (
+            not field_map
+            and rest
+            and space == default_space
+            and prefix not in self._unlisted_space_prefixes_warned
+        ):
+            self._unlisted_space_prefixes_warned.add(prefix)
+            self.report.warning(
+                title="Projection source in an unlisted space",
+                message=(
+                    "A projection source's prefix is not a space the catalog lists, "
+                    "and no same-space object has that name. It may be a space the "
+                    "ingestion user cannot see; column types from it are unresolved."
+                ),
+                context=source_object,
+            )
         return field_map
 
     def _apply_column_pattern(

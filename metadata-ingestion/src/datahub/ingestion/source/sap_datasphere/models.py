@@ -233,6 +233,22 @@ class SourceColumnRef(BaseModel):
     column: str
 
 
+class FromSources(BaseModel):
+    # Name, `as` alias or implicit alias (last dotted segment) -> source object,
+    # for the FROM of an analytic-model projection.
+    by_name: Dict[str, str] = Field(default_factory=dict)
+    # False when part of the FROM is a subquery or path expression, so an
+    # unqualified column may come from a source missing from `by_name`.
+    complete: bool = True
+
+    @property
+    def single_source(self) -> Optional[str]:
+        objects = set(self.by_name.values())
+        if self.complete and len(objects) == 1:
+            return next(iter(objects))
+        return None
+
+
 # Transform-operation labels DataHub's UI recognises for its transformation badge.
 TransformOp = Literal["IDENTITY", "RENAME", "AGGREGATE", "TRANSFORMATION", "EXPRESSION"]
 

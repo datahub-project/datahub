@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Set
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     BLD_ATTRIBUTES,
@@ -24,6 +24,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     BusinessLayer,
+    FromSources,
     SourceColumnRef,
     dedup_preserving_order,
 )
@@ -63,32 +64,37 @@ def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
     )
 
 
-def _from_sources(node: object) -> Dict[str, str]:
-    # Maps each FROM source's name, `as` alias and implicit alias (the last
-    # dotted segment) to the source object name.
+def _from_sources(node: object) -> FromSources:
     if not isinstance(node, dict):
-        return {}
+        return FromSources(complete=False)
     ref = node.get(CSN_REF)
-    if isinstance(ref, list) and ref:
+    if isinstance(ref, list):
+        # More than one segment navigates an association from the source.
+        if len(ref) != 1:
+            return FromSources(complete=False)
         # A parameterized source is `{"id": name, "args": ...}`.
-        head = ref[0].get(CSN_ID) if isinstance(ref[0], dict) else ref[0]
-        if not isinstance(head, str):
-            return {}
-        name = head
-        sources = {name: name}
+        name = ref[0].get(CSN_ID) if isinstance(ref[0], dict) else ref[0]
+        if not isinstance(name, str):
+            return FromSources(complete=False)
         alias = node.get(CSN_AS)
-        if isinstance(alias, str) and alias:
-            sources[alias] = name
-        else:
-            sources.setdefault(name.rsplit(".", 1)[-1], name)
-        return sources
-    sources = {}
+        if not (isinstance(alias, str) and alias):
+            alias = name.rsplit(".", 1)[-1]
+        return FromSources(by_name={name: name, alias: name})
     args = node.get(CSN_ARGS)
-    if node.get(CSN_JOIN) and isinstance(args, list):
-        for arg in args:
-            for key, name in _from_sources(arg).items():
-                sources.setdefault(key, name)
-    return sources
+    if not (node.get(CSN_JOIN) and isinstance(args, list)):
+        return FromSources(complete=False)
+    by_name: Dict[str, str] = {}
+    ambiguous: Set[str] = set()
+    complete = True
+    for arg in args:
+        part = _from_sources(arg)
+        complete = complete and part.complete
+        for key, name in part.by_name.items():
+            if by_name.setdefault(key, name) != name:
+                ambiguous.add(key)
+    for key in ambiguous:
+        del by_name[key]
+    return FromSources(by_name=by_name, complete=complete)
 
 
 def _mixin_targets(mixin: object) -> Dict[str, str]:
@@ -115,40 +121,33 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     if not isinstance(columns, list):
         return {}
     from_sources = _from_sources(select.get(CSN_FROM))
-    distinct_sources = set(from_sources.values())
-    single_source = next(iter(distinct_sources)) if len(distinct_sources) == 1 else None
+    single_source = from_sources.single_source
     # A mixin association qualifies refs to its target, but unqualified refs
     # still read from FROM only.
     mixins = _mixin_targets(select.get(CSN_MIXIN))
-    sources = {**mixins, **from_sources}
-    has_from = CSN_FROM in select
+    sources = {**mixins, **from_sources.by_name}
     out: Dict[str, SourceColumnRef] = {}
     for col in columns:
         if not isinstance(col, dict):
             continue
         ref = col.get(CSN_REF)
-        if not (isinstance(ref, list) and ref):
+        # A segment can be a dict, e.g. a filtered association step.
+        if not (isinstance(ref, list) and ref and all(isinstance(s, str) for s in ref)):
             continue
         if len(ref) == 1:
             # A bare mixin name publishes the association, not a column.
             if ref[0] in mixins:
                 continue
-            projected_source = single_source
-            column = ref[0]
-        elif len(ref) == 2:
-            qualifier, column = ref[0], ref[-1]
-            if not isinstance(qualifier, str) or qualifier == PROJECTION_ALIAS:
-                continue
-            # An unknown qualifier is not a fetchable object. Only CSN without
-            # any FROM keeps the old behaviour of treating it as the object name.
-            projected_source = sources.get(qualifier) if has_from else qualifier
+            source_object, column = single_source, ref[0]
+        elif len(ref) == 2 and ref[0] != PROJECTION_ALIAS:
+            source_object, column = sources.get(ref[0]), ref[1]
         else:
             # Three or more segments navigate an association; CSN dotted names
             # keep `SPACE.view` in one segment, so these are never object refs.
             continue
-        if not (isinstance(projected_source, str) and isinstance(column, str)):
+        if source_object is None:
             continue
         alias = col.get(CSN_AS)
         element = alias if isinstance(alias, str) and alias else column
-        out[element] = SourceColumnRef(source_object=projected_source, column=column)
+        out[element] = SourceColumnRef(source_object=source_object, column=column)
     return out

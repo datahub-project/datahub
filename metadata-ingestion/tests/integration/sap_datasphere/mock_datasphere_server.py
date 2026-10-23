@@ -3,11 +3,10 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
 
-from werkzeug.wrappers import Response as WerkzeugResponse
+from werkzeug.wrappers import Request as WerkzeugRequest, Response as WerkzeugResponse
 
 if TYPE_CHECKING:
     from pytest_httpserver import HTTPServer
-    from werkzeug.wrappers import Request as WerkzeugRequest
 
 RECORDED_DIR = Path(__file__).parent / "fixtures" / "recorded"
 
@@ -35,10 +34,13 @@ LOCAL_TABLE_NAMES = [
 ANALYTIC_MODEL_NAMES = [
     "Test_Analytic_Model",
 ]
-SOURCE_OBJECT_VIEWS = [
-    ("FINANCE_DATA", "SALES_ALL_GE"),
-    ("FINANCE_DATA", "BusinessPartner_DIM_GE"),
-    ("FINANCE_DATA", "Purchasing_Power_DIM_GE"),
+# Synthetic stand-ins for the objects Test_Analytic_Model projects from; they
+# live in a space the recipe lists but does not ingest.
+SOURCE_OBJECT_SPACE = "FINANCE_DATA"
+SOURCE_OBJECT_VIEW_NAMES = [
+    "SALES_ALL_GE",
+    "BusinessPartner_DIM_GE",
+    "Purchasing_Power_DIM_GE",
 ]
 
 
@@ -48,10 +50,10 @@ def _fixture_text(rel: str) -> str:
 
 def _paged_list_handler(
     payload: str,
-) -> Callable[["WerkzeugRequest"], "WerkzeugResponse"]:
+) -> Callable[[WerkzeugRequest], WerkzeugResponse]:
     # The dwaas-core list endpoints page via bare top/skip and end on an empty page.
     # Fixtures fit in one page, so serve them at skip=0 and an empty list afterward.
-    def handler(request: "WerkzeugRequest") -> "WerkzeugResponse":
+    def handler(request: WerkzeugRequest) -> WerkzeugResponse:
         skip = int(request.args.get("skip", "0"))
         body = payload if skip == 0 else "[]"
         return WerkzeugResponse(body, content_type="application/json")
@@ -66,15 +68,9 @@ def _assets_payload_rewritten(base_url: str) -> str:
 def register_handlers(
     httpserver: "HTTPServer",
     base_url: str,
-    on_token: Optional[Callable[["WerkzeugRequest"], None]] = None,
-    on_request: Optional[Callable[["WerkzeugRequest"], None]] = None,
+    on_token: Optional[Callable[[WerkzeugRequest], None]] = None,
+    on_request: Optional[Callable[[WerkzeugRequest], None]] = None,
 ) -> None:
-    # Imported lazily so the module imports even without the optional werkzeug dep.
-    from werkzeug.wrappers import (
-        Request as WerkzeugRequest,
-        Response as WerkzeugResponse,
-    )
-
     # Permissive for any grant so the server works for every auth mode; the
     # test layers grant-type assertions on top via on_token.
     def _token_handler(request: WerkzeugRequest) -> WerkzeugResponse:
@@ -96,18 +92,15 @@ def register_handlers(
         _token_handler
     )
 
+    spaces = json.loads(_fixture_text("catalog_spaces.json"))
+    spaces["value"].append({"name": SOURCE_OBJECT_SPACE, "label": SOURCE_OBJECT_SPACE})
+    spaces_payload = json.dumps(spaces)
+
     def _spaces_handler(request: WerkzeugRequest) -> WerkzeugResponse:
         if on_request is not None:
             on_request(request)
-        # The source objects' space is listed (so `FINANCE_DATA.x` refs resolve
-        # there) but excluded by the recipe's space_pattern.
-        spaces = json.loads(_fixture_text("catalog_spaces.json"))
-        spaces["value"].extend(
-            {"name": space, "label": space}
-            for space in sorted({space for space, _ in SOURCE_OBJECT_VIEWS})
-        )
         return WerkzeugResponse(
-            json.dumps(spaces),
+            spaces_payload,
             status=200,
             content_type="application/json",
         )
@@ -152,9 +145,9 @@ def register_handlers(
             content_type="application/json",
         )
 
-    for space, name in SOURCE_OBJECT_VIEWS:
+    for name in SOURCE_OBJECT_VIEW_NAMES:
         httpserver.expect_request(
-            f"/dwaas-core/api/v1/spaces/{space}/views/{name}",
+            f"/dwaas-core/api/v1/spaces/{SOURCE_OBJECT_SPACE}/views/{name}",
             method="GET",
         ).respond_with_data(
             _fixture_text(f"views/{name}.json"),
