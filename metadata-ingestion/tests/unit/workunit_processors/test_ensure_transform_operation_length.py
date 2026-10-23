@@ -21,9 +21,11 @@ from datahub.ingestion.workunit_processors.ensure_transform_operation_length imp
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DatasetLineageTypeClass,
+    DatasetSnapshotClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    MetadataChangeEventClass,
     MetadataChangeProposalClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -125,6 +127,36 @@ def test_processor_truncates_dataset_and_datajob_lineage() -> None:
         "SQL: SUM(col_..."
     )
     assert processor.report.num_transform_operations_truncated == 2
+
+
+def test_processor_truncates_mce_lineage() -> None:
+    processor = EnsureTransformOperationLengthProcessor.create(_ctx(max_length=8))
+    mce_wu = MetadataWorkUnit(
+        id="mce",
+        mce=MetadataChangeEventClass(
+            proposedSnapshot=DatasetSnapshotClass(
+                urn=DOWNSTREAM,
+                aspects=[
+                    UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=UPSTREAM,
+                                type=DatasetLineageTypeClass.TRANSFORMED,
+                            )
+                        ],
+                        fineGrainedLineages=_fine_grained([LOGIC]),
+                    )
+                ],
+            )
+        ),
+    )
+
+    [out] = processor.process([mce_wu])
+
+    lineage = out.get_aspect_of_type(UpstreamLineageClass)
+    assert lineage is not None
+    assert lineage.fineGrainedLineages is not None
+    assert lineage.fineGrainedLineages[0].transformOperation == "SQL: SUM(col_..."
 
 
 def test_processor_disabled_by_default() -> None:
