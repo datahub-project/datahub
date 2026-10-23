@@ -28,7 +28,10 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeEdition,
+    SnowflakeObjectDomain,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     QueryDedupStrategyType,
@@ -90,6 +93,65 @@ _SYS_VIEW_PLACEHOLDER_PREFIX = "$SYS_VIEW_"
 # Snowflake's per-refresh bookkeeping statement for a dynamic table
 # (`alter dynamic table /* NAME */ identifier(<id>) refresh at <ts>`), as tagged in QUERY_HISTORY.
 REFRESH_DYNAMIC_TABLE_QUERY_TYPE = "REFRESH_DYNAMIC_TABLE_AT_REFRESH_VERSION"
+
+# Query types from query_history that can never reference a table. The enriched
+# path only emits rows that touched a table/view or a DDL-modified object (the
+# access_history join's array_size filter); without that join these
+# session/account statements would each emit an orphan Query entity with no
+# subjects. CALL is included because the statement text is just `CALL proc()`;
+# the procedure's inner statements appear as their own query_history rows.
+_NON_TABLE_QUERY_TYPES = frozenset(
+    {
+        "ALTER_SESSION",
+        "BEGIN",
+        "CALL",
+        "COMMIT",
+        "DESCRIBE",
+        "GET",
+        "GRANT",
+        "LIST",
+        "PUT",
+        "REMOVE",
+        "REVOKE",
+        "ROLLBACK",
+        "SET",
+        "SHOW",
+        "UNSET",
+        "USE",
+    }
+)
+
+
+# Snowflake reports unsupported features (e.g. TAG on Standard edition) as
+# error 000002 with SQLSTATE 0A000 (SQL standard "feature_not_supported").
+# These are stable fields on the connector's exceptions, unlike message text.
+_UNSUPPORTED_FEATURE_ERRNO = 2
+_UNSUPPORTED_FEATURE_SQLSTATE = "0A000"
+
+
+def detect_snowflake_edition(connection: SnowflakeConnection) -> SnowflakeEdition:
+    """Probe the account edition via SHOW TAGS, which fails on Standard edition.
+
+    ACCESS_HISTORY exists but is never populated on Standard (an empty result,
+    not an error), so edition detection is the only reliable signal that the
+    view can feed the query log join.
+
+    The match prefers the connector's stable errno/sqlstate fields and falls
+    back to message text only for wrapped exceptions that don't propagate
+    them. For environments where the probe is unreliable, set
+    ``known_snowflake_edition: STANDARD`` to skip it entirely.
+    """
+    try:
+        connection.query(SnowflakeQuery.show_tags())
+        return SnowflakeEdition.ENTERPRISE
+    except Exception as e:
+        if (
+            getattr(e, "errno", None) == _UNSUPPORTED_FEATURE_ERRNO
+            or getattr(e, "sqlstate", None) == _UNSUPPORTED_FEATURE_SQLSTATE
+            or "Unsupported feature" in str(e)
+        ):
+            return SnowflakeEdition.STANDARD
+        raise
 
 
 @dataclass(frozen=True)
@@ -188,6 +250,20 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
     query_dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD
 
+    use_access_history: Optional[bool] = pydantic.Field(
+        default=None,
+        description="Whether to use snowflake.account_usage.access_history for lineage/usage/queries "
+        "extraction. access_history is only populated on Enterprise edition or above; on Standard edition "
+        "the connector instead derives the same signals by parsing query text from "
+        "snowflake.account_usage.query_history. If unset, this is auto-detected from the account edition.",
+    )
+
+    known_snowflake_edition: Optional[SnowflakeEdition] = pydantic.Field(
+        default=None,
+        description="Explicitly specify the Snowflake edition (Standard or Enterprise or above). "
+        "If unset, the edition is inferred automatically using 'SHOW TAGS'.",
+    )
+
     @cached_property
     def _compiled_temporary_tables_pattern(self) -> "List[re.Pattern[str]]":
         return [
@@ -215,6 +291,11 @@ class SnowflakeQueriesExtractorReport(Report):
     # warning to cite. Recorded here, not read from local_temp_path in the
     # finally, which mkdtemps on access and would leave a stray dir on error.
     audit_log_path: Optional[str] = None
+
+    # Resolved extraction mode for the query log: "access_history" (Snowflake's
+    # preparsed object lists) or "query_history" (sqlglot parsing of query text).
+    query_log_fetch_mode: Optional[str] = None
+    num_query_history_rows_skipped_no_table_access: int = 0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
     stored_proc_lineage: Optional[StoredProcLineageReport] = None
@@ -342,6 +423,42 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             )
 
     @functools.cached_property
+    def use_access_history(self) -> bool:
+        """Resolve whether the query log can join access_history.
+
+        Resolution order: explicit `use_access_history` config, then
+        `known_snowflake_edition`, then a SHOW TAGS probe. A probe failure keeps
+        the access_history path so behavior only changes when Standard edition
+        is positively identified.
+        """
+        if self.config.use_access_history is not None:
+            resolved = self.config.use_access_history
+        elif self.config.known_snowflake_edition is not None:
+            resolved = self.config.known_snowflake_edition != SnowflakeEdition.STANDARD
+        else:
+            try:
+                resolved = (
+                    detect_snowflake_edition(self.connection)
+                    != SnowflakeEdition.STANDARD
+                )
+            except Exception as e:
+                self.structured_reporter.warning(
+                    "Snowflake edition detection failed; assuming access_history is available",
+                    exc=e,
+                )
+                resolved = True
+
+        self.report.query_log_fetch_mode = (
+            "access_history" if resolved else "query_history"
+        )
+        if not resolved:
+            logger.info(
+                "access_history is unavailable or disabled; deriving lineage, usage, "
+                "and queries by parsing query_history query text instead"
+            )
+        return resolved
+
+    @functools.cached_property
     def local_temp_path(self) -> pathlib.Path:
         if self.config.local_temp_path:
             assert self.config.local_temp_path.is_dir()
@@ -422,7 +539,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             users = self.fetch_users()
 
         # TODO: Add some logic to check if the cached audit log is stale or not.
-        audit_log_file = self.local_temp_path / "audit_log.sqlite"
+        # The cache file is mode-specific so a local_temp_path reused across a
+        # use_access_history change can't feed enriched rows into the parse path.
+        audit_log_file = self.local_temp_path / (
+            "audit_log.sqlite"
+            if self.use_access_history
+            else "audit_log.query_history.sqlite"
+        )
         self.report.audit_log_path = str(audit_log_file)
         use_cached_audit_log = audit_log_file.exists()
 
@@ -567,7 +690,24 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     ) -> Iterable[
         Union[PreparsedQuery, TableRename, TableSwap, ObservedQuery, StoredProcCall]
     ]:
-        query_log_query = QueryLogQueryBuilder(
+        # The access_history database-pattern pushdown filters on accessed
+        # objects, which only exist on the enriched path. In query_history mode
+        # the same filtering is applied later by the aggregator's
+        # is_allowed_table/is_temp_table callbacks.
+        push_down_db_pattern = (
+            self.config.push_down_database_pattern_access_history
+            and self.use_access_history
+        )
+        if (
+            self.config.push_down_database_pattern_access_history
+            and not push_down_db_pattern
+        ):
+            self.structured_reporter.warning(
+                "push_down_database_pattern_access_history has no effect in query_history mode",
+                context="Database filtering is applied after SQL parsing instead of being pushed down.",
+            )
+
+        builder = QueryLogQueryBuilder(
             start_time=self.start_time,
             end_time=self.end_time,
             bucket_duration=self.config.window.bucket_duration,
@@ -575,12 +715,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             allow_usernames=self.config.pushdown_allow_usernames,
             dedup_strategy=self.config.query_dedup_strategy,
             database_pattern=self.filters.filter_config.database_pattern
-            if self.config.push_down_database_pattern_access_history
+            if push_down_db_pattern
             else None,
             additional_database_names=self.config.additional_database_names_allowlist
-            if self.config.push_down_database_pattern_access_history
+            if push_down_db_pattern
             else None,
-        ).build_enriched_query_log_query()
+        )
+        if self.use_access_history:
+            query_log_query = builder.build_enriched_query_log_query()
+        else:
+            query_log_query = builder.build_query_history_only_query()
 
         with self.structured_reporter.report_exc(
             "Error fetching query log from Snowflake"
@@ -603,13 +747,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     self.report.num_dynamic_table_refresh_stmts_filtered += 1
                     continue
 
-                # A statement that writes a dynamic table names it in OBJECTS_MODIFIED.
-                if self._row_modifies_dynamic_table(row):
+                # A statement that writes a dynamic table names it in OBJECTS_MODIFIED,
+                # which only exists on the access_history path.
+                if self.use_access_history and self._row_modifies_dynamic_table(row):
                     self.report.num_dynamic_table_write_stmts_filtered += 1
                     continue
 
                 try:
-                    yield from self._parse_audit_log_row(row, users)
+                    if self.use_access_history:
+                        yield from self._parse_audit_log_row(row, users)
+                    else:
+                        yield from self._parse_query_history_row(row, users)
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing query log row",
@@ -736,21 +884,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             else:
                 return
 
-        user = CorpUserUrn(
-            self.identifiers.get_user_identifier(
-                res["user_name"], users.get(res["user_name"])
-            )
-        )
-        extra_info = {
-            "snowflake_query_id": res["query_id"],
-            "snowflake_root_query_id": res["root_query_id"],
-            "snowflake_query_type": res["query_type"],
-            "snowflake_role_name": res["role_name"],
-            "query_duration": res["query_duration"],
-            "rows_inserted": res["rows_inserted"],
-            "rows_updated": res["rows_updated"],
-            "rows_deleted": res["rows_deleted"],
-        }
+        user, extra_info = self._resolve_user_and_extra_info(res, users)
 
         direct_cls = self._classify_audit_log_objects(direct_objects_accessed)
         modified_cls = self._classify_audit_log_objects(objects_modified)
@@ -983,6 +1117,71 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 query_type=query_type,
                 extra_info=extra_info,
             )
+
+    def _resolve_user_and_extra_info(
+        self, res: Dict[str, Any], users: UsersMapping
+    ) -> tuple[CorpUserUrn, Dict[str, Any]]:
+        """Build the user URN and extra_info dict shared by both extraction paths.
+
+        Centralizing this prevents the audit-log and query-history parsers from
+        drifting as fields are added or renamed.
+        """
+        user = CorpUserUrn(
+            self.identifiers.get_user_identifier(
+                res["user_name"], users.get(res["user_name"])
+            )
+        )
+        extra_info = {
+            "snowflake_query_id": res["query_id"],
+            "snowflake_root_query_id": res["root_query_id"],
+            "snowflake_query_type": res["query_type"],
+            "snowflake_role_name": res["role_name"],
+            "query_duration": res["query_duration"],
+            "rows_inserted": res["rows_inserted"],
+            "rows_updated": res["rows_updated"],
+            "rows_deleted": res["rows_deleted"],
+        }
+        return user, extra_info
+
+    def _parse_query_history_row(
+        self, row: Dict[str, Any], users: UsersMapping
+    ) -> Iterable[ObservedQuery]:
+        """Parse a query_history-only row (no access_history object lists) into an
+        ObservedQuery, deferring upstream/downstream extraction to sqlglot in the
+        aggregator."""
+        res = {key.lower(): value for key, value in row.items()}
+
+        timestamp: datetime = res["query_start_time"]
+        timestamp = timestamp.astimezone(timezone.utc)
+
+        snowflake_query_type: str = res["query_type"]
+        self.report.num_query_type_counts[snowflake_query_type] = (
+            self.report.num_query_type_counts.get(snowflake_query_type, 0) + 1
+        )
+        if snowflake_query_type in _NON_TABLE_QUERY_TYPES:
+            self.report.num_query_history_rows_skipped_no_table_access += 1
+            return
+
+        query_text: str = res["query_text"]
+
+        user, extra_info = self._resolve_user_and_extra_info(res, users)
+
+        yield ObservedQuery(
+            query=query_text,
+            session_id=res["session_id"],
+            timestamp=timestamp,
+            user=user,
+            default_db=res["default_db"],
+            default_schema=res["default_schema"],
+            usage_multiplier=res["query_count"],
+            query_hash=get_query_fingerprint(
+                query_text,
+                self.identifiers.platform,
+                fast=True,
+                secondary_id=res["query_secondary_fingerprint"],
+            ),
+            extra_info=extra_info,
+        )
 
     def _build_downstream_targets(
         self,
@@ -1528,6 +1727,45 @@ fingerprinted_queries as (
 SELECT * FROM query_access_history
 -- Our query aggregator expects the queries to be added in chronological order.
 -- It's easier for us to push down the sorting to Snowflake/SQL instead of doing it in Python.
+ORDER BY QUERY_START_TIME ASC
+"""
+
+    def build_query_history_only_query(self) -> str:
+        """Query-log fetch without access_history, for editions where that view is
+        never populated (Standard). Rows are parsed by sqlglot downstream, so this
+        projects the same columns with the access_history lists nulled out; the
+        NULL root_query_id also means stored-proc call grouping is unavailable."""
+        return f"""\
+WITH
+fingerprinted_queries as (
+{self._query_fingerprinted_queries()}
+)
+, deduplicated_queries as (
+{self._query_deduplicated_queries()}
+)
+SELECT
+    q.bucket_start_time,
+    q.query_id,
+    q.query_fingerprint,
+    q.query_secondary_fingerprint,
+    q.query_count,
+    q.session_id AS "SESSION_ID",
+    q.start_time AS "QUERY_START_TIME",
+    q.total_elapsed_time AS "QUERY_DURATION",
+    q.query_text AS "QUERY_TEXT",
+    q.query_type AS "QUERY_TYPE",
+    q.database_name as "DEFAULT_DB",
+    q.schema_name as "DEFAULT_SCHEMA",
+    q.rows_inserted AS "ROWS_INSERTED",
+    q.rows_updated AS "ROWS_UPDATED",
+    q.rows_deleted AS "ROWS_DELETED",
+    q.user_name AS "USER_NAME",
+    q.role_name AS "ROLE_NAME",
+    NULL as root_query_id,
+    NULL as direct_objects_accessed,
+    NULL as objects_modified,
+    NULL as object_modified_by_ddl
+FROM deduplicated_queries q
 ORDER BY QUERY_START_TIME ASC
 """
 
