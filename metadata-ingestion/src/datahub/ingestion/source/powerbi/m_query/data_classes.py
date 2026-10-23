@@ -2,11 +2,22 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
+
 from datahub.configuration.env_vars import get_trace_powerbi_mquery_parser
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 
 TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
+
+
+class ColumnRename(BaseModel):
+    source_name: str
+    renamed_name: str
+
+
+class ColumnRenameStep(BaseModel):
+    renames: List[ColumnRename] = Field(default_factory=list)
 
 
 @dataclass
@@ -44,6 +55,7 @@ class DataAccessFunctionDetail:
     identifier_accessor: Optional[IdentifierAccessor]
     node_map: Dict[int, dict] = field(repr=False)  # full NodeIdMap for ast_utils
     parameters: Dict[str, str] = field(default_factory=dict)
+    column_rename_steps: List[ColumnRenameStep] = field(default_factory=list)
 
 
 @dataclass
@@ -65,6 +77,9 @@ class DataPlatformTable:
 class Lineage:
     upstreams: List[DataPlatformTable]
     column_lineage: List[ColumnLineageInfo]
+    # Table navigation copies Power BI field names onto both sides of an edge.
+    # Native SQL lineage still has the query's output names on the downstream side.
+    downstream_names_are_powerbi_fields: bool = True
 
     @staticmethod
     def empty() -> "Lineage":

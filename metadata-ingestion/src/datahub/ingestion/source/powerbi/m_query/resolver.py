@@ -8,10 +8,13 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
+    get_literal_value,
     get_record_field_values,
     resolve_identifier,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    ColumnRename,
+    ColumnRenameStep,
     DataAccessFunctionDetail,
     FunctionName,
     IdentifierAccessor,
@@ -20,6 +23,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 logger = logging.getLogger(__name__)
 
 _RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
+_TABLE_RENAME_COLUMNS = "Table.RenameColumns"
 
 # The let scopes enclosing the node being walked, outermost first, each as
 # (let id, let node). A nested let is pushed onto the end rather than replacing
@@ -78,9 +82,11 @@ def _walk(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
     if node is None:
         return
+    column_rename_steps = column_rename_steps or []
 
     kind = node.get("kind", "")
 
@@ -99,6 +105,7 @@ def _walk(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -115,6 +122,7 @@ def _walk(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -130,6 +138,7 @@ def _walk(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -145,6 +154,7 @@ def _walk(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -164,6 +174,7 @@ def _walk(
                     results,
                     seen.copy(),
                     parameters,
+                    column_rename_steps,
                 )
         return
 
@@ -179,6 +190,7 @@ def _walk(
                 results,
                 seen,
                 parameters,
+                column_rename_steps,
             )
         return
 
@@ -194,6 +206,7 @@ def _walk(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -207,6 +220,7 @@ def _walk(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         _walk(
             node_map,
@@ -216,6 +230,7 @@ def _walk(
             results,
             seen.copy(),
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -230,7 +245,9 @@ def _walk_recursive_primary(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
+    column_rename_steps = column_rename_steps or []
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
     elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
@@ -244,6 +261,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -260,6 +278,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -283,6 +302,7 @@ def _walk_recursive_primary(
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -295,6 +315,7 @@ def _walk_recursive_primary(
         results,
         seen,
         parameters,
+        column_rename_steps,
     )
 
 
@@ -307,7 +328,9 @@ def _walk_invoke(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
+    column_rename_steps = column_rename_steps or []
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
         callee = head.get("identifier", {}).get("literal")
@@ -320,12 +343,19 @@ def _walk_invoke(
                 identifier_accessor=accessor_chain,
                 node_map=node_map,
                 parameters=parameters or {},
+                column_rename_steps=column_rename_steps,
             )
         )
         return
 
-    # Unrecognized wrapper (Table.RenameColumns, Table.AddColumn, etc.)
-    # Recurse into first argument
+    # Unrecognized wrapper (Table.AddColumn, Table.SelectRows, etc.).
+    # Table.RenameColumns is recorded, then we still follow its table argument.
+    next_steps = column_rename_steps
+    if callee == _TABLE_RENAME_COLUMNS:
+        step = _rename_step(invoke_node)
+        if step:
+            next_steps = [*column_rename_steps, step]
+
     if callee:
         content = invoke_node.get("content", {})
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
@@ -339,6 +369,7 @@ def _walk_invoke(
                     results,
                     seen,
                     parameters,
+                    next_steps,
                 )
                 return  # only first arg
 
@@ -350,6 +381,50 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     if isinstance(elem, dict):
         return elem
     return None
+
+
+def _rename_step(invoke_node: dict) -> Optional[ColumnRenameStep]:
+    """Pairs from Table.RenameColumns' second argument, or None if absent.
+
+    The argument is a list of {old, new} lists. A trailing MissingField argument
+    is ignored. Pairs that are not text literals are skipped.
+    """
+    content = invoke_node.get("content", {})
+    if not isinstance(content, dict) or content.get("kind") != "ArrayWrapper":
+        return None
+    elements = content.get("elements", [])
+    if len(elements) < 2:
+        return None
+    renames = _unwrap_csv(elements[1])
+    if not isinstance(renames, dict) or renames.get("kind") != "ListExpression":
+        return None
+    list_content = renames.get("content", {})
+    if not isinstance(list_content, dict):
+        return None
+
+    renames_in_step: List[ColumnRename] = []
+    for elem in list_content.get("elements", []):
+        pair_node = _unwrap_csv(elem)
+        if not isinstance(pair_node, dict) or pair_node.get("kind") != "ListExpression":
+            continue
+        pair_content = pair_node.get("content", {})
+        if not isinstance(pair_content, dict):
+            continue
+        names: List[str] = []
+        for name_elem in pair_content.get("elements", []):
+            name_node = _unwrap_csv(name_elem)
+            if not isinstance(name_node, dict):
+                continue
+            value = get_literal_value(name_node)
+            if value is not None:
+                names.append(value)
+        if len(names) >= 2:
+            renames_in_step.append(
+                ColumnRename(source_name=names[0], renamed_name=names[1])
+            )
+    if not renames_in_step:
+        return None
+    return ColumnRenameStep(renames=renames_in_step)
 
 
 def _resolve_in_scopes(
@@ -383,6 +458,7 @@ def _walk_identifier_name(
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
     """Resolve a variable name against the enclosing scopes and keep walking."""
     if not name:
@@ -411,4 +487,5 @@ def _walk_identifier_name(
         results,
         seen,
         parameters,
+        column_rename_steps,
     )

@@ -35,6 +35,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     resolve_parameter_value,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    ColumnRenameStep,
     DataAccessFunctionDetail,
     DataPlatformTable,
     FunctionName,
@@ -302,6 +303,90 @@ def _remap_column_lineage_to_pbi_fields(
                 )
         remapped.append(cll_info)
     return remapped
+
+
+def _name_before_renames(name: str, column_rename_steps: List[ColumnRenameStep]) -> str:
+    """Walk outermost-first. Each step is applied as a set, so a swap holds."""
+    for step in column_rename_steps:
+        new_to_old = {
+            rename.renamed_name: rename.source_name for rename in step.renames
+        }
+        name = new_to_old.get(name, name)
+    return name
+
+
+def _name_after_renames(name: str, column_rename_steps: List[ColumnRenameStep]) -> str:
+    for step in reversed(column_rename_steps):
+        old_to_new = {
+            rename.source_name: rename.renamed_name for rename in step.renames
+        }
+        name = old_to_new.get(name, name)
+    return name
+
+
+def apply_table_rename_columns(
+    lineage: Lineage,
+    column_rename_steps: List[ColumnRenameStep],
+    pbi_columns: Optional[List[Column]],
+) -> Lineage:
+    """Point column lineage at Table.RenameColumns names.
+
+    Which side of the edge still has the pre-rename name comes from the lineage
+    producer, not from whether the name happens to match a Power BI field. A
+    native-query output can share a name with a field that a different column
+    was renamed to.
+    """
+    if not column_rename_steps or not lineage.column_lineage:
+        return lineage
+
+    pbi_names = {col.name for col in pbi_columns} if pbi_columns else set()
+    updated: List[ColumnLineageInfo] = []
+    for info in lineage.column_lineage:
+        downstream_name = info.downstream.column if info.downstream else ""
+        if not downstream_name:
+            updated.append(info)
+            continue
+
+        if lineage.downstream_names_are_powerbi_fields:
+            source_name = _name_before_renames(downstream_name, column_rename_steps)
+            if source_name == downstream_name:
+                updated.append(info)
+                continue
+            updated.append(
+                ColumnLineageInfo(
+                    downstream=info.downstream,
+                    upstreams=[
+                        ColumnRef(table=ref.table, column=source_name)
+                        if ref.column == downstream_name
+                        else ref
+                        for ref in info.upstreams
+                    ],
+                    logic=info.logic,
+                )
+            )
+            continue
+
+        renamed = _name_after_renames(downstream_name, column_rename_steps)
+        if renamed == downstream_name or (pbi_names and renamed not in pbi_names):
+            updated.append(info)
+            continue
+        updated.append(
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    table=info.downstream.table,
+                    column=renamed,
+                    column_type=info.downstream.column_type,
+                    native_column_type=info.downstream.native_column_type,
+                ),
+                upstreams=info.upstreams,
+                logic=info.logic,
+            )
+        )
+    return Lineage(
+        upstreams=lineage.upstreams,
+        column_lineage=updated,
+        downstream_names_are_powerbi_fields=lineage.downstream_names_are_powerbi_fields,
+    )
 
 
 def make_urn(
@@ -815,6 +900,7 @@ class AbstractLineage(ABC):
         return Lineage(
             upstreams=dataplatform_tables,
             column_lineage=column_lineage,
+            downstream_names_are_powerbi_fields=False,
         )
 
     def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:
@@ -2180,6 +2266,7 @@ class OdbcLineage(AbstractLineage):
         return Lineage(
             upstreams=updated_upstreams,
             column_lineage=updated_column_lineage,
+            downstream_names_are_powerbi_fields=lineage.downstream_names_are_powerbi_fields,
         )
 
     def _strip_athena_catalog_from_lineage(self, lineage: Lineage) -> Lineage:
