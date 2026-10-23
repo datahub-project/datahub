@@ -22,6 +22,7 @@ from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+    TransformOperationLengthConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
@@ -60,6 +61,9 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
+from datahub.ingestion.workunit_processors.ensure_transform_operation_length import (
+    EnsureTransformOperationLengthProcessor,
+)
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -73,7 +77,10 @@ logger = logging.getLogger(__name__)
 
 
 class SqlQueriesSourceConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    IncrementalLineageConfigMixin,
+    TransformOperationLengthConfigMixin,
 ):
     query_file: str = Field(description="Path to file to ingest")
 
@@ -237,6 +244,7 @@ class SqlQueriesSource(Source):
         return [
             AutoWorkunitsReporterProcessor,
             AutoIncrementalLineageProcessor,
+            EnsureTransformOperationLengthProcessor,
         ]
 
     def get_workunits_internal(

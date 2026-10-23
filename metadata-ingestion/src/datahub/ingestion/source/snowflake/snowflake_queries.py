@@ -15,6 +15,7 @@ import pydantic
 from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.source_common import TransformOperationLengthConfigMixin
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -197,7 +198,10 @@ class SnowflakeQueriesExtractorConfig(ConfigModel):
 
 
 class SnowflakeQueriesSourceConfig(
-    SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
+    SnowflakeQueriesExtractorConfig,
+    SnowflakeIdentifierConfig,
+    SnowflakeFilterConfig,
+    TransformOperationLengthConfigMixin,
 ):
     connection: SnowflakeConnectionConfig
 

@@ -5,6 +5,7 @@ from typing import Iterable, Optional
 from pydantic import Field
 from typing_extensions import Self
 
+from datahub.configuration.source_common import TransformOperationLengthConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -48,7 +49,10 @@ class BigQueryQueriesSourceReport(SourceReport):
 
 
 class BigQueryQueriesSourceConfig(
-    BigQueryQueriesExtractorConfig, BigQueryFilterConfig, BigQueryIdentifierConfig
+    BigQueryQueriesExtractorConfig,
+    BigQueryFilterConfig,
+    BigQueryIdentifierConfig,
+    TransformOperationLengthConfigMixin,
 ):
     connection: BigQueryConnectionConfig = Field(
         default_factory=BigQueryConnectionConfig

@@ -8,6 +8,7 @@ from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+    TransformOperationLengthConfigMixin,
 )
 from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -602,7 +603,10 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 
 class SigmaSourceConfig(
-    StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
+    StatefulIngestionConfigBase,
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    TransformOperationLengthConfigMixin,
 ):
     api_url: str = pydantic.Field(
         default=Constant.DEFAULT_API_URL, description="Sigma API hosted URL."

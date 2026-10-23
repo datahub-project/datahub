@@ -22,6 +22,7 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -645,6 +646,35 @@ class TestSqlQueriesSource:
         source = SqlQueriesSource(pipeline_context, config)
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
+
+    def test_max_transform_operation_length_truncates_column_logic(
+        self, pipeline_context, query_file_with
+    ):
+        path = query_file_with(
+            [
+                _query_line(
+                    query="INSERT INTO target_table SELECT col_a + col_b AS total FROM source_table"
+                )
+            ]
+        )
+        source = _make_source(
+            pipeline_context,
+            path,
+            use_schema_resolver=False,
+            max_transform_operation_length=5,
+        )
+
+        operations = [
+            fgl.transformOperation
+            for wu in source.get_workunits()
+            if (lineage := wu.get_aspect_of_type(UpstreamLineageClass))
+            for fgl in lineage.fineGrainedLineages or []
+        ]
+        assert len(operations) == 1
+        assert operations[0] is not None
+        assert operations[0].startswith("SQL: ")
+        assert len(operations[0]) == len("SQL: ") + 5 + len("...")
+        assert operations[0].endswith("...")
 
 
 # ── Error handling tests ─────────────────────────────────────────────────
