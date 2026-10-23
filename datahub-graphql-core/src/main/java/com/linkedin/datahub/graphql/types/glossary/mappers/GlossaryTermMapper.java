@@ -10,6 +10,7 @@ import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -25,6 +26,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
@@ -131,6 +133,10 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         ((glossaryTerm, dataMap) ->
             glossaryTerm.setDisplayProperties(
                 DisplayPropertiesMapper.map(context, new DisplayProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        STATUS_ASPECT_NAME,
+        (glossaryTerm, dataMap) ->
+            glossaryTerm.setStatus(StatusMapper.map(context, new Status(dataMap))));
     mappingHelper.mapToResult(
         VERSION_PROPERTIES_ASPECT_NAME,
         (entity, dataMap) ->
