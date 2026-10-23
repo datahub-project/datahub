@@ -128,15 +128,11 @@ public class SearchTemplateBootstrapTest {
     Set<String> urns = SearchTemplateBootstrap.urns();
     assertTrue(urns.contains(STRUCTURED));
     assertTrue(urns.contains(ENTRY));
-    assertTrue(urns.contains("urn:li:searchTemplate:browseV2"));
-    assertTrue(urns.contains("urn:li:searchTemplate:browseV2List"));
-    assertTrue(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
-    assertNull(
-        loader.load(harness.opContext, "urn:li:searchTemplate:browseV2List").getFunctionScore());
-    assertNull(
-        loader
-            .load(harness.opContext, "urn:li:searchTemplate:browseV2Fulltext")
-            .getFunctionScore());
+    assertFalse(urns.contains("urn:li:searchTemplate:lineage"));
+    assertFalse(urns.contains("urn:li:searchTemplate:browseV2"));
+    assertFalse(urns.contains("urn:li:searchTemplate:browseV2List"));
+    assertFalse(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
+    assertTrue(urns.contains("urn:li:searchTemplate:listUrn"));
     for (String urn : urns) {
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       SearchTemplateChecks.check(shipped, 1024);
@@ -145,6 +141,10 @@ public class SearchTemplateBootstrapTest {
 
     SearchTemplateProperties fulltext =
         SearchTemplateBootstrap.get("urn:li:searchTemplate:fulltext");
+    MergedSearchTemplate listUrn = loader.load(harness.opContext, "urn:li:searchTemplate:listUrn");
+    assertNull(listUrn.getFunctionScore());
+    assertNull(listUrn.getBoosts());
+    assertTrue(listUrn.getSort().contains("\"urn\""));
     Map<String, Object> context =
         SearchTemplateMustache.validationContext(fulltext.getFunctionScore());
     @SuppressWarnings("unchecked")

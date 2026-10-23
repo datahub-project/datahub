@@ -871,18 +871,21 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         return None, None
 
     def _extract_test_info(
-        self, node: Dict, name: str
+        self, node: Dict
     ) -> Tuple[Optional[DBTTest], Optional[DBTTestResult]]:
         """Extract test info and result from a test node."""
-        qualified_test_name = name
+        # A generic test depends on its `test_<name>` macro. A singular test has no such
+        # macro (it may still call other macros), so like dbt Core it gets no test type.
+        qualified_test_name = ""
 
         for dependency in node["dependsOn"]:
             if dependency.startswith("macro."):
                 _, macro = dependency.split(".", 1)
-                if macro.startswith("dbt."):
-                    if not macro.startswith("dbt.test_"):
-                        continue
-                    macro = macro[len("dbt.test_") :]
+                namespace, _, macro_name = macro.rpartition(".")
+                if not macro_name.startswith("test_"):
+                    continue
+                if namespace == "dbt":
+                    macro = macro_name[len("test_") :]
 
                 qualified_test_name = macro
                 break
@@ -1039,7 +1042,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         test_info = None
         test_result = None
         if resource_type == "test":
-            test_info, test_result = self._extract_test_info(node, name)
+            test_info, test_result = self._extract_test_info(node)
 
         # Determine language - semantic models are YAML, others are SQL
         language = "yaml" if resource_type == "semantic_model" else "sql"

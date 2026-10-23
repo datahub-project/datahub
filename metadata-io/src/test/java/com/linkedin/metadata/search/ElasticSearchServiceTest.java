@@ -549,7 +549,7 @@ public class ElasticSearchServiceTest {
   }
 
   @Test
-  public void testBrowseV2ForcesBrowseSurface() {
+  public void testBrowseV2ClearsIncomingSurface() {
     OperationContext tagged =
         opContext
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
@@ -580,8 +580,7 @@ public class ElasticSearchServiceTest {
             eq(10));
     assertEquals(contextCaptor.getAllValues().size(), 2);
     for (OperationContext browse : contextCaptor.getAllValues()) {
-      assertEquals(
-          browse.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.BROWSE_ENTITIES);
+      assertNull(browse.getSearchContext().getSearchSurface());
       assertNull(browse.getSearchContext().getResolvedSearchTemplate());
     }
   }

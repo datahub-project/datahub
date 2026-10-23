@@ -6,7 +6,7 @@ description: "Search V3 design: a template-based query builder on shared, unifie
 
 Search V2 and Search V2.5 stay as they are until they are deprecated.
 
-Search V3 templates change ranking once `SEARCH_V3_TEMPLATES_ENABLED` and Search V3 keyword read are on. Until then, `search_config.yaml` and the Java query builder still apply. Turning the flag on needs a GMS restart. Editing a template body does not.
+Search V3 templates change ranking once `SEARCH_V3_TEMPLATES_ENABLED` and Search V3 keyword read are on. Until then, `search_config.yaml` and the Java query builder still apply. Turning the flag on needs a GMS restart. Editing a template body does not. The enable and disable switches are listed in [Environment Variables](../deploy/environment-vars.md#search-v3-feature-switches).
 
 Search V3 is a template-based query builder on shared, unified fields. The builder renders a `searchTemplate`, addressed by URN, into the query. An operator changes relevance by writing that URN. A caller changes one request by selecting one.
 
@@ -452,7 +452,7 @@ System filters, the caller's filter, and view authorization wrap every keyword r
 
 ### Selection
 
-A caller-supplied template URN is the entry. Its merged `routes` still run, so naming a child of a seed follows the routes that child inherited. An explicit empty `routes` list is what pins one template. On a search, the ladder then follows `next`. Scroll does not. Otherwise the surface, the engine, and the fulltext flag select a seed, and that seed's routes choose the template. Lineage search is its own surface, so the entity search after a lineage walk can use its own seed. `fulltext=false` selects the structured seed, because that flag is not part of the query text. Both seeds carry the identity and list routes.
+A caller-supplied template URN is the entry. Its merged `routes` still run, so naming a child of a seed follows the routes that child inherited. An explicit empty `routes` list is what pins one template. On a search, the ladder then follows `next`. Scroll does not. Otherwise the surface, the engine, and the fulltext flag select a seed, and that seed's routes choose the template. Lineage search uses the same seed as entity search. The graph walk adds a URN filter outside the template. Browse text uses the `search` router. Browse path, depth, and group aggregation stay in Java. `fulltext=false` selects the structured seed, because that flag is not part of the query text. Both seeds carry the identity and list routes.
 
 Routes match the trimmed query in the escaped form the service already uses. Each pattern is a full-string match, so a prefix consumes the rest of the query. The first match wins. A query that matches none stays on the current template unless that template sets a default target, so a seed does not need a catch-all `.*` route. The structured prefix is the characters `\/q `, including the leading backslash. Identity, list, and the structured routes precede the quoted route.
 

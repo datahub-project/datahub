@@ -2,12 +2,16 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_STRUCTURED_URN;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -15,11 +19,19 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.SessionActorIdentity;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -66,11 +78,13 @@ import com.linkedin.search.template.SearchTemplateBoost;
 import com.linkedin.search.template.SearchTemplateBoostArray;
 import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -542,6 +556,113 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testViewerDomainBoostChangesRenderedListAndCacheIdentity() {
+    Urn finance = UrnUtils.getUrn("urn:li:domain:finance");
+    when(retriever.getLatestAspectObject(any(), eq(USER), eq("domains")))
+        .thenReturn(new Aspect(new Domains().setDomains(new UrnArray(finance)).data()));
+
+    SearchTemplateProperties scored = body("List", "{ \"match_all\": {} }", null);
+    SearchTemplateBoost boost = new SearchTemplateBoost();
+    boost.setField("domains_urn");
+    boost.setValues(SearchTemplateViewer.DOMAINS);
+    boost.setWeight(1.25);
+    scored.setBoosts(new SearchTemplateBoostArray(boost));
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, scored);
+
+    OperationContext financeViewer =
+        opContext.asSession(
+            RequestContext.TEST,
+            Authorizer.EMPTY,
+            new Authentication(new Actor(ActorType.USER, USER.getId()), ""));
+    Urn other = UrnUtils.getUrn("urn:li:corpuser:other");
+    OperationContext otherViewer =
+        opContext.asSession(
+            RequestContext.TEST,
+            Authorizer.EMPTY,
+            new Authentication(new Actor(ActorType.USER, other.getId()), ""));
+    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    OperationContext financeBound = coordinator.bind(financeViewer, "customer orders");
+    OperationContext otherBound = coordinator.bind(otherViewer, "customer orders");
+
+    String financeKey =
+        financeBound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
+    String otherKey = otherBound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
+    assertTrue(financeKey.contains("@domains=[\"urn:li:domain:finance\"]"), financeKey);
+    assertTrue(otherKey.contains("@domains=[]"), otherKey);
+    assertFalse(financeKey.equals(otherKey));
+
+    SearchTemplateRenderer renderer =
+        new SearchTemplateRenderer(loader, new SearchConfiguration(), null);
+    String financeQuery =
+        renderer
+            .render(financeBound, List.of(TestEntitySpecBuilder.getSpec()), "customer orders", true)
+            .toString();
+    String otherQuery =
+        renderer
+            .render(otherBound, List.of(TestEntitySpecBuilder.getSpec()), "customer orders", true)
+            .toString();
+    assertTrue(financeQuery.contains("domains_urn"), financeQuery);
+    assertTrue(financeQuery.contains("urn:li:domain:finance"), financeQuery);
+    assertTrue(financeQuery.contains("1.25"), financeQuery);
+    assertFalse(otherQuery.contains("1.25"), otherQuery);
+  }
+
+  @Test
+  public void testShippedListRendersViewerOwnerAndGroupBoosts() {
+    installShippedRoutes();
+    Map<String, Object> searchLight = new HashMap<>();
+    searchLight.put("default", "urn:li:searchTemplate:searchLight");
+    templates.setSurfaces(
+        Map.of(SearchTemplateSurfaces.SEARCH_ENTITIES, Map.of("fulltext", searchLight)));
+    Urn team = UrnUtils.getUrn("urn:li:corpGroup:rankTeam");
+    Authorizer authorizer =
+        new Authorizer() {
+          @Override
+          public Optional<SessionActorIdentity> resolveSessionActorIdentity(Urn actorUrn) {
+            return Optional.of(new SessionActorIdentity(actorUrn, List.of(team), Set.of()));
+          }
+
+          @Override
+          public List<Urn> getActorGroups(Urn actorUrn) {
+            return List.of(team);
+          }
+        };
+    OperationContext viewer =
+        OperationContext.asSession(
+                opContext,
+                RequestContext.TEST,
+                authorizer,
+                new Authentication(new Actor(ActorType.USER, USER.getId()), ""),
+                false)
+            .withSearchFlags(flags -> flags.setFulltext(true))
+            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
+    for (String templateUrn : SearchTemplateBootstrap.urns()) {
+      store(templateUrn, SearchTemplateBootstrap.get(templateUrn));
+    }
+    SearchTemplateLoader storage = new SearchTemplateLoader(0, SearchTemplateSource.STORAGE);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(v3Config(), null, storage);
+    OperationContext bound = coordinator.bind(viewer, "*");
+    assertEquals(
+        bound.getSearchContext().getResolvedSearchTemplate().getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    MergedSearchTemplate list = storage.load(bound, SEARCH_TEMPLATE_LIST_URN);
+    assertNotNull(list.getFunctionScore());
+    assertFalse(list.isClasspathBridge());
+    assertNotNull(list.getBoosts());
+    String rendered =
+        new SearchTemplateRenderer(storage, new SearchConfiguration(), null)
+            .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "*", true)
+            .toString();
+
+    assertTrue(rendered.contains(USER.toString()), rendered);
+    assertTrue(rendered.contains(team.toString()), rendered);
+    assertTrue(rendered.contains("owners_urn"), rendered);
+    String key = bound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
+    assertTrue(key.contains("@viewer=" + USER), key);
+    assertTrue(key.contains("@groups=[\"" + team + "\"]"), key);
+  }
+
+  @Test
   public void testDomainListFromPoliciesKeepsSeeds() {
     Urn finance = UrnUtils.getUrn("urn:li:domain:finance");
     Urn child = UrnUtils.getUrn("urn:li:domain:payments");
@@ -586,8 +707,6 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     SearchTemplateFixtures.setShippedLimits(shipped);
     Map<String, Object> search = new HashMap<>();
     search.put("default", SEARCH_TEMPLATE_SEARCH_URN);
-    Map<String, Object> browse = new HashMap<>();
-    browse.put("default", "urn:li:searchTemplate:browseV2");
     Map<String, Object> structured = new HashMap<>();
     structured.put("default", SEARCH_TEMPLATE_STRUCTURED_URN);
     shipped.setDefaults(Map.of("fulltext", search, "structured", structured));
@@ -596,9 +715,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             SearchTemplateSurfaces.AGGREGATE_ENTITIES,
             Map.of("fulltext", search),
             SearchTemplateSurfaces.SCROLL_ENTITIES,
-            Map.of("fulltext", search),
-            SearchTemplateSurfaces.BROWSE_ENTITIES,
-            Map.of("fulltext", browse)));
+            Map.of("fulltext", search)));
     templates = shipped;
     try {
       ElasticSearchConfiguration elastic = v3Config();
@@ -609,26 +726,22 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
           opContext.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES);
       assertEquals(
           routeChain(aggregate, "*"),
-          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_URN));
+          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_BY_URN_URN));
       assertEquals(
           routeChain(aggregate, "orders"),
           List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
       assertFalse(routeChain(aggregate, "orders").contains("urn:li:searchTemplate:light"));
 
       OperationContext browsing =
-          opContext
-              .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
-              .withResolvedSearchTemplate(null);
+          opContext.withSearchSurface(null).withResolvedSearchTemplate(null);
       assertEquals(
           routeChain(browsing, "*"),
-          List.of("urn:li:searchTemplate:browseV2", "urn:li:searchTemplate:browseV2List"));
+          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_BY_URN_URN));
       assertEquals(
           routeChain(browsing, "orders"),
-          List.of("urn:li:searchTemplate:browseV2", "urn:li:searchTemplate:browseV2Fulltext"));
-      assertNull(
-          classpath.load(opContext, "urn:li:searchTemplate:browseV2List").getFunctionScore());
-      assertNull(
-          classpath.load(opContext, "urn:li:searchTemplate:browseV2Fulltext").getFunctionScore());
+          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
+      assertNull(classpath.load(opContext, SEARCH_TEMPLATE_LIST_BY_URN_URN).getFunctionScore());
+      assertNotNull(classpath.load(opContext, SEARCH_TEMPLATE_FULLTEXT_URN).getFunctionScore());
 
       SearchRequestHandler handler =
           SearchRequestHandler.getBuilder(
@@ -643,7 +756,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       assertFalse(star.contains("function_score"), star);
       String keyword = handler.getQuery(browsing, "orders", true).toString();
       assertTrue(keyword.contains("simple_query_string"), keyword);
-      assertFalse(keyword.contains("function_score"), keyword);
+      assertTrue(keyword.contains("function_score"), keyword);
 
       OperationContext counting =
           aggregate.withSearchFlags(
@@ -932,7 +1045,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         "{ \"window_size\": 10, \"query\": { \"rescore_query\": { \"match_all\": {} }, \"query_weight\": 1.0, \"rescore_query_weight\": 1.0 } }");
     list.setAggregations(
         "{ \"platform\": { \"terms\": { \"field\": \"stolen\", \"size\": 5000 } }, \"groups\": { \"terms\": { \"field\": \"browsePathV2\", \"size\": 3 } } }");
-    store(SEARCH_TEMPLATE_LIST_URN, list);
+    store(SEARCH_TEMPLATE_LIST_BY_URN_URN, list);
     expire();
     ElasticSearchConfiguration elastic = v3Config();
     SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
@@ -965,6 +1078,9 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         SEARCH_TEMPLATE_LIST_URN,
         pinned("List", "{ \"term\": { \"templateMarker\": \"list-body\" } }"));
     store(
+        SEARCH_TEMPLATE_LIST_BY_URN_URN,
+        pinned("List by URN", "{ \"term\": { \"templateMarker\": \"complete-list-body\" } }"));
+    store(
         "urn:li:searchTemplate:customList",
         pinned("Custom", "{ \"term\": { \"templateMarker\": \"custom-body\" } }"));
     ElasticSearchConfiguration elastic = v3Config();
@@ -990,10 +1106,10 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .source()
             .query()
             .toString();
-    assertTrue(filterQuery.contains("list-body"), filterQuery);
-    assertTrue(countQuery.contains("list-body"), countQuery);
+    assertTrue(filterQuery.contains("complete-list-body"), filterQuery);
+    assertTrue(countQuery.contains("complete-list-body"), countQuery);
     assertFalse(occupancyCountQuery.contains("list-body"), occupancyCountQuery);
-    assertTrue(aggregateQuery.contains("list-body"), aggregateQuery);
+    assertTrue(aggregateQuery.contains("complete-list-body"), aggregateQuery);
     assertTrue(
         dao
             .buildAggregateByValue(opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10)
@@ -1028,9 +1144,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     String lineageQuery =
         handler
             .getQuery(
-                opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE),
-                "*",
-                true)
+                opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES), "*", true)
             .toString();
     String keywordQuery =
         handler
@@ -1039,8 +1153,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .query()
             .toString();
     assertTrue(searchQuery.contains("list-body"), searchQuery);
-    assertTrue(scrollQuery.contains("list-body"), scrollQuery);
-    assertTrue(browseQuery.contains("list-body"), browseQuery);
+    assertTrue(scrollQuery.contains("complete-list-body"), scrollQuery);
+    assertTrue(browseQuery.contains("complete-list-body"), browseQuery);
     assertTrue(lineageQuery.contains("list-body"), lineageQuery);
     assertTrue(keywordQuery.contains("simple_query_string"), keywordQuery);
     assertTrue(keywordQuery.contains("customer orders"), keywordQuery);

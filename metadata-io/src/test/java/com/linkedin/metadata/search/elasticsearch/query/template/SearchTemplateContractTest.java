@@ -63,9 +63,6 @@ public class SearchTemplateContractTest {
 
   @Test
   public void testShippedTemplatesDeclareVersionOneAndSystemIds() {
-    assertTrue(
-        SEARCH_TEMPLATE_SYSTEM_IDS.containsAll(
-            List.of("browseV2", "browseV2List", "browseV2Fulltext")));
     for (String urn : SearchTemplateBootstrap.urns()) {
       String id = UrnUtils.getUrn(urn).getEntityKey().get(0);
       assertTrue(SEARCH_TEMPLATE_SYSTEM_IDS.contains(id), urn);
@@ -223,7 +220,7 @@ public class SearchTemplateContractTest {
     assertFalse(versionRejected.isEmpty());
     assertTrue(versionRejected.get(0).getMessage().contains("apiVersion 2"));
 
-    for (String id : List.of("browseV2", "browseV2List", "browseV2Fulltext")) {
+    for (String id : List.of("search", "fulltext", "searchLight")) {
       Urn urn = UrnUtils.getUrn("urn:li:searchTemplate:" + id);
       List<AspectValidationException> rejected =
           validate(validator, retrieverContext, item(urn, USER, ChangeType.UPSERT, body(id)));

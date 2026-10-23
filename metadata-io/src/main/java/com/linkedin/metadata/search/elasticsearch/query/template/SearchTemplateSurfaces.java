@@ -8,15 +8,12 @@ public final class SearchTemplateSurfaces {
   public static final String SEARCH_ENTITIES = "searchEntities";
   public static final String SCROLL_ENTITIES = "scrollEntities";
   public static final String AGGREGATE_ENTITIES = "aggregateEntities";
-  public static final String BROWSE_ENTITIES = "browseEntities";
-  public static final String SEARCH_ENTITIES_LINEAGE = "searchEntitiesLineage";
-  public static final String SCROLL_ENTITIES_LINEAGE = "scrollEntitiesLineage";
 
   private SearchTemplateSurfaces() {}
 
   /**
-   * Page search and scroll fill a missing surface. Browse, aggregate, and lineage set theirs
-   * earlier and keep it.
+   * Page search and scroll fill a missing surface. Aggregate sets its surface earlier and keeps it.
+   * Browse clears an incoming surface so it uses the global seed.
    */
   @Nonnull
   public static OperationContext withDefault(

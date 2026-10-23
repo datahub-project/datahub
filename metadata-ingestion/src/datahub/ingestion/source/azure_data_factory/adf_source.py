@@ -20,7 +20,8 @@ Usage:
 """
 
 import logging
-from typing import Any, Iterable, Optional
+from collections import deque
+from typing import Any, Iterable, Iterator, Optional
 
 from azure.mgmt.datafactory.models import (
     Activity,
@@ -449,8 +450,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
             yield from dataflow.as_workunits()
 
-            # Emit activities as DataJobs
-            for activity in pipeline.activities or []:
+            # Emit activities as DataJobs, using BFS to recurse into container
+            # activities (ForEach, IfCondition, Until, Switch) so nested activities
+            # like Copy also get DataJobs with proper lineage.
+            for activity in self._walk_activities(pipeline.activities or []):
                 self.report.report_activity_scanned()
 
                 datajob = self._create_datajob(
@@ -636,6 +639,51 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         return datajob
 
+    def _walk_activities(self, activities: Iterable[Activity]) -> Iterator[Activity]:
+        """Breadth-first walk over a pipeline's activities, descending into
+        ForEach/IfCondition/Until/Switch children via _get_nested_activities."""
+        activities_to_process: deque[Activity] = deque(activities)
+        # Keyed by id() but holding each activity: keeping the reference alive
+        # stops CPython from reusing a freed activity's id for a child built
+        # later (SDK-like wrappers can build children per attribute access),
+        # which would wrongly mark that child as already visited.
+        visited: dict[int, Activity] = {}
+        while activities_to_process:
+            activity = activities_to_process.popleft()
+            if id(activity) in visited:
+                # Defends against a malformed/self-referencing pipeline
+                # definition looping forever; a well-formed pipeline's
+                # activities form a tree, so this never triggers in practice.
+                continue
+            visited[id(activity)] = activity
+            yield activity
+            activities_to_process.extend(self._get_nested_activities(activity))
+
+    def _get_nested_activities(self, activity: Activity) -> list[Activity]:
+        """Extract nested child activities from container activities.
+
+        Handles ForEach/Until (activity.activities),
+        IfCondition (activity.if_true_activities + activity.if_false_activities),
+        and Switch (activity.cases[].activities + activity.default_activities).
+
+        Returns a flat list of child activities.
+        """
+        nested: list[Activity] = []
+
+        activity_type = activity.type or ""
+
+        if activity_type in ("ForEach", "Until"):
+            nested.extend(getattr(activity, "activities", None) or [])
+        elif activity_type == "IfCondition":
+            nested.extend(getattr(activity, "if_true_activities", None) or [])
+            nested.extend(getattr(activity, "if_false_activities", None) or [])
+        elif activity_type == "Switch":
+            for case in getattr(activity, "cases", None) or []:
+                nested.extend(getattr(case, "activities", None) or [])
+            nested.extend(getattr(activity, "default_activities", None) or [])
+
+        return nested
+
     def _extract_activity_inputs(
         self, activity: Activity, factory_key: str
     ) -> list[DatasetUrnOrStr]:
@@ -656,6 +704,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         if activity.type == "ExecuteDataFlow":
             data_flow_inputs = self._extract_data_flow_sources(activity, factory_key)
             inputs.extend(data_flow_inputs)
+
+        # Process Lookup activities - the dataset reference is the input
+        if activity.type == "Lookup":
+            dataset_ref = getattr(activity, "dataset", None)
+            if dataset_ref:
+                ref_name = getattr(dataset_ref, "reference_name", None)
+                if ref_name:
+                    dataset_urn = self._resolve_dataset_urn(ref_name, factory_key)
+                    if dataset_urn:
+                        inputs.append(str(dataset_urn))
+                        self.report.report_lineage_extracted("dataset")
 
         # Process source in typeProperties (for Copy activities)
         # SDK CopyActivity has source attribute directly, not in type_properties dict

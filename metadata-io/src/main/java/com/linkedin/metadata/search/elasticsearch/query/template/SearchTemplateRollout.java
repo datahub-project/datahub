@@ -67,8 +67,7 @@ public final class SearchTemplateRollout {
   }
 
   public static boolean scrollSurface(@Nullable String surface) {
-    return SearchTemplateSurfaces.SCROLL_ENTITIES.equals(surface)
-        || SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE.equals(surface);
+    return SearchTemplateSurfaces.SCROLL_ENTITIES.equals(surface);
   }
 
   @Nonnull
@@ -108,9 +107,6 @@ public final class SearchTemplateRollout {
       case SearchTemplateSurfaces.SEARCH_ENTITIES -> rollout.getSearchEntities();
       case SearchTemplateSurfaces.SCROLL_ENTITIES -> rollout.getScrollEntities();
       case SearchTemplateSurfaces.AGGREGATE_ENTITIES -> rollout.getAggregateEntities();
-      case SearchTemplateSurfaces.BROWSE_ENTITIES -> rollout.getBrowseEntities();
-      case SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE -> rollout.getSearchEntitiesLineage();
-      case SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE -> rollout.getScrollEntitiesLineage();
       default -> null;
     };
   }
@@ -124,11 +120,6 @@ public final class SearchTemplateRollout {
       case SearchTemplateSurfaces.SEARCH_ENTITIES -> rollout.getSearchEntitiesPercent();
       case SearchTemplateSurfaces.SCROLL_ENTITIES -> rollout.getScrollEntitiesPercent();
       case SearchTemplateSurfaces.AGGREGATE_ENTITIES -> rollout.getAggregateEntitiesPercent();
-      case SearchTemplateSurfaces.BROWSE_ENTITIES -> rollout.getBrowseEntitiesPercent();
-      case SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE ->
-          rollout.getSearchEntitiesLineagePercent();
-      case SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE ->
-          rollout.getScrollEntitiesLineagePercent();
       default -> -1;
     };
   }

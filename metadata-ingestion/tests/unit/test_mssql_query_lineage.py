@@ -486,10 +486,10 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "query_text": "SELECT * FROM users WHERE id = 1",
             "execution_count": 5,
             "total_exec_time_ms": 100.5,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
         {
@@ -497,10 +497,10 @@ def test_mssql_lineage_extractor_extract_queries_from_query_store():
             "query_text": "INSERT INTO orders VALUES (1, 'test')",
             "execution_count": 3,
             "total_exec_time_ms": 50.2,
-            "user_name": "admin",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
     ]
@@ -548,10 +548,10 @@ def test_mssql_lineage_extractor_extract_queries_respects_min_calls():
             "query_text": "SELECT * FROM users",
             "execution_count": 10,  # Above threshold, would be returned by SQL
             "total_exec_time_ms": 100.5,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
         # Query with execution_count=3 would be filtered by SQL WHERE clause
@@ -602,10 +602,10 @@ def test_mssql_lineage_extractor_extract_queries_applies_exclude_patterns():
             "query_text": "SELECT * FROM users",
             "execution_count": 5,
             "total_exec_time_ms": 100.5,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
         # Queries with sys.tables and msdb.dbo.jobs would be filtered by SQL WHERE clause
@@ -874,10 +874,10 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "query_text": "SELECT * FROM users",
             "execution_count": 5,
             "total_exec_time_ms": 100.0,
-            "user_name": "test_user",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
         {
@@ -885,10 +885,10 @@ def test_mssql_lineage_extractor_malformed_query_text():
             "query_text": "",  # Empty text
             "execution_count": 3,
             "total_exec_time_ms": 50.0,
-            "user_name": "admin",
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
     ]
@@ -1538,7 +1538,6 @@ def test_mssql_very_long_query_text_handling():
             "last_execution_time_utc": None,
             "window_execution_count": None,
             "session_key": None,
-            "user_name": "testuser",
         }
     ]
 
@@ -1605,10 +1604,9 @@ def test_mssql_exclude_patterns_with_tsql_special_chars():
 
 def test_mssql_user_attribution_not_supported():
     """
-    Document that user_name extraction is not supported in MSSQL.
-
-    Query Store and DMV queries don't preserve historical user session context.
-    The user_name field has been removed from MSSQLQueryEntry.
+    Query Store and DMV queries don't preserve historical user session context,
+    so the default query_store source never attributes users. The audit_log and
+    extended_events sources do (see test_mssql_query_log.py).
     """
     mock_connection = Mock()
 
@@ -1632,6 +1630,7 @@ def test_mssql_user_attribution_not_supported():
             "database_name": "TestDB",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         }
     ]
@@ -1698,6 +1697,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "query_id": "1",
             "last_execution_time_utc": datetime(2026, 1, 1, 9, 30),
             "window_execution_count": 4,
+            "user_name": None,
             "session_key": None,
         },
         {
@@ -1705,6 +1705,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "query_id": "1",
             "last_execution_time_utc": datetime(2026, 1, 1, 10, 45),
             "window_execution_count": 6,
+            "user_name": None,
             "session_key": None,
         },
         {
@@ -1713,6 +1714,7 @@ def test_mssql_query_store_rows_grouped_into_windowed_executions():
             "query_text": "INSERT INTO archive SELECT * FROM orders",
             "last_execution_time_utc": None,
             "window_execution_count": None,
+            "user_name": None,
             "session_key": None,
         },
     ]

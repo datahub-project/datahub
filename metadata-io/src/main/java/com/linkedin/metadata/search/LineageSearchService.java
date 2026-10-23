@@ -38,7 +38,6 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
@@ -905,11 +904,8 @@ public class LineageSearchService {
           buildLineageSearchResult(
               opContext,
               _searchService.searchAcrossEntities(
-                  opContext
-                      .withSearchFlags(
-                          flags ->
-                              applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS))
-                      .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE),
+                  opContext.withSearchFlags(
+                      flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
                   entitiesToQuery,
                   input,
                   finalFilter,
@@ -1192,10 +1188,8 @@ public class LineageSearchService {
       @Nullable Integer size) {
 
     OperationContext finalOpContext =
-        opContext
-            .withSearchFlags(
-                flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS))
-            .withSearchSurface(SearchTemplateSurfaces.SCROLL_ENTITIES_LINEAGE);
+        opContext.withSearchFlags(
+            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS));
     size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
     LineageScrollResult finalResult =

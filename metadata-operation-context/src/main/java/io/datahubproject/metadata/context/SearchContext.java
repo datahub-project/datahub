@@ -91,9 +91,9 @@ public class SearchContext implements ContextInterface {
   @Nullable private final List<String> prioritizedDatahubEntityTypes;
 
   /**
-   * Search V3 template surface ({@code searchEntities}, {@code scrollEntitiesLineage}, ...).
-   * Selection reads this. It is not an API operation name and not itself a cache component; the
-   * resolved template URN is.
+   * Search V3 template surface ({@code searchEntities}, {@code scrollEntities}, ...). Selection
+   * reads this. It is not an API operation name and not itself a cache component; the resolved
+   * template URN is.
    */
   @Nullable private final String searchSurface;
 

@@ -21,6 +21,16 @@ public final class TopHitScorer {
                 + (result.getHits().isEmpty() ? "<none>" : result.getHits().get(0).getUrn()));
       }
     }
+    JsonNode expectedOrder = judgment.get("expectedOrder");
+    if (expectedOrder != null && expectedOrder.isArray()) {
+      List<String> expected = new ArrayList<>();
+      expectedOrder.forEach(node -> expected.add(node.asText()));
+      List<String> actual = new ArrayList<>();
+      result.getHits().forEach(hit -> actual.add(hit.getUrn()));
+      if (!expected.equals(actual)) {
+        failures.add("expected order " + expected + " but was " + actual);
+      }
+    }
     JsonNode ordered = judgment.get("orderedContains");
     if (ordered != null && ordered.isArray()) {
       for (int i = 0; i < ordered.size(); i++) {
@@ -74,6 +84,9 @@ public final class TopHitScorer {
         }
       }
     }
+    if (judgment.path("expectNoHits").asBoolean(false) && !result.getHits().isEmpty()) {
+      failures.add("expected no hits but found " + result.getHits().size());
+    }
     if (judgment.path("scoresStrictlyDescending").asBoolean(false)) {
       if (result.getHits().size() < 2
           || !(result.getHits().get(0).getScore() > result.getHits().get(1).getScore())) {
@@ -105,7 +118,13 @@ public final class TopHitScorer {
     if (!failures.isEmpty()) {
       String hits =
           result.getHits().stream()
-              .map(hit -> hit.getUrn() + " score=" + hit.getScore())
+              .map(
+                  hit ->
+                      hit.getUrn()
+                          + " score="
+                          + hit.getScore()
+                          + " matched="
+                          + hit.getMatchedFields())
               .reduce((left, right) -> left + " | " + right)
               .orElse("<none>");
       throw new AssertionError(

@@ -577,28 +577,28 @@ public class Constants {
   public static final String SEARCH_TEMPLATE_FULLTEXT_URN = "urn:li:searchTemplate:fulltext";
   public static final String SEARCH_TEMPLATE_LIGHT_URN = "urn:li:searchTemplate:light";
   public static final String SEARCH_TEMPLATE_LIST_URN = "urn:li:searchTemplate:list";
+  public static final String SEARCH_TEMPLATE_LIST_BY_URN_URN = "urn:li:searchTemplate:listUrn";
   public static final String SEARCH_TEMPLATE_STRUCTURED_URN = "urn:li:searchTemplate:structured";
   public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
   public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
       "urn:li:searchTemplate:structuredExact";
-  public static final String SEARCH_TEMPLATE_LINEAGE_URN = "urn:li:searchTemplate:lineage";
   public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
   public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
+  public static final String SEARCH_TEMPLATE_AUTOCOMPLETE_URN =
+      "urn:li:searchTemplate:autocomplete";
   public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
       Set.of(
           "fulltext",
           "light",
           "list",
+          "listUrn",
           "structured",
           "exact",
           "structuredExact",
-          "lineage",
           "identity",
           "search",
           "searchLight",
-          "browseV2",
-          "browseV2List",
-          "browseV2Fulltext");
+          "autocomplete");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";

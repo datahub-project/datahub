@@ -30,12 +30,11 @@ vi.mock('@app/useEntityRegistry', async () => {
             getDisplayName: mockGetDisplayName,
             getEntityName: vi.fn().mockReturnValue('Tag'),
         }),
-        useEntityRegistryV2: actual.useEntityRegistryV2,
     };
 });
 
 // Mock recommendation hooks
-vi.mock('@app/shared/recommendation', () => ({
+vi.mock('@app/sharedV2/recommendation', () => ({
     useGetRecommendations: () => ({ recommendedData: [] }),
 }));
 

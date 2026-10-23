@@ -40,7 +40,11 @@ record MLFeatureTableProperties includes CustomProperties {
   @Searchable = {
     "/*": {
       "fieldName": "features",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "queryByDefault": false,
+        "copyToOther": true
+      }
     }
   }
   mlFeatures: optional array[Urn]
@@ -57,7 +61,11 @@ record MLFeatureTableProperties includes CustomProperties {
   @Searchable = {
     "/*": {
       "fieldName": "primaryKeys",
-      "fieldType": "URN"
+      "fieldType": "URN",
+      "v3": {
+        "queryByDefault": false,
+        "copyToOther": true
+      }
     }
   }
   mlPrimaryKeys: optional array[Urn]

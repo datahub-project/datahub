@@ -51,7 +51,7 @@ import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSumma
 import { LOOKER_URN, MODE, MODE_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '@app/searchV2/matches/matchedInputFieldRenderer';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '@graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '@types';

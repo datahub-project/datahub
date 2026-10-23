@@ -5,7 +5,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_EXACT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_IDENTITY_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIGHT_URN;
-import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LINEAGE_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_STRUCTURED_EXACT_URN;
@@ -74,8 +74,10 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertEquals(
         selector.select(opContext, "s3:\\/\\/bucket\\/key", true, null).getUrn(),
         SEARCH_TEMPLATE_IDENTITY_URN);
-    assertEquals(selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
-    assertEquals(selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    assertEquals(
+        selector.select(opContext, "", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
+    assertEquals(
+        selector.select(opContext, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_BY_URN_URN);
     assertEquals(
         selector.select(opContext, "\\/q \"orders\"", true, null).getUrn(),
         SEARCH_TEMPLATE_STRUCTURED_EXACT_URN);
@@ -130,24 +132,6 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         SEARCH_TEMPLATE_STRUCTURED_URN);
     assertEquals(
         selector.select(opContext, "\\/q *", false, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
-
-    OperationContext lineage =
-        opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE);
-    assertEquals(
-        selector.select(lineage, "customer orders", true, null).getUrn(),
-        SEARCH_TEMPLATE_LINEAGE_URN);
-    assertEquals(selector.select(lineage, "*", true, null).getUrn(), SEARCH_TEMPLATE_LIST_URN);
-    ResolvedSearchTemplate lineageResolved =
-        selector.select(lineage, "customer orders", true, null);
-    String lineageRendered =
-        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
-            .render(
-                lineage.withResolvedSearchTemplate(lineageResolved),
-                List.of(TestEntitySpecBuilder.getSpec()),
-                "customer orders",
-                true)
-            .toString();
-    assertTrue(lineageRendered.contains("synonym"), lineageRendered);
   }
 
   @Test
@@ -155,6 +139,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
     MergedSearchTemplate searchLight =
         classpath.load(opContext, "urn:li:searchTemplate:searchLight");
+    assertEquals(SearchTemplateRoutes.decide(searchLight, "*").target(), SEARCH_TEMPLATE_LIST_URN);
     assertEquals(
         SearchTemplateRoutes.decide(searchLight, "urn:orders").target(), SEARCH_TEMPLATE_LIGHT_URN);
     assertEquals(
@@ -221,10 +206,6 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     String light = render(builder, SEARCH_TEMPLATE_LIGHT_URN, longQuery);
     assertTrue(light.contains("\"boost\" : 100.0"), light);
     assertFalse(light.contains("\"minimum_should_match\" : \"25%\""), light);
-
-    String browse = render(builder, "urn:li:searchTemplate:browseV2Fulltext", longQuery);
-    assertTrue(browse.contains("\"minimum_should_match\" : \"25%\""), browse);
-    assertTrue(browse.contains("\"boost\" : 100.0"), browse);
   }
 
   private String render(SearchV3QueryBuilder builder, String template, String query) {
@@ -320,12 +301,7 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   @Test
   public void testEscapedStoragePathSelectsIdentity() {
     SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
-    for (String urn :
-        List.of(
-            SEARCH_TEMPLATE_SEARCH_URN,
-            SEARCH_TEMPLATE_STRUCTURED_URN,
-            SEARCH_TEMPLATE_LINEAGE_URN,
-            "urn:li:searchTemplate:browseV2")) {
+    for (String urn : List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_STRUCTURED_URN)) {
       MergedSearchTemplate template = classpath.load(opContext, urn);
       for (String scheme : List.of("s3", "gs", "hdfs")) {
         assertEquals(
@@ -644,7 +620,8 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
     OperationContext scrolled = coordinator.bind(opContext, "*", true);
     assertEquals(
-        scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(), SEARCH_TEMPLATE_LIST_URN);
+        scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(),
+        SEARCH_TEMPLATE_LIST_BY_URN_URN);
 
     OperationContext routed = coordinator.bind(opContext, "customer orders");
     OperationContext pinned =

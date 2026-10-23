@@ -1301,12 +1301,6 @@ elasticsearch:
           scrollEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_PERCENT:-1}
           aggregateEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES:}
           aggregateEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_AGGREGATE_ENTITIES_PERCENT:-1}
-          browseEntities: ${SEARCH_V3_TEMPLATES_ROLLOUT_BROWSE_ENTITIES:}
-          browseEntitiesPercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_BROWSE_ENTITIES_PERCENT:-1}
-          searchEntitiesLineage: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_LINEAGE:}
-          searchEntitiesLineagePercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SEARCH_ENTITIES_LINEAGE_PERCENT:-1}
-          scrollEntitiesLineage: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_LINEAGE:}
-          scrollEntitiesLineagePercent: ${SEARCH_V3_TEMPLATES_ROLLOUT_SCROLL_ENTITIES_LINEAGE_PERCENT:-1}
         # storage reads the aspect and fills a missing shipped template from the classpath.
         # System update sets classpath and does not read stored templates.
         # A merged template stays cached for cache.primary.ttlSeconds, the same TTL as entity
@@ -1345,7 +1339,9 @@ elasticsearch:
         surfaces:
           # Entity search starts on searchLight, whose ordinary query is the light template.
           # Scroll and aggregate both pin the complete search router, so a later global-default
-          # change cannot move one without the other. Browse uses its own router.
+          # change cannot move one without the other. A blank surface uses that same router.
+          # Lineage pages fill searchEntities when they arrive untagged. Browse clears any
+          # incoming surface so it does not keep searchLight.
           searchEntities:
             fulltext:
               default: urn:li:searchTemplate:searchLight
@@ -1355,16 +1351,6 @@ elasticsearch:
           aggregateEntities:
             fulltext:
               default: urn:li:searchTemplate:search
-          browseEntities:
-            fulltext:
-              default: urn:li:searchTemplate:browseV2
-          searchEntitiesLineage:
-            fulltext:
-              default: urn:li:searchTemplate:lineage
-          scrollEntitiesLineage:
-            fulltext:
-              default: urn:li:searchTemplate:lineage
-              # opensearch3: urn:li:searchTemplate:lineageOs3
 
 
 # TODO: Kafka topic convention

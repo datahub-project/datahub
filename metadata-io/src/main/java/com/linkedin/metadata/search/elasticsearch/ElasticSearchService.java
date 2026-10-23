@@ -855,15 +855,16 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   /**
-   * Browse always selects the browse router. A caller context already tagged for page search must
-   * not keep that surface or a template resolved for a different query.
+   * Browse uses the global fulltext seed, the search router. A caller context already tagged for
+   * page search must not keep that surface or a template resolved for a different query. Path,
+   * depth, and group aggregation stay outside the template.
    */
   @Nonnull
   private OperationContext browseContext(
       @Nonnull OperationContext opContext, @Nullable String input) {
     return opContext
         .withResolvedSearchTemplate(null)
-        .withSearchSurface(SearchTemplateSurfaces.BROWSE_ENTITIES)
+        .withSearchSurface(null)
         .withSearchFlags(
             flags ->
                 applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)

@@ -33,7 +33,15 @@ record DataHubAccessTokenInfo {
    * Urn of the actor to which this access token belongs to.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   actorUrn: Urn
 
@@ -41,7 +49,15 @@ record DataHubAccessTokenInfo {
    * Urn of the actor which created this access token.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   ownerUrn: Urn
 

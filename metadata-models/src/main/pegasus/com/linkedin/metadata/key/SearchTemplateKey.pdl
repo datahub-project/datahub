@@ -8,8 +8,8 @@ namespace com.linkedin.metadata.key
 }
 record SearchTemplateKey {
   /**
-   * Unique id for the template. Well-known system ids are fulltext, list, structured, exact,
-   * structuredExact, and lineage.
+   * Unique id for the template. Well-known system ids are fulltext, light, list, structured,
+   * exact, structuredExact, identity, search, and searchLight.
    */
   id: string
 }

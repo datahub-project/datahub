@@ -6,7 +6,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_EXACT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_IDENTITY_URN;
-import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LINEAGE_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
@@ -556,6 +556,7 @@ abstract class SearchTemplateFixture {
     store(SEARCH_TEMPLATE_SEARCH_URN, search);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, pinned("Fulltext", ROUTE_QUERY));
     store(SEARCH_TEMPLATE_LIST_URN, pinned("List", "{ \"match_all\": {} }"));
+    store(SEARCH_TEMPLATE_LIST_BY_URN_URN, pinned("List by URN", "{ \"match_all\": {} }"));
     store(SEARCH_TEMPLATE_EXACT_URN, pinned("Exact", "{ \"match_all\": {} }"));
     store(SEARCH_TEMPLATE_IDENTITY_URN, pinned("Identity", "{ \"match_all\": {} }"));
     SearchTemplateProperties structured =
@@ -566,20 +567,12 @@ abstract class SearchTemplateFixture {
         parentOf("Structured exact", SEARCH_TEMPLATE_STRUCTURED_URN);
     structuredExact.setRoutes(new SearchTemplateRouteArray());
     store(SEARCH_TEMPLATE_STRUCTURED_EXACT_URN, structuredExact);
-    SearchTemplateProperties lineage = parentOf("Lineage", SEARCH_TEMPLATE_FULLTEXT_URN);
-    lineage.setRoutes(searchRoutes());
-    store(SEARCH_TEMPLATE_LINEAGE_URN, lineage);
     SearchTemplateProperties postgres = body("Postgres", "to_tsquery('simple', '{{query}}')", null);
     postgres.setDialect(SearchTemplateDialect.POSTGRES);
     store("urn:li:searchTemplate:fulltextPostgres", postgres);
     templates
         .getDefaults()
         .put("fulltext", new HashMap<>(Map.of("default", SEARCH_TEMPLATE_SEARCH_URN)));
-    templates
-        .getSurfaces()
-        .put(
-            SearchTemplateSurfaces.SEARCH_ENTITIES_LINEAGE,
-            Map.of("fulltext", Map.of("default", SEARCH_TEMPLATE_LINEAGE_URN)));
   }
 
   protected static SearchTemplateRouteArray searchRoutes() {
@@ -587,7 +580,7 @@ abstract class SearchTemplateFixture {
         route(
             "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)",
             SEARCH_TEMPLATE_IDENTITY_URN),
-        route("^\\*?$", SEARCH_TEMPLATE_LIST_URN),
+        route("^\\*?$", SEARCH_TEMPLATE_LIST_BY_URN_URN),
         route("^\\\\/q [\"'].+[\"']$", SEARCH_TEMPLATE_STRUCTURED_EXACT_URN),
         route("^\\\\/q .*", SEARCH_TEMPLATE_STRUCTURED_URN),
         route("^[\"'].+[\"']$", SEARCH_TEMPLATE_EXACT_URN),
