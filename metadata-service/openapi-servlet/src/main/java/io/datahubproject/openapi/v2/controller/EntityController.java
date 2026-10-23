@@ -186,7 +186,7 @@ public class EntityController
           final boolean alternateValidation =
               opContext.getValidationContext().isAlternateValidation();
           final AspectSpec aspectSpec;
-          if (!handling().isTolerant()) {
+          if (!handling().toleratesUnknownEntityAspect()) {
             aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
           } else if (alternateValidation) {
             // ProposedItem.build validates the aspect against the registry itself.

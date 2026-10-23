@@ -12,8 +12,8 @@ import javax.annotation.Nullable;
  * GraphQL enums. Mappers use this instead of {@link PdlEnumMapper} directly wherever a value only a
  * newer version knows must not fail the request, so that behavior has one switch.
  *
- * <p>When unknown data isn't tolerated, every method is a plain {@link Enum#valueOf} and throws for
- * a value this version doesn't know, as the mappers did before.
+ * <p>When unknown enum values aren't tolerated, every method is a plain {@link Enum#valueOf} and
+ * throws for a value this version doesn't know, as the mappers did before.
  */
 public final class UnknownEnumValues {
 
@@ -25,7 +25,7 @@ public final class UnknownEnumValues {
       @Nonnull final Class<T> graphqlEnum,
       @Nonnull final Enum<?> pdlValue,
       @Nonnull final T fallback) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEnum()) {
       return Enum.valueOf(graphqlEnum, pdlValue.name());
     }
     return PdlEnumMapper.map(graphqlEnum, pdlValue, fallback);
@@ -35,7 +35,7 @@ public final class UnknownEnumValues {
   @Nullable
   public static <T extends Enum<T>> T mapOrNull(
       @Nonnull final Class<T> graphqlEnum, @Nonnull final Enum<?> pdlValue) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEnum()) {
       return Enum.valueOf(graphqlEnum, pdlValue.name());
     }
     return PdlEnumMapper.mapDefaultNull(graphqlEnum, pdlValue);
@@ -47,7 +47,7 @@ public final class UnknownEnumValues {
       @Nonnull final Class<T> graphqlEnum,
       @Nullable final String value,
       @Nonnull final T fallback) {
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEnum()) {
       return Enum.valueOf(graphqlEnum, value);
     }
     return PolicyInfoPolicyMapper.safeValueOf(graphqlEnum, value, fallback);

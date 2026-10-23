@@ -52,6 +52,8 @@ import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
@@ -67,6 +69,7 @@ import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.stubbing.OngoingStubbing;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -85,6 +88,16 @@ public class RollbackServiceTest {
   private static final String TEST_URN_2 =
       "urn:li:dataset:(urn:li:dataPlatform:hive,test-dataset-2,PROD)";
   private static final int MAX_SEARCH_RESULTS = 5;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Arrays;
@@ -27,9 +28,15 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class BatchGetEntitiesResolverTest {
+
   private EntityClient _entityClient;
   private EntityService _entityService;
   private DataFetchingEnvironment _dataFetchingEnvironment;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setupTest() {

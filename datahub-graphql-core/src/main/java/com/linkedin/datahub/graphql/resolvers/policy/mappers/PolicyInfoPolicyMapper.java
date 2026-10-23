@@ -70,12 +70,14 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
    * Whether GraphQL can't show this policy truthfully: its resource filter has a match condition
    * this version doesn't know (written by a newer version before a rollback). A guessed condition
    * would be saved back by the policy editor and change what the policy matches, so the policy is
-   * left out instead, and the skip is logged. Always false when unknown data isn't tolerated, so
-   * mapping throws as before.
+   * left out instead, and the skip is logged. Always false when unknown enum values aren't
+   * tolerated, so mapping throws as before.
    */
   public static boolean isUnrepresentable(
       @Nonnull final DataHubPolicyInfo info, @Nonnull final Object subject) {
-    if (!handling().isTolerant() || !info.hasResources() || !info.getResources().hasFilter()) {
+    if (!handling().toleratesUnknownEnum()
+        || !info.hasResources()
+        || !info.getResources().hasFilter()) {
       return false;
     }
     final boolean unknownCondition =

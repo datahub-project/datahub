@@ -17,11 +17,13 @@ import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -38,6 +40,11 @@ public class UnknownEntityUrnStrippingTest {
   private final EntityRegistry entityRegistry =
       TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
   private AspectRetriever aspectRetriever;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeClass
   public void setUp() {

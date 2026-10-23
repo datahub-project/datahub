@@ -80,6 +80,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -111,10 +112,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class EntityServiceImplTest {
+
   private final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
@@ -129,6 +132,16 @@ public class EntityServiceImplTest {
   private MetadataChangeProposal testMCP;
   private AspectDao mockAspectDao;
   private final MetricUtils metricUtils = mock(MetricUtils.class);
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() throws Exception {

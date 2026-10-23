@@ -217,7 +217,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
     } catch (ValidationException e) {
       // Checked first so strict handling does no deserialization and fails as before.
-      if (!handling().isTolerant() || !isFromNewerVersion(opContext, event)) {
+      if (!handling().toleratesUnknownData() || !isFromNewerVersion(opContext, event)) {
         throw e;
       }
       opContext

@@ -21,6 +21,7 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -47,6 +49,16 @@ public class MigrateAspectsStepTest {
   private AspectDao mockAspectDao;
   private UpgradeContext mockContext;
   private Upgrade mockUpgrade;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

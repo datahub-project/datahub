@@ -405,7 +405,7 @@ public class PatchItemImpl implements PatchMCP {
     }
 
     public PatchItemImpl build(EntityRegistry entityRegistry) {
-      if (handling().isTolerant()) {
+      if (handling().toleratesUnknownEntityAspect()) {
         // Check the entity type before validating the urn: an unknown type (e.g. written by a newer
         // version before a rollback) must fail as a ValidationException, like an unknown aspect,
         // not as the IllegalArgumentException batch building treats as "skip silently".

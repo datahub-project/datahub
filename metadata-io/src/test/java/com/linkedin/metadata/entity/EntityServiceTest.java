@@ -82,6 +82,8 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -121,6 +123,8 @@ import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
@@ -171,6 +175,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
   protected final AspectSpec structuredPropertiesDefinitionAspect =
       _testEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   protected EntityServiceTest() throws EntityRegistryException {}
 

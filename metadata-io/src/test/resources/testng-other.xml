@@ -39,10 +39,41 @@
                     <exclude name=".*" />
                 </methods>
             </class>
-            <!-- These switch the process-wide UnknownDataHandlings strategy, which would leak into
-                 classes running alongside them here (parallel="classes"). They run in
-                 testng-opensearch.xml, one class at a time. -->
+            <!-- These switch the process-wide UnknownDataHandlings strategy (TolerantHandling before
+                 each test, strict after), which would leak into classes running alongside them here
+                 (parallel="classes"). They run one class at a time: in testng-opensearch.xml, or in
+                 the unknown-data-handling test below. -->
+            <class name="com.linkedin.metadata.aspect.consistency.ConsistencyServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.aspect.consistency.check.InvalidEnumCheckTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidatorTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.aspect.validation.UrnAnnotationValidatorTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffectTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.DeleteEntityServiceTest">
                 <methods>
                     <exclude name=".*" />
                 </methods>
@@ -52,7 +83,22 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.entity.EntityUtilsTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidatorTest">
                 <methods>
                     <exclude name=".*" />
                 </methods>
@@ -67,7 +113,32 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.service.UpdateIndicesServiceTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffectTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceUnitTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.trace.TraceServiceImplTest">
                 <methods>
                     <exclude name=".*" />
                 </methods>
@@ -78,6 +149,18 @@
             <class name="com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.OnnxEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.ClassicalEmbeddingProviderTest"/>
+        </classes>
+    </test>
+
+    <!-- Classes that switch the process-wide UnknownDataHandlings strategy and aren't in
+         testng-opensearch.xml: run one class at a time so the switch can't leak. -->
+    <test name="unknown-data-handling" parallel="none">
+        <classes>
+            <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest"/>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
+            <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest"/>
+            <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest"/>
+            <class name="com.linkedin.metadata.service.UpdateGraphIndicesServiceTest"/>
         </classes>
     </test>
 

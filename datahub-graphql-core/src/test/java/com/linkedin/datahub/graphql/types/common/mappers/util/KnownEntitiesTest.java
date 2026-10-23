@@ -12,9 +12,11 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class KnownEntitiesTest {
@@ -24,6 +26,11 @@ public class KnownEntitiesTest {
   private static final Urn FROM_NEWER_BUILD = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
 
   private final QueryContext context = TestUtils.getMockAllowContext();
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @AfterMethod
   public void resetHandling() {

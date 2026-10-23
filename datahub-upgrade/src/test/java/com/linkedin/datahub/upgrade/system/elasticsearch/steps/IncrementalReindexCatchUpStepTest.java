@@ -47,6 +47,8 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReinde
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -75,6 +77,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.index.query.QueryBuilder;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -93,6 +96,16 @@ public class IncrementalReindexCatchUpStepTest {
 
   private OperationContext opContext;
   private IncrementalReindexCatchUpStep step;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() throws Exception {

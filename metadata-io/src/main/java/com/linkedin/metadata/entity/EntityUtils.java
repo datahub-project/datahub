@@ -319,7 +319,7 @@ public class EntityUtils {
                           raw.getAspect())) {
                     return null;
                   }
-                  if (!handling().isTolerant()) {
+                  if (!handling().toleratesUnknownEntityAspect()) {
                     // Strict handling fails on an unknown entity type or aspect, as before.
                     final AspectSpec aspectSpec =
                         handling()
@@ -336,7 +336,7 @@ public class EntityUtils {
                   } catch (RuntimeException conversionFailure) {
                     // One row a newer version wrote must not fail the whole read; any other
                     // conversion failure is still an error.
-                    if (!handling().isTolerant()
+                    if (!handling().toleratesUnknownData()
                         || !isWrittenByNewerSchema(raw, urn, entityRegistry)) {
                       throw conversionFailure;
                     }

@@ -44,6 +44,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -70,6 +71,11 @@ public class UpdateIndicesServiceTest {
 
   private OperationContext operationContext;
   private UpdateIndicesService updateIndicesService;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
@@ -521,6 +527,25 @@ public class UpdateIndicesServiceTest {
         ValidationException.class,
         () -> updateIndicesService.handleChangeEvents(context, List.of(unstrippable)));
     verify(metrics, never()).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_EnumToleranceAloneFailsOnUnknownReferences() {
+    // References to unknown entity types are the unknown-data flag's kind; tolerating only enum
+    // values leaves an event that can't be stripped failing the batch, as before.
+    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "enumonly.invalid",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation()
+                .setDeprecated(true)
+                .setNote("moved")
+                .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(unstrippable)));
   }
 
   @Test

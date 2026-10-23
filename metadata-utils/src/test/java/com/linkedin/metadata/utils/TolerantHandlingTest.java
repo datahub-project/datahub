@@ -10,6 +10,11 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -26,6 +31,11 @@ public class TolerantHandlingTest {
       UnknownDataGuard.forSite(TolerantHandlingTest.class, "test row");
   private EntityRegistry registry;
   private AspectSpec status;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setUp() {
@@ -79,7 +89,8 @@ public class TolerantHandlingTest {
     assertTrue(
         handling.referencesUnknownEntityType(
             registry, UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,col)")));
-    assertTrue(handling.isTolerant());
+    assertTrue(handling.toleratesUnknownEntityAspect());
+    assertTrue(handling.toleratesUnknownEnum());
   }
 
   @Test
@@ -99,15 +110,79 @@ public class TolerantHandlingTest {
   }
 
   @Test
-  public void testProcessDefaultsToTolerantAndCanBeSwitched() {
-    assertSame(UnknownDataHandlings.handling(), TolerantHandling.INSTANCE);
+  public void testProcessDefaultsToStrictAndCanBeSwitched() {
+    // Strict until the flags are applied, the same as their default, so a process that never
+    // applies them behaves as before this tolerance existed.
+    UnknownDataHandlings.reset();
+    assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
     UnknownDataHandling other = mock(UnknownDataHandling.class);
 
     UnknownDataHandlings.use(other);
     assertSame(UnknownDataHandlings.handling(), other);
 
     UnknownDataHandlings.reset();
-    assertEquals(UnknownDataHandlings.handling(), TolerantHandling.INSTANCE);
+    assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
+  }
+
+  @Test
+  public void testWithOnlyEnumValuesToleratedUnknownEntitiesAndAspectsAreHandledStrictly() {
+    // Entity types, aspects and references are their own flag: with it off, nothing is skipped,
+    // stripped or kept, and the stored aspect isn't read for the merge.
+    final UnknownDataHandling enumsOnly = TolerantHandling.of(false, true, entityType -> true);
+    final Ownership aspect = ownership("urn:li:entityFromNewerBuild:x");
+
+    assertTrue(
+        enumsOnly.admitUrn(
+            site, registry, Optional.empty(), "urn:li:entityFromNewerBuild:x", null));
+    assertTrue(
+        enumsOnly.admit(site, registry, Optional.empty(), "dataset", "aspectFromNewerBuild", "u"));
+    assertFalse(enumsOnly.isUnknown(registry, "entityFromNewerBuild", null));
+    assertEquals(enumsOnly.stripUnknownReferences(aspect, registry), 0);
+    assertEquals(aspect.getOwners().size(), 1);
+    assertFalse(enumsOnly.aspectReferencesUnknownEntityType(aspect, registry));
+    assertFalse(enumsOnly.isFromNewerVersion(aspect, null, null, registry));
+    assertEquals(
+        enumsOnly.mergeStoredReferences(
+            aspect,
+            () -> {
+              throw new AssertionError(
+                  "stored aspect read with unknown entities and aspects not tolerated");
+            },
+            registry),
+        UnknownReferenceMerger.MergeResult.NONE);
+    assertFalse(enumsOnly.toleratesUnknownEntityAspect());
+    assertTrue(enumsOnly.toleratesUnknownEnum());
+    assertTrue(enumsOnly.toleratesUnknownData());
+  }
+
+  @Test
+  public void testToleratingNeitherKindIsRejected() {
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> TolerantHandling.of(false, false, entityType -> true));
+  }
+
+  @Test
+  public void testWithOnlyUnknownEntitiesAndAspectsToleratedReferencesAreHandled() {
+    final UnknownDataHandling entityAspectOnly =
+        TolerantHandling.of(true, false, entityType -> true);
+    final Ownership aspect = ownership("urn:li:entityFromNewerBuild:x");
+
+    assertTrue(entityAspectOnly.isFromNewerVersion(aspect, null, null, registry));
+    assertEquals(entityAspectOnly.stripUnknownReferences(aspect, registry), 1);
+    assertTrue(entityAspectOnly.toleratesUnknownEntityAspect());
+    assertFalse(entityAspectOnly.toleratesUnknownEnum());
+    assertTrue(entityAspectOnly.toleratesUnknownData());
+  }
+
+  private Ownership ownership(final String owner) {
+    when(registry.findEntitySpec("corpuser")).thenReturn(Optional.of(mock(EntitySpec.class)));
+    return new Ownership()
+        .setOwners(
+            new OwnerArray(
+                new Owner().setOwner(UrnUtils.getUrn(owner)).setType(OwnershipType.DATAOWNER)))
+        .setLastModified(
+            new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:alice")));
   }
 
   @Test
@@ -115,8 +190,7 @@ public class TolerantHandlingTest {
     doThrow(new IllegalArgumentException("Failed to find entity"))
         .when(registry)
         .getEntitySpec("corpusr");
-    UnknownDataHandling rows =
-        TolerantHandling.forNextVersionEntityTypes("entityFromNewerBuild"::equals);
+    UnknownDataHandling rows = TolerantHandling.of(true, true, "entityFromNewerBuild"::equals);
 
     assertFalse(
         rows.admitUrn(site, registry, Optional.empty(), "urn:li:entityFromNewerBuild:x", null));

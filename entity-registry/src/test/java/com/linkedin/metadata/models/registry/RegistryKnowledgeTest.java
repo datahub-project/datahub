@@ -9,13 +9,27 @@ import com.datahub.test.TestEntityProfile;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class RegistryKnowledgeTest {
 
   private ConfigEntityRegistry registry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeClass
   public void setUp() {

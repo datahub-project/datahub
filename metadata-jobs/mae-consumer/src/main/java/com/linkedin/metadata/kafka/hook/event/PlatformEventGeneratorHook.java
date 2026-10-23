@@ -156,7 +156,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   private List<ChangeEvent> getChangeEvents(
       OperationContext operationContext, MetadataChangeLog logEvent) {
     final AspectSpec aspectSpec;
-    if (handling().isTolerant()) {
+    if (handling().toleratesUnknownEntityAspect()) {
       // The aspect-name allowlist does not check the entity type: after a version rollback an
       // allowlisted aspect can arrive for an entity type that does not have it in this build.
       final Optional<AspectSpec> maybeAspectSpec =

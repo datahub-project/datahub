@@ -15,6 +15,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -60,6 +61,11 @@ public class MCLKafkaListenerTest {
   private MCLKafkaListener listener;
   private OperationContext systemOperationContext;
   private SimpleMeterRegistry meterRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setUp() throws URISyntaxException {

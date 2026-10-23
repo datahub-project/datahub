@@ -159,7 +159,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
       if (urns.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       // As before tolerance: the whole batch is fetched as the first urn's entity type.
       final String entityName = urnToEntityName(urns.iterator().next());
       return RestliUtils.toTask(opContext,

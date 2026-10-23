@@ -7,9 +7,21 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.urn.Urn;
 import java.util.ArrayList;
 import java.util.List;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class NextVersionEntityTypesTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testLooksUpTheEntityTypeRowOncePerName() {

@@ -237,7 +237,7 @@ public class BatchMetadataChangeProposalsProcessor {
       // - an MCP whose urn can't be parsed. Reading it throws, and out of this loop that would
       //   discard the whole poll without sending anything to the failure topic.
       // Strict handling keeps the batch behavior from before tolerance.
-      if (handling().isTolerant()) {
+      if (handling().toleratesUnknownEntityAspect()) {
         final Urn urn = UnknownDataGuard.urnOrNull(mcp::getEntityUrn);
         if (urn == null && mcp.data().get("entityUrn") != null) {
           final boolean sent =

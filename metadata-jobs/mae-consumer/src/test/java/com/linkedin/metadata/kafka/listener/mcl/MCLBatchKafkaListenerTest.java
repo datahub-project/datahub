@@ -11,6 +11,8 @@ import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityRe
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -26,6 +28,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -44,6 +47,16 @@ public class MCLBatchKafkaListenerTest {
   private MetadataChangeLogHook mockHook1;
   private MetadataChangeLogHook mockHook2;
   private OperationContext systemOperationContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setUp() {

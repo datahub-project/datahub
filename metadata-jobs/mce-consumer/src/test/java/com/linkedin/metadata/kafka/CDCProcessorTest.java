@@ -17,6 +17,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -25,6 +27,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -40,6 +43,16 @@ public class CDCProcessorTest {
   private ConfigurationProvider mockProvider;
   private ObjectMapper mockObjectMapper;
   private EntityRegistry mockEntityRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

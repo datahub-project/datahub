@@ -16,7 +16,8 @@ import javax.annotation.Nullable;
 /**
  * The behavior from before unknown data was tolerated: nothing is skipped or stripped, nothing is
  * looked up to decide, and data the registry doesn't know fails where it is resolved. Used when
- * {@code featureFlags.unknownDataToleranceEnabled} is off.
+ * both {@code featureFlags.unknownEntityAspectToleranceEnabled} and {@code
+ * featureFlags.unknownEnumToleranceEnabled} are off.
  */
 public final class StrictHandling implements UnknownDataHandling {
 
@@ -156,7 +157,12 @@ public final class StrictHandling implements UnknownDataHandling {
   }
 
   @Override
-  public boolean isTolerant() {
+  public boolean toleratesUnknownEntityAspect() {
+    return false;
+  }
+
+  @Override
+  public boolean toleratesUnknownEnum() {
     return false;
   }
 }

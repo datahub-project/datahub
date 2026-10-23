@@ -12,6 +12,7 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -35,6 +36,11 @@ public class EntityUtilsTest {
   @Mock private EntityService<?> entityService;
 
   private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setUp() {
@@ -373,6 +379,36 @@ public class EntityUtilsTest {
         EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
             .get(0)
             .isFromNewerVersion());
+
+    // Each flag covers only its kind: an enum value counts only when enum values are tolerated.
+    UnknownDataHandlings.use(TolerantHandling.of(true, false, entityType -> true));
+    assertFalse(
+        EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
+            .get(0)
+            .isFromNewerVersion());
+    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    assertTrue(
+        EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
+            .get(0)
+            .isFromNewerVersion());
+  }
+
+  @Test
+  public void testToSystemAspects_EnumToleranceAloneFailsOnUnknownAspect() {
+    // Unknown aspects are the unknown-data flag's kind; tolerating only enum values leaves them
+    // failing as before.
+    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    EntityAspect unknownAspect =
+        aspectRow(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",
+            "aspectFromNewerBuild",
+            "{\"a\":1}");
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            EntityUtils.toSystemAspects(
+                opContext, opContext.getRetrieverContext(), List.of(unknownAspect)));
   }
 
   private static EntityAspect aspectRow(String urn, String aspectName, String metadata) {

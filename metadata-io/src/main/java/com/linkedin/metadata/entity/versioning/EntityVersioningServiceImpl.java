@@ -101,7 +101,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
 
-      if (handling().isTolerant()
+      if (handling().toleratesUnknownEnum()
           && versionSetProperties.getVersioningScheme() == VersioningScheme.$UNKNOWN) {
         // Written by a newer version (e.g. read after a rollback); say so instead of the generic
         // message below.

@@ -16,6 +16,8 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -27,6 +29,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -53,6 +56,16 @@ public class UrnAnnotationValidatorTest {
   @Mock private RecordTemplate mockRecordTemplate;
 
   private UrnAnnotationValidator validator;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -68,6 +70,16 @@ import org.testng.annotations.Test;
 public class EntityV2ResourceTest {
 
   private static final Urn USER_URN = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   /** Grants everything except Manage User Credentials. */
   private static Authorizer denyManageUserCredentialsAuthorizer() {

@@ -43,6 +43,7 @@ import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -70,9 +71,15 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class AspectsBatchImplTest {
+
   private EntityRegistry testRegistry;
   private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeTest
   public void beforeTest() throws EntityRegistryException {

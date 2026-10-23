@@ -320,10 +320,12 @@ public class SystemOperationContextFactory {
   }
 
   /**
-   * Chooses, for this process, how data the entity registry doesn't know is treated. Every process
-   * that runs the unknown-data paths (GMS, the MAE and MCE consumers, upgrade jobs) builds its
-   * system operation context here. When tolerant, an unknown entity type is tolerated only if a
-   * newer version registered it as an {@code entityType} row.
+   * Chooses, for this process, how data a newer version wrote is treated, from {@code
+   * featureFlags.unknownEntityAspectToleranceEnabled} and {@code
+   * featureFlags.unknownEnumToleranceEnabled}. Every process that runs the unknown-data paths (GMS,
+   * the MAE and MCE consumers, upgrade jobs) builds its system operation context here. When unknown
+   * entities are tolerated, an unknown entity type is tolerated only if a newer version registered
+   * it as an {@code entityType} row.
    */
   @VisibleForTesting
   static void configureUnknownDataHandling(
@@ -348,15 +350,22 @@ public class SystemOperationContextFactory {
   public static UnknownDataHandling configureUnknownDataHandling(
       @Nonnull final ConfigurationProvider configurationProvider,
       @Nonnull final Predicate<Urn> entityTypeRowExists) {
-    final boolean tolerant =
-        configurationProvider.getFeatureFlags().isUnknownDataToleranceEnabled();
+    final boolean unknownEntityAspectTolerance =
+        configurationProvider.getFeatureFlags().isUnknownEntityAspectToleranceEnabled();
+    final boolean unknownEnumTolerance =
+        configurationProvider.getFeatureFlags().isUnknownEnumToleranceEnabled();
     final UnknownDataHandling handling =
-        tolerant
-            ? TolerantHandling.forNextVersionEntityTypes(
+        unknownEntityAspectTolerance || unknownEnumTolerance
+            ? TolerantHandling.of(
+                unknownEntityAspectTolerance,
+                unknownEnumTolerance,
                 new NextVersionEntityTypes(entityTypeRowExists))
             : StrictHandling.INSTANCE;
     UnknownDataHandlings.use(handling);
-    log.info("Unknown data tolerance {}", tolerant ? "enabled" : "disabled");
+    log.info(
+        "Unknown data tolerance: entity types, aspects and references {}; enum values {}",
+        unknownEntityAspectTolerance ? "enabled" : "disabled",
+        unknownEnumTolerance ? "enabled" : "disabled");
     return handling;
   }
 }

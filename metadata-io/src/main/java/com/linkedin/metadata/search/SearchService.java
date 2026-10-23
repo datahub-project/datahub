@@ -201,7 +201,7 @@ public class SearchService {
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
-    if (!handling().isTolerant()) {
+    if (!handling().toleratesUnknownEntityAspect()) {
       return lowercaseEntities;
     }
 

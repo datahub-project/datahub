@@ -7,11 +7,18 @@ import static org.testng.Assert.assertThrows;
 import com.linkedin.datahub.graphql.generated.IncidentState;
 import com.linkedin.datahub.graphql.generated.PolicyType;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UnknownEnumValuesTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @AfterMethod
   public void resetHandling() {

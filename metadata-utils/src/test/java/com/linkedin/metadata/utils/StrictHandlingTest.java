@@ -18,6 +18,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.Optional;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,16 @@ public class StrictHandlingTest {
   private final UnknownDataHandling handling = StrictHandling.INSTANCE;
   private EntityRegistry registry;
   private AspectSpec status;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setUp() {
@@ -65,7 +76,9 @@ public class StrictHandlingTest {
         handling.referencesUnknownEntityType(
             untouched, UrnUtils.getUrn("urn:li:entityFromNewerBuild:x")));
     assertFalse(handling.isFromNewerVersion(new Status(), null, null, untouched));
-    assertFalse(handling.isTolerant());
+    assertFalse(handling.toleratesUnknownEntityAspect());
+    assertFalse(handling.toleratesUnknownEnum());
+    assertFalse(handling.toleratesUnknownData());
     verifyNoInteractions(untouched);
   }
 

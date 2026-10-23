@@ -39,7 +39,7 @@ public class BatchGetEntitiesResolver implements DataFetcher<CompletableFuture<L
     Map<String, List<Integer>> entityIndexMap = new HashMap<>();
     int index = 0;
     for (Entity entity : entities) {
-      if (entity == null && handling().isTolerant()) {
+      if (entity == null && handling().toleratesUnknownEntityAspect()) {
         // The urn's entity type is unknown to this build, so no typed placeholder exists. Leave its
         // slot null instead of failing the whole batch.
         index++;

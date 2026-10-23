@@ -1275,7 +1275,7 @@ public class ESSearchDAO {
       @Nullable Integer limit) {
     // An entity type this registry doesn't know (e.g. requested by a client built for a newer
     // version after a rollback) is a bad request, not a query failure.
-    if (handling().isTolerant()
+    if (handling().toleratesUnknownEntityAspect()
         && opContext.getEntityRegistry().findEntitySpec(entityName).isEmpty()) {
       throw new IllegalArgumentException(
           String.format("Unknown entity type for autocomplete: %s", entityName));

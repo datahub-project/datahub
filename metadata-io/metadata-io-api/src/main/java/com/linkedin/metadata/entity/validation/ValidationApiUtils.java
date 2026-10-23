@@ -225,7 +225,7 @@ public class ValidationApiUtils {
       Urn urn,
       @Nullable RecordTemplate aspect,
       @Nonnull AspectRetriever aspectRetriever) {
-    if (!handling().isTolerant() || aspectSpec.isTimeseries()) {
+    if (!handling().toleratesUnknownEntityAspect() || aspectSpec.isTimeseries()) {
       validateRecordTemplate(
           entitySpec,
           urn,

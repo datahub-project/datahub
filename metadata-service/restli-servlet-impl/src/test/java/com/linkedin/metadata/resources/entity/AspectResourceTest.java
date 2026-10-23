@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
+import org.testng.annotations.BeforeMethod;
+import com.linkedin.metadata.utils.TolerantHandling;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
@@ -67,6 +69,11 @@ public class AspectResourceTest {
   private PreProcessHooks preProcessHooks;
   private Authorizer authorizer;
   private OperationContext opContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeTest
   public void setup() {

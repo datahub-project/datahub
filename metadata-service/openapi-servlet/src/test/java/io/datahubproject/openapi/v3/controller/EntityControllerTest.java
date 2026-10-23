@@ -101,6 +101,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -170,6 +171,7 @@ import org.testng.annotations.Test;
 @AutoConfigureWebMvc
 @AutoConfigureMockMvc
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
+
   private static final String TEST_QUERY_STATEMENT = "SELECT sensitive FROM restricted_table";
   private static final String TEST_VIEW_LOGIC = "SELECT sensitive FROM restricted_view_table";
 
@@ -190,6 +192,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @MockitoBean private SystemTelemetryContext systemTelemetryContext;
 
   @Captor private ArgumentCaptor<AspectsBatch> batchCaptor;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setup() {

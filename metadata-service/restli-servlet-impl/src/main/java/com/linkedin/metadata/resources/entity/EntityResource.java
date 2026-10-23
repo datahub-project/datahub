@@ -1523,7 +1523,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
    */
   private static boolean onlyUnknownEntityTypes(
       @Nullable final String[] requested, @Nonnull final List<String> known) {
-    return handling().isTolerant()
+    return handling().toleratesUnknownEntityAspect()
         && requested != null
         && requested.length > 0
         && known.isEmpty();
