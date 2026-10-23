@@ -31,6 +31,27 @@ STRING_OPT_OUT_PROPERTY = "urn:li:structuredProperty:packStringFilter"
 URN_OPT_IN_PROPERTY = "urn:li:structuredProperty:packUrnSearch"
 URN_OPT_OUT_PROPERTY = "urn:li:structuredProperty:packUrnFilter"
 BOOSTED_PROPERTY = "urn:li:structuredProperty:packBoostedLabel"
+SORT_SET_PROPERTY = "urn:li:structuredProperty:sortProbeSet"
+SORT_COUNT_PROPERTY = "urn:li:structuredProperty:sortProbeCount"
+SORT_SET_VALUE = "sortprobe"
+# Nonce tokens. Each one is absent from the dataset name, qualified name, and
+# description, so a hit can come only from the isolated field.
+FIELD_PROBE_COLUMN = "brindlepath"
+FIELD_PROBE_DESCRIPTION = "brindledesc"
+FIELD_PROBE_TAG = "brindletag"
+FIELD_PROBE_TERM = "brindleterm"
+FIELD_PROBE_OTHER = "brindlebin"
+FIELD_PROBE_STEM = "thimble"
+FIELD_PROBE_STEM_QUERY = "thimbles"
+FIELD_PROBE_TOKENS = (
+    FIELD_PROBE_COLUMN,
+    FIELD_PROBE_DESCRIPTION,
+    FIELD_PROBE_TAG,
+    FIELD_PROBE_TERM,
+    FIELD_PROBE_OTHER,
+    FIELD_PROBE_STEM,
+    FIELD_PROBE_STEM_QUERY,
+)
 LONG_TAIL_SHARDS = ("03-long-tail.json", "04-long-tail-timeseries.json")
 
 KEYWORD_ENTITY_TYPES = [
@@ -332,6 +353,37 @@ def definitions(platforms: Iterable[str]) -> list[dict[str, Any]]:
                 },
             )
         )
+    proposals.append(
+        mcp(
+            SORT_SET_PROPERTY,
+            "propertyDefinition",
+            {
+                "qualifiedName": "sortProbeSet",
+                "displayName": "Sort probe set",
+                "valueType": "urn:li:dataType:datahub.string",
+                "entityTypes": [
+                    "urn:li:entityType:datahub.dataset",
+                    "urn:li:entityType:datahub.chart",
+                ],
+                "cardinality": "SINGLE",
+                "searchConfiguration": {"queryByDefault": False},
+            },
+        )
+    )
+    proposals.append(
+        mcp(
+            SORT_COUNT_PROPERTY,
+            "propertyDefinition",
+            {
+                "qualifiedName": "sortProbeCount",
+                "displayName": "Sort probe count",
+                "valueType": "urn:li:dataType:datahub.number",
+                "entityTypes": ["urn:li:entityType:datahub.dataset"],
+                "cardinality": "SINGLE",
+                "searchConfiguration": {"queryByDefault": False},
+            },
+        )
+    )
     return proposals
 
 
@@ -637,7 +689,294 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             fulltext,
         ),
     ]
+    proposals.extend(sort_probe_entities())
+    judgments.extend(sort_judgments())
+    proposals.extend(field_probe_entities())
+    judgments.extend(field_probe_judgments())
     return proposals, judgments
+
+
+def sort_probe_entities() -> list[dict[str, Any]]:
+    """Closed set for caller-sort checks. The marker keeps Cranfield out of the order."""
+    alpha = dataset_urn("catalogprobe", "sort_alpha")
+    bravo = dataset_urn("catalogprobe", "sort_bravo")
+    bravo_tie = dataset_urn("catalogprobe", "sort_bravo_tie")
+    charlie = dataset_urn("catalogprobe", "sort_charlie")
+    chart = "urn:li:chart:(catalogprobe,sort_unmapped)"
+    # Same name on bravo and bravo_tie. ESUtils appends urn ascending, so the tie breaks on the URN.
+    # Charlie's description repeats the query so a text match ranks it first; name order still starts at alpha.
+    rows = [
+        (alpha, "Sort Alpha", "Sort probe member."),
+        (bravo, "Sort Bravo", "Sort probe member."),
+        (bravo_tie, "Sort Bravo", "Sort probe member."),
+        (charlie, "Sort Charlie", "Sort probe member sort sort sort."),
+    ]
+    proposals = [
+        mcp(
+            urn,
+            "datasetProperties",
+            {
+                "name": name,
+                "qualifiedName": f"catalogprobe.{urn.split(',')[1]}",
+                "description": description,
+            },
+        )
+        for urn, name, description in rows
+    ]
+    counts = {alpha: 1.0, bravo: 2.0, bravo_tie: 2.0}
+    for urn in (alpha, bravo, bravo_tie, charlie):
+        properties = [sort_property(SORT_SET_PROPERTY, {"string": SORT_SET_VALUE})]
+        if urn in counts:
+            properties.append(
+                sort_property(SORT_COUNT_PROPERTY, {"double": counts[urn]})
+            )
+        proposals.append(mcp(urn, "structuredProperties", {"properties": properties}))
+    proposals.append(
+        mcp(
+            chart,
+            "chartInfo",
+            {
+                "title": "Sort Unmapped",
+                "description": "Chart in the sort probe set with no numeric property.",
+                "lastModified": change_stamps(),
+            },
+        )
+    )
+    proposals.append(
+        mcp(
+            chart,
+            "structuredProperties",
+            {
+                "properties": [
+                    sort_property(SORT_SET_PROPERTY, {"string": SORT_SET_VALUE})
+                ]
+            },
+        )
+    )
+    return proposals
+
+
+def sort_property(property_urn: str, value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "propertyUrn": property_urn,
+        "values": [value],
+        "created": stamp(),
+        "lastModified": stamp(),
+    }
+
+
+def sort_judgments() -> list[dict[str, Any]]:
+    alpha = dataset_urn("catalogprobe", "sort_alpha")
+    bravo = dataset_urn("catalogprobe", "sort_bravo")
+    bravo_tie = dataset_urn("catalogprobe", "sort_bravo_tie")
+    charlie = dataset_urn("catalogprobe", "sort_charlie")
+    chart = "urn:li:chart:(catalogprobe,sort_unmapped)"
+    # Comma sorts before underscore, so sort_bravo precedes sort_bravo_tie.
+    # Ascending name uses the least value. Both Bravo rows share "Sort Bravo", which
+    # sorts before the dataset key, so the tie breaks on the URN.
+    # Descending name uses the greatest value. The key is also labeled name, and
+    # sort_bravo_tie sorts after sort_bravo, so that row comes first.
+    name_ascending = [alpha, bravo, bravo_tie, charlie]
+    name_descending = [charlie, bravo_tie, bravo, alpha]
+    # The dataset with no number is last in both directions. Engine default is _last.
+    count_ascending = [alpha, bravo, bravo_tie, charlie]
+    count_descending = [bravo, bravo_tie, alpha, charlie]
+    # Chart index does not map the dataset-only number. It sorts with the missing row.
+    unmapped_ascending = [alpha, bravo, bravo_tie, chart, charlie]
+    marker = {
+        "field": "structuredProperties.sortProbeSet",
+        "condition": "EQUAL",
+        "value": SORT_SET_VALUE,
+    }
+    specs = [
+        (
+            "sort-name-ascending",
+            "sort",
+            ["dataset"],
+            "name",
+            "ASCENDING",
+            name_ascending,
+        ),
+        (
+            "sort-name-descending",
+            "*",
+            ["dataset"],
+            "name",
+            "DESCENDING",
+            name_descending,
+        ),
+        (
+            "sort-count-ascending",
+            "*",
+            ["dataset"],
+            "structuredProperties.sortProbeCount",
+            "ASCENDING",
+            count_ascending,
+        ),
+        (
+            "sort-count-descending",
+            "*",
+            ["dataset"],
+            "structuredProperties.sortProbeCount",
+            "DESCENDING",
+            count_descending,
+        ),
+        (
+            "sort-count-unmapped-chart",
+            "*",
+            ["dataset", "chart"],
+            "structuredProperties.sortProbeCount",
+            "ASCENDING",
+            unmapped_ascending,
+        ),
+    ]
+    judgments = []
+    for query_id, query, entity_types, field, order, expected in specs:
+        judgments.append(
+            {
+                "id": query_id,
+                "group": "sort",
+                "query": query,
+                "surfaces": ["keyword"],
+                "entityTypes": entity_types,
+                "grades": [],
+                "filter": marker,
+                "sort": {"field": field, "order": order},
+                "expectedOrder": expected,
+            }
+        )
+    return judgments
+
+
+def field_probe_entities() -> list[dict[str, Any]]:
+    """One dataset per field. The token is not the dataset name or description."""
+    column = dataset_urn("catalogprobe", "fieldprobe_column")
+    described = dataset_urn("catalogprobe", "fieldprobe_description")
+    tagged = dataset_urn("catalogprobe", "fieldprobe_tag")
+    termed = dataset_urn("catalogprobe", "fieldprobe_term")
+    contained = dataset_urn("catalogprobe", "fieldprobe_other")
+    stemmed = dataset_urn("catalogprobe", "fieldprobe_stem")
+    hosts = [
+        (column, "Fieldprobe Column Host"),
+        (described, "Fieldprobe Description Host"),
+        (tagged, "Fieldprobe Tag Host"),
+        (termed, "Fieldprobe Term Host"),
+        (contained, "Fieldprobe Other Host"),
+        (stemmed, "Fieldprobe Stem Host"),
+    ]
+    proposals = [
+        mcp(
+            urn,
+            "datasetProperties",
+            {
+                "name": name,
+                "qualifiedName": f"catalogprobe.{urn.split(',')[1]}",
+                "description": "Field probe host.",
+            },
+        )
+        for urn, name in hosts
+    ]
+    proposals.append(
+        mcp(
+            column,
+            "schemaMetadata",
+            schema_metadata([schema_field(FIELD_PROBE_COLUMN)]),
+        )
+    )
+    proposals.append(
+        mcp(
+            described,
+            "schemaMetadata",
+            schema_metadata(
+                [schema_field("col_a", description=FIELD_PROBE_DESCRIPTION)]
+            ),
+        )
+    )
+    proposals.append(
+        mcp(tagged, "globalTags", {"tags": [{"tag": f"urn:li:tag:{FIELD_PROBE_TAG}"}]})
+    )
+    proposals.append(
+        mcp(
+            termed,
+            "glossaryTerms",
+            {
+                "auditStamp": stamp(),
+                "terms": [{"urn": f"urn:li:glossaryTerm:{FIELD_PROBE_TERM}"}],
+            },
+        )
+    )
+    proposals.append(
+        mcp(
+            contained,
+            "container",
+            {"container": f"urn:li:container:{FIELD_PROBE_OTHER}"},
+        )
+    )
+    proposals.append(
+        mcp(stemmed, "container", {"container": f"urn:li:container:{FIELD_PROBE_STEM}"})
+    )
+    return proposals
+
+
+def schema_metadata(fields: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schemaName": "fieldprobe",
+        "platform": PROBE_PLATFORM,
+        "version": 0,
+        "hash": "fieldprobe",
+        "platformSchema": {"com.linkedin.schema.OtherSchema": {"rawSchema": ""}},
+        "fields": fields,
+        "created": stamp(),
+        "lastModified": stamp(),
+    }
+
+
+def schema_field(path: str, description: str | None = None) -> dict[str, Any]:
+    field: dict[str, Any] = {
+        "fieldPath": path,
+        "nativeDataType": "string",
+        "nullable": False,
+        "recursive": False,
+        "type": {"type": {"com.linkedin.schema.StringType": {}}},
+    }
+    if description is not None:
+        field["description"] = description
+    return field
+
+
+def field_probe_judgments() -> list[dict[str, Any]]:
+    """Pass or miss is locked to a measured run. Degree fields are not queried."""
+    column = dataset_urn("catalogprobe", "fieldprobe_column")
+    described = dataset_urn("catalogprobe", "fieldprobe_description")
+    tagged = dataset_urn("catalogprobe", "fieldprobe_tag")
+    termed = dataset_urn("catalogprobe", "fieldprobe_term")
+    contained = dataset_urn("catalogprobe", "fieldprobe_other")
+    stemmed = dataset_urn("catalogprobe", "fieldprobe_stem")
+    specs: list[tuple[str, str, str, str | None]] = [
+        ("field-probe-name-1", FIELD_PROBE_COLUMN, column, None),
+        ("field-probe-description-1", FIELD_PROBE_DESCRIPTION, described, None),
+        ("field-probe-tag", FIELD_PROBE_TAG, tagged, "tags"),
+        ("field-probe-glossary", FIELD_PROBE_TERM, termed, "glossaryTerms"),
+        ("field-probe-other", FIELD_PROBE_OTHER, contained, "other"),
+        ("field-probe-stemmed", FIELD_PROBE_STEM_QUERY, stemmed, "other.stemmed"),
+    ]
+    judgments = []
+    for query_id, query, urn, matched in specs:
+        row: dict[str, Any] = {
+            "id": query_id,
+            "group": "field-probe",
+            "query": query,
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+        }
+        if matched is None:
+            row["expectNoHits"] = True
+        else:
+            row["exactTopHit"] = urn
+            row["matchedFieldContains"] = {"value": matched, "hits": 1}
+        judgments.append(row)
+    return judgments
 
 
 def interactive_ranking_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -1455,6 +1794,8 @@ def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
         "semantic-probe",
         "longtail",
         "structured-property",
+        "sort",
+        "field-probe",
     }
     allowed_surfaces = {"keyword", "semantic", "hybrid", "lineage"}
     for judgment in judgments["judgments"]:
@@ -1480,6 +1821,52 @@ def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
         exact = judgment.get("exactTopHit")
         if exact and exact not in seen:
             raise AssertionError(f"Top hit {exact} is not in the pack")
+        for urn in judgment.get("expectedOrder") or []:
+            if urn not in seen:
+                raise AssertionError(
+                    f"Judgment {judgment['id']} expects unloaded {urn}"
+                )
+        if judgment["group"] == "sort":
+            if judgment.get("grades"):
+                raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+            order = (judgment.get("sort") or {}).get("order")
+            if order not in {"ASCENDING", "DESCENDING"}:
+                raise AssertionError(f"{judgment['id']} has no sort order")
+            if not judgment.get("expectedOrder"):
+                raise AssertionError(f"{judgment['id']} has no expected order")
+        if judgment["group"] == "field-probe":
+            if judgment.get("grades"):
+                raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+            has_hit = bool(judgment.get("exactTopHit"))
+            no_hits = bool(judgment.get("expectNoHits"))
+            if has_hit == no_hits:
+                raise AssertionError(
+                    f"{judgment['id']} needs a top hit or an empty result"
+                )
+
+
+def assert_field_probe_tokens_absent(
+    loaded: dict[str, list[dict[str, Any]]],
+) -> None:
+    """The token stays off the dataset name and off every other shard."""
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            urn = proposal.get("entityUrn") or ""
+            aspect = proposal.get("aspectName")
+            if (
+                path == "05-catalog-probes.json"
+                and "fieldprobe_" in urn
+                and aspect
+                in {"schemaMetadata", "globalTags", "glossaryTerms", "container"}
+            ):
+                continue
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                folded = text.casefold()
+                for token in FIELD_PROBE_TOKENS:
+                    if token not in folded:
+                        continue
+                    raise AssertionError(f"{token} appears in {path} {aspect} on {urn}")
 
 
 def validate_pack(directory: Path) -> None:
@@ -1520,7 +1907,13 @@ def validate_pack(directory: Path) -> None:
     ]
     if len(benchmark) != 225:
         raise AssertionError(f"Expected 225 benchmark queries, found {len(benchmark)}")
+    field_probes = [
+        item for item in judgments["judgments"] if item["group"] == "field-probe"
+    ]
+    if len(field_probes) != 6:
+        raise AssertionError(f"Expected 6 field probes, found {len(field_probes)}")
     assert_fulltext_probe_tokens_absent(loaded)
+    assert_field_probe_tokens_absent(loaded)
 
 
 def generate(root: Path | None = None) -> Path:
