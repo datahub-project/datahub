@@ -29,8 +29,8 @@ import {
 import { NO_ROLE_URN, useRoleAssignment } from '@app/identity/useRoleAssignment';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { GROUPS_INTRO_ID } from '@app/onboarding/config/GroupsOnboardingConfig';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { Button, EmptyState, Modal, Pagination, SearchBar, Table, Text } from '@src/alchemy-components';
 
 import { ListGroupsQuery, useListGroupsQuery } from '@graphql/group.generated';

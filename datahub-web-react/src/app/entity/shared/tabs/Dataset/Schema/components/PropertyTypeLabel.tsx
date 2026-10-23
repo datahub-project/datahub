@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import { TypeData } from '@app/entity/shared/tabs/Properties/types';
 import { truncate } from '@app/entity/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { DataTypeEntity, SchemaFieldDataType } from '@types';
 

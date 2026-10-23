@@ -373,8 +373,10 @@ public class MultiEntityMappingsUtils {
           if (!annotation.isV3Searchable()) {
             continue;
           }
-          addLabelContributor(byLabel, representative, annotation.getSearchLabel(), fieldSpec);
-          addLabelContributor(byLabel, representative, annotation.getEntityFieldName(), fieldSpec);
+          addLabelContributor(
+              byLabel, representative, annotation.indexedFieldName(), fieldSpec, entitySpecs);
+          addLabelContributor(
+              byLabel, representative, annotation.getEntityFieldName(), fieldSpec, entitySpecs);
         }
       }
     }
@@ -387,10 +389,17 @@ public class MultiEntityMappingsUtils {
       }
       searchProperties.put(
           fieldName,
-          FieldTypeMapper.composeLabelMapping(
-              FieldMapping.union(fieldName, entry.getValue()),
-              representative.get(fieldName),
-              partialNgramConfig));
+          V3SearchFields.isParsedKeywordLabel(fieldName, entitySpecs)
+              ? V3SearchFields.parsedUrnRootMapping(
+                  V3SearchFields.urnRootHasAnalyzers(fieldName, entitySpecs))
+              : FieldTypeMapper.composeLabelMapping(
+                  FieldMapping.union(fieldName, entry.getValue()),
+                  representative.get(fieldName),
+                  partialNgramConfig));
+      if (V3SearchFields.isParsedKeywordLabel(fieldName, entitySpecs)) {
+        searchProperties.put(
+            V3SearchFields.fullUrnField(fieldName), V3SearchFields.fullUrnRootMapping());
+      }
     }
 
     Set<String> copyToDestinations = rootCopyToSearchFields(mappings);
@@ -413,14 +422,15 @@ public class MultiEntityMappingsUtils {
       Map<String, List<List<FieldMapping>>> byLabel,
       Map<String, SearchableFieldSpec> representative,
       Optional<String> label,
-      SearchableFieldSpec fieldSpec) {
+      SearchableFieldSpec fieldSpec,
+      Collection<EntitySpec> entitySpecs) {
     label
         .filter(name -> name != null && !name.isEmpty())
         .ifPresent(
             name -> {
               byLabel
                   .computeIfAbsent(name, key -> new ArrayList<>())
-                  .add(FieldMapping.of(fieldSpec.getSearchableAnnotation()));
+                  .add(V3SearchFields.labelMappings(fieldSpec));
               representative.putIfAbsent(name, fieldSpec);
             });
   }

@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
@@ -30,6 +31,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.ExplainMatch;
+import com.linkedin.metadata.search.ExplainMatchArray;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
@@ -44,12 +47,17 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettin
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchedFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
+import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -58,6 +66,7 @@ import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -122,6 +131,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
   @Nonnull private final HighlightBuilder highlights;
 
   private final SearchServiceConfiguration searchServiceConfig;
+  private final int maxTermBucketSize;
+  private final SearchTemplateRequestApplier templateRequests;
   private final SearchQueryBuilder searchQueryBuilder;
 
   // Set when keyword reads go to Search V3, whose full-text query reads the shared root fields
@@ -175,8 +186,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     boolean readV3 = EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex());
     v3SearchFieldResolver =
         readV3
-            ? new SearchFieldResolver(
-                V3SearchFields.indexGroupSpecs(opContext.getEntityRegistry(), entitySpecs))
+            ? V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver()
             : null;
     v3SearchQueryBuilder =
         readV3
@@ -195,6 +205,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
                 configs.getSearch(), entitySearchAnnotations, v3SearchFieldResolver)
             : new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
     this.searchServiceConfig = searchServiceConfig;
+    this.maxTermBucketSize = configs.getSearch().getMaxTermBucketSize();
     searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
@@ -203,6 +214,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
             .build();
+    this.templateRequests =
+        new SearchTemplateRequestApplier(
+            aggregationQueryBuilder,
+            maxTermBucketSize,
+            entitySpecs,
+            v3SearchFieldResolver,
+            v3MinWordLength,
+            v3SearchQueryBuilder);
   }
 
   public static SearchRequestHandler getBuilder(
@@ -365,6 +384,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
+    if (templatesActive(opContext)) {
+      return prepareSearchRequest(
+              opContext, input, filter, sortCriteria, from, size, facets, null, false)
+          .request();
+    }
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
@@ -393,10 +417,17 @@ public class SearchRequestHandler extends BaseRequestHandler {
       searchSourceBuilder.highlighter(highlightBuilder);
     }
 
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
+    ESUtils.buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria,
+        entitySpecs,
+        v3SearchFieldResolver,
+        opContext,
+        opContext.getAspectRetriever());
 
-    if (Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
-      ESUtils.buildNameSuggestions(searchSourceBuilder, input);
+    if ((size == null || size != 0) && Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
+      ESUtils.buildNameSuggestions(
+          searchSourceBuilder, input, v3SearchQueryBuilder == null ? "_entityName" : "name");
     }
 
     // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
@@ -433,6 +464,21 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String keepAlive,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
+    if (templatesActive(opContext)) {
+      return prepareSearchRequest(
+              opContext,
+              input,
+              filter,
+              sortCriteria,
+              sort,
+              pitId,
+              keepAlive,
+              size,
+              facets,
+              null,
+              true)
+          .request();
+    }
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
     applySearchType(searchRequest, opContext);
@@ -462,7 +508,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
       HighlightBuilder highlightBuilder = getHighlightBuilder(opContext, searchFlags);
       searchSourceBuilder.highlighter(highlightBuilder);
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
+    ESUtils.buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria,
+        entitySpecs,
+        v3SearchFieldResolver,
+        opContext,
+        opContext.getAspectRetriever());
 
     // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
@@ -474,6 +526,105 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchRequest.indicesOptions(null);
 
     return searchRequest;
+  }
+
+  @Nonnull
+  public PreparedSearchRequest prepareSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable String renderUrn,
+      boolean scroll) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    SearchRequest searchRequest = new SearchRequest();
+    applySearchType(searchRequest, opContext);
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.from(from);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    SearchQueryPlan queryPlan =
+        searchQueryBuilder.buildPlan(
+            opContext,
+            entitySpecs,
+            input,
+            Boolean.TRUE.equals(searchFlags.isFulltext()),
+            renderUrn,
+            scroll);
+    searchSourceBuilder.query(
+        QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
+    templateRequests.apply(
+        opContext,
+        searchSourceBuilder,
+        searchFlags,
+        sortCriteria,
+        facets,
+        queryPlan.template(),
+        scroll,
+        size,
+        input);
+    if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
+      searchSourceBuilder.explain(true);
+    }
+    searchRequest.source(searchSourceBuilder);
+    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+  }
+
+  @Nonnull
+  public PreparedSearchRequest prepareSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      @Nullable List<SortCriterion> sortCriteria,
+      @Nullable Object[] sort,
+      @Nullable String pitId,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable String renderUrn,
+      boolean scroll) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    SearchRequest searchRequest = new PITAwareSearchRequest();
+    applySearchType(searchRequest, opContext);
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    SearchQueryPlan queryPlan =
+        searchQueryBuilder.buildPlan(
+            opContext,
+            entitySpecs,
+            input,
+            Boolean.TRUE.equals(searchFlags.isFulltext()),
+            renderUrn,
+            scroll);
+    searchSourceBuilder.query(
+        QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
+    templateRequests.apply(
+        opContext,
+        searchSourceBuilder,
+        searchFlags,
+        sortCriteria,
+        facets,
+        queryPlan.template(),
+        scroll,
+        size,
+        input);
+    if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
+      searchSourceBuilder.explain(true);
+    }
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indicesOptions(null);
+    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+  }
+
+  private static boolean templatesActive(@Nonnull OperationContext opContext) {
+    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    return coordinator != null && coordinator.executes(opContext);
   }
 
   /**
@@ -515,7 +666,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(ConfigUtils.applyLimit(searchServiceConfig, size));
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
+    ESUtils.buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria,
+        entitySpecs,
+        v3SearchFieldResolver,
+        opContext,
+        opContext.getAspectRetriever());
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -541,6 +698,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
+    // Value counts are a zero-hit Java aggregation. A template may replace the lexical query
+    // later; it does not supply this aggregation, highlighting, rescore, or suggestions.
     searchSourceBuilder.size(0);
     String aggregationField =
         v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
@@ -621,11 +780,17 @@ public class SearchRequestHandler extends BaseRequestHandler {
             V3SearchFields.matchedFieldSources(
                 v3SearchQueryBuilder.searchedFields(opContext, entitySpecs)));
     sources.add("urn");
+    final Map<String, String> reported =
+        V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
     final List<String> matched;
-    // Only a field the query reads can match, as V2 highlights only those
+    // Only a field the query reads can match, as V2 highlights only those. A relabeled field is
+    // fetched from _aspects and reported as its label.
     if (CollectionUtils.isNotEmpty(searchFlags.getCustomHighlightingFields())) {
       Set<String> custom = v3SourceFields(searchFlags.getCustomHighlightingFields());
-      matched = sources.stream().filter(custom::contains).collect(Collectors.toList());
+      matched =
+          sources.stream()
+              .filter(source -> highlightRequests(custom, source, reported))
+              .collect(Collectors.toList());
     } else {
       // A highlight configuration names V2 fields and subfields; read them as root fields. Only a
       // field the query reads can match, as V2 highlights only those, so added fields change
@@ -633,27 +798,58 @@ public class SearchRequestHandler extends BaseRequestHandler {
       HighlightFields highlightFields = getHighlightFields(fieldConfigLabel);
       if (highlightFields != null && !highlightFields.getReplace().isEmpty()) {
         Set<String> replace = v3SourceFields(highlightFields.getReplace());
-        matched = sources.stream().filter(replace::contains).collect(Collectors.toList());
+        matched =
+            sources.stream()
+                .filter(source -> highlightRequests(replace, source, reported))
+                .collect(Collectors.toList());
       } else {
         Set<String> remove =
             highlightFields == null ? Set.of() : v3SourceFields(highlightFields.getRemove());
         matched =
-            sources.stream().filter(field -> !remove.contains(field)).collect(Collectors.toList());
+            sources.stream()
+                .filter(field -> !highlightRequests(remove, field, reported))
+                .collect(Collectors.toList());
       }
     }
     // A property copied into a searched shared field is not in that field's _source
     List<String> copied =
         v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs);
-    if (copied.isEmpty()) {
-      return matched;
-    }
     List<String> withCopied = new ArrayList<>(matched);
     for (String field : copied) {
       if (!withCopied.contains(field)) {
         withCopied.add(field);
       }
     }
-    return withCopied;
+    return expandStoredParsedNames(withCopied);
+  }
+
+  /**
+   * An analyzed URN label is null in {@code _source}. Fetch the aspect field that stores the parsed
+   * name instead.
+   */
+  @Nonnull
+  private List<String> expandStoredParsedNames(@Nonnull final List<String> fields) {
+    final Map<String, List<String>> stored =
+        V3SearchFieldModel.of(entitySpecs).storedParsedNameFields();
+    if (stored.isEmpty()) {
+      return fields;
+    }
+    final List<String> expanded = new ArrayList<>();
+    for (String field : fields) {
+      final List<String> sources = stored.get(field);
+      if (sources == null || sources.isEmpty()) {
+        if (!expanded.contains(field)) {
+          expanded.add(field);
+        }
+        continue;
+      }
+      for (String source : sources) {
+        if (!expanded.contains(source)) {
+          expanded.add(source);
+        }
+      }
+    }
+    return expanded;
   }
 
   @Nullable
@@ -668,6 +864,15 @@ public class SearchRequestHandler extends BaseRequestHandler {
     FieldConfiguration fieldConfiguration =
         customSearchConfiguration.getFieldConfigurations().get(fieldConfigLabel);
     return fieldConfiguration == null ? null : fieldConfiguration.getHighlightFields();
+  }
+
+  /** A highlight name matches the fetched path or the label that path is reported as. */
+  private static boolean highlightRequests(
+      @Nonnull Set<String> requested,
+      @Nonnull String source,
+      @Nonnull Map<String, String> reported) {
+    String label = reported.get(source);
+    return requested.contains(source) || (label != null && requested.contains(label));
   }
 
   @Nonnull
@@ -711,7 +916,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Filter filter,
       int from,
       @Nullable Integer size) {
-    return extractResult(opContext, searchResponse, filter, from, size, null);
+    return extractResult(opContext, searchResponse, filter, from, size, (String) null);
   }
 
   /**
@@ -741,6 +946,29 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   @WithSpan
+  public SearchResult extractResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      int from,
+      @Nullable Integer size,
+      @Nullable RenderedSearchTemplate template) {
+    handleShardFailures(opContext, searchResponse);
+    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
+    Collection<SearchEntity> resultList =
+        getRestrictedResults(
+            opContext, searchResponse, templateRequests.matchedFieldsOf(opContext, template));
+    SearchResultMetadata searchResultMetadata =
+        extractSearchResultMetadata(opContext, searchResponse, filter);
+    return new SearchResult()
+        .setEntities(new SearchEntityArray(resultList))
+        .setMetadata(searchResultMetadata)
+        .setFrom(from)
+        .setPageSize(ConfigUtils.applyLimit(searchServiceConfig, size))
+        .setNumEntities(totalCount);
+  }
+
+  @WithSpan
   public ScrollResult extractScrollResult(
       @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
@@ -749,7 +977,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Integer size,
       boolean supportsPointInTime) {
     return extractScrollResult(
-        opContext, searchResponse, filter, keepAlive, size, supportsPointInTime, null);
+        opContext, searchResponse, filter, keepAlive, size, supportsPointInTime, (String) null);
   }
 
   /**
@@ -765,6 +993,43 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Integer size,
       boolean supportsPointInTime,
       @Nullable String input) {
+    return extractScrollResult(
+        opContext,
+        searchResponse,
+        filter,
+        keepAlive,
+        size,
+        supportsPointInTime,
+        matchedFieldsOf(opContext, input));
+  }
+
+  @WithSpan
+  public ScrollResult extractScrollResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      boolean supportsPointInTime,
+      @Nullable RenderedSearchTemplate template) {
+    return extractScrollResult(
+        opContext,
+        searchResponse,
+        filter,
+        keepAlive,
+        size,
+        supportsPointInTime,
+        templateRequests.matchedFieldsOf(opContext, template));
+  }
+
+  private ScrollResult extractScrollResult(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      Filter filter,
+      @Nullable String keepAlive,
+      @Nullable Integer size,
+      boolean supportsPointInTime,
+      @Nonnull Function<SearchHit, SearchHitMatches> matchedFields) {
     handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
@@ -779,7 +1044,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
 
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
-    final Function<SearchHit, List<MatchedField>> matchedFields = matchedFieldsOf(opContext, input);
     for (SearchHit hit : searchHits) {
       // Build base SearchEntity — skip hits with missing/invalid URN rather than crashing
       Optional<SearchEntity> maybeEntity = getResultSafely(opContext, hit, matchedFields);
@@ -904,7 +1168,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
    * response.
    */
   @Nonnull
-  private Function<SearchHit, List<MatchedField>> matchedFieldsOf(
+  private Function<SearchHit, SearchHitMatches> matchedFieldsOf(
       @Nonnull OperationContext opContext, @Nullable String input) {
     if (v3SearchQueryBuilder == null) {
       return this::extractMatchedFields;
@@ -912,17 +1176,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
     final List<String> fields =
         getV3MatchedFieldSources(opContext, opContext.getSearchContext().getSearchFlags(), input);
     if (fields.isEmpty()) {
-      return hit -> List.of();
+      return hit -> SearchHitMatches.EMPTY;
     }
     final MatchedFields matcher = new MatchedFields(input, v3MinWordLength);
+    final Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
     return hit -> {
       final Map<String, Object> source = hit.getSourceAsMap();
-      return source == null ? List.of() : matcher.find(source, fields);
+      if (source == null) {
+        return SearchHitMatches.EMPTY;
+      }
+      return new SearchHitMatches(
+          matcher.find(source, fields, labels), matcher.explain(source, fields, labels));
     };
   }
 
   @Nonnull
-  private List<MatchedField> extractMatchedFields(@Nonnull SearchHit hit) {
+  private SearchHitMatches extractMatchedFields(@Nonnull SearchHit hit) {
     // getHighlightFields() and getMatchedQueries() can be null for a valid hit (no highlight / no
     // named-query match). Default them to empty: now that getResultSafely only catches
     // InvalidSearchHitException, an unguarded NPE here would fail the whole search instead of
@@ -962,12 +1231,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
         }
       }
     }
-    return highlightedFieldNamesAndValues.entrySet().stream()
-        .flatMap(
-            entry ->
-                entry.getValue().stream()
-                    .map(value -> new MatchedField().setName(entry.getKey()).setValue(value)))
-        .collect(Collectors.toList());
+    return new SearchHitMatches(
+        highlightedFieldNamesAndValues.entrySet().stream()
+            .flatMap(
+                entry ->
+                    entry.getValue().stream()
+                        .map(value -> new MatchedField().setName(entry.getKey()).setValue(value)))
+            .collect(Collectors.toList()),
+        List.of());
   }
 
   private HighlightBuilder getHighlightBuilder(
@@ -1027,14 +1298,21 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private SearchEntity getResult(
       @Nonnull OperationContext opContext,
       @Nonnull SearchHit hit,
-      @Nonnull Function<SearchHit, List<MatchedField>> matchedFields) {
+      @Nonnull Function<SearchHit, SearchHitMatches> matchedFields) {
+    SearchHitMatches matches = matchedFields.apply(hit);
     SearchEntity entity =
         new SearchEntity()
             .setEntity(getUrnFromSearchHit(hit))
-            .setMatchedFields(new MatchedFieldArray(matchedFields.apply(hit)))
+            .setMatchedFields(new MatchedFieldArray(matches.matched()))
             .setScore(hit.getScore())
             .setFeatures(new DoubleMap(extractFeatures(hit)));
     SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    if (flags != null
+        && Boolean.TRUE.equals(flags.isIncludeExplain())
+        && !matches.explain().isEmpty()) {
+      entity.setExplainMatches(
+          new ExplainMatchArray(matches.explain().stream().map(this::toExplain).toList()));
+    }
     if (flags != null && CollectionUtils.isNotEmpty(flags.getFetchExtraFields())) {
       entity.setExtraFields(
           SearchResultUtils.toExtraFields(
@@ -1054,6 +1332,16 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
     }
     return entity;
+  }
+
+  @Nonnull
+  private ExplainMatch toExplain(@Nonnull MatchEvidence evidence) {
+    return new ExplainMatch()
+        .setField(evidence.field())
+        .setValue(evidence.value())
+        .setSubfield(evidence.subfield())
+        .setMode(evidence.mode())
+        .setQuery(evidence.query());
   }
 
   /**
@@ -1106,7 +1394,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private Optional<SearchEntity> getResultSafely(
       @Nonnull OperationContext opContext,
       @Nonnull SearchHit hit,
-      @Nonnull Function<SearchHit, List<MatchedField>> matchedFields) {
+      @Nonnull Function<SearchHit, SearchHitMatches> matchedFields) {
     try {
       return Optional.of(getResult(opContext, hit, matchedFields));
     } catch (InvalidSearchHitException e) {
@@ -1137,7 +1425,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
       @Nullable String input) {
-    final Function<SearchHit, List<MatchedField>> matchedFields = matchedFieldsOf(opContext, input);
+    return getRestrictedResults(opContext, searchResponse, matchedFieldsOf(opContext, input));
+  }
+
+  @Nonnull
+  private Collection<SearchEntity> getRestrictedResults(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nonnull Function<SearchHit, SearchHitMatches> matchedFields) {
     List<SearchEntity> results =
         Arrays.stream(searchResponse.getHits().getHits())
             .flatMap(hit -> getResultSafely(opContext, hit, matchedFields).stream())
@@ -1176,6 +1471,13 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     final List<SearchSuggestion> searchSuggestions = extractSearchSuggestions(searchResponse);
     searchResultMetadata.setSuggestions(new SearchSuggestionArray(searchSuggestions));
+    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
+    if (searchFlags != null
+        && Boolean.TRUE.equals(searchFlags.isIncludeExplain())
+        && resolved != null
+        && !resolved.getRouteChain().isEmpty()) {
+      searchResultMetadata.setRouteChain(new StringArray(resolved.getRouteChain()));
+    }
 
     return searchResultMetadata;
   }

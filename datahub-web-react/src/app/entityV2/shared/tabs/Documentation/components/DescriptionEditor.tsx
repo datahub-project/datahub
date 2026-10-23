@@ -12,8 +12,8 @@ import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentatio
 import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';

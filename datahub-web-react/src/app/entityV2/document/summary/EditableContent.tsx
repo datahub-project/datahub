@@ -13,9 +13,9 @@ import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { categorizeUrns, extractUrnsFromMarkdown, isAllowedRelatedAssetUrn } from '@app/document/utils/documentUtils';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import { useDiscardUnsavedChangesConfirmationContext } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import { useIsDocumentExplicitSaveEnabled } from '@app/useAppConfig';
 
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';

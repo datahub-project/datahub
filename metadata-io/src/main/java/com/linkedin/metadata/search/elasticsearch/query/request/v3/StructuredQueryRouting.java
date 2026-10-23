@@ -27,13 +27,13 @@ import org.opensearch.index.query.QueryStringQueryBuilder;
  * therefore runs once. A property field is lenient, so a property mapped on only some indices of a
  * multi-index search does not fail the request. Every other named field stays strict.
  */
-final class StructuredQueryRouting {
+public final class StructuredQueryRouting {
 
   private static final int MAX_DEPTH = 32;
 
   private StructuredQueryRouting() {}
 
-  static Optional<QueryBuilder> build(
+  public static Optional<QueryBuilder> build(
       @Nonnull String query,
       @Nonnull List<SearchFieldConfig> shared,
       @Nonnull List<SearchFieldConfig> properties,

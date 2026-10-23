@@ -52,9 +52,9 @@ import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/His
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
@@ -114,7 +114,7 @@ const EntityDropdown = (props: Props) => {
     const onEntityProfile = entityProfileUrn === urn;
 
     const me = useUserContext();
-    const entityRegistryV2 = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
     const [updateDeprecation] = useUpdateDeprecationMutation();
@@ -396,7 +396,7 @@ const EntityDropdown = (props: Props) => {
                 icon: Link,
                 onClick: () => {
                     const { origin } = window.location;
-                    const copyUrl = `${origin}${resolveRuntimePath(entityRegistryV2.getEntityUrl(entityType, urn))}/`;
+                    const copyUrl = `${origin}${resolveRuntimePath(entityRegistry.getEntityUrl(entityType, urn))}/`;
                     copyToClipboard(copyUrl, ts('copyLink.success'));
                 },
             });
@@ -417,7 +417,7 @@ const EntityDropdown = (props: Props) => {
 
         // Copy Name
         if (navigator.clipboard) {
-            const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
+            const displayName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : urn;
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-name',
@@ -437,9 +437,9 @@ const EntityDropdown = (props: Props) => {
             title: t('menuItem.email'),
             icon: Envelope,
             onClick: () => {
-                const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
+                const displayName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : urn;
                 const displayType =
-                    getFirstSubType(entityData) || entityRegistryV2.getEntityName(entityType) || entityType;
+                    getFirstSubType(entityData) || entityRegistry.getEntityName(entityType) || entityType;
                 const linkText = window.location.href;
                 const link = qs.stringifyUrl({
                     url: 'mailto:',
@@ -475,7 +475,7 @@ const EntityDropdown = (props: Props) => {
     if (menuItems.has(EntityMenuItems.DELETE)) {
         let deleteTooltip: string | undefined;
         if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
-            const entityName = entityRegistryV2.getEntityName(entityType);
+            const entityName = entityRegistry.getEntityName(entityType);
             deleteTooltip = isDomainEntity
                 ? t('delete.cantDeleteSubDomain', { entityName })
                 : t('delete.cantDeleteChild', { entityName });
@@ -586,7 +586,7 @@ const EntityDropdown = (props: Props) => {
                                 `${getEntityPath(
                                     entityType,
                                     urn,
-                                    entityRegistryV2,
+                                    entityRegistry,
                                     false,
                                     isHideSiblingMode,
                                     EntityTabPath.INCIDENTS,

@@ -42,7 +42,11 @@ record DatasetAssertionInfo {
     }
     @Searchable = {
       "/*": {
-        "fieldType": "URN"
+        "fieldType": "URN",
+        "v3": {
+          "queryByDefault": false,
+          "copyToOther": true
+        }
       }
     }
     @UrnValidation = {

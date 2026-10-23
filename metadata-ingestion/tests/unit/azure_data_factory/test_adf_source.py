@@ -13,9 +13,10 @@ We do NOT test:
 - Pydantic validation (covered by test_adf_config.py)
 """
 
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pytest
+from azure.mgmt.datafactory.models import Activity
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
@@ -25,6 +26,7 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
 )
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
+    AzureDataFactorySource,
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
@@ -923,3 +925,48 @@ class TestFineGrainedLineageOutput:
 
         assert len(lineages) == 1
         assert lineages[0].downstreamType == FineGrainedLineageDownstreamTypeClass.FIELD
+
+
+class _FreshChildActivity(Activity):
+    """An activity whose children are rebuilt on every attribute access, as
+    SDK-style wrappers that deserialize lazily do. Popped parents get freed,
+    so CPython can hand their id() to a newly built child."""
+
+    def __init__(self, spec: Dict[str, Any]) -> None:
+        super().__init__(name=spec["name"])
+        self.type = spec["type"]
+        self._spec = spec
+
+    @property
+    def activities(self) -> List["_FreshChildActivity"]:
+        return [_FreshChildActivity(child) for child in self._spec.get("children", [])]
+
+
+class TestWalkActivities:
+    def test_nested_activities_are_not_dropped_when_wrappers_are_rebuilt(
+        self,
+    ) -> None:
+        def loop(name: str, children: List[Dict[str, Any]]) -> Dict[str, Any]:
+            return {"name": name, "type": "ForEach", "children": children}
+
+        def copy(name: str) -> Dict[str, Any]:
+            return {"name": name, "type": "Copy"}
+
+        specs = [
+            copy("Lookup"),
+            loop("Outer", [copy("CopyA"), loop("Inner", [copy("CopyB")])]),
+            loop("Second", [copy("CopyC")]),
+        ]
+        source = AzureDataFactorySource.__new__(AzureDataFactorySource)
+
+        walked = source._walk_activities(_FreshChildActivity(s) for s in specs)
+
+        assert [a.name for a in walked] == [
+            "Lookup",
+            "Outer",
+            "Second",
+            "CopyA",
+            "Inner",
+            "CopyC",
+            "CopyB",
+        ]
