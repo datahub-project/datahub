@@ -35,6 +35,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
@@ -1811,7 +1812,8 @@ public class ESUtils {
         filter,
         filterQuery,
         opContext.getSearchContext().getSearchFlags(),
-        hiddenLifecycleStageUrns);
+        hiddenLifecycleStageUrns,
+        entityIndexConfiguration);
     EntityFilter.applyEntityTypeFilter(filterQuery, entityNames, entityIndexConfiguration);
     return filterQuery;
   }
@@ -1831,7 +1833,8 @@ public class ESUtils {
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery,
       @Nonnull SearchFlags searchFlags,
-      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+      @Nonnull Set<String> hiddenLifecycleStageUrns,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     boolean removedInOrFilter = false;
     boolean lifecycleStageInOrFilter = false;
     if (filter != null) {
@@ -1856,11 +1859,14 @@ public class ESUtils {
     if (!Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())
         && !lifecycleStageInOrFilter
         && !hiddenLifecycleStageUrns.isEmpty()) {
+      // V3 stores the raw stage URN on the keyword root. V2 stores it on .keyword and normalizes
+      // the root, so a term on the root would not match the URN.
+      String stageField =
+          EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)
+              ? LIFECYCLE_STAGE
+              : LIFECYCLE_STAGE + KEYWORD_SUFFIX;
       for (String stageUrn : hiddenLifecycleStageUrns) {
-        filterQuery.mustNot(QueryBuilders.termQuery(LIFECYCLE_STAGE + KEYWORD_SUFFIX, stageUrn));
-        // Search V3 has no .keyword multi-field: the raw stage URN is on the root. On V2 the root
-        // is normalized, so this term only matches a stage the clause above already excludes.
-        filterQuery.mustNot(QueryBuilders.termQuery(LIFECYCLE_STAGE, stageUrn));
+        filterQuery.mustNot(QueryBuilders.termQuery(stageField, stageUrn));
       }
     }
   }

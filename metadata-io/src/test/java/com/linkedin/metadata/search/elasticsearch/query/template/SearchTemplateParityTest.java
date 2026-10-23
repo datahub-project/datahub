@@ -413,7 +413,7 @@ public class SearchTemplateParityTest {
             false,
             true,
             "urn:li:searchTemplate:structured",
-            List.of("query_string", "orders"),
+            List.of("case_insensitive", "orders"),
             List.of(),
             List.of("dis_max"),
             List.of(),

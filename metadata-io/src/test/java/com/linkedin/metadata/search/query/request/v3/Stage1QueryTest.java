@@ -30,7 +30,6 @@ import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryStringQueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.query.WildcardQueryBuilder;
@@ -452,9 +451,11 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
                     true))
             .query();
     DisMaxQueryBuilder disMax = (DisMaxQueryBuilder) query;
-    QueryStringQueryBuilder structured = (QueryStringQueryBuilder) disMax.innerQueries().get(0);
-    assertEquals(structured.queryString(), "keyPart1:value");
-    assertEquals(structured.fields().get("keyPart1").floatValue(), 10.0f);
+    // keyPart1 is a V3 keyword root, so an unquoted value is a case-insensitive term.
+    TermQueryBuilder structured = (TermQueryBuilder) disMax.innerQueries().get(0);
+    assertEquals(structured.fieldName(), "keyPart1");
+    assertEquals(structured.value(), "value");
+    assertTrue(structured.caseInsensitive());
   }
 
   @Test
