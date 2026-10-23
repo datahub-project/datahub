@@ -391,6 +391,8 @@ class SqlAggregatorReport(Report):
 
     # SQL parsing (over all invocations).
     num_sql_parsed: int = 0
+    # Parses whose column lineage needed the vendored sqlglot 30.20 projection pushdown.
+    num_sql_parsed_legacy_pushdown_projections: int = 0
     sql_parsing_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_fingerprinting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_formatting_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -1436,6 +1438,8 @@ class SqlParsingAggregator(Closeable):
                 override_dialect=override_dialect,
             )
         self.report.num_sql_parsed += 1
+        if parsed.debug_info.used_legacy_pushdown_projections:
+            self.report.num_sql_parsed_legacy_pushdown_projections += 1
 
         # Conditionally log the query.
         if self.query_log == QueryLogSetting.STORE_ALL or (
