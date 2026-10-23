@@ -132,6 +132,12 @@ Maintaining two implementations costs effort and can expose semantic ambiguities
 - Store only a human-readable explanation: easier to publish, but cannot automatically detect a changed decision.
 - Build a universal engine in DataHub: a much larger scope with domain-policy ownership and compatibility costs.
 
+## Related work
+
+- [#18966](https://github.com/datahub-project/datahub/pull/18966) records the agent version, the run, an evidence digest and the policy version behind a verification result. [#18700](https://github.com/datahub-project/datahub/pull/18700) describes decisions that are bound to governed evidence and revalidated when the context changes. [#19058](https://github.com/datahub-project/datahub/pull/19058) shows how to write an already computed decision back and read it again.
+- This proposal adds a narrower requirement: a separate implementation can recompute the recorded result offline, from the declared inputs, under policy bytes that it trusts independently. Writing a decision back, revalidating it in the producer, or naming a policy version does not provide that on its own. The shared fields should be agreed with those proposals before another representation is standardized.
+- [#16012](https://github.com/datahub-project/datahub/pull/16012) can identify producers as agents, but this contract does not require it.
+
 ## Rollout / Adoption Strategy
 
 Agree first on the minimal envelope and verification claims. Publish one external profile with two implementations and shared vectors before proposing SDK discovery or UI support. Existing integrations keep their current behavior. Adoption must not convert a replay `MATCH` into automatic permission to perform a write.
