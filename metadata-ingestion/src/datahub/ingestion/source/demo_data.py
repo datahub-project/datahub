@@ -72,6 +72,20 @@ class DemoDataConfig(ConfigModel):
         default=False,
         description="Force re-download even if the pack is cached.",
     )
+    server: Optional[str] = Field(
+        default=None,
+        description=(
+            "GMS URL for datapack ingest. When omitted, uses DATAHUB_GMS_URL, "
+            "~/.datahubenv, or http://localhost:8080."
+        ),
+    )
+    token: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional GMS token. Combined with server when set; otherwise applied "
+            "on top of env/~/.datahubenv or the localhost quickstart default."
+        ),
+    )
 
 
 @platform_name("Demo Data")
@@ -130,6 +144,8 @@ class DemoDataSource(Source):
             pack,
             file_entries,
             run_id,
+            server=config.server,
+            token=config.token,
             no_time_shift=config.no_time_shift,
             as_of=as_of_dt,
             log_progress=False,

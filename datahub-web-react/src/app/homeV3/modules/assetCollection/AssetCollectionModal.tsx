@@ -13,10 +13,15 @@ import { isEmptyLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/util
 
 import { DataHubPageModuleType } from '@types';
 
+// Flex column so the inner result lists shrink to fit on short viewports instead of being clipped
+const MODAL_BODY_STYLES = { overflow: 'hidden', display: 'flex', flexDirection: 'column' as const };
+
 const ModalContent = styled.div`
     display: flex;
     flex-direction: column;
     width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 const AssetCollectionModal = () => {
@@ -111,7 +116,7 @@ const AssetCollectionModal = () => {
             subtitle={t('assetCollection.subtitle')}
             onUpsert={handleUpsertAssetCollectionModule}
             submitButtonProps={{ disabled: isDisabled }}
-            bodyStyles={{ overflow: 'hidden' }}
+            bodyStyles={MODAL_BODY_STYLES}
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />

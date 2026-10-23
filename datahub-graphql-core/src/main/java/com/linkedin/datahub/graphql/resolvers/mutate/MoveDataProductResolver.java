@@ -53,8 +53,8 @@ public class MoveDataProductResolver implements DataFetcher<CompletableFuture<Bo
             final Domains domains =
                 _dataProductService.getDataProductDomains(
                     context.getOperationContext(), resourceUrn);
-            if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
-                context, domains)) {
+            if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+                context, resourceUrn, domains)) {
               throw new AuthorizationException(
                   "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }

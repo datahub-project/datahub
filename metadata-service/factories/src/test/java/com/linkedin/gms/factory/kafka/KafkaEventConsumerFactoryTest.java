@@ -3,17 +3,22 @@ package com.linkedin.gms.factory.kafka;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ListenerConfiguration;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClientConfig;
 import java.lang.reflect.Field;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.serialization.Deserializer;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -115,14 +120,61 @@ public class KafkaEventConsumerFactoryTest {
   }
 
   @Test
-  void testAuthExceptionRetryIntervalOnDuheConsumer() {
-    var listenerFactory =
-        (ConcurrentKafkaListenerContainerFactory<?, ?>)
-            factory.duheKafkaEventConsumer(kafkaConsumerFactory);
+  public void testOmittedStoreTypeLeavesSpringKafkaProperty() {
+    String keystoreType =
+        SchemaRegistryClientConfig.CLIENT_NAMESPACE + SslConfigs.SSL_KEYSTORE_TYPE_CONFIG;
+    KafkaProperties springKafka = new KafkaProperties();
+    springKafka.getProperties().put(keystoreType, "PEM");
 
-    assertEquals(
-        listenerFactory.getContainerProperties().getAuthExceptionRetryInterval(),
-        Duration.ofSeconds(10),
-        "DUHE consumer should retry on auth exceptions to survive MSK IAM credential rotation");
+    KafkaConfiguration kafka =
+        schemaRegistryKafka(Map.of("schema.registry.url", "http://schema-registry:8081"));
+    Map<String, Object> props =
+        KafkaEventConsumerFactory.buildCustomizedProperties(
+            springKafka, kafka, kafka.getSerde().getEvent(), false, false);
+
+    assertEquals(props.get(keystoreType), "PEM");
+    assertFalse(
+        props.containsKey(
+            SchemaRegistryClientConfig.CLIENT_NAMESPACE + SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG));
+  }
+
+  @Test
+  public void testConfiguredStoreTypeOverridesSpringKafkaProperty() {
+    String keystoreType =
+        SchemaRegistryClientConfig.CLIENT_NAMESPACE + SslConfigs.SSL_KEYSTORE_TYPE_CONFIG;
+    KafkaProperties springKafka = new KafkaProperties();
+    springKafka.getProperties().put(keystoreType, "PEM");
+
+    Map<String, String> schemaRegistryProps = new HashMap<>();
+    schemaRegistryProps.put("schema.registry.url", "http://schema-registry:8081");
+    schemaRegistryProps.put(keystoreType, "PKCS12");
+
+    KafkaConfiguration kafka = schemaRegistryKafka(schemaRegistryProps);
+    Map<String, Object> props =
+        KafkaEventConsumerFactory.buildCustomizedProperties(
+            springKafka, kafka, kafka.getSerde().getEvent(), false, false);
+
+    assertEquals(props.get(keystoreType), "PKCS12");
+  }
+
+  private static KafkaConfiguration schemaRegistryKafka(Map<String, String> schemaRegistryProps) {
+    KafkaConfiguration.SerDeProperties serDeProperties = new KafkaConfiguration.SerDeProperties();
+    serDeProperties.setSerializer("org.apache.kafka.common.serialization.StringSerializer");
+    serDeProperties.setDeserializer("org.apache.kafka.common.serialization.StringDeserializer");
+
+    KafkaConfiguration.SerDeKeyValueConfig event = new KafkaConfiguration.SerDeKeyValueConfig();
+    event.setKey(serDeProperties);
+    event.setValue(serDeProperties);
+    event.setProperties(schemaRegistryProps);
+
+    KafkaConfiguration.SerDeConfig serde = new KafkaConfiguration.SerDeConfig();
+    serde.setEvent(event);
+
+    KafkaConfiguration kafka = new KafkaConfiguration();
+    kafka.setBootstrapServers("kafka:9092");
+    kafka.setSerde(serde);
+    kafka.setConsumer(new ConsumerConfiguration());
+    kafka.getConsumer().setMaxPartitionFetchBytes(5242880);
+    return kafka;
   }
 }

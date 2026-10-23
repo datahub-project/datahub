@@ -48,12 +48,16 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
   public void testShimCreation() {
 
     assertNotNull(searchClientShim);
-    assertEquals(searchClientShim.getEngineType(), SearchEngineType.OPENSEARCH_2);
+    // The suite runs against both OpenSearch 2.x and 3.x container images (see testOpenSearch and
+    // testOpenSearch3 gradle targets); auto-detection picks the matching engine type.
+    assertTrue(
+        searchClientShim.getEngineType() == SearchEngineType.OPENSEARCH_2
+            || searchClientShim.getEngineType() == SearchEngineType.OPENSEARCH_3);
 
     // Test native client access
     Object nativeClient = searchClientShim.getNativeClient();
     assertNotNull(nativeClient);
-    assertTrue(nativeClient instanceof org.opensearch.client.RestHighLevelClient);
+    assertTrue(nativeClient instanceof org.opensearch.client.RestClient);
   }
 
   @Test
@@ -66,9 +70,12 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
     assertTrue(clusterInfo.containsKey("engine_type"));
     assertEquals(clusterInfo.get("engine_type"), "opensearch");
 
-    // Verify version starts with 2
+    // Verify version major matches the detected engine type
     String version = clusterInfo.get("version");
-    assertTrue(version.startsWith("2."), "Expected version to start with 2, got: " + version);
+    String expectedMajor = searchClientShim.getEngineType().getMajorVersion() + ".";
+    assertTrue(
+        version.startsWith(expectedMajor),
+        "Expected version to start with " + expectedMajor + ", got: " + version);
   }
 
   @Test
@@ -77,7 +84,10 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
     String version = searchClientShim.getEngineVersion();
     assertNotNull(version);
     assertNotEquals(version, "unknown");
-    assertTrue(version.startsWith("2."), "Expected version to start with 2, got: " + version);
+    String expectedMajor = searchClientShim.getEngineType().getMajorVersion() + ".";
+    assertTrue(
+        version.startsWith(expectedMajor),
+        "Expected version to start with " + expectedMajor + ", got: " + version);
   }
 
   @Test
@@ -152,7 +162,7 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
         SearchClientShimUtil.createShimWithAutoDetection(autoConfig, new ObjectMapper())) {
 
       assertNotNull(autoShim);
-      assertEquals(autoShim.getEngineType(), SearchEngineType.OPENSEARCH_2);
+      assertEquals(autoShim.getEngineType(), searchClientShim.getEngineType());
 
       // Verify it can perform basic operations
       Map<String, String> clusterInfo = autoShim.getClusterInfo();
@@ -168,9 +178,12 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
     assertTrue(searchClientShim.getEngineType().isOpenSearch());
     assertFalse(searchClientShim.getEngineType().isElasticsearch());
 
-    // Test that OpenSearch uses high-level client
-    assertTrue(searchClientShim.getEngineType().supportsEs7HighLevelClient());
+    // OS2 remains RHLC-compatible; OS3 is not. Both use the unified OpenSearch shim.
+    assertEquals(
+        searchClientShim.getEngineType().supportsEs7HighLevelClient(),
+        searchClientShim.getEngineType() == SearchEngineType.OPENSEARCH_2);
     assertFalse(searchClientShim.getEngineType().requiresEs8JavaClient());
+    assertTrue(searchClientShim.getEngineType().requiresOpenSearchClient());
 
     // Verify cluster information contains OpenSearch-specific details
     Map<String, String> clusterInfo = searchClientShim.getClusterInfo();

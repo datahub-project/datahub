@@ -586,7 +586,7 @@ class SnowflakeStreamlitApp:
     owner: str
     database_name: str
     schema_name: str
-    title: str
+    title: Optional[str]
     comment: Optional[str]
     url_id: str
     owner_role_type: str
@@ -2723,7 +2723,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     upstream_tables = [
                         SnowflakeDynamicTableInput(
                             name=inp["name"],
-                            kind=inp.get("kind", "Table"),
+                            # Snowflake may send an explicit "kind": null (which a get-default would
+                            # not replace), so coerce with `or` to avoid a crash in _resolve_input_kind.
+                            kind=inp.get("kind") or "Table",
                         )
                         for inp in raw_inputs
                         if isinstance(inp, dict) and inp.get("name")

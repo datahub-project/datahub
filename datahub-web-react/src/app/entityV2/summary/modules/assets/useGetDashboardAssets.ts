@@ -2,8 +2,9 @@ import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDashboardQuery } from '@graphql/dashboard.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';
@@ -41,7 +42,7 @@ function useDashboardCharts(): Entity[] {
 export const useGetDashboardContents = (skip = false) => {
     const { urn, entityType, loading: entityLoading } = useEntityData();
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const charts = useDashboardCharts();
     const originEntities = useMemo(() => (skip ? [] : charts), [charts, skip]);
 
@@ -53,7 +54,7 @@ export const useGetDashboardContents = (skip = false) => {
     );
 
     const navigateToAssetsTab = () => {
-        history.push(getEntityPath(entityType, urn, entityRegistry, false, false, 'Contents'));
+        history.push(getEntityPath(entityType, urn, entityRegistry, false, false, EntityTabPath.CONTENTS));
     };
 
     return {
@@ -68,7 +69,7 @@ export const useGetDashboardContents = (skip = false) => {
 export const useGetDashboardDataSources = (skip = false) => {
     const { urn, entityType, loading: entityLoading } = useEntityData();
     const history = useHistory();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const charts = useDashboardCharts();
 
     const chartUpstreamDatasetUrns = useMemo(() => {
@@ -122,7 +123,7 @@ export const useGetDashboardDataSources = (skip = false) => {
     );
 
     const navigateToAssetsTab = () => {
-        history.push(getEntityPath(entityType, urn, entityRegistry, false, false, 'Lineage'));
+        history.push(getEntityPath(entityType, urn, entityRegistry, false, false, EntityTabPath.LINEAGE));
     };
 
     const loading =

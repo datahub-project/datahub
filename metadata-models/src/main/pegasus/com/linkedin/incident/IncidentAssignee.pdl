@@ -13,6 +13,9 @@ record IncidentAssignee {
   * The user or group assigned to the incident.
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "addToFilters": true,
     "filterNameOverride": "Assignee",
     "fieldName": "assignees"

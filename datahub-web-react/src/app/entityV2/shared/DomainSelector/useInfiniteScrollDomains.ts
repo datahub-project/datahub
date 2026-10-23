@@ -3,8 +3,8 @@ import { useInView } from 'react-intersection-observer';
 
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { ListDomainFragment, useScrollAcrossDomainsQuery } from '@src/graphql/domain.generated';
 import { Entity, EntityType, FilterOperator, SortOrder } from '@src/types.generated';
 
 export const DOMAIN_SELECTOR_COUNT = 2;
@@ -29,7 +29,6 @@ export function getDomainSelectorScrollInput(parentDomain: string | null, scroll
             sortInput: {
                 sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
             },
-            searchFlags: { skipCache: true },
         },
     };
 }
@@ -44,7 +43,7 @@ interface Props {
  * Returns NestedSelectOption format domains and intersection observer ref
  */
 export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [hasInitialized, setHasInitialized] = useState(false);
     const [domains, setDomains] = useState<Entity[]>([]);
     const [domainsUrnsSet, setDomainsUrnsSet] = useState<Set<string>>(new Set());
@@ -56,7 +55,7 @@ export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) 
         loading,
         error,
         refetch,
-    } = useScrollAcrossEntitiesQuery({
+    } = useScrollAcrossDomainsQuery({
         variables: {
             ...getDomainSelectorScrollInput(parentDomain || null, scrollId),
         },
@@ -68,11 +67,9 @@ export default function useInfiniteScrollDomains({ parentDomain, skip }: Props) 
     // Handle initial data and updates from scroll
     useEffect(() => {
         if (scrollData?.scrollAcrossEntities?.searchResults) {
-            const newResults =
-                scrollData.scrollAcrossEntities.searchResults
-                    .filter((r) => !domainsUrnsSet.has(r.entity.urn))
-                    .map((r) => r.entity)
-                    .filter((e) => e.type === EntityType.Domain) || [];
+            const newResults = scrollData.scrollAcrossEntities.searchResults
+                .map((r) => r.entity)
+                .filter((e): e is ListDomainFragment => e.__typename === 'Domain' && !domainsUrnsSet.has(e.urn));
 
             if (newResults.length > 0) {
                 setDomains((currDomains) => [...currDomains, ...newResults]);

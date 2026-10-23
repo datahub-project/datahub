@@ -26,6 +26,15 @@ query getNoOfIngestionSources($input: ListIngestionSourcesInput!) {
     }
 }
 
+query getIngestionSourceNames($urns: [String!]!) {
+    listIngestionSources(input: { filters: [{ field: "urn", values: $urns }] }) {
+        ingestionSources {
+            urn
+            name
+        }
+    }
+}
+
 query listIngestionSourceTypeFacets($input: ListIngestionSourcesInput!) {
     listIngestionSources(input: $input) {
         facets {

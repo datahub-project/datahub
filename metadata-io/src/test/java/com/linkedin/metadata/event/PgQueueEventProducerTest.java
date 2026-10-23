@@ -21,11 +21,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueMessageHandle;
-import com.linkedin.metadata.queue.QueueMessageHeader;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
-import com.linkedin.metadata.queue.QueueTopicMetadata;
 import com.linkedin.metadata.registry.SchemaRegistryService;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.GenericPayload;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -51,18 +48,16 @@ import org.testng.annotations.Test;
 
 /**
  * Behavioral tests for {@link PgQueueEventProducer}. We verify the producer enqueues a
- * Confluent-formatted payload to the queue store on the DUHE topic, and skips quietly when the
- * schema id cannot be resolved.
+ * Confluent-formatted payload to the queue store and skips quietly when the schema id cannot be
+ * resolved.
  */
 public class PgQueueEventProducerTest {
 
-  private static final String DUHE_TOPIC = "DataHubUpgradeHistory_v1";
   private static final String MCL_VERSIONED_TOPIC = "MetadataChangeLog_Versioned_v1";
   private static final String MCL_TIMESERIES_TOPIC = "MetadataChangeLog_Timeseries_v1";
   private static final String MCP_TOPIC = "MetadataChangeProposal_v1";
   private static final String FMCP_TOPIC = "FailedMetadataChangeProposal_v1";
   private static final String PE_TOPIC = "PlatformEvent_v1";
-  private static final int DUHE_SCHEMA_ID = 100;
   private static final int MCL_SCHEMA_ID = 200;
   private static final int MCP_SCHEMA_ID = 300;
   private static final int FMCP_SCHEMA_ID = 400;
@@ -82,7 +77,6 @@ public class PgQueueEventProducerTest {
     topicConvention = mock(TopicConvention.class);
     schemaRegistryService = mock(SchemaRegistryService.class);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    when(topicConvention.getDataHubUpgradeHistoryTopicName()).thenReturn(DUHE_TOPIC);
     producer =
         new PgQueueEventProducer(
             queueStore,
@@ -90,80 +84,6 @@ public class PgQueueEventProducerTest {
             schemaRegistryService,
             DEFAULTS,
             PgQueuePayloadCompression.NONE);
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventEnqueuesConfluentFormattedBytes() {
-    when(schemaRegistryService.getSchemaIdForTopic(DUHE_TOPIC))
-        .thenReturn(Optional.of(DUHE_SCHEMA_ID));
-    when(queueStore.enqueue(
-            eq(DUHE_TOPIC),
-            any(),
-            any(QueueTopicDefaults.class),
-            anyInt(),
-            any(byte[].class),
-            any(),
-            any(),
-            eq(PgQueuePayloadCompression.NONE)))
-        .thenReturn(mock(QueueMessageHandle.class));
-
-    DataHubUpgradeHistoryEvent event = new DataHubUpgradeHistoryEvent().setVersion("0.10.0-test");
-    producer.produceDataHubUpgradeHistoryEvent(opContext, event);
-
-    ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
-    ArgumentCaptor<String> routingKeyCaptor = ArgumentCaptor.forClass(String.class);
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<Optional<String>> contentTypeCaptor =
-        (ArgumentCaptor<Optional<String>>) (Object) ArgumentCaptor.forClass(Optional.class);
-    @SuppressWarnings("unchecked")
-    ArgumentCaptor<List<QueueMessageHeader>> headersCaptor =
-        (ArgumentCaptor<List<QueueMessageHeader>>) (Object) ArgumentCaptor.forClass(List.class);
-
-    verify(queueStore, times(1))
-        .enqueue(
-            eq(DUHE_TOPIC),
-            routingKeyCaptor.capture(),
-            eq(DEFAULTS),
-            eq(QueueTopicMetadata.DEFAULT_PRIORITY),
-            payloadCaptor.capture(),
-            contentTypeCaptor.capture(),
-            headersCaptor.capture(),
-            eq(PgQueuePayloadCompression.NONE));
-
-    assertEquals(routingKeyCaptor.getValue(), "0.10.0-test");
-    assertEquals(
-        contentTypeCaptor.getValue(),
-        Optional.of(PgQueueEventProducer.CONFLUENT_AVRO_CONTENT_TYPE));
-    assertEquals(headersCaptor.getValue(), List.of());
-
-    byte[] payload = payloadCaptor.getValue();
-    assertNotNull(payload);
-    assertEquals(payload[0], PgQueueEventProducer.CONFLUENT_MAGIC_BYTE, "Magic byte must be 0x00");
-    int schemaId = ByteBuffer.wrap(payload, 1, 4).getInt();
-    assertEquals(schemaId, DUHE_SCHEMA_ID, "4-byte schema id prefix must match registry id");
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventSkipsWhenSchemaIdUnknown() {
-    when(schemaRegistryService.getSchemaIdForTopic(DUHE_TOPIC)).thenReturn(Optional.empty());
-
-    producer.produceDataHubUpgradeHistoryEvent(
-        opContext, new DataHubUpgradeHistoryEvent().setVersion("v"));
-
-    verify(queueStore, never())
-        .enqueue(any(), any(), any(), anyInt(), any(byte[].class), any(), any(), any());
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventDoesNotThrowWhenStoreFails() {
-    when(schemaRegistryService.getSchemaIdForTopic(DUHE_TOPIC))
-        .thenReturn(Optional.of(DUHE_SCHEMA_ID));
-    when(queueStore.enqueue(any(), any(), any(), anyInt(), any(byte[].class), any(), any(), any()))
-        .thenThrow(new IllegalStateException("simulated DB failure"));
-
-    // Behavior under test: the upgrade success must NOT be masked by a queue write failure.
-    producer.produceDataHubUpgradeHistoryEvent(
-        opContext, new DataHubUpgradeHistoryEvent().setVersion("v"));
   }
 
   @Test

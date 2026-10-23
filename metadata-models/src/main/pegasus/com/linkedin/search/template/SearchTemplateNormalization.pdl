@@ -1,0 +1,54 @@
+namespace com.linkedin.search.template
+
+/**
+ * Limits and edit distances for query text Java prepares before rendering.
+ * Unset keeps the parent value. An explicitly present empty value drops the
+ * inherited section. Java clamps every value to a safe range and to the clause
+ * budget. Authorization and system filters are not part of this section.
+ */
+record SearchTemplateNormalization {
+  /**
+   * Minimum characters of a single token before a contains-wildcard is added.
+   * Unset inherits, or 5 when no ancestor sets it.
+   */
+  wildcardMinimumLength: optional int
+
+  /**
+   * Maximum synonym expansions placed in the query context. Unset inherits, or 8
+   * when no ancestor sets it. The clause budget can lower this further.
+   */
+  synonymCap: optional int
+
+  /**
+   * Minimum token length before a fuzzy edit is applied. Unset inherits, or 5
+   * when no ancestor sets it.
+   */
+  fuzzyTokenThreshold: optional int
+
+  /**
+   * Token length where {@code mediumFuzzyEdits} replaces {@code shortFuzzyEdits}.
+   * Unset inherits, or two characters above {@code fuzzyTokenThreshold} when no
+   * ancestor sets it.
+   */
+  mediumFuzzyTokenThreshold: optional int
+
+  /**
+   * Maximum tokens kept in {@code broadQuery}. Unset inherits, or 8 when no
+   * ancestor sets it. A template may raise this up to 256. The clause budget
+   * can keep fewer.
+   */
+  broadQueryTokenCap: optional int
+
+  /**
+   * Fuzzy edits for a token at least {@code fuzzyTokenThreshold} long and shorter
+   * than {@code mediumFuzzyTokenThreshold}. Unset inherits, or 1 when no ancestor
+   * sets it.
+   */
+  shortFuzzyEdits: optional int
+
+  /**
+   * Fuzzy edits for a token at least {@code mediumFuzzyTokenThreshold} long.
+   * Unset inherits, or 2 when no ancestor sets it.
+   */
+  mediumFuzzyEdits: optional int
+}

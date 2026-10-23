@@ -44,6 +44,24 @@ def test_env_set_accepts_valid_key(tmp_path, monkeypatch):
     assert "MY_VAR_123=somevalue" in env_file.read_text()
 
 
+def test_dev_env_promotes_configured_aws_profile(tmp_path, monkeypatch):
+    env_file = tmp_path / "test.env"
+    env_file.write_text("AWS_PROFILE=developer\n")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+
+    assert datahub_dev._dev_env()["AWS_PROFILE"] == "developer"
+
+
+def test_dev_env_omits_blank_aws_profile(tmp_path, monkeypatch):
+    env_file = tmp_path / "test.env"
+    env_file.write_text("AWS_PROFILE=\n")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+
+    assert "AWS_PROFILE" not in datahub_dev._dev_env()
+
+
 def test_load_flag_classification_handles_corrupt_json(tmp_path, monkeypatch):
     corrupt_file = tmp_path / "flag-classification.json"
     corrupt_file.write_text("{this is not valid json")

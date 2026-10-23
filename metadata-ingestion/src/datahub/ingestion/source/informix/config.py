@@ -1,13 +1,14 @@
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 
 from pydantic import Field, SecretStr, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Enables
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -83,12 +84,13 @@ class InformixSourceConfig(
         "to table_pattern if not specified. Specify regex to match the entire view "
         "name in database.owner.view format.",
     )
-    include_tables: bool = Field(
+    include_tables: Annotated[bool, Enables(DatasetSubTypes.TABLE)] = Field(
         default=True, description="Whether tables should be ingested."
     )
-    include_views: bool = Field(
+    include_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
         default=True, description="Whether views should be ingested."
     )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default_factory=dict,
         description="Attach domains to databases, schemas or tables during ingestion "

@@ -1,24 +1,33 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional, Tuple
 
 from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    sql_structural_verdict,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -27,6 +36,23 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.Logger(__name__)
+
+
+# A view must pass view_pattern, then table_pattern (redshift.py
+# cache_tables_and_views, then _process_view).
+VIEW_FILTER_FIELDS: Tuple[str, ...] = ("view_pattern", "table_pattern")
+
+
+def dataset_name(database: str, schema: str, table: str) -> str:
+    """The identifier table_pattern/view_pattern is matched against.
+
+    Shared by ingestion (redshift.py) and the probe, so both sides filter on
+    the same string; they used to build it independently and disagreed. The
+    probe reaches it through the `Qualifier(authoritative=True)` on `database`
+    below rather than through an override of its own -- Redshift connects to
+    exactly one database, so the config is the authority on which.
+    """
+    return f"{database}.{schema}.{table}"
 
 
 # The lineage modes are documented in the Redshift source's docstring.
@@ -86,7 +112,9 @@ class RedshiftConfig(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    database: str = Field(default="dev", description="database")
+    database: Annotated[str, Qualifier(authoritative=True)] = Field(
+        default="dev", description="database"
+    )
 
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
@@ -253,6 +281,14 @@ class RedshiftConfig(
             or self.include_table_rename_lineage
         )
 
+    @classmethod
+    def default_schemas(cls) -> FrozenSet[str]:
+        # Reuse the same list the schema-listing SQL excludes, so the agent probe
+        # marks pg_catalog / information_schema as auto-dropped, not user-filtered.
+        from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
+
+        return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
+
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":
         if (
@@ -292,3 +328,26 @@ class RedshiftConfig(
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
+
+    def view_allowed(self, name: str) -> bool:
+        """Whether every pattern in VIEW_FILTER_FIELDS allows view `name`
+        (dataset_name's form)."""
+        return all(getattr(self, field).allowed(name) for field in VIEW_FILTER_FIELDS)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind == DatasetSubTypes.VIEW and ctx.structural is None:
+            for field in VIEW_FILTER_FIELDS:
+                verdict = pattern_verdict(self, field, ctx.target)
+                if not verdict.included:
+                    return verdict
+        return sql_structural_verdict(self, ctx)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Not the inherited SqlAlchemyMetadataProbe: ingestion connects and
+        # enumerates through redshift_connector, not the Inspector.
+        from datahub.ingestion.source.redshift.redshift_probe import (
+            RedshiftMetadataProbe,
+        )
+
+        return RedshiftMetadataProbe

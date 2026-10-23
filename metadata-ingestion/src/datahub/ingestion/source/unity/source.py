@@ -87,7 +87,6 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
-from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -96,6 +95,7 @@ from datahub.ingestion.source.unity.identifier_helper import split_databricks_id
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
+from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -382,6 +382,10 @@ class _ExternalSchemaKey:
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @support_status(SupportStatus.GA)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
@@ -396,6 +400,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: SchemaResolver
+    view_lineage_schema_resolver: Optional[SchemaResolver] = None
     platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
         None
     )
@@ -418,6 +423,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            keep_platform_instance_case=True,
         )
 
         self.init_hive_metastore_proxy()
@@ -540,14 +546,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.hive_metastore_catalog_found = True
 
                 if self.config.include_table_lineage:
-                    # Reuse the resolver created unconditionally in __init__; do
-                    # not overwrite it so UC tables registered before this point
-                    # are preserved.
+                    # View lineage resolves column schemas for tables this run did
+                    # not ingest lazily from the graph, which is bounded by the
+                    # view definitions; every processed table is registered here as
+                    # well. Usage keeps the local-only sql_parser_schema_resolver,
+                    # whose lookups would scale with query history.
+                    self.view_lineage_schema_resolver = SchemaResolver(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        graph=self.ctx.graph,
+                        keep_platform_instance_case=True,
+                    )
                     self.sql_parsing_aggregator = SqlParsingAggregator(
                         platform=self.platform,
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
-                        schema_resolver=self.sql_parser_schema_resolver,
+                        schema_resolver=self.view_lineage_schema_resolver,
                         generate_lineage=True,
                         generate_queries=False,
                         generate_usage_statistics=False,
@@ -660,10 +675,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.config.profiling, UnityCatalogSQLAlchemyProfilerConfig
                 ):
                     logger.info(
-                        "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
+                        "Using UnityCatalogProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
-                    yield from UnityCatalogGEProfiler(
+                    yield from UnityCatalogProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,
                         report=self.report,
@@ -696,7 +711,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
-            if not self.config.notebook_pattern.allowed(notebook.path):
+            if not self.config.notebook_ingested(notebook.path):
                 self.report.notebooks.dropped(notebook.path)
                 continue
 
@@ -788,8 +803,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.catalogs.processed(catalog.id)
 
     def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
-        if self.config.catalogs:
-            for catalog_name in self.config.catalogs:
+        pinned = self.config.pinned_catalogs()
+        if pinned is not None:
+            for catalog_name in pinned:
                 catalog = self.unity_catalog_api_proxy.catalog(
                     catalog_name, metastore=metastore
                 )
@@ -824,39 +840,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_tables(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
-            if not self.config.table_pattern.allowed(table.ref.qualified_table_name):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
-                continue
-
-            # Views (VIEW / MATERIALIZED_VIEW / HIVE_VIEW) are honored via
-            # include_views + view_pattern, mirroring SQL-based sources. Metric
-            # views are not is_view and keep their dedicated filtering below.
-            if table.is_view and (
-                not self.config.include_views
-                or not self.config.view_pattern.allowed(table.ref.qualified_table_name)
-            ):
-                self.report.tables.dropped(table.id, f"view ({table.table_type})")
-                continue
-
-            if (
-                table.is_metric_view
-                and self.config.include_metric_views
-                and not self.config.metric_view_pattern.allowed(
-                    table.ref.qualified_table_name
+            rejected_by = self.config.table_like_rejected_by(
+                table.ref.qualified_table_name,
+                is_view=table.is_view,
+                is_metric_view=table.is_metric_view,
+            )
+            if rejected_by is not None:
+                dropped_as = (
+                    "view"
+                    if table.is_view and rejected_by != "table_pattern"
+                    else "table"
                 )
-            ):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
-                self.report.metric_views.dropped(table.id)
-                continue
-
-            # Regular tables (neither view nor metric view) are honored via
-            # include_tables; views and metric views keep their own toggles above.
-            if (
-                not table.is_view
-                and not table.is_metric_view
-                and not self.config.include_tables
-            ):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                self.report.tables.dropped(
+                    table.id, f"{dropped_as} ({table.table_type})"
+                )
+                if rejected_by == "metric_view_pattern":
+                    self.report.metric_views.dropped(table.id)
                 continue
 
             if (
@@ -962,12 +961,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         table.ref, self.notebooks[str(notebook_id)]
                     )
 
-        # Register every processed table's schema so that the SQL parsing
-        # aggregator (used for both hive-metastore view lineage and UC usage)
-        # can resolve unqualified / partial table references in queries.
+        # Register every processed table's schema so that UC usage and
+        # hive-metastore view lineage can resolve unqualified / partial table
+        # references in queries.
         self.sql_parser_schema_resolver.add_schema_metadata(
             dataset_urn, schema_metadata
         )
+        if self.view_lineage_schema_resolver:
+            self.view_lineage_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
         # Hive-metastore views also need their definitions fed to the lineage
         # aggregator so view lineage can be derived via SQL parsing.
         if (
@@ -2855,6 +2858,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
+        if self.view_lineage_schema_resolver:
+            self.view_lineage_schema_resolver.close()
         if self._schema_resolver_provider:
             self._schema_resolver_provider.close()
 

@@ -9,7 +9,7 @@ from google.cloud.bigquery.dbapi import exceptions as bq_exceptions
 from google.cloud.bigquery.dbapi.cursor import Cursor as BigQueryCursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -265,7 +265,7 @@ class BigQueryAdapter(PlatformAdapter):
             else:
                 return None
 
-            query = sa.select([sa.func.count()]).select_from(table_obj)
+            query = sa.select(sa.func.count()).select_from(table_obj)
             result = conn.execute(query).scalar()
             return int(result) if result is not None else None
         except SQLAlchemyError as e:
@@ -284,19 +284,11 @@ class BigQueryAdapter(PlatformAdapter):
         """
         Sample a large table (or partition) into a cached temp table.
 
-        Mirrors the GE profiler (update_dataset_batch_use_sampling): run
-        `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and reuse
-        BigQuery's cached-results table as the profiling target. Because
+        Runs `SELECT * FROM <target> TABLESAMPLE SYSTEM (pc PERCENT)` and
+        reuses BigQuery's cached-results table as the profiling target. Because
         TABLESAMPLE must be applied to a table (not a subquery), a partitioned
         table is sampled via the partition temp table materialized in step 1,
         not by wrapping the partition SQL.
-
-        Note on custom_sql: for BigQuery, `custom_sql` (the partition filter
-        built in bigquery_v2/profiler.py) feeds BOTH the GE and SQLAlchemy
-        engines — unlike Snowflake, where #18253 gated custom_sql to the GE
-        path. Once the GE profiler is removed, partition selection should be
-        pushed down into this adapter (see the deprecation note on
-        ProfilingContext.custom_sql).
 
         Args:
             context: Current profiling context
@@ -391,10 +383,6 @@ class BigQueryAdapter(PlatformAdapter):
         num_quantiles = len(quantiles)
         return sa.func.approx_quantiles(sa.column(column), num_quantiles)
 
-    def get_sample_clause(self, sample_size: int) -> Optional[str]:
-        """BigQuery uses TABLESAMPLE SYSTEM."""
-        return f"TABLESAMPLE SYSTEM ({sample_size} ROWS)"
-
     def get_column_quantiles(
         self,
         table: sa.Table,
@@ -422,13 +410,13 @@ class BigQueryAdapter(PlatformAdapter):
 
         # BigQuery: approx_quantiles(col, 100) returns 101 values
         indices = [int(q * 100) for q in quantiles]
-        selects = [
+        selects: List[Label] = [
             sa.literal_column(
                 f"approx_quantiles(`{column}`, 100)[OFFSET({idx})]"
             ).label(f"q_{int(q * 100)}")
             for q, idx in zip(quantiles, indices, strict=False)
         ]
-        query = sa.select(selects).select_from(table)
+        query = sa.select(*selects).select_from(table)
         # Single-row, but on the main greenlet, so not batchable regardless --
         # see ProfilingConnection.execute_rows.
         result = conn.execute_rows(query).fetchone()

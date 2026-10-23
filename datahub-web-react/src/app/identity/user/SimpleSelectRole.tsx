@@ -1,8 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { SimpleSelect, Text, Tooltip } from '@components';
-import React, { useMemo } from 'react';
+import { Icon, SimpleSelect, Text, Tooltip } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import { User } from '@phosphor-icons/react/dist/csr/User';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
 
@@ -10,6 +11,20 @@ import { mapRoleToPhosphorIcon } from '@app/identity/user/PhosphorRoleUtils';
 import { useRoleSelector } from '@app/identity/user/useRoleSelector';
 
 import { DataHubRole } from '@types';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
+const PlaceholderContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
 
 const LoadMoreContainer = styled.div`
     display: flex;
@@ -45,6 +60,15 @@ export default function SimpleSelectRole({
 }: Props) {
     const { t } = useTranslation('entity.identity');
     const resolvedPlaceholder = placeholder ?? t('users.noRole');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    const placeholderWithIcon = (
+        <PlaceholderContainer>
+            <Icon icon={User} size="xl" />
+            {resolvedPlaceholder}
+        </PlaceholderContainer>
+    );
+
     const { roles, loading, hasMore, observerRef, setSearchQuery } = useRoleSelector();
 
     const roleSelectOptions = useMemo(() => {
@@ -82,7 +106,7 @@ export default function SimpleSelectRole({
             options.push({
                 value: LOAD_MORE_VALUE,
                 label: t('users.loadingMoreRolesSentinel'),
-                icon: <LoadingOutlined />,
+                icon: <SpinningCircleNotch />,
             });
         }
 
@@ -106,7 +130,7 @@ export default function SimpleSelectRole({
         if (option.value === LOAD_MORE_VALUE) {
             return (
                 <LoadMoreContainer ref={observerRef}>
-                    <LoadingOutlined />
+                    <SpinningCircleNotch />
                     <Text color="gray" size="sm" style={{ marginLeft: 8 }}>
                         {t('users.loadingMoreRoles')}
                     </Text>
@@ -128,12 +152,13 @@ export default function SimpleSelectRole({
     };
 
     return (
-        <Tooltip title={t('users.setRoleTooltip')} placement="top">
+        <Tooltip title={t('users.setRoleTooltip')} placement="top" open={isDropdownOpen ? false : undefined}>
             <span>
                 <SimpleSelect
                     onUpdate={(values) => handleRoleSelect(values[0] || '')}
+                    onOpenChange={setIsDropdownOpen}
                     options={roleSelectOptions}
-                    placeholder={resolvedPlaceholder}
+                    placeholder={placeholderWithIcon}
                     values={selectedRole?.urn ? [selectedRole.urn] : []}
                     size={size}
                     width={width}

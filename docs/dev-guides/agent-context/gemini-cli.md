@@ -15,7 +15,7 @@ Gemini CLI natively supports streamable HTTP with custom headers.
 gemini mcp add --transport http \
   --header "Authorization: Bearer <token>" \
   datahub-cloud \
-  "https://<tenant>.acryl.io/integrations/ai/mcp/"
+  "https://<tenant>.acryl.io/mcp"
 ```
 
 Replace `<tenant>` with your DataHub Cloud tenant name and `<token>` with your personal access token.
@@ -26,7 +26,7 @@ Or add it directly to your `settings.json` (`~/.gemini/settings.json` for user-l
 {
   "mcpServers": {
     "datahub-cloud": {
-      "httpUrl": "https://<tenant>.acryl.io/integrations/ai/mcp/",
+      "httpUrl": "https://<tenant>.acryl.io/mcp",
       "headers": {
         "Authorization": "Bearer <token>"
       }
