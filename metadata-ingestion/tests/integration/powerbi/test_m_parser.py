@@ -3499,6 +3499,52 @@ def test_cll_upstream_column_casing_preserved_when_lowercasing_lineage():
     ]
 
 
+def test_direct_table_cll_lowercased_per_server_override():
+    # server_to_platform_instance.convert_column_urns_to_lowercase lowercases the
+    # upstream column so it matches a source ingested with lowercased column URNs;
+    # servers without the flag keep Power BI's original casing (test above).
+    q = (
+        "let\n"
+        '    Source = Sql.Database("my-mssql-server", "my_db"),\n'
+        '    dbo_orders = Source{[Schema="dbo",Item="orders"]}[Data]\n'
+        "in\n"
+        "    dbo_orders"
+    )
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[
+            powerbi_data_classes.Column(
+                name="CustomerId",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+            )
+        ],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "my-mssql-server": {"convert_column_urns_to_lowercase": True}
+            }
+        }
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert lineage[0].column_lineage[0].upstreams[0].column == "customerid"
+
+
 def test_direct_table_cll_preserves_upstream_column_casing():
     """The direct-table 1:1 column lineage path must preserve the source column
     casing so it can match the warehouse's schemaField URN."""
