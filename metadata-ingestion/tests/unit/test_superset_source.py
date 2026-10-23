@@ -7,6 +7,7 @@ import requests_mock as rm
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_chart_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.superset import (
     SupersetConfig,
@@ -14,8 +15,16 @@ from datahub.ingestion.source.superset import (
     _extract_chart_id_with_status,
     get_filter_name,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import ChartSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DashboardInfoClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    DashboardInfoClass,
+    DataPlatformInstanceClass,
+    InputFieldsClass,
+    OwnershipClass,
+    UpstreamLineageClass,
+)
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 
@@ -3022,3 +3031,160 @@ class TestTagsDefensiveShape:
         assert result is not None
         tag_names = [tag.tag.split(":")[-1] for tag in result.tags]
         assert tag_names == ["good"]
+
+
+def _mock_dataset_detail(requests_mock: rm.Mocker, dataset_id: int) -> None:
+    requests_mock.get(
+        f"http://localhost:8088/api/v1/dataset/{dataset_id}",
+        json={
+            "result": {
+                "id": dataset_id,
+                "table_name": "my_table",
+                "schema": "public",
+                "database": {
+                    "id": 1,
+                    "database_name": "my_database",
+                    "backend": "postgresql",
+                },
+                "columns": [{"column_name": "id", "type": "INT"}],
+                "metrics": [],
+            }
+        },
+        status_code=200,
+    )
+
+
+def _platform_instance_aspects(aspects: List[Any]) -> List[DataPlatformInstanceClass]:
+    return [
+        aspect for aspect in aspects if isinstance(aspect, DataPlatformInstanceClass)
+    ]
+
+
+def _chart_snapshot(
+    source: SupersetSource, chart_data: Dict[str, Any]
+) -> ChartSnapshot:
+    snapshot = next(
+        wu.metadata.proposedSnapshot
+        for wu in source.construct_chart_from_chart_data(chart_data)
+        if isinstance(wu.metadata, MetadataChangeEvent)
+    )
+    assert isinstance(snapshot, ChartSnapshot)
+    return snapshot
+
+
+_CHART_DATA: Dict[str, Any] = {
+    "id": 42,
+    "slice_name": "Markdown",
+    "url": "/chart/42",
+    "viz_type": "markdown",
+    "datasource_id": None,
+    "params": "{}",
+    "owners": [],
+    "tags": [],
+}
+
+
+class TestDataPlatformInstanceAspect:
+    """Like Tableau, every dashboard, chart and dataset carries
+    dataPlatformInstance; the instance is None when platform_instance is unset."""
+
+    @pytest.mark.parametrize(
+        "platform_instance, expected_instance",
+        [
+            pytest.param(
+                "my_instance",
+                "urn:li:dataPlatformInstance:(urn:li:dataPlatform:superset,my_instance)",
+                id="set",
+            ),
+            pytest.param(None, None, id="unset"),
+            # An empty string passes config validation but names no instance.
+            pytest.param("", None, id="empty"),
+        ],
+    )
+    def test_aspect_on_dashboards_charts_and_datasets(
+        self,
+        requests_mock: rm.Mocker,
+        platform_instance: Optional[str],
+        expected_instance: Optional[str],
+    ) -> None:
+        source = _build_source(
+            requests_mock, config=SupersetConfig(platform_instance=platform_instance)
+        )
+        _mock_dataset_detail(requests_mock, 77)
+
+        aspect_lists: List[List[Any]] = [
+            source.construct_dashboard_from_api_data(
+                {"id": 7, "dashboard_title": "Sales"}, position_data={}
+            ).aspects,
+            _chart_snapshot(source, dict(_CHART_DATA)).aspects,
+            source.construct_dataset_from_dataset_data({"id": 77}).aspects,
+        ]
+
+        for aspects in aspect_lists:
+            instance_aspects = _platform_instance_aspects(aspects)
+            assert len(instance_aspects) == 1
+            assert instance_aspects[0].platform == "urn:li:dataPlatform:superset"
+            assert instance_aspects[0].instance == expected_instance
+
+    @pytest.mark.parametrize(
+        "platform_instance, dataset_name",
+        [
+            pytest.param(
+                "my_instance", "my_instance.my_database.public.my_table", id="set"
+            ),
+            pytest.param(None, "my_database.public.my_table", id="unset"),
+        ],
+    )
+    def test_instance_reaches_superset_dataset_urns_only(
+        self,
+        requests_mock: rm.Mocker,
+        platform_instance: Optional[str],
+        dataset_name: str,
+    ) -> None:
+        # Chart inputs and inputFields point at the Superset dataset, so they
+        # follow its URN. The upstream warehouse table never takes the instance.
+        source = _build_source(
+            requests_mock, config=SupersetConfig(platform_instance=platform_instance)
+        )
+        _mock_dataset_detail(requests_mock, 77)
+        dataset_urn = (
+            f"urn:li:dataset:(urn:li:dataPlatform:superset,{dataset_name},PROD)"
+        )
+        warehouse_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,my_database.public.my_table,PROD)"
+
+        dataset_snapshot = source.construct_dataset_from_dataset_data({"id": 77})
+        lineage = next(
+            aspect
+            for aspect in dataset_snapshot.aspects
+            if isinstance(aspect, UpstreamLineageClass)
+        )
+        assert dataset_snapshot.urn == dataset_urn
+        assert [upstream.dataset for upstream in lineage.upstreams] == [warehouse_urn]
+        assert lineage.fineGrainedLineages is not None
+        assert lineage.fineGrainedLineages[0].downstreams == [
+            f"urn:li:schemaField:({dataset_urn},id)"
+        ]
+        assert lineage.fineGrainedLineages[0].upstreams == [
+            f"urn:li:schemaField:({warehouse_urn},id)"
+        ]
+
+        chart_data = {
+            **_CHART_DATA,
+            "datasource_id": 77,
+            "form_data": {"all_columns": ["id"]},
+        }
+        chart_info = next(
+            aspect
+            for aspect in _chart_snapshot(source, chart_data).aspects
+            if isinstance(aspect, ChartInfoClass)
+        )
+        input_fields = next(
+            wu.metadata.aspect
+            for wu in source.construct_chart_from_chart_data(chart_data)
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, InputFieldsClass)
+        )
+        assert chart_info.inputs == [dataset_urn]
+        assert [field.schemaFieldUrn for field in input_fields.fields] == [
+            f"urn:li:schemaField:({dataset_urn},id)"
+        ]

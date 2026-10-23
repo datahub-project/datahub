@@ -2,6 +2,17 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Platform instance
+
+If you ingest from more than one Preset workspace, set `platform_instance` to keep them apart. Dashboards, charts and datasets then get the instance in their URNs and in a `dataPlatformInstance` aspect, so DataHub's Navigate panel lists each workspace under its own instance instead of "Default".
+
+```yml
+source:
+  type: preset
+  config:
+    platform_instance: analytics_prod
+```
+
 #### Database alias
 
 If you were using `database_alias` in one of your other ingestions to rename your databases to something else based on business needs you can rename them in superset also

@@ -23,6 +23,17 @@ sink:
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Platform instance
+
+If you ingest from more than one Superset deployment, set `platform_instance` to keep them apart. Dashboards, charts and datasets then get the instance in their URNs and in a `dataPlatformInstance` aspect, so DataHub's Navigate panel lists each deployment under its own instance instead of "Default".
+
+```yml
+source:
+  type: superset
+  config:
+    platform_instance: analytics_prod
+```
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

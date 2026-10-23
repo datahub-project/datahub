@@ -59,6 +59,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -171,6 +176,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -230,6 +240,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -286,6 +301,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -333,6 +353,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -377,6 +402,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -449,6 +479,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {

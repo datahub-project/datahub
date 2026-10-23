@@ -24,6 +24,7 @@ from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dashboard_urn,
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
@@ -82,6 +83,7 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -302,7 +304,7 @@ class SupersetDataset(BaseModel):
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
-    # TODO: Add support for missing dataPlatformInstance/containers
+    # TODO: Add support for missing containers
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
@@ -420,6 +422,7 @@ def get_filter_name(filter_obj):
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TAGS, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -871,8 +874,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         return payload
 
     def get_datasource_urn_from_id(
-        self, dataset_response: dict, platform_instance: str
+        self, dataset_response: dict, platform: str, *, with_instance: bool = False
     ) -> str:
+        """Build the dataset URN on ``platform``.
+
+        ``with_instance`` applies the configured ``platform_instance``; only this
+        source's own datasets set it, never the upstream warehouse tables.
+        """
         result = dataset_response.get("result", {})
         if not result:
             dataset_id = dataset_response.get("id", "unknown")
@@ -889,27 +897,43 @@ class SupersetSource(StatefulIngestionSourceBase):
         # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
         # from superset. There is only one database per platform instance, and one schema named druid, so it would be
         # redundant to systemically store them both in the URN.
-        if platform_instance in platform_without_databases:
+        if platform in platform_without_databases:
             database_name = None
 
-        if platform_instance == "druid" and schema_name == "druid":
+        if platform == "druid" and schema_name == "druid":
             # Follow DataHub's druid source convention.
             schema_name = None
 
         # If the information about the datasource is already contained in the dataset response,
         # can just return the urn directly
         if table_name and database_id:
+            dataset_name = ".".join(
+                name for name in [database_name, schema_name, table_name] if name
+            )
+            if with_instance:
+                return self.gen_dataset_urn(dataset_name)
             return make_dataset_urn(
-                platform=platform_instance,
-                name=".".join(
-                    name for name in [database_name, schema_name, table_name] if name
-                ),
+                platform=platform,
+                name=dataset_name,
                 env=self.config.env,
             )
 
         raise ValueError(
             f"Could not construct dataset URN: table_name={table_name}, database_id={database_id}, "
             f"dataset_id={result.get('id', 'unknown')}"
+        )
+
+    def get_data_platform_instance(self) -> DataPlatformInstanceClass:
+        """Return the dataPlatformInstance aspect; instance is None when unset."""
+        return DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=(
+                make_dataplatform_instance_urn(
+                    self.platform, self.config.platform_instance
+                )
+                if self.config.platform_instance
+                else None
+            ),
         )
 
     def construct_dashboard_from_api_data(
@@ -924,7 +948,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
-            aspects=[Status(removed=False)],
+            aspects=[Status(removed=False), self.get_data_platform_instance()],
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
@@ -1530,7 +1554,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
-            aspects=[Status(removed=False)],
+            aspects=[Status(removed=False), self.get_data_platform_instance()],
         )
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
@@ -1570,7 +1594,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_response = self.get_dataset_info(datasource_id)
             try:
                 datasource_urn = self.get_datasource_urn_from_id(
-                    dataset_response, self.platform
+                    dataset_response, self.platform, with_instance=True
                 )
             except ValueError as e:
                 # Detail payload was structurally fine for caching but
@@ -2060,7 +2084,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset = SupersetDataset(**result)
 
         datasource_urn = self.get_datasource_urn_from_id(
-            dataset_response, self.platform
+            dataset_response, self.platform, with_instance=True
         )
         dataset_url = f"{self.config.display_uri}/explore/?datasource_type=table&datasource_id={dataset.id}"
 
@@ -2135,6 +2159,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             self.gen_schema_metadata(dataset_response),
             dataset_info,
             upstream_lineage,
+            self.get_data_platform_instance(),
         ]
 
         if tags:

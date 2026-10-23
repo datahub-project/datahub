@@ -151,188 +151,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:physical"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 3",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "id",
-                                "nullable": true,
-                                "description": "id",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": true,
-                                "description": "name",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_rows",
-                                "nullable": true,
-                                "description": "Total rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
-                        "name": "Test Table 3",
-                        "description": "",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -521,188 +341,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:physical"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 3",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "id",
-                                "nullable": true,
-                                "description": "id",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": true,
-                                "description": "name",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_rows",
-                                "nullable": true,
-                                "description": "Total rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
-                        "name": "Test Table 3",
-                        "description": "",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -891,188 +531,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:physical"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 3",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "id",
-                                "nullable": true,
-                                "description": "id",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": true,
-                                "description": "name",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_rows",
-                                "nullable": true,
-                                "description": "Total rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
-                        "name": "Test Table 3",
-                        "description": "",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -1261,188 +721,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:physical"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner1@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 3",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "id",
-                                "nullable": true,
-                                "description": "id",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": true,
-                                "description": "name",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_rows",
-                                "nullable": true,
-                                "description": "Total rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
-                        "name": "Test Table 3",
-                        "description": "",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -1628,6 +908,771 @@
                                 "confidenceScore": 1.0
                             }
                         ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 3",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": true,
+                                "description": "id",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "name",
+                                "nullable": true,
+                                "description": "name",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_rows",
+                                "nullable": true,
+                                "description": "Total rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
+                        "name": "Test Table 3",
+                        "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 3",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": true,
+                                "description": "id",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "name",
+                                "nullable": true,
+                                "description": "name",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_rows",
+                                "nullable": true,
+                                "description": "Total rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
+                        "name": "Test Table 3",
+                        "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 3",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": true,
+                                "description": "id",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "name",
+                                "nullable": true,
+                                "description": "name",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_rows",
+                                "nullable": true,
+                                "description": "Total rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
+                        "name": "Test Table 3",
+                        "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:physical"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner1@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 3",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": true,
+                                "description": "id",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "name",
+                                "nullable": true,
+                                "description": "name",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_rows",
+                                "nullable": true,
+                                "description": "Total rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=3",
+                        "name": "Test Table 3",
+                        "description": "",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),count)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema3.Test Table 3,PROD),total_rows)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -1821,6 +1866,11 @@
                                 "confidenceScore": 1.0
                             }
                         ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -2017,196 +2067,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:virtual"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 2",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "test_column3",
-                                "nullable": true,
-                                "description": "some description 3",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "test_column4",
-                                "nullable": true,
-                                "description": "some description 4",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_value",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "description": "Count of rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
-                        "name": "Test Table 2",
-                        "description": "Sample description for dataset 2",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD)",
-                                "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),description)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),description)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD),database_name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),database_name)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -2403,196 +2265,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:virtual"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 2",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "test_column3",
-                                "nullable": true,
-                                "description": "some description 3",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "test_column4",
-                                "nullable": true,
-                                "description": "some description 4",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_value",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "description": "Count of rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
-                        "name": "Test Table 2",
-                        "description": "Sample description for dataset 2",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD)",
-                                "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),description)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),description)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD),database_name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),database_name)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -2789,196 +2463,8 @@
                     }
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:superset:virtual"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:test_owner2@example.com",
-                                "type": "TECHNICAL_OWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 1707579020123,
-                            "actor": "urn:li:corpuser:test_owner2@example.com"
-                        }
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "superset-2020_04_14-07_00_00-365mof",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_pipeline"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "Test Table 2",
-                        "platform": "urn:li:dataPlatform:superset",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "test_column3",
-                                "nullable": true,
-                                "description": "some description 3",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "test_column4",
-                                "nullable": true,
-                                "description": "some description 4",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_value",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "NUMERIC",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "count",
-                                "nullable": true,
-                                "description": "Count of rows",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
-                        "name": "Test Table 2",
-                        "description": "Sample description for dataset 2",
-                        "lastModified": {
-                            "time": 1707579020123
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
-                        "upstreams": [
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD)",
-                                "type": "TRANSFORMED"
-                            },
-                            {
-                                "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
-                                },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
-                                "type": "TRANSFORMED"
-                            }
-                        ],
-                        "fineGrainedLineages": [
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),id)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),id)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),name)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),description)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),description)"
-                                ],
-                                "confidenceScore": 1.0
-                            },
-                            {
-                                "upstreamType": "FIELD_SET",
-                                "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD),database_name)"
-                                ],
-                                "downstreamType": "FIELD",
-                                "downstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),database_name)"
-                                ],
-                                "confidenceScore": 1.0
-                            }
-                        ]
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -3175,6 +2661,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
@@ -3365,6 +2856,605 @@
                                 "confidenceScore": 1.0
                             }
                         ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:virtual"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 2",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "test_column3",
+                                "nullable": true,
+                                "description": "some description 3",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_column4",
+                                "nullable": true,
+                                "description": "some description 4",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_value",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "description": "Count of rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
+                        "name": "Test Table 2",
+                        "description": "Sample description for dataset 2",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),description)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),description)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD),database_name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),database_name)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:virtual"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 2",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "test_column3",
+                                "nullable": true,
+                                "description": "some description 3",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_column4",
+                                "nullable": true,
+                                "description": "some description 4",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_value",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "description": "Count of rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
+                        "name": "Test Table 2",
+                        "description": "Sample description for dataset 2",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),description)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),description)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD),database_name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),database_name)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:superset:virtual"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:test_owner2@example.com",
+                                "type": "TECHNICAL_OWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 1707579020123,
+                            "actor": "urn:li:corpuser:test_owner2@example.com"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "superset-2020_04_14-07_00_00-365mof",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "Test Table 2",
+                        "platform": "urn:li:dataPlatform:superset",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "test_column3",
+                                "nullable": true,
+                                "description": "some description 3",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "test_column4",
+                                "nullable": true,
+                                "description": "some description 4",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_value",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMERIC",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "count",
+                                "nullable": true,
+                                "description": "Count of rows",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "externalUrl": "mock://mock-domain.superset.com/explore/?datasource_type=table&datasource_id=2",
+                        "name": "Test Table 2",
+                        "description": "Sample description for dataset 2",
+                        "lastModified": {
+                            "time": 1707579020123
+                        },
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),id)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),id)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),name)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.test_table2,PROD),description)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),description)"
+                                ],
+                                "confidenceScore": 1.0
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test_database1.databases,PROD),database_name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema2.Test Table 2,PROD),database_name)"
+                                ],
+                                "confidenceScore": 1.0
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -3459,6 +3549,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
@@ -3576,6 +3671,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -3624,6 +3724,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.chart.ChartInfo": {
                         "customProperties": {
                             "Metrics": "",
@@ -3669,6 +3774,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
                         "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:superset"
                     }
                 },
                 {
