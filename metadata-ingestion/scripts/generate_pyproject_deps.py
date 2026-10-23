@@ -33,26 +33,42 @@ CIRCULAR_EXTRAS = {"airflow", "great-expectations", "sqlmesh"}
 
 @contextlib.contextmanager
 def _stub_setuptools() -> Iterator[None]:
-    # Track whether the key existed so an intentional None import-block sentinel
-    # is restored rather than dropped (dropping it would let setuptools import
-    # again later); "absent" and "present as None" must be told apart.
-    had_setuptools = "setuptools" in sys.modules
-    saved = sys.modules.get("setuptools")
+    # setup.py subclasses the build_py and sdist commands at import time, so the
+    # stub must be a package that provides them as plain base classes.
+    build_py = types.ModuleType("setuptools.command.build_py")
+    build_py.__dict__.update(build_py=type("build_py", (), {}))
+    sdist = types.ModuleType("setuptools.command.sdist")
+    sdist.__dict__.update(sdist=type("sdist", (), {}))
+    command = types.ModuleType("setuptools.command")
+    command.__dict__.update(__path__=[], build_py=build_py, sdist=sdist)
     stub = types.ModuleType("setuptools")
     stub.__dict__.update(
+        __path__=[],
+        command=command,
         setup=lambda *args, **kwargs: None,
         find_packages=lambda *args, **kwargs: [],
         find_namespace_packages=lambda *args, **kwargs: [],
     )
-    sys.modules["setuptools"] = stub
+    stubs = {
+        "setuptools": stub,
+        "setuptools.command": command,
+        "setuptools.command.build_py": build_py,
+        "setuptools.command.sdist": sdist,
+    }
+    # Track whether each key existed so an intentional None import-block sentinel
+    # is restored rather than dropped (dropping it would let setuptools import
+    # again later); "absent" and "present as None" must be told apart.
+    saved = {name: (name in sys.modules, sys.modules.get(name)) for name in stubs}
+    sys.modules.update(stubs)
     try:
         yield
     finally:
-        if had_setuptools:
-            # `saved` may be the real module or the None import-block sentinel.
-            sys.modules["setuptools"] = saved  # type: ignore[assignment]
-        else:
-            sys.modules.pop("setuptools", None)
+        for name, (had_module, module) in saved.items():
+            if had_module:
+                # `module` may be the real module or the None import-block sentinel.
+                sys.modules[name] = module  # type: ignore[assignment]
+            else:
+                sys.modules.pop(name, None)
 
 
 def load_setup_py_variables() -> Dict:
@@ -397,16 +413,24 @@ def generate_pyproject_toml() -> str:
     output_lines.append("[tool.setuptools.packages.find]")
     output_lines.append('where = ["src"]')
     output_lines.append("")
-    package_data: Dict = ns["_setup_args"].get("package_data", {})
-    output_lines.append("[tool.setuptools.package-data]")
-    for pkg_name in sorted(package_data.keys()):
-        patterns = package_data[pkg_name]
-        patterns_toml = ", ".join(f'"{p}"' for p in patterns)
-        if "." in pkg_name:
-            output_lines.append(f'"{pkg_name}" = [{patterns_toml}]')
-        else:
-            output_lines.append(f"{pkg_name} = [{patterns_toml}]")
-    output_lines.append("")
+
+    def _emit_package_data_table(section: str, mapping: Dict) -> None:
+        # setup.py spells "all packages" as ""; pyproject.toml spells it "*".
+        output_lines.append(f"[tool.setuptools.{section}]")
+        for pkg_name in sorted(mapping.keys(), key=lambda k: (k != "", k)):
+            patterns_toml = ", ".join(f'"{p}"' for p in mapping[pkg_name])
+            key = (
+                '"*"'
+                if pkg_name == ""
+                else (f'"{pkg_name}"' if "." in pkg_name else pkg_name)
+            )
+            output_lines.append(f"{key} = [{patterns_toml}]")
+        output_lines.append("")
+
+    _emit_package_data_table("package-data", ns["_setup_args"].get("package_data", {}))
+    exclude_package_data: Dict = ns["_setup_args"].get("exclude_package_data", {})
+    if exclude_package_data:
+        _emit_package_data_table("exclude-package-data", exclude_package_data)
 
     # End of generated section marker
     output_lines.append("# ===== END OF GENERATED SECTION =====")
