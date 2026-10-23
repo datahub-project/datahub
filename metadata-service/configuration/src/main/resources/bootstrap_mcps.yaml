@@ -55,7 +55,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/page-templates.yaml"
 
     - name: search-templates
-      version: v6
+      version: v7
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/search-templates.yaml"

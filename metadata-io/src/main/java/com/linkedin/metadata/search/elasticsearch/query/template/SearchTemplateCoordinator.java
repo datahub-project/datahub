@@ -68,6 +68,12 @@ public class SearchTemplateCoordinator {
     return queryBuilder;
   }
 
+  /** Loads one template by URN. Autocomplete uses this without the search-surface rollout. */
+  @Nonnull
+  public MergedSearchTemplate load(@Nonnull OperationContext opContext, @Nonnull String urn) {
+    return loader.load(opContext, urn);
+  }
+
   public double hybridKeywordScale() {
     return templates(elasticSearchConfiguration).getHybridKeywordScale();
   }

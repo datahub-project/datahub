@@ -2158,17 +2158,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testAutoComplete() {
-    assertEquals(
-        urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)),
-        List.of());
-    assertEquals(
-        searchService
-            .autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)
-            .getSuggestions(),
-        List.of());
-    assertEquals(
-        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10)),
-        List.of());
+    // The prefix template keeps tokens the default text analyzer drops.
+    AutoCompleteResult orders =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10);
+    assertEquals(urns(orders), List.of(ORDERS));
+    assertEquals(orders.getSuggestions(), List.of("orders"));
+
+    // title is copied into the indexed name and kept on the root. The suggestion reads the stored
+    // name, which this chart does not have, so it falls back to the first URN key part.
+    AutoCompleteResult region =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10);
+    assertEquals(urns(region), List.of(ORDERS_CHART));
+    assertEquals(region.getSuggestions(), List.of("looker"));
   }
 
   @Test
