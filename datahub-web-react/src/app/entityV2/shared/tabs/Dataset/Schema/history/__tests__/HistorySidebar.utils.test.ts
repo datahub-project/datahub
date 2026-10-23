@@ -2,6 +2,7 @@ import {
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
     CATEGORY_STRUCTURED_PROPERTY,
     CATEGORY_VERSIONING,
     CategoryOption,
@@ -21,6 +22,7 @@ const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: CATEGORY_APPLICATION, label: 'Applications' },
     { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
     { value: CATEGORY_VERSIONING, label: 'Versions' },
+    { value: CATEGORY_LIFECYCLE, label: 'Lifecycle stage' },
 ];
 
 describe('getCategoryOptions', () => {
@@ -41,7 +43,7 @@ describe('getCategoryOptions', () => {
         ]);
     });
 
-    it('returns Documentation, Terms, Owners, Domains, Properties, Applications, Versions for glossary terms', () => {
+    it('returns Documentation, Terms, Owners, Domains, Properties, Applications, Versions, Lifecycle for glossary terms', () => {
         const options = getCategoryOptions(EntityType.GlossaryTerm);
         const values = options.map((o) => o.value);
 
@@ -53,6 +55,7 @@ describe('getCategoryOptions', () => {
             CATEGORY_STRUCTURED_PROPERTY,
             CATEGORY_APPLICATION,
             CATEGORY_VERSIONING,
+            CATEGORY_LIFECYCLE,
         ]);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
         expect(values).not.toContain(ChangeCategoryType.Tag);

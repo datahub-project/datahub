@@ -1957,6 +1957,7 @@ fragment entityPrivileges on EntityPrivileges {
     canViewDatasetProfile
     canViewDatasetOperations
     canManageAssetSummary
+    canEditLifecycleStage
 }
 
 fragment businessAttribute on BusinessAttributeAssociation {
