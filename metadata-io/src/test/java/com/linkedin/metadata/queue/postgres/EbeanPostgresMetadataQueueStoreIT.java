@@ -188,6 +188,10 @@ public class EbeanPostgresMetadataQueueStoreIT {
               + " last_heartbeat_at timestamptz not null default now(),"
               + " unique (consumer_group, topic_id)"
               + ")");
+      st.execute(
+          "CREATE OR REPLACE FUNCTION "
+              + q.qualifiedApplyRetention()
+              + "() RETURNS void LANGUAGE plpgsql AS $$ BEGIN END; $$");
     }
   }
 
@@ -432,6 +436,9 @@ public class EbeanPostgresMetadataQueueStoreIT {
           "CREATE OR REPLACE FUNCTION "
               + names.qualifiedApplyRetention()
               + "() RETURNS void LANGUAGE plpgsql AS $$ BEGIN END; $$");
+      if (!c.getAutoCommit()) {
+        c.commit();
+      }
     }
     store.applyRetention();
   }
@@ -1083,8 +1090,8 @@ public class EbeanPostgresMetadataQueueStoreIT {
     String topic = "topic_" + UUID.randomUUID();
     store.ensureTopic(topic, defaults);
     QueueTopicMetadata meta = store.fetchTopic(topic).orElseThrow();
-    store.enqueue(
-        topic, "urn:li:test:skew", defaults, 0, new byte[] {1}, Optional.empty(), List.of());
+    String routingKey = routingKeyForPartition(meta.partitionCount(), 0);
+    store.enqueue(topic, routingKey, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
 
     var maxSeqs = store.partitionMaxEnqueueSeqs(meta.id(), meta.partitionCount());
     Assert.assertEquals(maxSeqs.get(0).longValue(), 1L);
@@ -1103,8 +1110,8 @@ public class EbeanPostgresMetadataQueueStoreIT {
     String topic = "topic_" + UUID.randomUUID();
     store.ensureTopic(topic, defaults);
     QueueTopicMetadata meta = store.fetchTopic(topic).orElseThrow();
-    store.enqueue(
-        topic, "urn:li:test:reset", defaults, 0, new byte[] {1}, Optional.empty(), List.of());
+    String routingKey = routingKeyForPartition(meta.partitionCount(), 0);
+    store.enqueue(topic, routingKey, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
 
     setCommittedOffset("cg-reset", meta.id(), 0, 50L);
     setCommittedOffset("cg-other", meta.id(), 0, 0L);
@@ -1186,8 +1193,10 @@ public class EbeanPostgresMetadataQueueStoreIT {
     QueueTopicMetadata metaA = store.fetchTopic(topicA).orElseThrow();
     QueueTopicMetadata metaB = store.fetchTopic(topicB).orElseThrow();
 
-    store.enqueue(
-        topicB, "urn:li:test:b", defaults, 0, new byte[] {2}, Optional.empty(), List.of());
+    String keyB = routingKeyForPartition(metaB.partitionCount(), 0);
+    store.enqueue(topicB, keyB, defaults, 0, new byte[] {2}, Optional.empty(), List.of());
+    String keyA = routingKeyForPartition(metaA.partitionCount(), 0);
+    store.enqueue(topicA, keyA, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
     setCommittedOffset("cg-topics", metaA.id(), 0, 50L);
 
     Assert.assertEquals(
@@ -1206,7 +1215,8 @@ public class EbeanPostgresMetadataQueueStoreIT {
     String topic = "topic_" + UUID.randomUUID();
     store.ensureTopic(topic, defaults);
     QueueTopicMetadata meta = store.fetchTopic(topic).orElseThrow();
-    store.enqueue(topic, "urn:li:test:g", defaults, 0, new byte[] {1}, Optional.empty(), List.of());
+    String routingKey = routingKeyForPartition(meta.partitionCount(), 0);
+    store.enqueue(topic, routingKey, defaults, 0, new byte[] {1}, Optional.empty(), List.of());
 
     setCommittedOffset("group-one", meta.id(), 0, 20L);
     Assert.assertEquals(store.getCommittedOffset("group-two", meta.id(), 0), 0L);
@@ -1387,6 +1397,9 @@ public class EbeanPostgresMetadataQueueStoreIT {
         ps.setLong(4, offset);
         ps.executeUpdate();
       }
+      if (!c.getAutoCommit()) {
+        c.commit();
+      }
     }
   }
 
@@ -1407,6 +1420,9 @@ public class EbeanPostgresMetadataQueueStoreIT {
         ps.setLong(3, topicId);
         ps.setInt(4, partitionId);
         ps.executeUpdate();
+      }
+      if (!c.getAutoCommit()) {
+        c.commit();
       }
     }
   }

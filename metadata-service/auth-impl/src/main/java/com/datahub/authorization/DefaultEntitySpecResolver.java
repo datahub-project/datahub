@@ -29,7 +29,8 @@ public class DefaultEntitySpecResolver implements ContextualEntitySpecResolver {
             new GroupMembershipFieldResolverProvider(groupService),
             new TagFieldResolverProvider(entityClient),
             new ContainerFieldResolverProvider(entityClient),
-            new GlossaryFieldResolverProvider(entityClient));
+            new GlossaryFieldResolverProvider(entityClient),
+            new StructuredPropertyFieldResolverProvider(entityClient));
     this.systemOperationContext = systemOperationContext;
   }
 

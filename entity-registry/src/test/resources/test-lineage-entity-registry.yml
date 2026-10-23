@@ -34,6 +34,7 @@ entities:
       - datasetDeprecation
       - datasetUpstreamLineage
       - upstreamLineage
+      - upstreamMetrics
       - institutionalMemory
       - ownership
       - editableSchemaMetadata
@@ -131,6 +132,7 @@ entities:
     keyAspect: chartKey
     aspects:
       - chartInfo
+      - upstreamMetrics
       - editableChartProperties
       - chartQuery
       - inputFields
@@ -163,6 +165,7 @@ entities:
       - subTypes
       - embed
       - dashboardInfo
+      - upstreamMetrics
       - editableDashboardProperties
       - ownership
       - status
@@ -176,6 +179,14 @@ entities:
       - incidentsSummary
       - forms
       - testResults
+  - name: metric
+    category: core
+    keyAspect: metricKey
+    aspects:
+      - metricInfo
+      - metricRelationships
+      - metricUpstreams
+      - status
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey

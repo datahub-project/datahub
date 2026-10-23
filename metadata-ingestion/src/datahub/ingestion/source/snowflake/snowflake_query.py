@@ -5,6 +5,7 @@ from typing import AbstractSet, List, Optional
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import (
+    SNOWFLAKE_INFORMATION_SCHEMA,
     SnowflakeObjectDomain,
     SnowflakeShowKind,
 )
@@ -377,7 +378,7 @@ class SnowflakeQuery:
     def schemas_for_database(db_name: str, schema_filter: str = "") -> str:
         db_clause = f'"{db_name}".'
 
-        where_conditions = ["schema_name != 'INFORMATION_SCHEMA'"]
+        where_conditions = [f"schema_name != '{SNOWFLAKE_INFORMATION_SCHEMA}'"]
         if schema_filter:
             where_conditions.append(schema_filter)
 
@@ -427,7 +428,7 @@ class SnowflakeQuery:
         db_clause = f'"{db_name}".'
 
         where_conditions = [
-            "table_schema != 'INFORMATION_SCHEMA'",
+            f"table_schema != '{SNOWFLAKE_INFORMATION_SCHEMA}'",
             *SnowflakeQuery._build_table_type_conditions(
                 table_types, exclude_dynamic_tables
             ),
@@ -626,7 +627,7 @@ class SnowflakeQuery:
         # This is an experimental alternative query that might be more reliable.
         where_conditions = [
             f"TABLE_CATALOG = '{db_name}'",
-            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+            f"TABLE_SCHEMA != '{SNOWFLAKE_INFORMATION_SCHEMA}'",
         ]
         if view_filter:
             where_conditions.append(view_filter)
@@ -653,7 +654,7 @@ WHERE {where_clause}
     ) -> str:
         where_conditions = [
             f"TABLE_CATALOG = '{db_name}'",
-            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
+            f"TABLE_SCHEMA != '{SNOWFLAKE_INFORMATION_SCHEMA}'",
             f"TABLE_SCHEMA = '{schema_name}'",
         ]
         if view_filter:
@@ -1714,7 +1715,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 TABLE_NAME AS "TABLE_NAME",
                 TABLE_TYPE AS "TABLE_TYPE"
             FROM {db_name}.INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+            WHERE TABLE_SCHEMA != '{SNOWFLAKE_INFORMATION_SCHEMA}'
             {schema_filter}
             ORDER BY TABLE_SCHEMA, TABLE_NAME
             """

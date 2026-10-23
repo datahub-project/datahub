@@ -28,7 +28,7 @@ class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
     # as defined in the previous block
     config: AddCustomOwnershipConfig
 
-    def __init__(self, config: AddCustomOwnershipConfig, ctx: PipelineContext):
+    def __init__(self, config: AddCustomOwnershipConfig, ctx: PipelineContext) -> None:
         super().__init__()
         self.ctx = ctx
         self.config = config
@@ -58,11 +58,14 @@ class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
         owners_to_add = self.owners
         assert aspect is None or isinstance(aspect, OwnershipClass)
 
-        if owners_to_add:
-            ownership = aspect or OwnershipClass(
-                owners=[],
-            )
+        # Returning the incoming aspect unchanged is the correct no-op here; returning
+        # None would suppress the aspect entirely.
+        if not owners_to_add:
+            return aspect
 
-            ownership.owners.extend(owners_to_add)
+        ownership = aspect or OwnershipClass(
+            owners=[],
+        )
+        ownership.owners.extend(owners_to_add)
 
         return ownership

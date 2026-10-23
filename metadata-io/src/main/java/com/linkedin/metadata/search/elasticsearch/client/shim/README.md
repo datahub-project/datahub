@@ -6,9 +6,10 @@ This package provides a shim layer that abstracts different Elasticsearch and Op
 
 The shim supports the following search engines:
 
-- **Elasticsearch 7.17** - Using REST High Level Client
-- **Elasticsearch 8.x** - Using new Elasticsearch Java Client, 8.17+ is supported
-- **OpenSearch 2.x** - Using OpenSearch REST High Level Client
+- **Elasticsearch 8.x / 9.x** - Using the Elasticsearch Java Client (8.17+). Elasticsearch 9.x is detected and served by the same client; it is **not** a certified backend.
+- **OpenSearch 2.x / 3.x** - Using the unified OpenSearch low-level RestClient shim
+
+Elasticsearch 7.x is not supported. OpenSearch Elasticsearch compatibility mode (GET / reports 7.10.2) is not supported; disable it so the cluster reports 2.x/3.x.
 
 ## Architecture
 
@@ -17,15 +18,13 @@ The shim supports the following search engines:
 1. **`SearchClientShim`** - Main interface that abstracts all search operations
 2. **`SearchClientShimFactory`** - Factory for creating appropriate shim implementations
 3. **Implementation classes** - Concrete implementations for each search engine type:
-   - `Es7CompatibilitySearchClientShim` - ES 7.17
-   - `Es8SearchClientShim` - ES 8.17
-   - `OpenSearch2SearchClientShim` - OpenSearch 2.x
+   - `Es8SearchClientShim` - ES 8.x / 9.x
+   - `OpenSearchSearchClientShim` - OpenSearch 2.x / 3.x
 
 ### Key Features
 
 - **Auto-detection**: Automatically detect the search engine type by connecting to the cluster
 - **Configuration-driven**: Select specific client implementations via configuration
-- **Backward compatibility**: Existing DataHub code can continue using RestHighLevelClient
 - **Feature detection**: Query support for engine-specific features
 
 ## Configuration
@@ -39,7 +38,7 @@ Set these environment variables to configure the shim:
 ELASTICSEARCH_SHIM_ENABLED=true
 
 # Specify engine type or use auto-detection
-ELASTICSEARCH_SHIM_ENGINE_TYPE=AUTO_DETECT  # or ELASTICSEARCH_7, ELASTICSEARCH_8, OPENSEARCH_2, etc.
+ELASTICSEARCH_SHIM_ENGINE_TYPE=AUTO_DETECT  # or ELASTICSEARCH_8, ELASTICSEARCH_9, OPENSEARCH_2, OPENSEARCH_3
 
 # Auto-detect engine type (default: true)
 ELASTICSEARCH_SHIM_AUTO_DETECT=true
@@ -55,7 +54,6 @@ elasticsearch:
   shim:
     enabled: true
     engineType: AUTO_DETECT
-    apiCompatibilityMode: false
     autoDetectEngine: true
 ```
 
@@ -79,11 +77,10 @@ public void searchExample() throws IOException {
 
 ```java
 SearchClientShim.ShimConfiguration config = new ShimConfigurationBuilder()
-    .withEngineType(SearchEngineType.ELASTICSEARCH_7)
+    .withEngineType(SearchEngineType.ELASTICSEARCH_8)
     .withHost("localhost")
     .withPort(9200)
     .withCredentials("user", "pass")
-    .withApiCompatibilityMode(true)
     .build();
 
 try (SearchClientShim shim = SearchClientShimFactory.createShim(config)) {
@@ -107,15 +104,13 @@ try (SearchClientShim shim = SearchClientShimFactory.createShimWithAutoDetection
 }
 ```
 
-## Migration Guide
-
 ## Implementation Status
 
-| Engine Type        | Status      | Client Library                                                  |
-| ------------------ | ----------- | --------------------------------------------------------------- |
-| Elasticsearch 7.17 | ✅ Complete | `org.elasticsearch.client:elasticsearch-rest-high-level-client` |
-| Elasticsearch 8.x  | ✅ Complete | `co.elastic.clients:elasticsearch-java`                         |
-| OpenSearch 2.x     | ✅ Complete | `org.opensearch.client:opensearch-rest-high-level-client`       |
+| Engine Type        | Status           | Client Library                                            |
+| ------------------ | ---------------- | --------------------------------------------------------- |
+| Elasticsearch 8.x  | ✅ Complete      | `co.elastic.clients:elasticsearch-java`                   |
+| Elasticsearch 9.x  | ⚠️ Not certified | Same ES8 Java client; no ES9 CI                           |
+| OpenSearch 2.x/3.x | ✅ Complete      | `org.opensearch.client:opensearch-rest-high-level-client` |
 
 ## Extending the Shim
 
@@ -140,5 +135,5 @@ To add support for additional search engines:
 
 - Manually specify engine type as fallback
 - Check network connectivity to cluster
-- Verify cluster is accessible and running
+- Verify cluster is accessible and running a supported version (Elasticsearch 8+ or OpenSearch 2+)
 - Review error logs for specific connection issues

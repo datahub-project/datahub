@@ -1,11 +1,15 @@
 from unittest import mock
 
+import boto3
 import pytest
+from moto import mock_aws
 from pydantic import ValidationError
 
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
 from datahub.ingestion.source.common.object_store_files import (
     FileSizeExceededError,
+    ObjectNotFoundError,
     expand_local_glob,
     expand_object_store_glob,
     has_glob_characters,
@@ -348,6 +352,28 @@ def test_read_file_as_bytes_s3_returns_raw_bytes_with_bom():
         "s3://my-bucket/manifest.json", aws_connection=connection
     )
     assert result == payload
+
+
+@mock_aws
+def test_read_file_as_bytes_s3_missing_key_is_object_not_found():
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="my-bucket")
+    connection = AwsConnectionConfig(
+        aws_access_key_id="test-key",
+        aws_secret_access_key="test-secret",
+        aws_region="us-east-1",
+    )
+    with pytest.raises(ObjectNotFoundError):
+        read_file_as_bytes("s3://my-bucket/missing.json", aws_connection=connection)
+
+
+def test_read_file_as_bytes_s3_mid_stream_error_is_value_error():
+    connection = mock.MagicMock()
+    connection.get_s3_client.return_value.get_object.return_value = {
+        "Body": mock.MagicMock(read=mock.MagicMock(side_effect=ConnectionError()))
+    }
+    with pytest.raises(ValueError) as excinfo:
+        read_file_as_bytes("s3://my-bucket/manifest.json", aws_connection=connection)
+    assert not isinstance(excinfo.value, FileNotFoundError)
 
 
 def test_read_file_as_bytes_s3_missing_connection():

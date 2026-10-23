@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.ConfigEnrichment;
 import com.datahub.context.Enrichment;
 import com.datahub.context.EnrichmentBundle;
 import com.datahub.context.OperationFingerprint;
@@ -336,6 +337,51 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return OperationContext.withReadPreference(this, readPreference);
   }
 
+  /**
+   * Internal index-occupancy checks skip template execution. Does not change the search surface or
+   * the template a user search would select.
+   */
+  @Nonnull
+  public OperationContext withSkipTemplateExecution(boolean skipTemplateExecution) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().skipTemplateExecution(skipTemplateExecution).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Tags the search surface used to select a query template. Does not select the template. */
+  @Nonnull
+  public OperationContext withSearchSurface(@Nullable String searchSurface) {
+    try {
+      return toBuilder()
+          .searchContext(getSearchContext().toBuilder().searchSurface(searchSurface).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Records the template chosen for this invocation. Selection does not read this field. Replaces
+   * any template recorded by a previous query on the copied context.
+   */
+  @Nonnull
+  public OperationContext withResolvedSearchTemplate(
+      @Nullable ResolvedSearchTemplate resolvedSearchTemplate) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().resolvedSearchTemplate(resolvedSearchTemplate).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public OperationContext asSession(
       @Nonnull RequestContext.RequestContextBuilder requestContext,
       @Nonnull Authorizer authorizer,
@@ -406,6 +452,11 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public Collection<Urn> getActorPeers() {
     return authorizationContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
+  }
+
+  /** Groups the session actor belongs to. */
+  public Collection<Urn> getActorGroups() {
+    return authorizationContext.getAuthorizer().getActorGroups(sessionActorContext.getActorUrn());
   }
 
   /**
@@ -723,6 +774,16 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   public <T extends Enrichment> Optional<T> getEnrichment(@Nonnull final Class<T> type) {
     // getEnrichmentBundle() normalizes null → EMPTY, so this is always safe.
     return getEnrichmentBundle().get(type);
+  }
+
+  /** The stamped {@link ConfigEnrichment}'s answer for {@code key}, else {@code defaultValue}. */
+  @Override
+  @Nonnull
+  public <T> T getConfig(@Nonnull final String key, @Nonnull final T defaultValue) {
+    return getEnrichment(ConfigEnrichment.class)
+        .map(enrichment -> enrichment.resolve(this, key, defaultValue))
+        .filter(value -> defaultValue.getClass().isInstance(value))
+        .orElse(defaultValue);
   }
 
   /**

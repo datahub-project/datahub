@@ -31,7 +31,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "すべてのAssertionに問題はありません",
     "health.noActiveIncidents": "対応中のIncidentはありません",
-    "health.testsPassing": "すべてのテストに問題はありません",
+    "health.noFailingGovernanceTests": "失敗したガバナンステストはありません",
     "lineage.downstreamCount_other": "{{count}}件の下流",
     "lineage.upstreamCount_other": "{{count}}件の上流",
     "notesCount_other": "{{count}}件のメモ",

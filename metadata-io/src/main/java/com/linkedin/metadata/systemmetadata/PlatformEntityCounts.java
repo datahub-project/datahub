@@ -5,9 +5,12 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
 import com.linkedin.metadata.search.utils.ESUtils;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -52,17 +55,14 @@ public class PlatformEntityCounts {
   private static final int MAX_PLATFORM_BUCKETS = 500;
   private static final String DATA_PLATFORM_INSTANCE_ASPECT = "dataPlatformInstance";
 
-  private final SearchClientShim<?> searchClient;
   private final EntityRegistry entityRegistry;
   private final EntityIndexConfiguration entityIndexConfiguration;
   private final int maxEntityTypes;
 
   public PlatformEntityCounts(
-      @Nonnull SearchClientShim<?> searchClient,
       @Nonnull EntityRegistry entityRegistry,
       @Nullable EntityIndexConfiguration entityIndexConfiguration,
       int maxEntityTypes) {
-    this.searchClient = Objects.requireNonNull(searchClient, "searchClient");
     this.entityRegistry = Objects.requireNonNull(entityRegistry, "entityRegistry");
     this.entityIndexConfiguration = entityIndexConfiguration;
     this.maxEntityTypes = maxEntityTypes;
@@ -107,15 +107,13 @@ public class PlatformEntityCounts {
     boolean useV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     String indexName =
         EntitySearchIndexResolver.indexName(opContext, entityType, entityIndexConfiguration);
+    // V3 root fields carry the V2 .keyword subfield
     String aggField =
-        useV3
-            ? PLATFORM_FIELD
-            : ESUtils.toKeywordField(
-                opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
+        ESUtils.toKeywordField(opContext, PLATFORM_FIELD, false, opContext.getAspectRetriever());
     QueryBuilder query = QueryBuilders.matchAllQuery();
     if (useV3) {
       QueryBuilder entityTypeQuery =
-          EntitySearchIndexResolver.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
+          EntityFilter.entityTypeQuery(List.of(entityType), entityIndexConfiguration);
       if (entityTypeQuery != null) {
         query = entityTypeQuery;
       }
@@ -144,7 +142,13 @@ public class PlatformEntityCounts {
     SearchRequest request = new SearchRequest(indexName).source(source);
     SearchResponse response;
     try {
-      response = searchClient.search(opContext, request, RequestOptions.DEFAULT);
+      response =
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.PLATFORM_ENTITY_COUNTS,
+              () ->
+                  SearchClients.forEntityIndices(opContext, request)
+                      .search(opContext, request, RequestOptions.DEFAULT));
     } catch (OpenSearchStatusException e) {
       if (e.status() == RestStatus.NOT_FOUND) {
         log.debug("Entity index {} not found; returning empty platform counts", indexName);

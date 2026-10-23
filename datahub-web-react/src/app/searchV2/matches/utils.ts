@@ -1,19 +1,18 @@
 import * as QueryString from 'query-string';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import {
     HIGHLIGHTABLE_ENTITY_TYPES,
-    MATCHED_FIELD_CONFIG,
     MatchedFieldConfig,
     MatchedFieldName,
     MatchesGroupedByFieldName,
+    getMatchedFieldConfig,
 } from '@app/searchV2/matches/constants';
 
 import { EntityType, MatchedField } from '@types';
 
 const getFieldConfigsByEntityType = (entityType: EntityType | undefined): Array<MatchedFieldConfig> => {
-    return entityType && entityType in MATCHED_FIELD_CONFIG
-        ? MATCHED_FIELD_CONFIG[entityType]
-        : MATCHED_FIELD_CONFIG.DEFAULT;
+    return getMatchedFieldConfig(entityType);
 };
 
 export const shouldShowInMatchedFieldList = (entityType: EntityType | undefined, field: MatchedField): boolean => {
@@ -181,9 +180,9 @@ export const getDescriptionSlice = (text: string, target: string) => {
 
 export const getColumnsTabUrlPath = (entityType: EntityType) => {
     if (entityType === EntityType.Chart) {
-        return 'Fields';
+        return EntityTabPath.FIELDS;
     }
-    return 'Columns';
+    return EntityTabPath.COLUMNS;
 };
 
 // Each context maps to its own complete, independently-translatable tooltip sentence — add a new

@@ -13,12 +13,12 @@ export const createBuilderState = (contract?: DataContract | null): DataContract
     return {
         schema:
             (contract.properties?.schema?.length && {
-                assertionUrn: contract.properties.schema[0].assertion.urn,
+                assertionUrn: contract.properties.schema[0]?.assertion?.urn,
             }) ||
             undefined,
         freshness:
             (contract.properties?.freshness?.length && {
-                assertionUrn: contract.properties.freshness[0].assertion.urn,
+                assertionUrn: contract.properties.freshness[0]?.assertion?.urn,
             }) ||
             undefined,
         dataQuality:
@@ -74,7 +74,7 @@ export const buildUpsertDataContractMutationVariables = (entityUrn: string, stat
 export const buildRemoveAssertionFromContractMutationVariables = (
     entityUrn: string,
     assertionUrn: string,
-    contract?: DataContract,
+    contract?: DataContract | null,
 ) => {
     return {
         input: {
@@ -105,7 +105,7 @@ export const buildAddAssertionToContractMutationVariables = (
     category: DataContractCategoryType,
     entityUrn: string,
     assertionUrn: string,
-    contract?: DataContract,
+    contract?: DataContract | null,
 ) => {
     const baseInput = {
         entityUrn,

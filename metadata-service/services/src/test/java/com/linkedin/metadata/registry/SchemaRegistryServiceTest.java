@@ -39,8 +39,6 @@ public class SchemaRegistryServiceTest {
     when(mockTopicConvention.getMetadataChangeEventTopicName()).thenReturn(MCE_TOPIC);
     when(mockTopicConvention.getMetadataChangeLogTimeseriesTopicName())
         .thenReturn("MetadataChangeLog");
-    when(mockTopicConvention.getDataHubUpgradeHistoryTopicName())
-        .thenReturn("DataHubUpgradeHistory");
     when(mockTopicConvention.getFailedMetadataChangeEventTopicName())
         .thenReturn("FailedMetadataChangeEvent");
     when(mockTopicConvention.getMetadataAuditEventTopicName()).thenReturn("MetadataAuditEvent");
@@ -227,7 +225,6 @@ public class SchemaRegistryServiceTest {
     Assert.assertTrue(allTopics.contains(FMCP_TOPIC));
     Assert.assertTrue(allTopics.contains(MCL_TOPIC));
     Assert.assertTrue(allTopics.contains(PE_TOPIC));
-    Assert.assertTrue(allTopics.contains("DataHubUpgradeHistory"));
     Assert.assertTrue(allTopics.contains("MetadataChangeEvent"));
     Assert.assertTrue(allTopics.contains("FailedMetadataChangeEvent"));
     Assert.assertTrue(allTopics.contains("MetadataAuditEvent"));
@@ -236,7 +233,7 @@ public class SchemaRegistryServiceTest {
     Assert.assertFalse(allTopics.contains("InvalidTopic"));
 
     // Verify the size matches expected count
-    Assert.assertEquals(allTopics.size(), 8);
+    Assert.assertEquals(allTopics.size(), 7);
   }
 
   @Test
@@ -309,12 +306,6 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getSupportedSchemaVersionsForTopic("MetadataChangeLog");
     Assert.assertTrue(mclVersions.isPresent());
     Assert.assertTrue(mclVersions.get().size() >= 2);
-
-    // Test that DUHE supports at least one version
-    Optional<List<Integer>> duheVersions =
-        schemaRegistryService.getSupportedSchemaVersionsForTopic("DataHubUpgradeHistory");
-    Assert.assertTrue(duheVersions.isPresent());
-    Assert.assertTrue(duheVersions.get().size() >= 1);
   }
 
   @Test
@@ -487,32 +478,6 @@ public class SchemaRegistryServiceTest {
   }
 
   @Test
-  public void testDataHubUpgradeHistoryEventVersionSupport() {
-    String duheTopic = "DataHubUpgradeHistory";
-    when(mockTopicConvention.getDataHubUpgradeHistoryTopicName()).thenReturn(duheTopic);
-
-    // Test that we can get version 1 only
-    Optional<Schema> v1Schema = schemaRegistryService.getSchemaForTopicAndVersion(duheTopic, 1);
-    Optional<Schema> v2Schema = schemaRegistryService.getSchemaForTopicAndVersion(duheTopic, 2);
-
-    Assert.assertTrue(v1Schema.isPresent(), "Version 1 schema should be present");
-    Assert.assertFalse(v2Schema.isPresent(), "Version 2 schema should not be present");
-
-    // Test getting latest version
-    Optional<Integer> latestVersion =
-        schemaRegistryService.getLatestSchemaVersionForTopic(duheTopic);
-    Assert.assertTrue(latestVersion.isPresent());
-    Assert.assertEquals(latestVersion.get().intValue(), 1);
-
-    // Test getting supported versions
-    Optional<List<Integer>> supportedVersions =
-        schemaRegistryService.getSupportedSchemaVersionsForTopic(duheTopic);
-    Assert.assertTrue(supportedVersions.isPresent());
-    Assert.assertEquals(supportedVersions.get().size(), 1);
-    Assert.assertTrue(supportedVersions.get().contains(1));
-  }
-
-  @Test
   public void testAspectCreatedFieldVersioningConsistency() {
     // Test that both MCP and FMCP have consistent field presence across versions
     Optional<Schema> mcpV1 = schemaRegistryService.getSchemaForTopicAndVersion(MCP_TOPIC, 1);
@@ -655,15 +620,11 @@ public class SchemaRegistryServiceTest {
     String mclCompatibility = schemaRegistryService.getSchemaCompatibility(MCL_TOPIC);
     String mclTimeseriesCompatibility =
         schemaRegistryService.getSchemaCompatibility("MetadataChangeLogTimeseries");
-    String duheCompatibility =
-        schemaRegistryService.getSchemaCompatibility("DataHubUpgradeHistory");
 
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mcpCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, fmcpCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mclCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mclTimeseriesCompatibility);
-    // DataHubUpgradeHistory is a single-version schema, so it should have BACKWARD compatibility
-    Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_BACKWARD, duheCompatibility);
 
     // Test compatibility for single version schemas (should be BACKWARD)
     String peCompatibility = schemaRegistryService.getSchemaCompatibility(PE_TOPIC);
@@ -672,8 +633,7 @@ public class SchemaRegistryServiceTest {
         schemaRegistryService.getSchemaCompatibility("FailedMetadataChangeEvent");
     String maeCompatibility = schemaRegistryService.getSchemaCompatibility("MetadataAuditEvent");
 
-    // PlatformEvent and DataHubUpgradeHistory are truly single version, so they should have
-    // BACKWARD compatibility
+    // PlatformEvent is a truly single version schema, so it should have BACKWARD compatibility
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_BACKWARD, peCompatibility);
     // MCE, FMCE, and MAE are multi-version schemas with breaking changes, so they should have NONE
     // compatibility
@@ -690,14 +650,13 @@ public class SchemaRegistryServiceTest {
     String mclCompatibility = schemaRegistryService.getSchemaCompatibilityById(2); // MCL topic
     String mclTimeseriesCompatibility =
         schemaRegistryService.getSchemaCompatibilityById(3); // MCL_TIMESERIES topic
-    String duheCompatibility = schemaRegistryService.getSchemaCompatibilityById(8); // DUHE topic
+    String reservedCompatibility = schemaRegistryService.getSchemaCompatibilityById(8);
 
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mcpCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, fmcpCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mclCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mclTimeseriesCompatibility);
-    // DataHubUpgradeHistory is a single-version schema, so it should have BACKWARD compatibility
-    Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_BACKWARD, duheCompatibility);
+    Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, reservedCompatibility);
 
     // Test compatibility for single version schemas by ID
     String peCompatibility = schemaRegistryService.getSchemaCompatibilityById(4); // PE topic
@@ -705,8 +664,7 @@ public class SchemaRegistryServiceTest {
     String fmceCompatibility = schemaRegistryService.getSchemaCompatibilityById(6); // FMCE topic
     String maeCompatibility = schemaRegistryService.getSchemaCompatibilityById(7); // MAE topic
 
-    // PlatformEvent and DataHubUpgradeHistory are truly single version, so they should have
-    // BACKWARD compatibility
+    // PlatformEvent is a truly single version schema, so it should have BACKWARD compatibility
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_BACKWARD, peCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, mceCompatibility);
     Assert.assertEquals(EventSchemaConstants.SCHEMA_COMPATIBILITY_NONE, fmceCompatibility);
@@ -724,13 +682,13 @@ public class SchemaRegistryServiceTest {
     Optional<String> fmcpTopic = schemaRegistryService.getTopicNameById(1);
     Optional<String> mclTopic = schemaRegistryService.getTopicNameById(2);
     Optional<String> mclTimeseriesTopic = schemaRegistryService.getTopicNameById(3);
-    Optional<String> duheTopic = schemaRegistryService.getTopicNameById(8);
+    Optional<String> reservedTopic = schemaRegistryService.getTopicNameById(8);
 
     Assert.assertTrue(mcpTopic.isPresent());
     Assert.assertTrue(fmcpTopic.isPresent());
     Assert.assertTrue(mclTopic.isPresent());
     Assert.assertTrue(mclTimeseriesTopic.isPresent());
-    Assert.assertTrue(duheTopic.isPresent());
+    Assert.assertFalse(reservedTopic.isPresent());
 
     Assert.assertEquals(mcpTopic.get(), MCP_TOPIC);
     Assert.assertEquals(fmcpTopic.get(), FMCP_TOPIC);
@@ -738,7 +696,6 @@ public class SchemaRegistryServiceTest {
     // Schema ID 3 maps to MetadataChangeLog since it's MCL_SCHEMA_ID, not
     // MCL_TIMESERIES_V1_SCHEMA_ID
     Assert.assertEquals(mclTimeseriesTopic.get(), "MetadataChangeLog");
-    Assert.assertEquals(duheTopic.get(), "DataHubUpgradeHistory");
 
     // Test getting topic names for single version schemas
     Optional<String> peTopic = schemaRegistryService.getTopicNameById(4);

@@ -12,7 +12,7 @@ import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, FacetMetadata } from '@types';
@@ -23,16 +23,24 @@ const Container = styled.div`
     display: flex;
     width: 100%;
     gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 const LeftSection = styled.div`
     flex: 6;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const RightSection = styled.div`
     flex: 4;
     width: calc(40% - 20px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const VerticalDivider = styled.div`
@@ -49,10 +57,14 @@ const ResultsContainer = styled.div`
     position: relative;
     max-height: 300px;
     padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 `;
 
 const ScrollableResultsContainer = styled.div`
-    max-height: inherit;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
 `;
 
@@ -86,7 +98,7 @@ type Props = {
 
 export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Props) {
     const { t } = useTranslation('entity.views');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
     const { appliedFilters, updateFieldFilters } = useAppliedFilters();
 

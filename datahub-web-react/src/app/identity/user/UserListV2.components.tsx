@@ -5,7 +5,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
+import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Avatar, Button, Pill, ResizablePills, Text } from '@src/alchemy-components';
@@ -234,7 +234,7 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
 // User actions menu component
 export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDelete }: UserActionsMenuProps) => {
     const { t } = useTranslation('entity.identity');
-    const { onDeleteEntity } = useDeleteEntity(
+    const { onDeleteEntity, DeleteConfirmationModal } = useDeleteEntity(
         user.urn,
         EntityType.CorpUser,
         user,
@@ -264,13 +264,16 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
     ].filter(Boolean) as ItemType[];
 
     return (
-        <Menu items={menuItems}>
-            <Button
-                variant="text"
-                icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
-                isCircle
-                style={ActionsButtonStyle}
-            />
-        </Menu>
+        <>
+            <Menu items={menuItems}>
+                <Button
+                    variant="text"
+                    icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
+                    isCircle
+                    style={ActionsButtonStyle}
+                />
+            </Menu>
+            {DeleteConfirmationModal}
+        </>
     );
 };

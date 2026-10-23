@@ -8,10 +8,10 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { EntityType, OwnerType } from '@types';
 
 type Props = {
-    actor: CorpUser | CorpGroup;
+    actor: OwnerType;
     popOver?: React.ReactNode;
     closable?: boolean | undefined;
     onClose?: () => void;
@@ -40,15 +40,8 @@ const NameText = styled.span`
 export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
     const entityRegistry = useEntityRegistry();
 
-    let name = '';
-    if (actor.__typename === 'CorpGroup') {
-        name = entityRegistry.getDisplayName(EntityType.CorpGroup, actor);
-    }
-    if (actor.__typename === 'CorpUser') {
-        name = entityRegistry.getDisplayName(EntityType.CorpUser, actor);
-    }
-
-    const pictureLink = (actor.__typename === 'CorpUser' && actor.editableProperties?.pictureLink) || undefined;
+    const name = entityRegistry.getDisplayName(actor.type, actor);
+    const pictureLink = ('editableProperties' in actor && actor.editableProperties?.pictureLink) || undefined;
     const avatarType = actor.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     const nameContent = !popOver ? (

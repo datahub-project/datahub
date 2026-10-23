@@ -4,7 +4,8 @@ namespace com.linkedin.common
  * The specific instance of the data platform that this entity belongs to
  */
 @Aspect = {
-  "name": "dataPlatformInstance"
+  "name": "dataPlatformInstance",
+  "schemaVersion": 2
 }
 record DataPlatformInstance {
   /**
@@ -13,7 +14,11 @@ record DataPlatformInstance {
   @Searchable = {
     "fieldType": "URN",
     "addToFilters": true,
-    "filterNameOverride": "Platform"
+    "filterNameOverride": "Platform",
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
   }
   platform: Urn
 
@@ -23,8 +28,12 @@ record DataPlatformInstance {
   @Searchable = {
     "fieldType": "URN",
     "addToFilters": true,
-    "filterNameOverride": "Platform Instance"
-    "fieldName": "platformInstance"
+    "filterNameOverride": "Platform Instance",
+    "fieldName": "platformInstance",
+    "v3": {
+      "searchLabel": "platformInstance",
+      "copyToOther": true
+    }
   }
   instance: optional Urn
 }
