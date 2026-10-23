@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -2356,5 +2357,101 @@ public class EntityServiceImplTest {
                 ctx ->
                     ctx.getPrimaryStorageContext().getReadPreference() == ReadPreference.PRIMARY),
             eq(TEST_URN.toString()));
+  }
+
+  /**
+   * A rollback run as a user records that user on the removed aspect's changelog. It used to be the
+   * system whoever ran it.
+   */
+  @Test
+  public void testRollbackChangelogNamesTheCaller() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-2");
+    OperationContext userContext = newUserContext();
+
+    AspectRowSummary row =
+        new AspectRowSummary()
+            .setUrn(GUARDED_PROPERTY_URN.toString())
+            .setAspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .setKeyAspect(false)
+            .setVersion(0)
+            .setTimestamp(0L);
+
+    service.rollbackRun(userContext, List.of(row), "rollback-run-2", false);
+
+    ArgumentCaptor<MetadataChangeLog> changelog = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(service, atLeastOnce())
+        .alwaysProduceMCLAsync(
+            any(OperationContext.class), any(Urn.class), any(), changelog.capture());
+    for (MetadataChangeLog written : changelog.getAllValues()) {
+      assertEquals(
+          written.getCreated().getActor(), userContext.getSessionActorContext().getActorUrn());
+    }
+  }
+
+  /**
+   * A soft delete run as a user writes the removed status with that user's stamp, matching the
+   * delete changelog. It used to be the system whoever ran it.
+   */
+  @Test
+  public void testSoftDeleteStatusIsStampedWithTheCaller() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service =
+        spy(
+            new EntityServiceImpl(
+                dao,
+                mock(EventProducer.class),
+                mock(PreProcessHooks.class),
+                testConfig(),
+                metricUtils));
+    OperationContext userContext = newUserContext();
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:softDeleteStamp");
+    String keyAspectName = userContext.getKeyAspectName(urn);
+    SystemAspect latestKey =
+        EbeanSystemAspect.builder()
+            .forUpdate(
+                new EbeanAspectV2(
+                    urn.toString(),
+                    keyAspectName,
+                    0L,
+                    RecordUtils.toJsonString(new CorpUserKey().setUsername("softDeleteStamp")),
+                    new Timestamp(System.currentTimeMillis()),
+                    TEST_AUDIT_STAMP.getActor().toString(),
+                    null,
+                    RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata())),
+                testEntityRegistry);
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(urn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(latestKey);
+    when(dao.getVersionRange(any(OperationContext.class), eq(urn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(dao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+    doReturn(null)
+        .when(service)
+        .ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean());
+
+    service.deleteAspectWithoutMCL(
+        userContext, urn.toString(), keyAspectName, Collections.emptyMap(), false);
+
+    ArgumentCaptor<MetadataChangeProposal> proposal =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<AuditStamp> stamp = ArgumentCaptor.forClass(AuditStamp.class);
+    verify(service)
+        .ingestProposal(
+            any(OperationContext.class), proposal.capture(), stamp.capture(), eq(false));
+    assertEquals(proposal.getValue().getAspectName(), STATUS_ASPECT_NAME);
+    assertEquals(stamp.getValue().getActor(), userContext.getSessionActorContext().getActorUrn());
   }
 }
