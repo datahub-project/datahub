@@ -25,17 +25,6 @@ OAUTH = AuthConfig(
 STATIC = AuthConfig(type="static", config={"token": "cb-token"})
 
 
-@pytest.fixture(autouse=True)
-def _no_ambient_credentials(monkeypatch):
-    for var in (
-        "DATAHUB_AUTH_TYPE",
-        "DATAHUB_GMS_TOKEN",
-        "DATAHUB_SYSTEM_CLIENT_ID",
-        "DATAHUB_SYSTEM_CLIENT_SECRET",
-    ):
-        monkeypatch.delenv(var, raising=False)
-
-
 def _set_env_oauth(monkeypatch):
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
     monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")

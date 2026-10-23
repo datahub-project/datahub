@@ -35,7 +35,12 @@ from urllib3 import HTTPResponse
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
-from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
+from datahub.cli.cli_utils import (
+    ensure_has_system_metadata,
+    fixup_gms_url,
+    get_or_else,
+    resolve_env_auth_config,
+)
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
@@ -76,7 +81,6 @@ from datahub.emitter.response_helper import (
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     DATAHUB_COMPONENT_ENV,
@@ -504,30 +508,31 @@ class DataHubRestEmitter(Closeable, Emitter):
         server_config_refresh_interval: Optional[int] = None,
         tcp_keepalive: Optional[bool] = None,
         default_emit_mode: Optional[EmitMode] = None,
+        resolve_env_auth: bool = True,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
+        # Truthiness, not `is not None`: an empty-string token (a blank password
+        # from a URI/env-defined Airflow connection) is not a credential and must
+        # not suppress env-OAuth resolution. Matches the `elif token:` check below.
+        caller_supplied_creds = bool(token) or auth is not None
         if gms_server == "__from_env__":
-            # HACK: similar to what we do with system auth, we transparently
-            # inject the config in here. TODO(oauth): relocate this into the
-            # planned shared credential-resolution helper so the emitter stops
-            # reading env vars itself (tracked follow-up; see PR #18144).
-            #
-            # The server always resolves from env — a caller passing explicit
-            # credentials (e.g. a sink that already resolved env OAuth) must not
-            # leave the literal sentinel to hit fixup_gms_url. Env credentials
-            # apply only when the caller supplied none.
+            # The sentinel resolves the server (and, when the caller gave no
+            # credentials, the token) from the environment. The server always
+            # resolves here so an explicit-credential caller does not leave the
+            # sentinel string to reach fixup_gms_url.
             gms_server, env_token = config_utils.require_config_from_env()
-            if token is None and auth is None:
-                token = env_token
-                # Env-based OAuth (DATAHUB_AUTH_TYPE) must work on this path too —
-                # it is the same "resolve everything from env vars" contract as
-                # load_client_config, and takes the same precedence over a static
-                # DATAHUB_GMS_TOKEN.
-                env_auth_config = build_auth_config_from_env()
-                if env_auth_config is not None:
-                    auth = TokenProviderAuth(build_token_provider(env_auth_config))
-                    token = None
+            if not caller_supplied_creds:
+                token = env_token  # may be overridden by env OAuth below
+        # Env-based OAuth (DATAHUB_AUTH_TYPE) when the caller supplied no explicit
+        # credentials — for any server, not just the __from_env__ sentinel. A
+        # caller that resolves env auth itself (the datahub-rest sink, with its
+        # origin guard) passes resolve_env_auth=False so it is not resolved twice.
+        if not caller_supplied_creds and resolve_env_auth:
+            env_auth_config = resolve_env_auth_config(gms_server, origin_guard=False)
+            if env_auth_config is not None:
+                auth = TokenProviderAuth(build_token_provider(env_auth_config))
+                token = None
 
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
