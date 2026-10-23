@@ -98,6 +98,14 @@ export const getDirectDownstreamSummary = (results: SearchAcrossLineageResults):
     };
 };
 
+function getEntityTypeLabel(entityRegistry: EntityRegistry, type: LineageDirectionTypeSummary): string | undefined {
+    if (!type.isEntityType) {
+        return type.type;
+    }
+    const entityType = type.type as EntityType;
+    return type.count === 1 ? entityRegistry.getEntityName(entityType) : entityRegistry.getCollectionName(entityType);
+}
+
 export const getRelatedEntitySummary = (
     summary: LineageDirectionSummary,
     entityRegistry: EntityRegistry,
@@ -109,10 +117,7 @@ export const getRelatedEntitySummary = (
                     <SummaryText key={type.type}>
                         {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
                             count: type.count,
-                            type: (type.isEntityType
-                                ? entityRegistry.getEntityName(type.type as EntityType)
-                                : type.type
-                            )?.toLocaleLowerCase(),
+                            type: getEntityTypeLabel(entityRegistry, type)?.toLocaleLowerCase(),
                         })}
                         {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}

@@ -93,7 +93,7 @@
     "historySidebar.noVersionHistory": "Aucune modification enregistrée pour cette version pour le moment.",
     "historySidebar.versionCountHint_one": "· {{count}} version",
     "historySidebar.versionCountHint_other": "· {{count}} versions",
-    "historySidebar.viewAllVersions": "Toutes les versions",
+    "historySidebar.viewAllVersions": "Afficher toutes les versions",
     "historyTransaction.byActor": "par {{actorName}}",
     "versionMilestone.created": "Version créée",
     "versionMilestone.latest": "Dernière",
