@@ -1133,6 +1133,57 @@ class TestExpressionParameterResolution:
         )
         assert result == "MyOracleService"
 
+    def test_resolve_default_database_oracle_expression_wrapped_server(self) -> None:
+        """The "server" connect string can be Expression-wrapped like any
+        other linked-service property; the service-name hint must still
+        be found inside it."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                connection_string=None,
+                database=None,
+                server={
+                    "value": "@{concat(linkedService().host_name,'/',linkedService().service_name)}",
+                    "type": "Expression",
+                },
+                parameters={
+                    "service_name": SimpleNamespace(default_value="MyOracleService")
+                },
+            )
+        )
+        result = source._resolve_default_database(
+            linked_service, "oracle", "rg/factory"
+        )
+        assert result == "MyOracleService"
+
+    @pytest.mark.parametrize(
+        ("table_name", "platform", "expected"),
+        [
+            # Two-tier: database.table is already complete.
+            ("my_db.orders", "mysql", "my_db.orders"),
+            ("orders", "mysql", "my_db.orders"),
+            ("my_db.orders", "mongodb", "my_db.orders"),
+            # Three-tier: schema.table still needs the database.
+            ("dbo.orders", "mssql", "my_db.dbo.orders"),
+        ],
+    )
+    def test_qualify_table_name_respects_platform_depth(
+        self, table_name: str, platform: str, expected: str
+    ) -> None:
+        source = self._make_source()
+        assert source._qualify_table_name(table_name, "my_db", platform) == expected
+
+    def test_ddl_target_table_not_double_qualified_on_two_tier_platform(
+        self,
+    ) -> None:
+        source = self._make_source()
+        assert (
+            source._extract_ddl_target_table(
+                "TRUNCATE TABLE my_db.orders", "mysql", "my_db"
+            )
+            == "my_db.orders"
+        )
+
     def test_resolve_literal_or_global_parameter_resolves_global_reference(
         self,
     ) -> None:
@@ -1164,8 +1215,8 @@ class TestExpressionParameterResolution:
     def test_derive_databricks_platform_instance_from_literal_domain(self) -> None:
         """The workspace instance ID (e.g. "adb-1234567890123456") is the
         first dot-separated label of the workspace URL's host - matching
-        exactly how DataHub's own Unity Catalog source derives its
-        platform_instance from workspace_url."""
+        how DataHub's Unity Catalog source derives its platform_instance
+        from workspace_url under include_metastore."""
         source = self._make_source()
         linked_service = SimpleNamespace(
             properties=SimpleNamespace(
@@ -1265,6 +1316,35 @@ class TestExpressionParameterResolution:
             linked_service, "rg/factory"
         )
         assert result is None
+
+    @pytest.mark.parametrize(
+        "domain",
+        [
+            "@linkedService().dbx_domain",
+            {"value": "@{linkedService().dbx_domain}", "type": "Expression"},
+            {"value": "@linkedService().dbx_domain", "type": "Expression"},
+        ],
+    )
+    def test_derive_databricks_platform_instance_other_self_reference_shapes(
+        self, domain: Any
+    ) -> None:
+        """The domain self-reference resolves whether it's interpolated,
+        a whole-value expression, or Expression-wrapped."""
+        source = self._make_source()
+        linked_service = SimpleNamespace(
+            properties=SimpleNamespace(
+                domain=domain,
+                parameters={
+                    "dbx_domain": SimpleNamespace(
+                        default_value="https://adb-1234567890123456.4.azuredatabricks.net/"
+                    )
+                },
+            )
+        )
+        result = source._derive_databricks_platform_instance(
+            linked_service, "rg/factory"
+        )
+        assert result == "adb-1234567890123456"
 
     def test_substitute_pipeline_run_parameters_accepts_resolved_value(
         self,

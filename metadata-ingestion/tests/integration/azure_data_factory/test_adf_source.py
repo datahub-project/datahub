@@ -1841,14 +1841,39 @@ def test_adf_source_databricks_catalog_unset_by_default(tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_adf_source_databricks_platform_instance_derived_from_workspace_url(
-    tmp_path,
+@pytest.mark.parametrize(
+    ("extra_config", "expected_urn"),
+    [
+        pytest.param(
+            {},
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,sales.orders_table,DEV)",
+            id="default_recipe_has_no_platform_instance",
+        ),
+        pytest.param(
+            {
+                "databricks_catalog_map": {
+                    "DatabricksLS": {
+                        "catalog": "prod_catalog",
+                        "metastore": "prod_metastore",
+                    }
+                },
+                "platform_instance_map": {"DatabricksLS": ""},
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,prod_metastore.prod_catalog.sales.orders_table,DEV)",
+            id="empty_platform_instance_map_entry_opts_out",
+        ),
+    ],
+)
+def test_adf_source_databricks_platform_instance_not_derived_without_metastore(
+    tmp_path, extra_config, expected_urn
 ):
-    """Regression test: without any "platform_instance_map" config, the
-    Databricks workspace instance ID (e.g. "adb-1234567890123456") should
-    be auto-derived from the linked service's workspace URL and folded
-    into the emitted URN - mirroring exactly how DataHub's own Unity
-    Catalog source derives its platform_instance from workspace_url."""
+    """Regression test: the Unity Catalog source sets no platform_instance
+    by default - it only folds a workspace-derived one into its URNs when
+    ingested with include_metastore. So a default recipe must not derive
+    "adb-<workspace id>" from the workspace URL (lineage would point at
+    datasets that don't exist), and an explicit, empty
+    platform_instance_map entry opts a linked service out even when a
+    metastore is configured."""
     output_file = tmp_path / "adf_databricks_platform_instance_events.json"
 
     factory_name = "platform-instance-test-factory"
@@ -1960,6 +1985,7 @@ def test_adf_source_databricks_platform_instance_derived_from_workspace_url(
                             "include_execution_history": True,
                             "execution_history_days": 7,
                             "env": "DEV",
+                            **extra_config,
                         },
                     },
                     "sink": {
@@ -1983,11 +2009,8 @@ def test_adf_source_databricks_platform_instance_derived_from_workspace_url(
     aspect = lineage_aspects[-1]["aspect"]["json"]
     input_datasets = aspect["inputDatasets"]
 
-    assert any(
-        d
-        == "urn:li:dataset:(urn:li:dataPlatform:databricks,adb-1234567890123456.sales.orders_table,DEV)"
-        for d in input_datasets
-    )
+    assert expected_urn in input_datasets
+    assert not any("adb-" in d for d in input_datasets)
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

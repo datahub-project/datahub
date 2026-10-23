@@ -142,10 +142,13 @@ UNRESOLVED_ADF_EXPRESSION_PATTERN = re.compile(
     r"@\{|@dataset\(\)|@pipeline\(\)|@activity\(|@item\(\)|@linkedService\(\)"
 )
 # Matches a "parameterized" linked service referencing one of its own
-# declared parameters inline, e.g. "@{linkedService().dbNameParam}" ->
-# group(1) = "dbNameParam". The parameter's own declared default value
+# declared parameters, either interpolated ("@{linkedService().dbNameParam}")
+# or as a whole-value expression ("@linkedService().dbNameParam") ->
+# group("param") = "dbNameParam". The parameter's own declared default value
 # (resolved separately) is the real value, not this template text.
-LINKED_SERVICE_SELF_REFERENCE_PATTERN = re.compile(r"^@\{linkedService\(\)\.(\w+)\}$")
+LINKED_SERVICE_SELF_REFERENCE_PATTERN = re.compile(
+    r"^@(?P<brace>\{)?linkedService\(\)\.(?P<param>\w+)(?(brace)\})$"
+)
 # Oracle's linked service exposes no database/catalog field at all - its
 # identity (a TNS service name or SID) is baked into a free-form "server"
 # connect string, conventionally built (via a concat() expression) from a
@@ -155,6 +158,16 @@ LINKED_SERVICE_SELF_REFERENCE_PATTERN = re.compile(r"^@\{linkedService\(\)\.(\w+
 ORACLE_SERVICE_PARAM_HINT_PATTERN = re.compile(
     r"linkedService\(\)\.(\w*(?:service|sid)\w*)", re.IGNORECASE
 )
+
+# Platforms whose DataHub dataset names are database.table, with no schema
+# level: a 2-part reference there is already fully qualified.
+TWO_TIER_PLATFORMS = frozenset({"hive", "mariadb", "mongodb", "mysql"})
+
+
+def _qualified_part_count(platform: str) -> int:
+    """Number of dot segments in a fully qualified table name for a platform."""
+    return 2 if platform in TWO_TIER_PLATFORMS else 3
+
 
 # Mapping of ADF activity types to DataHub subtypes
 ACTIVITY_SUBTYPE_MAP: dict[str, str] = {
@@ -1348,7 +1361,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         """Shared lookup chain used by both the static (_resolve_dataset_urn)
         and query-based (_resolve_dataset_ref_context) lineage resolution
         paths: dataset -> linked service -> DataHub platform -> platform
-        instance (auto-derived for Databricks when not already mapped).
+        instance (derived for Databricks only when a metastore is configured).
         Returns (dataset, linked_service, ls_ref_name, platform,
         platform_instance), or None if any step can't be resolved.
 
@@ -1389,8 +1402,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 self.report.report_unmapped_platform(dataset_name, ls_type)
             return None
 
-        platform_instance = self.config.platform_instance_map.get(ls_ref_name)
-        if not platform_instance and platform == "databricks":
+        platform_instance: Optional[str] = None
+        catalog_mapping = self.config.databricks_catalog_map.get(ls_ref_name)
+        if ls_ref_name in self.config.platform_instance_map:
+            # An explicit entry always wins; an empty one opts this linked
+            # service out of a platform_instance entirely.
+            platform_instance = self.config.platform_instance_map[ls_ref_name] or None
+        elif (
+            platform == "databricks"
+            and catalog_mapping is not None
+            and catalog_mapping.metastore
+        ):
+            # The Unity Catalog source only folds a workspace-derived
+            # platform_instance into its URNs alongside the metastore
+            # (include_metastore); by default it sets none, so deriving one
+            # unconditionally would point lineage at datasets that don't exist.
             platform_instance = self._derive_databricks_platform_instance(
                 linked_service,
                 factory_key,
@@ -1441,7 +1467,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 dataset=dataset,
                 activity_dataset_parameters=activity_dataset_parameters,
             )
-            table_name = self._qualify_table_name(table_name, default_db)
+            table_name = self._qualify_table_name(table_name, default_db, platform)
         else:
             table_name = dataset_name  # Fallback to ADF dataset name
 
@@ -1452,7 +1478,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             platform_instance=platform_instance,
         )
 
-    def _qualify_table_name(self, table_name: str, default_db: Optional[str]) -> str:
+    def _qualify_table_name(
+        self, table_name: str, default_db: Optional[str], platform: str
+    ) -> str:
         """Prepend a resolved default database/catalog to a 1- or 2-part
         table reference, mirroring the same qualification already applied
         to per-run resolved queries (see _extract_ddl_target_table).
@@ -1461,7 +1489,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         default_db to resolve in the first place)."""
         if not default_db or "/" in table_name:
             return table_name
-        if len(table_name.split(".")) >= 3:
+        if len(table_name.split(".")) >= _qualified_part_count(platform):
             return table_name
         return f"{default_db}.{table_name}"
 
@@ -1523,9 +1551,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
 
         def resolve_candidate(candidate: str) -> Optional[str]:
-            self_ref = LINKED_SERVICE_SELF_REFERENCE_PATTERN.match(candidate)
+            self_ref = LINKED_SERVICE_SELF_REFERENCE_PATTERN.match(candidate.strip())
             if self_ref:
-                return resolve_param(self_ref.group(1))
+                return resolve_param(self_ref.group("param"))
             global_param_match = GLOBAL_PARAMETER_REFERENCE_PATTERN.match(candidate)
             if global_param_match:
                 return self._global_parameters_cache.get(factory_key, {}).get(
@@ -1564,7 +1592,9 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 return resolved
 
         if platform == "oracle":
-            server = getattr(linked_service.properties, "server", None)
+            server = self._unwrap_expression_value(
+                getattr(linked_service.properties, "server", None)
+            )
             if isinstance(server, str):
                 hint = ORACLE_SERVICE_PARAM_HINT_PATTERN.search(server)
                 if hint:
@@ -1707,27 +1737,31 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         dataset: Optional[DatasetResource] = None,
         activity_dataset_parameters: Optional[dict[str, Any]] = None,
     ) -> Optional[str]:
-        """Auto-derive a Databricks platform_instance from the linked
-        service's workspace URL, mirroring exactly how DataHub's own
-        Unity Catalog source derives its platform_instance when
-        workspace_name isn't explicitly configured: the first
+        """Derive a Databricks platform_instance from the linked service's
+        workspace URL the way DataHub's Unity Catalog source does when
+        ingested with include_metastore (and no workspace_name): the first
         dot-separated label of the workspace URL's host (e.g.
         "https://adb-1234567890123456.4.azuredatabricks.net/" ->
-        "adb-1234567890123456"). The domain is very often a
-        "parameterized" self-reference (e.g. "@{linkedService().dbx_domain}")
-        rather than a literal - resolved through the same
+        "adb-1234567890123456"). Only valid for that metastore-qualified
+        shape - by default the Unity Catalog source sets no
+        platform_instance at all - so callers gate this on a configured
+        metastore. The domain is very often a "parameterized"
+        self-reference (e.g. "@{linkedService().dbx_domain}") rather than
+        a literal - resolved through the same
         activity-override > dataset-default > linked-service-default
         chain used elsewhere, plus (uniquely relevant here) an
         activity-level reference to a factory-level global parameter
         (e.g. "@pipeline().globalParameters.databricks_workspace_url"),
         since that's how this value is commonly threaded through in
         practice."""
-        domain = getattr(linked_service.properties, "domain", None)
+        domain = self._unwrap_expression_value(
+            getattr(linked_service.properties, "domain", None)
+        )
         resolved_domain = self._resolve_literal_or_global_parameter(domain, factory_key)
         if resolved_domain is None and isinstance(domain, str):
             self_ref = LINKED_SERVICE_SELF_REFERENCE_PATTERN.match(domain.strip())
             if self_ref:
-                param_name = self_ref.group(1)
+                param_name = self_ref.group("param")
                 if dataset is not None:
                     resolved_domain = self._resolve_database_param_via_dataset_chain(
                         dataset,
@@ -2804,7 +2838,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         parts = [p for p in (table.catalog, table.db, table.name) if p]
         if not parts:
             return None
-        if len(parts) < 3 and default_db:
+        if len(parts) < _qualified_part_count(platform) and default_db:
             parts = [default_db, *parts]
         return ".".join(parts)
 

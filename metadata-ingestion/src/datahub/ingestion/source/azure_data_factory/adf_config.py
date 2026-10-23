@@ -42,7 +42,10 @@ class DatabricksCatalogMapping(ConfigModel):
             "workspace was ingested with include_metastore enabled "
             "(which folds the metastore name into the dataset name "
             "ahead of catalog.schema.table) - otherwise leave unset to "
-            "emit catalog.schema.table."
+            "emit catalog.schema.table. Setting it also uses the workspace "
+            "ID from the linked service's workspace URL (e.g. "
+            "'adb-1234567890123456') as the platform_instance, as that "
+            "source does; override it with platform_instance_map."
         ),
     )
 
@@ -180,7 +183,9 @@ class AzureDataFactoryConfig(
         description=(
             "Map linked service names to DataHub platform instances. "
             "Example: {'my-snowflake-connection': 'prod_snowflake'}. "
-            "Used for accurate lineage resolution to existing datasets."
+            "Used for accurate lineage resolution to existing datasets. "
+            "An empty value means no platform instance for that linked "
+            "service."
         ),
     )
 

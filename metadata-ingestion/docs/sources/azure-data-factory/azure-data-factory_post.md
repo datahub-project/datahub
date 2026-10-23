@@ -135,7 +135,7 @@ Without matching `platform_instance` values, lineage will create separate datase
 
 ADF's own API never exposes a Databricks table's catalog or Unity Catalog metastore — only its schema and table name. To fill this gap:
 
-- **`platform_instance`** for a Databricks linked service is derived automatically from its workspace URL (e.g. `adb-1234567890123456`), matching how DataHub's own Unity Catalog source derives it. You only need `platform_instance_map` if your Databricks recipe sets an explicit `platform_instance` of its own.
+- **`platform_instance`** is left unset for Databricks by default, matching a default Unity Catalog recipe. When a `databricks_catalog_map` entry sets `metastore` (your Unity Catalog source uses `include_metastore`), it's derived from the linked service's workspace URL (e.g. `adb-1234567890123456`), as that source does. Use `platform_instance_map` if your Databricks recipe sets its own `platform_instance` or `workspace_name`; an empty value turns the derived one off.
 - **`databricks_default_catalog`** fully qualifies every Databricks reference with a single catalog name, for tenants with one workspace/catalog.
 - **`databricks_catalog_map`** maps individual linked service names to their own catalog (and optionally Unity Catalog metastore name), for tenants with multiple Databricks workspaces that don't share a catalog:
 
