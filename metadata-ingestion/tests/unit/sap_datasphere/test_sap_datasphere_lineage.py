@@ -147,22 +147,21 @@ def test_walk_from_handles_doubly_nested_subquery():
     assert refs == [UpstreamRef(name="DEEP")]
 
 
-def test_lineage_skips_non_string_ref_element():
-    """A dict ref[0] (parametrized reference) must be skipped rather than yielding a non-string upstream."""
+@pytest.mark.parametrize(
+    "head, expected",
+    [
+        ({"id": "PARAM", "args": {}}, [UpstreamRef(name="PARAM")]),
+        ({"args": {}}, []),
+    ],
+    ids=["parameterized", "no_id"],
+)
+def test_lineage_dict_ref_uses_its_id(head, expected):
     csn_def = {
         "kind": "entity",
-        "query": {
-            "SELECT": {
-                "from": {"ref": [{"id": "PARAM", "args": []}]},
-                "columns": [{"ref": ["X"]}],
-            }
-        },
+        "query": {"SELECT": {"from": {"ref": [head]}, "columns": [{"ref": ["X"]}]}},
     }
-    extractor = CsnLineageExtractor()
-    upstreams = extractor.extract_upstream_refs(csn_def)
-    assert upstreams == [], (
-        f"Expected non-string ref[0] to be skipped; got: {upstreams}"
-    )
+
+    assert CsnLineageExtractor().extract_upstream_refs(csn_def) == expected
 
 
 def test_column_lineage_pair_carries_downstream_and_refs():
@@ -1290,13 +1289,67 @@ def test_parse_remote_table_source_strips_sql_quoted_identifier():
 @pytest.mark.parametrize(
     "ref, known_spaces, expected",
     [
-        ("V_LOCAL", {"S"}, "S/V_LOCAL"),
-        ("SAP.TIME.VIEW_DIMENSION_DAY", {"S"}, "S/SAP.TIME.VIEW_DIMENSION_DAY"),
-        ("FINANCE.V_SALES", {"S"}, "FINANCE/V_SALES"),
-        ("SAP.V_SALES", {"S", "SAP"}, "SAP/V_SALES"),
+        ("V_LOCAL", {"S"}, ObjectLocator(space="S", name="V_LOCAL")),
+        (
+            "SAP.TIME.VIEW_DIMENSION_DAY",
+            {"S"},
+            ObjectLocator(space="S", name="SAP.TIME.VIEW_DIMENSION_DAY"),
+        ),
+        (
+            "SAP.CURRENCY.VIEW.TCURR",
+            {"S"},
+            ObjectLocator(space="S", name="SAP.CURRENCY.VIEW.TCURR"),
+        ),
+        ("SAP.V_SALES", {"S"}, ObjectLocator(space="SAP", name="V_SALES")),
+        ("FINANCE.V_SALES", {"S"}, ObjectLocator(space="FINANCE", name="V_SALES")),
+        (
+            "SAP.TIME.VIEW_DIMENSION_DAY",
+            {"S", "SAP"},
+            ObjectLocator(space="SAP", name="TIME.VIEW_DIMENSION_DAY"),
+        ),
+        (".V_SALES", {"S"}, ObjectLocator(space="S", name=".V_SALES")),
     ],
-    ids=["bare", "sap_namespace", "unlisted_space", "listed_space_named_sap"],
+    ids=[
+        "bare",
+        "generated_time",
+        "generated_currency",
+        "unlisted_sap_prefix",
+        "unlisted_space",
+        "listed_space_named_sap",
+        "empty_prefix",
+    ],
 )
 def test_object_locator_resolves_space(ref, known_spaces, expected):
-    locator = ObjectLocator.from_ref(ref, "S", known_spaces)
-    assert f"{locator.space}/{locator.name}" == expected
+    assert ObjectLocator.from_ref(ref, "S", known_spaces) == expected
+
+
+def test_column_refs_use_the_same_aliases_as_type_resolution():
+    # Implicit alias is the last dotted segment; an aliased source is addressed
+    # by its alias only.
+    csn_def = {
+        "kind": "entity",
+        "query": {
+            "SELECT": {
+                "from": {
+                    "join": "inner",
+                    "args": [
+                        {"ref": ["SPACE.fact"]},
+                        {"ref": ["SPACE.dim"], "as": "d"},
+                    ],
+                },
+                "columns": [
+                    {"ref": ["fact", "amount"]},
+                    {"ref": ["d", "name"]},
+                    {"ref": ["SPACE.dim", "code"]},
+                ],
+            }
+        },
+    }
+
+    pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
+
+    assert {p.downstream_col: p.upstream_refs for p in pairs} == {
+        "amount": [UpstreamColRef(qname="SPACE.fact", col="amount")],
+        "name": [UpstreamColRef(qname="SPACE.dim", col="name")],
+        "code": [],
+    }

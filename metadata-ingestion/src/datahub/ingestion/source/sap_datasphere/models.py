@@ -21,7 +21,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     MALFORMED_COL_SENTINEL,
     REMOTE_IDENTIFIER_QUOTE,
     REMOTE_NULL_SEGMENT,
-    SAP_OBJECT_NAMESPACE,
+    SAP_GENERATED_OBJECT_PREFIXES,
     UNNAMED_COL_SENTINEL,
 )
 from datahub.metadata.schema_classes import (
@@ -218,28 +218,30 @@ class UpstreamColRef(BaseModel):
 
 
 class ObjectLocator(BaseModel):
-    # A dotted CSN reference is `SPACE.name`, except names in the SAP namespace of
-    # objects generated inside a space (`SAP.TIME.VIEW_DIMENSION_DAY`), which
-    # stay in the referencing space. A listed space named SAP still wins. The
-    # catalog does not list every space a model can read from, so other
+    # A dotted CSN reference is `SPACE.name`, except objects Datasphere generates
+    # inside a space (time data, TCUR* currency conversion views), which keep
+    # their dotted name in the referencing space. A listed space named SAP still
+    # wins. The catalog does not list every space a model can read from, so other
     # prefixes are spaces whether listed or not.
     model_config = ConfigDict(frozen=True)
 
     space: str
     name: str
 
-    @staticmethod
-    def is_space_qualified(ref: str, known_spaces: AbstractSet[str]) -> bool:
-        prefix, _, rest = ref.partition(".")
-        return bool(rest) and (prefix in known_spaces or prefix != SAP_OBJECT_NAMESPACE)
-
     @classmethod
     def from_ref(
         cls, ref: str, default_space: str, known_spaces: AbstractSet[str]
     ) -> "ObjectLocator":
-        if cls.is_space_qualified(ref, known_spaces):
-            space, _, name = ref.partition(".")
-            return cls(space=space, name=name)
+        prefix, _, rest = ref.partition(".")
+        if (
+            prefix
+            and rest
+            and (
+                prefix in known_spaces
+                or not ref.startswith(SAP_GENERATED_OBJECT_PREFIXES)
+            )
+        ):
+            return cls(space=prefix, name=rest)
         return cls(space=default_space, name=ref)
 
     @property

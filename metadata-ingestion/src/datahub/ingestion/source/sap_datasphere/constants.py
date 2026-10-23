@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Final
+from typing import Dict, Final, Tuple
 
 PLATFORM: Final[str] = "sap-datasphere"
 
@@ -167,9 +167,10 @@ CSN_JOIN: Final[str] = "join"
 CSN_ARGS: Final[str] = "args"
 CSN_MIXIN: Final[str] = "mixin"
 CSN_ID: Final[str] = "id"
-# Namespace of objects SAP generates inside a space (e.g. `SAP.TIME.*` time
-# dimension tables), whose technical names contain dots.
-SAP_OBJECT_NAMESPACE: Final[str] = "SAP"
+# Prefixes of objects Datasphere generates inside a space: time data
+# (`SAP.TIME.VIEW_DIMENSION_DAY`) and TCUR* currency conversion views
+# (`SAP.CURRENCY.VIEW.TCURR`). Their technical names contain dots.
+SAP_GENERATED_OBJECT_PREFIXES: Final[Tuple[str, ...]] = ("SAP.TIME.", "SAP.CURRENCY.")
 CSN_FUNC: Final[str] = "func"
 CSN_XPR: Final[str] = "xpr"
 CSN_CASE: Final[str] = "case"

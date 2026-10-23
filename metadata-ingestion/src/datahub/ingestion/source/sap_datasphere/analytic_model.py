@@ -64,7 +64,7 @@ def parse_business_layer(bld: dict, name: str) -> BusinessLayer:
     )
 
 
-def _from_sources(node: object) -> FromSources:
+def parse_from_sources(node: object) -> FromSources:
     if not isinstance(node, dict):
         return FromSources(complete=False)
     ref = node.get(CSN_REF)
@@ -91,7 +91,7 @@ def _from_sources(node: object) -> FromSources:
     objects: Set[str] = set()
     complete = True
     for arg in args:
-        part = _from_sources(arg)
+        part = parse_from_sources(arg)
         complete = complete and part.complete
         objects.update(part.objects)
         for key, name in part.by_name.items():
@@ -125,7 +125,7 @@ def extract_projection_source_columns(csn_def: dict) -> Dict[str, SourceColumnRe
     columns = select.get(CSN_COLUMNS)
     if not isinstance(columns, list):
         return {}
-    from_sources = _from_sources(select.get(CSN_FROM))
+    from_sources = parse_from_sources(select.get(CSN_FROM))
     single_source = from_sources.single_source
     # A mixin association qualifies refs to its target, but unqualified refs
     # still read from FROM only.

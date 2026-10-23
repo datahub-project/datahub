@@ -5181,6 +5181,54 @@ def test_query_lineage_resolves_dotted_upstreams():
     ]
 
 
+def test_query_lineage_listed_space_named_sap_wins():
+    src = _bl_source("query-lineage-sap-space")
+    src._known_spaces = {"MY_SPACE", "SAP"}
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [UpstreamRef(name="SAP.V_SALES")],
+    )
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,sap.v_sales,PROD)"
+    ]
+
+
+def test_query_column_lineage_through_generated_time_object():
+    src = _bl_source("query-col-lineage-sap-time")
+    time_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,"
+        "my_space.sap.time.m_time_dimension,PROD)"
+    )
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,my_space.v,PROD)"
+    lineage = src._build_upstream_lineage(
+        ResolvedPlatform(platform="sap-datasphere", platform_instance=None, env="PROD"),
+        "MY_SPACE",
+        [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION")],
+        ColumnLineageContext(
+            pairs=[
+                ColumnLineagePair(
+                    downstream_col="year",
+                    upstream_refs=[
+                        UpstreamColRef(qname="SAP.TIME.M_TIME_DIMENSION", col="YEAR")
+                    ],
+                    transform_op="IDENTITY",
+                )
+            ],
+            downstream_dataset_urn=view_urn,
+        ),
+    )
+
+    assert lineage is not None
+    assert lineage.fineGrainedLineages is not None
+    assert lineage.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({time_urn},YEAR)"
+    ]
+    assert not list(src.report.column_lineage_unresolved)
+
+
 def test_business_layer_keeps_fgl_for_bare_same_space_keys():
     # Before space-prefixing bare BL keys, query FGL parents were already
     # space-prefixed while BL upstreams were not — retention always failed.

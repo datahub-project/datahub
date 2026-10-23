@@ -1809,7 +1809,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if association_targets:
                 self.report.association_upstreams_emitted += len(association_targets)
                 # A ref in both FROM and an association resolves to the same URN,
-                # so dedup by name (qualified refs already in upstream_refs win).
+                # so dedup by name; FROM refs come first.
                 existing = {ref.name for ref in upstream_refs}
                 upstream_refs.extend(
                     ref for ref in association_targets if ref.name not in existing
@@ -1864,12 +1864,15 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         upstreams: List[UpstreamClass] = []
         upstream_urn_by_name: Dict[str, str] = {}
         for ref in upstream_refs:
-            if ObjectLocator.is_space_qualified(ref.name, self._known_spaces):
-                # Cross-space: use as-is on the sap-datasphere platform.
-                upstream_urn = self._qualified_upstream_urn(ref.name)
+            locator = self._locate(ref.name, space_name)
+            if locator.name != ref.name:
+                # Written with a space prefix: use as-is on the sap-datasphere
+                # platform.
+                upstream_urn = self._qualified_upstream_urn(locator.qualified_name)
             else:
-                upstream_name = self._maybe_lower(f"{space_name}.{ref.name}")
-                upstream_urn = self._dataset_urn(resolved, upstream_name)
+                upstream_urn = self._dataset_urn(
+                    resolved, self._build_dataset_name(space_name, locator.name)
+                )
             upstream_urn_by_name[ref.name] = upstream_urn
             upstreams.append(
                 UpstreamClass(
