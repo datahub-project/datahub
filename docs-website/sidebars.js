@@ -1745,7 +1745,7 @@ module.exports = {
             type: "doc",
             id: "docs/rfcs/README",
           },
-          items: [],
+          items: ["docs/rfcs/active/19730-independent-decision-replay"],
         },
         "SECURITY",
       ],
