@@ -27,6 +27,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -162,12 +163,29 @@ public class TimeseriesAspectServiceUnitTest {
         () ->
             _timeseriesAspectService.getAggregatedStats(
                 opContext, "dataset", "futureAspect", new AggregationSpec[0], null, null));
-    // A known aspect that is not timeseries is rejected the same way.
-    Assert.assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            _timeseriesAspectService.getAggregatedStats(
-                opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    // A known aspect that is not timeseries is handled as with tolerance off: the tolerance only
+    // concerns aspects the registry doesn't know.
+    final Class<? extends Throwable> tolerant =
+        outcomeOf(
+            () ->
+                _timeseriesAspectService.getAggregatedStats(
+                    opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    final Class<? extends Throwable> strict =
+        outcomeOf(
+            () ->
+                _timeseriesAspectService.getAggregatedStats(
+                    opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    Assert.assertEquals(tolerant, strict);
+  }
+
+  private static Class<? extends Throwable> outcomeOf(final Runnable call) {
+    try {
+      call.run();
+      return null;
+    } catch (RuntimeException e) {
+      return e.getClass();
+    }
   }
 
   @Test

@@ -53,7 +53,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class BatchMetadataChangeProposalsProcessor {
 
-  /** MCPs whose urn can't be parsed, failed one by one; tag outcome: failure_topic or dropped. */
+  /**
+   * MCPs whose urn can't be parsed, failed one by one while entity and aspect tolerance is on (with
+   * it off, such an MCP fails the poll as before); tag outcome: failure_topic or dropped.
+   */
   static final String MALFORMED_URN_METRIC = "mcp.batch.malformed_urn";
 
   private static final UnknownDataGuard UNKNOWN_DATA =

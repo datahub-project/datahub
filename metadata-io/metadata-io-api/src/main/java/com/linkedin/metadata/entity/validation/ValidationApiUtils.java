@@ -304,7 +304,7 @@ public class ValidationApiUtils {
       UNKNOWN_REFERENCES.skippedBecause(
           Optional.empty(),
           aspect.schema().getName(),
-          removed + " removed before writing " + aspect.schema().getName(),
+          removed + " removed before indexing " + aspect.schema().getName(),
           urn);
     }
   }

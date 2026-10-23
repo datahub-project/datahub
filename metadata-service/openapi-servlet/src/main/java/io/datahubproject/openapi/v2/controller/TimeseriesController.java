@@ -24,7 +24,6 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericScrollResult;
-import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v2.models.GenericTimeseriesAspect;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -93,16 +92,12 @@ public class TimeseriesController {
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " " + TIMESERIES);
     }
 
-    final AspectSpec aspectSpec;
-    final String canonicalAspectName;
-    if (handling().toleratesUnknownEntityAspect()) {
-      aspectSpec =
-          RequestInputUtil.requireAspectSpec(entityRegistry.getEntitySpec(entityName), aspectName);
-      // The lookup is case-insensitive; use the registered name from here on.
-      canonicalAspectName = aspectSpec.getName();
-    } else {
-      aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
-      canonicalAspectName = aspectName;
+    AspectSpec aspectSpec = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+    if (aspectSpec == null && handling().toleratesUnknownEntityAspect()) {
+      // An aspect only a newer version knows (e.g. after a rollback) is a bad request (400), not
+      // a NullPointerException (500).
+      throw new IllegalArgumentException(
+          String.format("Unknown aspect %s for entity %s", aspectName, entityName));
     }
     if (!aspectSpec.isTimeseries()) {
       throw new IllegalArgumentException("Only timeseries aspects are supported.");
@@ -117,7 +112,7 @@ public class TimeseriesController {
         timeseriesAspectService.scrollAspects(
             opContext,
             entityName,
-            canonicalAspectName,
+            aspectName,
             null,
             sortCriteria,
             scrollId,
@@ -130,7 +125,7 @@ public class TimeseriesController {
             .filter(
                 doc ->
                     TimeseriesAuthUtil.canReadAspect(
-                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, canonicalAspectName))
+                        opContext, UrnUtils.getUrn(doc.getUrn()), entityName, aspectName))
             .collect(Collectors.toList());
 
     return ResponseEntity.ok(
@@ -138,7 +133,7 @@ public class TimeseriesController {
             .scrollId(result.getScrollId())
             .results(
                 toGenericTimeseriesAspect(
-                    opContext, canonicalAspectName, authorizedDocs, withSystemMetadata))
+                    opContext, aspectName, authorizedDocs, withSystemMetadata))
             .build());
   }
 

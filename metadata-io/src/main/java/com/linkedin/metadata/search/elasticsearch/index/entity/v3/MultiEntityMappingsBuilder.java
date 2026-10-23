@@ -232,8 +232,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
         continue;
       }
-      // An entity type this registry doesn't know (e.g. added by a newer version before a
-      // rollback) is skipped, so the mapping is still updated for the property's known types.
+      // While unknown data is tolerated, an entity type this registry doesn't know (e.g. added by
+      // a newer version before a rollback) is skipped, so the mapping is still updated for the
+      // property's known types; otherwise it fails as before.
       if (handling().entitySpecForData(entityRegistry, entityTypeName).isPresent()) {
         knownEntityType = true;
       } else {

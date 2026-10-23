@@ -28,6 +28,10 @@ import javax.annotation.Nullable;
  *   <li>Unknown enum symbols and union members: a validation failure on nothing else is attributed
  *       to a newer version, and GraphQL falls back instead of failing.
  * </ul>
+ *
+ * <p>One rule applies under either kind: a stored row stamped with a newer schema version ({@link
+ * #isWrittenByNewerSchema}) is the newer version's, since either kind of change can be why it
+ * bumped the version, and is left as stored rather than failing.
  */
 public final class TolerantHandling implements UnknownDataHandling {
 
