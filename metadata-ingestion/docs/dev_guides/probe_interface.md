@@ -338,7 +338,8 @@ instead of `ProbeProviderBase` and keeps `_warn`, `_open_once` and the closing `
 - **Not SQLAlchemy-backed but speaks SQL:** inherit `SqlCatalogPassthrough`, set `sql_dialect`, and
   implement `execute_catalog_query(query, limit) -> CatalogRows`. `limit` already includes the one
   extra row that detects truncation: return what was asked for, and never fetch everything to slice.
-  `rows_from_mappings` shapes a dict-per-row driver.
+  `rows_from_mappings` shapes a dict-per-row driver. The base shapes the result: it masks identity
+  columns and cuts a text cell longer than `MAX_SQL_CELL_CHARS` (10,000), counted in `cells_clipped`.
 - **Has a REST API:** inherit `RestApiPassthrough`, set `api_base_url` and `api_allowlist`, and set
   `api_session` (the connector's own, with its rate limiter and auth) or override `api_fetch_json`.
 - **Writing the allowlist** is your judgement, and the gate enforces it as written. An endpoint in a

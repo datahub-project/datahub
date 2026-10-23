@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from datahub.ingestion.agent.probe_methods import clamp_item_limit, probe_method
 from datahub.ingestion.agent.provider_helpers import ProbeProviderBase
@@ -7,6 +7,12 @@ from datahub.ingestion.agent.redact import mask_identity_columns
 from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeInternalError
 
 _JSON_SAFE_TYPES = (str, int, float, bool)
+
+# The longest cell a `sql` result returns. MAX_PROBE_ITEMS bounds the rows, but
+# not their size: a catalog column such as a view definition can be megabytes,
+# and a probe's output is carried whole to whoever asked (a terminal, an
+# executor report, an agent's context).
+MAX_SQL_CELL_CHARS = 10_000
 
 # What a probe calls itself to the server, so a slow-query log or a bill tells
 # an agent looking around from ingestion, whose credentials and client it uses.
@@ -102,7 +108,8 @@ class SqlCatalogPassthrough(ProbeProviderBase):
         this runs (see probe_methods._enforce_gates), so a user table, a second
         statement, or a vendor function is refused before the source sees it.
         Returns `columns` plus positional `rows`, with `truncated` telling you
-        whether more exist beyond `limit`."""
+        whether more exist beyond `limit`. A text value longer than
+        MAX_SQL_CELL_CHARS is cut and ends in "…"; `cells_clipped` counts them."""
         if self.query_budget.timeout_seconds is None and (
             self.query_budget.max_bytes_billed is None
         ):
@@ -141,22 +148,38 @@ def _json_safe(value: object) -> object:
     return str(value)
 
 
+def _clip_cell(value: object) -> Tuple[object, bool]:
+    if isinstance(value, str) and len(value) > MAX_SQL_CELL_CHARS:
+        return value[:MAX_SQL_CELL_CHARS] + "…", True
+    return value, False
+
+
 def sql_result(
     columns: Sequence[str], rows: Sequence[Sequence[Any]], limit: int
 ) -> Dict[str, object]:
     """Shape one catalog result set: positional rows under one column list, so
     a wide result does not repeat names per row. Callers fetch one row past
     `limit`. Every provider's result passes through here, so the limit is
-    clamped and identity columns masked here, where none can route around it.
+    clamped, identity columns masked and long cells clipped here, where none
+    can route around it. `cells_clipped` counts the cells cut to
+    MAX_SQL_CELL_CHARS.
     """
     limit = clamp_item_limit(limit)
     safe_rows = mask_identity_columns(columns, rows[:limit])
-    kept: List[List[object]] = [
-        [_json_safe(value) for value in row] for row in safe_rows
-    ]
+    kept: List[List[object]] = []
+    cells_clipped = 0
+    for row in safe_rows:
+        shaped: List[object] = []
+        for value in row:
+            cell, clipped = _clip_cell(_json_safe(value))
+            if clipped:
+                cells_clipped += 1
+            shaped.append(cell)
+        kept.append(shaped)
     return {
         "columns": list(columns),
         "rows": kept,
         "row_count": len(kept),
         "truncated": len(rows) > limit,
+        "cells_clipped": cells_clipped,
     }
