@@ -21,6 +21,7 @@ import pytest
 from azure.mgmt.datafactory.models import Activity
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
@@ -42,6 +43,7 @@ from datahub.ingestion.source.azure_data_factory.adf_source import (
     AzureDataFactorySource,
 )
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     OtherSchemaClass,
@@ -50,6 +52,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.dataflow import DataFlow
 
 
@@ -2572,7 +2575,13 @@ class TestPairSiblingDataJobEmission:
             platform="azure-data-factory", name="test-factory.TestPipeline", env="DEV"
         )
         source._dataflow_cache = {("test-factory", "TestPipeline"): dataflow}
+        source._execute_pipeline_input_datajobs = {}
         return source
+
+    _PARENT_JOB_URN = DataJobUrn.create_from_ids(
+        data_flow_urn="urn:li:dataFlow:(azure-data-factory,test-factory.TestPipeline,DEV)",
+        job_id="CopyActivity",
+    )
 
     def _pair_key(
         self, source_table: str, sink_table: str
@@ -2593,6 +2602,7 @@ class TestPairSiblingDataJobEmission:
                 "TestPipeline",
                 "CopyActivity",
                 activity,
+                self._PARENT_JOB_URN,
                 pair_key,
                 set(),
             )
@@ -2622,6 +2632,38 @@ class TestPairSiblingDataJobEmission:
 
         assert orders_urn != customers_urn
 
+    def test_sibling_carries_parent_execute_pipeline_edge(self) -> None:
+        """The pair's tables live on the sibling, not the parent job, so
+        the sibling must keep the parent's ExecutePipeline edge or a
+        calling pipeline's job no longer reaches those tables."""
+        source = self._make_source()
+        caller = "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-factory.ParentPipeline,DEV),CallChild)"
+        source._execute_pipeline_input_datajobs = {str(self._PARENT_JOB_URN): [caller]}
+        factory = SimpleNamespace(name="test-factory")
+        activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
+
+        workunits = list(
+            source._emit_pair_sibling_datajob(
+                factory,
+                "test-rg",
+                "test-factory",
+                "TestPipeline",
+                "CopyActivity",
+                activity,
+                self._PARENT_JOB_URN,
+                self._pair_key("orders_table", "staging_table"),
+                set(),
+            )
+        )
+
+        [io_aspect] = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        assert io_aspect.inputDatajobs == [caller]
+
     def test_missing_dataflow_cache_entry_warns_and_yields_nothing(self) -> None:
         """If the DataFlow for this pipeline was never cached (e.g. an
         unexpected ordering bug), skip rather than crashing - the parent
@@ -2640,6 +2682,7 @@ class TestPairSiblingDataJobEmission:
                 "TestPipeline",
                 "CopyActivity",
                 activity,
+                self._PARENT_JOB_URN,
                 self._pair_key("orders_table", "staging_table"),
                 set(),
             )

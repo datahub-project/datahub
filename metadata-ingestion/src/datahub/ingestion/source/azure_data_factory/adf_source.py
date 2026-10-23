@@ -2339,6 +2339,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     pipeline_name,
                     activity_name,
                     activity,
+                    job_urn,
                     pair_key,
                     column_mappings,
                 )
@@ -2499,6 +2500,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         pipeline_name: str,
         activity_name: str,
         activity: Activity,
+        parent_job_urn: DataJobUrn,
         pair_key: tuple[tuple[str, ...], tuple[str, ...]],
         column_mappings: set[tuple[tuple[str, ...], str]],
     ) -> Iterable[MetadataWorkUnit]:
@@ -2566,7 +2568,19 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             fine_grained_lineages=fine_grained_lineages,
         )
 
-        yield from datajob.as_workunits()
+        # The pair's tables hang off this sibling rather than the parent job,
+        # so it needs the parent's ExecutePipeline edge too, or a calling
+        # pipeline's job no longer reaches them. The SDK DataJob has no
+        # setter for inputDatajobs, so add it to the emitted aspect.
+        upstream_jobs = self._execute_pipeline_input_datajobs.get(str(parent_job_urn))
+        for workunit in datajob.as_workunits():
+            if (
+                upstream_jobs
+                and isinstance(workunit.metadata, MetadataChangeProposalWrapper)
+                and isinstance(workunit.metadata.aspect, DataJobInputOutputClass)
+            ):
+                workunit.metadata.aspect.inputDatajobs = list(upstream_jobs)
+            yield workunit
         self.report.report_dynamic_lineage_sibling_emitted()
 
     def _pair_sibling_display_name(
