@@ -66,6 +66,10 @@ werkzeug>=3.1.6
 azure-core>=1.38.0
 # CVE-2026-25087: Apache Arrow C++ Use After Free; fixed in pyarrow 23.0.1. Docker minimum.
 pyarrow>=23.0.1
+# opentelemetry-api: CVE-2026-114603; fixed in 1.45.1. Transitive via
+# google-cloud-logging / mlflow-skinny; the sdk and semantic-conventions
+# packages version-lock to the api, so they move together.
+opentelemetry-api>=1.45.1
 # Docker minimum; airflow-plugin accepts older filelock from Airflow 2.7.3+ constraints for compatibility.
 filelock>=3.20.3
 nbconvert>=7.17.0
