@@ -336,7 +336,9 @@ public final class StructuredQueryRouting {
    * An unquoted {@code /q} value uses the same {@code CONTAIN} resolution as a contains filter. A
    * text-only label searches its analyzed subfields. A source name whose label differs, such as
    * {@code fieldPaths}, searches the keyword path. A label written as itself, such as {@code name}
-   * or {@code tags}, stays as written. A quoted value is exact and is not rewritten.
+   * or {@code tags}, stays as written. A simple value on a raw keyword root is a case-insensitive
+   * term, which the keyword normalizer used to provide. A quoted value is exact and is not
+   * rewritten.
    */
   @Nullable
   private static QueryBuilder containQuery(
@@ -358,11 +360,36 @@ public final class StructuredQueryRouting {
       return analyzed.isEmpty() ? null : textOnlyQuery(text, analyzed);
     }
     if (field.equals(resolved.getPath())) {
+      String value = simpleValue(text);
+      // Parsed URN keywords stay on query_string so the normalizer folds the query.
+      if (value != null && resolved.isIndexed() && !resolved.isParsedKeywordLabel()) {
+        return QueryBuilders.termQuery(resolved.getPath(), value).caseInsensitive(true);
+      }
       return null;
     }
     int colon = text.indexOf(':');
     String keywordPath = fieldResolver.exactPath(field, Intent.CONTAIN);
     return clause(keywordPath + text.substring(colon), shared, false, true);
+  }
+
+  /** A single field value with no query-string syntax. */
+  @Nullable
+  private static String simpleValue(@Nonnull String text) {
+    int colon = text.indexOf(':');
+    if (colon < 0 || colon == text.length() - 1) {
+      return null;
+    }
+    String value = text.substring(colon + 1).trim();
+    if (value.isEmpty()
+        || value.indexOf(' ') >= 0
+        || value.indexOf('*') >= 0
+        || value.indexOf('?') >= 0
+        || value.indexOf('"') >= 0
+        || value.indexOf('(') >= 0
+        || value.indexOf(')') >= 0) {
+      return null;
+    }
+    return value;
   }
 
   @Nonnull

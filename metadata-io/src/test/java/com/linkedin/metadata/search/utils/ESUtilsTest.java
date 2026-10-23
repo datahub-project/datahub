@@ -1134,6 +1134,19 @@ public class ESUtilsTest {
   }
 
   @Test
+  public void testV3KeywordSuffixResolvesToTheRoot() {
+    assertEquals(ESUtils.toV3KeywordField(null, "domains.keyword", null), "domains");
+    assertEquals(ESUtils.toKeywordField(null, "domains.keyword", false, null), "domains.keyword");
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getEntityRegistry()).thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(retriever.getLatestAspectObjects(any(), any(), any())).thenReturn(Map.of());
+    assertEquals(
+        ESUtils.toV3KeywordField(
+            null, "structuredProperties.certification_status.keyword", retriever),
+        "structuredProperties.certification_status");
+  }
+
+  @Test
   public void testResolvedUrnCaseInsensitiveValueIsAsciiFolded() {
     SearchFieldResolver resolver = mock(SearchFieldResolver.class);
     when(resolver.contains("tags")).thenReturn(true);

@@ -79,7 +79,7 @@ public class ESSearchDAOIncidentStatsTest {
     assertTrue(source.contains("ACTIVE"), "expected active-state filter");
   }
 
-  /** V3 entity indices map the V2 .keyword subfield and scope the query to the entity type. */
+  /** V3 entity indices read the keyword root and scope the query to the entity type. */
   @Test
   public void testBuildActiveIncidentStatsRequestOnV3() {
     EntityIndexConfiguration entityIndex =
@@ -101,8 +101,9 @@ public class ESSearchDAOIncidentStatsTest {
             .source()
             .toString();
 
-    assertTrue(source.contains("\"field\":\"entities.keyword\""), source);
-    assertTrue(source.contains("{\"entities.keyword\":["), source);
+    assertTrue(source.contains("\"field\":\"entities\""), source);
+    assertFalse(source.contains("entities.keyword"), source);
+    assertTrue(source.contains("{\"entities\":["), source);
     assertTrue(source.contains("\"_entityType\":{\"value\":\"incident\""), source);
   }
 

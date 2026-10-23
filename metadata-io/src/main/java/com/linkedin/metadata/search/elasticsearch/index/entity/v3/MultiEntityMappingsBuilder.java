@@ -1065,6 +1065,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
     final List<SearchableFieldSpec> sourceFieldSpecs =
         findSearchableFieldSpecsForPaths(entitySpecs, allPaths);
+    if (V3SearchFields.dedicatedParsedNameRoot(rootFieldName, entitySpecs)) {
+      // The parsed name is not a shared label. Keep the full URN sibling only.
+      putFullUrnSibling(rootFields, rootFieldName, sourceFieldSpecs);
+      return;
+    }
     final Map<String, Object> rootFieldMapping =
         resolveProjectedRootFieldMapping(rootFieldName, sourceFieldSpecs, entitySpecs, allPaths);
 
@@ -1073,20 +1078,27 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     rootFields.put(rootFieldName, rootFieldMapping);
     if (V3SearchFields.isParsedUrnRoot(rootFieldName, entitySpecs)) {
-      final String sibling = V3SearchFields.fullUrnField(rootFieldName);
-      if (rootFields.containsKey(sibling)) {
-        throw new IllegalArgumentException(
-            "Search V3 field '"
-                + sibling
-                + "' collides with the full URN sibling of '"
-                + rootFieldName
-                + "'");
-      }
-      final Map<String, Object> fullUrn = V3SearchFields.fullUrnRootMapping();
-      applyProjectedRootFieldOptions(fullUrn, sourceFieldSpecs);
-      rootFields.put(sibling, fullUrn);
+      putFullUrnSibling(rootFields, rootFieldName, sourceFieldSpecs);
     }
     log.debug("Creating real root projection field '{}'", rootFieldName);
+  }
+
+  private static void putFullUrnSibling(
+      @Nonnull Map<String, Object> rootFields,
+      @Nonnull String rootFieldName,
+      @Nonnull List<SearchableFieldSpec> sourceFieldSpecs) {
+    final String sibling = V3SearchFields.fullUrnField(rootFieldName);
+    if (rootFields.containsKey(sibling)) {
+      throw new IllegalArgumentException(
+          "Search V3 field '"
+              + sibling
+              + "' collides with the full URN sibling of '"
+              + rootFieldName
+              + "'");
+    }
+    final Map<String, Object> fullUrn = V3SearchFields.fullUrnRootMapping();
+    applyProjectedRootFieldOptions(fullUrn, sourceFieldSpecs);
+    rootFields.put(sibling, fullUrn);
   }
 
   private static List<SearchableFieldSpec> findSearchableFieldSpecsForPaths(
@@ -1233,23 +1245,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Turns on eager global ordinals on the {@code .keyword} subfield that filters and facets read,
-   * or on the field itself when it has none.
+   * Turns on eager global ordinals on the keyword root that filters and facets read. An object
+   * mapping takes them on its {@code keyword} property instead.
    */
   @SuppressWarnings("unchecked")
   private static void putEagerGlobalOrdinals(@Nonnull Map<String, Object> fieldMapping) {
     if (fieldMapping.get(PROPERTIES) instanceof Map<?, ?> properties
         && properties.get(ESUtils.KEYWORD) instanceof Map<?, ?> keywordProperty) {
       ((Map<String, Object>) keywordProperty).put("eager_global_ordinals", true);
-      return;
-    }
-    if (fieldMapping.get(ESUtils.FIELDS) instanceof Map<?, ?> subfields
-        && subfields.get(ESUtils.KEYWORD) instanceof Map<?, ?> keyword) {
-      Map<String, Object> keywordMapping = new HashMap<>((Map<String, Object>) keyword);
-      keywordMapping.put("eager_global_ordinals", true);
-      Map<String, Object> subfieldMappings = new HashMap<>((Map<String, Object>) subfields);
-      subfieldMappings.put(ESUtils.KEYWORD, keywordMapping);
-      fieldMapping.put(ESUtils.FIELDS, subfieldMappings);
       return;
     }
     fieldMapping.put("eager_global_ordinals", true);
@@ -1323,7 +1326,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    *   <li>Field type mapping based on annotations
    *   <li>Eager global ordinals configuration
    *   <li>Optional search label and entity field name copy_to fields
-   *   <li>HasValues and numValues field creation
+   *   <li>numValues field creation. A has* boolean is added separately when it copies into a label
    *   <li>SystemModifiedAt field creation
    * </ul>
    *
@@ -1441,14 +1444,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
     mappings.put(fieldName, mappingForField);
 
-    // Add hasValues and numValues fields if specified
-    searchableFieldSpec
-        .getSearchableAnnotation()
-        .getHasValuesFieldName()
-        .ifPresent(
-            hasValuesFieldName -> {
-              mappings.put(hasValuesFieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE));
-            });
+    // A has* boolean is mapped under the aspect only by copySharedHasValues, and only when it
+    // copy_to's a common search label. A dedicated boolean stays on the root.
     searchableFieldSpec
         .getSearchableAnnotation()
         .getNumValuesFieldName()

@@ -243,8 +243,9 @@ public class AggregationQueryBuilder {
       return v3FieldResolver.exactPath(facet, Intent.FACET);
     }
     // Structured properties and V2 keyword fields share one resolver (SP type → parent vs
-    // .keyword).
-    return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
+    // .keyword). A V3 keyword root has no .keyword multi-field.
+    return ESUtils.toKeywordField(
+        opContext, facet, false, aspectRetriever, v3FieldResolver != null);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

@@ -67,7 +67,8 @@ public class SearchTemplatePolicyTest {
     exactOnly.setStructuredPropertyQuery(exact);
     harness.store(PARENT, exactOnly);
     String exactQuery = render(PARENT, "gold");
-    assertTrue(exactQuery.contains(path + ".keyword"), exactQuery);
+    assertTrue(exactQuery.contains(path), exactQuery);
+    assertFalse(exactQuery.contains(path + ".keyword"), exactQuery);
     assertFalse(exactQuery.contains("simple_query_string"), exactQuery);
 
     SearchTemplateProperties analyzed = body("{ \"match_all\": {} }");

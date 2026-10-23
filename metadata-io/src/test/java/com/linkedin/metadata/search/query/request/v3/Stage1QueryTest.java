@@ -173,7 +173,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     return clauses.stream()
         .filter(ConstantScoreQueryBuilder.class::isInstance)
         .map(cs -> (TermQueryBuilder) ((ConstantScoreQueryBuilder) cs).innerQuery())
-        .filter(term -> term.fieldName().equals("name.keyword"))
+        .filter(term -> term.fieldName().equals("name"))
         .map(TermQueryBuilder::value)
         .collect(Collectors.toSet());
   }
@@ -195,7 +195,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     Set<Object> exactNameValues =
         exactNames.stream()
             .map(cs -> (TermQueryBuilder) cs.innerQuery())
-            .filter(term -> term.fieldName().equals("name.keyword"))
+            .filter(term -> term.fieldName().equals("name"))
             .map(TermQueryBuilder::value)
             .collect(Collectors.toSet());
     assertEquals(exactNameValues, Set.of("staging", "stg"));
@@ -546,7 +546,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses.stream()
             .filter(TermQueryBuilder.class::isInstance)
             .map(TermQueryBuilder.class::cast)
-            .anyMatch(term -> term.fieldName().equals("name.keyword") && term.boost() == 1000.0f));
+            .anyMatch(term -> term.fieldName().equals("name") && term.boost() == 1000.0f));
   }
 
   @Test
@@ -613,8 +613,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses.stream()
             .filter(ConstantScoreQueryBuilder.class::isInstance)
             .map(cs -> (TermQueryBuilder) ((ConstantScoreQueryBuilder) cs).innerQuery())
-            .anyMatch(
-                term -> term.fieldName().equals("name.keyword") && "stg".equals(term.value())),
+            .anyMatch(term -> term.fieldName().equals("name") && "stg".equals(term.value())),
         clauses.toString());
   }
 
@@ -714,7 +713,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses.stream()
             .filter(TermQueryBuilder.class::isInstance)
             .map(TermQueryBuilder.class::cast)
-            .filter(term -> term.fieldName().equals("name.keyword"))
+            .filter(term -> term.fieldName().equals("name"))
             .map(TermQueryBuilder::value)
             .collect(Collectors.toSet()),
         Set.of("load-job"));

@@ -372,7 +372,7 @@ public class SearchV3QueryBuilder {
     putPrefixFields(context, queriedFields, exact);
     context.put(
         SearchTemplateContextVariables.ENTITY_NAME_FIELD,
-        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
+        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(
         SearchTemplateContextVariables.DESCRIPTION_FIELD,
         analyzedPath(fieldResolver, "description"));
@@ -381,7 +381,7 @@ public class SearchV3QueryBuilder {
         exactPath(fieldResolver, "platform", SearchFieldResolver.Intent.FILTER, "platform_urn"));
     context.put(
         SearchTemplateContextVariables.COLUMN_NAME_FIELD,
-        exactPath(fieldResolver, "fieldPaths", SearchFieldResolver.Intent.EXACT, "name_1.keyword"));
+        exactPath(fieldResolver, "fieldPaths", SearchFieldResolver.Intent.EXACT, "name_1"));
     String urnExact = exactPath(fieldResolver, "urn", SearchFieldResolver.Intent.EXACT, "urn");
     context.put(SearchTemplateContextVariables.URN_FIELD, urnExact);
     context.put(SearchTemplateContextVariables.URN_EXACT_FIELD, urnExact);
@@ -394,16 +394,13 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(unquoted));
     context.put(
         SearchTemplateContextVariables.NAME_KEYWORD,
-        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
+        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
-            fieldResolver,
-            "qualifiedName",
-            SearchFieldResolver.Intent.EXACT,
-            "qualifiedName.keyword"));
+            fieldResolver, "qualifiedName", SearchFieldResolver.Intent.EXACT, "qualifiedName"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_TEXT,
         analyzedPath(fieldResolver, "qualifiedName"));
@@ -415,7 +412,7 @@ public class SearchV3QueryBuilder {
         analyzedPath(fieldResolver, "description"));
     context.put(
         SearchTemplateContextVariables.ID_KEYWORD,
-        exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id.keyword"));
+        exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id"));
     context.put(SearchTemplateContextVariables.URN_KEYWORD, urnExact);
     context.put(SearchTemplateContextVariables.ENTITY_TYPES, entityTypeNames(entitySpecs));
     putScoreFunctions(context, entitySpecs);
@@ -1000,11 +997,7 @@ public class SearchV3QueryBuilder {
     }
     selected.forEach(
         (property, boost) -> {
-          String termField =
-              StructuredPropertyUtils.usesKeywordSubfield(property.valueType())
-                  ? property.fieldPath() + StructuredPropertySubfields.KEYWORD_SUFFIX
-                  : property.fieldPath();
-          terms.add(QueryBuilders.termQuery(termField, termValue).boost(boost));
+          terms.add(QueryBuilders.termQuery(property.fieldPath(), termValue).boost(boost));
         });
     return terms;
   }

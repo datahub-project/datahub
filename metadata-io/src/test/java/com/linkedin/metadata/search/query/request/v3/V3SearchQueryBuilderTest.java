@@ -224,15 +224,14 @@ public class V3SearchQueryBuilderTest {
         find(query, ConstantScoreQueryBuilder.class).stream()
             .map(ConstantScoreQueryBuilder::innerQuery)
             .anyMatch(
-                inner ->
-                    inner instanceof TermQueryBuilder term
-                        && term.fieldName().equals("name.keyword")),
+                inner -> inner instanceof TermQueryBuilder term && term.fieldName().equals("name")),
         query.toString());
     Set<String> exact =
         find(query, TermQueryBuilder.class).stream()
             .map(TermQueryBuilder::fieldName)
             .collect(Collectors.toSet());
-    assertTrue(exact.containsAll(Set.of("name.keyword", "urn")), exact.toString());
+    assertTrue(exact.containsAll(Set.of("name", "urn")), exact.toString());
+    assertFalse(exact.contains("name.keyword"), exact.toString());
     assertFalse(exact.contains("urnName"), exact.toString());
     assertTrue(
         exact.stream().noneMatch(field -> field.toLowerCase().contains("description")),
@@ -570,7 +569,7 @@ public class V3SearchQueryBuilderTest {
     assertTrue(tags.contains("\"value\" : \"jose\""), tags);
     assertFalse(tags.contains("JOS"), tags);
 
-    String name = clause(query, "\"name.keyword\" :");
+    String name = clause(query, "\"name\" :");
     assertTrue(name.contains("\"value\" : \"JOS\u00c9\""), name);
   }
 
@@ -767,7 +766,7 @@ public class V3SearchQueryBuilderTest {
                     .buildQuery(
                         OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "fieldPaths:user_id", true),
                 QueryStringQueryBuilder.class));
-    assertEquals(structured.queryString(), "name_1.keyword:user_id");
+    assertEquals(structured.queryString(), "name_1:user_id");
   }
 
   /** A space after the field colon is valid query-string syntax and must keep the split. */
@@ -956,8 +955,7 @@ public class V3SearchQueryBuilderTest {
     assertFalse(names.contains("description.text"), names.toString());
     assertFalse(names.contains("other.text"), names.toString());
     assertFalse(names.contains("customProperties"), names.toString());
-    assertTrue(
-        termFields(configured, withFieldConfiguration("names"), DATASET).contains("name.keyword"));
+    assertTrue(termFields(configured, withFieldConfiguration("names"), DATASET).contains("name"));
 
     Set<String> other = simpleFields(configured, withFieldConfiguration("other"), DATASET);
     assertTrue(other.contains("other.text"), other.toString());
