@@ -32,7 +32,10 @@ description is the query. A 3 is that asset on another platform or a close varia
 related asset a user would still open. A 1 is a neighbor. `longtailNdcgAt10` is the mean nDCG@10
 of those queries on the template path. `javaBuilderLongtailNdcgAt10` is the same mean with
 template execution skipped. The `ranking` queries are pass/fail constraints on the template
-path: top hit, order, and presence.
+path: top hit, order, and presence. The `autocomplete` queries are also pass/fail
+and stay out of both nDCG floors: a two-character prefix of a name that does not
+occur in Cranfield, a one-character prefix of the rank users, and a prefix that
+matches nothing.
 
 Each engine writes one JSON file per gate to
 `metadata-io/build/reports/search-quality/<engine>-<metric>.json` before the floor check. OpenSearch

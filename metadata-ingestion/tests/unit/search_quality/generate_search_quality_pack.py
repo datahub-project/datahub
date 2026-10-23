@@ -106,6 +106,9 @@ def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{origin})"
 
 
+AUTOCOMPLETE_NAME = "zzprefixprobe"
+AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", AUTOCOMPLETE_NAME)
+
 STRING_OPT_IN_DATASET = dataset_urn(
     "dbt", "long_tail_companions.analytics.dogs_in_movies"
 )
@@ -459,6 +462,12 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "catalogprobe.analyzer_asset",
             "Dataset carrying a mixed-case structured property for analyzer probes.",
         ),
+        (
+            dataset_urn("catalogprobe", AUTOCOMPLETE_NAME),
+            AUTOCOMPLETE_NAME,
+            AUTOCOMPLETE_NAME,
+            AUTOCOMPLETE_NAME,
+        ),
     ]
     proposals: list[dict[str, Any]] = []
     for urn, name, qualified, description in entities:
@@ -693,6 +702,7 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     judgments.extend(sort_judgments())
     proposals.extend(field_probe_entities())
     judgments.extend(field_probe_judgments())
+    judgments.extend(autocomplete_judgments())
     return proposals, judgments
 
 
@@ -977,6 +987,43 @@ def field_probe_judgments() -> list[dict[str, Any]]:
             row["matchedFieldContains"] = {"value": matched, "hits": 1}
         judgments.append(row)
     return judgments
+
+
+def autocomplete_judgments() -> list[dict[str, Any]]:
+    """Pass/fail prefixes. These stay out of both nDCG floors."""
+    return [
+        {
+            "id": "autocomplete-dataset-two-char",
+            "group": "autocomplete",
+            "query": "zz",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [AUTOCOMPLETE_DATASET],
+            "expectedSuggestion": AUTOCOMPLETE_NAME,
+        },
+        {
+            "id": "autocomplete-corpuser-one-char",
+            "group": "autocomplete",
+            "query": "r",
+            "surfaces": ["keyword"],
+            "entityTypes": ["corpuser"],
+            "grades": [],
+            "expectedUrns": [
+                "urn:li:corpuser:rankOwner",
+                "urn:li:corpuser:rankOther",
+            ],
+        },
+        {
+            "id": "autocomplete-dataset-miss",
+            "group": "autocomplete",
+            "query": "qxnomatch",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [],
+        },
+    ]
 
 
 def interactive_ranking_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -1796,6 +1843,7 @@ def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
         "structured-property",
         "sort",
         "field-probe",
+        "autocomplete",
     }
     allowed_surfaces = {"keyword", "semantic", "hybrid", "lineage"}
     for judgment in judgments["judgments"]:
@@ -1826,22 +1874,54 @@ def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
                 raise AssertionError(
                     f"Judgment {judgment['id']} expects unloaded {urn}"
                 )
-        if judgment["group"] == "sort":
-            if judgment.get("grades"):
-                raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
-            order = (judgment.get("sort") or {}).get("order")
-            if order not in {"ASCENDING", "DESCENDING"}:
-                raise AssertionError(f"{judgment['id']} has no sort order")
-            if not judgment.get("expectedOrder"):
-                raise AssertionError(f"{judgment['id']} has no expected order")
-        if judgment["group"] == "field-probe":
-            if judgment.get("grades"):
-                raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
-            has_hit = bool(judgment.get("exactTopHit"))
-            no_hits = bool(judgment.get("expectNoHits"))
-            if has_hit == no_hits:
+        assert_probe_judgment(judgment, seen)
+
+
+def assert_probe_judgment(judgment: dict[str, Any], seen: set[str]) -> None:
+    """Pass/fail groups stay out of the nDCG floors and name every expected URN."""
+    if judgment["group"] == "sort":
+        if judgment.get("grades"):
+            raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+        order = (judgment.get("sort") or {}).get("order")
+        if order not in {"ASCENDING", "DESCENDING"}:
+            raise AssertionError(f"{judgment['id']} has no sort order")
+        if not judgment.get("expectedOrder"):
+            raise AssertionError(f"{judgment['id']} has no expected order")
+    if judgment["group"] == "autocomplete":
+        if judgment.get("grades"):
+            raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+        expected = judgment.get("expectedUrns")
+        if not isinstance(expected, list):
+            raise AssertionError(f"{judgment['id']} has no expected URN list")
+        for urn in expected:
+            if urn not in seen:
                 raise AssertionError(
-                    f"{judgment['id']} needs a top hit or an empty result"
+                    f"Judgment {judgment['id']} expects unloaded {urn}"
+                )
+    if judgment["group"] == "field-probe":
+        if judgment.get("grades"):
+            raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+        has_hit = bool(judgment.get("exactTopHit"))
+        no_hits = bool(judgment.get("expectNoHits"))
+        if has_hit == no_hits:
+            raise AssertionError(f"{judgment['id']} needs a top hit or an empty result")
+
+
+def assert_autocomplete_token_isolated(
+    loaded: dict[str, list[dict[str, Any]]],
+) -> None:
+    """The prefix token stays off every document except its own dataset."""
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            if proposal.get("entityUrn") == AUTOCOMPLETE_DATASET:
+                continue
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                if AUTOCOMPLETE_NAME.casefold() not in text.casefold():
+                    continue
+                raise AssertionError(
+                    f"{AUTOCOMPLETE_NAME} appears in {path} "
+                    f"{proposal.get('aspectName')} on {proposal.get('entityUrn')}"
                 )
 
 
@@ -1912,8 +1992,16 @@ def validate_pack(directory: Path) -> None:
     ]
     if len(field_probes) != 6:
         raise AssertionError(f"Expected 6 field probes, found {len(field_probes)}")
+    autocomplete = [
+        item for item in judgments["judgments"] if item["group"] == "autocomplete"
+    ]
+    if len(autocomplete) != 3:
+        raise AssertionError(
+            f"Expected 3 autocomplete probes, found {len(autocomplete)}"
+        )
     assert_fulltext_probe_tokens_absent(loaded)
     assert_field_probe_tokens_absent(loaded)
+    assert_autocomplete_token_isolated(loaded)
 
 
 def generate(root: Path | None = None) -> Path:
