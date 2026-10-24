@@ -33,7 +33,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -228,15 +227,11 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
 
     log.debug("Here's the relationship types found {}", urnToRelationshipTypesBeingAdded);
     if (!urnToRelationshipTypesBeingAdded.isEmpty()) {
-      for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
-        graphService.removeEdgesFromNode(
-            opContext,
-            entry.getKey(),
-            entry.getValue(),
-            newRelationshipFilter(
-                new Filter().setOr(new ConjunctiveCriterionArray()),
-                RelationshipDirection.OUTGOING));
-      }
+      graphService.removeEdgesFromNodes(
+          opContext,
+          urnToRelationshipTypesBeingAdded,
+          newRelationshipFilter(
+              new Filter().setOr(new ConjunctiveCriterionArray()), RelationshipDirection.OUTGOING));
       edgesToAdd.forEach(edge -> graphService.addEdge(opContext, edge));
     }
   }
@@ -332,15 +327,12 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingRemoved =
           edgeAndRelationTypes.getSecond();
       if (!urnToRelationshipTypesBeingRemoved.isEmpty()) {
-        for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingRemoved.entrySet()) {
-          graphService.removeEdgesFromNode(
-              opContext,
-              entry.getKey(),
-              entry.getValue(),
-              createRelationshipFilter(
-                  new Filter().setOr(new ConjunctiveCriterionArray()),
-                  RelationshipDirection.OUTGOING));
-        }
+        graphService.removeEdgesFromNodes(
+            opContext,
+            urnToRelationshipTypesBeingRemoved,
+            createRelationshipFilter(
+                new Filter().setOr(new ConjunctiveCriterionArray()),
+                RelationshipDirection.OUTGOING));
       }
     } else {
       log.warn(

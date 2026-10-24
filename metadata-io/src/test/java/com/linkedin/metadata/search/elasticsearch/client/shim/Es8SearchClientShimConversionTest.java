@@ -8,9 +8,11 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
@@ -451,6 +453,37 @@ public class Es8SearchClientShimConversionTest {
     assertFalse(serialized.contains("\"gte\":100"));
   }
 
+  @Test
+  public void testConvertDeleteByQueryRequestKeepsDefaultConflicts() throws Exception {
+    org.opensearch.index.reindex.DeleteByQueryRequest request =
+        new org.opensearch.index.reindex.DeleteByQueryRequest("test-index")
+            .setQuery(QueryBuilders.matchAllQuery())
+            .setRefresh(true);
+
+    co.elastic.clients.elasticsearch.core.DeleteByQueryRequest converted =
+        invokeConvertDeleteByQueryRequest(request, true);
+
+    assertNull(converted.conflicts());
+    assertEquals(converted.refresh(), Boolean.TRUE);
+    assertEquals(converted.index(), Collections.singletonList("test-index"));
+  }
+
+  @Test
+  public void testConvertDeleteByQueryRequestPropagatesProceedOnConflicts() throws Exception {
+    org.opensearch.index.reindex.DeleteByQueryRequest request =
+        new org.opensearch.index.reindex.DeleteByQueryRequest("test-index")
+            .setQuery(QueryBuilders.matchAllQuery())
+            .setRefresh(false);
+    request.setConflicts("proceed");
+
+    co.elastic.clients.elasticsearch.core.DeleteByQueryRequest converted =
+        invokeConvertDeleteByQueryRequest(request, false);
+
+    assertEquals(converted.conflicts(), Conflicts.Proceed);
+    assertEquals(converted.refresh(), Boolean.FALSE);
+    assertEquals(converted.waitForCompletion(), Boolean.FALSE);
+  }
+
   /** Helper method to invoke the private convertQuery method via reflection. */
   private Query invokeConvertQuery(QueryBuilder queryBuilder) throws Exception {
     Method convertQueryMethod =
@@ -479,5 +512,20 @@ public class Es8SearchClientShimConversionTest {
     convertAliasActionMethod.setAccessible(true);
 
     return (Action) convertAliasActionMethod.invoke(shim, aliasAction);
+  }
+
+  /** Helper method to invoke the private convertDeleteByQueryRequest method via reflection. */
+  private co.elastic.clients.elasticsearch.core.DeleteByQueryRequest
+      invokeConvertDeleteByQueryRequest(
+          org.opensearch.index.reindex.DeleteByQueryRequest request, boolean synchronous)
+          throws Exception {
+    Method method =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertDeleteByQueryRequest",
+            org.opensearch.index.reindex.DeleteByQueryRequest.class,
+            boolean.class);
+    method.setAccessible(true);
+    return (co.elastic.clients.elasticsearch.core.DeleteByQueryRequest)
+        method.invoke(shim, request, synchronous);
   }
 }
