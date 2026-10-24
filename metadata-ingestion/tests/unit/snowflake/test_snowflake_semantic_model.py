@@ -44,6 +44,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 
 _DB = "TEST_DB"
 _SCHEMA = "PUBLIC"
@@ -185,6 +186,15 @@ def _schema_fields_by_path(
     schemas = _aspects_for(workunits, dataset_urn, SchemaMetadataClass)
     assert len(schemas) == 1
     return {f.fieldPath: f for f in schemas[0].fields}
+
+
+def _assert_field_parents_in_datasets(upstreams: MetricUpstreamsClass) -> None:
+    dataset_urns = {edge.destinationUrn for edge in (upstreams.datasetUpstreams or [])}
+    for edge in upstreams.fieldUpstreams or []:
+        parent = SchemaFieldUrn.from_string(edge.destinationUrn).parent
+        assert parent in dataset_urns, (
+            f"field parent {parent} missing from datasetUpstreams {dataset_urns}"
+        )
 
 
 def test_urn_builders_default_lowercase():
@@ -515,11 +525,14 @@ def test_metric_entities_emitted_with_derived_from_relationships():
         assert len(upstreams) == 1
         assert upstreams[0].datasetUpstreams is not None
         assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
+        _assert_field_parents_in_datasets(upstreams[0])
     # Derived metric with only metric-to-metric refs has empty datasetUpstreams
     # (still emitted so re-ingestion clears any stale server-side edges).
     avg_upstreams = _aspects_for(workunits, avg_urn, MetricUpstreamsClass)
     assert len(avg_upstreams) == 1
     assert avg_upstreams[0].datasetUpstreams == []
+    assert avg_upstreams[0].fieldUpstreams == []
+    _assert_field_parents_in_datasets(avg_upstreams[0])
 
     avg_relationships = _aspects_for(workunits, avg_urn, MetricRelationshipsClass)
     assert len(avg_relationships) == 1
@@ -717,6 +730,8 @@ def test_view_scoped_metric_qualified_by_mixed_case_metric_ref_does_not_emit_smd
     upstreams = _aspects_for(workunits, derived_urn, MetricUpstreamsClass)
     assert len(upstreams) == 1
     assert upstreams[0].datasetUpstreams == []
+    assert upstreams[0].fieldUpstreams == []
+    _assert_field_parents_in_datasets(upstreams[0])
 
 
 def test_view_scoped_metric_qualified_by_quoted_table_emits_smd_upstream():
@@ -766,6 +781,10 @@ def test_view_scoped_metric_qualified_by_quoted_table_emits_smd_upstream():
     assert len(upstreams) == 1
     assert upstreams[0].datasetUpstreams is not None
     assert [e.destinationUrn for e in upstreams[0].datasetUpstreams] == [orders_urn]
+    # Unquoted `amount` folds to AMOUNT and does not match the stored
+    # lowercase fact when preserve_column_case is on, so no field edge.
+    assert upstreams[0].fieldUpstreams == []
+    _assert_field_parents_in_datasets(upstreams[0])
 
 
 def test_case_only_metric_pair_stays_one_metric_without_preserve_column_case():
@@ -903,6 +922,7 @@ def test_fine_grained_lineage_split_between_logical_dataset_and_metric():
     assert [e.destinationUrn for e in metric_upstreams[0].datasetUpstreams] == [
         orders_logical_urn
     ]
+    _assert_field_parents_in_datasets(metric_upstreams[0])
 
 
 def test_lineage_routing_scoped_by_table_for_shared_metric_fact_name():
@@ -1681,6 +1701,7 @@ def test_shadowed_metric_name_fine_grained_lineage_lands_on_logical_dataset():
     assert [e.destinationUrn for e in metric_upstreams[0].datasetUpstreams] == [
         orders_logical_urn
     ]
+    _assert_field_parents_in_datasets(metric_upstreams[0])
 
 
 def test_same_named_metrics_on_different_tables_emit_distinct_entities():
@@ -1855,6 +1876,8 @@ def test_derived_metric_resolves_table_qualified_references():
     total_upstreams = _aspects_for(workunits, total_urn, MetricUpstreamsClass)
     assert len(total_upstreams) == 1
     assert total_upstreams[0].datasetUpstreams == []
+    assert total_upstreams[0].fieldUpstreams == []
+    _assert_field_parents_in_datasets(total_upstreams[0])
 
 
 def test_primary_key_does_not_leak_across_same_named_columns():
@@ -2644,3 +2667,293 @@ def test_no_ai_context_emitted_when_synonyms_absent():
     assert not _aspects_for(workunits, orders_urn, AiContextClass)
     # And no datasetProperties MCP is emitted when there are no table synonyms.
     assert not _aspects_for(workunits, orders_urn, DatasetPropertiesClass)
+
+
+def test_table_bound_metric_emits_owning_table_field_upstreams():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "AMOUNT": [
+                _col("amount", "NUMBER", SemanticViewColumnSubtype.FACT, "ORDERS"),
+            ],
+            "ID": [
+                _col("id", "NUMBER", SemanticViewColumnSubtype.DIMENSION, "ORDERS"),
+            ],
+            "AVG_AMOUNT": [
+                _col(
+                    "avg_amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(amount) / COUNT(orders.id)",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "avg_amount", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert [e.destinationUrn for e in (upstreams[0].datasetUpstreams or [])] == [
+        orders_urn
+    ]
+    amount_path = mapper.identifiers.logical_dataset_field_path("amount")
+    id_path = mapper.identifiers.logical_dataset_field_path("id")
+    assert [e.destinationUrn for e in (upstreams[0].fieldUpstreams or [])] == sorted(
+        [
+            make_schema_field_urn(orders_urn, amount_path),
+            make_schema_field_urn(orders_urn, id_path),
+        ]
+    )
+    _assert_field_parents_in_datasets(upstreams[0])
+    schema_paths = _schema_fields_by_path(workunits, orders_urn)
+    assert amount_path in schema_paths
+    assert id_path in schema_paths
+
+
+def test_table_bound_metric_skips_cross_table_column_ref():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "AMOUNT": [
+                _col("amount", "NUMBER", SemanticViewColumnSubtype.FACT, "ORDERS"),
+            ],
+            "DISCOUNT": [
+                _col(
+                    "discount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.FACT,
+                    "CUSTOMERS",
+                ),
+            ],
+            "NET_AMOUNT": [
+                _col(
+                    "net_amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(amount) * customers.discount",
+                )
+            ],
+        },
+        logical_to_physical_table={
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "CUSTOMERS": (_DB, _SCHEMA, "CUSTOMERS"),
+        },
+    )
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "net_amount", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    customers_urn = _logical_dataset_urn(mapper, "CUSTOMERS")
+    upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert [e.destinationUrn for e in (upstreams[0].datasetUpstreams or [])] == [
+        orders_urn
+    ]
+    amount_path = mapper.identifiers.logical_dataset_field_path("amount")
+    assert [e.destinationUrn for e in (upstreams[0].fieldUpstreams or [])] == [
+        make_schema_field_urn(orders_urn, amount_path)
+    ]
+    _assert_field_parents_in_datasets(upstreams[0])
+    discount_urn = make_schema_field_urn(
+        customers_urn, mapper.identifiers.logical_dataset_field_path("discount")
+    )
+    assert discount_urn not in [
+        e.destinationUrn for e in (upstreams[0].fieldUpstreams or [])
+    ]
+    assert (
+        mapper.report.num_semantic_view_metric_field_refs_outside_dataset_upstreams == 1
+    )
+
+
+def test_view_scoped_metric_qualified_fact_emits_field_edge():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "AMOUNT": [
+                _col("amount", "NUMBER", SemanticViewColumnSubtype.FACT, "ORDERS"),
+            ],
+            "PAID": [
+                _col("paid", "NUMBER", SemanticViewColumnSubtype.FACT, "TRANSACTIONS"),
+            ],
+            "GROSS_REVENUE": [
+                _col(
+                    "gross_revenue",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression="SUM(amount)",
+                )
+            ],
+            "TOTAL": [
+                _col(
+                    "total",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression=(
+                        "ORDERS.amount + TRANSACTIONS.paid + ORDERS.GROSS_REVENUE + tax"
+                    ),
+                )
+            ],
+        },
+        logical_to_physical_table={
+            "ORDERS": (_DB, _SCHEMA, "ORDERS"),
+            "TRANSACTIONS": (_DB, _SCHEMA, "TRANSACTIONS"),
+        },
+    )
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    total_urn = mapper.identifiers.gen_metric_urn(
+        "total", semantic_view.name, _SCHEMA, _DB
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    transactions_urn = _logical_dataset_urn(mapper, "TRANSACTIONS")
+    upstreams = _aspects_for(workunits, total_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert [e.destinationUrn for e in (upstreams[0].datasetUpstreams or [])] == sorted(
+        [orders_urn, transactions_urn]
+    )
+    amount_path = mapper.identifiers.logical_dataset_field_path("amount")
+    paid_path = mapper.identifiers.logical_dataset_field_path("paid")
+    assert [e.destinationUrn for e in (upstreams[0].fieldUpstreams or [])] == sorted(
+        [
+            make_schema_field_urn(orders_urn, amount_path),
+            make_schema_field_urn(transactions_urn, paid_path),
+        ]
+    )
+    _assert_field_parents_in_datasets(upstreams[0])
+    relationships = _aspects_for(workunits, total_urn, MetricRelationshipsClass)
+    gross_urn = mapper.identifiers.gen_metric_urn(
+        "gross_revenue", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+    )
+    assert [d.destinationUrn for d in relationships[0].derivedFrom] == [gross_urn]
+
+
+def test_metric_to_metric_refs_leave_field_upstreams_empty():
+    mapper = _make_mapper()
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "ORDER_COUNT": [
+                _col(
+                    "order_count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="COUNT(*)",
+                )
+            ],
+            "DOUBLE_COUNT": [
+                _col(
+                    "double_count",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    expression="order_count * 2",
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    double_urn = mapper.identifiers.gen_metric_urn(
+        "double_count", semantic_view.name, _SCHEMA, _DB
+    )
+    upstreams = _aspects_for(workunits, double_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    assert upstreams[0].datasetUpstreams == []
+    assert upstreams[0].fieldUpstreams == []
+    _assert_field_parents_in_datasets(upstreams[0])
+
+
+def test_field_upstreams_match_schema_paths_for_quoted_and_unquoted_refs():
+    mapper = _make_mapper(preserve_column_case=True)
+    semantic_view = _make_semantic_view(
+        column_occurrences={
+            "Total_Amount": [
+                _col(
+                    "Total_Amount",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.FACT,
+                    table_name="ORDERS",
+                    preserve=True,
+                )
+            ],
+            "ORDER_ID": [
+                _col(
+                    "ORDER_ID",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.DIMENSION,
+                    table_name="ORDERS",
+                    preserve=True,
+                )
+            ],
+            "NET": [
+                _col(
+                    "NET",
+                    "NUMBER",
+                    SemanticViewColumnSubtype.METRIC,
+                    table_name="ORDERS",
+                    expression='SUM("Total_Amount") + COUNT(order_id)',
+                    preserve=True,
+                )
+            ],
+        },
+        logical_to_physical_table={"ORDERS": (_DB, _SCHEMA, "ORDERS")},
+    )
+    workunits = list(
+        mapper.gen_workunits(
+            semantic_view=semantic_view,
+            schema_name=_SCHEMA,
+            db_name=_DB,
+            fine_grained_lineages=[],
+        )
+    )
+    metric_urn = mapper.identifiers.gen_metric_urn(
+        "NET", semantic_view.name, _SCHEMA, _DB, logical_table="ORDERS"
+    )
+    orders_urn = _logical_dataset_urn(mapper, "ORDERS")
+    upstreams = _aspects_for(workunits, metric_urn, MetricUpstreamsClass)
+    assert len(upstreams) == 1
+    quoted_path = mapper.identifiers.logical_dataset_field_path("Total_Amount")
+    unquoted_path = mapper.identifiers.logical_dataset_field_path("ORDER_ID")
+    schema_paths = _schema_fields_by_path(workunits, orders_urn)
+    assert quoted_path in schema_paths
+    assert unquoted_path in schema_paths
+    assert [e.destinationUrn for e in (upstreams[0].fieldUpstreams or [])] == sorted(
+        [
+            make_schema_field_urn(orders_urn, quoted_path),
+            make_schema_field_urn(orders_urn, unquoted_path),
+        ]
+    )
+    _assert_field_parents_in_datasets(upstreams[0])
