@@ -72,6 +72,22 @@ def test_from_server_cohere():
     assert config._server_config == server_config
 
 
+def test_from_server_ai_gateway():
+    """Test creating EmbeddingConfig from server config (AI Gateway)."""
+    server_config = ServerEmbeddingConfig(
+        provider="ai-gateway",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embed",
+    )
+
+    # Missing local config should raise when we try to use it, but parsing from server should succeed
+    config = EmbeddingConfig.from_server(server_config)
+
+    assert config.provider == "ai_gateway"
+    assert config.model == "gemini-embedding-001"
+    assert config._server_config == server_config
+
+
 def test_validate_against_server_success_bedrock():
     """Test successful validation with matching Bedrock config."""
     server_config = ServerEmbeddingConfig(
