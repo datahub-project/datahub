@@ -44,7 +44,10 @@ class FileSystem(metaclass=ABCMeta):
 
 def get_path_schema(path: str) -> str:
     scheme = parse.urlparse(path).scheme
-    if scheme == "":
-        # This makes the default schema "file" for local paths.
+    if scheme == "" or len(scheme) == 1:
+        # An empty scheme means a local path. A single-character scheme is a
+        # Windows drive letter: urlparse reports "C:\data\file.json" as
+        # scheme "c", which has no registered filesystem. No real filesystem
+        # scheme is one character long, so both cases are local paths.
         scheme = "file"
     return scheme
