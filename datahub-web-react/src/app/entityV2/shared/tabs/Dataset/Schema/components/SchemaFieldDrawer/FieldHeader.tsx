@@ -8,16 +8,18 @@ import styled from 'styled-components';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import NullableLabel, {
+    ForeignKeyLabel,
     PartitioningKeyLabel,
     PrimaryKeyLabel,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
 import MenuColumn from '@app/entityV2/shared/tabs/Dataset/Schema/components/MenuColumn';
 import FieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPath';
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
+import getFieldForeignKeyConstraints from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getFieldForeignKeyConstraints';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { SchemaField } from '@types';
+import { SchemaField, SchemaMetadata } from '@types';
 
 const FIELD_PATH_SEPARATOR = '.';
 
@@ -97,9 +99,10 @@ const StyleLink = styled(Link)`
 interface Props {
     expandedField: SchemaField;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
+    schemaMetadata?: SchemaMetadata | null;
 }
 
-export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath, schemaMetadata }: Props) {
     const { t: tc } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
@@ -131,6 +134,9 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     {expandedField.isPartOfKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
                     {expandedField.nullable && <NullableLabel />}
+                    {!!getFieldForeignKeyConstraints(schemaMetadata, expandedField.fieldPath).length && (
+                        <ForeignKeyLabel />
+                    )}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
                 </TitleWrapper>
                 <FieldText>{tc('column')}</FieldText>
