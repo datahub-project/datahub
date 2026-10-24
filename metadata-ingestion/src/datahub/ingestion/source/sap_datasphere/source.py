@@ -125,7 +125,6 @@ from datahub.ingestion.source.sap_datasphere.graph_resolver import (
 )
 from datahub.ingestion.source.sap_datasphere.lineage import (
     CsnLineageExtractor,
-    is_qualified,
     parse_remote_table_source,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
@@ -139,6 +138,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     FlowEndpoint,
     FlowTask,
     JsonDict,
+    ObjectLocator,
     ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
@@ -146,6 +146,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     TransformOp,
     UpstreamRef,
     dedup_preserving_order,
+    is_sap_generated_object,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -312,13 +313,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # resolution; stays None when the feature is off or no graph is available.
         self._graph_resolver: Optional[ExternalUrnGraphResolver] = None
         self._graph_resolver_unavailable_warned = False
-        # Source object (space-qualified name) -> {column: typed SchemaField}, used
-        # to copy scalar types into analytic-model elements (which carry none). One
-        # CSN fetch per distinct source object, reused across analytic models.
+        # `space.name` of a source object -> {column: typed SchemaField}; copies
+        # scalar types into analytic-model elements, which carry none. One CSN
+        # fetch per distinct source object, reused across analytic models.
         self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
-        # Every space the catalog lists, including filtered ones. A listed space
-        # wins over the SAP namespace when reading a dotted `SPACE.name` ref.
-        self._known_spaces: Set[str] = set()
+        self._reported_sap_refs: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -403,11 +402,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             yield from get_predefined_tag_workunits()
             self._sap_tags_emitted = True
 
-        spaces = list(self._safe_list_spaces())
-        self._known_spaces = {
-            name for name in (_space_name(space) for space in spaces) if name
-        }
-        for space in spaces:
+        for space in self._safe_list_spaces():
             space_name = _space_name(space)
             if space_name is None:
                 self.report.warning(
@@ -1667,10 +1662,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _business_layer_upstream_urn(self, space_name: str, key: str) -> str:
-        # Bare same-space BL keys need the AM's space; dotted keys are already
-        # space-qualified (same heuristic as query-FROM lineage).
         return self._qualified_upstream_urn(
-            key if is_qualified(key) else f"{space_name}.{key}"
+            self._locate(key, space_name).qualified_name
         )
 
     def _apply_business_layer_guarded(
@@ -1810,7 +1803,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if association_targets:
                 self.report.association_upstreams_emitted += len(association_targets)
                 # A ref in both FROM and an association resolves to the same URN,
-                # so dedup by name (qualified refs already in upstream_refs win).
+                # so dedup by name; FROM refs come first.
                 existing = {ref.name for ref in upstream_refs}
                 upstream_refs.extend(
                     ref for ref in association_targets if ref.name not in existing
@@ -1865,13 +1858,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         upstreams: List[UpstreamClass] = []
         upstream_urn_by_name: Dict[str, str] = {}
         for ref in upstream_refs:
-            if ref.qualified:
-                # Already space-qualified (cross-space or built-in association
-                # target): use as-is on the sap-datasphere platform.
-                upstream_urn = self._qualified_upstream_urn(ref.name)
+            locator = self._locate(ref.name, space_name)
+            if locator.explicit_space:
+                upstream_urn = self._qualified_upstream_urn(locator.qualified_name)
             else:
-                upstream_name = self._maybe_lower(f"{space_name}.{ref.name}")
-                upstream_urn = self._dataset_urn(resolved, upstream_name)
+                upstream_urn = self._dataset_urn(
+                    resolved, self._build_dataset_name(space_name, locator.name)
+                )
             upstream_urn_by_name[ref.name] = upstream_urn
             upstreams.append(
                 UpstreamClass(
@@ -2122,27 +2115,33 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         field.nativeDataType = "DECIMAL"
         return True
 
+    def _locate(self, ref: str, default_space: str) -> ObjectLocator:
+        locator = ObjectLocator.from_ref(ref, default_space)
+        if (
+            locator.explicit_space
+            and locator.space == SAP_OBJECT_NAMESPACE
+            and not is_sap_generated_object(locator.name)
+            and ref not in self._reported_sap_refs
+        ):
+            self._reported_sap_refs.add(ref)
+            self.report.sap_refs_outside_generated_prefixes.append(ref)
+        return locator
+
     def _source_object_field_types(
         self, default_space: str, source_object: str
     ) -> Dict[str, SchemaFieldClass]:
-        # A dotted name is `SPACE.name` unless it is in the SAP namespace of
-        # objects generated in the model's own space. The catalog does not list
-        # every space a model can read from, so other prefixes stay spaces. Only
-        # VIEWS is probed (its 404 retry also covers analytic models); a
+        # Only VIEWS is probed (its 404 retry also covers analytic models); a
         # local/remote table source is not resolved and its columns fall back to
         # the measure heuristic or stay NullType.
-        prefix, _, rest = source_object.partition(".")
-        if rest and (prefix in self._known_spaces or prefix != SAP_OBJECT_NAMESPACE):
-            space, name = prefix, rest
-        else:
-            space, name = default_space, source_object
-        cache_key = f"{space}.{name}"
-        cached = self._source_field_type_cache.get(cache_key)
+        locator = self._locate(source_object, default_space)
+        cached = self._source_field_type_cache.get(locator.qualified_name)
         if cached is not None:
             return cached
         field_map: Dict[str, SchemaFieldClass] = {}
-        csn_obj = self._client.fetch_object_definition(space, OBJECT_TYPE_VIEWS, name)
-        definition = self._csn_definition(csn_obj, name)
+        csn_obj = self._client.fetch_object_definition(
+            locator.space, OBJECT_TYPE_VIEWS, locator.name
+        )
+        definition = self._csn_definition(csn_obj, locator.name)
         elements = definition.get(CSN_KEY_ELEMENTS) if definition is not None else None
         if isinstance(elements, dict):
             result = parse_csn_elements_to_schema_fields(elements)
@@ -2152,7 +2151,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             field_map = {
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
-        self._source_field_type_cache[cache_key] = field_map
+        self._source_field_type_cache[locator.qualified_name] = field_map
         return field_map
 
     def _apply_column_pattern(
