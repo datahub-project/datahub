@@ -1,12 +1,18 @@
-from typing import Dict, Optional
+from typing import Annotated, Dict, Optional, Sequence
 
 from pydantic import Field, SecretStr, field_validator
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+)
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.grafana.grafana_selection import (
+    dashboard_verdict,
+    folder_verdict,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -67,11 +73,15 @@ class GrafanaSourceConfig(
     )
 
     # Content filtering
-    dashboard_pattern: AllowDenyPattern = Field(
+    dashboard_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.GRAFANA_DASHBOARD)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern to filter dashboards for ingestion",
     )
-    folder_pattern: AllowDenyPattern = Field(
+    folder_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.GRAFANA_FOLDER)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern to filter folders for ingestion",
     )
@@ -120,3 +130,32 @@ class GrafanaSourceConfig(
     @classmethod
     def remove_trailing_slash(cls, v: str) -> str:
         return config_clean.remove_trailing_slashes(v)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: grafana_probe imports this module, and ingestion never
+        # needs the probe.
+        from datahub.ingestion.source.grafana.grafana_probe import (
+            GrafanaMetadataProbe,
+        )
+
+        return GrafanaMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Neither kind lists an ancestor. Grafana ingestion fetches folders
+        and dashboards as two independent listings, so a dashboard inside a
+        folder folder_pattern drops is still ingested; a --parent folder must
+        not exclude it."""
+        return {
+            str(BIContainerSubTypes.GRAFANA_FOLDER): (),
+            str(BIContainerSubTypes.GRAFANA_DASHBOARD): (),
+        }.get(kind)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Both kinds through grafana_selection, which ingestion also calls:
+        a folder is dropped in basic_mode whatever folder_pattern says."""
+        if ctx.kind == BIContainerSubTypes.GRAFANA_FOLDER:
+            return folder_verdict(self, ctx.target)
+        if ctx.kind == BIContainerSubTypes.GRAFANA_DASHBOARD:
+            return dashboard_verdict(self, ctx.target)
+        return None

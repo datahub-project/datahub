@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Iterable, Optional, Sequence
 
 from pydantic import Field
 from typing_extensions import Self
@@ -9,10 +9,11 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
+    capability,
     config_class,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryFilterConfig,
@@ -35,6 +36,13 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractorConfig,
 )
 
+if TYPE_CHECKING:
+    from datahub.ingestion.agent.verdicts import (
+        ClassifyContext,
+        Verdict,
+        VerdictContext,
+    )
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,9 +62,39 @@ class BigQueryQueriesSourceConfig(
         default_factory=BigQueryConnectionConfig
     )
 
+    # --- Probe hooks: see docs/dev_guides/probe_interface.md ---
+    # Each imports bigquery_queries_probe lazily, so ingestion never loads the
+    # probe framework.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.bigquery_v2.bigquery_queries_probe import (
+            BigQueryQueriesMetadataProbe,
+        )
+
+        return BigQueryQueriesMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        from datahub.ingestion.source.bigquery_v2 import bigquery_queries_probe
+
+        return bigquery_queries_probe.ancestor_kinds(kind)
+
+    def probe_match_target(self, ctx: "ClassifyContext") -> Optional[str]:
+        from datahub.ingestion.source.bigquery_v2 import bigquery_queries_probe
+
+        return bigquery_queries_probe.match_target(self, ctx)
+
+    def probe_verdict_override(self, ctx: "VerdictContext") -> Optional["Verdict"]:
+        from datahub.ingestion.source.bigquery_v2 import bigquery_queries_probe
+
+        return bigquery_queries_probe.verdict(self, ctx)
+
 
 @support_status(SupportStatus.GA)
 @config_class(BigQueryQueriesSourceConfig)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class BigQueryQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: BigQueryQueriesSourceConfig):
         self.ctx = ctx
