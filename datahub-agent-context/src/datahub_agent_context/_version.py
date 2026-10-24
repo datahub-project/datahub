@@ -14,9 +14,10 @@
 
 __package_name__ = "datahub-agent-context"
 __version__ = "0.1.0.dev0"
-# Stable acryl-datahub release this package is built and tested against. The CLI
+# Minimum acryl-datahub release this package is built and tested against. The CLI
 # version is borrowed from the server version and does not follow semantic
-# versioning, so we pin a known-good stable release rather than self-pinning to
-# this package's own (server-derived) version. Bump explicitly when newer CLI
-# functionality is required.
-__acryl_datahub_pin__ = "1.6.0.6"
+# versioning, so we set a known-good floor rather than self-pinning to this
+# package's own (server-derived) version. Raise explicitly when newer CLI
+# functionality is required: _registration_core imports datahub.api.entities.agent,
+# which is absent through 1.6.0.17 and first ships in 1.7.0.
+__acryl_datahub_pin__ = "1.7.0"
