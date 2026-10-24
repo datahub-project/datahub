@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NA
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -13,6 +14,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -29,7 +31,6 @@ import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
-import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -47,35 +48,23 @@ import org.testng.annotations.Test;
 public class IngestionSourceRunSummarySideEffectTest {
 
   private static final Urn SOURCE_URN = UrnUtils.getUrn("urn:li:dataHubIngestionSource:source-a");
+  private static final Urn OTHER_SOURCE_URN =
+      UrnUtils.getUrn("urn:li:dataHubIngestionSource:source-b");
   private static final Urn OLD_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run-old");
   private static final Urn NEW_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run-new");
 
   private final IngestionSourceRunSummarySideEffect sideEffect =
       new IngestionSourceRunSummarySideEffect()
-          .setConfig(
-              AspectPluginConfig.builder()
-                  .className(IngestionSourceRunSummarySideEffect.class.getName())
-                  .enabled(true)
-                  .supportedOperations(List.of("UPSERT"))
-                  .supportedEntityAspectNames(
-                      List.of(
-                          AspectPluginConfig.EntityAspectName.builder()
-                              .entityName(EXECUTION_REQUEST_ENTITY_NAME)
-                              .aspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
-                              .build(),
-                          AspectPluginConfig.EntityAspectName.builder()
-                              .entityName(EXECUTION_REQUEST_ENTITY_NAME)
-                              .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
-                              .build()))
-                  .build());
+          .setConfig(IngestionSourceRunSummarySideEffect.pluginConfig());
 
   private final Map<Urn, Map<String, Aspect>> store = new HashMap<>();
+  private CachingAspectRetriever aspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
     store.clear();
-    CachingAspectRetriever aspectRetriever = mock(CachingAspectRetriever.class);
+    aspectRetriever = mock(CachingAspectRetriever.class);
     when(aspectRetriever.getEntityRegistry()).thenReturn(new TestEntityRegistry());
     when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
         .thenAnswer(
@@ -98,22 +87,15 @@ public class IngestionSourceRunSummarySideEffectTest {
             .cachingAspectRetriever(aspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
-    put(
-        SOURCE_URN,
-        INGESTION_INFO_ASPECT_NAME,
-        new DataHubIngestionSourceInfo()
-            .setName("source a")
-            .setType("mysql")
-            .setConfig(new DataHubIngestionSourceConfig().setRecipe("{}")));
+    putSource(SOURCE_URN);
   }
 
   @Test
   public void testNewRunSetsSummary() {
     DataHubIngestionSourceRunSummary summary =
         onlySummary(
-            run(
-                List.of(
-                    mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200)))));
+            run(mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200))),
+            SOURCE_URN);
 
     assertEquals(summary.getLastExecutionRequest(), NEW_RUN);
     assertEquals(summary.getLastRunRequestedAtMillis(), 200L);
@@ -127,7 +109,7 @@ public class IngestionSourceRunSummarySideEffectTest {
 
     DataHubIngestionSourceRunSummary summary =
         onlySummary(
-            run(List.of(mcl(NEW_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS")))));
+            run(mcl(NEW_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"))), SOURCE_URN);
 
     assertEquals(summary.getLastExecutionRequest(), NEW_RUN);
     assertEquals(summary.getLastRunStatus(), "SUCCESS");
@@ -139,8 +121,7 @@ public class IngestionSourceRunSummarySideEffectTest {
     put(SOURCE_URN, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, summary(NEW_RUN, 200, "RUNNING"));
 
     assertTrue(
-        run(List.of(mcl(OLD_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("FAILURE"))))
-            .isEmpty());
+        run(mcl(OLD_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("FAILURE"))).isEmpty());
   }
 
   @Test
@@ -149,8 +130,7 @@ public class IngestionSourceRunSummarySideEffectTest {
     put(SOURCE_URN, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, summary(NEW_RUN, 200, "SUCCESS"));
 
     assertTrue(
-        run(List.of(mcl(NEW_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"))))
-            .isEmpty());
+        run(mcl(NEW_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"))).isEmpty());
   }
 
   @Test
@@ -158,8 +138,16 @@ public class IngestionSourceRunSummarySideEffectTest {
     store.remove(SOURCE_URN);
 
     assertTrue(
-        run(List.of(mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200))))
-            .isEmpty());
+        run(mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200))).isEmpty());
+  }
+
+  @Test
+  public void testRequestWithoutIngestionSourceIsIgnored() {
+    ExecutionRequestInput testConnection =
+        input(SOURCE_URN, 200)
+            .setSource(new ExecutionRequestSource().setType("MANUAL_INGESTION_SOURCE"));
+
+    assertTrue(run(mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, testConnection)).isEmpty());
   }
 
   @Test
@@ -169,37 +157,115 @@ public class IngestionSourceRunSummarySideEffectTest {
     DataHubIngestionSourceRunSummary summary =
         onlySummary(
             run(
-                List.of(
-                    mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200)),
-                    mcl(OLD_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS")))));
+                mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200)),
+                mcl(OLD_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"))),
+            SOURCE_URN);
 
     assertEquals(summary.getLastExecutionRequest(), NEW_RUN);
   }
 
-  private List<MCPItem> run(List<MCLItem> items) {
+  @Test
+  public void testEachSourceInBatchGetsItsOwnSummary() {
+    putSource(OTHER_SOURCE_URN);
+
+    List<MCPItem> output =
+        run(
+            mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200)),
+            mcl(OLD_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(OTHER_SOURCE_URN, 100)));
+
+    Map<Urn, Urn> runBySource = new HashMap<>();
+    output.forEach(
+        item ->
+            runBySource.put(
+                item.getUrn(),
+                item.getAspect(DataHubIngestionSourceRunSummary.class).getLastExecutionRequest()));
+    assertEquals(runBySource, Map.of(SOURCE_URN, NEW_RUN, OTHER_SOURCE_URN, OLD_RUN));
+  }
+
+  @Test
+  public void testInputIsPreferredAsTrigger() {
+    AuditStamp inputStamp = AuditStampUtils.createDefaultAuditStamp().setTime(1L);
+
+    MCPItem item =
+        run(
+                mcl(NEW_RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("RUNNING")),
+                mcl(
+                    NEW_RUN,
+                    EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                    input(SOURCE_URN, 200),
+                    ChangeType.UPSERT,
+                    inputStamp))
+            .get(0);
+
+    assertEquals(item.getAuditStamp(), inputStamp);
+  }
+
+  @Test
+  public void testRestateIsIgnored() {
+    assertTrue(
+        run(mcl(
+                NEW_RUN,
+                EXECUTION_REQUEST_INPUT_ASPECT_NAME,
+                input(SOURCE_URN, 200),
+                ChangeType.RESTATE,
+                AuditStampUtils.createDefaultAuditStamp()))
+            .isEmpty());
+  }
+
+  @Test
+  public void testReadFailureDoesNotPropagate() {
+    MCLItem item = mcl(NEW_RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(SOURCE_URN, 200));
+    doThrow(new RuntimeException("database unavailable"))
+        .when(aspectRetriever)
+        .getLatestAspectObjects(any(), any(), any());
+
+    assertTrue(run(item).isEmpty());
+  }
+
+  private List<MCPItem> run(MCLItem... items) {
     return sideEffect
-        .postMCPSideEffect(OperationFingerprint.EMPTY, items, retrieverContext)
+        .postApply(OperationFingerprint.EMPTY, List.of(items), retrieverContext)
         .toList();
   }
 
-  private static DataHubIngestionSourceRunSummary onlySummary(List<MCPItem> output) {
+  private static DataHubIngestionSourceRunSummary onlySummary(List<MCPItem> output, Urn source) {
     assertEquals(output.size(), 1);
-    assertEquals(output.get(0).getUrn(), SOURCE_URN);
+    assertEquals(output.get(0).getUrn(), source);
     assertEquals(output.get(0).getAspectName(), INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME);
     return output.get(0).getAspect(DataHubIngestionSourceRunSummary.class);
   }
 
   private MCLItem mcl(Urn urn, String aspectName, RecordTemplate aspect) {
+    return mcl(
+        urn, aspectName, aspect, ChangeType.UPSERT, AuditStampUtils.createDefaultAuditStamp());
+  }
+
+  private MCLItem mcl(
+      Urn urn,
+      String aspectName,
+      RecordTemplate aspect,
+      ChangeType changeType,
+      AuditStamp auditStamp) {
     return MCLItemImpl.builder()
         .metadataChangeLog(
             new MetadataChangeLog()
                 .setEntityUrn(urn)
                 .setEntityType(EXECUTION_REQUEST_ENTITY_NAME)
-                .setChangeType(ChangeType.UPSERT)
+                .setChangeType(changeType)
                 .setAspectName(aspectName)
                 .setAspect(GenericRecordUtils.serializeAspect(aspect))
-                .setCreated(AuditStampUtils.createDefaultAuditStamp()))
+                .setCreated(auditStamp))
         .build(retrieverContext.getAspectRetriever());
+  }
+
+  private void putSource(Urn sourceUrn) {
+    put(
+        sourceUrn,
+        INGESTION_INFO_ASPECT_NAME,
+        new DataHubIngestionSourceInfo()
+            .setName(sourceUrn.getId())
+            .setType("mysql")
+            .setConfig(new DataHubIngestionSourceConfig().setRecipe("{}")));
   }
 
   private void put(Urn urn, String aspectName, RecordTemplate aspect) {

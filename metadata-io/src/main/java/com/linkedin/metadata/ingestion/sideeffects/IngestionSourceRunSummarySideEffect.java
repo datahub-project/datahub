@@ -1,5 +1,6 @@
 package com.linkedin.metadata.ingestion.sideeffects;
 
+import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
@@ -22,12 +23,14 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.ingestion.IngestionSourceRunSummaryUtils;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,13 +40,11 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Keeps an ingestion source's {@code dataHubIngestionSourceRunSummary} aspect pointing at its most
- * recent execution request, so the source list can be sorted and filtered by last run in search.
+ * Keeps an ingestion source's {@code dataHubIngestionSourceRunSummary} pointing at its most recent
+ * execution request, so the source list can be sorted and filtered by last run in search.
  *
- * <p>Runs post-commit on execution request input and result writes. The summary only moves forward:
- * a write for an older execution request (e.g. a late status update for a superseded run) never
- * replaces the summary of a newer one. Summaries are only written for sources that still have an
- * info aspect, so runs for deleted sources do not recreate them.
+ * <p>The checks here only avoid publishing pointless writes. The writes are applied asynchronously,
+ * so {@code IngestionSourceRunSummaryValidator} enforces the same rules at commit time.
  */
 @Slf4j
 @Getter
@@ -51,10 +52,38 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class IngestionSourceRunSummarySideEffect extends MCPSideEffect {
 
+  // RESTATE is excluded so restore-indices replays of historical runs do not rewrite summaries.
+  private static final List<ChangeType> SUPPORTED_CHANGE_TYPES =
+      List.of(
+          ChangeType.CREATE,
+          ChangeType.CREATE_ENTITY,
+          ChangeType.UPSERT,
+          ChangeType.UPDATE,
+          ChangeType.PATCH);
   private static final Set<String> EXECUTION_REQUEST_ASPECTS =
       Set.of(EXECUTION_REQUEST_INPUT_ASPECT_NAME, EXECUTION_REQUEST_RESULT_ASPECT_NAME);
+  private static final Set<String> INGESTION_SOURCE_ASPECTS =
+      Set.of(INGESTION_INFO_ASPECT_NAME, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME);
 
   @Nonnull private AspectPluginConfig config;
+
+  @Nonnull
+  public static AspectPluginConfig pluginConfig() {
+    return AspectPluginConfig.builder()
+        .enabled(true)
+        .className(IngestionSourceRunSummarySideEffect.class.getName())
+        .supportedOperations(SUPPORTED_CHANGE_TYPES.stream().map(ChangeType::toString).toList())
+        .supportedEntityAspectNames(
+            EXECUTION_REQUEST_ASPECTS.stream()
+                .map(
+                    aspectName ->
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                            .aspectName(aspectName)
+                            .build())
+                .toList())
+        .build();
+  }
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -69,121 +98,136 @@ public class IngestionSourceRunSummarySideEffect extends MCPSideEffect {
       @Nonnull OperationFingerprint operationContext,
       Collection<MCLItem> mclItems,
       @Nonnull RetrieverContext retrieverContext) {
-    Map<Urn, Map<String, MCLItem>> batchByExecutionRequest = new LinkedHashMap<>();
-    for (MCLItem item : mclItems) {
-      if (EXECUTION_REQUEST_ASPECTS.contains(item.getAspectName())
-          && !ChangeType.DELETE.equals(item.getChangeType())) {
-        batchByExecutionRequest
-            .computeIfAbsent(item.getUrn(), urn -> new HashMap<>())
-            .put(item.getAspectName(), item);
-      }
-    }
-    if (batchByExecutionRequest.isEmpty()) {
+    if (mclItems.isEmpty()) {
       return Stream.empty();
     }
-
+    Map<Urn, Map<String, MCLItem>> batchByExecutionRequest =
+        mclItems.stream()
+            .collect(
+                Collectors.groupingBy(
+                    MCLItem::getUrn,
+                    LinkedHashMap::new,
+                    Collectors.toMap(MCLItem::getAspectName, item -> item, (first, last) -> last)));
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
-    Map<Urn, Map<String, Aspect>> storedExecutionRequests =
-        aspectRetriever.getLatestAspectObjects(
-            operationContext, batchByExecutionRequest.keySet(), EXECUTION_REQUEST_ASPECTS);
 
-    Map<Urn, Candidate> candidateBySource = new HashMap<>();
-    for (Map.Entry<Urn, Map<String, MCLItem>> entry : batchByExecutionRequest.entrySet()) {
-      Urn executionRequestUrn = entry.getKey();
-      Map<String, MCLItem> batch = entry.getValue();
-      Map<String, Aspect> stored =
-          storedExecutionRequests.getOrDefault(executionRequestUrn, Map.of());
-      ExecutionRequestInput input =
-          fromBatchOrStored(
-              batch, stored, EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class);
-      Urn sourceUrn = ingestionSourceUrn(input);
-      if (sourceUrn == null) {
-        continue;
-      }
-      ExecutionRequestResult result =
-          fromBatchOrStored(
-              batch, stored, EXECUTION_REQUEST_RESULT_ASPECT_NAME, ExecutionRequestResult.class);
-      Candidate candidate =
-          new Candidate(
-              buildSummary(executionRequestUrn, input, result), batch.values().iterator().next());
-      candidateBySource.merge(
-          sourceUrn,
-          candidate,
-          (current, next) -> shouldReplace(current.summary(), next.summary()) ? next : current);
-    }
-    if (candidateBySource.isEmpty()) {
+    // The execution request is already committed; failing here would fail the executor's write.
+    Map<Urn, Candidate> candidateBySource;
+    try {
+      candidateBySource =
+          candidatesBySource(operationContext, batchByExecutionRequest, aspectRetriever);
+    } catch (RuntimeException e) {
+      log.error(
+          "Failed to read execution requests {} for ingestion source run summaries",
+          batchByExecutionRequest.keySet(),
+          e);
       return Stream.empty();
     }
-
-    Map<Urn, Map<String, Aspect>> storedSources =
-        aspectRetriever.getLatestAspectObjects(
-            operationContext,
-            candidateBySource.keySet(),
-            Set.of(INGESTION_INFO_ASPECT_NAME, INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME));
-
-    return candidateBySource.entrySet().stream()
-        .filter(
-            entry -> {
-              Map<String, Aspect> stored = storedSources.getOrDefault(entry.getKey(), Map.of());
-              if (!stored.containsKey(INGESTION_INFO_ASPECT_NAME)) {
-                log.debug("Skipping run summary for missing ingestion source {}", entry.getKey());
-                return false;
-              }
-              Aspect existing = stored.get(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME);
-              return shouldReplace(
-                  existing != null ? new DataHubIngestionSourceRunSummary(existing.data()) : null,
-                  entry.getValue().summary());
-            })
-        .map(
-            entry ->
-                ChangeItemImpl.builder()
-                    .urn(entry.getKey())
-                    .changeType(ChangeType.UPSERT)
-                    .aspectName(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME)
-                    .recordTemplate(entry.getValue().summary())
-                    .auditStamp(entry.getValue().trigger().getAuditStamp())
-                    .systemMetadata(entry.getValue().trigger().getSystemMetadata())
-                    .build(aspectRetriever));
-  }
-
-  @Nullable
-  public static Urn ingestionSourceUrn(@Nullable ExecutionRequestInput input) {
-    if (input == null || !input.hasSource() || !input.getSource().hasIngestionSource()) {
-      return null;
+    try {
+      return summaryUpserts(operationContext, candidateBySource, aspectRetriever).stream();
+    } catch (RuntimeException e) {
+      log.error(
+          "Failed to update run summaries for ingestion sources {} from execution requests {}",
+          candidateBySource.keySet(),
+          batchByExecutionRequest.keySet(),
+          e);
+      return Stream.empty();
     }
-    return input.getSource().getIngestionSource();
   }
 
   @Nonnull
-  public static DataHubIngestionSourceRunSummary buildSummary(
-      @Nonnull Urn executionRequestUrn,
-      @Nonnull ExecutionRequestInput input,
-      @Nullable ExecutionRequestResult result) {
-    DataHubIngestionSourceRunSummary summary =
-        new DataHubIngestionSourceRunSummary()
-            .setLastExecutionRequest(executionRequestUrn)
-            .setLastRunRequestedAtMillis(input.getRequestedAt());
-    if (result != null) {
-      summary.setLastRunStatus(result.getStatus());
-    }
-    return summary;
+  private static Map<Urn, Candidate> candidatesBySource(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Map<Urn, Map<String, MCLItem>> batchByExecutionRequest,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Map<Urn, Map<String, Aspect>> stored =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext, batchByExecutionRequest.keySet(), EXECUTION_REQUEST_ASPECTS);
+    return batchByExecutionRequest.entrySet().stream()
+        .map(
+            entry ->
+                candidate(
+                    entry.getKey(),
+                    entry.getValue(),
+                    stored.getOrDefault(entry.getKey(), Map.of())))
+        .filter(Objects::nonNull)
+        .collect(
+            Collectors.toMap(
+                Candidate::sourceUrn,
+                candidate -> candidate,
+                (current, next) ->
+                    IngestionSourceRunSummaryUtils.shouldReplace(current.summary(), next.summary())
+                        ? next
+                        : current));
   }
 
-  /**
-   * Whether {@code candidate} should overwrite {@code existing}. An update for the same execution
-   * request replaces it when anything changed (e.g. its status); otherwise only a strictly newer
-   * request does, so equal timestamps keep the summary stable.
-   */
-  public static boolean shouldReplace(
-      @Nullable DataHubIngestionSourceRunSummary existing,
-      @Nonnull DataHubIngestionSourceRunSummary candidate) {
-    if (existing == null) {
-      return true;
+  @Nullable
+  private static Candidate candidate(
+      @Nonnull Urn executionRequestUrn,
+      @Nonnull Map<String, MCLItem> batch,
+      @Nonnull Map<String, Aspect> stored) {
+    ExecutionRequestInput input =
+        fromBatchOrStored(
+            batch, stored, EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class);
+    Urn sourceUrn = ingestionSourceUrn(input);
+    if (sourceUrn == null) {
+      return null;
     }
-    if (Objects.equals(existing.getLastExecutionRequest(), candidate.getLastExecutionRequest())) {
-      return !existing.equals(candidate);
+    ExecutionRequestResult result =
+        fromBatchOrStored(
+            batch, stored, EXECUTION_REQUEST_RESULT_ASPECT_NAME, ExecutionRequestResult.class);
+    return new Candidate(
+        sourceUrn,
+        IngestionSourceRunSummaryUtils.buildSummary(executionRequestUrn, input, result),
+        batch.getOrDefault(
+            EXECUTION_REQUEST_INPUT_ASPECT_NAME, batch.get(EXECUTION_REQUEST_RESULT_ASPECT_NAME)));
+  }
+
+  @Nonnull
+  private static List<MCPItem> summaryUpserts(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Map<Urn, Candidate> candidateBySource,
+      @Nonnull AspectRetriever aspectRetriever) {
+    if (candidateBySource.isEmpty()) {
+      return List.of();
     }
-    return candidate.getLastRunRequestedAtMillis() > existing.getLastRunRequestedAtMillis();
+    Map<Urn, Map<String, Aspect>> storedSources =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext, candidateBySource.keySet(), INGESTION_SOURCE_ASPECTS);
+    return candidateBySource.values().stream()
+        .filter(
+            candidate ->
+                isNewerSummary(
+                    candidate, storedSources.getOrDefault(candidate.sourceUrn(), Map.of())))
+        .map(
+            candidate ->
+                (MCPItem)
+                    ChangeItemImpl.builder()
+                        .urn(candidate.sourceUrn())
+                        .changeType(ChangeType.UPSERT)
+                        .aspectName(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME)
+                        .recordTemplate(candidate.summary())
+                        .auditStamp(candidate.trigger().getAuditStamp())
+                        .systemMetadata(candidate.trigger().getSystemMetadata())
+                        .build(aspectRetriever))
+        .toList();
+  }
+
+  private static boolean isNewerSummary(
+      @Nonnull Candidate candidate, @Nonnull Map<String, Aspect> storedSource) {
+    return storedSource.containsKey(INGESTION_INFO_ASPECT_NAME)
+        && IngestionSourceRunSummaryUtils.shouldReplace(
+            toRecord(
+                storedSource,
+                INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME,
+                DataHubIngestionSourceRunSummary.class),
+            candidate.summary());
+  }
+
+  @Nullable
+  private static Urn ingestionSourceUrn(@Nullable ExecutionRequestInput input) {
+    return input != null && input.hasSource() && input.getSource().hasIngestionSource()
+        ? input.getSource().getIngestionSource()
+        : null;
   }
 
   @Nullable
@@ -193,12 +237,16 @@ public class IngestionSourceRunSummarySideEffect extends MCPSideEffect {
       @Nonnull String aspectName,
       @Nonnull Class<T> clazz) {
     MCLItem fromBatch = batch.get(aspectName);
-    if (fromBatch != null) {
-      return fromBatch.getAspect(clazz);
-    }
-    Aspect fromStore = stored.get(aspectName);
-    return fromStore != null ? RecordUtils.toRecordTemplate(clazz, fromStore.data()) : null;
+    return fromBatch != null ? fromBatch.getAspect(clazz) : toRecord(stored, aspectName, clazz);
   }
 
-  private record Candidate(DataHubIngestionSourceRunSummary summary, MCLItem trigger) {}
+  @Nullable
+  private static <T extends RecordTemplate> T toRecord(
+      @Nonnull Map<String, Aspect> stored, @Nonnull String aspectName, @Nonnull Class<T> clazz) {
+    Aspect aspect = stored.get(aspectName);
+    return aspect != null ? RecordUtils.toRecordTemplate(clazz, aspect.data()) : null;
+  }
+
+  private record Candidate(
+      Urn sourceUrn, DataHubIngestionSourceRunSummary summary, MCLItem trigger) {}
 }

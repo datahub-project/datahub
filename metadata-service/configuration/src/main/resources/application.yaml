@@ -1756,6 +1756,7 @@ systemUpdate:
   ingestionSourceRunSummary:
     # Sets dataHubIngestionSourceRunSummary on existing ingestion sources from their latest
     # execution request. New runs keep it current via IngestionSourceRunSummarySideEffect.
+    # Each batch makes one execution request search per source.
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_SUMMARY_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_SUMMARY_BATCH_SIZE:500}
     reprocess:

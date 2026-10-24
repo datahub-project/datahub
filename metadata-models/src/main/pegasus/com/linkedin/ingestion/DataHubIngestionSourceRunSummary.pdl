@@ -28,8 +28,9 @@ record DataHubIngestionSourceRunSummary {
   lastRunRequestedAtMillis: long
 
   /**
-   * Status of the most recent execution request, e.g. RUNNING, SUCCESS or FAILURE. Absent until
-   * the executor reports a result.
+   * Status of the most recent execution request, copied as-is from its result, e.g. RUNNING,
+   * SUCCESS, FAILURE or DUPLICATE. A newer DUPLICATE request therefore replaces the status of the
+   * run it duplicated. Absent until the executor reports a result.
    */
   @Searchable = {
     "fieldName": "lastRunStatus",
