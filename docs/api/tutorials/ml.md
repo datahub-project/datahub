@@ -883,6 +883,58 @@ Find dataset relationships in the **Lineage** tab of either the **Dataset** or *
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-dataset-graph.png"/>
 </p>
 
+## Read ML Lineage Back
+
+Now that you've written models, features, and lineage into DataHub, here's how a downstream agent can read that same graph back. This is the pattern used by monitoring, drift-detection, and model-observability agents — walk from a deployed model up to its features and source tables, then pull per-asset schema and profile snapshots.
+
+The full walk uses a handful of `DataHubGraph` reads:
+
+```python
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.metadata.schema_classes import (
+    MLModelPropertiesClass,
+    MLFeaturePropertiesClass,
+    SchemaMetadataClass,
+    DatasetProfileClass,
+    OwnershipClass,
+)
+
+graph = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
+
+# 1. Read the deployed model's properties (upstream features live here)
+model_urn = "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
+model_props = graph.get_aspect(entity_urn=model_urn, aspect_type=MLModelPropertiesClass)
+
+# 2. Walk each feature the model consumes
+for feature_urn in (model_props.mlFeatures or []):
+    feature_props = graph.get_aspect(entity_urn=feature_urn, aspect_type=MLFeaturePropertiesClass)
+
+    # 3. Each feature points at its source dataset(s)
+    for source_urn in (feature_props.sources or []):
+        schema = graph.get_aspect(entity_urn=source_urn, aspect_type=SchemaMetadataClass)
+        owners = graph.get_aspect(entity_urn=source_urn, aspect_type=OwnershipClass)
+
+        # 4. Latest profile snapshot — see the note below
+        profile = graph.get_latest_timeseries_value(
+            entity_urn=source_urn,
+            aspect_type=DatasetProfileClass,
+            filter_criteria_map={},  # empty dict, NOT None
+        )
+
+        # `schema`, `owners`, `profile` may each be None if that aspect was never emitted.
+        ...
+```
+
+:::note DatasetProfile is a timeseries aspect
+`DatasetProfileClass` is a **timeseries** aspect, so `graph.get_aspect(...)` will raise. Use `graph.get_latest_timeseries_value(...)` instead, and always pass `filter_criteria_map={}` (an empty dict — passing `None` crashes the client with an unhelpful `AttributeError`).
+:::
+
+### Why this matters for agents
+
+An agent that only reads static properties (schemas, ownership) misses the signal that matters most for ML observability: **whether the training data has silently shifted since the model was deployed**. Reading the latest `DatasetProfile` on each upstream source lets the agent compute per-hop signatures (row count, null-rate, distribution moments, freshness) and score drift against a last-known-good baseline.
+
+For a working reference implementation of exactly this walk — nine drift dimensions, write-back into DataHub as tags on the affected assets, persistent incident memory to avoid re-paging — see the [Ogle](https://github.com/BenDuske/ogle) hackathon project, in particular [`src/ogle/walker.py`](https://github.com/BenDuske/ogle/blob/main/src/ogle/walker.py).
+
 ## Update Properties
 
 ### Update Model Group Properties
