@@ -33,6 +33,23 @@ record OAuthProvider {
     /**
     * The JWT claim to use as the user identifier for this provider.
     * Different providers use different claims (sub, email, preferred_username, etc.)
+    * Equivalent to the frontend OIDC setting auth.oidc.userNameClaim.
     */
     userIdClaim: string = "sub"
+    /**
+    * When true, map the resolved user ID to an existing corpuser identity
+    * instead of creating a separate __oauth_ service account.
+    * Use this when API callers are the same users who log in via frontend OIDC SSO.
+    * The userIdClaim + userIdClaimRegex must resolve to a value that matches
+    * an existing corpuser URN (same as how the frontend resolves userNameClaim + userNameClaimRegex).
+    */
+    mapToCorpUser: boolean = false
+    /**
+    * Regex applied to the userIdClaim value before using it as the corpuser identity.
+    * Uses the same semantics as the frontend OIDC setting auth.oidc.userNameClaimRegex:
+    * Pattern.compile(regex).matcher(claimValue).find() -> matcher.group() (full match).
+    * Only used when mapToCorpUser is true.
+    * Example: "(.*)" (default, uses full claim value), "([^@]+)" (strip domain from email)
+    */
+    userIdClaimRegex: string = "(.*)"
 }
