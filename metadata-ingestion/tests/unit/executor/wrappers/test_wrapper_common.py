@@ -236,3 +236,34 @@ class TestWrapperStdinContent:
         _written, cmd = self._run_ingestion_wrapper(tmp_path, envelope_support=True)
 
         assert cmd[0] == str(tmp_path / "venv" / "bin" / "datahub")
+
+
+class TestTheTwoMaskingSwitches:
+    """DATAHUB_ENABLE_SECRET_MASKING and DATAHUB_DISABLE_SECRET_MASKING are
+    different switches with opposite polarity. The wrapper read only the
+    first, the library only the second, so an operator setting either one got
+    half of what they asked for."""
+
+    def test_the_librarys_disable_switch_also_stops_the_wrapper(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATAHUB_ENABLE_SECRET_MASKING", raising=False)
+        monkeypatch.setenv("DATAHUB_DISABLE_SECRET_MASKING", "true")
+
+        with patch.object(wrapper_common, "initialize_secret_masking") as init:
+            wrapper_common.register_secrets_for_masking({"PW": "a-real-secret"})
+
+        assert not init.called, (
+            "the wrapper fed secrets to a library that was told not to mask"
+        )
+
+    def test_neither_switch_set_still_registers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATAHUB_ENABLE_SECRET_MASKING", raising=False)
+        monkeypatch.delenv("DATAHUB_DISABLE_SECRET_MASKING", raising=False)
+
+        with patch.object(wrapper_common, "initialize_secret_masking") as init:
+            wrapper_common.register_secrets_for_masking({"PW": "a-real-secret"})
+
+        assert init.called
