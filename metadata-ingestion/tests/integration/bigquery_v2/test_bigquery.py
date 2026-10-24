@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import time_machine
 from google.cloud.bigquery.table import TableListItem
+from google.cloud.resourcemanager_v3 import Project
 
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
@@ -352,7 +353,9 @@ def test_bigquery_v2_project_labels_ingest(
     # Mock ProjectsClient instance and its search_projects method
     mock_projects_client_instance = MagicMock()
     mock_projects_client_instance.search_projects.return_value = [
-        SimpleNamespace(project_id="dev", display_name="development")
+        Project(
+            project_id="dev", display_name="development", state=Project.State.ACTIVE
+        )
     ]
     projects_client.return_value = mock_projects_client_instance
 
