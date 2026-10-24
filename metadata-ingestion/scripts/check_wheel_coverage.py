@@ -3,6 +3,9 @@
 Flag locked C-extension packages missing wheels for supported Python versions.
 
 Parses uv.lock wheel filenames. Handles abi3, py3-none-any, and standard cpXY tags.
+A package version is only checked against the Python minors it is actually
+installed on, per its environment marker in constraints.txt (the lock forks some
+packages per Python version, e.g. pandas 2.1.x for <3.13 and 2.3.x for 3.13).
 Exits non-zero if gaps are found (unless the package is in KNOWN_EXCEPTIONS).
 """
 
@@ -11,14 +14,15 @@ import sys
 from pathlib import Path
 
 import toml
+from packaging.markers import Marker
 
 METADATA_INGESTION_DIR = Path(__file__).resolve().parent.parent
 
-# Lockfile and Docker images are produced on 3.11, so uv.lock only records
-# cp311+ wheels. Published python_requires stays >=3.10; extras that pull
+# uv.lock is resolved for 3.11-3.13 (see [tool.uv] environments in
+# pyproject.toml), so it only records cp311+ wheels. Published python_requires stays >=3.10; extras that pull
 # unstructured (numba/llvmlite/blis/spacy, ...) fail closed via that stack's
 # own requires-python rather than this lock check.
-REQUIRED_PYTHON_MINORS = {11, 12}
+REQUIRED_PYTHON_MINORS = {11, 12, 13}
 
 KNOWN_EXCEPTIONS = {
     "kerberos",  # Unmaintained, source-only. Needs replacement with krb5/gssapi.
@@ -44,6 +48,47 @@ def parse_uv_lock():
     return packages
 
 
+# A package is required for a Python minor if its marker admits that minor on
+# any of these platforms.
+_PLATFORM_ENVIRONMENTS = [
+    {"os_name": "posix", "sys_platform": "linux", "platform_system": "Linux"},
+    {"os_name": "posix", "sys_platform": "darwin", "platform_system": "Darwin"},
+    {"os_name": "nt", "sys_platform": "win32", "platform_system": "Windows"},
+]
+_PLATFORM_MACHINES = ["x86_64", "arm64", "aarch64", "AMD64"]
+
+
+def parse_constraint_markers():
+    """Map (name, version) to the environment marker in constraints.txt."""
+    markers = {}
+    for line in (METADATA_INGESTION_DIR / "constraints.txt").read_text().splitlines():
+        m = re.match(r"^([A-Za-z0-9._-]+)==([^\s;]+)\s*;\s*(.+)$", line)
+        if m:
+            markers[(m.group(1).lower(), m.group(2))] = Marker(m.group(3))
+    return markers
+
+
+def installed_minors(marker, minors):
+    """Return the subset of minors on which the marker selects the package."""
+    if marker is None:
+        return set(minors)
+    selected = set()
+    for minor in minors:
+        for platform_env in _PLATFORM_ENVIRONMENTS:
+            for machine in _PLATFORM_MACHINES:
+                env = {
+                    **platform_env,
+                    "platform_machine": machine,
+                    "python_version": f"3.{minor}",
+                    "python_full_version": f"3.{minor}.0",
+                    "implementation_name": "cpython",
+                    "platform_python_implementation": "CPython",
+                }
+                if marker.evaluate(env):
+                    selected.add(minor)
+    return selected
+
+
 def get_supported_minors(wheels, max_minor):
     """Return (is_pure_python, set of supported 3.X minor versions)."""
     minors: set[int] = set()
@@ -66,6 +111,7 @@ def get_supported_minors(wheels, max_minor):
 def main():
     max_minor = max(REQUIRED_PYTHON_MINORS)
     issues = []
+    markers = parse_constraint_markers()
 
     for pkg in parse_uv_lock():
         if pkg["name"] in KNOWN_EXCEPTIONS or not pkg["wheels"]:
@@ -73,7 +119,10 @@ def main():
         is_pure, minors = get_supported_minors(pkg["wheels"], max_minor)
         if is_pure:
             continue
-        missing = REQUIRED_PYTHON_MINORS - minors
+        required = installed_minors(
+            markers.get((pkg["name"].lower(), pkg["version"])), REQUIRED_PYTHON_MINORS
+        )
+        missing = required - minors
         if missing:
             missing_s = ", ".join(f"3.{v}" for v in sorted(missing))
             has_s = ", ".join(f"3.{v}" for v in sorted(minors))
