@@ -193,6 +193,12 @@ class PlatformAdapter(ABC):
           profile's partitionSpec is rendered from. Anything the config asked
           for and `applied` does not report is warned about centrally.
 
+        Deciding between options the platform cannot honour together is this
+        layer's job, not the config's: the config stays neutral and records the
+        request, and the adapter -- the only thing that knows what the platform
+        can do -- picks and says what it picked. Both SQL adapters that sample
+        prefer a sample over a limit; an adapter is free to choose otherwise.
+
         Default implementation: Creates SQLAlchemy table object with no special handling.
         Platforms like BigQuery, Athena, and Trino override this for custom behavior.
 

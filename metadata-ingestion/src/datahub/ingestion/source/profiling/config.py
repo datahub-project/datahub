@@ -133,6 +133,17 @@ class ProfilingBaseConfig(ProfilingMethodConfig):
 
 
 class ProfilingConfig(ProfilingBaseConfig):
+    """Shared profiling options.
+
+    This layer is deliberately not opinionated: it validates that a value is
+    usable on its own (a limit must be positive) and otherwise records the
+    request untouched. It does not reconcile options that pull against each
+    other -- a limit alongside sampling, an offset with no limit -- because
+    whether they conflict depends on the platform, which this object cannot
+    see. The adapter decides and reports what it applied; the profiler warns
+    about anything the recipe asked for that did not happen.
+    """
+
     report_dropped_profiles: bool = Field(
         default=False,
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",

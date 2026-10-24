@@ -10,14 +10,25 @@ import sqlalchemy as sa
 class AppliedProfile:
     """What the adapter actually profiled. Presence is the signal.
 
+    The division of labour this exists to serve:
+      - the config layer is NOT opinionated. It records what the recipe asked
+        for and reconciles nothing, so no option is silently rewritten.
+      - the adapter layer IS necessarily opinionated. Only it knows what the
+        platform can do, and some requests cannot be honoured together, so it
+        decides -- and reports the decision here rather than leaving the
+        profiler to infer one.
+
     `limit`/`offset` mean the profiled rows respect that bound -- not that SQL
     was emitted for it. An adapter that skips a limit it knows to be redundant
     still reports it, because the result honours it either way.
 
-    Adapters set the fields they applied; they never replace the object, whose
-    `partition` the profiler seeds from the request.
+    Adapters set the fields they applied; they never replace the object.
     """
 
+    # Which partition the profile covers. Unlike the others this is not an
+    # adapter decision: the source picks the partition and the profiler seeds
+    # it here, so the renderer can combine it with whatever reduction the
+    # adapter went on to apply ("20230906 SAMPLE").
     partition: Optional[str] = None
     sample_percentage: Optional[float] = None
     sample_rows: Optional[int] = None
