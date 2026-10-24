@@ -227,14 +227,13 @@ class DremioProfiler:
         if not metrics:
             raise ValueError("No valid metrics could be generated")
 
-        main_query = f"SELECT {', '.join(metrics)} FROM {table_name}"
-
-        if self.config.profiling.limit:
-            main_query += f" LIMIT {self.config.profiling.limit}"
-        if self.config.profiling.offset:
-            main_query += f" OFFSET {self.config.profiling.offset}"
-
-        return main_query
+        # profiling.limit/offset are deliberately not applied. This query is a
+        # single-row aggregate, so a LIMIT bounds that row rather than the scan
+        # -- it has never reduced what Dremio reads -- and an OFFSET skips the
+        # only row there is, emptying the profile. Bounding the input would mean
+        # sampling the table inside a subquery, which this profiler does not do;
+        # until it does, the config lists neither option for Dremio.
+        return f"SELECT {', '.join(metrics)} FROM {table_name}"
 
     def _get_column_metrics(self, column_name: str, data_type: str) -> List[str]:
         metrics = []
