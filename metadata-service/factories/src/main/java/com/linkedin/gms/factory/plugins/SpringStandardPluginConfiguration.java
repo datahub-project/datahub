@@ -66,6 +66,7 @@ import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValid
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
+import com.linkedin.metadata.ingestion.sideeffects.IngestionSourceRunSummarySideEffect;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -345,6 +346,32 @@ public class SpringStandardPluginConfiguration {
     return new DomainReferenceDetachSideEffect()
         .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.ingestionSourceRunSummary.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect ingestionSourceRunSummarySideEffect() {
+    // RESTATE is excluded so restore-indices replays of historical runs do not rewrite summaries.
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(IngestionSourceRunSummarySideEffect.class.getName())
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                        .aspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                        .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                        .build()))
+            .build();
+    return new IngestionSourceRunSummarySideEffect().setConfig(config);
   }
 
   // Returns null when MeterRegistry/ObjectMapper unavailable

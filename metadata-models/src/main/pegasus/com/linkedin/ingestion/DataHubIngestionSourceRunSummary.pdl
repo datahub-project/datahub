@@ -1,0 +1,40 @@
+namespace com.linkedin.ingestion
+
+import com.linkedin.common.Urn
+
+/**
+ * Derived.
+ * Summary of the most recent execution request for an ingestion source, kept in sync from the
+ * source's execution requests so that sources can be sorted and filtered by their latest run.
+ */
+@Aspect = {
+  "name": "dataHubIngestionSourceRunSummary"
+}
+record DataHubIngestionSourceRunSummary {
+
+  /**
+   * Urn of the most recent execution request for this ingestion source.
+   */
+  lastExecutionRequest: Urn
+
+  /**
+   * Time at which the most recent execution request was created, as epoch at UTC in milliseconds.
+   */
+  @Searchable = {
+    "fieldName": "lastRunRequestedAtMillis",
+    "fieldType": "DATETIME",
+    "queryByDefault": false
+  }
+  lastRunRequestedAtMillis: long
+
+  /**
+   * Status of the most recent execution request, e.g. RUNNING, SUCCESS or FAILURE. Absent until
+   * the executor reports a result.
+   */
+  @Searchable = {
+    "fieldName": "lastRunStatus",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  lastRunStatus: optional string
+}

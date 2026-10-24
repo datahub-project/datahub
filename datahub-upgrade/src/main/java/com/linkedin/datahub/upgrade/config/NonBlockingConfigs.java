@@ -17,6 +17,7 @@ import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
+import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceRunSummary;
 import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
@@ -167,6 +168,26 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.ingestionIndices.limit}") final Integer limit) {
     return new BackfillIngestionSourceInfoIndices(
         opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade backfillIngestionSourceRunSummary(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final SearchService searchService,
+      @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      @Value("${systemUpdate.ingestionSourceRunSummary.enabled}") final boolean enabled,
+      @Value("${systemUpdate.ingestionSourceRunSummary.reprocess.enabled}")
+          final boolean reprocessEnabled,
+      @Value("${systemUpdate.ingestionSourceRunSummary.batchSize}") final Integer batchSize) {
+    return new BackfillIngestionSourceRunSummary(
+        opContext,
+        entityService,
+        searchService,
+        entitySearchService,
+        enabled,
+        reprocessEnabled,
+        batchSize);
   }
 
   @Bean
