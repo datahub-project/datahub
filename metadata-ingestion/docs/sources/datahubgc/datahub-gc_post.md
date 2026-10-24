@@ -154,6 +154,14 @@ Manages the permanent removal of soft-deleted entities after a retention period.
 - Supports filtering by entity type, platform, or environment
 - Concurrent processing with safety limits
 
+##### Required Privileges
+
+Hard deletion is performed through the GMS delete API, so the user or access token running the
+`datahub-gc` source must hold the `Delete Entity` (`DELETE_ENTITY`) metadata privilege on the
+entities being cleaned up. Without it, GMS rejects each delete with `HTTP 403` and the run reports
+`Failed to delete entity` for every affected URN with a `User is unauthorized to delete entity`
+message. Deletes that fail are reported per entity and do not stop the remaining cleanup.
+
 ##### Configuration
 
 ```yaml
