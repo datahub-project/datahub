@@ -22,6 +22,7 @@ from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
 from datahub.ingestion.workunit_processors.auto_workunits_reporter import (
     AutoWorkunitsReporterProcessor,
 )
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
@@ -645,6 +646,37 @@ class TestSqlQueriesSource:
         source = SqlQueriesSource(pipeline_context, config)
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
+
+    def test_max_transform_operation_length_truncates_incremental_patch(
+        self, pipeline_context, query_file_with
+    ):
+        path = query_file_with(
+            [
+                _query_line(
+                    query="INSERT INTO target_table SELECT col_a + col_b AS total FROM source_table"
+                )
+            ]
+        )
+        source = _make_source(
+            pipeline_context,
+            path,
+            use_schema_resolver=False,
+            incremental_lineage=True,
+            max_transform_operation_length=5,
+        )
+
+        patches = [
+            wu.metadata
+            for wu in source.get_workunits()
+            if isinstance(wu.metadata, MetadataChangeProposalClass)
+            and wu.metadata.aspectName == "upstreamLineage"
+        ]
+        assert len(patches) == 1
+        assert patches[0].aspect is not None
+        patch_value = patches[0].aspect.value.decode()
+        assert "SQL: " in patch_value
+        assert "..." in patch_value
+        assert "col_a + col_b" not in patch_value
 
 
 # ── Error handling tests ─────────────────────────────────────────────────

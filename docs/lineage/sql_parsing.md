@@ -67,3 +67,18 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 ### Disabling the native sqlglot extensions
 
 By default DataHub ships sqlglot with its mypyc-compiled C extensions (`sqlglot[c]`) for faster parsing. If you hit memory or stability issues that you suspect are caused by these compiled extensions, set `DATAHUB_SQLGLOT_DISABLE_C=1` to force sqlglot to load its pure-Python implementation instead. This is applied per process and takes effect without changing any installed packages; DataHub logs a warning when the toggle is active so it's visible in your logs.
+
+### Limiting column transformation logic length
+
+Column-level lineage stores the SQL that computes each column. With `incremental_lineage`, that logic is part of every column-level lineage patch, so long queries make the patches and the stored lineage large. `max_transform_operation_length` cuts it on SQLAlchemy-based sources, Snowflake, BigQuery, Redshift, Unity Catalog, Dremio and the `sql-queries` source:
+
+```yaml
+source:
+  type: mysql
+  config:
+    # ...
+    incremental_lineage: true
+    max_transform_operation_length: 1000
+```
+
+Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic. The setting applies only to dataset `upstreamLineage` with `incremental_lineage: true`; it is ignored otherwise, and data-job lineage is not affected. Entries stored before a change stay alongside the new ones until a run with `incremental_lineage: false`.

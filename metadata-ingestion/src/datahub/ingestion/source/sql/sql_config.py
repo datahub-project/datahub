@@ -26,6 +26,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
+    TransformOperationLengthConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -156,6 +157,7 @@ class SQLCommonConfig(
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
     IncrementalLineageConfigMixin,
+    TransformOperationLengthConfigMixin,
     ClassificationSourceConfigMixin,
     SQLFilterConfig,
 ):

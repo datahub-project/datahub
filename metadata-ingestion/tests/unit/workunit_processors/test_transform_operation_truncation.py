@@ -1,0 +1,145 @@
+from typing import List, Optional
+
+import pytest
+
+from datahub.configuration.source_common import TransformOperationLengthConfigMixin
+from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.workunit_processors.auto_incremental_lineage import (
+    AutoIncrementalLineageProcessor,
+)
+from datahub.ingestion.workunit_processors.transform_operation import (
+    truncate_transform_operation,
+)
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    DatasetSnapshotClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
+
+UPSTREAM = make_dataset_urn("clickhouse", "db.orders")
+DOWNSTREAM = make_dataset_urn("clickhouse", "db.orders_summary")
+LOGIC = "SQL: SUM(col_a) AS total"
+
+
+@pytest.mark.parametrize(
+    "value, max_length, expected",
+    [
+        (LOGIC, 100, LOGIC),
+        (LOGIC, 8, "SQL: SUM(col_..."),
+        (LOGIC, 17, LOGIC),
+        ("COPY: col_a AS col_a", 0, "COPY"),
+        ("col_a + col_b", 5, "col_a..."),
+        ("col_a + col_b", 0, None),
+    ],
+)
+def test_truncate_transform_operation(
+    value: str, max_length: int, expected: Optional[str]
+) -> None:
+    assert truncate_transform_operation(value, max_length) == expected
+
+
+def _ctx(max_length: Optional[int] = None) -> WorkunitProcessorContext:
+    return WorkunitProcessorContext(
+        source_report=SourceReport(),
+        pipeline_context=PipelineContext(run_id="test"),
+        source_config=TransformOperationLengthConfigMixin(
+            max_transform_operation_length=max_length
+        ),
+        platform="clickhouse",
+        source_platform="clickhouse",
+    )
+
+
+def _fine_grained(
+    transform_operations: List[Optional[str]],
+) -> List[FineGrainedLineageClass]:
+    return [
+        FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[make_schema_field_urn(UPSTREAM, f"col_{i}")],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[make_schema_field_urn(DOWNSTREAM, f"col_{i}")],
+            transformOperation=transform_operation,
+        )
+        for i, transform_operation in enumerate(transform_operations)
+    ]
+
+
+def _lineage(
+    transform_operations: List[Optional[str]],
+) -> UpstreamLineageClass:
+    return UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=UPSTREAM, type=DatasetLineageTypeClass.TRANSFORMED)
+        ],
+        fineGrainedLineages=_fine_grained(transform_operations),
+    )
+
+
+def _lineage_wu(transform_operations: List[Optional[str]]) -> MetadataWorkUnit:
+    return MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM,
+        aspect=_lineage(transform_operations),
+    ).as_workunit()
+
+
+def test_incremental_lineage_applies_configured_transform_length() -> None:
+    processor = AutoIncrementalLineageProcessor.create(_ctx(max_length=8))
+
+    [out] = list(processor.process([_lineage_wu([LOGIC, "COPY: col_b", None])]))
+
+    assert isinstance(out.metadata, MetadataChangeProposalClass)
+    assert out.metadata.changeType == "PATCH"
+    assert out.metadata.aspect is not None
+    patch_value = out.metadata.aspect.value.decode()
+    assert "SUM(col_..." in patch_value
+    assert "SUM(col_a) AS total" not in patch_value
+    assert "COPY: col_b" in patch_value
+    assert processor.report.num_transform_operations_truncated == 1
+
+
+def test_incremental_lineage_keeps_full_logic_when_length_unset() -> None:
+    processor = AutoIncrementalLineageProcessor.create(_ctx(max_length=None))
+
+    [out] = list(processor.process([_lineage_wu([LOGIC])]))
+
+    assert isinstance(out.metadata, MetadataChangeProposalClass)
+    assert out.metadata.aspect is not None
+    assert "SUM(col_a) AS total" in out.metadata.aspect.value.decode()
+    assert processor.report.num_transform_operations_truncated == 0
+
+
+def test_incremental_lineage_truncates_mce_before_patch() -> None:
+    processor = AutoIncrementalLineageProcessor.create(_ctx(max_length=8))
+    mce_wu = MetadataWorkUnit(
+        id="mce",
+        mce=MetadataChangeEventClass(
+            proposedSnapshot=DatasetSnapshotClass(
+                urn=DOWNSTREAM,
+                aspects=[_lineage([LOGIC])],
+            )
+        ),
+    )
+
+    outs = list(processor.process([mce_wu]))
+    patches = [
+        wu.metadata
+        for wu in outs
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "upstreamLineage"
+    ]
+    assert len(patches) == 1
+    assert patches[0].aspect is not None
+    assert "SUM(col_..." in patches[0].aspect.value.decode()
+    assert "SUM(col_a) AS total" not in patches[0].aspect.value.decode()
