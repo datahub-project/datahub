@@ -4,7 +4,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
@@ -12,6 +11,7 @@ import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Instant;
@@ -549,13 +549,28 @@ public class QueryTimeCanonicalizerTest {
     assertEquals(changed.getId().getTag("strategy"), "time");
   }
 
+  /** An enabled canonicalizer reports that it is running, once, at construction. */
+  @Test
+  public void testEnabledSetsEnabledGauge() {
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
+
+    QueryTimeCanonicalizer.fromConfig(enabledConfig(5, "MINUTES", "UTC", "EXPAND"), metricUtils);
+
+    final Gauge gauge =
+        registry.find("datahub.search.canonicalization.enabled").tag("reason", "enabled").gauge();
+    assertNotNull(gauge, "enabled gauge was never registered");
+    assertEquals(gauge.value(), 1.0);
+    assertEquals(gauge.getId().getTag("strategy"), "time");
+  }
+
   /**
-   * A canonicalizer disabled by configuration reports skips rather than staying silent. Without
-   * this an operator cannot distinguish "the feature never runs" from "the feature runs and does
-   * not help" when the cache hit rate fails to move.
+   * A canonicalizer disabled by configuration says so through the gauge, and does no metric work
+   * per call. Without the gauge an operator cannot distinguish "the feature never runs" from "the
+   * feature runs and does not help" when the cache hit rate fails to move.
    */
   @Test
-  public void testDisabledReportsSkipReason() {
+  public void testDisabledSetsGaugeAndRecordsNothingPerCall() {
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
     final QueryTimeCanonicalizer c =
@@ -563,26 +578,22 @@ public class QueryTimeCanonicalizerTest {
             QueryCanonicalizationConfiguration.builder().enabled(false).build(), metricUtils);
 
     final CanonicalNow now = c.now();
+    c.now();
 
     assertFalse(now.isCanonicalized());
     assertEquals(now.reference(), now.raw());
     assertEquals(now.upperBound(), now.raw());
-    assertNull(
-        registry.find("datahub.search.canonicalization.applied").counter(),
-        "a disabled canonicalizer must not report work it did not do");
-    assertNull(registry.find("datahub.search.canonicalization.changed").counter());
-    final Counter skipped =
-        registry
-            .find("datahub.search.canonicalization.skipped")
-            .tag("reason", "disabled")
-            .counter();
-    assertNotNull(skipped, "skipped counter was never registered");
-    assertEquals(skipped.count(), 1.0);
+    final Gauge gauge =
+        registry.find("datahub.search.canonicalization.enabled").tag("reason", "disabled").gauge();
+    assertNotNull(gauge, "enabled gauge was never registered");
+    assertEquals(gauge.value(), 0.0);
+    assertEquals(
+        registry.getMeters().size(), 1, "a disabled canonicalizer must only register the gauge");
   }
 
   /** A misconfiguration must remain visible after the startup log has rolled away. */
   @Test
-  public void testInvalidConfigReportsSkipReason() {
+  public void testInvalidConfigSetsGauge() {
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     final MetricUtils metricUtils = MetricUtils.builder().registry(registry).build();
     final QueryTimeCanonicalizer c =
@@ -592,11 +603,13 @@ public class QueryTimeCanonicalizerTest {
     c.now();
 
     assertFalse(c.isEnabled());
-    assertNotNull(
+    final Gauge gauge =
         registry
-            .find("datahub.search.canonicalization.skipped")
+            .find("datahub.search.canonicalization.enabled")
             .tag("reason", "invalid_config")
-            .counter());
+            .gauge();
+    assertNotNull(gauge);
+    assertEquals(gauge.value(), 0.0);
   }
 
   /** The shared pass-through singleton has nothing to report to and must not blow up. */

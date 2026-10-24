@@ -17,9 +17,9 @@ import org.springframework.context.annotation.Configuration;
  * context.
  *
  * <p>The bean is always defined. When the feature is off or misconfigured this resolves to an exact
- * pass-through, so no consumer needs null handling and a bad config cannot prevent startup. That
- * pass-through still reports {@code canonicalization.skipped} when metrics are available, so an
- * operator can tell "never runs" apart from "runs and does not help".
+ * pass-through, so no consumer needs null handling and a bad config cannot prevent startup. Either
+ * way the {@code canonicalization.enabled} gauge is set once here, so an operator can tell "never
+ * runs" apart from "runs and does not help".
  */
 @Configuration
 public class QueryTimeCanonicalizerFactory {

@@ -3,6 +3,7 @@ package com.linkedin.metadata.utils.elasticsearch.canonicalization;
 import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
 import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.Gauge;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -55,26 +56,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class QueryTimeCanonicalizer {
 
-  /**
-   * The feature is switched off - either by configuration, or because no canonicalizer was attached
-   * to the operation context at all. Those two cases are deliberately not distinguished: the
-   * unattached case can only arise on the {@link #DISABLED} singleton, which carries no {@link
-   * MetricUtils} and therefore never reports anything, so a separate label would be unreachable.
-   */
-  static final String SKIP_DISABLED = "disabled";
+  /** Configuration was valid and canonicalization is running. */
+  static final String REASON_ENABLED = "enabled";
+
+  /** The feature is switched off by configuration. */
+  static final String REASON_DISABLED = "disabled";
 
   /** Configuration was present but unusable; see the startup error log. */
-  static final String SKIP_INVALID_CONFIG = "invalid_config";
+  static final String REASON_INVALID_CONFIG = "invalid_config";
 
   /**
    * Pass-through instance used when an {@link io.datahubproject.metadata.context.OperationContext}
-   * was built without a canonicalizer at all (tests, ad-hoc contexts). It carries no {@link
-   * MetricUtils}, so it is silent; a deployment that has the feature configured off gets the
-   * instrumented disabled instance from {@link #fromConfig} instead, which still reports skips.
+   * was built without a canonicalizer at all (tests, ad-hoc contexts), and the instance {@link
+   * #fromConfig} returns when the feature is off. A disabled instance does no metric work per call;
+   * whether the feature is on is reported once, by {@link #METRIC_ENABLED}.
    */
   public static final QueryTimeCanonicalizer DISABLED =
-      new QueryTimeCanonicalizer(
-          false, 0L, ZoneOffset.UTC, TimeRoundingMode.EXPAND, null, null, SKIP_DISABLED);
+      new QueryTimeCanonicalizer(false, 0L, ZoneOffset.UTC, TimeRoundingMode.EXPAND, null, null);
 
   private static final long ONE_HOUR_MILLIS = 3_600_000L;
   private static final long ONE_DAY_MILLIS = 86_400_000L;
@@ -87,12 +85,12 @@ public final class QueryTimeCanonicalizer {
   private static final String METRIC_APPLIED = "datahub.search.canonicalization.applied";
 
   /**
-   * Counts {@link #now()} calls that returned the raw clock reading untouched, tagged with why.
-   * Deliberately emitted by the disabled-by-configuration instance too: an operator debugging "why
-   * is my cache hit rate still flat" needs to be able to tell "the feature never runs" apart from
-   * "the feature runs and does not help", and only a metric on the disabled path answers that.
+   * Gauge set once when the canonicalizer is built from configuration: 1 when canonicalization is
+   * running, 0 when it is not, tagged with why. It lets an operator debugging "why is my cache hit
+   * rate still flat" tell "the feature never runs" apart from "the feature runs and does not help"
+   * without the disabled path doing any metric work per request.
    */
-  private static final String METRIC_SKIPPED = "datahub.search.canonicalization.skipped";
+  static final String METRIC_ENABLED = "datahub.search.canonicalization.enabled";
 
   /**
    * Subset of {@link #METRIC_APPLIED} where the canonical bounds actually differ from the raw clock
@@ -115,39 +113,31 @@ public final class QueryTimeCanonicalizer {
   private final Clock clock;
   @Nullable private final MetricUtils metricUtils;
 
-  /**
-   * Why this instance is a pass-through; {@code null} when {@link #enabled} is true. Non-null on
-   * every disabled instance, which is what lets {@link #now()} tag the skip without a fallback.
-   */
-  @Nullable private final String skipReason;
-
   QueryTimeCanonicalizer(
       boolean enabled,
       long bucketMillis,
       @Nonnull ZoneId zone,
       @Nonnull TimeRoundingMode roundingMode,
       @Nullable Clock clock,
-      @Nullable MetricUtils metricUtils,
-      @Nullable String skipReason) {
+      @Nullable MetricUtils metricUtils) {
     this.enabled = enabled;
     this.bucketMillis = bucketMillis;
     this.zone = zone;
     this.roundingMode = roundingMode;
     this.clock = clock != null ? clock : Clock.systemUTC();
     this.metricUtils = metricUtils;
-    this.skipReason = skipReason;
     this.epochAnchored = isEpochAnchored(enabled, bucketMillis, zone);
   }
 
   /**
-   * Builds a canonicalizer from configuration, returning an instrumented pass-through when the
-   * feature is off <em>or misconfigured</em>.
+   * Builds a canonicalizer from configuration, returning a pass-through when the feature is off
+   * <em>or misconfigured</em>. Either way it sets {@link #METRIC_ENABLED} once.
    *
    * <p>Anything this method can reject - an out-of-range bucket, an unknown unit, timezone or
    * rounding mode - degrades to disabled rather than failing startup: a typo should cost the
-   * optimization, not the service. The error is logged and the instance reports {@code
-   * canonicalization.skipped{reason="invalid_config"}}, so it stays visible after the log rolls
-   * away.
+   * optimization, not the service. The error is logged and {@code
+   * canonicalization.enabled{reason="invalid_config"}} reads 0, so it stays visible after the log
+   * rolls away.
    *
    * <p>A non-numeric {@code bucketSize} is the exception - Spring binding rejects it before this
    * runs.
@@ -167,11 +157,11 @@ public final class QueryTimeCanonicalizer {
       @Nullable Clock clock) {
 
     if (config == null || !config.isEnabled() || config.getTime() == null) {
-      return passThrough(clock, metricUtils, SKIP_DISABLED);
+      return passThrough(clock, metricUtils, REASON_DISABLED);
     }
     final TimeCanonicalizationConfiguration time = config.getTime();
     if (!time.isEnabled()) {
-      return passThrough(clock, metricUtils, SKIP_DISABLED);
+      return passThrough(clock, metricUtils, REASON_DISABLED);
     }
 
     try {
@@ -199,7 +189,8 @@ public final class QueryTimeCanonicalizer {
           zone,
           mode);
 
-      return new QueryTimeCanonicalizer(true, bucketMillis, zone, mode, clock, metricUtils, null);
+      reportEnabled(metricUtils, true, REASON_ENABLED);
+      return new QueryTimeCanonicalizer(true, bucketMillis, zone, mode, clock, metricUtils);
     } catch (RuntimeException e) {
       log.error(
           "Invalid query canonicalization configuration (bucketSize={} {}, timezone={}, "
@@ -210,21 +201,33 @@ public final class QueryTimeCanonicalizer {
           time.getTimezone(),
           time.getRounding(),
           e);
-      return passThrough(clock, metricUtils, SKIP_INVALID_CONFIG);
+      return passThrough(clock, metricUtils, REASON_INVALID_CONFIG);
     }
   }
 
-  /**
-   * A disabled instance that still reports skips. Falls back to the silent {@link #DISABLED}
-   * singleton when there is nothing to report to.
-   */
+  /** A disabled instance. It reports why once, here, and never per call. */
   private static QueryTimeCanonicalizer passThrough(
       @Nullable Clock clock, @Nullable MetricUtils metricUtils, @Nonnull String reason) {
-    if (metricUtils == null) {
+    reportEnabled(metricUtils, false, reason);
+    if (clock == null) {
       return DISABLED;
     }
     return new QueryTimeCanonicalizer(
-        false, 0L, ZoneOffset.UTC, TimeRoundingMode.EXPAND, clock, metricUtils, reason);
+        false, 0L, ZoneOffset.UTC, TimeRoundingMode.EXPAND, clock, null);
+  }
+
+  private static void reportEnabled(
+      @Nullable MetricUtils metricUtils, boolean enabled, @Nonnull String reason) {
+    if (metricUtils == null) {
+      return;
+    }
+    final double value = enabled ? 1.0 : 0.0;
+    // A Supplier-backed gauge holds its value strongly; the default weak reference to a state
+    // object
+    // would let the reading disappear after the next GC.
+    Gauge.builder(METRIC_ENABLED, () -> value)
+        .tags("strategy", "time", "reason", reason)
+        .register(metricUtils.getRegistry());
   }
 
   /**
@@ -235,10 +238,6 @@ public final class QueryTimeCanonicalizer {
   public CanonicalNow now() {
     final long raw = clock.millis();
     if (!enabled) {
-      if (metricUtils != null) {
-        metricUtils.incrementMicrometer(
-            METRIC_SKIPPED, 1, "strategy", "time", "reason", skipReason);
-      }
       return new CanonicalNow(raw, raw, raw, false);
     }
     final long reference = floor(raw);
