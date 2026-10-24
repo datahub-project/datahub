@@ -17,6 +17,7 @@ public class CDCProcessorCondition implements Condition {
     String transport = env.getProperty(MessagingTransport.PROPERTY, MessagingTransport.KAFKA);
     return MessagingTransport.KAFKA.equalsIgnoreCase(transport)
         && "true".equals(env.getProperty("mclProcessing.cdcSource.enabled", "false"))
-        && "true".equals(env.getProperty("MCE_CONSUMER_ENABLED"));
+        && ("true".equals(env.getProperty("MCE_CONSUMER_ENABLED"))
+            || "true".equals(env.getProperty("MCP_CONSUMER_ENABLED")));
   }
 }

@@ -10,15 +10,19 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.PolicyUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyUpdateInputInfoMapper;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.key.DataHubPolicyKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubPolicyInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<String>> {
 
@@ -43,17 +47,25 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
 
       // Finally, create the MetadataChangeProposal.
       final MetadataChangeProposal proposal;
-
-      final DataHubPolicyInfo info = PolicyUpdateInputInfoMapper.map(context, input);
-      info.setLastUpdatedTimestamp(System.currentTimeMillis());
+      final DataHubPolicyInfo info;
 
       if (policyUrn.isPresent()) {
-        // Update existing policy
-        proposal =
-            buildMetadataChangeProposalWithUrn(
-                Urn.createFromString(policyUrn.get()), POLICY_INFO_ASPECT_NAME, info);
+        // Update existing policy. Mutate the currently persisted aspect in place - rather than
+        // building a fresh one from `input` alone - so any field with no representation in
+        // PolicyUpdateInput (e.g. `actors.roles`, `editable`) survives the edit instead of being
+        // silently reset.
+        final Urn urn = Urn.createFromString(policyUrn.get());
+        final DataHubPolicyInfo existingInfo = getExistingPolicyInfo(context, urn);
+        info =
+            PolicyUpdateInputInfoMapper.mapToExisting(
+                context, input, existingInfo != null ? existingInfo : new DataHubPolicyInfo());
+        info.setLastUpdatedTimestamp(System.currentTimeMillis());
+        proposal = buildMetadataChangeProposalWithUrn(urn, POLICY_INFO_ASPECT_NAME, info);
       } else {
         // Create new policy
+        info = PolicyUpdateInputInfoMapper.map(context, input);
+        info.setLastUpdatedTimestamp(System.currentTimeMillis());
+
         // Since we are creating a new Policy, we need to generate a unique UUID.
         final UUID uuid = UUID.randomUUID();
         final String uuidStr = uuid.toString();
@@ -87,5 +99,21 @@ public class UpsertPolicyResolver implements DataFetcher<CompletableFuture<Strin
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  @Nullable
+  private DataHubPolicyInfo getExistingPolicyInfo(
+      @Nonnull final QueryContext context, @Nonnull final Urn urn) throws Exception {
+    final EntityResponse response =
+        _entityClient.getV2(
+            context.getOperationContext(),
+            POLICY_ENTITY_NAME,
+            urn,
+            Collections.singleton(POLICY_INFO_ASPECT_NAME));
+    if (response != null && response.getAspects().containsKey(POLICY_INFO_ASPECT_NAME)) {
+      return new DataHubPolicyInfo(
+          response.getAspects().get(POLICY_INFO_ASPECT_NAME).getValue().data());
+    }
+    return null;
   }
 }

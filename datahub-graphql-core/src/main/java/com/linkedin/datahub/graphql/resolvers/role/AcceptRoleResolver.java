@@ -13,19 +13,32 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.InviteToken;
+import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
 public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean>> {
+
+  // Priority values for built-in DataHub roles: higher number = more privileged.
+  // Roles absent from this map (e.g. custom roles) are treated as lowest priority (0)
+  // so that invite links for unknown roles are always honoured rather than silently dropped.
+  private static final Map<String, Integer> ROLE_PRIORITY =
+      Map.of("Admin", 3, "Editor", 2, "Reader", 1);
+
   private final RoleService _roleService;
   private final InviteTokenService _inviteTokenService;
+  private final EntityService<?> _entityService;
   private final SystemEntityClient _systemEntityClient;
   private final OperationContext _systemOperationContext;
 
@@ -50,18 +63,29 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
             }
 
             final Urn roleUrn = inviteToken.hasRole() ? inviteToken.getRole() : null;
-            // The grant is authorized by the invite token, not by the accepting user, who holds no
-            // privileges at this point. Assigning as the system actor keeps the write out of scope
-            // for PrivilegeGrantAuthorizationValidator, which requires Manage Policies for a user
-            // to write roleMembership.
-            _roleService.batchAssignRoleToActors(
-                _systemOperationContext,
-                Collections.singletonList(authentication.getActor().toUrnStr()),
-                roleUrn);
 
-            // Invalidate entity client cache for user's group/role membership
-            invalidateUserMembershipCache(
-                context, UrnUtils.getUrn(authentication.getActor().toUrnStr()));
+            final Urn userUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
+            final int currentPriority = getCurrentRolePriority(context, userUrn);
+            final int invitePriority = getRolePriority(roleUrn);
+
+            if (currentPriority > invitePriority) {
+              log.info(
+                  "User {} already has a higher-privilege role. Skipping role assignment from invite link to prevent downgrade.",
+                  userUrn);
+            } else {
+              // The grant is authorized by the invite token, not by the accepting user, who holds
+              // no privileges at this point. Assigning as the system actor keeps the write out of
+              // scope for PrivilegeGrantAuthorizationValidator, which requires Manage Policies for
+              // a
+              // user to write roleMembership.
+              _roleService.batchAssignRoleToActors(
+                  _systemOperationContext,
+                  Collections.singletonList(authentication.getActor().toUrnStr()),
+                  roleUrn);
+
+              // Invalidate entity client cache for user's group/role membership
+              invalidateUserMembershipCache(context, userUrn);
+            }
 
             return true;
           } catch (Exception e) {
@@ -71,6 +95,31 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private int getRolePriority(@Nullable final Urn roleUrn) {
+    if (roleUrn == null) {
+      return 0;
+    }
+    return ROLE_PRIORITY.getOrDefault(roleUrn.getId(), 0);
+  }
+
+  private int getCurrentRolePriority(
+      @Nonnull final QueryContext context, @Nonnull final Urn userUrn) {
+    try {
+      final RoleMembership membership =
+          (RoleMembership)
+              _entityService.getLatestAspect(
+                  context.getOperationContext(), userUrn, ROLE_MEMBERSHIP_ASPECT_NAME);
+      if (membership == null || membership.getRoles().isEmpty()) {
+        return 0;
+      }
+      return membership.getRoles().stream().mapToInt(this::getRolePriority).max().orElse(0);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to fetch current role for user {}, proceeding with role assignment", userUrn, e);
+      return 0;
+    }
   }
 
   /**

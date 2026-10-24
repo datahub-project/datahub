@@ -82,7 +82,6 @@ public class LineageSearchService {
   private static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
           .setFulltext(false)
-          .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(true)

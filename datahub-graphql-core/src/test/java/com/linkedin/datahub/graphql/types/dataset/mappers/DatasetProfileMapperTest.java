@@ -4,6 +4,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.DatasetProfile;
+import com.linkedin.datahub.graphql.generated.PartitionType;
+import com.linkedin.datahub.graphql.types.common.mappers.util.TimeWindowUtils;
 import com.linkedin.dataset.DatasetFieldProfile;
 import com.linkedin.dataset.DatasetFieldProfileArray;
 import com.linkedin.dataset.Quantile;
@@ -12,6 +14,10 @@ import com.linkedin.dataset.ValueFrequency;
 import com.linkedin.dataset.ValueFrequencyArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.timeseries.CalendarInterval;
+import com.linkedin.timeseries.PartitionSpec;
+import com.linkedin.timeseries.TimeWindow;
+import com.linkedin.timeseries.TimeWindowSize;
 import java.util.ArrayList;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -330,5 +336,110 @@ public class DatasetProfileMapperTest {
     Assert.assertEquals(
         actual.getFieldProfiles().get(1).getDistinctValueFrequencies(),
         expected.getFieldProfiles().get(1).getDistinctValueFrequencies());
+  }
+
+  @Test
+  public void testMapperSamplePartitionSpec() {
+    final com.linkedin.dataset.DatasetProfile input = new com.linkedin.dataset.DatasetProfile();
+    input.setTimestampMillis(1L);
+    input.setPartitionSpec(
+        new PartitionSpec()
+            .setType(com.linkedin.timeseries.PartitionType.QUERY)
+            .setPartition("SAMPLE"));
+
+    final DatasetProfile actual = mapProfile(input);
+
+    Assert.assertEquals(actual.getPartitionSpec().getType(), PartitionType.QUERY);
+    Assert.assertEquals(actual.getPartitionSpec().getPartition(), "SAMPLE");
+    Assert.assertNull(actual.getPartitionSpec().getTimePartition());
+  }
+
+  @Test
+  public void testMapperPartitionIdPartitionSpec() {
+    final com.linkedin.dataset.DatasetProfile input = new com.linkedin.dataset.DatasetProfile();
+    input.setTimestampMillis(1L);
+    input.setPartitionSpec(new PartitionSpec().setPartition("ds=2024-01-01"));
+
+    final DatasetProfile actual = mapProfile(input);
+
+    Assert.assertEquals(actual.getPartitionSpec().getType(), PartitionType.PARTITION);
+    Assert.assertEquals(actual.getPartitionSpec().getPartition(), "ds=2024-01-01");
+    Assert.assertNull(actual.getPartitionSpec().getTimePartition());
+  }
+
+  @Test
+  public void testMapperNoPartitionSpec() {
+    final com.linkedin.dataset.DatasetProfile input = new com.linkedin.dataset.DatasetProfile();
+    input.setTimestampMillis(1L);
+    input.setRowCount(10L);
+
+    final DatasetProfile actual = mapProfile(input);
+
+    Assert.assertNull(actual.getPartitionSpec());
+  }
+
+  @Test
+  public void testMapperTimePartitionWithFixedLength() {
+    final com.linkedin.dataset.DatasetProfile input = new com.linkedin.dataset.DatasetProfile();
+    input.setTimestampMillis(1L);
+    input.setPartitionSpec(
+        new PartitionSpec()
+            .setPartition("ds=2024-01-01")
+            .setTimePartition(
+                new TimeWindow()
+                    .setStartTimeMillis(1704067200000L)
+                    .setLength(new TimeWindowSize().setUnit(CalendarInterval.DAY).setMultiple(2))));
+
+    final DatasetProfile actual = mapProfile(input);
+
+    Assert.assertEquals(actual.getPartitionSpec().getPartition(), "ds=2024-01-01");
+    Assert.assertEquals(
+        actual.getPartitionSpec().getTimePartition().getStartTimeMillis(), (Long) 1704067200000L);
+    Assert.assertEquals(
+        actual.getPartitionSpec().getTimePartition().getDurationMillis(),
+        (Long) (2L * 24 * 60 * 60 * 1000));
+  }
+
+  @Test
+  public void testMapperTimePartitionWithCalendarLength() {
+    final com.linkedin.dataset.DatasetProfile input = new com.linkedin.dataset.DatasetProfile();
+    input.setTimestampMillis(1L);
+    final TimeWindow timePartition =
+        new TimeWindow()
+            .setStartTimeMillis(1704067200000L)
+            .setLength(new TimeWindowSize().setUnit(CalendarInterval.MONTH));
+    input.setPartitionSpec(
+        new PartitionSpec().setPartition("month=2024-01").setTimePartition(timePartition));
+
+    final DatasetProfile actual = mapProfile(input);
+
+    Assert.assertEquals(actual.getPartitionSpec().getPartition(), "month=2024-01");
+    Assert.assertEquals(
+        actual.getPartitionSpec().getTimePartition().getStartTimeMillis(), (Long) 1704067200000L);
+    Assert.assertEquals(
+        actual.getPartitionSpec().getTimePartition().getDurationMillis(),
+        (Long) (TimeWindowUtils.getEndTimeMillis(timePartition) - 1704067200000L));
+  }
+
+  @Test
+  public void testMapperTimePartitionWithoutLengthIsOmitted() {
+    final com.linkedin.dataset.DatasetProfile input = new com.linkedin.dataset.DatasetProfile();
+    input.setTimestampMillis(1L);
+    input.setPartitionSpec(
+        new PartitionSpec()
+            .setPartition("ds=2024-01-01")
+            .setTimePartition(new TimeWindow().setStartTimeMillis(1704067200000L)));
+
+    final DatasetProfile actual = mapProfile(input);
+
+    Assert.assertEquals(actual.getPartitionSpec().getType(), PartitionType.PARTITION);
+    Assert.assertEquals(actual.getPartitionSpec().getPartition(), "ds=2024-01-01");
+    Assert.assertNull(actual.getPartitionSpec().getTimePartition());
+  }
+
+  private static DatasetProfile mapProfile(final com.linkedin.dataset.DatasetProfile input) {
+    final EnvelopedAspect inputAspect =
+        new EnvelopedAspect().setAspect(GenericRecordUtils.serializeAspect(input));
+    return DatasetProfileMapper.map(null, inputAspect);
   }
 }
