@@ -4,7 +4,12 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
 import java.time.Duration;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -19,6 +24,10 @@ import org.opensearch.action.DocWriteRequest;
  */
 @Slf4j
 public abstract class AbstractBulkProcessorShim<T> {
+
+  private static final AtomicInteger REQUEUE_THREAD_ID = new AtomicInteger();
+
+  @Nullable private ExecutorService requeueExecutor;
 
   protected int threadCount = 1;
   protected T[] bulkProcessors;
@@ -47,6 +56,17 @@ public abstract class AbstractBulkProcessorShim<T> {
   protected void initBulkProcessors(
       int threadCount, Supplier<T> processorSupplier, @Nullable Runnable afterRequeueReady) {
     this.threadCount = threadCount;
+    // An unbounded queue keeps listener callbacks non-blocking. Never use CallerRunsPolicy here:
+    // re-entering add() before the callback releases its in-flight permit can deadlock the
+    // processor.
+    this.requeueExecutor =
+        Executors.newSingleThreadExecutor(
+            task -> {
+              Thread thread =
+                  new Thread(task, "bulk-requeue-" + REQUEUE_THREAD_ID.incrementAndGet());
+              thread.setDaemon(true);
+              return thread;
+            });
     this.bulkItemRequeueSupport =
         new BulkItemRequeueSupport(
             itemRequeueEnabled, itemRequeueMaxAttempts, this::requeueFailedRequest);
@@ -111,26 +131,71 @@ public abstract class AbstractBulkProcessorShim<T> {
    * Close all bulk processors. Subclasses must implement the actual processor-specific close logic.
    */
   public void closeBulkProcessor() {
-    if (bulkProcessors == null) {
-      return;
-    }
-    for (T processor : bulkProcessors) {
-      closeProcessor(processor);
+    boolean interrupted = false;
+    try {
+      if (requeueExecutor != null) {
+        requeueExecutor.shutdown();
+        // Drain accepted requeues before closing their processors. Late callbacks are rejected and
+        // settled as failures below. Do not discard queued tasks, which still own pending items.
+        while (!requeueExecutor.isTerminated()) {
+          try {
+            requeueExecutor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+          } catch (InterruptedException e) {
+            interrupted = true;
+          }
+        }
+      }
+      if (bulkProcessors != null) {
+        for (T processor : bulkProcessors) {
+          closeProcessor(processor);
+        }
+      }
+    } finally {
+      if (interrupted) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 
   /** Requeue without {@code recordEnqueued} — item is already pending from the original add. */
   protected void requeueFailedRequest(@Nonnull DocWriteRequest<?> writeRequest) {
-    if (bulkProcessors == null || bulkProcessors.length == 0) {
-      log.warn("Cannot requeue bulk item; processors not initialized");
+    if (requeueExecutor == null || bulkProcessors == null || bulkProcessors.length == 0) {
+      recordRequeueFailure(
+          writeRequest, new IllegalStateException("Bulk processors not initialized"));
       return;
     }
-    String routingKey =
-        writeRequest.id() != null
-            ? writeRequest.id()
-            : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
-    int index = Math.floorMod(routingKey.hashCode(), threadCount);
-    addToProcessor(bulkProcessors[index], writeRequest);
+    try {
+      requeueExecutor.execute(
+          () -> {
+            try {
+              String routingKey =
+                  writeRequest.id() != null
+                      ? writeRequest.id()
+                      : String.valueOf(writeRequest.index())
+                          + ":"
+                          + System.identityHashCode(writeRequest);
+              int index = Math.floorMod(routingKey.hashCode(), threadCount);
+              addToProcessor(bulkProcessors[index], writeRequest);
+            } catch (RuntimeException e) {
+              recordRequeueFailure(writeRequest, e);
+            }
+          });
+    } catch (RejectedExecutionException e) {
+      recordRequeueFailure(writeRequest, e);
+    }
+  }
+
+  private void recordRequeueFailure(DocWriteRequest<?> writeRequest, RuntimeException failure) {
+    log.warn(
+        "Failed to requeue bulk item index [{}] id [{}]",
+        writeRequest.index(),
+        writeRequest.id(),
+        failure);
+    if (bulkItemRequeueSupport != null) {
+      bulkItemRequeueSupport.clearAttempts(writeRequest);
+    }
+    // The listener leaves accepted retries pending; settle failures that it cannot observe.
+    bulkWriteResultTracker.recordUnrecoveredTransferFailure(1);
   }
 
   /**
