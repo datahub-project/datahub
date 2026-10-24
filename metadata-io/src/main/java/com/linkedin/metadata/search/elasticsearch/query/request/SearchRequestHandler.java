@@ -687,7 +687,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
     String aggregationField =
         v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
             ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
-            : ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever());
+            : ESUtils.toKeywordField(
+                opContext,
+                field,
+                false,
+                opContext.getAspectRetriever(),
+                v3SearchFieldResolver != null);
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
             .field(aggregationField)

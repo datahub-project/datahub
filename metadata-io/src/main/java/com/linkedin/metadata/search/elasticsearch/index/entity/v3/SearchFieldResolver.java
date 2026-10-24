@@ -131,7 +131,6 @@ public final class SearchFieldResolver {
     for (String field : MappingConstants.SYSTEM_KEYWORD_FIELDS) {
       if (!byName.containsKey(field)) {
         MutableField direct = new MutableField(field);
-        // System keyword fields have no case-preserving .keyword multi-field.
         direct.addRoot(FieldMapping.root(Type.URN), "system keyword " + field);
         byName.put(field, direct);
       }
@@ -152,12 +151,14 @@ public final class SearchFieldResolver {
                         return created;
                       });
               field.parsedExactPaths.addAll(paths);
-              if (V3SearchFields.isParsedUrnRoot(name, entitySpecs)) {
+              if (V3SearchFields.isParsedKeywordLabel(name, entitySpecs)) {
                 field.parsedKeywordLabel = true;
                 if (V3SearchFields.urnRootHasAnalyzers(name, entitySpecs)) {
                   field.addSubfield(FieldMapping.subfield(V3SearchFields.TEXT, Type.TEXT));
                   field.addSubfield(FieldMapping.subfield(V3SearchFields.STEMMED, Type.STEMMED));
                 }
+              } else if (V3SearchFields.dedicatedParsedNameRoot(name, entitySpecs)) {
+                field.fullUrnOnly = true;
               }
             });
 
@@ -255,9 +256,10 @@ public final class SearchFieldResolver {
       }
       return V3SearchFields.fullUrnField(field.getPath());
     }
-    return field.isKeywordSubfield() && intent != Intent.SORT
-        ? field.getPath() + ESUtils.KEYWORD_SUFFIX
-        : field.getPath();
+    if (field.isFullUrnOnly()) {
+      return V3SearchFields.fullUrnField(field.getPath());
+    }
+    return field.getPath();
   }
 
   /**
@@ -295,7 +297,7 @@ public final class SearchFieldResolver {
     if (field == null) {
       return "";
     }
-    if (field.isParsedKeywordLabel()) {
+    if (field.isParsedKeywordLabel() || field.isFullUrnOnly()) {
       return V3SearchFields.fullUrnLowercaseField(field.getPath());
     }
     if (MappingConstants.URN_FIELD.equals(field.getPath())
@@ -439,8 +441,8 @@ public final class SearchFieldResolver {
     @Nonnull Type rootType;
     boolean indexed;
     boolean docValues;
-    boolean keywordSubfield;
     boolean parsedKeywordLabel;
+    boolean fullUrnOnly;
     @Nonnull Set<String> subfields;
     @Nonnull Set<String> sourceFields;
     @Nonnull Set<Intent> supportedIntents;
@@ -556,6 +558,7 @@ public final class SearchFieldResolver {
     private FieldMapping root;
     private String rootContributor;
     private boolean parsedKeywordLabel;
+    private boolean fullUrnOnly;
     private final List<String> parsedExactPaths = new ArrayList<>();
     private final Set<String> subfields = new LinkedHashSet<>();
     private final Set<String> sources = new LinkedHashSet<>();
@@ -654,8 +657,8 @@ public final class SearchFieldResolver {
           resolvedRoot.getType(),
           resolvedRoot.isIndex(),
           resolvedRoot.isDocValues(),
-          resolvedRoot.getType() == Type.KEYWORD && resolvedRoot.isIndex(),
           parsedKeywordLabel,
+          fullUrnOnly,
           Set.copyOf(subfields),
           Set.copyOf(sources),
           Set.copyOf(intents),

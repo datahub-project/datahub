@@ -1126,12 +1126,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // _entityName sorts ignoring case. The dataset name holds both "orders" and the key
-    // "sales.orders", so the dataset comes first in both directions: ascending uses "orders",
-    // and descending uses "sales.orders", which sorts above "Orders by region".
+    // Keyword roots sort in raw UTF-8 order. "Orders by region" sorts before "orders" and
+    // "sales.orders". Descending uses the dataset's "sales.orders", which sorts after the chart.
     for (Map.Entry<SortOrder, List<Urn>> sort :
         Map.of(
-                SortOrder.ASCENDING, List.of(ORDERS, ORDERS_CHART),
+                SortOrder.ASCENDING, List.of(ORDERS_CHART, ORDERS),
                 SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
             .entrySet()) {
       assertEquals(
@@ -1650,7 +1649,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         ORDERS_CHART);
   }
 
-  /** A structured query on a normalized root field matches ignoring case. */
+  /** A structured query on a keyword root matches ignoring case. */
   @Test
   public void testStructuredQueryIgnoresCase() {
     OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
@@ -2084,11 +2083,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Root fields that are not shared labels are normalized keywords for filters, facets and sorts,
-   * without V2's analyzed subfields. Full text lives on the root field its label names: {@code
-   * text} and {@code stemmed} on each one, and a case-preserving {@code keyword} on indexed exact
-   * roots. System metadata is the root {@code _system} object. Search V3 does not map an
-   * autocomplete field.
+   * Root fields that are not shared labels are raw keywords for filters, facets and sorts, without
+   * V2's analyzed subfields. Full text lives on the root field its label names: {@code text} and
+   * {@code stemmed} on each one. The keyword root keeps the stored casing. System metadata is the
+   * root {@code _system} object. Search V3 does not map an autocomplete field.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -2097,10 +2095,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     Map<String, Object> name = (Map<String, Object>) properties.get("name");
     assertEquals(name.get("type"), "keyword");
     Map<String, Object> nameFields = (Map<String, Object>) name.get("fields");
-    assertEquals(nameFields.keySet(), Set.of("text", "stemmed", "keyword"));
+    assertEquals(nameFields.keySet(), Set.of("text", "stemmed"));
     assertEquals(((Map<String, Object>) nameFields.get("text")).get("analyzer"), "v3_text");
-    // The name keeps its stored casing for case-sensitive exact match
-    assertFalse(((Map<String, Object>) nameFields.get("keyword")).containsKey("normalizer"));
+    // The name root keeps the stored casing for case-sensitive exact match
+    assertFalse(name.containsKey("normalizer"), name.toString());
 
     Map<String, Object> description = (Map<String, Object>) properties.get("description");
     assertEquals(description.get("type"), "keyword");

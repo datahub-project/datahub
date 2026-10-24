@@ -179,7 +179,8 @@ public class SearchTemplateRenderTest {
     assertTrue(should.contains("from-should"));
     assertTrue(mustNot.contains("from-must-not"));
     assertTrue(bool.get("filter").toString().contains("\"removed\""));
-    assertTrue(should.contains(harness.property("certification.status").fieldPath() + ".keyword"));
+    assertTrue(should.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(should.contains(harness.property("certification.status").fieldPath() + ".keyword"));
   }
 
   @Test
@@ -223,7 +224,8 @@ public class SearchTemplateRenderTest {
     exactValue(addTemplate);
     harness.store("urn:li:searchTemplate:add", addTemplate);
     String withAdd = render("urn:li:searchTemplate:add", "orders", true);
-    assertTrue(withAdd.contains(harness.property("hidden.label").fieldPath() + ".keyword"));
+    assertTrue(withAdd.contains(harness.property("hidden.label").fieldPath()));
+    assertFalse(withAdd.contains(harness.property("hidden.label").fieldPath() + ".keyword"));
     assertTrue(withAdd.contains("\"boost\" : 6.0"));
 
     SearchFieldBoost only = new SearchFieldBoost();
@@ -236,7 +238,8 @@ public class SearchTemplateRenderTest {
     exactValue(replaceTemplate);
     harness.store("urn:li:searchTemplate:replace", replaceTemplate);
     String replaced = render("urn:li:searchTemplate:replace", "orders", true);
-    assertTrue(
+    assertTrue(replaced.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(
         replaced.contains(harness.property("certification.status").fieldPath() + ".keyword"));
     assertFalse(replaced.contains(harness.property("summary.notes").fieldPath()));
     assertFalse(replaced.contains(harness.property("owner.ref").fieldPath()));
@@ -337,7 +340,7 @@ public class SearchTemplateRenderTest {
   public void testFilledHoleJoinsFulltextDisMaxAtTheFragmentBoost() throws Exception {
     harness.installShippedTemplates();
     String certification = "urn:li:structuredProperty:certification.status";
-    String path = harness.property("certification.status").fieldPath() + ".keyword";
+    String path = harness.property("certification.status").fieldPath();
     SearchTemplateProperties child = template("Business name", null);
     child.setParent(UrnUtils.getUrn(SEARCH_TEMPLATE_FULLTEXT_URN));
     child.setQueryFragments(
@@ -652,12 +655,12 @@ public class SearchTemplateRenderTest {
     List<MatchEvidence> exactName =
         new MatchedFields("Gold", 3).explain(Map.of("name", "Gold"), List.of("name"), Map.of());
     assertEquals(exactName.get(0).mode(), MatchEvidence.EXACT);
-    assertEquals(exactName.get(0).subfield(), "name.keyword");
+    assertEquals(exactName.get(0).subfield(), "name");
     assertEquals(exactName.get(0).query(), "Gold");
     List<MatchEvidence> prefix =
         new MatchedFields("Go", 2).explain(Map.of("name", "Gold"), List.of("name"), Map.of());
     assertEquals(prefix.get(0).mode(), MatchEvidence.PREFIX);
-    assertEquals(prefix.get(0).subfield(), "name.keyword");
+    assertEquals(prefix.get(0).subfield(), "name");
     assertEquals(prefix.get(0).query(), "Go");
   }
 

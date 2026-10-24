@@ -87,7 +87,8 @@ public class SearchFieldResolverTest {
             field("owners", "owners", List.of(FieldMapping.root(FieldMapping.Type.URN))),
             field("createdAt", null, List.of(FieldMapping.root(FieldMapping.Type.DATETIME))));
 
-    assertEquals(resolver.exactPath("name", Intent.FILTER), "name.keyword");
+    assertEquals(resolver.exactPath("name", Intent.FILTER), "name");
+    assertEquals(resolver.exactPath("name.keyword", Intent.FILTER), "name");
     assertEquals(resolver.exactPath("name", Intent.SORT), "name");
     assertEquals(resolver.exactPath("owners", Intent.FACET), "owners");
     assertFalse(resolver.supports("owners", Intent.FULL_TEXT));
@@ -145,8 +146,8 @@ public class SearchFieldResolverTest {
                     field("score", null, List.of(FieldMapping.root(FieldMapping.Type.DOUBLE))),
                     field("count", null, List.of(FieldMapping.root(FieldMapping.Type.COUNT))))));
 
-    assertEquals(resolver.exactPath("_entityName", Intent.EXACT), "name.keyword");
-    assertEquals(resolver.exactPath("editedName", Intent.FILTER), "name.keyword");
+    assertEquals(resolver.exactPath("_entityName", Intent.EXACT), "name");
+    assertEquals(resolver.exactPath("editedName", Intent.FILTER), "name");
     assertEquals(
         resolver.resolve("name", Intent.FULL_TEXT).getSourceFields(),
         java.util.Set.of("displayName", "editedName"));
@@ -180,9 +181,9 @@ public class SearchFieldResolverTest {
     SearchFieldResolver parentResolver =
         new SearchFieldResolver(List.of(entity("schemaFieldKey", parent)));
     assertEquals(parentResolver.exactPath("parent", Intent.FILTER), "parent_urn");
-    assertEquals(parentResolver.exactPath("parent", Intent.EXACT), "parent");
+    assertEquals(parentResolver.exactPath("parent", Intent.EXACT), "parent_urn");
     assertEquals(parentResolver.parsedKeywordPaths("parent"), List.of("parent"));
-    assertTrue(parentResolver.supports("parent", Intent.FULL_TEXT));
+    assertFalse(parentResolver.supports("parent", Intent.FULL_TEXT));
 
     SearchableFieldSpec owners =
         field("owners", "owners", List.of(FieldMapping.root(FieldMapping.Type.URN)));

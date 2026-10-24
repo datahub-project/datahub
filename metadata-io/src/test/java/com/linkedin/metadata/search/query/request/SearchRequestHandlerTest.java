@@ -1056,7 +1056,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testV3ContainOnKeywordLabelStaysOnKeyword() {
     String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
-    assertTrue(query.contains("name_1.keyword"), query);
+    assertTrue(query.contains("name_1"), query);
+    assertFalse(query.contains("name_1.keyword"), query);
     assertTrue(query.contains("wildcard"), query);
     assertTrue(query.contains("*user_id*"), query);
     assertFalse(query.contains("description.text"), query);

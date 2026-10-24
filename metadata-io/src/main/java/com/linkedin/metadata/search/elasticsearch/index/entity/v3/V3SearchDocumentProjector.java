@@ -119,7 +119,7 @@ public class V3SearchDocumentProjector {
 
     final ProjectedAspect projected =
         buildProjectedAspect(
-            aspectSpec.getName(),
+            aspectSpec,
             projectedFields,
             event.getSystemMetadata(),
             STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
@@ -234,6 +234,21 @@ public class V3SearchDocumentProjector {
     }
   }
 
+  /** A dedicated has* boolean is indexed on the root. The aspect copy exists only to OR a label. */
+  private static void omitDedicatedHasValues(
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode aspectFields) {
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+      if (!resolved.isV3Searchable() || resolved.indexedFieldName().isPresent()) {
+        continue;
+      }
+      final Optional<String> declared = resolved.getHasValuesFieldName();
+      if (declared != null && declared.isPresent()) {
+        aspectFields.remove(declared.get());
+      }
+    }
+  }
+
   private static void omitV3ExcludedFields(
       @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
@@ -319,7 +334,7 @@ public class V3SearchDocumentProjector {
     final Map<String, ArrayNode> names = new LinkedHashMap<>();
     final Set<String> rootFields = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-      if (!V3SearchFields.contributesParsedUrn(fieldSpec)) {
+      if (!V3SearchFields.keepsAspectParsedName(fieldSpec, searchableEntities)) {
         continue;
       }
       final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
@@ -421,7 +436,7 @@ public class V3SearchDocumentProjector {
   }
 
   private static ProjectedAspect buildProjectedAspect(
-      @Nonnull final String aspectName,
+      @Nonnull final AspectSpec aspectSpec,
       @Nonnull final ObjectNode projectedFields,
       @Nullable final SystemMetadata systemMetadata,
       final boolean rootOnly,
@@ -429,12 +444,14 @@ public class V3SearchDocumentProjector {
       @Nonnull final ParsedUrnNames parsedUrns,
       @Nonnull final Urn urn,
       @Nonnull final OperationContext opContext) {
+    final String aspectName = aspectSpec.getName();
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
     rootFields.remove(ASPECT_JSON_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
+    omitDedicatedHasValues(aspectSpec, aspectFields);
     for (String name : sharedHasValues) {
       // Drop a stored root true or false. The indexed term comes from copy_to.
       rootFields.putNull(name);
