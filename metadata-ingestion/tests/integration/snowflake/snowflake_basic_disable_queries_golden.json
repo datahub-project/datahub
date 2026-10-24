@@ -6496,11 +6496,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000001",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6519,11 +6520,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000002",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6542,11 +6544,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000003",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6565,11 +6568,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000004",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6588,11 +6592,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000005",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6611,11 +6616,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000006",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6634,11 +6640,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000007",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6657,11 +6664,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000008",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6680,11 +6688,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000009",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
@@ -6703,11 +6712,12 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1654621200000,
+            "timestampMillis": 1654144861367,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
+            "messageId": "01a2b3c4-0000-0000-0000-000000000010",
             "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
