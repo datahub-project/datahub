@@ -9,7 +9,7 @@ from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from opensearchpy import OpenSearch
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -343,6 +343,16 @@ class ElasticsearchSourceConfig(
                     entry = entry[: -len(suffix)]
             validate_host_port(entry)
         return host_val
+
+    @model_validator(mode="after")
+    def validate_authentication(self) -> "ElasticsearchSourceConfig":
+        if self.api_key is not None and (
+            self.username is not None or self.password is not None
+        ):
+            raise ValueError(
+                "Set either api_key or username/password authentication, not both."
+            )
+        return self
 
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
