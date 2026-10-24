@@ -474,20 +474,20 @@ jobs:
           TEST_STRATEGY="-${{ matrix.test_strategy }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: docker-logs-${{ matrix.profile }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload pytest logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: pytest-smoke-logs-${{ matrix.profile }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}
           path: "smoke-test/test-results/pytest-smoke.log"
           retention-days: 5
-      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }} ${{ matrix.architecture }}
