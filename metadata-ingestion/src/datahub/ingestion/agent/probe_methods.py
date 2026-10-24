@@ -1219,8 +1219,8 @@ def run_probe_method(
             "the probe is switched off here (DATAHUB_PROBE_DISABLED), so no "
             "command that connects to the source will run. The commands that "
             "need no connection still work: `recipe describe`, "
-            "`recipe scaffold`, `recipe validate`, `probe methods` and "
-            "`probe filter`"
+            "`recipe scaffold`, `recipe validate`, `probe methods`, "
+            "`recipe probe-methods` and `probe filter`"
         )
     prepared = _prepare_call(source_type, config_dict, command, kwargs)
     call = prepared.call
