@@ -80,7 +80,10 @@ class TestProfilingContextValidation:
             partition="20230906",
         )
 
-        assert context.applied.partition == "20230906"
+        # The partition is the source's choice and stays on the context;
+        # AppliedProfile carries only what the adapter decided.
+        assert context.partition == "20230906"
+        assert context.applied == AppliedProfile()
         assert not context.applied.sampled
 
 

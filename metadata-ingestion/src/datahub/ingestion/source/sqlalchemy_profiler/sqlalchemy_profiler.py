@@ -83,7 +83,9 @@ from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 
 
-def _partition_spec_for(applied: AppliedProfile) -> PartitionSpecClass:
+def _partition_spec_for(
+    partition: Optional[str], applied: AppliedProfile
+) -> PartitionSpecClass:
     """Render a profile's partitionSpec from what the adapter reported.
 
     Scope (the whole table, or one named partition) and reduction (none, a
@@ -102,12 +104,10 @@ def _partition_spec_for(applied: AppliedProfile) -> PartitionSpecClass:
     on a different row count every run, and partitionSpec is part of the emitted
     aspect, so a size would change the profile of an unchanged table.
     """
-    if applied.partition is not None:
+    if partition is not None:
         return PartitionSpecClass(
             type=PartitionTypeClass.PARTITION,
-            partition=f"{applied.partition} SAMPLE"
-            if applied.sampled
-            else applied.partition,
+            partition=f"{partition} SAMPLE" if applied.sampled else partition,
         )
     if applied.sampled:
         return PartitionSpecClass(type=PartitionTypeClass.QUERY, partition="SAMPLE")
@@ -1975,7 +1975,9 @@ class SQLAlchemyProfiler:
                     profile = DatasetProfileClass(timestampMillis=get_sys_time())
                     profile.columnCount = len(sql_table.columns)
 
-                    profile.partitionSpec = _partition_spec_for(context.applied)
+                    profile.partitionSpec = _partition_spec_for(
+                        context.partition, context.applied
+                    )
 
                     # ================================================================
                     # QUERY BATCHING PATTERN

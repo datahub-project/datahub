@@ -22,14 +22,13 @@ class AppliedProfile:
     was emitted for it. An adapter that skips a limit it knows to be redundant
     still reports it, because the result honours it either way.
 
+    Every field here is the adapter's to decide. The partition is not: the
+    source picks it and it stays on the context, so that this type can be
+    trusted to mean "what the adapter chose" and nothing else.
+
     Adapters set the fields they applied; they never replace the object.
     """
 
-    # Which partition the profile covers. Unlike the others this is not an
-    # adapter decision: the source picks the partition and the profiler seeds
-    # it here, so the renderer can combine it with whatever reduction the
-    # adapter went on to apply ("20230906 SAMPLE").
-    partition: Optional[str] = None
     sample_percentage: Optional[float] = None
     sample_rows: Optional[int] = None
     limit: Optional[int] = None
@@ -89,9 +88,9 @@ class ProfilingContext:
     temp_view: Optional[str] = None
     temp_schema: Optional[str] = None
 
-    # What the adapter reports it profiled. Seeded in __post_init__ from the
-    # requested partition; adapters add the sample or bound they applied.
-    applied: AppliedProfile = field(init=False)
+    # What the adapter reports it profiled -- the sample or bound it applied.
+    # The partition it covers is `partition` above, chosen by the source.
+    applied: AppliedProfile = field(default_factory=AppliedProfile)
 
     # Resource tracking for cleanup
     resources_to_cleanup: List[str] = field(default_factory=list)
@@ -104,7 +103,6 @@ class ProfilingContext:
 
         # A partition request arrives already honoured: the source narrows to it
         # (via custom_sql, or a shard's own table name) before any adapter runs.
-        self.applied = AppliedProfile(partition=self.partition)
 
     def add_temp_resource(self, resource_type: str, resource_name: str) -> None:
         """Track a temporary resource that needs cleanup."""

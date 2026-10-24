@@ -1868,36 +1868,47 @@ class TestPartitionSpecRendering:
     """
 
     @pytest.mark.parametrize(
-        "applied,expected_type,expected_partition",
+        "partition,applied,expected_type,expected_partition",
         [
-            (AppliedProfile(), PartitionTypeClass.FULL_TABLE, "FULL_TABLE_SNAPSHOT"),
             (
+                None,
+                AppliedProfile(),
+                PartitionTypeClass.FULL_TABLE,
+                "FULL_TABLE_SNAPSHOT",
+            ),
+            (
+                None,
                 AppliedProfile(sample_percentage=1.5),
                 PartitionTypeClass.QUERY,
                 "SAMPLE",
             ),
             (
+                None,
                 AppliedProfile(sample_rows=10_000),
                 PartitionTypeClass.QUERY,
                 "SAMPLE",
             ),
             (
+                None,
                 AppliedProfile(limit=100, offset=25),
                 PartitionTypeClass.QUERY,
                 '{"limit": 100, "offset": 25}',
             ),
             (
+                None,
                 AppliedProfile(limit=100),
                 PartitionTypeClass.QUERY,
                 '{"limit": 100, "offset": null}',
             ),
             (
-                AppliedProfile(partition="20230906"),
+                "20230906",
+                AppliedProfile(),
                 PartitionTypeClass.PARTITION,
                 "20230906",
             ),
             (
-                AppliedProfile(partition="20230906", sample_percentage=1.5),
+                "20230906",
+                AppliedProfile(sample_percentage=1.5),
                 PartitionTypeClass.PARTITION,
                 "20230906 SAMPLE",
             ),
@@ -1905,11 +1916,12 @@ class TestPartitionSpecRendering:
     )
     def test_renders(
         self,
+        partition: Optional[str],
         applied: AppliedProfile,
         expected_type: str,
         expected_partition: str,
     ) -> None:
-        spec = _partition_spec_for(applied)
+        spec = _partition_spec_for(partition, applied)
 
         assert spec.type == expected_type
         assert spec.partition == expected_partition
