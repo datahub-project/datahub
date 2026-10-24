@@ -30,6 +30,7 @@ from typing_extensions import deprecated
 
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
+from datahub.cli.skill_context import infer_skill_component
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
@@ -2443,7 +2444,14 @@ def get_default_graph(
     # token must be refreshed per request rather than once here.
     graph_config = config_utils.load_client_config(refresh_per_request=True)
     graph_config.client_mode = client_mode
-    graph_config.datahub_component = datahub_component
+    # `-C skill=<name>` on the root command attributes every request this
+    # process makes to the invoking agent skill. Resolved here rather than at
+    # each call site so commands are attributed without opting in one by one.
+    # The value is parsed once on the root group and fixed for the life of a
+    # CLI process, so leaving it out of the lru_cache key can't serve a stale
+    # component. An explicit argument still wins, as does DATAHUB_COMPONENT
+    # when neither is set (resolved downstream in the emitter).
+    graph_config.datahub_component = datahub_component or infer_skill_component()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
     telemetry_instance.set_context(server=graph)
