@@ -13,6 +13,7 @@ record DataTypeInfo {
       "queryByDefault": true,
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "qualifiedName",
         "mappings": [
           { "type": "KEYWORD" },
@@ -30,6 +31,7 @@ record DataTypeInfo {
       "fieldType": "WORD_GRAM",
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "name",
         "mappings": [
           { "type": "KEYWORD" },
@@ -47,6 +49,7 @@ record DataTypeInfo {
       "fieldType": "TEXT",
       "hasValuesFieldName": "hasDescription",
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "description",
         "mappings": [
           { "type": "KEYWORD", "index": false, "docValues": false },

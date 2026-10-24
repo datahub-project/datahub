@@ -6,7 +6,6 @@ import {
     DataJob,
     DataPlatform,
     Dataset,
-    Entity,
     EntityType,
     FineGrainedLineage,
     Health,
@@ -24,11 +23,6 @@ import {
     Status,
     StructuredProperties,
 } from '@types';
-
-export type EntitySelectParams = {
-    type: EntityType;
-    urn: string;
-};
 
 export type FetchedEntity = {
     urn: string;
@@ -89,51 +83,10 @@ export type NodeData = {
     siblingStructuredProperties?: Maybe<StructuredProperties>;
 };
 
-export type VizNode = {
-    x: number;
-    y: number;
-    data: NodeData;
-    direction: Direction;
-};
-
-export type VizEdge = {
-    source: VizNode;
-    target: VizNode;
-    curve: { x: number; y: number }[];
-    sourceField?: string;
-    targetField?: string;
-    createdOn?: Maybe<number>;
-    createdActor?: Maybe<Entity>;
-    updatedOn?: Maybe<number>;
-    updatedActor?: Maybe<Entity>;
-    isManual?: boolean;
-};
-
-export type ColumnEdge = {
-    sourceUrn: string;
-    sourceField: string;
-    targetUrn: string;
-    targetField: string;
-};
-
-export type FetchedEntities = Map<string, FetchedEntity>;
-
 export enum Direction {
     Upstream = 'Upstream',
     Downstream = 'Downstream',
 }
-
-export type TreeProps = {
-    margin?: { top: number; right: number; bottom: number; left: number };
-    entityAndType?: EntityAndType | null;
-    fetchedEntities: Map<string, FetchedEntity>;
-    onEntityClick: (EntitySelectParams) => void;
-    onEntityCenter: (EntitySelectParams) => void;
-    onLineageExpand: (data: EntityAndType) => void;
-    selectedEntity?: EntitySelectParams;
-    hoveredEntity?: EntitySelectParams;
-    fineGrainedMap?: any;
-};
 
 export type EntityAndType =
     | {
@@ -172,13 +125,3 @@ export type EntityAndType =
           type: EntityType.MlprimaryKey;
           entity: MlPrimaryKey;
       };
-
-export interface UpdatedLineages {
-    [urn: string]: UpdatedLineage;
-}
-
-interface UpdatedLineage {
-    lineageDirection: Direction;
-    entitiesToAdd: Entity[];
-    urnsToRemove: string[];
-}

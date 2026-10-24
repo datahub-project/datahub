@@ -432,6 +432,7 @@ abs_base = {
 azure_data_factory = {
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+    *sqlglot_lib,
 }
 
 file_profiling = {
@@ -490,7 +491,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
-    "Authlib>=1.6.11,<2.0.0",
+    # CVE-2026-96760: fixed in 1.9.0
+    "Authlib>=1.9.0,<2.0.0",
     # Safe XML parsing for Data Export Service $metadata (shared sap_common.edmx).
     "defusedxml>=0.7.1,<0.8.0",
 }

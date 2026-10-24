@@ -7,8 +7,8 @@ import styled from 'styled-components/macro';
 import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
 import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
-import LastUpdated from '@app/shared/LastUpdated';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import LastUpdated from '@app/sharedV2/LastUpdated';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span<{ color: string }>`

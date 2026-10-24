@@ -17,6 +17,7 @@ record StructuredPropertyDefinition {
       "queryByDefault": true,
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "qualifiedName",
         "mappings": [
           { "type": "KEYWORD" },
@@ -35,6 +36,7 @@ record StructuredPropertyDefinition {
       "fieldType": "WORD_GRAM",
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "name",
         "mappings": [
           { "type": "KEYWORD" },
@@ -86,6 +88,9 @@ record StructuredPropertyDefinition {
     }
     @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "entityTypes"
       }
     }
@@ -103,6 +108,9 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "allowedPlatforms"
       }
     }
@@ -120,6 +128,7 @@ record StructuredPropertyDefinition {
       "fieldType": "TEXT",
       "hasValuesFieldName": "hasDescription",
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "description",
         "mappings": [
           { "type": "KEYWORD", "index": false, "docValues": false },

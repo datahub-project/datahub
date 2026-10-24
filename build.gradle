@@ -141,7 +141,9 @@ buildscript {
   // Align with Spring Boot 4.0.7 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
   ext.reactorNettyVersion = '1.3.6'
 
-  ext.nodeVersion = '22.16.0'
+  // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
+  // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  ext.nodeVersion = '22.23.4'
   ext.yarnVersion = '1.22.22'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')

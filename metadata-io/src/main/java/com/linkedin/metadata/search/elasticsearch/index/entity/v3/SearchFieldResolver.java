@@ -41,6 +41,7 @@ public final class SearchFieldResolver {
   }
 
   private final Map<String, Field> fields;
+  private final Map<String, Field> exactSourceFields;
   private final Set<String> sharedHasValues;
 
   public SearchFieldResolver(@Nonnull Collection<EntitySpec> entitySpecs) {
@@ -110,7 +111,7 @@ public final class SearchFieldResolver {
               .forEach(
                   annotation -> {
                     field.addSource(annotation.getFieldName());
-                    annotation.indexedHasValuesFieldName().ifPresent(field::setHasValues);
+                    labelHasValues(annotation).ifPresent(field::setHasValues);
                     aliasSource(
                         byName,
                         sources,
@@ -163,6 +164,14 @@ public final class SearchFieldResolver {
     Map<String, Field> resolved = new LinkedHashMap<>();
     byName.forEach((name, field) -> resolved.put(name, field.toField()));
     fields = Collections.unmodifiableMap(resolved);
+    Map<String, Field> exactSources = new LinkedHashMap<>();
+    sources.forEach(
+        (name, field) -> {
+          if (!V3SearchFields.omitsSourceRoot(name, entitySpecs)) {
+            exactSources.put(name, field.toField());
+          }
+        });
+    exactSourceFields = Collections.unmodifiableMap(exactSources);
     sharedHasValues = Set.copyOf(sharedHasValuesNames);
   }
 
@@ -200,7 +209,7 @@ public final class SearchFieldResolver {
   }
 
   public boolean supports(@Nonnull String fieldName, @Nonnull Intent intent) {
-    Field field = fields.get(parent(fieldName));
+    Field field = selectField(parent(fieldName), intent);
     return field != null && field.supports(intent);
   }
 
@@ -208,7 +217,7 @@ public final class SearchFieldResolver {
   public Field resolve(@Nonnull String fieldName, @Nonnull Intent intent) {
     String parent = parent(fieldName);
     Field field =
-        Optional.ofNullable(fields.get(parent))
+        Optional.ofNullable(selectField(parent, intent))
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
@@ -224,6 +233,16 @@ public final class SearchFieldResolver {
               + " queries");
     }
     return field;
+  }
+
+  @Nullable
+  private Field selectField(@Nonnull String fieldName, @Nonnull Intent intent) {
+    // Exact-match scoring may still target a retained source root directly. Criteria, facets, and
+    // sorts select the shared label that represents the concept across entity types.
+    if (intent == Intent.EXACT && exactSourceFields.containsKey(fieldName)) {
+      return exactSourceFields.get(fieldName);
+    }
+    return fields.get(fieldName);
   }
 
   @Nonnull
@@ -352,8 +371,10 @@ public final class SearchFieldResolver {
   }
 
   /**
-   * A V2 field name follows its degree when every contributor agrees. The same name at two degrees
-   * stays the source field, so a filter on it does not pick one degree for every entity.
+   * A V2 field name follows its shared label when every labeled contributor agrees. The shared
+   * mapping copies an unlabeled root of the same name into that label, so the label represents the
+   * concept across entity types. The same name at two degrees stays the source field, so a filter
+   * on it does not pick one degree for every entity.
    */
   private static void aliasSource(
       Map<String, MutableField> byName,
@@ -467,6 +488,12 @@ public final class SearchFieldResolver {
                 byName
                     .computeIfAbsent(field, ignored -> new MutableField(field))
                     .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
+    SearchableAnnotation.sharedHasValuesName(annotation)
+        .ifPresent(
+            field ->
+                byName
+                    .computeIfAbsent(field, ignored -> new MutableField(field))
+                    .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
     annotation
         .getNumValuesFieldName()
         .ifPresent(
@@ -483,7 +510,20 @@ public final class SearchFieldResolver {
                   .computeIfAbsent(indexedName, ignored -> new ArrayList<>())
                   .add(described);
               annotation.indexedHasValuesFieldName().ifPresent(sharedHasValuesNames::add);
+              SearchableAnnotation.sharedHasValuesName(annotation)
+                  .ifPresent(sharedHasValuesNames::add);
             });
+  }
+
+  /** The boolean attached to a label: the shared V3 name when set, otherwise the top-level name. */
+  @Nonnull
+  private static Optional<String> labelHasValues(@Nonnull SearchableAnnotation annotation) {
+    Optional<String> shared = SearchableAnnotation.sharedHasValuesName(annotation);
+    if (shared.isPresent()) {
+      return shared;
+    }
+    Optional<String> declared = annotation.indexedHasValuesFieldName();
+    return declared == null ? Optional.empty() : declared;
   }
 
   private static String contributor(
