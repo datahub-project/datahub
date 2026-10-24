@@ -126,7 +126,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
@@ -390,7 +390,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: steps.check-changes.outputs.should_run == 'true'
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         if: steps.check-changes.outputs.should_run == 'true'
