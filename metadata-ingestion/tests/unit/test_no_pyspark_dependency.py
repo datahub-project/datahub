@@ -8,7 +8,6 @@ fails if either dependency reappears in any of them.
 
 import runpy
 import sys
-import types
 from pathlib import Path
 from typing import Any, Dict
 
@@ -22,28 +21,18 @@ def _extras_require() -> Dict[str, Any]:
     def fake_setup(**kwargs: Any) -> None:
         captured.update(kwargs)
 
-    # setup.py imports setuptools; py3.12 venvs no longer seed it and it is
-    # intentionally not a dependency. Stub it, scoped to this exec, to capture
-    # the setup() kwargs without a global sys.modules leak.
-    stub = types.ModuleType("setuptools")
-    stub.__dict__.update(
-        setup=fake_setup,
-        find_packages=lambda *a, **k: [],
-        find_namespace_packages=lambda *a, **k: [],
+    # Reuse the generator's stub so the build command base classes and all
+    # replaced sys.modules entries are handled consistently.
+    generator = runpy.run_path(
+        str(SETUP_PY.parent / "scripts" / "generate_pyproject_deps.py")
     )
-    had_setuptools = "setuptools" in sys.modules
-    saved = sys.modules.get("setuptools")
-    sys.modules["setuptools"] = stub
     original_argv = sys.argv
     sys.argv = ["setup.py"]
     try:
-        runpy.run_path(str(SETUP_PY), run_name="__main__")
+        with generator["_stub_setuptools"]():
+            sys.modules["setuptools"].__dict__.update(setup=fake_setup)
+            runpy.run_path(str(SETUP_PY), run_name="__main__")
     finally:
-        if had_setuptools:
-            # `saved` may be the real module or the None import-block sentinel.
-            sys.modules["setuptools"] = saved  # type: ignore[assignment]
-        else:
-            sys.modules.pop("setuptools", None)
         sys.argv = original_argv
 
     return captured["extras_require"]

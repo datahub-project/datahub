@@ -28,17 +28,13 @@ def test_all_extras_require_are_valid_pep508() -> None:
     """
     script = """\
 import sys
-import types
+from scripts.generate_pyproject_deps import _stub_setuptools
+
 sys.path.insert(0, 'src')
 
-# Stub setuptools to capture setup() kwargs. py3.12 venvs no longer seed
-# setuptools and it is intentionally not a dependency.
+# Reuse the generator's stub, including the build command base classes.
+# Python 3.12 venvs need not have setuptools installed.
 captured = {}
-setuptools = types.ModuleType("setuptools")
-setuptools.setup = lambda **kw: captured.update(kw)
-setuptools.find_packages = lambda *a, **k: []
-setuptools.find_namespace_packages = lambda *a, **k: []
-sys.modules["setuptools"] = setuptools
 
 # Read and modify setup.py to use a release version
 # (in dev mode _self_pin is empty and bugs like "pkg{_self_pin}[extra]" won't manifest)
@@ -51,7 +47,9 @@ setup_content = setup_content.replace(
     '_version: str = "1.0.0"  # TEST OVERRIDE for PEP 508 validation'
 )
 
-exec(compile(setup_content, 'setup.py', 'exec'))
+with _stub_setuptools():
+    sys.modules["setuptools"].setup = lambda **kw: captured.update(kw)
+    exec(compile(setup_content, 'setup.py', 'exec'))
 
 # Output all requirements as JSON lines
 import json
