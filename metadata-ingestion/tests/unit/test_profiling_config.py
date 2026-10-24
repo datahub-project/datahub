@@ -206,22 +206,16 @@ def test_sources_that_sample_turn_sampling_on() -> None:
     # subclass that exists but is not wired to the source's `profiling` field --
     # means a large table is profiled in full rather than sampled.
     #
-    # Dremio stays off, and tests/unit/dremio/ pins that: it applies
-    # limit/offset but cannot sample, so opting in would cost it the bound.
+    # Excel is deliberately absent: ExcelProfiler assigns self.sample_size and
+    # never reads it, profiling every row of the frame, so opting it in would
+    # advertise a reduction that does not happen.
     from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
-    from datahub.ingestion.source.excel.config import ExcelSourceConfig
     from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 
     assert BigQueryV2Config.model_validate({}).profiling.use_sampling is True
     assert (
         SnowflakeV2Config.model_validate(
             {"account_id": "abc12345"}
-        ).profiling.use_sampling
-        is True
-    )
-    assert (
-        ExcelSourceConfig.model_validate(
-            {"path_list": ["dummy"]}
         ).profiling.use_sampling
         is True
     )
