@@ -271,7 +271,7 @@ describe('stripDotSlashFromAssets', () => {
           manifest.json provides metadata used when your web app is installed on a
           user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
         -->
-        <link rel="manifest" href="manifest.json" id="manifest-link" />
+        <link rel="manifest" href="manifest.json" id="manifest-link" crossorigin="use-credentials" />
 		<script type="module" crossorigin="" src="./assets/index-K056Uwn8.js"></script>
 		<link rel="stylesheet" crossorigin="" href="./assets/index-Byck28hc.css">
         <title>DataHub</title>
@@ -298,7 +298,7 @@ describe('stripDotSlashFromAssets', () => {
           manifest.json provides metadata used when your web app is installed on a
           user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
         -->
-        <link rel="manifest" href="manifest.json" id="manifest-link" />
+        <link rel="manifest" href="manifest.json" id="manifest-link" crossorigin="use-credentials" />
 		<script type="module" crossorigin="" src="assets/index-K056Uwn8.js"></script>
 		<link rel="stylesheet" crossorigin="" href="assets/index-Byck28hc.css">
         <title>DataHub</title>
