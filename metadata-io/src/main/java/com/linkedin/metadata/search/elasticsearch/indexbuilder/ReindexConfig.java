@@ -34,6 +34,14 @@ import org.opensearch.common.settings.Settings;
 @Accessors(fluent = true)
 public class ReindexConfig {
 
+  /** Safe to apply the structured-property subtree independently of unrelated mapping drift. */
+  public boolean hasSafeStructuredPropertyAddition() {
+    return hasNewStructuredProperty
+        && !hasRemovedStructuredProperty
+        && !hasStructuredPropertyTypeMismatch
+        && !hasStructuredPropertyCopyToMismatch;
+  }
+
   public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   static {
