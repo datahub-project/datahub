@@ -196,8 +196,14 @@ class PlatformAdapter(ABC):
         Deciding between options the platform cannot honour together is this
         layer's job, not the config's: the config stays neutral and records the
         request, and the adapter -- the only thing that knows what the platform
-        can do -- picks and says what it picked. Both SQL adapters that sample
-        prefer a sample over a limit; an adapter is free to choose otherwise.
+        can do -- picks and says what it picked.
+
+        Sampling and limit/offset are two answers to the same question -- how to
+        profile a big table cheaply -- and they do not compose: sampling an
+        already-bounded slice pays sampling's cost and loses the validity it
+        buys. Both SQL adapters that sample therefore prefer the sample, and the
+        profiler warns that the limit went unapplied. An adapter is free to
+        choose otherwise, as long as it reports what it chose.
 
         Default implementation: Creates SQLAlchemy table object with no special handling.
         Platforms like BigQuery, Athena, and Trino override this for custom behavior.

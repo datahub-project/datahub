@@ -62,10 +62,7 @@ class SnowflakeAdapter(PlatformAdapter):
             f"(table: {context.pretty_name})"
         )
 
-        # Sampling and limit/offset are two answers to the same question -- how
-        # to profile a big table cheaply -- and they do not compose: sampling an
-        # already-bounded slice pays sampling's cost and loses the validity it
-        # buys. Sampling wins; the profiler warns that the limit went unapplied.
+        # Sampling is preferred over a bound here; see PlatformAdapter.setup_profiling.
         if self.config.use_sampling:
             return self._setup_sampling(context, conn)
 
@@ -163,12 +160,7 @@ class SnowflakeAdapter(PlatformAdapter):
         temp_name = self._temp_table_name("sample")
         sample_pc = self.config.sample_size / row_count
 
-        assert context.schema is not None, (
-            f"schema is required for sampling {context.pretty_name}"
-        )
-        tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
-            db_name=None, schema_name=context.schema, table_name=context.table
-        )
+        tablename = self._quoted_tablename(context)
         # Two conditions, not one: the table must span enough micro-partitions
         # for BLOCK to be meaningful, and there must be a real reduction left for
         # BERNOULLI to do afterwards. The second only bites when sample_size
@@ -230,7 +222,12 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
-        context.applied.sample_percentage = bernoulli_pc
+        # The fraction of the table retained, not the last TABLESAMPLE's argument:
+        # the two-tier path keeps block_pc/100 * bernoulli_pc/100 == sample_pc, and
+        # its bernoulli_pc is a constant 100/BLOCK_OVERGENERATION_FACTOR that says
+        # nothing about how much of the table survived. Single-tier and the
+        # BERNOULLI-only retry both already sample at exactly this rate.
+        context.applied.sample_percentage = 100 * sample_pc
         return self._reflect_temp_table_into_context(context, conn, temp_name)
 
     def _create_fixed_size_sampled_temp_table(
@@ -261,12 +258,7 @@ class SnowflakeAdapter(PlatformAdapter):
                 f"({self.config.sample_size:,} -> {sample_rows:,} rows)",
             )
 
-        assert context.schema is not None, (
-            f"schema is required for sampling {context.pretty_name}"
-        )
-        tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
-            db_name=None, schema_name=context.schema, table_name=context.table
-        )
+        tablename = self._quoted_tablename(context)
         temp_name = self._temp_table_name("sample")
         self._materialize_temp_table(
             conn,
@@ -332,6 +324,15 @@ class SnowflakeAdapter(PlatformAdapter):
         # Unquoted so Snowflake stores it uppercase, matching SQLAlchemy's
         # unquoted references in the SQL it generates against the temp table.
         return f"dh_{prefix}_{uuid.uuid4().hex[:8]}"
+
+    def _quoted_tablename(self, context: ProfilingContext) -> str:
+        """The source table as a quoted identifier, for raw TABLESAMPLE SQL."""
+        assert context.schema is not None, (
+            f"schema is required for sampling {context.pretty_name}"
+        )
+        return SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name=None, schema_name=context.schema, table_name=context.table
+        )
 
     def _materialize_temp_table(
         self, conn: Connection, temp_name: str, select_sql: str, log_message: str

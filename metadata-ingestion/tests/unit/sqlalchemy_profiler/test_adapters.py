@@ -1084,6 +1084,10 @@ class TestSnowflakeAdapter:
         executed_sql = str(mock_conn.execute.call_args[0][0])
         assert "TABLESAMPLE BLOCK (10.00000000)" in executed_sql
         assert "TABLESAMPLE BERNOULLI (0.10000000)" in executed_sql
+        # What is reported is the fraction retained -- 10% of 0.1% -- not the
+        # last TABLESAMPLE's 0.1, which is a constant and says nothing about
+        # how much of the table survived.
+        assert context.applied.sample_percentage == pytest.approx(0.01)
 
     def test_sampled_temp_table_block_fallback_to_bernoulli(self, adapter, config):
         """When BLOCK sampling fails (views), falls back to BERNOULLI-only."""

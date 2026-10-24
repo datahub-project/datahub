@@ -50,10 +50,7 @@ class BigQueryAdapter(PlatformAdapter):
         """
         logger.debug(f"BigQuery setup for {context.pretty_name}")
 
-        # Sampling and limit/offset are two answers to the same question -- how
-        # to profile a big table cheaply -- and they do not compose: sampling an
-        # already-bounded slice pays sampling's cost and loses the validity it
-        # buys. Sampling wins; the profiler warns that the limit went unapplied.
+        # Sampling is preferred over a bound here; see PlatformAdapter.setup_profiling.
         #
         # custom_sql wins over both: it is the source's own query (a partition
         # filter), passed through untouched, so a limit is not applied there

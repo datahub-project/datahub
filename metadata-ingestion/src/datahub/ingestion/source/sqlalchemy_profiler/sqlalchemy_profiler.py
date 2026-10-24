@@ -1856,6 +1856,11 @@ class SQLAlchemyProfiler:
                     f"Asset: {pretty_name}; platform={platform}; "
                     f"{name}={requested}; use_sampling={self.config.use_sampling}"
                 ),
+                # The structured report dedups by title+message and records
+                # every asset; the logger does not, so gate it to one line per
+                # bound per run. Profiling runs in a ThreadPoolExecutor so a
+                # race may emit two -- acceptable, no lock, as for the
+                # isolation-level warning below.
                 log=name not in self._unapplied_bound_logged,
             )
             self._unapplied_bound_logged.add(name)
