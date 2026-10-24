@@ -1811,6 +1811,24 @@ class SQLAlchemyProfiler:
             setattr(self._adapter_local, platform, adapter)
         return adapter
 
+    def _record_applied_profile(
+        self,
+        context: ProfilingContext,
+        profile: DatasetProfileClass,
+        pretty_name: str,
+        platform: str,
+    ) -> None:
+        """Label the profile with what the adapter applied, and report the rest.
+
+        One place owns the consequences of `context.applied`: the partitionSpec
+        it renders to, and a warning for anything the recipe asked for that it
+        does not report. `applied` is read off the context rather than passed
+        separately, so the label and the warning cannot disagree about which
+        report they are describing.
+        """
+        profile.partitionSpec = _partition_spec_for(context.partition, context.applied)
+        self._warn_unapplied_bounds(context.applied, pretty_name, platform)
+
     def _warn_unapplied_bounds(
         self, applied: AppliedProfile, pretty_name: str, platform: str
     ) -> None:
@@ -1948,8 +1966,6 @@ class SQLAlchemyProfiler:
                             raise
                         return None
 
-                    self._warn_unapplied_bounds(context.applied, pretty_name, platform)
-
                     # Validate that we have a sql_table to profile
                     if context.sql_table is None:
                         self.report.warning(
@@ -1975,8 +1991,8 @@ class SQLAlchemyProfiler:
                     profile = DatasetProfileClass(timestampMillis=get_sys_time())
                     profile.columnCount = len(sql_table.columns)
 
-                    profile.partitionSpec = _partition_spec_for(
-                        context.partition, context.applied
+                    self._record_applied_profile(
+                        context, profile, pretty_name, platform
                     )
 
                     # ================================================================
