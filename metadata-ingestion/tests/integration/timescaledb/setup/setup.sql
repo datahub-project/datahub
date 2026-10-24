@@ -48,14 +48,12 @@ SELECT create_hypertable(
     chunk_time_interval => INTERVAL '1 hour'
 );
 
+-- Cover every hash partition on the first and last day, even when only one
+-- sample falls in that day. The golden files expect 8 days x 4 partitions.
 INSERT INTO sensor_data (time, device_id, temperature, humidity, pressure, location)
 SELECT
-    time_bucket('1 minute', generate_series(
-        NOW() - INTERVAL '7 days',
-        NOW(),
-        INTERVAL '1 minute'
-    )) AS time,
-    (random() * 10)::INT AS device_id,
+    time_bucket('1 minute', sample_time) AS time,
+    device_id,
     20 + (random() * 10) AS temperature,
     40 + (random() * 40) AS humidity,
     1000 + (random() * 50) AS pressure,
@@ -64,7 +62,13 @@ SELECT
         WHEN random() < 0.5 THEN 'Building B'
         WHEN random() < 0.75 THEN 'Building C'
         ELSE 'Building D'
-    END AS location;
+    END AS location
+FROM generate_series(
+    NOW() - INTERVAL '7 days',
+    NOW(),
+    INTERVAL '1 minute'
+) AS samples(sample_time)
+CROSS JOIN generate_series(0, 10) AS devices(device_id);
 
 INSERT INTO system_metrics (time, host, cpu_usage, memory_usage, disk_io, network_io)
 SELECT
