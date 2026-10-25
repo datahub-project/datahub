@@ -515,6 +515,17 @@ class SnowflakeV2Config(
         description="Configuration for profiling",
     )
 
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        # Mirrors BigQueryV2Config: a code caller may pass a ProfilingConfig
+        # instance rather than a YAML dict, and re-validating it as the subclass
+        # runs ProfilingConfig's inherited before-validators, which assume a dict
+        # and raise on a model instance. Dump it so re-validation sees plain data.
+        if isinstance(v, ProfilingConfig):
+            return v.dict()
+        return v
+
     include_usage_stats: bool = Field(
         default=True,
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
