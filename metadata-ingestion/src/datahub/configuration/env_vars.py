@@ -500,6 +500,17 @@ def get_sql_lineage_timeout_seconds() -> int:
     return _get_int_env("SQL_LINEAGE_TIMEOUT_SECONDS", 10)
 
 
+def get_max_transform_operation_length() -> Optional[int]:
+    """Characters of column transformation logic kept in fine-grained lineage; unset keeps all of it."""
+    var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
+    if not os.getenv(var, "").strip():
+        return None
+    length = _get_int_env(var, 0)
+    if length < 0:
+        raise ValueError(f"Environment variable {var}={length} must not be negative.")
+    return length
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")

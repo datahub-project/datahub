@@ -70,15 +70,14 @@ By default DataHub ships sqlglot with its mypyc-compiled C extensions (`sqlglot[
 
 ### Limiting column transformation logic length
 
-Column-level lineage stores the SQL that computes each column. With `incremental_lineage`, that logic is part of every column-level lineage patch, so long queries make the patches and the stored lineage large. `max_transform_operation_length` cuts it on SQLAlchemy-based sources, Snowflake, BigQuery, Redshift, Unity Catalog, Dremio and the `sql-queries` source:
+Column-level lineage stores the SQL that computes each column (`transformOperation`), so long queries make the stored lineage large. Set `DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH` in the environment of `datahub ingest` or of any process using the Python SDK to cut it:
 
-```yaml
-source:
-  type: mysql
-  config:
-    # ...
-    incremental_lineage: true
-    max_transform_operation_length: 1000
+```shell
+DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH=1000 datahub ingest -c recipe.yml
 ```
 
-Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic. The setting applies only to dataset `upstreamLineage` with `incremental_lineage: true`; it is ignored otherwise, and data-job lineage is not affected. Entries stored before a change stay alongside the new ones until a run with `incremental_lineage: false`.
+Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic.
+
+The cut applies to dataset `upstreamLineage` and data-job `dataJobInputOutput`, with or without `incremental_lineage`. It covers lineage from SQL parsing, Tableau calculated fields, the `datahub-lineage-file` source, and fine-grained lineage added through `DatasetPatchBuilder` or `DataJobPatchBuilder`. Fine-grained lineage you build yourself and emit as a full aspect is not changed.
+
+With `incremental_lineage`, the logic is part of each column-level lineage entry's key. After the value changes, entries stored under the old value stay alongside the new ones until a run with `incremental_lineage: false`.

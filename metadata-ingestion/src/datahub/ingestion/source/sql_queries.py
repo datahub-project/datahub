@@ -22,7 +22,6 @@ from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
-    TransformOperationLengthConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
@@ -74,10 +73,7 @@ logger = logging.getLogger(__name__)
 
 
 class SqlQueriesSourceConfig(
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
-    IncrementalLineageConfigMixin,
-    TransformOperationLengthConfigMixin,
+    PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
 ):
     query_file: str = Field(description="Path to file to ingest")
 

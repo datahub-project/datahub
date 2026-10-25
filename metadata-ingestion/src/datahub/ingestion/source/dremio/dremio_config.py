@@ -14,7 +14,6 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
-    TransformOperationLengthConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.incremental_properties_helper import (
@@ -148,7 +147,6 @@ class DremioSourceConfig(
     IncrementalPropertiesConfigMixin,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
-    TransformOperationLengthConfigMixin,
 ):
     # StatefulLineageConfigMixin / StatefulProfilingConfigMixin are
     # intentionally not inherited — their fields are unused on Dremio
