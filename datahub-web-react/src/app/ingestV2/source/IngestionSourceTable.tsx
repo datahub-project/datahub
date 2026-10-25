@@ -128,9 +128,10 @@ function IngestionSourceTable({
         },
         {
             title: t('source.colLastRun'),
-            key: 'lastRun',
+            key: 'lastRunRequestedAtMillis',
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
+            sorter: true,
             onCellClick: (record) => navigateToRunHistory(record),
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },

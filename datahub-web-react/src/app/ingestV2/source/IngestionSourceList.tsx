@@ -16,6 +16,9 @@ import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
+import ResultStatusFilter, {
+    RESULT_STATUS_ALL_VALUE,
+} from '@app/ingestV2/shared/components/filters/ResultStatusFilter';
 import SourceTypeFilter from '@app/ingestV2/shared/components/filters/SourceTypeFilter';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
@@ -129,6 +132,8 @@ interface Props {
     setSearchQuery: (query: string) => void;
     sourceTypes?: string[];
     setSourceTypes: (sourceTypes: string[]) => void;
+    lastRunStatus?: string;
+    setLastRunStatus: (status: string) => void;
 }
 
 export const IngestionSourceList = ({
@@ -145,6 +150,8 @@ export const IngestionSourceList = ({
     setSearchQuery: setSearchQueryFromUrl,
     sourceTypes: sourceTypesFromUrl,
     setSourceTypes: setSourceTypesFromUrl,
+    lastRunStatus,
+    setLastRunStatus,
 }: Props) => {
     const { t } = useTranslation('ingestion');
     const { t: tc } = useTranslation('common.actions');
@@ -217,6 +224,7 @@ export const IngestionSourceList = ({
 
     const sourceTypes = useMemo(() => sourceTypesFromUrl ?? [], [sourceTypesFromUrl]);
     const prevSourceTypes = usePrevious(sourceTypes);
+    const prevLastRunStatus = usePrevious(lastRunStatus);
 
     // Debounce the search query
     useDebounce(
@@ -247,6 +255,12 @@ export const IngestionSourceList = ({
         }
     }, [sourceTypes, setPage, prevSourceTypes]);
 
+    useEffect(() => {
+        if (prevLastRunStatus !== undefined && prevLastRunStatus !== lastRunStatus) {
+            setPage(1);
+        }
+    }, [lastRunStatus, setPage, prevLastRunStatus]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -265,8 +279,11 @@ export const IngestionSourceList = ({
         if (sourceTypes.length) {
             draftFilters.push({ field: 'type', values: sourceTypes });
         }
+        if (lastRunStatus) {
+            draftFilters.push({ field: 'lastRunStatus', values: [lastRunStatus] });
+        }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources, sourceTypes]);
+    }, [sourceFilter, hideSystemSources, sourceTypes, lastRunStatus]);
 
     const queryInputs = useMemo(
         () => ({
@@ -672,6 +689,12 @@ export const IngestionSourceList = ({
                                 values={sourceTypes}
                                 onUpdate={setSourceTypesFromUrl}
                                 hideSystemSources={hideSystemSources}
+                            />
+                            <ResultStatusFilter
+                                values={lastRunStatus ? [lastRunStatus] : undefined}
+                                onUpdate={(values) =>
+                                    setLastRunStatus(values[0] === RESULT_STATUS_ALL_VALUE ? '' : values[0])
+                                }
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>
