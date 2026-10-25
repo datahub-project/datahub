@@ -7,7 +7,6 @@ import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
-import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
@@ -44,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
  * execution request, so the source list can be sorted and filtered by last run in search.
  *
  * <p>The checks here only avoid publishing pointless writes. The writes are applied asynchronously,
- * so {@code IngestionSourceRunSummaryValidator} enforces the same rules at commit time.
+ * so {@code IngestionSourceRunSummaryValidator} enforces them again at commit time.
  */
 @Slf4j
 @Getter
@@ -168,7 +167,7 @@ public class IngestionSourceRunSummarySideEffect extends MCPSideEffect {
     ExecutionRequestInput input =
         fromBatchOrStored(
             batch, stored, EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class);
-    Urn sourceUrn = ingestionSourceUrn(input);
+    Urn sourceUrn = IngestionSourceRunSummaryUtils.ingestionSourceUrn(input);
     if (sourceUrn == null) {
       return null;
     }
@@ -216,18 +215,11 @@ public class IngestionSourceRunSummarySideEffect extends MCPSideEffect {
       @Nonnull Candidate candidate, @Nonnull Map<String, Aspect> storedSource) {
     return storedSource.containsKey(INGESTION_INFO_ASPECT_NAME)
         && IngestionSourceRunSummaryUtils.shouldReplace(
-            toRecord(
+            IngestionSourceRunSummaryUtils.toRecord(
                 storedSource,
                 INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME,
                 DataHubIngestionSourceRunSummary.class),
             candidate.summary());
-  }
-
-  @Nullable
-  private static Urn ingestionSourceUrn(@Nullable ExecutionRequestInput input) {
-    return input != null && input.hasSource() && input.getSource().hasIngestionSource()
-        ? input.getSource().getIngestionSource()
-        : null;
   }
 
   @Nullable
@@ -237,14 +229,9 @@ public class IngestionSourceRunSummarySideEffect extends MCPSideEffect {
       @Nonnull String aspectName,
       @Nonnull Class<T> clazz) {
     MCLItem fromBatch = batch.get(aspectName);
-    return fromBatch != null ? fromBatch.getAspect(clazz) : toRecord(stored, aspectName, clazz);
-  }
-
-  @Nullable
-  private static <T extends RecordTemplate> T toRecord(
-      @Nonnull Map<String, Aspect> stored, @Nonnull String aspectName, @Nonnull Class<T> clazz) {
-    Aspect aspect = stored.get(aspectName);
-    return aspect != null ? RecordUtils.toRecordTemplate(clazz, aspect.data()) : null;
+    return fromBatch != null
+        ? fromBatch.getAspect(clazz)
+        : IngestionSourceRunSummaryUtils.toRecord(stored, aspectName, clazz);
   }
 
   private record Candidate(
