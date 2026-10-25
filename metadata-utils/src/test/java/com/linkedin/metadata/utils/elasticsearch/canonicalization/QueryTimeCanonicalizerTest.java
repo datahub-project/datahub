@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils.elasticsearch.canonicalization;
 
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -610,6 +611,25 @@ public class QueryTimeCanonicalizerTest {
             .gauge();
     assertNotNull(gauge);
     assertEquals(gauge.value(), 0.0);
+  }
+
+  /**
+   * Spring context tests inject a mocked {@code MetricUtils}, whose {@code getRegistry()} returns
+   * null. Building the canonicalizer must still succeed, or the whole GMS context fails to load.
+   */
+  @Test
+  public void testMetricUtilsWithoutRegistryDoesNotFailConstruction() {
+    final MetricUtils mocked = mock(MetricUtils.class);
+
+    final QueryTimeCanonicalizer enabled =
+        QueryTimeCanonicalizer.fromConfig(enabledConfig(5, "MINUTES", "UTC", "EXPAND"), mocked);
+    final QueryTimeCanonicalizer disabled =
+        QueryTimeCanonicalizer.fromConfig(
+            QueryCanonicalizationConfiguration.builder().enabled(false).build(), mocked);
+
+    assertTrue(enabled.isEnabled());
+    assertTrue(enabled.now().isCanonicalized());
+    assertFalse(disabled.isEnabled());
   }
 
   /** The shared pass-through singleton has nothing to report to and must not blow up. */

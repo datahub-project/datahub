@@ -4,6 +4,7 @@ import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
 import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -218,16 +219,18 @@ public final class QueryTimeCanonicalizer {
 
   private static void reportEnabled(
       @Nullable MetricUtils metricUtils, boolean enabled, @Nonnull String reason) {
-    if (metricUtils == null) {
+    // A mocked MetricUtils, as Spring context tests inject, has no registry. Reporting is
+    // optional; it must never stop the canonicalizer, and with it GMS, from starting.
+    final MeterRegistry registry = metricUtils == null ? null : metricUtils.getRegistry();
+    if (registry == null) {
       return;
     }
     final double value = enabled ? 1.0 : 0.0;
     // A Supplier-backed gauge holds its value strongly; the default weak reference to a state
-    // object
-    // would let the reading disappear after the next GC.
+    // object would let the reading disappear after the next GC.
     Gauge.builder(METRIC_ENABLED, () -> value)
         .tags("strategy", "time", "reason", reason)
-        .register(metricUtils.getRegistry());
+        .register(registry);
   }
 
   /**
