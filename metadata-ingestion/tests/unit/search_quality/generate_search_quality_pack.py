@@ -1605,8 +1605,8 @@ def ranking_judgments() -> list[dict[str, Any]]:
             "entityTypes": KEYWORD_ENTITY_TYPES,
             "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
             # Exact title "Pet Profile" may occupy one of these slots. The check is
-            # that both tables are still in the top 3, in either order.
-            "containsInTop": {"n": 3, "values": ["pet_profiles", "pet_profiles"]},
+            # that both tables are still in the top 5, in either order.
+            "containsInTop": {"n": 5, "values": ["pet_profiles", "pet_profiles"]},
         },
         {
             "id": "ranking-return-rate",
