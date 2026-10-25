@@ -233,6 +233,9 @@ dependencies {
   testImplementation "software.amazon.awssdk:url-connection-client"
   testImplementation "software.amazon.awssdk:apache-client"
 
+  // Real Delta for the saveAsTable smoke tests. 3.1.0 is the Delta line built against Spark 3.5.
+  testImplementation "io.delta:delta-spark_2.12:3.1.0"
+
   // Spark 4.x compatibility smoke test (Scala 2.13, first stable Spark 4 release). OpenLineage's
   // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),
   // so only Spark 4 itself and JUnit are needed to compile/run the test.

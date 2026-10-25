@@ -103,21 +103,28 @@ upgrade, check that upstream still lacks the behaviour.
 [#20412](https://github.com/datahub-project/datahub/pull/20412) because upstream OpenLineage already
 covers them, or they never ran. Do not re-vendor them on an upgrade:
 
-| Removed                                                                      | Why it was redundant                                                                                                                                                                                                               |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SaveIntoDataSourceCommandVisitor`                                           | The Delta `saveAsTable` branches were unreachable (Spark never plans `saveAsTable` as `SaveIntoDataSourceCommand`; `QueryExecution.sqlText()` does not exist). The JDBC guard duplicated `PlanUtils.safeApply`.                    |
-| `WriteToDataSourceV2Visitor`                                                 | Its sink-name match never fired: file, `foreachBatch` and Delta sinks are V1 sinks, handled by upstream's `WriteToMicroBatchDataSourceV1DatasetBuilder`.                                                                           |
-| `StreamingDataSourceV2RelationVisitor`, `FileStreamMicroBatchStreamStrategy` | File stream sources are V1; each micro-batch is a `LogicalRelation` that upstream reports. Pinned by `SparkFileStreamSourceSmokeTest`.                                                                                             |
-| `RemovePathPatternUtils`                                                     | A no-op: OpenLineage dataset names carry no scheme, so its `HdfsPathDataset` call always fell back to the input. It also disabled upstream's `spark.openlineage.dataset.removePath.pattern`. PathSpec is applied by the converter. |
-| `VendorsContext`, `VendorsImpl`                                              | Byte-identical to upstream.                                                                                                                                                                                                        |
-| `JdbcSparkUtils`                                                             | A stale fork of upstream 1.39. Aliased and join `dbtable`s became table names the converter could not turn into URIs, so those reads lost their inputs. Pinned by `SparkJdbcDbtableNamingSmokeTest`.                               |
-| `SparkOpenLineageExtensionVisitorWrapper`                                    | Only changed logging, and in doing so disabled upstream's class-loader injection (OpenLineage #3407), losing connector extension lineage when the connector is loaded by another class loader.                                     |
+| Removed                                                                      | Why it was redundant                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SaveIntoDataSourceCommandVisitor`                                           | The Delta `saveAsTable` branches were unreachable: Spark plans a Delta `saveAsTable` as `CreateTableAsSelect`, never as `SaveIntoDataSourceCommand`, and `QueryExecution.sqlText()` does not exist. The JDBC guard duplicated `PlanUtils.safeApply`. Pinned by `SparkDeltaSaveAsTableSmokeTest`.                                          |
+| `WriteToDataSourceV2Visitor`                                                 | Its sink-name match never fired: file, `foreachBatch` and Delta sinks are V1 sinks, handled by upstream's `WriteToMicroBatchDataSourceV1DatasetBuilder`.                                                                                                                                                                                  |
+| `StreamingDataSourceV2RelationVisitor`, `FileStreamMicroBatchStreamStrategy` | File stream sources are V1; each micro-batch is a `LogicalRelation` that upstream reports. Pinned by `SparkFileStreamSourceSmokeTest`.                                                                                                                                                                                                    |
+| `RemovePathPatternUtils`                                                     | A no-op: OpenLineage dataset names carry no scheme, so its `HdfsPathDataset` call always fell back to the input. It also disabled upstream's `spark.openlineage.dataset.removePath.pattern`. PathSpec is applied by the converter.                                                                                                        |
+| `VendorsContext`, `VendorsImpl`                                              | Byte-identical to upstream.                                                                                                                                                                                                                                                                                                               |
+| `JdbcSparkUtils`                                                             | A stale fork of upstream 1.39. Aliased and join `dbtable`s became table names the converter could not turn into URIs, so those reads lost their inputs. Pinned by `SparkJdbcAliasDbtableSmokeTest` and `SparkJdbcJoinDbtableSmokeTest`; `SparkJdbcQuotedDbtableSmokeTest` pins the quoted-identifier case that 1.53 still drops.          |
+| `SparkOpenLineageExtensionVisitorWrapper`                                    | Only changed logging, and in doing so disabled upstream's class-loader injection (OpenLineage #3407) for connectors loaded by another class loader. On Java 17+ that injection also needs `--add-opens=java.base/java.security`; without it upstream logs a warning and carries on. Pinned by `SparkExtensionProviderInjectionSmokeTest`. |
 
-**DataHub-specific files (not patch-tracked — no upstream equivalent to diff against):**
+**Shadowed but not patch-tracked:**
 
-- **`RddDatasetInfoExtractor`** (`spark/agent/util/`): a fork of upstream's former `RddPathUtils`,
-  renamed and heavily rewritten; upstream no longer ships `RddPathUtils` at the tracked path, so it
-  is maintained as a standalone DataHub file rather than a patch.
+- **`RddDatasetInfoExtractor`** (`spark/agent/util/`): shadows upstream's class of the same name.
+  It lowers three "cannot extract" warnings to debug and makes the Spark 3.4+ `filePath` lookup
+  null-safe, so a reflective miss drops one file instead of throwing out of the listener. It also
+  calls two version-specific methods reflectively, but only so the copy compiles against Spark
+  3.5. It does not change the lineage we emit in normal runs, so under the rule above it should
+  go. TODO: contribute the null guard and log levels upstream, then delete this copy and add it
+  to the removed list.
+
+**DataHub-specific files (no upstream equivalent):**
+
 - **Redshift vendor** (`spark/agent/vendor/redshift/*`): Complete custom implementation.
 
 ### Shading vs. reflection by class name (recurring hazard)
@@ -263,9 +270,10 @@ optional first pass only.
 
    Files upstream didn't touch merge cleanly (empty delta). Resolve any conflict markers by hand.
 
-3. **Port the DataHub-specific files by hand** — `RddDatasetInfoExtractor` and the redshift vendor
-   have **no upstream** to merge against, so adapt them directly to any changed OL/Spark APIs (see
-   step 6).
+3. **Port the DataHub-specific files by hand** — the redshift vendor has **no upstream** to merge
+   against, so adapt it directly to any changed OL/Spark APIs (see step 6). `RddDatasetInfoExtractor`
+   does have an upstream (`integration/spark/shared/.../agent/util/`), so 3-way merge it as in step
+   2 after fetching it by hand.
 
 4. **Bump the version** in the root `build.gradle`:
 
