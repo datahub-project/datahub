@@ -401,8 +401,8 @@ class _ElementInputFields:
 
     fields: List[InputFieldClass]
     loaded_dm_inputs: Set[str]
-    # Charts a /schema-recovered column reads, which ChartInfo lists too.
-    schema_chart_inputs: Set[str]
+    # Charts a recovered self-referencing column reads; ChartInfo lists them.
+    recovered_chart_inputs: Set[str]
 
 
 # (elementId, column name) -> the (chart urn, column name) pairs it reads.
@@ -4495,7 +4495,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstreams_by_column: Dict[str, List[str]] = {}
         sibling_pending: Dict[str, _PendingSiblingColumn] = {}
         loaded_dm_inputs: Set[str] = set()
-        schema_chart_inputs: Set[str] = set()
+        recovered_chart_inputs: Set[str] = set()
         for column in element.columns:
             formula = element.column_formulas.get(column)
             refs: List[BracketRef] = []
@@ -4596,14 +4596,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elif all_param:
                     self.reporter.chart_input_fields_skipped_parameter += 1
                 else:
-                    recovered = (
-                        schema_refs.upstreams(element.elementId, column)
-                        if schema_refs is not None
-                        else []
+                    recovered = self._recover_self_referencing_column(
+                        element.elementId,
+                        column,
+                        refs,
+                        schema_refs=schema_refs,
+                        wb_element_index=wb_element_index,
+                        elementId_to_chart_urn=elementId_to_chart_urn,
                     )
                     if recovered:
                         self.reporter.chart_input_fields_resolved += 1
-                        self.reporter.chart_input_fields_recovered_from_schema += 1
                         self.reporter.chart_input_fields_multi_ref_extra += (
                             len(recovered) - 1
                         )
@@ -4620,7 +4622,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             upstreams_by_column.setdefault(column, []).append(
                                 schema_field_urn
                             )
-                            schema_chart_inputs.add(upstream_urn)
+                            recovered_chart_inputs.add(upstream_urn)
                         continue
                     self.reporter.chart_input_fields_self_ref_fallback += 1
                 schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
@@ -4635,8 +4637,70 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 fields, element.columns, upstreams_by_column, sibling_pending
             ),
             loaded_dm_inputs=loaded_dm_inputs,
-            schema_chart_inputs=schema_chart_inputs,
+            recovered_chart_inputs=recovered_chart_inputs,
         )
+
+    def _recover_self_referencing_column(
+        self,
+        element_id: str,
+        column: str,
+        refs: List[BracketRef],
+        *,
+        schema_refs: Optional[_LazySchemaRefs],
+        wb_element_index: Dict[str, List[Element]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> List[Tuple[str, str]]:
+        """Upstreams for a column no ref resolved: /schema's ids first, then
+        the opt-in name guess."""
+        if schema_refs is not None:
+            recovered = schema_refs.upstreams(element_id, column)
+            if recovered:
+                self.reporter.chart_input_fields_recovered_from_schema += 1
+                return recovered
+        if not self.config.resolve_chart_refs_by_element_name:
+            return []
+        recovered = self._upstreams_guessed_by_element_name(
+            refs,
+            chart_element_id=element_id,
+            wb_element_index=wb_element_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+        )
+        if recovered:
+            self.reporter.chart_input_fields_resolved_by_element_name += 1
+        return recovered
+
+    def _upstreams_guessed_by_element_name(
+        self,
+        refs: List[BracketRef],
+        *,
+        chart_element_id: str,
+        wb_element_index: Dict[str, List[Element]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> List[Tuple[str, str]]:
+        """For each ``[Source/Column]`` ref, the one OTHER workbook element
+        named Source that has Column, as (chart urn, column).
+
+        The element itself is skipped: Sigma names a warehouse-sourced element
+        after its table, so ``[THE_TABLE/col]`` inside it matches its own name.
+        Two owners, or an owner whose columns are unknown, give nothing.
+        """
+        upstreams: List[Tuple[str, str]] = []
+        for ref in refs:
+            if ref.column is None:
+                continue
+            owners: List[Tuple[str, str]] = []
+            for candidate in wb_element_index.get(_fold_name(ref.source), []):
+                if candidate.elementId == chart_element_id:
+                    continue
+                field = self._upstream_field_for_ref(
+                    ref, candidate, schema_required=True
+                )
+                urn = elementId_to_chart_urn.get(candidate.elementId)
+                if field is not None and urn is not None:
+                    owners.append((urn, field))
+            if len(owners) == 1 and owners[0] not in upstreams:
+                upstreams.append(owners[0])
+        return upstreams
 
     @staticmethod
     def _schema_name_ref_paths(formula: Any) -> List[List[str]]:
@@ -4954,9 +5018,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 schema_refs=schema_refs,
             )
             element_input_fields = element_inputs.fields
-            if element_inputs.schema_chart_inputs:
+            if element_inputs.recovered_chart_inputs:
                 chart_input_urns = sorted(
-                    set(chart_input_urns) | element_inputs.schema_chart_inputs
+                    set(chart_input_urns) | element_inputs.recovered_chart_inputs
                 )
 
             # After the input fields, so a Data Model element the loaded-DM
