@@ -227,6 +227,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Sub-category of chart_input_fields_resolved: no formula ref resolved by
     # name, but /workbooks/{id}/schema named another chart's column by id.
     chart_input_fields_recovered_from_schema: int = 0
+    # Sub-category of chart_input_fields_resolved: guessed by element name,
+    # with resolve_chart_refs_by_element_name on.
+    chart_input_fields_resolved_by_element_name: int = 0
     # /workbooks/{id}/schema failed; that workbook's charts keep their
     # self-referential columns.
     workbook_schema_fetch_failed: int = 0
@@ -685,6 +688,16 @@ class SigmaSourceConfig(
         "only issued when ``extract_lineage`` is also ``True`` (so users who opt out "
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
+    )
+    resolve_chart_refs_by_element_name: bool = pydantic.Field(
+        default=False,
+        description="Give a chart column that no formula reference resolves "
+        "to, not even through Sigma's workbook schema, column lineage to the "
+        "one other element of the workbook that carries the referenced name "
+        "and column, even though Sigma does not list that element as an "
+        "upstream. Off by default: this is a guess, and ``inputFields`` has no "
+        "confidence score, so a wrong edge looks the same as one Sigma "
+        "stated. Enable it if a best-effort edge is better than none.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

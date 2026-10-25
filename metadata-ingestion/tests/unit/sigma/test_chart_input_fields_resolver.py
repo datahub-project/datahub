@@ -1920,3 +1920,120 @@ class TestSchemaRecovery:
             f"urn:li:schemaField:({_chart_urn('chart')},Total)"
         ]
         self.get_schema.assert_called_once()
+
+
+class TestElementNameGuess:
+    """resolve_chart_refs_by_element_name: the last try for a column."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source({"resolve_chart_refs_by_element_name": True})
+        self.src.reporter.chart_input_fields_recovered_from_schema = 0
+        self.src.reporter.chart_input_fields_resolved_by_element_name = 0
+        self.src.dataset_upstream_urn_mapping = {}
+        self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({}, [])
+        )
+        self.src._build_workbook_warehouse_table_index = MagicMock(  # type: ignore[method-assign]
+            return_value=None
+        )
+        self.get_schema = MagicMock(return_value=None)
+        self.src.sigma_api.get_workbook_schema = self.get_schema  # type: ignore[method-assign]
+        # Not an upstream Sigma lists for the chart.
+        self.orders = _make_element("orders", "Orders", columns=["Revenue"])
+
+    def _run(
+        self, *elements: Element, chart_name: str = "Chart", column: str = "Total"
+    ) -> List[MetadataWorkUnit]:
+        chart = _make_element_with_formula(
+            "chart", chart_name, {column: "[Orders/Revenue]"}
+        )
+        workbook = _make_workbook_with_elements([[chart], list(elements)])
+        return list(self.src._gen_pages_workunit(workbook, paths=[]))
+
+    def _total(self, *elements: Element, **kwargs: str) -> List[str]:
+        return [
+            field.schemaFieldUrn
+            for wu in self._run(*elements, **kwargs)
+            if wu.get_urn() == _chart_urn("chart")
+            and (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+            for field in aspect.fields
+        ]
+
+    def _self(self, column: str = "Total") -> List[str]:
+        return [f"urn:li:schemaField:({_chart_urn('chart')},{column})"]
+
+    def test_the_sole_named_owner_of_the_column_is_the_upstream(self) -> None:
+        workunits = self._run(self.orders)
+
+        assert TestSchemaRecovery._fields(workunits, _chart_urn("chart")) == [
+            f"urn:li:schemaField:({_chart_urn('orders')},Revenue)"
+        ]
+        edges = [
+            edge.destinationUrn
+            for wu in workunits
+            if wu.get_urn() == _chart_urn("chart")
+            and (info := wu.get_aspect_of_type(ChartInfoClass)) is not None
+            for edge in info.inputEdges or []
+        ]
+        assert edges == [_chart_urn("orders")]
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 1
+        assert self.src.reporter.chart_input_fields_resolved == 1
+
+    def test_off_by_default(self) -> None:
+        self.src.config.resolve_chart_refs_by_element_name = False
+        assert self._total(self.orders) == self._self()
+
+    def test_schema_is_asked_first(self) -> None:
+        other = _make_element("other", "Other", columns=["Amount"])
+        other.column_id_by_name = {"Amount": "col-amount"}
+        self.get_schema.return_value = {
+            "sheets": {
+                "s-chart": {
+                    "columns": {
+                        "col-total": {
+                            "formula": {
+                                "type": "nameRef",
+                                "path": ["s-other", "col-amount"],
+                            }
+                        }
+                    }
+                },
+                "s-other": {"columns": {}},
+            },
+            "elements": {
+                "chart": {"viz": {"sheetId": "s-chart"}},
+                "other": {"viz": {"sheetId": "s-other"}},
+            },
+        }
+        chart = _make_element_with_formula(
+            "chart", "Chart", {"Total": "[Orders/Revenue]"}
+        )
+        chart.column_id_by_name = {"Total": "col-total"}
+        workbook = _make_workbook_with_elements([[chart], [self.orders, other]])
+        fields = [
+            field.schemaFieldUrn
+            for wu in self.src._gen_pages_workunit(workbook, paths=[])
+            if wu.get_urn() == _chart_urn("chart")
+            and (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+            for field in aspect.fields
+        ]
+        assert fields == [f"urn:li:schemaField:({_chart_urn('other')},Amount)"]
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_the_element_naming_itself_is_skipped(self) -> None:
+        # Sigma names a warehouse-sourced element after its table.
+        assert self._total(chart_name="Orders", column="Revenue") == self._self(
+            "Revenue"
+        )
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_two_owners_give_nothing(self) -> None:
+        twin = _make_element("orders-2", "orders", columns=["Revenue"])
+        assert self._total(self.orders, twin) == self._self()
+
+    @pytest.mark.parametrize("columns", [["Cost"], []], ids=["other-column", "unknown"])
+    def test_an_owner_without_the_column_gives_nothing(
+        self, columns: List[str]
+    ) -> None:
+        self.orders.columns = columns
+        assert self._total(self.orders) == self._self()
