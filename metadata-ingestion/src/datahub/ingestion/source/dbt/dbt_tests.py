@@ -4,6 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -47,6 +48,8 @@ class DBTTest:
     qualified_test_name: str
     column_name: Optional[str]
     kw_args: dict
+    # The model the test is declared on (manifest ``attached_node``, dbt 1.5+).
+    attached_node: Optional[str] = None
 
 
 @dataclass
@@ -262,7 +265,7 @@ def _map_dbt_freshness_status(
     return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
 
 
-def _make_custom_assertion_info(
+def make_custom_assertion_info(
     *,
     entity_urn: str,
     scope: Union[DatasetAssertionScopeClass, str],
@@ -513,7 +516,7 @@ def make_assertion_from_test(
             )
             else []
         )
-        custom_assertion = _make_custom_assertion_info(
+        custom_assertion = make_custom_assertion_info(
             entity_urn=upstream_urn,
             scope=assertion_params.scope,
             operator=assertion_params.operator,
@@ -535,7 +538,7 @@ def make_assertion_from_test(
     elif column_name:
         # no match with known test types, column-level test
         fields = [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
-        custom_assertion = _make_custom_assertion_info(
+        custom_assertion = make_custom_assertion_info(
             entity_urn=upstream_urn,
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             operator=AssertionStdOperatorClass._NATIVE_,
@@ -547,7 +550,7 @@ def make_assertion_from_test(
         )
     else:
         # no match with known test types, default to row-level test
-        custom_assertion = _make_custom_assertion_info(
+        custom_assertion = make_custom_assertion_info(
             entity_urn=upstream_urn,
             scope=DatasetAssertionScopeClass.DATASET_ROWS,
             operator=AssertionStdOperatorClass._NATIVE_,
@@ -740,30 +743,44 @@ def is_contract_preflight_failure(message: Optional[str]) -> bool:
     return any(marker in lower for marker in _CONTRACT_PREFLIGHT_MARKERS)
 
 
-def classify_contract_model_run(status: str, message: Optional[str]) -> Optional[str]:
+class ContractRunClassification(Enum):
+    SUCCESS = auto()
+    PREFLIGHT_FAILURE = auto()
+
+
+def classify_contract_model_run(
+    status: str, message: Optional[str]
+) -> Optional[ContractRunClassification]:
     """Classify a model build for contract AssertionRunEvents.
 
-    Returns ``success``, ``preflight_failure``, or ``None`` when the run
-    must not be attributed to the contract (unrelated SQL / warehouse error).
+    ``None`` means the run must not be attributed to the contract (an
+    unrelated SQL / warehouse error, including a DDL constraint violation,
+    which dbt reports as a generic database error).
     """
     if status == "success":
-        return "success"
+        return ContractRunClassification.SUCCESS
     if status == "error" and is_contract_preflight_failure(message):
-        return "preflight_failure"
+        return ContractRunClassification.PREFLIGHT_FAILURE
     return None
 
 
 def make_contract_assertion_info(
     *,
-    description: str,
+    name: Optional[str],
     custom_properties: Dict[str, str],
     custom_assertion: CustomAssertionInfoClass,
 ) -> AssertionInfoClass:
+    """AssertionInfo for a contract-derived assertion.
+
+    As for dbt tests, ``description`` (the display name) is set only from a
+    user-authored name, i.e. a named dbt constraint. Otherwise the UI builds
+    the title from ``customAssertion``.
+    """
     return AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=custom_properties,
-        source=mce_builder.make_assertion_source(),
-        description=description,
+        source=_dbt_assertion_source(),
+        description=name,
         customAssertion=custom_assertion,
     )
 

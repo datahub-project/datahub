@@ -513,6 +513,7 @@ def extract_dbt_entities(
                     qualified_test_name=qualified_test_name,
                     column_name=kw_args.get("column_name"),
                     kw_args=kw_args,
+                    attached_node=manifest_node.get("attached_node"),
                 )
 
             contract = None
@@ -1029,11 +1030,18 @@ def _parse_test_result(
     )
 
 
+# dbt commands whose model results come from running the materialization
+# (and with it the contract preflight and constraint DDL). ``compile`` and
+# ``show`` report model "success" without touching the warehouse relation.
+_RELATION_BUILDING_COMMANDS = frozenset({"run", "build", "retry"})
+
+
 def _parse_model_run(
     dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
     *,
     allow_missing_timing: bool = False,
+    built_relation: bool = True,
 ) -> Optional[DBTModelPerformance]:
     status = run_result.status
     if status not in {"success", "error"}:
@@ -1050,6 +1058,7 @@ def _parse_model_run(
         if execution_timestamp and execution_timestamp.completed_at
         else None
     )
+    timing_inferred = False
     if started and completed:
         start_time, end_time = started, completed
     elif allow_missing_timing:
@@ -1060,6 +1069,7 @@ def _parse_model_run(
         fallback = parse_dbt_timestamp(dbt_metadata.generated_at)
         start_time = started or fallback
         end_time = completed or fallback
+        timing_inferred = True
     else:
         return None
 
@@ -1069,6 +1079,8 @@ def _parse_model_run(
         start_time=start_time,
         end_time=end_time,
         message=run_result.message,
+        timing_inferred=timing_inferred,
+        built_relation=built_relation,
     )
 
 
@@ -1084,7 +1096,8 @@ def load_run_results(
     O(files x total_nodes) over the whole multi-project node union, and all but the
     first build was wasted - the nodes are mutated in place.
     """
-    if test_results_json.get("args", {}).get("which") == "generate":
+    which = test_results_json.get("args", {}).get("which")
+    if which == "generate":
         logger.warning(
             "The run results file is from a `dbt docs generate` command, "
             "instead of a build/run/test command. Skipping this file."
@@ -1119,6 +1132,7 @@ def load_run_results(
                 dbt_metadata,
                 run_result,
                 allow_missing_timing=config.ingest_contracts,
+                built_relation=which in _RELATION_BUILDING_COMMANDS,
             )
             if not model_performance:
                 continue

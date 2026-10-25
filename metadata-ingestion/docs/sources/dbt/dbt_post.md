@@ -777,7 +777,7 @@ source:
     ingest_contracts: true
 ```
 
-For **dbt Cloud**, you must additionally set `environment_id` so the connector can query the Discovery API's environment endpoint — contract data is not exposed on the job-scoped API the connector otherwise uses:
+For **dbt Cloud**, contract data is read from the Discovery API's environment endpoint, because the job-scoped API the connector otherwise uses does not expose it. The environment defaults to the one the ingested run belongs to; set `environment_id` only to pin it:
 
 ```yaml
 source:
@@ -786,7 +786,7 @@ source:
     account_id: 123456
     project_id: 7890
     job_id: 11111
-    environment_id: 22222 # required for contract ingestion on dbt Cloud
+    environment_id: 22222 # optional; defaults to the run's environment
     token: ${DBT_CLOUD_TOKEN}
     target_platform: snowflake
 
@@ -794,14 +794,14 @@ source:
     ingest_contracts: true
 ```
 
-If `ingest_contracts` is `true` but `environment_id` is not set, configuration validation fails with a clear error — there's no silent fallback because contract data simply isn't available through any other dbt Cloud API surface.
+If `environment_id` is set and the ingested run belongs to a different environment, those models get no contract and the ingestion report carries a warning.
 
 ##### What Gets Ingested
 
 When a dbt model has `contract.enforced: true`, DataHub creates:
 
 1. **Schema assertion (CUSTOM)** — declared columns and types, with pass/fail from the model build (dbt's preflight). Linked on the Data Contract **data quality** section (not the schema slot, which is reserved for DataHub-native schema assertions).
-2. **Constraint assertions (CUSTOM)** — one per constraint in the contract:
+2. **Constraint assertions (CUSTOM)** — one per constraint in the contract. A named constraint's `name` becomes the assertion's display name; otherwise DataHub builds the title from the assertion definition:
    - `not_null` → a null-count assertion on the column
    - `unique` → a unique-proportion assertion with parameter `1.0`
    - `primary_key` → **both** a unique assertion and a not-null assertion (PK = unique AND not null)
@@ -811,20 +811,28 @@ When a dbt model has `contract.enforced: true`, DataHub creates:
 3. **Matching dbt tests** — existing test assertions (already CUSTOM + run events) are attached when tagged or when the test type and column match a declared constraint.
 4. **Data Contract entity** — bundles the assertions above and links them to the dbt dataset.
 
+When a Data Contract already exists on the dataset, DataHub merges into it: the schema and freshness sections and any data-quality entries that did not come from dbt are kept, while entries emitted by the dbt source (assertions carrying the `dbt_unique_id` custom property) are replaced by the current run's set, so removed constraints, tests, and columns drop out. Merging needs a DataHub graph connection; with a sink that has none (for example the file sink), the emitted contract replaces any existing one.
+
 Unsupported or unknown constraint types are recorded on the ingestion report (`contract_constraints_skipped_unsupported`) and skipped rather than raised, so one unusual constraint in one model doesn't fail ingestion for the rest of the project.
 
 ##### How evaluations are reported
 
 Contract assertions are **externally reported**: DataHub does not re-run them. `AssertionRunEvent`s come from artifacts you already ingest (`run_results.json` on Core; job `status`/`error` on Cloud):
 
-| Signal                                                                                             | Result                                                                                                                           |
-| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Model build `success`                                                                              | Schema **SUCCESS**. Constraints with `enforced_by: database` also get **SUCCESS** (the warehouse accepted the write).            |
-| Model `error` whose message contains `enforced contract that failed` / `assert_columns_equivalent` | Schema **FAILURE**. The mismatch table is stored on `nativeResults.message`. No constraint events (preflight never reached DDL). |
-| Any other model `error`                                                                            | No contract run event. The model failure is still recorded as a DataProcessInstance.                                             |
-| Matching dbt test                                                                                  | The existing test `AssertionRunEvent` (the high-quality signal for `not_null` / `unique` / `relationships`).                     |
+| Signal                                                                                             | Result                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Signal                                                                                             | Result                                                                                                                                                                                                                                                                                           |
+| ---                                                                                                | ---                                                                                                                                                                                                                                                                                              |
+| Model build `success`                                                                              | Schema **SUCCESS**. On `table` and `incremental` models, constraints with `enforced_by: database` also get **SUCCESS** (the warehouse accepted the write). dbt applies no constraints to views, so a view build only reports the schema check.                                                   |
+| Model `error` whose message contains `enforced contract that failed` / `assert_columns_equivalent` | Schema **FAILURE**. The mismatch table is stored on `nativeResults.message`. No constraint events (preflight never reached DDL).                                                                                                                                                                 |
+| Any other model `error`                                                                            | No contract run event. This includes a build that fails because the data violates a database-enforced constraint: dbt reports that as a generic database error, so the constraint assertion keeps its previous result. Add a matching dbt test (for example `not_null`) to get a failure signal. |
+| Matching dbt test                                                                                  | The existing test `AssertionRunEvent` (the high-quality signal for `not_null` / `unique` / `relationships`).                                                                                                                                                                                     |
 
-Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no synthetic success**. They stay `notRunning` until a matching test reports, and they do not flip the contract red by themselves.
+Only `run_results.json` from `dbt run`, `dbt build`, and `dbt retry` produce contract run events; `dbt compile` reports models as successful without building them.
+
+Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no synthetic success**. They stay `notRunning` until a matching test reports, and they do not flip the contract red by themselves. The not-null half of a `primary_key` carries the primary key's enforcement, since on most warehouses declaring a primary key does not enforce it.
+
+On dbt Cloud the job API has no build timings, so contract run events are stamped with the ingestion time (as dbt Cloud test results are). Ingesting the same run again adds another run event.
 
 ##### Configuration Options
 
@@ -833,7 +841,7 @@ Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no s
 | `ingest_contracts`                        | `false`      | Enable Data Contract creation from dbt contracts. Schema and constraint checks are CUSTOM assertions; run events come from model builds and matching tests.                                                                                                                                                    |
 | `contract_test_tag`                       | `"contract"` | Tag on extra dbt tests to include in the Data Contract data quality section. Tests that already match a declared constraint (`not_null`, `unique`, `relationships`) are auto-attached even without this tag. **The tag is a DataHub convention** — dbt itself does not bundle tests with contracts.            |
 | `ingest_column_constraints_as_assertions` | `true`       | Emit CUSTOM assertions from contract constraints (`not_null`, `unique`, `primary_key`, `foreign_key`, `check`, `custom`). Whether each constraint is DDL-enforced is surfaced via `enforced_by`. Run events come from model builds (schema + DDL-enforced constraints on success) and from matching dbt tests. |
-| `environment_id` _(dbt Cloud only)_       | `None`       | dbt Cloud environment ID. Required when `ingest_contracts=true` on dbt Cloud.                                                                                                                                                                                                                                  |
+| `environment_id` _(dbt Cloud only)_       | `None`       | dbt Cloud environment to read contract data from. Defaults to the ingested run's environment.                                                                                                                                                                                                                  |
 
 ##### Including dbt Tests in Contracts (DataHub Convention)
 
@@ -857,30 +865,35 @@ models:
       - name: order_id
         data_type: int
         constraints:
-          - type: not_null
           - type: primary_key
-    tests:
-      - unique:
-          tags: ["contract"] # Included in the DataHub Data Contract
-      - not_null:
-          tags: ["contract"]
+        data_tests:
+          - unique # matches the primary key, attached automatically
+          - not_null # matches the primary key, attached automatically
+      - name: status
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              values: ["placed", "shipped", "returned"]
+              config:
+                tags: ["contract"] # no matching constraint, so tag it
 ```
 
-With the default `contract_test_tag: "contract"`, any test tagged with `contract` is added to the Data Contract's data quality assertions and also continues to run as a regular dbt test.
+With the default `contract_test_tag: "contract"`, any test tagged with `contract` is added to the Data Contract's data quality assertions and also continues to run as a regular dbt test. A tagged test that reads several models (such as `relationships`) is attached only to the model it is declared on.
 
 ##### Warehouse Constraint Enforcement
 
 dbt's [constraint support matrix](https://docs.getdbt.com/reference/resource-properties/constraints) varies widely by adapter, and dbt documents that the matrix will keep changing. DataHub reflects three states on each constraint assertion's `enforced_by` custom property:
 
-| Adapter    | `not_null`  | `unique`     | `primary_key` / `foreign_key` | `check`     |
-| ---------- | ----------- | ------------ | ----------------------------- | ----------- |
-| PostgreSQL | database    | database     | database                      | database    |
-| Snowflake  | database    | dbt_contract | dbt_contract                  | unsupported |
-| BigQuery   | database    | dbt_contract | dbt_contract                  | unsupported |
-| Redshift   | database    | dbt_contract | dbt_contract                  | unsupported |
-| Databricks | database    | unsupported  | dbt_contract                  | database    |
-| Spark      | unsupported | unsupported  | unsupported                   | unsupported |
-| Athena     | unsupported | unsupported  | unsupported                   | unsupported |
+| Adapter    | `not_null`   | `unique`     | `primary_key` / `foreign_key` | `check`      |
+| ---------- | ------------ | ------------ | ----------------------------- | ------------ |
+| PostgreSQL | database     | database     | database                      | database     |
+| Snowflake  | database     | dbt_contract | dbt_contract                  | unsupported  |
+| Redshift   | database     | dbt_contract | dbt_contract                  | unsupported  |
+| Fabric     | database     | dbt_contract | dbt_contract                  | unsupported  |
+| BigQuery   | database     | unsupported  | dbt_contract                  | unsupported  |
+| Databricks | database     | unsupported  | dbt_contract                  | database     |
+| Spark      | dbt_contract | dbt_contract | dbt_contract                  | dbt_contract |
+| Athena     | unsupported  | unsupported  | unsupported                   | unsupported  |
 
 - **`enforced_by: database`** means dbt emits real DDL constraints and the warehouse validates them at write time.
 - **`enforced_by: dbt_contract`** means the constraint is definable as metadata but is not DDL-enforced.
@@ -894,7 +907,8 @@ The table is a snapshot of dbt's published matrix. Prefer `warn_unenforced` / `w
 On dbt Cloud, contract column types come from the applied catalog (the post-run warehouse state), not the pre-DDL manifest declaration — the Discovery API does not expose declared types via `definition.models` in a form the connector can use. This means:
 
 - Schema **definitions** on dbt Cloud are looser than on dbt Core: a catalog-driven assertion can't detect a mismatch between the contract declaration and the actual table schema. Schema **run events** still come from the job's model `status` / `error`.
-- **Column-level constraints are not exposed** on the Discovery API — only model-level `applied.models.constraints`. Column constraints declared in YAML are dropped on the Cloud path. That is constraint loss, not just a looser schema assertion.
+- Constraints are read from `applied.models.constraints`; the Discovery API has no per-column constraint field. A column-level constraint is ingested only if the API returns it there as a single-column constraint. If a column constraint is missing on the Cloud path, declare it as a model-level constraint with `columns: [...]`.
+- Contract data reflects the environment's latest applied state, not the specific `run_id` being ingested. If the contract changed after that run, the ingested definition is the newer one.
 - Foreign-key `to` / `to_columns` are parsed when present (dbt Core manifests include them). The Discovery API query currently returns `name`, `type`, `expression`, and `columns` only, so Cloud FK assertions may still lack the referenced relation.
 - If you need strict declared-type matching (for example, when using `alias_types: false` to force platform-specific types in your contracts), use the dbt Core source, which reads the manifest directly.
 

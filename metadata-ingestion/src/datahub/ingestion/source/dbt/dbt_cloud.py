@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, Iterator, List, Literal, Optional, Tuple, cast
+from typing import Dict, Iterator, List, Literal, Optional, Set, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -120,12 +120,12 @@ class DBTCloudConfig(DBTCommonConfig):
     environment_id: Optional[int] = Field(
         None,
         description=(
-            "The dbt Cloud environment ID. Required when ``ingest_contracts`` "
-            "is true, because contract data (``contractEnforced``, "
-            "``constraints``, catalog columns) is only exposed on the "
-            "Discovery API's environment-scoped query — not on the "
-            "job-scoped queries this connector uses for everything else. "
-            "Find it in the dbt Cloud UI under Deploy → Environments."
+            "The dbt Cloud environment whose applied state supplies contract "
+            "data when ``ingest_contracts`` is true. Contract data "
+            "(``contractEnforced``, ``constraints``, catalog columns) is only "
+            "exposed on the Discovery API's environment-scoped query. "
+            "Defaults to the environment of the ingested job's run; if set, "
+            "models from a run in a different environment get no contract."
         ),
     )
 
@@ -163,15 +163,6 @@ class DBTCloudConfig(DBTCommonConfig):
             raise ValueError(
                 "job_id is required in explicit mode. "
                 "Either provide job_id or enable auto_discovery mode."
-            )
-        if self.ingest_contracts and self.environment_id is None:
-            raise ValueError(
-                "environment_id is required when ingest_contracts=true on "
-                "dbt Cloud. Contract data (contractEnforced, constraints, "
-                "catalog columns) is only available via the Discovery API's "
-                "environment endpoint, not via the job-scoped queries. "
-                "Find the environment ID in the dbt Cloud UI under "
-                "Deploy → Environments."
             )
         return self
 
@@ -469,36 +460,56 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
     def __init__(self, config: DBTCloudConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        # None = not yet fetched; {} = fetched (whether really empty or
-        # fetched-and-failed, see _get_discovery_contract_data).
-        self._discovery_contract_data: Optional[Dict[str, _DiscoveryContractData]] = (
-            None
-        )
+        # Per environment id; an empty dict means fetched-and-empty or
+        # fetched-and-failed (see _get_discovery_contract_data).
+        self._discovery_contract_data: Dict[int, Dict[str, _DiscoveryContractData]] = {}
+        self._reported_environment_mismatches: Set[int] = set()
+
+    def _contract_environment_for_node(self, node: Dict) -> Optional[int]:
+        """The environment whose applied state holds this node's contract.
+
+        Job-scoped nodes carry their run's ``environmentId``. Contract data from
+        any other environment would describe a different deployment, so a
+        mismatch with the configured ``environment_id`` yields no contract.
+        """
+        node_environment = node.get("environmentId")
+        configured = self.config.environment_id
+        if configured is None:
+            return int(node_environment) if node_environment is not None else None
+        if node_environment is not None and int(node_environment) != configured:
+            if int(node_environment) not in self._reported_environment_mismatches:
+                self._reported_environment_mismatches.add(int(node_environment))
+                self.report.warning(
+                    title="dbt Cloud run is from a different environment",
+                    message="The ingested run belongs to a different environment "
+                    "than the configured environment_id, so its models get no Data "
+                    "Contract. Unset environment_id to use the run's environment.",
+                    context=f"environment_id={configured}, "
+                    f"run environment={node_environment}",
+                )
+            return None
+        return configured
 
     def _get_discovery_contract_data(
-        self,
+        self, environment_id: int
     ) -> Dict[str, _DiscoveryContractData]:
         """Return cached Discovery API contract data, fetching on first call."""
-        if self._discovery_contract_data is not None:
-            return self._discovery_contract_data
-
-        if not self.config.ingest_contracts or self.config.environment_id is None:
-            self._discovery_contract_data = {}
-            return self._discovery_contract_data
+        cached = self._discovery_contract_data.get(environment_id)
+        if cached is not None:
+            return cached
 
         logger.info(
             f"Fetching dbt Cloud contract data via Discovery API for "
-            f"environment {self.config.environment_id}"
+            f"environment {environment_id}"
         )
         try:
-            self._discovery_contract_data = self._fetch_discovery_contract_data(
+            data = self._fetch_discovery_contract_data(
                 metadata_endpoint=self.config.metadata_endpoint,
                 token=self.config.token.get_secret_value(),
-                environment_id=self.config.environment_id,
+                environment_id=environment_id,
             )
             logger.info(
-                f"Discovery API returned contract data for "
-                f"{len(self._discovery_contract_data)} model(s)"
+                f"Discovery API returned contract data for {len(data)} model(s)"
             )
         except Exception as e:
             # Recoverable: surface via report and proceed without contracts
@@ -511,11 +522,12 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     "Check the environment_id, token permissions, and "
                     "dbt Cloud Discovery API availability."
                 ),
-                context=f"environment_id={self.config.environment_id}: {e}",
+                context=f"environment_id={environment_id}: {e}",
             )
-            self._discovery_contract_data = {}
+            data = {}
 
-        return self._discovery_contract_data
+        self._discovery_contract_data[environment_id] = data
+        return data
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -552,7 +564,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
 
-            if source_config.ingest_contracts:
+            if (
+                source_config.ingest_contracts
+                and source_config.environment_id is not None
+            ):
                 discovery_data = DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token.get_secret_value(),
@@ -1167,8 +1182,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
     def _extract_model_performance(self, node: Dict) -> List[DBTModelPerformance]:
         """Map job-scoped model status/error onto DBTModelPerformance.
 
-        dbt Cloud does not expose execute timings on this query; use now()
-        the same way test results do.
+        Only feeds contract run events. The job-scoped query has no execute
+        timings, so the time is ingestion time (as for Cloud test results) and
+        the record is marked inferred, keeping it out of process-run emission.
         """
         if node.get("skip"):
             return []
@@ -1185,6 +1201,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 start_time=now,
                 end_time=now,
                 message=node.get("error"),
+                timing_inferred=True,
             )
         ]
 
@@ -1294,8 +1311,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         contract = None
         contract_columns: Optional[List[DBTColumn]] = None
         model_constraints: List[DBTConstraint] = []
-        if resource_type == "model" and self.config.ingest_contracts:
-            discovery_data = self._get_discovery_contract_data().get(key)
+        contract_environment = (
+            self._contract_environment_for_node(node)
+            if resource_type == "model" and self.config.ingest_contracts
+            else None
+        )
+        if contract_environment is not None:
+            discovery_data = self._get_discovery_contract_data(
+                contract_environment
+            ).get(key)
             if discovery_data and discovery_data.contract_enforced:
                 contract = DBTContract(enforced=True, alias_types=True, checksum=None)
                 model_constraints = discovery_data.model_constraints
@@ -1338,10 +1362,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_info=test_info,
             test_results=[test_result] if test_result else [],
             model_performances=(
-                self._extract_model_performance(node)
-                if self.config.ingest_contracts
-                and resource_type in {"model", "seed", "snapshot"}
-                else []
+                self._extract_model_performance(node) if contract is not None else []
             ),
             freshness_info=freshness_info,
             semantic_model_def=semantic_model_def,
