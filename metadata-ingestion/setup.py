@@ -543,6 +543,11 @@ unstructured_lib = {
     # Upstream reverted the hook: inisec.py ships in 3.10.1 only and is absent from
     # 3.10.2 onwards, so this excludes just that release rather than capping.
     "nltk!=3.10.1",
+    # Transitive via unstructured -> spacy. preshed 3.0.14 makes spacy's tokenizer
+    # raise "OverflowError: Python int too large to convert to C ssize_t" when
+    # loading any model, so every document fails to process. Excludes just that
+    # release so a fixed one is picked up.
+    "preshed!=3.0.14",
     # Embedding support for semantic search
     *embedding_common,
 }
