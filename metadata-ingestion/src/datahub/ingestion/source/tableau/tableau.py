@@ -2584,7 +2584,7 @@ class TableauSiteSource:
 
         return fine_grained_lineages
 
-    def get_transform_operation(self, field: dict) -> Optional[str]:
+    def get_transform_operation(self, field: dict) -> str:
         field_type = field[c.TYPE_NAME]
         if field_type in (
             c.DATA_SOURCE_FIELD,
@@ -2593,12 +2593,13 @@ class TableauSiteSource:
             op = c.IDENTITY  # How to specify exact same
         elif field_type == c.CALCULATED_FIELD:
             op = field_type
-            if field.get(c.FORMULA):
-                op += f"formula: {field.get(c.FORMULA)}"
+            formula = cap_transform_operation(field.get(c.FORMULA))
+            if formula:
+                op += f"formula: {formula}"
         else:
             op = field_type  # BinField, CombinedField, etc
 
-        return cap_transform_operation(op)
+        return op
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         custom_sql_filter = {c.ID_WITH_IN: self.custom_sql_ids_being_used}

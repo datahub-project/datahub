@@ -1,4 +1,6 @@
+import json
 from typing import List, Optional
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -15,6 +17,8 @@ from datahub.ingestion.source.metadata.lineage import (
     FineGrainedLineageConfig,
     _get_lineage_mcp,
 )
+from datahub.ingestion.source.tableau import tableau_constant as c
+from datahub.ingestion.source.tableau.tableau import TableauSiteSource
 from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -48,16 +52,28 @@ QUERY = (
     [
         (LOGIC, 100, LOGIC),
         (LOGIC, 8, "SQL: SUM(col_..."),
-        (LOGIC, 17, LOGIC),
+        (LOGIC, 16, LOGIC),
+        (LOGIC, 15, "SQL: SUM(col_a) AS t..."),
         ("COPY: col_a AS col_a", 0, "COPY"),
         ("col_a + col_b", 5, "col_a..."),
         ("col_a + col_b", 0, None),
+        ("NOTE: col_a", 2, "NO..."),
     ],
 )
 def test_truncate_transform_operation(
     value: str, max_length: int, expected: Optional[str]
 ) -> None:
     assert truncate_transform_operation(value, max_length) == expected
+
+
+@pytest.mark.parametrize("max_length", [0, 8])
+@pytest.mark.parametrize("value", [LOGIC, "COPY: col_a", "col_a + col_b + col_c"])
+def test_truncate_transform_operation_is_idempotent(
+    value: str, max_length: int
+) -> None:
+    once = truncate_transform_operation(value, max_length)
+    twice = truncate_transform_operation(once, max_length) if once else None
+    assert twice == once
 
 
 def test_max_length_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -121,9 +137,9 @@ def _patch_paths(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
     assert isinstance(patch.metadata, MetadataChangeProposalClass)
     assert patch.metadata.aspect is not None
     return [
-        path
-        for path in patch.metadata.aspect.value.decode().split('"')
-        if path.startswith("/fineGrainedLineages/")
+        op["path"]
+        for op in json.loads(patch.metadata.aspect.value)
+        if op["path"].startswith("/fineGrainedLineages/")
     ]
 
 
@@ -134,7 +150,18 @@ def test_incremental_patch_path_is_capped_and_stable(
     first = _patch_paths(_aggregator_lineage())
     second = _patch_paths(_aggregator_lineage())
     assert first and first == second
-    assert all("CASE WHEN col_a > 0" not in path for path in first)
+    assert all(
+        path.startswith("/fineGrainedLineages/SQL: CASE WHEN .../") for path in first
+    )
+
+
+def test_incremental_patch_path_keeps_label_at_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_VAR, "0")
+    paths = _patch_paths(_aggregator_lineage())
+    assert paths
+    assert all(path.startswith("/fineGrainedLineages/SQL/") for path in paths)
 
 
 def test_datajob_input_output_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,3 +221,19 @@ def test_lineage_file_source_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
     mcp = _get_lineage_mcp(node, preserve_upstream=False)
     assert mcp is not None
     assert _transform_operations([mcp]) == ["SQL: SUM(col_..."]
+
+
+@pytest.mark.parametrize(
+    "max_length, expected",
+    [("5", "CalculatedFieldformula: SUM([..."), ("0", "CalculatedField")],
+)
+def test_tableau_calculated_field_formula_is_capped(
+    monkeypatch: pytest.MonkeyPatch, max_length: str, expected: str
+) -> None:
+    monkeypatch.setenv(ENV_VAR, max_length)
+    calculated = {c.TYPE_NAME: c.CALCULATED_FIELD, c.FORMULA: "SUM([col_a])"}
+    column = {c.TYPE_NAME: c.COLUMN_FIELD}
+    assert (
+        TableauSiteSource.get_transform_operation(MagicMock(), calculated) == expected
+    )
+    assert TableauSiteSource.get_transform_operation(MagicMock(), column) == c.IDENTITY

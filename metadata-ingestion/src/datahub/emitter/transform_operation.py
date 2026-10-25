@@ -3,13 +3,14 @@ from typing import Optional
 
 from datahub.configuration.env_vars import get_max_transform_operation_length
 
-# SqlParsingAggregator prefixes the logic with a label, e.g. "SQL: " or "COPY: ".
-_LABEL_PREFIX = re.compile(r"^([A-Z]+): ")
+# SqlParsingAggregator prefixes the logic with "SQL: " or "COPY: ". A bare label is
+# what a previous cut at 0 left, so it must stay unchanged when cut again.
+_LABEL_PREFIX = re.compile(r"^(SQL|COPY)(?:: |$)")
 _ELLIPSIS = "..."
 
 
 def truncate_transform_operation(value: str, max_length: int) -> Optional[str]:
-    """Cut the logic after any label to max_length characters plus "..."; 0 keeps only the label, or None if unlabelled."""
+    """Cut the logic after any label to max_length characters plus "..." when that is shorter; 0 keeps only the label, or None if unlabelled."""
     match = _LABEL_PREFIX.match(value)
     label = match.group(1) if match else None
     logic = value[match.end() :] if match else value
