@@ -21,7 +21,7 @@ description: "Organizations running DataHub in production, grouped by industry, 
 
 **🎮 Gaming, Entertainment & Streaming:** Netflix • Razer • Showroomprive • TypeForm • UKEN Games • Zynga
 
-**🚀 Technology & SaaS:** Adevinta • Apple • Digital Turbine • DPG Media • Foursquare • Geotab • HashiCorp • hipages • inovex • KPN • Miro • MYOB • Notion • Okta • Rippling • Saxo Bank • Slack • ThoughtWorks • Twilio • Wikimedia • WP Engine
+**🚀 Technology & SaaS:** Adevinta • Apple • Digital Turbine • DPG Media • Foursquare • Geotab • HashiCorp • hipages • inovex • KPN • Miro • MYOB • Notion • Okta • Rippling • Saxo Bank • Slack • ThoughtWorks • Twilio • Wikimedia • [Wordfully](https://wordfully.ai) • WP Engine
 
 **📊 Data & Analytics:** ABLY • DefinedCrowd • Grofers • Haibo Technology • Moloco • PITS Global Data Recovery Services • SpotHero
 
