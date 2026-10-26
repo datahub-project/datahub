@@ -1589,6 +1589,7 @@ module.exports = {
             "docs/managed-datahub/configuring-identity-provisioning-with-okta",
           ],
         },
+        "docs/how/upgrading-datahub",
         "docs/how/backup-datahub",
         "docs/how/restore-indices",
         "docs/how/load-indices",
@@ -1751,7 +1752,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": ["releases", "docs/how/breaking-changes"],
     },
     {
       type: "doc",

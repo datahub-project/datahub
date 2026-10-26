@@ -1,8 +1,17 @@
 ---
-description: "Release notes and breaking change history for upgrading DataHub between versions, including required migration steps."
+title: Breaking Changes by Version
+description: "Breaking changes, deprecations and required migration steps for each DataHub release."
 ---
 
-# Updating DataHub
+# Breaking Changes by Version
+
+:::tip Looking for how to upgrade?
+
+See [Upgrading DataHub](upgrading-datahub.md) for the steps, including taking a backup first.
+This page is the per-version reference you consult along the way: read every version between
+the one you are on and the one you are moving to, not just the target.
+
+:::
 
 <!--
 
