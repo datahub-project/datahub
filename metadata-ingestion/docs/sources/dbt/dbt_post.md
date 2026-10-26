@@ -255,6 +255,8 @@ The connector will produce the following things:
 - Assertion definitions that are attached to the dataset (or datasets)
 - Results from running the tests attached to the timeline of the dataset
 
+A test's custom `name:` is used as the assertion's title; tests with dbt's generated names keep the default title. A test's `description:` (dbt 1.9+) is written as the assertion note, which is shown in DataHub Cloud. Notes need a connection to a DataHub server that supports them (DataHub 1.7.0.1+, or DataHub Cloud 1.0.0+); otherwise they are skipped. The source reads existing notes first and never overwrites a note edited in DataHub. It only updates a note it wrote earlier, or clears it once the description is removed, when `pipeline_name` is set (with the default `set_system_metadata_pipeline_name: true`) and unchanged between runs.
+
 ##### How dbt test statuses map to DataHub assertion results
 
 Each dbt test result is translated into a DataHub `AssertionResult` with a `type` (SUCCESS, FAILURE, or ERROR) and, on failures, an optional `severity` (LOW, MEDIUM, HIGH).

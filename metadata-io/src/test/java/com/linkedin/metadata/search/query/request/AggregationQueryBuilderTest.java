@@ -30,6 +30,7 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -683,8 +684,8 @@ public class AggregationQueryBuilderTest {
     EntitySpec entitySpec = mock(EntitySpec.class);
     when(entitySpec.getName()).thenReturn("dataset");
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(
-            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)), true);
+        new V3AggregationQueryBuilder(
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)));
 
     List<TermsAggregationBuilder> aggs =
         builder

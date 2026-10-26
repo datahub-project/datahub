@@ -1,13 +1,25 @@
+import hashlib
 import json
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Union,
+)
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionNoteClass,
     AssertionResultClass,
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
@@ -21,6 +33,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    AuditStampClass,
     CustomAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
@@ -277,6 +290,197 @@ def _make_custom_assertion_info(
     )
 
 
+# dbt replaces every run of characters outside [0-9a-zA-Z_] in a test argument.
+_TEST_ARG_UNSAFE_CHARS = re.compile(r"[^0-9a-zA-Z_]+")
+_HASHED_NAME_SUFFIX = r"_[0-9a-f]{32}"
+# dbt Cloud reports a generic test's macro as `<namespace>.test_<name>`.
+_TEST_MACRO_PREFIX = "test_"
+
+
+@dataclass(frozen=True)
+class _GenericTestNames:
+    """The names dbt can give an unnamed generic test.
+
+    dbt names the test ``full_name`` and, when that is 64+ characters, uses
+    ``short_name`` (truncated identifier + md5) as its alias.
+    """
+
+    short_name: str
+    full_name: str
+
+
+@dataclass(frozen=True)
+class _GenericTestTarget:
+    """The test type and target name dbt builds a generic test's name from."""
+
+    test_type: str
+    target_name: str
+
+    @property
+    def identifier(self) -> str:
+        return f"{self.test_type}_{self.target_name}"
+
+
+def _test_arg_str(arg: Any, normalize_datetimes: bool) -> str:
+    """How dbt stringifies a test argument when it builds the test name.
+
+    YAML datetimes reach dbt as datetime objects (`str()` gives
+    `2024-01-01 00:00:00`), but the manifest stores them in ISO form
+    (`2024-01-01T00:00:00`). Converting back is only tried as a fallback, since a
+    plain string argument can look the same.
+    """
+    if normalize_datetimes and isinstance(arg, str) and "T" in arg:
+        try:
+            return str(datetime.fromisoformat(arg))
+        except ValueError:
+            pass
+    return str(arg)
+
+
+def _synthesize_generic_test_names(
+    target: _GenericTestTarget,
+    kw_args: Dict[str, Any],
+    normalize_datetimes: bool = False,
+) -> _GenericTestNames:
+    """Port of dbt-core's synthesize_generic_test_names (parser/generic_test_builders.py)."""
+    flat_args: List[str] = []
+    for arg_name in sorted(kw_args):
+        if arg_name == "model":
+            continue
+        arg_val = kw_args[arg_name]
+        if isinstance(arg_val, dict):
+            parts = list(arg_val.values())
+        elif isinstance(arg_val, (list, tuple)):
+            parts = list(arg_val)
+        else:
+            parts = [arg_val]
+        flat_args.extend(_test_arg_str(part, normalize_datetimes) for part in parts)
+
+    unique = "__".join(_TEST_ARG_UNSAFE_CHARS.sub("_", arg) for arg in flat_args)
+    full_name = f"{target.identifier}_{unique}"
+    if len(full_name) >= 64:
+        digest = hashlib.md5(full_name.encode("utf-8")).hexdigest()
+        return _GenericTestNames(
+            short_name=f"{target.identifier[:30]}_{digest}", full_name=full_name
+        )
+    return _GenericTestNames(short_name=full_name, full_name=full_name)
+
+
+def _generic_test_targets(
+    namespace: str, test_name: str, upstream_unique_id: str
+) -> List[_GenericTestTarget]:
+    """The target(s) dbt may have built the test name from (empty if unknown)."""
+    parts = upstream_unique_id.split(".")
+    if not test_name or len(parts) < 3:
+        return []
+    if parts[0] == "source":
+        if len(parts) < 4:
+            return []
+        test_type = f"source_{test_name}"
+        target_names = [f"{parts[2]}_{parts[3]}"]
+    else:
+        test_type = test_name
+        # A versioned model's unique id is `model.<pkg>.<name>.v<version>`, where the
+        # version may itself contain dots (v1.5); dbt names the target `<name>_v<version>`.
+        # dbt node names cannot contain dots, so everything after the name is the version.
+        version_part = ".".join(parts[3:])
+        if not version_part:
+            target_names = [parts[2]]
+        else:
+            # A test written against an unpinned ref() depends on the latest version
+            # but is named after the plain model, so accept both spellings.
+            target_names = [f"{parts[2]}_{version_part}", parts[2]]
+    if namespace:
+        test_type = f"{namespace}_{test_type}"
+    return [
+        _GenericTestTarget(test_type=test_type, target_name=target_name)
+        for target_name in target_names
+    ]
+
+
+@dataclass(frozen=True)
+class _CloudTestName:
+    namespace: str
+    test_name: str
+
+
+def _cloud_test_name_candidates(qualified_test_name: str) -> List[_CloudTestName]:
+    """Namespace/test-name pairs dbt may have used for a dbt Cloud test macro.
+
+    dbt Cloud reports the macro (`dbt_utils.test_expression_is_true`), not the
+    test's namespace and name. dbt names a package test `<namespace>_<name>` but a
+    root-project test just `<name>`, and the macro alone cannot tell them apart, so
+    both are accepted.
+    """
+    namespace, _, test_name = qualified_test_name.rpartition(".")
+    if test_name.startswith(_TEST_MACRO_PREFIX):
+        test_name = test_name[len(_TEST_MACRO_PREFIX) :]
+    candidates = [_CloudTestName(namespace=namespace, test_name=test_name)]
+    if namespace:
+        candidates.append(_CloudTestName(namespace="", test_name=test_name))
+    return candidates
+
+
+def _matches_generated_name(
+    node_name: str, test_info: DBTTest, upstream_unique_id: str
+) -> Optional[bool]:
+    if test_info.kw_args:
+        namespace, _, test_name = test_info.qualified_test_name.rpartition(".")
+        targets = _generic_test_targets(namespace, test_name, upstream_unique_id)
+        if not targets:
+            return None
+        return any(
+            node_name in (names.short_name, names.full_name)
+            for target in targets
+            for names in (
+                _synthesize_generic_test_names(target, test_info.kw_args),
+                _synthesize_generic_test_names(
+                    target, test_info.kw_args, normalize_datetimes=True
+                ),
+            )
+        )
+
+    # dbt Cloud does not expose test kwargs, so only the generated prefix can be
+    # checked. A generated full name is always `<identifier>_<args>`.
+    targets = [
+        target
+        for candidate in _cloud_test_name_candidates(test_info.qualified_test_name)
+        for target in _generic_test_targets(
+            candidate.namespace, candidate.test_name, upstream_unique_id
+        )
+    ]
+    if not targets:
+        return None
+    return any(
+        node_name.startswith(f"{target.identifier}_")
+        or re.fullmatch(
+            re.escape(target.identifier[:30]) + _HASHED_NAME_SUFFIX, node_name
+        )
+        for target in targets
+    )
+
+
+def is_custom_test_name(
+    node_name: str, test_info: DBTTest, upstream_unique_ids: Sequence[str]
+) -> bool:
+    """Whether a generic dbt test was given a user-authored `name:` instead of dbt's generated one.
+
+    dbt generates the name from the node under test, which is one of the test's upstreams
+    (a relationships test also depends on the referenced model), so the name is treated as
+    generated if it matches for any upstream. With test kwargs (dbt Core manifest) the
+    generated name is recomputed exactly; dbt Cloud does not expose test kwargs, so there
+    only the generated prefix is checked.
+    """
+    if not test_info.qualified_test_name:
+        return False
+    matches = [
+        _matches_generated_name(node_name, test_info, upstream_unique_id)
+        for upstream_unique_id in upstream_unique_ids
+    ]
+    known = [m for m in matches if m is not None]
+    return bool(known) and not any(known)
+
+
 def _dbt_assertion_source() -> AssertionSourceClass:
     """External dbt test definition. created is for Native assertions and is omitted.
 
@@ -292,6 +496,7 @@ def make_assertion_from_test(
     node: "DBTNode",
     assertion_urn: str,
     upstream_urn: str,
+    upstream_unique_ids: Sequence[str] = (),
 ) -> MetadataChangeProposalWrapper:
     assert node.test_info
     qualified_test_name = node.test_info.qualified_test_name
@@ -352,9 +557,17 @@ def make_assertion_from_test(
             native_parameters=_string_map(kw_args),
         )
 
+    # AssertionInfo.description is the assertion's display name in the UI and in
+    # notifications. Only a user-authored dbt test name belongs there; generated names
+    # are left out so the UI keeps building a structured title from customAssertion.
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties=extra_custom_props,
+        description=(
+            node.name
+            if is_custom_test_name(node.name, node.test_info, upstream_unique_ids)
+            else None
+        ),
         source=_dbt_assertion_source(),
         customAssertion=custom_assertion,
     )
@@ -362,6 +575,48 @@ def make_assertion_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertion_info,
+    )
+
+
+@dataclass(frozen=True)
+class ExistingAssertionNote:
+    """The assertion note currently stored in DataHub.
+
+    ``written_by_ingestion`` is True only when the note carries the system actor and
+    this pipeline's name. Any other note (a UI edit, another writer, or one written
+    while no pipeline name was set) is left untouched.
+    """
+
+    note: AssertionNoteClass
+    written_by_ingestion: bool
+
+
+def make_assertion_note_from_test(
+    node: "DBTNode",
+    assertion_urn: str,
+    existing_note: Optional[ExistingAssertionNote] = None,
+) -> Optional[MetadataChangeProposalWrapper]:
+    """Emit the dbt test's `description:` as the assertion note, which renders as markdown.
+
+    A note not written by this ingestion is never overwritten. When the description
+    is removed from dbt, a note this ingestion wrote is cleared.
+    """
+    content = (node.description or "").strip()
+    if existing_note is None:
+        if not content:
+            return None
+    elif (
+        not existing_note.written_by_ingestion or existing_note.note.content == content
+    ):
+        return None
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=AssertionNoteClass(
+            content=content,
+            lastModified=AuditStampClass(
+                time=int(time.time() * 1000), actor=mce_builder.SYSTEM_ACTOR
+            ),
+        ),
     )
 
 

@@ -11,8 +11,8 @@ import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptio
 import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
 import RaiseIncidentMenuAction from '@app/entityV2/shared/EntityDropdown/RaiseIncidentMenuAction';
 import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationMenuAction';
-import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import ShareMenuAction from '@app/sharedV2/share/v2/ShareMenuAction';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 export enum EntityMenuItems {

@@ -15,7 +15,17 @@ record GlossaryNodeInfo includes CustomProperties {
    * Definition of business node
    */
   @Searchable = {
-    "fieldType": "TEXT"
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   definition: string
 
@@ -29,7 +39,11 @@ record GlossaryNodeInfo includes CustomProperties {
   @Searchable = {
     "fieldName": "parentNode",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentNode"
+    "hasValuesFieldName": "hasParentNode",
+    "v3": {
+      "searchLabel": "parent",
+      "hasValuesFieldName": "hasParent",
+    }
   }
   parentNode: optional GlossaryNodeUrn
 
@@ -42,7 +56,15 @@ record GlossaryNodeInfo includes CustomProperties {
       "enableAutocomplete": true,
       "boostScore": 10.0,
       "fieldNameAliases": [ "_entityName" ],
-      "searchLabel": "entityName"
+      "v3": {
+        "queryByDefault": true,
+        "searchLabel": "name",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
     }
     name: optional string
 
@@ -50,6 +72,9 @@ record GlossaryNodeInfo includes CustomProperties {
      * Optional id for the GlossaryNode
      */
     @Searchable = {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "TEXT_PARTIAL",
     }
     id: optional string

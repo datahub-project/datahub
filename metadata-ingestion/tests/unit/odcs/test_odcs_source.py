@@ -1381,6 +1381,63 @@ def test_no_prior_link_no_conflict(tmp_path: pathlib.Path) -> None:
     assert not _link_conflict_warnings(src)
 
 
+def test_link_conflict_check_failure_is_reported(tmp_path: pathlib.Path) -> None:
+    """A failed read of the existing link still emits the link and reports
+    that conflict detection was skipped."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_link_check_failed == 1
+    assert src.report.physical_urns_link_conflicts == 0
+    assert any(
+        "existing logicalParent" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_link_conflict_check_failure_reported_once_per_urn(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two contracts bound to the same physical URN read its link once."""
+    (tmp_path / "a.odcs.yaml").write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    (tmp_path / "b.odcs.yaml").write_text(
+        _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2"),
+        encoding="utf-8",
+    )
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph)
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_check_failed == 1
+    assert graph.get_aspect.call_count == 1
+
+
+def test_link_conflict_check_skipped_after_verify_failure(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A URN whose existence check already failed is not read again, so it
+    gets one warning, not two."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, LogicalParentClass)
+    graph.get_aspect.assert_not_called()
+    assert src.report.physical_urns_link_check_failed == 1
+    assert not any(
+        "existing logicalParent" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
 def test_verification_without_graph_links(tmp_path: pathlib.Path) -> None:
     """File-sink runs have no graph: verification degrades to emitting."""
     contract_file = tmp_path / "c.odcs.yaml"

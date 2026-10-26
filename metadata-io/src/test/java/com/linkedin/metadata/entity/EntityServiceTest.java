@@ -60,6 +60,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
@@ -113,6 +114,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -121,6 +123,7 @@ import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -3676,6 +3679,125 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       // Verify Future.get() was called
       verify(mockFuture, times(1)).get();
     }
+  }
+
+  @DataProvider(name = "forceGenericPatch")
+  public Object[][] forceGenericPatch() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  /**
+   * If-Version-Match on a PATCH applies whether the patch runs as a generic JSON patch or through
+   * the aspect's patch template: a stale version is rejected and the current version is written.
+   */
+  @Test(dataProvider = "forceGenericPatch")
+  public void testIfVersionMatchAppliesToPatch(boolean forceGenericPatch) throws Exception {
+    OperationContext testContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(() -> null)
+            .entityRegistrySupplier(
+                () ->
+                    AspectTestUtils.enhanceRegistryWithTestPlugins(
+                        TestOperationContexts.defaultEntityRegistry()))
+            .buildSystemContext();
+    Mockito.doReturn(CompletableFuture.completedFuture(null))
+        .when(_mockProducer)
+        .produceFailedMetadataChangeProposalAsync(
+            any(OperationContext.class), any(MCPItem.class), any(Set.class));
+
+    Urn datasetUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:test,ifVersionMatchPatch"
+                + (forceGenericPatch ? "Generic" : "Template")
+                + ",PROD)");
+    _entityServiceImpl.ingestAspects(
+        testContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(testContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(datasetUrn)
+                        .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
+                        .recordTemplate(new DatasetProperties().setDescription("initial"))
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(testContext.getAspectRetriever())))
+            .build(testContext),
+        false,
+        true);
+    String currentVersion =
+        String.valueOf(
+            ConditionalWriteValidator.resolveAspectVersion(
+                _entityServiceImpl.getLatestEnvelopedAspect(
+                    testContext, DATASET_ENTITY_NAME, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME)));
+
+    ingestDescriptionPatch(testContext, datasetUrn, forceGenericPatch, "stale", "999");
+    assertEquals(latestDescription(testContext, datasetUrn), "initial");
+    verify(_mockProducer, times(1))
+        .produceFailedMetadataChangeProposalAsync(
+            any(OperationContext.class), any(MCPItem.class), any(Set.class));
+
+    ingestDescriptionPatch(testContext, datasetUrn, forceGenericPatch, "current", currentVersion);
+    assertEquals(latestDescription(testContext, datasetUrn), "current");
+    verify(_mockProducer, times(1))
+        .produceFailedMetadataChangeProposalAsync(
+            any(OperationContext.class), any(MCPItem.class), any(Set.class));
+  }
+
+  private void ingestDescriptionPatch(
+      OperationContext testContext,
+      Urn datasetUrn,
+      boolean forceGenericPatch,
+      String description,
+      String ifVersionMatch)
+      throws Exception {
+    GenericJsonPatch.PatchOp descriptionOp = new GenericJsonPatch.PatchOp();
+    descriptionOp.setOp(PatchOperationType.ADD.getValue());
+    descriptionOp.setPath("/description");
+    descriptionOp.setValue(description);
+    GenericJsonPatch patch =
+        GenericJsonPatch.builder()
+            .patch(List.of(descriptionOp))
+            .forceGenericPatch(forceGenericPatch)
+            .build();
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal()
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setEntityUrn(datasetUrn)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                new GenericAspect()
+                    .setContentType("application/json")
+                    .setValue(
+                        ByteString.copyString(
+                            new ObjectMapper().writeValueAsString(patch), StandardCharsets.UTF_8)))
+            .setHeaders(
+                new StringMap(
+                    Map.of(
+                        ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH, ifVersionMatch)));
+    _entityServiceImpl.ingestAspects(
+        testContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(testContext.getRetrieverContext())
+            .items(
+                List.of(
+                    PatchItemImpl.builder()
+                        .build(proposal, TEST_AUDIT_STAMP, testContext.getEntityRegistry())))
+            .build(testContext),
+        false,
+        true);
+  }
+
+  private String latestDescription(OperationContext testContext, Urn datasetUrn) throws Exception {
+    return new DatasetProperties(
+            _entityServiceImpl
+                .getLatestEnvelopedAspect(
+                    testContext, DATASET_ENTITY_NAME, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME)
+                .getValue()
+                .data())
+        .getDescription();
   }
 
   @Test
