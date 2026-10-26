@@ -13,6 +13,7 @@ import { configDefaults } from 'vitest/config';
 /* eslint-disable import-alias/import-alias */
 import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
+import { lazyIconCopiesPlugin } from './vite-plugins/lazyIconCopiesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
 
 /* eslint-enable import-alias/import-alias */
@@ -210,6 +211,7 @@ export default defineConfig(async ({ mode }) => {
             i18nLocaleBundlesPlugin(localesDir),
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
+            lazyIconCopiesPlugin(),
             ...devPlugins,
             react(),
             federation({
@@ -312,6 +314,12 @@ export default defineConfig(async ({ mode }) => {
                     // graphs async. authShellPreloadPlugin modulepreloads the logged-in
                     // provider graph when the actor cookie is set, so /login does not
                     // download it.
+                    //
+                    // No experimentalMinChunkSize either. Rollup merges a small chunk into
+                    // whichever chunk adds the least unused code, including the index.html
+                    // entry and the shell, so it moved unrelated lazy modules onto /login
+                    // and the logged-in shell. lazyIconCopiesPlugin removes the largest
+                    // source of tiny chunks (one file per Phosphor icon a page imports).
                 },
             },
         },
