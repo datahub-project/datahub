@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from generate_search_quality_pack import (
+    bootstrap_platform_aspects,
     cranfield_relevance,
     pack_dir,
     parse_cranfield_queries,
@@ -24,6 +25,31 @@ def test_pack_judgments_reference_datapack_entities() -> None:
     assert (
         property_definition["aspect"]["json"]["valueType"]
         == "urn:li:dataType:datahub.string"
+    )
+
+
+def test_bootstrap_platforms_keep_registry_info() -> None:
+    definitions = json.loads((pack_dir() / "01-definitions.json").read_text())
+    bootstrap = bootstrap_platform_aspects()
+    matched = 0
+    for item in definitions:
+        if item["aspectName"] != "dataPlatformInfo":
+            continue
+        name = item["entityUrn"].removeprefix("urn:li:dataPlatform:")
+        assert item["changeType"] == "CREATE"
+        assert item["headers"] == {"If-None-Match": "*"}
+        expected = bootstrap.get(name)
+        if expected is None:
+            assert "logoUrl" not in item["aspect"]["json"]
+            continue
+        assert item["aspect"]["json"] == expected
+        assert expected["logoUrl"]
+        matched += 1
+    assert matched == 7
+    assert all(
+        item["changeType"] == "UPSERT"
+        for item in definitions
+        if item["aspectName"] != "dataPlatformInfo"
     )
 
 
@@ -101,6 +127,12 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "ranking-pii",
         "ranking-campaign-adoptions",
         "ranking-shipping-quoted",
+        "interactive-list-personal-owner",
+        "interactive-list-personal-owner-other-viewer",
+        "interactive-list-group-owner",
+        "interactive-list-group-owner-other-viewer",
+        "interactive-list-catalog-completeness",
+        "interactive-list-usage-percentile",
     ]
     for item in longtail:
         grades = [grade["relevance"] for grade in item["grades"]]
@@ -110,7 +142,7 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
     pet_profile = next(item for item in ranking if item["id"] == "ranking-pet-profile")
     assert "dashboards.14" not in json.dumps(pet_profile)
     assert pet_profile["containsInTop"] == {
-        "n": 3,
+        "n": 5,
         "values": ["pet_profiles", "pet_profiles"],
     }
     pet_details = next(

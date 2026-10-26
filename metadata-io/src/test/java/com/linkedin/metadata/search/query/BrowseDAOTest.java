@@ -509,7 +509,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     SearchRequest request = requestCaptor.getValue();
     String query = request.source().query().toString();
     assertTrue(query.contains(lexicalClause), query);
-    assertTrue(query.contains("function_score"), query);
+    // An empty query or * is the complete URN list, which does not rank.
+    if ("*".equals(input) || input.isEmpty()) {
+      assertFalse(query.contains("function_score"), query);
+    } else {
+      assertTrue(query.contains("function_score"), query);
+    }
     assertTrue(query.contains("\"browsePathV2.length\""), query);
     assertTrue(query.contains("removed"), query);
     if (path.isEmpty()) {

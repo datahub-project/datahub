@@ -26,6 +26,7 @@ record MLModelProperties includes CustomProperties, ExternalReference, MLModelLi
     "boostScore": 10.0,
     "queryByDefault": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -45,6 +46,7 @@ record MLModelProperties includes CustomProperties, ExternalReference, MLModelLi
     "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -106,6 +108,9 @@ record MLModelProperties includes CustomProperties, ExternalReference, MLModelLi
    * Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   type: optional string

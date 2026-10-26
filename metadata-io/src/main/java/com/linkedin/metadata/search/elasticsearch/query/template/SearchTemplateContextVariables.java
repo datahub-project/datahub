@@ -63,6 +63,7 @@ public final class SearchTemplateContextVariables {
   public static final String PARTIAL_FACTOR = "partialFactor";
   public static final String FUZZY_MAX_EXPANSIONS = "fuzzyMaxExpansions";
   public static final String PREFIX_MAX_EXPANSIONS = "prefixMaxExpansions";
+  public static final String PREFIX_FIELD = "prefixField";
   public static final String STRUCTURED_QUERY = "structuredQuery";
   public static final String FLAGS = "flags";
   public static final String SYNONYMS = "synonyms";
@@ -148,6 +149,7 @@ public final class SearchTemplateContextVariables {
           PARTIAL_FACTOR,
           FUZZY_MAX_EXPANSIONS,
           PREFIX_MAX_EXPANSIONS,
+          PREFIX_FIELD,
           STRUCTURED_QUERY,
           FLAGS,
           SYNONYMS,

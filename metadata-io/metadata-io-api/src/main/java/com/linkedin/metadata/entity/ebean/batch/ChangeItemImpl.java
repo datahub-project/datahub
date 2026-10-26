@@ -43,10 +43,19 @@ public class ChangeItemImpl implements ChangeMCP {
       @Nonnull AspectSpec aspectSpec,
       @Nullable RecordTemplate recordTemplate,
       GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate,
+      @Nonnull MetadataChangeProposal metadataChangeProposal,
+      @Nullable SystemMetadata systemMetadata,
       @Nonnull AuditStamp auditStamp,
       AspectRetriever aspectRetriever) {
+    // Keep the source PATCH MCP, as the template patch path does: its headers carry write
+    // preconditions (If-Version-Match, If-Unmodified-Since, ...) that pre-commit validators read.
     ChangeItemImplBuilder builder =
-        ChangeItemImpl.builder().urn(urn).auditStamp(auditStamp).aspectName(aspectSpec.getName());
+        ChangeItemImpl.builder()
+            .urn(urn)
+            .auditStamp(auditStamp)
+            .aspectName(aspectSpec.getName())
+            .metadataChangeProposal(metadataChangeProposal)
+            .systemMetadata(systemMetadata);
 
     RecordTemplate currentValue =
         recordTemplate != null ? recordTemplate : genericPatchTemplate.getDefault();

@@ -35,7 +35,7 @@ import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents'
 import { EntityTab } from '@app/entityV2/shared/types';
 import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';

@@ -8,7 +8,7 @@ import { percentStrToDecimal } from '@app/entityV2/shared/tabs/Dataset/Schema/ut
 import { getItemKeySet } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { Button } from '@src/alchemy-components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetter } from '@src/app/sharedV2/textUtil';
 
 const ColumnName = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.text};

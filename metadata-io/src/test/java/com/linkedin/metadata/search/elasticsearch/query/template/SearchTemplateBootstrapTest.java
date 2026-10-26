@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -131,6 +132,7 @@ public class SearchTemplateBootstrapTest {
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2"));
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2List"));
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
+    assertTrue(urns.contains("urn:li:searchTemplate:listUrn"));
     for (String urn : urns) {
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       SearchTemplateChecks.check(shipped, 1024);
@@ -139,6 +141,10 @@ public class SearchTemplateBootstrapTest {
 
     SearchTemplateProperties fulltext =
         SearchTemplateBootstrap.get("urn:li:searchTemplate:fulltext");
+    MergedSearchTemplate listUrn = loader.load(harness.opContext, "urn:li:searchTemplate:listUrn");
+    assertNull(listUrn.getFunctionScore());
+    assertNull(listUrn.getBoosts());
+    assertTrue(listUrn.getSort().contains("\"urn\""));
     Map<String, Object> context =
         SearchTemplateMustache.validationContext(fulltext.getFunctionScore());
     @SuppressWarnings("unchecked")

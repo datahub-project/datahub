@@ -7,11 +7,11 @@ import styled, { useTheme } from 'styled-components';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
-import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useIsEmbeddedProfile } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';

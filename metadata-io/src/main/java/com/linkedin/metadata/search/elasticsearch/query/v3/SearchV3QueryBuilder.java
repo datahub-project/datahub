@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryH
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseBudget;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPropertySearchCatalog;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredQueryRouting;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
@@ -166,13 +167,8 @@ public class SearchV3QueryBuilder {
     Set<SearchFieldConfig> queried = new LinkedHashSet<>(layer2);
 
     List<String> highlights =
-        SearchTemplateFields.applyHighlight(Set.of(), template.getHighlightFields());
-    if (flags != null && flags.hasCustomHighlightingFields()) {
-      highlights = new ArrayList<>(flags.getCustomHighlightingFields());
-    }
-    if (flags != null && Boolean.TRUE.equals(flags.isSkipHighlighting())) {
-      highlights = List.of();
-    }
+        SearchHighlightSelection.resolve(
+            SearchTemplateFields.applyHighlight(Set.of(), template.getHighlightFields()), flags);
     List<String> queriedFields = searchedFields(queried);
 
     TemplateContext builtContext = context(opContext, entitySpecs, query, template, queried);
@@ -358,7 +354,7 @@ public class SearchV3QueryBuilder {
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
     List<String> lightFields = shape.nameOnly ? identityFields : analyzed;
     SearchFieldResolver fieldResolver =
-        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, analyzed);
     context.put(
@@ -400,6 +396,7 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.NAME_KEYWORD,
         exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
+    context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
@@ -930,7 +927,7 @@ public class SearchV3QueryBuilder {
       }
     }
     SearchFieldResolver resolver =
-        V3SearchFieldModel.forIndexGroup(opContext.getEntityRegistry(), entitySpecs).resolver();
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Optional<QueryBuilder> built =
         StructuredQueryRouting.build(query, shared, properties, resolver);
     return built.map(QueryBuilder::toString).orElse("{\"match_none\":{}}");

@@ -75,7 +75,10 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
       return new HashMap<>();
     }
     Map<String, Object> indexSettings = buildIndexSettings(indexConfiguration);
-    if (SemanticEmbeddingMappings.isSemanticEnabledV3Index(semanticSearchConfiguration, indexName)
+    // Embeddings contributed for any entity are on every V3 index. OpenSearch rejects a
+    // knn_vector unless index.knn is true, including on entities that never store a vector.
+    // Elasticsearch keeps k-NN on dense_vector and rejects index.knn.
+    if (SemanticEmbeddingMappings.enabledForAnyEntity(semanticSearchConfiguration)
         && SemanticEmbeddingMappings.shouldEnableIndexLevelKnn(searchClientShim)) {
       indexSettings.put("knn", true);
     }
