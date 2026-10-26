@@ -180,7 +180,11 @@ in place.
   `logicalParent` column links, and ODCS export. Spec-valid fields the source does not map
   are reported once per file as an info and listed in `report.spec_fields_ignored`. Besides
   whole sections such as SLA, support and price, these include fields the source reads but
-  does not map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`, `classification`, `criticalDataElement` and `encryptedName` on properties, `businessName` on schema objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`, team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` / `region`. These may land in a follow-up.
+  does not map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`,
+  `criticalDataElement` and `encryptedName` on properties, `businessName` on schema
+  objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
+  team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
+  `region`. These may land in a follow-up.
 - **Lossy mappings are reported.** Besides the info above: off-spec v3.2 values that were
   dropped, and `${VAR}` references in quality `query` text, are warnings; team roles defaulted
   to Technical Owner, and a contract `description` not applied to tables that have their own,
@@ -201,7 +205,8 @@ in place.
   usable entry, leaves earlier synonyms in place. With a DataHub connection the field's other
   AI context (instructions, examples) is kept, and the field is skipped with a warning if that
   context cannot be read; without one, the AI context aspect is written as a whole (reported
-  once as an info). With `strict_validation: false` (the default), off-spec `deprecated`,
+  once as an info), and an empty list writes nothing, so clearing synonyms needs a DataHub
+  connection. With `strict_validation: false` (the default), off-spec `deprecated`,
   `synonyms` or `semanticType` values are dropped and reported as a warning rather than
   rejecting the contract; with `strict_validation: true` the contract fails JSON Schema
   validation instead.
@@ -209,13 +214,15 @@ in place.
   `semanticType` uses, and the server fields `encoding` and `workgroup`. These may land in a
   follow-up.
 - **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept
-  verbatim. A server `type`, a name-composing server field, an Iceberg `catalogUrl` or
-  `warehouse`, or `physicalName` that contains one leaves the physical binding unbound,
+  verbatim. A server `type`, a name-composing server field, an Iceberg `catalogUrl` (or, on a
+  Glue catalog, `warehouse`), or `physicalName` that contains one leaves the physical binding
+  unbound,
   reported as a warning; use `physical_urn_overrides` to bind it explicitly. A server refused
   this way stops the search: later servers are not tried, since the contract may not describe
-  them. A `${VAR}` in a `type: sql` quality `query` is copied into the SQL assertion
-  unresolved and reported as a warning, so resolve variables before ingestion (for example
-  with `envsubst` in CI).
+  them. A `${VAR}` in a quality rule's `query` or `implementation` is copied into its
+  assertion unresolved and reported as a warning, so resolve variables before ingestion (for
+  example with `envsubst` in CI). Unquoted numbers are read as plain decimals only: a value
+  such as `0777` or `12:30` keeps its text instead of becoming YAML 1.1 octal or base-60.
 - **ODPS documents are not read.** `emit_data_product_association` marks the datasets a
   contract governs as output ports of the product the contract names, but the product side
   of the Bitol model is not ingested: no ODPS file is parsed, so port names, port versions,

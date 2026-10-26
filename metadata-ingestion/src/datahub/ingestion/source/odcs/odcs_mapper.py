@@ -1,7 +1,6 @@
 import json
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
 from urllib.parse import urlparse
 
@@ -135,6 +134,22 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataProductUrn
 from datahub.specific.dataproduct import DataProductPatchBuilder
+from datahub.utilities.str_enum import StrEnum
+
+
+class RefusalKind(StrEnum):
+    UNMAPPABLE = "unmappable"
+    UNRESOLVED_VARIABLE = "unresolved_variable"
+    EXPLICITLY_UNBOUND = "explicitly_unbound"
+    NO_TABLE_NAME = "no_table_name"
+
+
+@dataclass(frozen=True)
+class BindingRefusal:
+    """Why a schema entry was left without a physical binding."""
+
+    kind: RefusalKind
+    message: str
 
 
 @dataclass
@@ -151,11 +166,20 @@ class PhysicalBinding:
     schema_entry: ODCSSchemaObject
     logical_urn: str
     physical_urn: Optional[str]
-    unmapped_reason: Optional[str] = None
+    refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
-    # The binding was refused because a value it depends on holds an
-    # unresolved `${VAR}`: reported as a warning, not as an unmappable server.
-    unresolved_variable: bool = False
+
+    @property
+    def unmapped_reason(self) -> Optional[str]:
+        return self.refusal.message if self.refusal else None
+
+    @property
+    def unresolved_variable(self) -> bool:
+        # Reported as a warning, not as an unmappable server.
+        return (
+            self.refusal is not None
+            and self.refusal.kind is RefusalKind.UNRESOLVED_VARIABLE
+        )
 
 
 @dataclass
@@ -252,19 +276,6 @@ _GLUE_ENDPOINT_HOST = re.compile(r"^glue(-fips)?\.[a-z0-9-]+\.amazonaws\.com(\.c
 _AWS_ACCOUNT_ID = re.compile(r"^\d{12}$")
 
 
-class RefusalKind(str, Enum):
-    UNMAPPABLE = "unmappable"
-    UNRESOLVED_VARIABLE = "unresolved_variable"
-
-
-@dataclass(frozen=True)
-class BindingRefusal:
-    """Why a schema entry was left without a physical binding."""
-
-    kind: RefusalKind
-    message: str
-
-
 def _unresolved_variable(what: str, value: object) -> BindingRefusal:
     return BindingRefusal(
         RefusalKind.UNRESOLVED_VARIABLE,
@@ -283,29 +294,37 @@ def _is_iceberg_server(server: ODCSServer) -> bool:
 
 def _url_host(url: str) -> str:
     # A scheme-less `glue.<region>.amazonaws.com/iceberg` has no parsed host.
-    return urlparse(url if "://" in url else f"//{url}").hostname or ""
+    try:
+        return urlparse(url if "://" in url else f"//{url}").hostname or ""
+    except ValueError:
+        # Malformed (e.g. a stray bracket): an unknown host, not a fatal error.
+        return ""
 
 
-def _server_refusal(server: ODCSServer) -> Optional[BindingRefusal]:
-    """A refusal when this server's platform cannot be known.
+def _server_platform(server: ODCSServer) -> Union[str, BindingRefusal, None]:
+    """The DataHub platform for a server, a refusal, or None if unmapped.
 
-    A refused server stops the search: binding a later server in its place
-    would link the contract to a table it may not describe.
+    An `iceberg` server whose REST catalog is AWS Glue's default catalog holds
+    tables the Glue connector catalogs, so it binds to `glue`; other Iceberg
+    catalogs bind to `iceberg`. A refusal means this server's platform cannot be
+    known, and stops the search: binding a later server in its place would link
+    the contract to a table it may not describe.
     """
-    if VARIABLE_MARKER in _server_type(server):
+    server_type = _server_type(server)
+    if VARIABLE_MARKER in server_type:
         return _unresolved_variable(f"server '{server.server}' type", server.type)
-    if not _is_iceberg_server(server):
-        return None
-    for attr in ("catalogUrl", "warehouse"):
-        value = getattr(server, attr) or ""
-        if VARIABLE_MARKER in value:
-            return _unresolved_variable(f"server '{server.server}' {attr}", value)
+    if server_type != SERVER_TYPE_ICEBERG:
+        return SERVER_TYPE_TO_PLATFORM.get(server_type)
+    catalog_url = server.catalogUrl or ""
+    if VARIABLE_MARKER in catalog_url:
+        return _unresolved_variable(f"server '{server.server}' catalogUrl", catalog_url)
+    if not _GLUE_ENDPOINT_HOST.match(_url_host(catalog_url)):
+        return SERVER_TYPE_TO_PLATFORM.get(server_type)
+    # On a Glue catalog, `warehouse` selects the catalog the table lives in.
     warehouse = (server.warehouse or "").strip()
-    if (
-        _GLUE_ENDPOINT_HOST.match(_url_host(server.catalogUrl or ""))
-        and warehouse
-        and not _AWS_ACCOUNT_ID.match(warehouse)
-    ):
+    if VARIABLE_MARKER in warehouse:
+        return _unresolved_variable(f"server '{server.server}' warehouse", warehouse)
+    if warehouse and not _AWS_ACCOUNT_ID.match(warehouse):
         # e.g. `<account>:s3tablescatalog/<bucket>`: a federated catalog the
         # Glue connector does not catalog.
         return BindingRefusal(
@@ -314,21 +333,7 @@ def _server_refusal(server: ODCSServer) -> Optional[BindingRefusal]:
             "other than the account's default, which the Glue connector does not "
             "catalog; supply a physical_urn_overrides entry",
         )
-    return None
-
-
-def _platform_for_server(server: ODCSServer) -> Optional[str]:
-    """DataHub platform for a server's spec-required `type` (None if unmapped).
-
-    An `iceberg` server whose REST catalog is AWS Glue's default catalog holds
-    tables the Glue connector catalogs, so it binds to `glue`; other Iceberg
-    catalogs bind to `iceberg`. Callers check _server_refusal first.
-    """
-    if _is_iceberg_server(server) and _GLUE_ENDPOINT_HOST.match(
-        _url_host(server.catalogUrl or "")
-    ):
-        return PLATFORM_GLUE
-    return SERVER_TYPE_TO_PLATFORM.get(_server_type(server))
+    return PLATFORM_GLUE
 
 
 def _resolve_server(
@@ -338,7 +343,7 @@ def _resolve_server(
 
     The platform comes from a matching `server_overrides` entry when it sets
     one, else from the spec-required `servers[].type` (see
-    _platform_for_server). Returns `(resolved, None)` on success or
+    _server_platform). Returns `(resolved, None)` on success or
     `(None, refusal)` when no server is mappable or a server is refused.
     """
     if not contract.servers:
@@ -351,10 +356,10 @@ def _resolve_server(
         if mapping is not None and mapping.platform:
             platform: Optional[str] = mapping.platform
         else:
-            refusal = _server_refusal(server)
-            if refusal is not None:
-                return None, refusal
-            platform = _platform_for_server(server)
+            choice = _server_platform(server)
+            if isinstance(choice, BindingRefusal):
+                return None, choice
+            platform = choice
         if platform:
             return ResolvedServer(
                 server=server, platform=platform, mapping=mapping
@@ -471,10 +476,13 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=override_urn or None,
-                    unmapped_reason=(
+                    refusal=(
                         None
                         if override_urn
-                        else "explicitly unbound by physical_urn_overrides"
+                        else BindingRefusal(
+                            RefusalKind.EXPLICITLY_UNBOUND,
+                            "explicitly unbound by physical_urn_overrides",
+                        )
                     ),
                 )
             )
@@ -488,7 +496,10 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason="schema entry has no physicalName or name",
+                    refusal=BindingRefusal(
+                        RefusalKind.NO_TABLE_NAME,
+                        "schema entry has no physicalName or name",
+                    ),
                 )
             )
             continue
@@ -499,9 +510,7 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=server_refusal.message if server_refusal else None,
-                    unresolved_variable=server_refusal is not None
-                    and server_refusal.kind is RefusalKind.UNRESOLVED_VARIABLE,
+                    refusal=server_refusal,
                 )
             )
             continue
@@ -519,11 +528,7 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=compose_refusal.message
-                    if compose_refusal
-                    else None,
-                    unresolved_variable=compose_refusal is not None
-                    and compose_refusal.kind is RefusalKind.UNRESOLVED_VARIABLE,
+                    refusal=compose_refusal,
                 )
             )
             continue
@@ -1384,7 +1389,7 @@ def _build_custom_assertion(
     )
 
 
-def _iter_schema_rules(
+def iter_schema_rules(
     schema_entry: ODCSSchemaObject,
 ) -> Iterable[Tuple[ODCSQualityRule, Optional[str], str]]:
     """Yield (rule, column, scope) for rules attached to one schema entry.
@@ -1584,7 +1589,7 @@ def odcs_to_assertion_mcps(
     trace = AssertionRoutingTrace()
     api_version = (contract.apiVersion or "").lstrip("v")
 
-    for index, (rule, column, scope) in enumerate(_iter_schema_rules(schema_entry)):
+    for index, (rule, column, scope) in enumerate(iter_schema_rules(schema_entry)):
         ctx = _RuleContext(
             rule=rule,
             column=column,

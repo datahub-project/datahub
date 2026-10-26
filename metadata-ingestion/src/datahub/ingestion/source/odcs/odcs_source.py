@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import tempfile
 from dataclasses import dataclass, field
 from functools import partial
@@ -41,6 +42,8 @@ from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceC
 from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
+    RefusalKind,
+    iter_schema_rules,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
     odcs_to_data_product_output_port_mcps,
@@ -61,6 +64,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_SERVER_FIELDS,
     KNOWN_UNMAPPED_TEAM_FIELDS,
     KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
+    LENIENT_FIELDS_BY_MODEL,
     READ_BUT_UNMAPPED_CONTRACT_FIELDS,
     READ_BUT_UNMAPPED_PROPERTY_FIELDS,
     READ_BUT_UNMAPPED_QUALITY_FIELDS,
@@ -146,9 +150,33 @@ _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeamMember: READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
 }
 
-# v3.2 keys whose off-spec values the models drop instead of rejecting the
-# contract (see odcs_models); reported when present but parsed to nothing.
-_LENIENT_KEYS = ("deprecated", "synonyms", "semanticType")
+
+class _ContractYamlLoader(yaml.SafeLoader):
+    """YAML 1.1 loader whose implicit integers are plain decimals only.
+
+    YAML 1.1 reads an unquoted `0777` as octal 511 and `12:30` as base-60 750,
+    so an identifier such as a database name or an AWS account ID would turn
+    into a different value and bind the contract to a table that does not
+    exist. Such values stay strings here, exactly as written.
+    """
+
+
+_ContractYamlLoader.yaml_implicit_resolvers = {
+    first: [
+        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+    ]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_ContractYamlLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    re.compile(r"^[-+]?(?:0|[1-9][0-9]*)$"),
+    list("-+0123456789"),
+)
+
+
+def _load_contract_yaml(raw_text: str) -> object:
+    return yaml.load(raw_text, Loader=_ContractYamlLoader)
+
 
 # Which list-valued keys of each model recurse into which child model, for the
 # unknown-field walker. `authoritativeDefinitions` is handled generically, and
@@ -648,7 +676,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         try:
             raw_text = file_path.read_text(encoding="utf-8")
-            raw_dict = yaml.safe_load(raw_text)
+            raw_dict = _load_contract_yaml(raw_text)
         except (OSError, yaml.YAMLError) as e:
             self.report.warning(
                 title="Failed to read ODCS file",
@@ -703,7 +731,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         try:
             raw_text = raw_bytes.decode("utf-8")
-            raw_dict = yaml.safe_load(raw_text)
+            raw_dict = _load_contract_yaml(raw_text)
         except (UnicodeDecodeError, yaml.YAMLError) as e:
             self.report.warning(
                 title="Failed to read ODCS file",
@@ -779,6 +807,11 @@ class ODCSSource(StatefulIngestionSourceBase):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
 
         walk(raw_dict, ODCSContract, "<root>")
+        # One entry per field, not per column: `properties[3].unique` and
+        # `properties[7].unique` are the same unmapped field.
+        spec_ignored = list(
+            dict.fromkeys(re.sub(r"\[\d+\]", "[*]", path) for path in spec_ignored)
+        )
         if spec_ignored:
             self.report.spec_fields_ignored.extend(spec_ignored)
             self.report.info(
@@ -1053,7 +1086,9 @@ class ODCSSource(StatefulIngestionSourceBase):
         for mcp in logical_mcps:
             is_field = guess_entity_type(mcp.entityUrn or "") == "schemaField"
             if is_field and isinstance(mcp.aspect, AiContextClass):
-                merged = self._merge_ai_context(mcp.entityUrn or "", mcp.aspect)
+                merged = self._merge_ai_context(
+                    mcp.entityUrn or "", mcp.aspect, source_uri
+                )
                 if merged is None:
                     continue
                 mcp.aspect = merged
@@ -1070,16 +1105,23 @@ class ODCSSource(StatefulIngestionSourceBase):
         self, raw_dict: dict, contract: ODCSContract, source_uri: str
     ) -> None:
         """Report contract content that parses but does not reach DataHub as written."""
+        self._report_dropped_values(raw_dict, contract, source_uri)
+        self._report_shadowed_description(contract, source_uri)
+        self._report_variables_in_rules(contract, source_uri)
+
+    def _report_dropped_values(
+        self, raw_dict: dict, contract: ODCSContract, source_uri: str
+    ) -> None:
         dropped: List[str] = []
 
         def check(raw: object, parsed: BaseModel, path: str) -> None:
             if not isinstance(raw, dict):
                 return
-            for key in _LENIENT_KEYS:
-                if raw.get(key) is None:
+            for key in LENIENT_FIELDS_BY_MODEL.get(type(parsed), ()):
+                raw_value = raw.get(key)
+                if raw_value is None:
                     continue
-                value = getattr(parsed, key, None)
-                raw_value = raw[key]
+                value = getattr(parsed, key)
                 if value is None or (
                     isinstance(raw_value, list)
                     and isinstance(value, list)
@@ -1110,60 +1152,59 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=f"{source_uri}: {', '.join(dropped)}",
             )
 
-        if contract.description is not None:
-            shadowed = [
-                entry.name
-                for entry in contract.schema_ or []
-                if entry.description is not None
-            ]
-            if shadowed:
-                # Info, not warning: tables with their own description are the
-                # common case (the official Bitol examples do it).
-                self.report.info(
-                    title="ODCS contract description not applied",
-                    message=(
-                        "These tables have their own description, so the contract "
-                        "`description` (usage, purpose, limitations) is not written "
-                        "to them."
-                    ),
-                    context=f"{source_uri}: {', '.join(shadowed)}",
-                )
-
-        variable_queries: List[str] = []
-
-        def collect(location: str, rules: Optional[List[ODCSQualityRule]]) -> None:
-            for rule in rules or []:
-                if rule.query and VARIABLE_MARKER in rule.query:
-                    variable_queries.append(f"{location}: {rule.query}")
-
-        def collect_properties(
-            location: str, props: Optional[List[ODCSProperty]]
-        ) -> None:
-            for prop in props or []:
-                collect(f"{location}.{prop.name}", prop.quality)
-                collect_properties(f"{location}.{prop.name}", prop.properties)
-
-        for entry in contract.schema_ or []:
-            collect(entry.name, entry.quality)
-            collect_properties(entry.name, entry.properties)
-        if variable_queries:
-            self.report.warning(
-                title="ODCS quality query contains an unresolved variable",
+    def _report_shadowed_description(
+        self, contract: ODCSContract, source_uri: str
+    ) -> None:
+        if contract.description is None:
+            return
+        shadowed = [
+            entry.name
+            for entry in contract.schema_ or []
+            if entry.description is not None
+        ]
+        if shadowed:
+            # Info, not warning: tables with their own description are the
+            # common case (the official Bitol examples do it).
+            self.report.info(
+                title="ODCS contract description not applied",
                 message=(
-                    "The query is copied into the SQL assertion as written; resolve "
-                    "the variables before ingestion or the assertion cannot run."
+                    "These tables have their own description, so the contract "
+                    "`description` (usage, purpose, limitations) is not written "
+                    "to them."
                 ),
-                context=f"{source_uri}: {'; '.join(variable_queries)}",
+                context=f"{source_uri}: {', '.join(shadowed)}",
+            )
+
+    def _report_variables_in_rules(
+        self, contract: ODCSContract, source_uri: str
+    ) -> None:
+        found: List[str] = []
+        for entry in contract.schema_ or []:
+            for rule, column, _ in iter_schema_rules(entry):
+                body = rule.query or rule.implementation
+                text = body if isinstance(body, str) else json.dumps(body)
+                if body is not None and VARIABLE_MARKER in text:
+                    location = f"{entry.name}.{column}" if column else entry.name
+                    found.append(f"{location}: {text}")
+        if found:
+            self.report.warning(
+                title="ODCS quality rule contains an unresolved variable",
+                message=(
+                    "The rule is copied into its assertion as written; resolve the "
+                    "variables before ingestion or the assertion cannot run."
+                ),
+                context=f"{source_uri}: {'; '.join(found)}",
             )
 
     def _merge_ai_context(
-        self, field_urn: str, contract_ai: AiContextClass
+        self, field_urn: str, contract_ai: AiContextClass, source_uri: str
     ) -> Optional[AiContextClass]:
         """The field's aiContext with only `synonyms` taken from the contract.
 
         `aiContext` is written as a whole aspect, so the contract's synonyms
         replace the field's synonyms while its instructions and examples are
-        kept. Without a graph the aspect is written as is.
+        kept. Without a graph the aspect is written as is, unless it would be
+        empty: loaded later, an empty aspect would erase that context.
         Returns None when the existing aspect cannot be read: overwriting it
         blindly could erase user-entered context.
         """
@@ -1178,9 +1219,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                         "cannot be read; the aspect is written with only the "
                         "contract's synonyms, replacing instructions and examples."
                     ),
-                    context=field_urn,
+                    context=source_uri,
                 )
-            return contract_ai
+            return contract_ai if contract_ai.synonyms else None
         try:
             existing = graph.get_aspect(field_urn, AiContextClass)
         except Exception as e:
@@ -1289,8 +1330,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                         f"schema_name={schema_entry.name}"
                     ),
                 )
-            elif binding.unmapped_reason:
-                self.report.unmappable_servers += 1
+            elif binding.refusal is not None:
+                if binding.refusal.kind is RefusalKind.UNMAPPABLE:
+                    self.report.unmappable_servers += 1
                 self.report.info(
                     title="ODCS schema entry has no physical binding",
                     message=(

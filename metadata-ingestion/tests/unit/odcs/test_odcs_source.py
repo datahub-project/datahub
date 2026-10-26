@@ -2040,10 +2040,24 @@ def test_empty_synonyms_skip_fields_without_ai_context(tmp_path: pathlib.Path) -
 
 
 def test_ai_context_without_graph_is_reported_once(tmp_path: pathlib.Path) -> None:
-    src = _synonym_source(tmp_path, _SYNONYM_BODY)
-    assert _ai_context_aspects(list(src.get_workunits_internal()))
+    body = (
+        _SYNONYM_BODY
+        + "      - name: col_b\n        synonyms:\n          - synonym: other\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    assert len(_ai_context_aspects(list(src.get_workunits_internal()))) == 2
     notes = [i for i in src.report.infos if "AI context" in str(i.title)]
     assert len(notes) == 1
+    assert "c.odcs.yaml" in str(notes[0].context)
+
+
+def test_empty_synonyms_without_graph_write_nothing(tmp_path: pathlib.Path) -> None:
+    # Loaded later, an empty aspect would erase the field's instructions.
+    body = _SYNONYM_BODY.replace(
+        "        synonyms:\n          - synonym: fresh\n", "        synonyms: []\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    assert not _ai_context_aspects(list(src.get_workunits_internal()))
 
 
 _LOSSY_BODY = """\
@@ -2082,8 +2096,8 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     list(src.get_workunits_internal())
     ignored = " ".join(src.report.spec_fields_ignored)
     # Read by the model but not mapped.
-    assert "properties[0].criticalDataElement" in ignored
-    assert "properties[0].classification" in ignored
+    assert "<root>.schema[*].properties[*].criticalDataElement" in ignored
+    assert "<root>.schema[*].properties[*].classification" in ignored
     warnings = _messages(src.report.warnings)
     # Off-spec values dropped by the model.
     assert "schema[0].deprecated" in warnings
@@ -2095,3 +2109,91 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     assert "${CUTOFF}" in warnings
     # Owner role defaulted.
     assert "data steward" in infos
+
+
+_SPEC_VALID_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: valid
+version: 1.0.0
+status: active
+schema:
+  - name: t
+    synonyms:
+      - synonym: orders
+    quality:
+      - type: sql
+        query: SELECT COUNT(*) FROM t
+        mustBeLessThan: 10
+    properties:
+      - name: col_a
+        unique: false
+      - name: col_b
+        unique: false
+"""
+
+
+def test_spec_valid_contract_raises_no_lossy_warnings(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _SPEC_VALID_BODY)
+    list(src.get_workunits_internal())
+    assert not src.report.warnings
+    # One entry per field name, not per column.
+    assert (
+        src.report.spec_fields_ignored.count("<root>.schema[*].properties[*].unique")
+        == 1
+    )
+
+
+def test_variable_in_custom_rule_implementation_warns(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_BODY.replace(
+        "      - type: sql\n        query: SELECT COUNT(*) FROM t\n        mustBeLessThan: 10\n",
+        "      - type: custom\n        engine: soda\n        implementation: row_count(${TABLE}) > 0\n",
+    )
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    assert "${TABLE}" in _messages(src.report.warnings)
+
+
+_YAML_11_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: yaml11
+version: 1.0.0
+status: active
+servers:
+  - server: pg
+    type: postgres
+    database: 0777
+    schema: 12:30
+schema:
+  - name: t
+"""
+
+
+def test_unquoted_leading_zero_and_sexagesimal_values_keep_their_text(
+    tmp_path: pathlib.Path,
+) -> None:
+    # YAML 1.1 would read 0777 as octal 511 and 12:30 as 750, binding the
+    # contract to a table that does not exist.
+    src = _synonym_source(tmp_path, _YAML_11_BODY)
+    linked = [
+        wu.metadata.entityUrn
+        for wu in src.get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, LogicalParentClass)
+    ]
+    assert linked == ["urn:li:dataset:(urn:li:dataPlatform:postgres,0777.12:30.t,PROD)"]
+
+
+def test_explicitly_unbound_entry_is_not_an_unmappable_server(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        physical_urn_overrides={"test-contract-1": {"t": ""}},
+    )
+    list(src.get_workunits_internal())
+    assert src.report.unmappable_servers == 0
