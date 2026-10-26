@@ -63,13 +63,18 @@ public class SearchTemplateContractTest {
 
   @Test
   public void testShippedTemplatesDeclareVersionOneAndSystemIds() {
+    Set<String> loaded = new LinkedHashSet<>();
     for (String urn : SearchTemplateBootstrap.urns()) {
       String id = UrnUtils.getUrn(urn).getEntityKey().get(0);
-      assertTrue(SEARCH_TEMPLATE_SYSTEM_IDS.contains(id), urn);
+      loaded.add(id);
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       assertEquals(shipped.getApiVersion().intValue(), SearchTemplateCapabilities.API_VERSION);
       assertFalse(shipped.hasCapabilities());
       collectTags(section(shipped)).forEach(this::assertDeclaredName);
+      assertTrue(!shipped.isEditable() || SEARCH_TEMPLATE_SYSTEM_IDS.contains(id), urn);
+    }
+    for (String reserved : SEARCH_TEMPLATE_SYSTEM_IDS) {
+      assertTrue(loaded.contains(reserved), reserved);
     }
   }
 
