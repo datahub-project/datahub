@@ -21,19 +21,7 @@ import javax.annotation.Nullable;
  * Shared component rules: empty records, skip conditions, the subset invariant, and cache identity.
  */
 public final class SearchTemplateComponents {
-  private static volatile SearchTemplateComponentRegistry installed =
-      SearchTemplateComponentRegistry.empty();
-
   private SearchTemplateComponents() {}
-
-  public static void install(@Nullable SearchTemplateComponentRegistry registry) {
-    installed = registry == null ? SearchTemplateComponentRegistry.empty() : registry;
-  }
-
-  @Nonnull
-  public static SearchTemplateComponentRegistry installed() {
-    return installed;
-  }
 
   public static boolean empty(
       @Nullable com.linkedin.search.template.SearchTemplateComponent component) {

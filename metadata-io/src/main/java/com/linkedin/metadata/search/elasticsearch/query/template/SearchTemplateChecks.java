@@ -29,7 +29,15 @@ public final class SearchTemplateChecks {
 
   /** Checks the parent-merged template, which is the body that will render. */
   public static void checkMerged(@Nonnull MergedSearchTemplate merged, int maxLeafClauses) {
-    checkMerged(merged, maxLeafClauses, Integer.MAX_VALUE, Integer.MAX_VALUE, null, null, null);
+    checkMerged(
+        merged,
+        maxLeafClauses,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void checkMerged(
@@ -45,7 +53,8 @@ public final class SearchTemplateChecks {
         Integer.MAX_VALUE,
         context,
         retriever,
-        entitySpecs);
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void checkMerged(
@@ -56,6 +65,26 @@ public final class SearchTemplateChecks {
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs) {
+    checkMerged(
+        merged,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        context,
+        retriever,
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
+  }
+
+  public static void checkMerged(
+      @Nonnull MergedSearchTemplate merged,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplateProperties composed = new SearchTemplateProperties();
     composed.setName("merged");
     composed.setDialect(SearchTemplateDialect.valueOf(merged.getDialect()));
@@ -148,11 +177,20 @@ public final class SearchTemplateChecks {
         maxRoutePatternLength,
         context,
         retriever,
-        entitySpecs);
+        entitySpecs,
+        registry);
   }
 
   public static void check(@Nonnull SearchTemplateProperties properties, int maxLeafClauses) {
-    check(properties, maxLeafClauses, Integer.MAX_VALUE, Integer.MAX_VALUE, null, null, null);
+    check(
+        properties,
+        maxLeafClauses,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void check(
@@ -168,7 +206,8 @@ public final class SearchTemplateChecks {
         Integer.MAX_VALUE,
         context,
         retriever,
-        entitySpecs);
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
   }
 
   public static void check(
@@ -179,6 +218,26 @@ public final class SearchTemplateChecks {
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs) {
+    check(
+        properties,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        context,
+        retriever,
+        entitySpecs,
+        SearchTemplateComponentRegistry.empty());
+  }
+
+  public static void check(
+      @Nonnull SearchTemplateProperties properties,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     try {
       checkProperties(
           properties,
@@ -187,7 +246,8 @@ public final class SearchTemplateChecks {
           maxRoutePatternLength,
           context,
           retriever,
-          entitySpecs);
+          entitySpecs,
+          registry);
     } catch (SearchTemplateException e) {
       throw e;
     } catch (RuntimeException e) {
@@ -202,9 +262,10 @@ public final class SearchTemplateChecks {
       int maxRoutePatternLength,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
-      @Nullable Collection<EntitySpec> entitySpecs) {
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplatePolicyChecks.check(
-        properties, maxRoutes, maxRoutePatternLength, context, retriever, entitySpecs);
+        properties, maxRoutes, maxRoutePatternLength, context, retriever, entitySpecs, registry);
     Map<String, String> fragments = rewriteFragments(properties, context, retriever);
     String query =
         rewrite(section(properties.hasQuery() ? properties.getQuery() : null), context, retriever);

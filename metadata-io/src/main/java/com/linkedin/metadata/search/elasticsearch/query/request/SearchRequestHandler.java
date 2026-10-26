@@ -54,7 +54,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlig
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -606,7 +606,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   private static boolean templatesActive(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     return coordinator != null && coordinator.executes(opContext);
   }
 

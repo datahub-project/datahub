@@ -16,6 +16,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateLadder;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.datahubproject.metadata.context.SearchTemplateRuntime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -29,7 +30,7 @@ import org.opensearch.index.query.QueryBuilder;
 
 /** Selects and renders templates when keyword read and {@code templates.enabled} are both on. */
 @Slf4j
-public class SearchTemplateCoordinator {
+public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   private final ElasticSearchConfiguration elasticSearchConfiguration;
   private final SearchTemplateLoader loader;
   private final SearchTemplateSelector selector;

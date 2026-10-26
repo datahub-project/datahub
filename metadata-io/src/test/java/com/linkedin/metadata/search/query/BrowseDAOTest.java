@@ -33,7 +33,6 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateC
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -325,19 +324,20 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     .v3(new SearchV3Configuration().setTemplates(templates))
                     .build())
             .build();
-    SearchTemplates.install(
-        new SearchTemplateCoordinator(
-            elastic,
-            null,
-            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
-            ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+    opContext =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
     try {
       assertBrowseQuery(elastic, "", "*", "match_all");
       assertBrowseQuery(elastic, "", "orders", "simple_query_string");
       assertBrowseQuery(elastic, "␟prod", "orders", "simple_query_string");
     } finally {
-      SearchTemplates.install(null);
+      opContext = opContext.withSearchTemplateRuntime(null);
     }
   }
 
@@ -378,13 +378,14 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     .v3(new SearchV3Configuration().setTemplates(templates))
                     .build())
             .build();
-    SearchTemplates.install(
-        new SearchTemplateCoordinator(
-            elastic,
-            null,
-            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
-            ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+    opContext =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
     try {
       SearchRequest single = browseRequest(elastic, "dataset-path");
       SearchRequest across = browseAcrossRequest(elastic, "dataset-path");
@@ -412,7 +413,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 .noneMatch(aggregation -> "platform".equals(aggregation.getName())));
       }
     } finally {
-      SearchTemplates.install(null);
+      opContext = opContext.withSearchTemplateRuntime(null);
     }
   }
 

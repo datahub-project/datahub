@@ -139,7 +139,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getSearch().getV3().setTemplates(templates);
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -194,7 +194,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             loader,
             ForkJoinPool.commonPool(),
             SearchTemplateComponentRegistry.empty());
-    SearchTemplates.install(coordinator);
+    useRuntime(coordinator);
     OperationContext searching =
         opContext.withSearchFlags(
             flags ->
@@ -425,7 +425,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration v2 = new EntityIndexVersionConfiguration();
     v2.setEnabled(true);
     elastic.getEntityIndex().setV2(v2);
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -775,7 +775,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     try {
       ElasticSearchConfiguration elastic = v3Config();
       SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
-      SearchTemplates.install(
+      useRuntime(
           new SearchTemplateCoordinator(
               elastic,
               null,
@@ -839,7 +839,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
               .anyMatch(aggregation -> "_entityType".equals(aggregation.getName())));
     } finally {
       templates = previous;
-      SearchTemplates.install(null);
+      useRuntime(null);
     }
   }
 
@@ -936,7 +936,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     template.setHighlightFields(highlights);
     store("urn:li:searchTemplate:literalHighlight", template);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -978,7 +978,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     template.setHighlightFields(highlights);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -1117,7 +1117,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         "{ \"platform\": { \"terms\": { \"field\": \"platform.keyword\", \"size\": 5000 } }, \"_entityType\": { \"terms\": { \"field\": \"stolen\", \"size\": 1 } }, \"textFieldOverride\": { \"terms\": { \"field\": \"stolen\", \"size\": 5000 } } }");
     store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -1149,7 +1149,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       assertEquals(termsAggregation(count, "platform").size(), 7);
       assertEquals(termsAggregation(count, "platform").field(), "platform.keyword");
     } finally {
-      SearchTemplates.install(null);
+      useRuntime(null);
     }
   }
 
@@ -1166,7 +1166,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     store(SEARCH_TEMPLATE_LIST_BY_URN_URN, list);
     expire();
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -1191,7 +1191,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       assertEquals(platform.size(), 10);
       assertFalse("stolen".equals(platform.field()));
     } finally {
-      SearchTemplates.install(null);
+      useRuntime(null);
     }
   }
 
@@ -1208,7 +1208,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         "urn:li:searchTemplate:customList",
         pinned("Custom", "{ \"term\": { \"templateMarker\": \"custom-body\" } }"));
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,
@@ -1301,7 +1301,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     assertTrue(explicitQuery.contains("custom-body"), explicitQuery);
     assertFalse(explicitQuery.contains("list-body"), explicitQuery);
 
-    SearchTemplates.install(null);
+    useRuntime(null);
     String legacy =
         dao.buildFilterRequest(opContext, DATASET_ENTITY_NAME, null, null, 0, 10)
             .source()

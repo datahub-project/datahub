@@ -68,8 +68,8 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateL
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -1432,7 +1432,7 @@ public class ESSearchDAO {
 
   @Nonnull
   private String autocompleteQuery(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator != null) {
       MergedSearchTemplate template =
           coordinator.load(opContext, Constants.SEARCH_TEMPLATE_AUTOCOMPLETE_URN);
@@ -2038,7 +2038,7 @@ public class ESSearchDAO {
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
     String renderUrn = resolved == null ? null : resolved.getUrn();
     if (!scroll && renderUrn != null) {
-      SearchTemplateCoordinator coordinator = SearchTemplates.current();
+      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
       SearchTemplateWalk.Served<SearchResult> served =
           SearchTemplateWalk.walk(
               bound,
@@ -2172,7 +2172,7 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null || !coordinator.executes(opContext)) {
       return new BoundSearch(
           opContext,
@@ -2232,7 +2232,7 @@ public class ESSearchDAO {
     if (opContext.getSearchContext().getResolvedSearchTemplate() != null) {
       return opContext;
     }
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null) {
       return opContext;
     }
@@ -2251,7 +2251,7 @@ public class ESSearchDAO {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     try {
-      SearchTemplateCoordinator coordinator = SearchTemplates.current();
+      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
       int fetchFrom = from;
       Integer fetchSize = size;
       if (coordinator != null) {
@@ -2360,7 +2360,7 @@ public class ESSearchDAO {
     if (!(raw.page() instanceof SearchResult page)) {
       return raw;
     }
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null) {
       return raw;
     }
@@ -2511,7 +2511,7 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       @Nullable Integer size) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     if (coordinator != null && resolved != null) {
       SearchExecution<ScrollResult> execution =
@@ -2718,7 +2718,7 @@ public class ESSearchDAO {
   }
 
   private boolean templateReads(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     return coordinator != null && coordinator.executes(opContext);
   }
 
@@ -2731,7 +2731,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       boolean scroll) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null
         || entityNames.isEmpty()
         || coordinator.effect(opContext) != SearchTemplateRollout.Effect.SHADOW) {

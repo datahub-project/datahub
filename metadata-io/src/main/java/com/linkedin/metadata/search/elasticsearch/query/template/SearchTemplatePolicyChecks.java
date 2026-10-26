@@ -31,7 +31,8 @@ public final class SearchTemplatePolicyChecks {
       int maxRoutePatternLength,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
-      @Nullable java.util.Collection<EntitySpec> entitySpecs) {
+      @Nullable java.util.Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplateCapabilities.requireDeclared(properties);
     rejectCombined(properties);
     rejectRouterBody(properties);
@@ -64,7 +65,7 @@ public final class SearchTemplatePolicyChecks {
     if (properties.hasRanking() && properties.getRanking() != null) {
       checkRanking(properties.getRanking());
     }
-    SearchTemplateComponents.checkWrite(properties, SearchTemplateComponents.installed());
+    SearchTemplateComponents.checkWrite(properties, registry);
     if (properties.hasRetrieval() && properties.getRetrieval() != null) {
       checkRetrieval(properties.getRetrieval());
     }

@@ -378,6 +378,23 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    * Records the template chosen for this invocation. Selection does not read this field. Replaces
    * any template recorded by a previous query on the copied context.
    */
+  /**
+   * Attaches the process-wide template runtime. A null runtime leaves templates off. Copies keep
+   * the runtime already on this context.
+   */
+  @Nonnull
+  public OperationContext withSearchTemplateRuntime(
+      @Nullable SearchTemplateRuntime searchTemplateRuntime) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().searchTemplateRuntime(searchTemplateRuntime).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   @Nonnull
   public OperationContext withResolvedSearchTemplate(
       @Nullable ResolvedSearchTemplate resolvedSearchTemplate) {

@@ -32,7 +32,6 @@ public class SearchTemplateRolloutTest {
 
   @AfterMethod
   public void clear() {
-    SearchTemplates.install(null);
     harness = null;
   }
 
@@ -148,11 +147,10 @@ public class SearchTemplateRolloutTest {
     V3SearchQueryBuilder builder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     OperationContext search =
         harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
-    SearchTemplates.install(null);
     QueryBuilder javaQuery = builder.buildQuery(search, List.of(dataset()), QUOTED, true);
     assertTrue(javaQuery.toString().contains("dis_max"));
 
-    SearchTemplates.install(coordinator);
+    search = search.withSearchTemplateRuntime(coordinator);
     QueryBuilder shadowed = builder.buildQuery(search, List.of(dataset()), QUOTED, true);
     assertTrue(shadowed.toString().contains("dis_max"), shadowed.toString());
     assertTrue(coordinator.shadowRenderCount() > 0);
@@ -193,7 +191,7 @@ public class SearchTemplateRolloutTest {
             harness.loader,
             ForkJoinPool.commonPool(),
             SearchTemplateComponentRegistry.empty());
-    SearchTemplates.install(coordinator);
+    harness.opContext = harness.opContext.withSearchTemplateRuntime(coordinator);
     EntitySpec dataset = dataset();
     V3SearchQueryBuilder builder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     OperationContext search =
