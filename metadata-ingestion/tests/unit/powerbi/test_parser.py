@@ -299,6 +299,18 @@ def test_fabric_sql_endpoint_value_native_query():
     ]
 
 
+def test_fabric_sql_endpoint_value_native_query_unqualified_table():
+    lineage = _fabric_lineage(
+        "let\n    Source = Value.NativeQuery(Sql.Database("
+        '"abc.datawarehouse.fabric.microsoft.com", "MyLakehouse"), '
+        '"SELECT * FROM green_tripdata", null, [EnableFolding=true])\nin\n    Source'
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    ]
+
+
 def test_fabric_sql_endpoint_old_parser():
     lineage = _fabric_lineage(
         'let\n    Source = Sql.Database("abc.datawarehouse.fabric.microsoft.com", '

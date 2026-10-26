@@ -2093,6 +2093,7 @@ class NativeQueryLineage(AbstractLineage):
             )
 
         database_name: Optional[str] = self.get_db_name(data_access_tokens)
+        schema_name: Optional[str] = None
         if (
             database_name is None
             and platform == SupportedDataPlatform.MS_SQL
@@ -2100,9 +2101,11 @@ class NativeQueryLineage(AbstractLineage):
             and self.config.lookup_fabric_sql_endpoint(server)
         ):
             # Sql.Database(server, database): a Fabric endpoint picks the item by
-            # database, so unqualified tables need it. Other SQL Server hosts keep
-            # their existing schema.table URNs.
+            # database, so unqualified tables need it and the default schema, as
+            # MSSqlLineage does for Query=. Other SQL Server hosts keep their
+            # existing schema.table URNs.
             database_name = data_access_tokens[2]
+            schema_name = MSSqlLineage.DEFAULT_SCHEMA
 
         if (
             database_name is None
@@ -2129,7 +2132,7 @@ class NativeQueryLineage(AbstractLineage):
                 query=sql_query,
                 server=server,
                 database=database_name,
-                schema=None,
+                schema=schema_name,
             ),
             server,
         )
