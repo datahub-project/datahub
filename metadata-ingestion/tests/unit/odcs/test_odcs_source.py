@@ -2291,3 +2291,22 @@ def test_object_placeholder_unbound_warns(tmp_path: pathlib.Path) -> None:
     warnings = [w for w in src.report.warnings if w.title and "placeholder" in w.title]
     assert len(warnings) == 1
     assert "t" in str(warnings[0].context)
+
+
+def test_malformed_override_does_not_stop_the_file(tmp_path: pathlib.Path) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(
+        tmp_path,
+        physical_urn_overrides={"test-contract-1": {"t": "urn:li:datset:typo"}},
+    )
+    workunits = list(src.get_workunits_internal())
+    statements = [
+        a.sqlAssertion.statement
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.sqlAssertion is not None
+    ]
+    assert statements == ["SELECT count(*) FROM ${object} WHERE id IS NULL"]
+    assert not src.report.failures

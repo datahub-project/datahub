@@ -2070,3 +2070,35 @@ def test_enum_off_spec_dropped() -> None:
     assert ODCSProperty.model_validate({"name": "s", "enum": "open"}).enum is None
     prop = ODCSProperty.model_validate({"name": "s", "enum": [{"label": "x"}, None]})
     assert prop.enum is None
+
+
+def test_binding_table_name_excludes_platform_instance() -> None:
+    contract = _make_contract(
+        servers=[
+            {"server": "srv", "type": "postgres", "database": "db", "schema": "sch"}
+        ],
+        schema=[{"name": "t1", "physicalName": "tbl"}],
+    )
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(server_overrides=[{"server": "srv", "platform_instance": "inst1"}]),
+    )
+    assert "inst1.db.sch.tbl" in (bindings[0].physical_urn or "")
+    assert bindings[0].table_name == "db.sch.tbl"
+
+
+def test_binding_table_name_from_override_and_malformed_override() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.a,PROD)",
+                    "b": "urn:li:datset:typo",
+                }
+            }
+        ),
+    )
+    assert bindings[0].table_name == "db.sch.a"
+    assert bindings[1].table_name is None
