@@ -3,6 +3,7 @@ import contextlib
 import dataclasses
 import functools
 import hashlib
+import importlib.resources
 import json
 import logging
 import os
@@ -27,8 +28,6 @@ from expandvars import (
     UnboundVariable,
     expand as _expandvars_expand,
 )
-
-import datahub
 
 # TODO: promote to a public config_loader helper.
 from datahub.configuration.config_loader import _extract_env_var_names
@@ -121,7 +120,10 @@ def _bundled_constraints_path(venv_loc: pathlib.Path) -> Optional[pathlib.Path]:
 
 def _executor_constraints_path() -> Optional[pathlib.Path]:
     """Locate datahub/constraints.txt shipped with the acryl-datahub running this executor."""
-    path = pathlib.Path(datahub.__file__).parent / "constraints.txt"
+    resource = importlib.resources.files("datahub").joinpath("constraints.txt")
+    # acryl-datahub is always a filesystem install here (wheel or editable), so the
+    # resource resolves to a real path uv can read.
+    path = pathlib.Path(str(resource))
     return path if path.is_file() else None
 
 
