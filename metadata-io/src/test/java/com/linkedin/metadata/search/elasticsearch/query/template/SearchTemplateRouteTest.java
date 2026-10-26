@@ -50,6 +50,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.action.search.SearchResponse;
@@ -417,6 +418,17 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     withQuery.setDefaultRoute(defaultTo(SEARCH_TEMPLATE_FULLTEXT_URN));
     assertThrows(SearchTemplateException.class, () -> SearchTemplateChecks.check(withQuery, 1024));
 
+    SearchTemplateProperties withComponent = body("Router", null, null);
+    com.linkedin.search.template.SearchTemplateComponent component =
+        new com.linkedin.search.template.SearchTemplateComponent();
+    component.setName("reverse");
+    component.setVersion(1);
+    component.setMode(com.linkedin.search.template.SearchTemplateComponentMode.POST_PROCESS);
+    withComponent.setComponent(component);
+    withComponent.setDefaultRoute(defaultTo(SEARCH_TEMPLATE_FULLTEXT_URN));
+    assertThrows(
+        SearchTemplateException.class, () -> SearchTemplateChecks.check(withComponent, 1024));
+
     SearchTemplateProperties withLadder = body("Router", null, null);
     SearchTemplateLadder ladder = new SearchTemplateLadder();
     ladder.setSelect(new StringArray("scoreSort"));
@@ -617,7 +629,13 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   @Test
   public void testScrollFollowsARouteAndExplainKeepsTheCacheKey() {
     installShippedRoutes();
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext scrolled = coordinator.bind(opContext, "*", true);
     assertEquals(
         scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(),

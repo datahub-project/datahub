@@ -141,9 +141,16 @@ public class SearchTemplateBootstrapTest {
 
     SearchTemplateProperties fulltext =
         SearchTemplateBootstrap.get("urn:li:searchTemplate:fulltext");
+    MergedSearchTemplate list = loader.load(harness.opContext, "urn:li:searchTemplate:list");
     MergedSearchTemplate listUrn = loader.load(harness.opContext, "urn:li:searchTemplate:listUrn");
+    MergedSearchTemplate autocomplete =
+        loader.load(harness.opContext, "urn:li:searchTemplate:autocomplete");
+    assertNull(list.getEntityTypeBoosts());
+    assertNull(listUrn.getEntityTypeBoosts());
+    assertNull(autocomplete.getEntityTypeBoosts());
     assertNull(listUrn.getFunctionScore());
     assertNull(listUrn.getBoosts());
+    assertTrue(fulltext.hasEntityTypeBoosts());
     assertTrue(listUrn.getSort().contains("\"urn\""));
     Map<String, Object> context =
         SearchTemplateMustache.validationContext(fulltext.getFunctionScore());

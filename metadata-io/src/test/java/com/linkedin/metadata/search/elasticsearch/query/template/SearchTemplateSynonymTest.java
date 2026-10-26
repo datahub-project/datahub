@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.template.StringArray;
@@ -87,6 +88,31 @@ public class SearchTemplateSynonymTest {
             .lastSegment,
         "db.table");
     assertEquals(SearchTemplateQueryShape.of("db.schema.table").fqnQuery, "db schema table");
+  }
+
+  @Test
+  public void testSpacelessDottedSegments() {
+    SearchTemplateQueryShape pet = SearchTemplateQueryShape.of("analytics.pet_details");
+    assertTrue(pet.spacelessDotted);
+    assertEquals(pet.terminalSegment, "pet_details");
+    assertEquals(pet.qualifierSegments, List.of("analytics"));
+
+    SearchTemplateQueryShape orders = SearchTemplateQueryShape.of("my_db.analytics.orders");
+    assertTrue(orders.spacelessDotted);
+    assertEquals(orders.terminalSegment, "orders");
+    assertEquals(orders.qualifierSegments, List.of("my_db", "analytics"));
+
+    for (String query :
+        List.of(
+            "orders.",
+            "high speed aircraft .",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)")) {
+      SearchTemplateQueryShape shape = SearchTemplateQueryShape.of(query);
+      assertFalse(shape.spacelessDotted, query);
+      assertNull(shape.terminalSegment, query);
+      assertEquals(shape.qualifierSegments, List.of(), query);
+    }
+    assertEquals(SearchTemplateQueryShape.wildcardLiteral("a*b?c\\d"), "a\\*b\\?c\\\\d");
   }
 
   @Test

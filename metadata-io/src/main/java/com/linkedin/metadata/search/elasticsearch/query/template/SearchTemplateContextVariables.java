@@ -33,7 +33,12 @@ public final class SearchTemplateContextVariables {
   public static final String LETTER_DIGIT_QUERY = "letterDigitQuery";
   public static final String FQN_QUERY = "fqnQuery";
   public static final String DEFAULT_QUERY_FIELDS_JSON = "defaultQueryFieldsJson";
+  public static final String DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON =
+      "defaultFieldsWithoutQualifiedNameJson";
   public static final String IDENTITY_QUERY_FIELDS_JSON = "identityQueryFieldsJson";
+  public static final String NAME_FIELDS_JSON = "nameFieldsJson";
+  public static final String QUALIFIED_NAME_FIELDS = "qualifiedNameFields";
+  public static final String QUALIFIED_NAME_FIELDS_JSON = "qualifiedNameFieldsJson";
   public static final String LIGHT_FIELDS_JSON = "lightFieldsJson";
   public static final String LIGHT_OPERATOR = "lightOperator";
   public static final String ENTITY_NAME_FIELD = "entityNameField";
@@ -75,6 +80,16 @@ public final class SearchTemplateContextVariables {
   public static final String LONG_EXACT_NAME = "longExactName";
   public static final String OPERATOR_ESCAPED = "operatorEscaped";
   public static final String SPACELESS_IDENTIFIER = "spacelessIdentifier";
+  public static final String SPACELESS_DOTTED = "spacelessDotted";
+  public static final String TERMINAL_SEGMENT = "terminalSegment";
+  public static final String DOTTED_PATH = "dottedPath";
+  public static final String DOTTED_PATH_PREFIX = "dottedPathPrefix";
+  public static final String DOTTED_PATH_SUFFIX = "dottedPathSuffix";
+  public static final String DOTTED_PATH_CONTAINS = "dottedPathContains";
+  public static final String QUALIFIER_PATH = "qualifierPath";
+  public static final String QUALIFIER_PATH_PREFIX = "qualifierPathPrefix";
+  public static final String QUALIFIER_PATH_SUFFIX = "qualifierPathSuffix";
+  public static final String QUALIFIER_PATH_CONTAINS = "qualifierPathContains";
   public static final String LETTER_DIGIT_PARTS = "letterDigitParts";
   public static final String FQN_PARTS = "fqnParts";
   public static final String ENTITY_TYPES = "entityTypes";
@@ -119,7 +134,11 @@ public final class SearchTemplateContextVariables {
           LETTER_DIGIT_QUERY,
           FQN_QUERY,
           DEFAULT_QUERY_FIELDS_JSON,
+          DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON,
           IDENTITY_QUERY_FIELDS_JSON,
+          NAME_FIELDS_JSON,
+          QUALIFIED_NAME_FIELDS,
+          QUALIFIED_NAME_FIELDS_JSON,
           LIGHT_FIELDS_JSON,
           LIGHT_OPERATOR,
           ENTITY_NAME_FIELD,
@@ -161,6 +180,16 @@ public final class SearchTemplateContextVariables {
           LONG_EXACT_NAME,
           OPERATOR_ESCAPED,
           SPACELESS_IDENTIFIER,
+          SPACELESS_DOTTED,
+          TERMINAL_SEGMENT,
+          DOTTED_PATH,
+          DOTTED_PATH_PREFIX,
+          DOTTED_PATH_SUFFIX,
+          DOTTED_PATH_CONTAINS,
+          QUALIFIER_PATH,
+          QUALIFIER_PATH_PREFIX,
+          QUALIFIER_PATH_SUFFIX,
+          QUALIFIER_PATH_CONTAINS,
           LETTER_DIGIT_PARTS,
           FQN_PARTS,
           ENTITY_TYPES,

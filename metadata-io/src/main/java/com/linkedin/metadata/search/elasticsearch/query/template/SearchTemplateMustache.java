@@ -84,7 +84,14 @@ public final class SearchTemplateMustache {
     }
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, fields);
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS_JSON, json(fields));
+    context.put(
+        SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON, json(fields));
     context.put(SearchTemplateContextVariables.IDENTITY_QUERY_FIELDS_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.NAME_FIELDS_JSON, json(List.of("name.text^10.0")));
+    context.put(SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS, Boolean.TRUE);
+    context.put(
+        SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS_JSON,
+        json(List.of("qualifiedName.text^10.0")));
     context.put(SearchTemplateContextVariables.LIGHT_FIELDS_JSON, json(fields));
     context.put(SearchTemplateContextVariables.LIGHT_OPERATOR, "OR");
     context.put(
@@ -177,6 +184,16 @@ public final class SearchTemplateMustache {
     context.put(SearchTemplateContextVariables.DEEP_PATH, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LONG_EXACT_NAME, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.SPACELESS_IDENTIFIER, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.SPACELESS_DOTTED, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.TERMINAL_SEGMENT, "orders");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH, "db.orders");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH_PREFIX, "db.orders.*");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH_SUFFIX, "*.db.orders");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH_CONTAINS, "*.db.orders.*");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH, "db");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH_PREFIX, "db.*");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH_SUFFIX, "*.db");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH_CONTAINS, "*.db.*");
     context.put(SearchTemplateContextVariables.OPERATOR_ESCAPED, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LETTER_DIGIT_PARTS, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.FQN_PARTS, Boolean.TRUE);

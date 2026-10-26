@@ -279,12 +279,17 @@ abstract class SearchTemplateFixture {
         loader,
         executor,
         urn,
-        new SearchTemplateWalk.Request(query, null, sort, size),
+        new SearchTemplateWalk.Request(query, null, sort, size, SearchTemplateWalk.identity()),
         templateUrn -> {
           try {
             SearchResult page = pages.apply(templateUrn);
             return SearchTemplateWalk.AttemptResult.ok(
-                page, page.getNumEntities(), new ArrayList<>(page.getEntities()), List.of(), false);
+                page,
+                page.getNumEntities(),
+                new ArrayList<>(page.getEntities()),
+                List.of(),
+                false,
+                null);
           } catch (RuntimeException e) {
             return SearchTemplateWalk.AttemptResult.failed(e);
           }

@@ -142,12 +142,16 @@ public class SearchTemplateContractTest {
     assertTrue(versionError.getMessage().contains("apiVersion 2"));
     expectThrows(
         SearchTemplateException.class,
-        () -> SearchTemplateCapabilities.requireSupported(version, false));
+        () ->
+            SearchTemplateCapabilities.requireSupported(
+                version, false, SearchTemplateComponentRegistry.empty()));
 
     MergedSearchTemplate capability = merged().capabilities(List.of("merge")).build();
     expectThrows(
         SearchTemplateException.class,
-        () -> SearchTemplateCapabilities.requireSupported(capability, false, true));
+        () ->
+            SearchTemplateCapabilities.requireSupported(
+                capability, false, true, SearchTemplateComponentRegistry.empty()));
   }
 
   @Test

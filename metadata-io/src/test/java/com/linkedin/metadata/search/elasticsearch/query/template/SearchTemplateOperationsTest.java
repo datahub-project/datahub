@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -60,7 +61,13 @@ public class SearchTemplateOperationsTest {
             .systemTelemetryContext(
                 SystemTelemetryContext.TEST.toBuilder().metricUtils(metrics).build())
             .build(harness.opContext.getSessionActorContext(), false);
-    coordinator = new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+    coordinator =
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     SearchTemplates.install(coordinator);
   }
 
@@ -185,7 +192,12 @@ public class SearchTemplateOperationsTest {
   public void testDisablingTemplatesOrKeywordReadRollsBack() {
     harness.templates.setEnabled(false);
     SearchTemplateCoordinator disabled =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     assertFalse(disabled.active());
     assertNull(disabled.bind(opContext, "orders").getSearchContext().getResolvedSearchTemplate());
 
@@ -195,8 +207,22 @@ public class SearchTemplateOperationsTest {
     indexV2.setEnabled(true);
     keywordOff.getEntityIndex().setV2(indexV2);
     keywordOff.getEntityIndex().getV3().setKeywordReadEnabled(false);
-    assertFalse(new SearchTemplateCoordinator(keywordOff, null, harness.loader).active());
-    assertTrue(new SearchTemplateCoordinator(harness.elastic(), null, harness.loader).active());
+    assertFalse(
+        new SearchTemplateCoordinator(
+                keywordOff,
+                null,
+                harness.loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty())
+            .active());
+    assertTrue(
+        new SearchTemplateCoordinator(
+                harness.elastic(),
+                null,
+                harness.loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty())
+            .active());
   }
 
   @Test
@@ -217,8 +243,9 @@ public class SearchTemplateOperationsTest {
               harness.loader,
               executor,
               LIGHT,
-              new SearchTemplateWalk.Request("orders", null, null, 10),
-              urn -> SearchTemplateWalk.AttemptResult.ok(urn, 1, List.of(), List.of(), false),
+              new SearchTemplateWalk.Request(
+                  "orders", null, null, 10, SearchTemplateWalk.identity()),
+              urn -> SearchTemplateWalk.AttemptResult.ok(urn, 1, List.of(), List.of(), false, null),
               (first, entities, total) -> first);
       assertEquals(served.urn(), FULL);
     } finally {

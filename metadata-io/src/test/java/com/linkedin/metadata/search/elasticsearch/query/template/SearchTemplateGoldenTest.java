@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ForkJoinPool;
 import org.opensearch.index.query.QueryBuilder;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -178,9 +179,15 @@ public class SearchTemplateGoldenTest {
     String split = render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders2017", dataset);
     assertTrue(split.contains("\"query\" : \"orders~1 2017\""), split);
     assertTrue(split.contains("\"query\" : \"orders2017\""), split);
+    String exactName = render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders", dataset);
+    JsonNode exactQuery = SearchTemplateFixtures.JSON.readTree(exactName);
+    assertTrue(hasTermValue(exactQuery, "name.keyword", "orders"));
+    assertTrue(hasTermValue(exactQuery, "qualifiedName.keyword", "orders"));
+    assertFalse(exactName.contains("_entityName"), exactName);
+    assertFalse(exactName.contains("constant_score"), exactName);
     String fqn = render(SEARCH_TEMPLATE_FULLTEXT_URN, "my_db.analytics.orders", dataset);
-    assertTrue(fqn.contains("\"boost\" : 50.0"), fqn);
     assertTrue(fqn.contains("qualifiedName.text"), fqn);
+    assertFalse(fqn.contains("\"boost\" : 50.0"), fqn);
     assertFalse(fqn.contains("_search."), fqn);
     String phrase =
         render(SEARCH_TEMPLATE_FULLTEXT_URN, "quarterly customer revenue report", dataset);
@@ -245,7 +252,12 @@ public class SearchTemplateGoldenTest {
                     "fulltext",
                     new HashMap<>(Map.of("default", "urn:li:searchTemplate:searchLight")))));
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext interactive =
         coordinator.bind(
             harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES),
@@ -282,7 +294,12 @@ public class SearchTemplateGoldenTest {
   @Test
   public void testEngineSlotsAndFixtures() throws Exception {
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     ObjectNode root = SearchTemplateFixtures.JSON.createObjectNode();
     ObjectNode shipped = root.putObject("shipped");
     for (SearchClientShim.SearchEngineType engine :

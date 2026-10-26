@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.opensearch.action.search.SearchRequest;
@@ -61,7 +62,13 @@ public class SearchTemplateParityTest {
     harness.installShippedTemplates();
     installShippedSelection();
     elastic = harness.elastic();
-    coordinator = new SearchTemplateCoordinator(elastic, null, harness.loader);
+    coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     javaBuilder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     dataset = harness.registry.getEntitySpec("dataset");
     SearchTemplates.install(coordinator);

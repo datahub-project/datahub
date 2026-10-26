@@ -29,6 +29,7 @@ import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
@@ -52,6 +53,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchRequest;
@@ -325,7 +327,11 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             .build();
     SearchTemplates.install(
         new SearchTemplateCoordinator(
-            elastic, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH)));
+            elastic,
+            null,
+            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     try {
       assertBrowseQuery(elastic, "", "*", "match_all");
       assertBrowseQuery(elastic, "", "orders", "simple_query_string");
@@ -374,7 +380,11 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             .build();
     SearchTemplates.install(
         new SearchTemplateCoordinator(
-            elastic, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog)));
+            elastic,
+            null,
+            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     try {
       SearchRequest single = browseRequest(elastic, "dataset-path");
       SearchRequest across = browseAcrossRequest(elastic, "dataset-path");

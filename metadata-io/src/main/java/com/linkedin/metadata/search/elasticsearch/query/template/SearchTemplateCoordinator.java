@@ -21,7 +21,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,24 +36,20 @@ public class SearchTemplateCoordinator {
   private final SearchV3QueryBuilder queryBuilder;
   private final SearchTemplateRenderer renderer;
   private final ExecutorService ladderExecutor;
+  private final SearchTemplateComponentRegistry components;
   private final AtomicInteger shadowRenders = new AtomicInteger();
   @Nullable private volatile String lastShadowDsl;
 
   public SearchTemplateCoordinator(
       @Nonnull ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
-      @Nonnull SearchTemplateLoader loader) {
-    this(elasticSearchConfiguration, customSearchConfiguration, loader, ForkJoinPool.commonPool());
-  }
-
-  public SearchTemplateCoordinator(
-      @Nonnull ElasticSearchConfiguration elasticSearchConfiguration,
-      @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull SearchTemplateLoader loader,
-      @Nonnull ExecutorService ladderExecutor) {
+      @Nonnull ExecutorService ladderExecutor,
+      @Nonnull SearchTemplateComponentRegistry components) {
     this.elasticSearchConfiguration = elasticSearchConfiguration;
     this.loader = loader;
     this.ladderExecutor = ladderExecutor;
+    this.components = components;
     SearchTemplateConfiguration templates = templates(elasticSearchConfiguration);
     this.selector = new SearchTemplateSelector(templates, loader);
     this.queryBuilder =
@@ -163,6 +158,11 @@ public class SearchTemplateCoordinator {
   }
 
   @Nonnull
+  public SearchTemplateComponentRegistry components() {
+    return components;
+  }
+
+  @Nonnull
   public ExecutorService ladderExecutor() {
     return ladderExecutor;
   }
@@ -262,7 +262,8 @@ public class SearchTemplateCoordinator {
     MergedSearchTemplate template = loader.load(bound, resolved.getUrn());
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
-    String rejection = SearchTemplateCapabilities.rejectionCode(template, documentRerank, scroll);
+    String rejection =
+        SearchTemplateCapabilities.rejectionCode(template, documentRerank, scroll, components);
     List<SearchTemplateDryRender.CapabilityDecision> capabilities = new ArrayList<>();
     for (String name : template.getCapabilities()) {
       boolean accepted = SearchTemplateCapabilities.SUPPORTED.contains(name);
@@ -373,7 +374,7 @@ public class SearchTemplateCoordinator {
     }
     MergedSearchTemplate template = loader.load(opContext, urn);
     if (depth == 0) {
-      SearchTemplateCapabilities.requireSupported(template, documentRerank, scroll);
+      SearchTemplateCapabilities.requireSupported(template, documentRerank, scroll, components);
     }
     if (depth == 0) {
       classpathBridge[0] = template.isClasspathBridge();
@@ -381,13 +382,31 @@ public class SearchTemplateCoordinator {
     if (!template.isClasspathBridge() && template.getStructuredPropertyQuery() != null) {
       nameAndValue[0] = true;
     }
-    rungs.add(template.getUrn() + "@" + template.getLastModified());
+    rungs.add(
+        template.getUrn()
+            + "@"
+            + template.getLastModified()
+            + SearchTemplateComponents.cacheSuffix(template.getComponent()));
     append(bodies, template.getQuery());
     template.getQueryFragments().values().forEach(value -> append(bodies, value));
     append(bodies, template.getClauses());
     append(bodies, template.getFunctionScore());
     if (template.getBoosts() != null) {
       template.getBoosts().forEach(boost -> append(bodies, boost.getValues()));
+    }
+    if (template.getFieldValueScores() != null) {
+      template.getFieldValueScores().forEach(score -> append(bodies, score.data().toString()));
+    }
+    append(bodies, template.getScoreMode() == null ? null : template.getScoreMode().name());
+    append(bodies, template.getBoostMode() == null ? null : template.getBoostMode().name());
+    if (template.getFieldFactors() != null) {
+      template.getFieldFactors().forEach(factor -> append(bodies, factor.data().toString()));
+    }
+    if (template.getTermWeights() != null) {
+      template.getTermWeights().forEach(weight -> append(bodies, weight.data().toString()));
+    }
+    if (template.getEntityTypeBoosts() != null) {
+      template.getEntityTypeBoosts().forEach(boost -> append(bodies, boost.data().toString()));
     }
     if (!followLadder) {
       return;
