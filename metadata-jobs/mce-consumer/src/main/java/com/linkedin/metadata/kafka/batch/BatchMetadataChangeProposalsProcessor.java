@@ -5,12 +5,12 @@ import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
 import com.google.common.collect.Lists;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
-import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.InboundRecordProperties;
 import com.linkedin.metadata.kafka.config.batch.BatchMetadataChangeProposalProcessorCondition;
@@ -20,8 +20,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
-import com.linkedin.restli.client.RestLiResponseException;
-import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
@@ -31,7 +30,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -71,6 +69,8 @@ public class BatchMetadataChangeProposalsProcessor {
 
   private final ConfigurationProvider provider;
   private final ConsumerPauseSupport consumerPauseSupport;
+  // The entity client writes proposals in groups of its batchIngestSize.
+  private final EntityClientConfig entityClientConfig;
 
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
@@ -80,10 +80,6 @@ public class BatchMetadataChangeProposalsProcessor {
 
   @Value(MCP_CONSUMER_GROUP_ID_VALUE)
   private String mceConsumerGroupId;
-
-  // Same property the entity clients chunk by (EntityClientConfig.batchIngestSize).
-  @Value("${entityClient.restli.ingest.batchSize:50}")
-  private int batchIngestSize;
 
   @PostConstruct
   public void registerConsumerThrottle() {
@@ -283,44 +279,19 @@ public class BatchMetadataChangeProposalsProcessor {
         batch.size(),
         batchBytes);
 
-    // A batch holds unrelated queued proposals, so one invalid proposal must not fail the rest.
-    // Each call carries at most one entity-client chunk: a call rejected by validation then
-    // committed nothing, and its proposals can be retried alone without replaying landed writes.
-    for (List<MetadataChangeProposal> chunk :
-        batchIngestSize > 0 ? Lists.partition(batch, batchIngestSize) : List.of(batch)) {
-      ingestChunk(sliceContext, chunk);
-    }
-  }
-
-  private void ingestChunk(
-      @Nonnull OperationContext sliceContext, List<MetadataChangeProposal> chunk) {
-    try {
-      List<String> urns = entityClient.batchIngestProposals(sliceContext, chunk, false);
-
-      log.debug(
-          "Successfully processed MCP event batch of size {} with urns: {}",
-          chunk.size(),
-          urns.stream().filter(Objects::nonNull).toList());
-    } catch (Throwable throwable) {
-      if (chunk.size() == 1 || !isProposalRejection(throwable)) {
-        deadLetter(sliceContext, chunk, throwable);
-        return;
-      }
-      log.warn(
-          "Batch of {} MCPs rejected by validation; retrying each proposal alone",
-          chunk.size(),
-          throwable);
-      for (int i = 0; i < chunk.size(); i++) {
-        try {
-          entityClient.batchIngestProposals(sliceContext, List.of(chunk.get(i)), false);
-        } catch (Throwable single) {
-          if (!isProposalRejection(single)) {
-            // Not caused by this proposal (e.g. an outage): the rest would fail alike.
-            deadLetter(sliceContext, chunk.subList(i, chunk.size()), single);
-            return;
-          }
-          deadLetter(sliceContext, List.of(chunk.get(i)), single);
+    // A batch holds unrelated queued proposals, so an invalid proposal must not fail the rest:
+    // the entity client returns the proposals it rejected, and those alone are dead-lettered.
+    // Each call carries one entity-client group, which the client writes in one go, so any
+    // other failure leaves nothing of that group written and dead-letters just that group.
+    for (List<MetadataChangeProposal> group :
+        Lists.partition(batch, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
+      try {
+        for (Pair<MetadataChangeProposal, Exception> rejected :
+            entityClient.ingestValidProposals(sliceContext, group)) {
+          deadLetter(sliceContext, List.of(rejected.getFirst()), rejected.getSecond());
         }
+      } catch (Throwable throwable) {
+        deadLetter(sliceContext, group, throwable);
       }
     }
   }
@@ -336,26 +307,6 @@ public class BatchMetadataChangeProposalsProcessor {
     currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
 
     kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, mcps, throwable);
-  }
-
-  /**
-   * True when the entity client rejected the proposals themselves (an invalid or malformed
-   * proposal) rather than failing for a reason no proposal caused. Embedded: {@link
-   * ValidationException} or {@link IllegalArgumentException}. Through Rest.li, GMS maps those to
-   * 422 and 400.
-   */
-  static boolean isProposalRejection(Throwable throwable) {
-    for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
-      if (cause instanceof ValidationException || cause instanceof IllegalArgumentException) {
-        return true;
-      }
-      if (cause instanceof RestLiResponseException response) {
-        int status = response.getStatus();
-        return status == HttpStatus.S_422_UNPROCESSABLE_ENTITY.getCode()
-            || status == HttpStatus.S_400_BAD_REQUEST.getCode();
-      }
-    }
-    return false;
   }
 
   /**
