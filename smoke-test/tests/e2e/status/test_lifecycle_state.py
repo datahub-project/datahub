@@ -29,6 +29,14 @@ pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 SMOKE_TEST_STAGE_PREFIX = "smoketest"
 
+# Well-known stages are bootstrapped (see bootstrap_mcps/lifecycle-stages.yaml) and other
+# tests rely on them. Tests may add entity types to them but must never narrow or
+# hard-delete them.
+WELL_KNOWN_LIFECYCLE_STAGE_URNS = {
+    "urn:li:lifecycleStageType:PUBLISHED",
+    "urn:li:lifecycleStageType:DRAFT",
+}
+
 
 def _unique_id(prefix: str = SMOKE_TEST_STAGE_PREFIX) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:8]}"
@@ -45,6 +53,21 @@ def execute_graphql(
     return response.json()
 
 
+def _hard_delete(auth_session, urn: str) -> None:
+    from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+
+    cfg = DataHubGraphConfig(
+        server=auth_session.gms_url(), token=auth_session.gms_token() or ""
+    )
+    with DataHubGraph(cfg) as graph:
+        graph.hard_delete_entity(urn)
+
+
+def _assert_ok(result: Dict[str, Any]) -> Dict[str, Any]:
+    assert "errors" not in result, result.get("errors")
+    return result["data"]
+
+
 # ── Stage ingestion helper ────────────────────────────────────────────────────
 
 
@@ -56,6 +79,7 @@ def _ingest_lifecycle_stage(
     hide_in_search: bool = True,
     description: str = "Smoke test stage",
     entity_types: Optional[List[str]] = None,
+    allowed_previous_stages: Optional[List[str]] = None,
 ) -> str:
     """Create a lifecycleStageType entity via the REST emitter. Returns the URN."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -63,6 +87,7 @@ def _ingest_lifecycle_stage(
     from datahub.metadata.schema_classes import (
         AuditStampClass,
         LifecycleStageSettingsClass,
+        LifecycleStageTransitionPolicyClass,
         LifecycleStageTypeInfoClass,
     )
 
@@ -76,6 +101,13 @@ def _ingest_lifecycle_stage(
         description=description,
         entityTypes=entity_types or ["dataset"],
         settings=LifecycleStageSettingsClass(hideInSearch=hide_in_search),
+        transitionPolicy=(
+            LifecycleStageTransitionPolicyClass(
+                allowedPreviousStages=allowed_previous_stages
+            )
+            if allowed_previous_stages is not None
+            else None
+        ),
         created=audit,
         lastModified=audit,
     )
@@ -90,6 +122,45 @@ def _ingest_lifecycle_stage(
         emitter.close()
 
     return stage_urn
+
+
+def _ensure_well_known_lifecycle_stage(
+    auth_session,
+    stage_id: str,
+    name: str,
+    *,
+    hide_in_search: bool,
+    entity_types: List[str],
+) -> str:
+    """Ensure a shared, bootstrapped stage exists and applies to ``entity_types``.
+
+    Well-known stages are global and other tests running concurrently rely on
+    their bootstrapped entityTypes (e.g. glossaryTerm for DRAFT). Never narrow
+    them: merge our required types into whatever is already there, and skip the
+    write entirely when nothing is missing.
+    """
+    from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+    from datahub.metadata.schema_classes import LifecycleStageTypeInfoClass
+
+    stage_urn = f"urn:li:lifecycleStageType:{stage_id}"
+    cfg = DataHubGraphConfig(
+        server=auth_session.gms_url(), token=auth_session.gms_token() or ""
+    )
+    with DataHubGraph(cfg) as graph:
+        existing = graph.get_aspect(stage_urn, LifecycleStageTypeInfoClass)
+
+    existing_types = list(existing.entityTypes or []) if existing else []
+    missing = [t for t in entity_types if t not in existing_types]
+    if existing is not None and not missing:
+        return stage_urn
+
+    return _ingest_lifecycle_stage(
+        auth_session,
+        stage_id,
+        name,
+        hide_in_search=hide_in_search,
+        entity_types=existing_types + missing,
+    )
 
 
 # ── Document helpers ──────────────────────────────────────────────────────────
@@ -127,6 +198,26 @@ SEARCH_ACROSS_ENTITIES_QUERY = """
 SET_LIFECYCLE_STAGE_MUTATION = """
     mutation SetStage($urn: String!, $lifecycleStageUrn: String) {
         setLifecycleStage(urn: $urn, lifecycleStageUrn: $lifecycleStageUrn)
+    }
+"""
+
+CREATE_GLOSSARY_TERM_MUTATION = """
+    mutation CreateTerm($input: CreateGlossaryEntityInput!) {
+        createGlossaryTerm(input: $input)
+    }
+"""
+
+DELETE_GLOSSARY_ENTITY_MUTATION = """
+    mutation DeleteTerm($urn: String!) {
+        deleteGlossaryEntity(urn: $urn)
+    }
+"""
+
+LIFECYCLE_TIMELINE_QUERY = """
+    query Timeline($urn: String!) {
+        getTimeline(input: { urn: $urn, changeCategories: [LIFECYCLE] }) {
+            changeTransactions { changes { category description } }
+        }
     }
 """
 
@@ -253,18 +344,10 @@ class TestLifecycleStageAPIs:
             except Exception as exc:
                 logger.warning(f"Cleanup failed for {urn}: {exc}")
         for stage_urn in self.created_stage_urns:
+            if stage_urn in WELL_KNOWN_LIFECYCLE_STAGE_URNS:
+                continue
             try:
-                from datahub.ingestion.graph.client import (
-                    DataHubGraph,
-                    DataHubGraphConfig,
-                )
-
-                cfg = DataHubGraphConfig(
-                    server=auth_session.gms_url(),
-                    token=auth_session.gms_token() or "",
-                )
-                with DataHubGraph(cfg) as graph:
-                    graph.hard_delete_entity(stage_urn)
+                _hard_delete(auth_session, stage_urn)
             except Exception as exc:
                 logger.warning(f"Cleanup failed for {stage_urn}: {exc}")
 
@@ -444,12 +527,12 @@ class TestLifecycleStageAPIs:
         """
         # Ensure the well-known PUBLISHED stage type entity exists (it may not
         # be bootstrapped in all environments).
-        stage_urn = _ingest_lifecycle_stage(
+        stage_urn = _ensure_well_known_lifecycle_stage(
             auth_session,
             "PUBLISHED",
             "Published",
             hide_in_search=False,
-            entity_types=["dataset", "document"],
+            entity_types=["document"],
         )
         self.created_stage_urns.append(stage_urn)
         wait_for_writes_to_sync(mcp_only=True)
@@ -494,14 +577,21 @@ class TestLifecycleStageAPIs:
         from Clause 2 (the owner-visible non-published clause) so that DRAFT
         documents match no clause and are filtered out entirely.
         """
-        # Ensure the well-known DRAFT stage type entity exists (it may not
-        # be bootstrapped in all environments).
-        draft_stage_urn = _ingest_lifecycle_stage(
+        # Ensure well-known stages exist. createDocument writes PUBLISHED onto
+        # status.lifecycleStage, so that stage type must be present first.
+        _ensure_well_known_lifecycle_stage(
+            auth_session,
+            "PUBLISHED",
+            "Published",
+            hide_in_search=False,
+            entity_types=["document"],
+        )
+        draft_stage_urn = _ensure_well_known_lifecycle_stage(
             auth_session,
             "DRAFT",
             "Draft",
             hide_in_search=True,
-            entity_types=["dataset", "document"],
+            entity_types=["document"],
         )
         self.created_stage_urns.append(draft_stage_urn)
         wait_for_writes_to_sync(mcp_only=True)
@@ -532,3 +622,82 @@ class TestLifecycleStageAPIs:
 
         _assert_hidden_from_owner()
         logger.info("DRAFT stage hides document from owner in document search")
+
+    @pytest.mark.p0
+    def test_glossary_term_stage_change_respects_transition_rules(self, auth_session):
+        """
+        A stage change that breaks the destination's entry rule is refused with BAD_REQUEST;
+        a valid one is applied and appears in the term's lifecycle history.
+        """
+        first_id, second_id = _unique_id(), _unique_id()
+        first_stage = _ingest_lifecycle_stage(
+            auth_session, first_id, "First", entity_types=["glossaryTerm"]
+        )
+        second_stage = _ingest_lifecycle_stage(
+            auth_session,
+            second_id,
+            "Second",
+            entity_types=["glossaryTerm"],
+            allowed_previous_stages=[first_stage],
+        )
+        self.created_stage_urns.extend([first_stage, second_stage])
+        wait_for_writes_to_sync(mcp_only=True)
+
+        term_urn = _assert_ok(
+            execute_graphql(
+                auth_session,
+                CREATE_GLOSSARY_TERM_MUTATION,
+                {
+                    "input": {
+                        "id": _unique_id("smoketest_term"),
+                        "name": "Stage change term",
+                    }
+                },
+            )
+        )["createGlossaryTerm"]
+        try:
+            refused = execute_graphql(
+                auth_session,
+                SET_LIFECYCLE_STAGE_MUTATION,
+                {"urn": term_urn, "lifecycleStageUrn": second_stage},
+            )
+            assert refused.get("errors"), refused
+            assert refused["errors"][0]["extensions"]["type"] == "BAD_REQUEST", refused
+
+            for stage in (first_stage, second_stage):
+                assert _assert_ok(
+                    execute_graphql(
+                        auth_session,
+                        SET_LIFECYCLE_STAGE_MUTATION,
+                        {"urn": term_urn, "lifecycleStageUrn": stage},
+                    )
+                )["setLifecycleStage"]
+
+            @with_test_retry(max_attempts=12)
+            def _assert_applied_and_recorded():
+                assert (
+                    _get_status(auth_session, term_urn).get("lifecycleStage")
+                    == second_stage
+                )
+                timeline = _assert_ok(
+                    execute_graphql(
+                        auth_session, LIFECYCLE_TIMELINE_QUERY, {"urn": term_urn}
+                    )
+                )
+                descriptions = [
+                    change["description"]
+                    for tx in timeline["getTimeline"]["changeTransactions"]
+                    for change in tx["changes"] or []
+                ]
+                assert any(second_id.lower() in (d or "") for d in descriptions), (
+                    descriptions
+                )
+
+            _assert_applied_and_recorded()
+        finally:
+            try:
+                execute_graphql(
+                    auth_session, DELETE_GLOSSARY_ENTITY_MUTATION, {"urn": term_urn}
+                )
+            except Exception as exc:
+                logger.warning(f"Cleanup failed for {term_urn}: {exc}")

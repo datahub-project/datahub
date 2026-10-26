@@ -17,6 +17,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'column-lineage-hidden' });
 
@@ -62,7 +63,7 @@ test.describe('column lineage counts with hidden chart consumers', () => {
     }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
   }
 
-  test('counts every chart reading the column, drawn or not', async () => {
+  test('counts every chart reading the column, drawn or not', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     // 4 charts are on the graph; the total has to come from the counts query, which sees all 6
     await hoverUntilReadout(FAN_OUT_COLUMN, /4 \/ 6/);
     for (const id of CHART_IDS) {

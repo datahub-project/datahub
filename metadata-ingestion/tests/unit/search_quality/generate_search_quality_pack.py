@@ -2372,7 +2372,7 @@ def entity_weight_probes(
             {"name": ENTITY_BOOST_NAME, "description": ENTITY_BOOST_NAME},
         ),
     ]
-    judgments = [
+    judgments: list[dict[str, Any]] = [
         {
             "id": "entity-boost-glossary-term",
             "group": "entity-boost",

@@ -371,6 +371,12 @@ public class PoliciesConfig {
           "Edit Status",
           "The ability to edit the status of an entity (soft deleted or not).");
 
+  public static final Privilege EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_LIFECYCLE_STAGE",
+          "Edit Lifecycle Stage",
+          "The ability to edit the lifecycle stage of an entity.");
+
   public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE =
       Privilege.of(
           "EDIT_DOMAINS_PRIVILEGE", "Edit Domain", "The ability to edit the Domain of an entity.");
@@ -460,6 +466,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_STATUS_PRIVILEGE,
+          EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
           EDIT_ENTITY_DOMAINS_PRIVILEGE,
           EDIT_ENTITY_APPLICATIONS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
@@ -880,6 +887,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -898,6 +906,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
               EDIT_ENTITY_DEPRECATION_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               MANAGE_GLOSSARY_CHILDREN_PRIVILEGE,
               MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE,
