@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     UpdateDocumentContentsInput,
+    UpdateDocumentLifecycleStageInput,
     UpdateDocumentRelatedEntitiesInput,
     UpdateDocumentStatusInput,
     UpdateDocumentSubTypeInput,
@@ -14,6 +15,7 @@ import {
 } from '@app/document/hooks/useUpdateDocument';
 
 import {
+    SetLifecycleStageDocument,
     UpdateDocumentContentsDocument,
     UpdateDocumentRelatedEntitiesDocument,
     UpdateDocumentStatusDocument,
@@ -487,6 +489,160 @@ describe('useUpdateDocument', () => {
             expect(success).toBe(false);
             expect(message.error).toHaveBeenCalledWith(
                 'Failed to update related assets. An unexpected error occurred!',
+            );
+        });
+    });
+
+    describe('updateLifecycleStage', () => {
+        it('should successfully update document lifecycle stage', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const input: UpdateDocumentLifecycleStageInput = {
+                urn: mockUrn,
+                lifecycleStageUrn: 'urn:li:lifecycleStageType:PUBLISHED',
+            };
+
+            const mocks = [
+                {
+                    request: {
+                        query: SetLifecycleStageDocument,
+                        variables: {
+                            urn: mockUrn,
+                            lifecycleStageUrn: 'urn:li:lifecycleStageType:PUBLISHED',
+                        },
+                    },
+                    result: {
+                        data: {
+                            setLifecycleStage: true,
+                        },
+                    },
+                },
+            ];
+
+            const { result } = renderHook(() => useUpdateDocument(), {
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={mocks} addTypename={false}>
+                        {children}
+                    </MockedProvider>
+                ),
+            });
+
+            const success = await result.current.updateLifecycleStage(input);
+
+            expect(success).toBe(true);
+            expect(message.error).not.toHaveBeenCalled();
+        });
+
+        it('should handle null lifecycle stage URN', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const input: UpdateDocumentLifecycleStageInput = {
+                urn: mockUrn,
+                lifecycleStageUrn: null,
+            };
+
+            const mocks = [
+                {
+                    request: {
+                        query: SetLifecycleStageDocument,
+                        variables: {
+                            urn: mockUrn,
+                            lifecycleStageUrn: null,
+                        },
+                    },
+                    result: {
+                        data: {
+                            setLifecycleStage: true,
+                        },
+                    },
+                },
+            ];
+
+            const { result } = renderHook(() => useUpdateDocument(), {
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={mocks} addTypename={false}>
+                        {children}
+                    </MockedProvider>
+                ),
+            });
+
+            const success = await result.current.updateLifecycleStage(input);
+
+            expect(success).toBe(true);
+            expect(message.error).not.toHaveBeenCalled();
+        });
+
+        it('should handle failed lifecycle stage update', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const input: UpdateDocumentLifecycleStageInput = {
+                urn: mockUrn,
+                lifecycleStageUrn: 'urn:li:lifecycleStageType:UNPUBLISHED',
+            };
+
+            const mocks = [
+                {
+                    request: {
+                        query: SetLifecycleStageDocument,
+                        variables: {
+                            urn: mockUrn,
+                            lifecycleStageUrn: 'urn:li:lifecycleStageType:UNPUBLISHED',
+                        },
+                    },
+                    result: {
+                        data: {
+                            setLifecycleStage: false,
+                        },
+                    },
+                },
+            ];
+
+            const { result } = renderHook(() => useUpdateDocument(), {
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={mocks} addTypename={false}>
+                        {children}
+                    </MockedProvider>
+                ),
+            });
+
+            const success = await result.current.updateLifecycleStage(input);
+
+            expect(success).toBe(false);
+            expect(message.error).toHaveBeenCalledWith(
+                'Failed to update document status. An unexpected error occurred!',
+            );
+        });
+
+        it('should handle GraphQL errors in lifecycle stage update', async () => {
+            const mockUrn = 'urn:li:document:123';
+            const input: UpdateDocumentLifecycleStageInput = {
+                urn: mockUrn,
+                lifecycleStageUrn: 'urn:li:lifecycleStageType:PUBLISHED',
+            };
+
+            const mocks = [
+                {
+                    request: {
+                        query: SetLifecycleStageDocument,
+                        variables: {
+                            urn: mockUrn,
+                            lifecycleStageUrn: 'urn:li:lifecycleStageType:PUBLISHED',
+                        },
+                    },
+                    error: new Error('Server error'),
+                },
+            ];
+
+            const { result } = renderHook(() => useUpdateDocument(), {
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={mocks} addTypename={false}>
+                        {children}
+                    </MockedProvider>
+                ),
+            });
+
+            const success = await result.current.updateLifecycleStage(input);
+
+            expect(success).toBe(false);
+            expect(message.error).toHaveBeenCalledWith(
+                'Failed to update document status. An unexpected error occurred!',
             );
         });
     });
