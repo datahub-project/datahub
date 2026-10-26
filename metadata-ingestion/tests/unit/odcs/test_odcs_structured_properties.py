@@ -181,8 +181,10 @@ def test_patch_only_removes_properties_without_a_usable_definition() -> None:
 
 def test_off_spec_attribute_shapes_yield_no_values() -> None:
     result = field_property_values(_prop(semanticType=1, transformLogic={"a": 1}))
+    # The model drops a non-string semanticType (lenient mode reports it as a
+    # JSON Schema warning), so nothing reaches the property.
     assert result.values == {}
-    assert result.rejected == ["odcs.semanticType=1"]
+    assert result.rejected == []
     schema = ODCSSchemaObject.model_validate({"name": "t", "synonyms": "orders"})
     assert dataset_property_values(schema).values == {}
 

@@ -74,20 +74,33 @@ on it. Resolution per `schema[]` entry, in priority order:
    name (`physicalName`, falling back to `name`) is qualified with the server's own fields
    per the platform's URN convention:
 
-| Server `type` | DataHub platform    | Physical name                                                                                                                                                                                                                                                                                                                     |
-| ------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `postgres`    | `postgres`          | `database.schema.table`                                                                                                                                                                                                                                                                                                           |
-| `redshift`    | `redshift`          | `database.schema.table`                                                                                                                                                                                                                                                                                                           |
-| `sqlserver`   | `mssql`             | `database.schema.table`                                                                                                                                                                                                                                                                                                           |
-| `snowflake`   | `snowflake`         | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out)                                                                                                                                                                                                                                        |
-| `bigquery`    | `bigquery`          | `project.dataset.table`                                                                                                                                                                                                                                                                                                           |
-| `databricks`  | `databricks`        | `catalog.schema.table`                                                                                                                                                                                                                                                                                                            |
-| `trino`       | `trino`             | `catalog.schema.table`                                                                                                                                                                                                                                                                                                            |
-| `mysql`       | `mysql`             | `database.table`                                                                                                                                                                                                                                                                                                                  |
-| `oracle`      | `oracle`            | not composable — supply a dotted `physicalName` or an explicit override                                                                                                                                                                                                                                                           |
-| `glue`        | `glue`              | `database.table` (lowercased, as Glue stores names; `lowercase_physical_urns: false` opts out)                                                                                                                                                                                                                                    |
-| `iceberg`     | `glue` or `iceberg` | `namespace.table` — `glue` when `catalogUrl` is on an AWS Glue host (`glue.<region>.amazonaws.com`, including FIPS and China endpoints; the namespace is the Glue database), `iceberg` otherwise. A `catalogUrl` with an unresolved variable leaves the entry unbound. A `server_overrides` platform still uses `namespace.table` |
-| anything else | —                   | unbound (logical dataset and assertions unaffected)                                                                                                                                                                                                                                                                               |
+| Server `type` | DataHub platform               | Physical name                                                                              |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `postgres`    | `postgres`                     | `database.schema.table`                                                                    |
+| `redshift`    | `redshift`                     | `database.schema.table`                                                                    |
+| `sqlserver`   | `mssql`                        | `database.schema.table`                                                                    |
+| `snowflake`   | `snowflake`                    | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out) |
+| `bigquery`    | `bigquery`                     | `project.dataset.table`                                                                    |
+| `databricks`  | `databricks`                   | `catalog.schema.table`                                                                     |
+| `trino`       | `trino`                        | `catalog.schema.table`                                                                     |
+| `mysql`       | `mysql`                        | `database.table`                                                                           |
+| `oracle`      | `oracle`                       | not composable — supply a dotted `physicalName` or an explicit override                    |
+| `glue`        | `glue`                         | `database.table`, lowercased (see note)                                                    |
+| `iceberg`     | `glue` or `iceberg` (see note) | `namespace.table`                                                                          |
+| anything else | —                              | unbound (logical dataset and assertions unaffected)                                        |
+
+Notes on `glue` and `iceberg`:
+
+- Glue stores names in lowercase, so composed `glue` names are lowercased
+  (`lowercase_physical_urns: false` opts out).
+- An `iceberg` server binds to `glue` when its `catalogUrl` is an AWS Glue host
+  (`glue.<region>.amazonaws.com`, including FIPS and China endpoints) and `warehouse` is absent
+  or the account ID; the namespace is then the Glue database. A `warehouse` naming another
+  catalog (for example S3 Tables, `<account>:s3tablescatalog/<bucket>`) leaves the entry
+  unbound. Any other `catalogUrl` binds to `iceberg`. A `server_overrides` platform replaces
+  this choice but the name is still `namespace.table`.
+- `glue` server entries were unmappable before v3.2 support. A v3.0/v3.1 contract that lists a
+  `glue` server before another mappable server now binds to the Glue table.
 
 A `physicalName` that already contains a dot is used verbatim (assumed pre-qualified) and
 counted in `report.physical_names_passthrough`. Missing server fields leave the entry
@@ -174,9 +187,13 @@ in place.
   not physical columns, so they stay in the logical schema but are left out of the
   schema-compliance assertion. Column-level `quality[]` rules on a measure still become field
   assertions on the logical dataset; they cannot be evaluated against a physical table.
-  To un-deprecate, set `deprecated: false` — deleting the key does not undo an earlier run.
-  Removing all `synonyms` does not clear previously ingested ones. The field's AI context aspect is written as a whole, replacing any
-  instructions or examples set on that field of the logical dataset.
+  Deleting the `deprecated` key does not undo an earlier run; set `deprecated: false`
+  instead. A present `synonyms` key is asserted even when empty, so removing every synonym
+  clears them. With a DataHub connection the synonyms are merged into the field's existing AI
+  context (instructions and examples are kept, and the field is skipped with a warning if that
+  context cannot be read); without one, the AI context aspect is written as a whole. Off-spec
+  `deprecated`, `synonyms` or `semanticType` values are dropped (and reported as JSON Schema
+  warnings) rather than rejecting the contract.
   `context`, schema-object `synonyms`, `enum`, `semanticType` (beyond the measure exclusion
   above), `transformLogic` and vector
   `logicalTypeOptions` are mapped only with `emit_structured_properties` (below). Accepted but
@@ -214,8 +231,9 @@ in place.
   live on the logical dataset, which renders only with Logical Models enabled.
 
 - **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept
-  verbatim. A server field or `physicalName` that contains one leaves the physical binding
-  unbound (reported); use `physical_urn_overrides` to bind it explicitly.
+  verbatim. A server `type`, a server field or `physicalName` that contains one leaves the
+  physical binding
+  unbound, reported as a warning; use `physical_urn_overrides` to bind it explicitly.
 - **ODPS documents are not read.** `emit_data_product_association` marks the datasets a
   contract governs as output ports of the product the contract names, but the product side
   of the Bitol model is not ingested: no ODPS file is parsed, so port names, port versions,

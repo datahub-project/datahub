@@ -38,7 +38,6 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_constants import (
     ASSERTION_SCHEMA_COMPLIANCE,
-    DEPRECATION_ACTOR,
     LOGICAL_TYPE_MAP,
     METRIC_DUPLICATE_COUNT,
     METRIC_DUPLICATE_VALUES,
@@ -47,6 +46,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     METRIC_NULL_VALUES,
     METRIC_ROW_COUNT,
     METRIC_VALID_VALUES,
+    ODCS_ACTOR,
     OWNER_ROLE_MAP,
     PLATFORM_NAME_PARTS,
     PROP_API_VERSION,
@@ -78,8 +78,12 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     RULE_TYPE_TEXT,
     SCOPE_PROPERTY,
     SCOPE_SCHEMA,
+    SEMANTIC_TYPE_MEASURE,
+    SERVER_TYPE_ICEBERG,
+    SYNONYM_STATUS_DEPRECATED,
     UNIT_PERCENT,
     UNIT_ROWS,
+    VARIABLE_MARKER,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
@@ -167,6 +171,9 @@ class PhysicalBinding:
     physical_urn: Optional[str]
     unmapped_reason: Optional[str] = None
     name_passthrough: bool = False
+    # The binding was refused because a value it depends on holds an
+    # unresolved `${VAR}`: reported as a warning, not as an unmappable server.
+    unresolved_variable: bool = False
 
 
 @dataclass
@@ -259,26 +266,52 @@ def _override_for_server(
 
 # AWS Glue endpoints, including FIPS and China regions.
 _GLUE_ENDPOINT_HOST = re.compile(r"^glue(-fips)?\.[a-z0-9-]+\.amazonaws\.com(\.cn)?$")
+# A Glue Iceberg REST `warehouse` naming the account's default catalog.
+_AWS_ACCOUNT_ID = re.compile(r"^\d{12}$")
+
+
+def _unresolved_variable_reason(what: str, value: object) -> str:
+    return (
+        f"{what} '{value}' contains an unresolved ODCS variable; resolve it or "
+        "supply a physical_urn_overrides entry"
+    )
 
 
 def _is_iceberg_server(server: ODCSServer) -> bool:
-    return (server.type or "").strip().lower() == "iceberg"
+    return (server.type or "").strip().lower() == SERVER_TYPE_ICEBERG
 
 
-def _platform_for_server(server: ODCSServer) -> Optional[str]:
-    """DataHub platform for a server's spec-required `type`.
+def _platform_for_server(server: ODCSServer) -> Tuple[Optional[str], Optional[str]]:
+    """`(platform, refusal)` for a server's spec-required `type`.
 
-    An `iceberg` server whose REST catalog is AWS Glue
-    (`https://glue.<region>.amazonaws.com/iceberg`) holds tables the Glue
-    connector catalogs, so it binds to `glue`; other Iceberg catalogs bind to
-    `iceberg`. Either way the Iceberg namespace qualifies the table name. The
-    caller refuses a `catalogUrl` holding an unresolved variable.
+    An `iceberg` server whose REST catalog is AWS Glue's default catalog holds
+    tables the Glue connector catalogs, so it binds to `glue`; other Iceberg
+    catalogs bind to `iceberg`. A refusal means this server's platform cannot be
+    known, so no later server may be bound in its place.
     """
-    if _is_iceberg_server(server):
-        host = urlparse(server.catalogUrl or "").hostname or ""
-        if _GLUE_ENDPOINT_HOST.match(host):
-            return "glue"
-    return SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
+    server_type = (server.type or "").strip().lower()
+    if VARIABLE_MARKER in server_type:
+        return None, _unresolved_variable_reason(
+            f"server '{server.server}' type", server.type
+        )
+    if server_type == SERVER_TYPE_ICEBERG:
+        catalog_url = server.catalogUrl or ""
+        if VARIABLE_MARKER in catalog_url:
+            return None, _unresolved_variable_reason(
+                f"server '{server.server}' catalogUrl", catalog_url
+            )
+        if _GLUE_ENDPOINT_HOST.match(urlparse(catalog_url).hostname or ""):
+            warehouse = (server.warehouse or "").strip()
+            if warehouse and not _AWS_ACCOUNT_ID.match(warehouse):
+                # e.g. `<account>:s3tablescatalog/<bucket>`: a federated catalog
+                # the Glue connector does not catalog.
+                return None, (
+                    f"server '{server.server}' warehouse '{warehouse}' names a Glue "
+                    "catalog other than the account's default, which the Glue "
+                    "connector does not catalog; supply a physical_urn_overrides entry"
+                )
+            return "glue", None
+    return SERVER_TYPE_TO_PLATFORM.get(server_type), None
 
 
 def _resolve_server(
@@ -287,18 +320,21 @@ def _resolve_server(
     """Pick the first contract server that maps to a DataHub platform.
 
     The platform comes from a matching `server_overrides` entry when it sets
-    one, else from the spec-required `servers[].type` via
-    SERVER_TYPE_TO_PLATFORM. Returns `(resolved, None)` on success or
-    `(None, reason)` when no server is mappable.
+    one, else from the spec-required `servers[].type` (see
+    _platform_for_server). Returns `(resolved, None)` on success or
+    `(None, reason)` when no server is mappable or a server is refused.
     """
     if not contract.servers:
         return None, "contract declares no servers[]"
     unmappable: List[str] = []
     for server in contract.servers:
         mapping = _override_for_server(server.server, config.server_overrides)
-        platform = (
-            mapping.platform if mapping is not None and mapping.platform else None
-        ) or _platform_for_server(server)
+        if mapping is not None and mapping.platform:
+            platform: Optional[str] = mapping.platform
+        else:
+            platform, refusal = _platform_for_server(server)
+            if refusal:
+                return None, refusal
         if platform:
             return ResolvedServer(
                 server=server, platform=platform, mapping=mapping
@@ -330,28 +366,13 @@ def _compose_physical_name(
     # ODCS v3.2 (RFC 0050) allows ${VAR} / ${VAR:-default} in any string. This
     # source does not resolve them; composing one into a URN would bind the
     # logical dataset to a dataset that does not exist.
-    if "${" in table:
-        return (
-            None,
-            f"physicalName '{table}' contains an unresolved ODCS variable; "
-            "resolve it or supply a physical_urn_overrides entry",
-            False,
-        )
-    if _is_iceberg_server(server) and "${" in (server.catalogUrl or ""):
-        # The catalogUrl picks the platform (glue vs iceberg), so a variable
-        # there makes the URN a guess.
-        return (
-            None,
-            f"server '{server.server}' catalogUrl '{server.catalogUrl}' contains an "
-            "unresolved ODCS variable; resolve it or supply a "
-            "physical_urn_overrides entry",
-            False,
-        )
+    if VARIABLE_MARKER in table:
+        return None, _unresolved_variable_reason("physicalName", table), False
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
     parts_spec = (
-        PLATFORM_NAME_PARTS["iceberg"]
+        PLATFORM_NAME_PARTS[SERVER_TYPE_ICEBERG]
         if _is_iceberg_server(server)
         else PLATFORM_NAME_PARTS.get(platform)
     )
@@ -366,12 +387,12 @@ def _compose_physical_name(
     missing: List[str] = []
     for attr in parts_spec:
         value = getattr(server, attr)
-        if value and "${" in str(value):
+        if value and VARIABLE_MARKER in str(value):
             return (
                 None,
-                f"server '{server.server}' {attr.rstrip('_')} '{value}' contains an "
-                "unresolved ODCS variable; resolve it or supply a "
-                "physical_urn_overrides entry",
+                _unresolved_variable_reason(
+                    f"server '{server.server}' {attr.rstrip('_')}", value
+                ),
                 False,
             )
         if value:
@@ -451,6 +472,7 @@ def odcs_to_physical_bindings(
                     logical_urn=logical_urn,
                     physical_urn=None,
                     unmapped_reason=server_reason,
+                    unresolved_variable=VARIABLE_MARKER in (server_reason or ""),
                 )
             )
             continue
@@ -469,6 +491,7 @@ def odcs_to_physical_bindings(
                     logical_urn=logical_urn,
                     physical_urn=None,
                     unmapped_reason=compose_reason,
+                    unresolved_variable=VARIABLE_MARKER in (compose_reason or ""),
                 )
             )
             continue
@@ -694,7 +717,7 @@ def _institutional_memory_mcp(
                 # cause needless write amplification.
                 createStamp=AuditStampClass(
                     time=0,
-                    actor="urn:li:corpuser:datahub",
+                    actor=ODCS_ACTOR,
                 ),
             )
         )
@@ -710,7 +733,7 @@ def _deprecation(contract: ODCSContract, deprecated: bool) -> DeprecationClass:
     return DeprecationClass(
         deprecated=deprecated,
         note=f"Marked deprecated in ODCS contract {contract.id}" if deprecated else "",
-        actor=DEPRECATION_ACTOR,
+        actor=ODCS_ACTOR,
     )
 
 
@@ -732,19 +755,24 @@ def _field_aspect_mcps(
                     aspect=_deprecation(contract, prop.deprecated),
                 )
             )
+        if prop.synonyms is None:
+            continue
         names = [
             s if isinstance(s, str) else s.synonym
-            for s in prop.synonyms or []
+            for s in prop.synonyms
             # RFC 0041: a deprecated synonym is a former name, not a current one.
-            if isinstance(s, str) or str(s.status or "").strip().lower() != "deprecated"
+            if isinstance(s, str)
+            or (s.status or "").strip().lower() != SYNONYM_STATUS_DEPRECATED
         ]
-        synonyms = [name for name in names if name]
-        if synonyms:
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=field_urn, aspect=AiContextClass(synonyms=synonyms)
-                )
+        # A present key is asserted even when empty, so removing every synonym
+        # from the contract clears the earlier ones. The source merges these
+        # synonyms into the field's existing aiContext when it can read it.
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=field_urn,
+                aspect=AiContextClass(synonyms=[name for name in names if name]),
             )
+        )
     return mcps
 
 
@@ -1602,7 +1630,7 @@ def _without_measures(schema_entry: ODCSSchemaObject) -> ODCSSchemaObject:
         return [
             p.model_copy(update={"properties": keep(p.properties)})
             for p in props
-            if str(p.semanticType or "").strip().lower() != "measure"
+            if (p.semanticType or "").strip().lower() != SEMANTIC_TYPE_MEASURE
         ]
 
     return schema_entry.model_copy(update={"properties": keep(schema_entry.properties)})

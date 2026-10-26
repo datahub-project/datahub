@@ -87,6 +87,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     DataProductPropertiesClass,
     LogicalParentClass,
     OwnershipClass,
@@ -96,6 +97,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataProductUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +217,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
+    unresolved_variable_bindings: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
     physical_urns_link_conflicts: int = 0
@@ -1018,14 +1021,16 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         self._check_owner_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
+            is_field = guess_entity_type(mcp.entityUrn or "") == "schemaField"
+            if is_field and isinstance(mcp.aspect, AiContextClass):
+                merged = self._merge_ai_context(mcp.entityUrn or "", mcp.aspect)
+                if merged is None:
+                    continue
+                mcp.aspect = merged
             # Field-level aspects (v3.2 deprecation/aiContext) are not
             # primary-source: a schemaField URN in the checkpoint would be
             # soft-deleted once a later contract drops the flag.
-            yield mcp.as_workunit(
-                is_primary_source=not (mcp.entityUrn or "").startswith(
-                    "urn:li:schemaField:"
-                )
-            )
+            yield mcp.as_workunit(is_primary_source=not is_field)
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
@@ -1120,6 +1125,36 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=f"{source_uri}: {'; '.join(rejected[:20])}",
             )
 
+    def _merge_ai_context(
+        self, field_urn: str, contract_ai: AiContextClass
+    ) -> Optional[AiContextClass]:
+        """The field's aiContext with only `synonyms` taken from the contract.
+
+        `aiContext` is written as a whole aspect, so the contract's synonyms are
+        merged into what the field already holds (instructions and examples
+        users entered are kept). Without a graph the aspect is written as is.
+        Returns None when the existing aspect cannot be read: overwriting it
+        blindly could erase user-entered context.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return contract_ai
+        try:
+            existing = graph.get_aspect(field_urn, AiContextClass)
+        except Exception as e:
+            self.report.warning(
+                title="Could not read existing AI context; synonyms not written",
+                message="Skipped this field's ODCS synonyms to avoid overwriting "
+                "user-entered AI context.",
+                context=field_urn,
+                exc=e,
+            )
+            return None
+        if existing is None:
+            return contract_ai
+        existing.synonyms = contract_ai.synonyms
+        return existing
+
     def _emit_assertions(
         self,
         contract: ODCSContract,
@@ -1196,7 +1231,20 @@ class ODCSSource(StatefulIngestionSourceBase):
         if binding.physical_urn is None:
             # No binding costs only the logicalParent link — never the
             # assertions. The unmapped reason is informational.
-            if binding.unmapped_reason:
+            if binding.unresolved_variable:
+                self.report.unresolved_variable_bindings += 1
+                self.report.warning(
+                    title="ODCS physical binding refused: unresolved variable",
+                    message=(
+                        f"{binding.unmapped_reason}. Emitted the logical "
+                        "dataset and its assertions; no logicalParent link."
+                    ),
+                    context=(
+                        f"file={source_uri} schema_index={binding.index} "
+                        f"schema_name={schema_entry.name}"
+                    ),
+                )
+            elif binding.unmapped_reason:
                 self.report.unmappable_servers += 1
                 self.report.info(
                     title="ODCS schema entry has no physical binding",

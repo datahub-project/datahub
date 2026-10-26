@@ -26,6 +26,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     AssertionInfoClass,
     DataContractPropertiesClass,
     DataContractStateClass,
@@ -2121,3 +2122,89 @@ def test_dry_run_does_not_write_definitions(tmp_path: pathlib.Path) -> None:
 def test_contract_context_reaches_the_dataset(tmp_path: pathlib.Path) -> None:
     workunits, _ = _sp_workunits(tmp_path, emit_structured_properties=True)
     assert "odcs.context" in _set_paths(workunits)
+
+
+_VARIABLE_SERVER_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: var-server
+version: 1.0.0
+status: active
+servers:
+  - server: prod
+    type: ${PLATFORM}
+schema:
+  - name: t
+"""
+
+
+def test_unresolved_variable_binding_is_a_warning(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VARIABLE_SERVER_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.unresolved_variable_bindings == 1
+    assert src.report.unmappable_servers == 0
+    assert any("variable" in str(w.title) for w in src.report.warnings)
+
+
+_SYNONYM_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: syn
+version: 1.0.0
+status: active
+schema:
+  - name: t
+    properties:
+      - name: col_a
+        synonyms:
+          - synonym: fresh
+"""
+
+
+def _ai_context_aspects(workunits: List[Any]) -> List[AiContextClass]:
+    return [
+        a
+        for a in (getattr(wu.metadata, "aspect", None) for wu in workunits)
+        if isinstance(a, AiContextClass)
+    ]
+
+
+def test_ai_context_synonyms_merge_into_existing_aspect(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        AiContextClass(instructions="keep me", synonyms=["stale"])
+        if cls is AiContextClass
+        else None
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SYNONYM_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    (ai,) = _ai_context_aspects(list(src.get_workunits_internal()))
+    assert ai.instructions == "keep me"
+    assert ai.synonyms == ["fresh"]
+
+
+def test_ai_context_skipped_when_existing_aspect_cannot_be_read(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = True
+
+    def get_aspect(urn: str, cls: Any) -> Any:
+        if cls is AiContextClass:
+            raise RuntimeError("GMS down")
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SYNONYM_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    # Never overwrite user-entered AI context blindly.
+    assert not _ai_context_aspects(workunits)
+    assert any("AI context" in str(w.title) for w in src.report.warnings)
