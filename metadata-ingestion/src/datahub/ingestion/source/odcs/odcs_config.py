@@ -167,8 +167,10 @@ class ODCSSourceConfig(
     lowercase_physical_urns: bool = Field(
         default=True,
         description="Lowercase composed physical dataset names for platforms whose DataHub "
-        "connectors lowercase URNs by default (currently snowflake and glue). Set False if your "
-        "snowflake ingestion runs with convert_urns_to_lowercase disabled. Logical `odcs` "
+        "connectors lowercase URNs by default (currently snowflake and glue, including iceberg "
+        "servers bound to glue). Set False only if your snowflake ingestion runs with "
+        "convert_urns_to_lowercase disabled and your contracts already use Glue's lowercase "
+        "names, since it applies to both. Logical `odcs` "
         "dataset URNs always preserve the contract's casing.",
     )
     verify_physical_urns_exist: bool = Field(

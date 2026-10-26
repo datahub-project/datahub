@@ -1318,9 +1318,11 @@ def test_property_synonyms_emit_field_ai_context() -> None:
         mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
     )
     assert ai.synonyms == ["alias_a", "alias_b"]
-    assert not _aspects_for(
+    # A present-but-empty key clears earlier synonyms.
+    (cleared,) = _aspects_for(
         mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), AiContextClass
     )
+    assert cleared.synonyms == []
 
 
 @pytest.mark.parametrize(
@@ -1408,9 +1410,10 @@ def test_deprecated_synonyms_are_not_emitted() -> None:
         mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
     )
     assert ai.synonyms == ["current"]
-    assert not _aspects_for(
+    (only_deprecated,) = _aspects_for(
         mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), AiContextClass
     )
+    assert only_deprecated.synonyms == []
 
 
 @pytest.mark.parametrize(
@@ -1545,4 +1548,173 @@ def test_binding_glue_names_are_lowercased() -> None:
     (binding,) = odcs_to_physical_bindings(contract, _config())
     assert binding.physical_urn == (
         "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"
+    )
+
+
+def test_property_without_synonyms_key_emits_no_ai_context() -> None:
+    mcps = _logical_mcps([{"name": "t", "properties": [{"name": "col_a"}]}])
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
+    )
+
+
+def test_malformed_synonyms_and_deprecated_never_fail_the_contract() -> None:
+    # Lenient mode already reports these as JSON Schema warnings; the model
+    # drops them instead of rejecting the whole contract.
+    mcps = _logical_mcps(
+        [
+            {
+                "name": "t",
+                "deprecated": "maybe",
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "deprecated": "maybe",
+                        "synonyms": [42, None, {"synonym": 5}, "ok", ["x"]],
+                    },
+                    {"name": "col_b", "synonyms": "abc"},
+                ],
+            }
+        ]
+    )
+    (ai,) = _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
+    )
+    assert ai.synonyms == ["ok"]
+    assert not [m for m in mcps if isinstance(m.aspect, DeprecationClass)]
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_b"), AiContextClass
+    )
+
+
+def test_measures_stay_in_logical_schema_and_nested_ones_leave_the_assertion() -> None:
+    contract = _make_contract(
+        api_version="v3.2.0",
+        schema=[
+            {
+                "name": "t",
+                "properties": [
+                    {"name": "total", "semanticType": "measure"},
+                    {
+                        "name": "s",
+                        "logicalType": "object",
+                        "properties": [
+                            {"name": "a", "logicalType": "number"},
+                            {"name": "avg_a", "semanticType": "Measure"},
+                        ],
+                    },
+                ],
+            }
+        ],
+    )
+    schema_entry = _first_schema(contract)
+    logical = build_schema_metadata(schema_entry).schema_metadata
+    assert logical is not None
+    assert {"total", "s.avg_a"} <= {f.fieldPath for f in logical.fields}
+    _, mcps = odcs_to_schema_assertion_mcps(
+        contract=contract,
+        schema_entry=schema_entry,
+        logical_urn=LOGICAL_URN,
+        compatibility=SchemaAssertionCompatibility.SUPERSET,
+    )
+    sa = _single_info(mcps).schemaAssertion
+    assert sa is not None
+    assert [f.fieldPath for f in sa.schema.fields] == ["s", "s.a"]
+
+
+def _iceberg_binding(
+    *, server: Dict[str, Any], physical_name: str = "orders", **config: Any
+) -> Any:
+    contract = _make_contract(
+        servers=[{"server": "lake", **server}],
+        schema=[{"name": "t", "physicalName": physical_name}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config(**config))
+    return binding
+
+
+def test_binding_variable_server_type_is_refused_not_skipped() -> None:
+    contract = _make_contract(
+        servers=[
+            {"server": "prod", "type": "${PLATFORM}", "database": "prod_db"},
+            {"server": "dev", "type": "postgres", "database": "dev_db", "schema": "s"},
+        ],
+        schema=[{"name": "t"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn is None
+    assert binding.unresolved_variable
+    assert binding.unmapped_reason and "${PLATFORM}" in binding.unmapped_reason
+
+
+@pytest.mark.parametrize(
+    "warehouse,expected_urn",
+    [
+        (None, "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"),
+        (
+            "123456789012",
+            "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)",
+        ),
+        ("123456789012:s3tablescatalog/bucket", None),
+    ],
+)
+def test_binding_iceberg_on_glue_only_for_the_default_catalog(
+    warehouse: Optional[str], expected_urn: Optional[str]
+) -> None:
+    server: Dict[str, Any] = {
+        "type": "iceberg",
+        "catalogUrl": "https://glue.us-east-1.amazonaws.com/iceberg",
+        "namespace": "sales",
+    }
+    if warehouse is not None:
+        server["warehouse"] = warehouse
+    binding = _iceberg_binding(server=server)
+    assert binding.physical_urn == expected_urn
+    if expected_urn is None:
+        assert binding.unmapped_reason and "warehouse" in binding.unmapped_reason
+
+
+@pytest.mark.parametrize(
+    "catalog_url",
+    [
+        "https://glue.us-east-1.amazonaws.com.attacker.example/iceberg",
+        "https://s3tables.us-east-1.amazonaws.com/iceberg",
+    ],
+)
+def test_binding_iceberg_non_glue_hosts_bind_to_iceberg(catalog_url: str) -> None:
+    binding = _iceberg_binding(
+        server={"type": "iceberg", "catalogUrl": catalog_url, "namespace": "sales"}
+    )
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "catalog_url,expected_name",
+    [
+        ("https://glue.us-east-1.amazonaws.com/iceberg", "glue,sales.orders"),
+        ("https://polaris.example.com/api/catalog", "iceberg,Sales.Orders"),
+    ],
+)
+def test_binding_iceberg_lowercases_only_for_glue(
+    catalog_url: str, expected_name: str
+) -> None:
+    binding = _iceberg_binding(
+        server={"type": "iceberg", "catalogUrl": catalog_url, "namespace": "Sales"},
+        physical_name="Orders",
+    )
+    assert binding.physical_urn == (
+        f"urn:li:dataset:(urn:li:dataPlatform:{expected_name},PROD)"
+    )
+
+
+def test_binding_override_platform_ignores_catalog_url_variable() -> None:
+    # catalogUrl only decides the platform; an override already decides it.
+    binding = _iceberg_binding(
+        server={"type": "iceberg", "catalogUrl": "${URL}", "namespace": "sales"},
+        server_overrides=[{"server": "lake", "platform": "iceberg"}],
+    )
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
     )

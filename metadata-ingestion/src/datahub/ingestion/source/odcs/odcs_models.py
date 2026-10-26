@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 # Spec-valid fields the source deliberately does not map. The unknown-field
 # walker in odcs_source.py classifies YAML keys three ways: declared on the
@@ -124,12 +124,33 @@ class ODCSDescription(ODCSBaseModel):
     limitations: Optional[str] = None
 
 
+def _str_or_none(value: object) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
+def _bool_or_none(value: object) -> Optional[bool]:
+    return value if isinstance(value, bool) else None
+
+
+def _synonym_entries(value: object) -> Optional[list]:
+    """Keep spec-shaped synonym entries (strings or objects); drop the rest."""
+    if not isinstance(value, list):
+        return None
+    return [e for e in value if isinstance(e, (str, dict))]
+
+
+# The v3.2 keys below were ignored before this source parsed them, so an
+# off-spec value must not now reject a contract that used to ingest. Bad values
+# are dropped here; lenient mode already reports them as JSON Schema warnings.
+
+
 class ODCSSynonym(ODCSBaseModel):
     # v3.2 (RFC 0041). `synonym` is mapped and `status: deprecated` entries are
-    # dropped; `locale`, `source` etc. are not recorded. Optional so one
-    # malformed entry can't fail the whole contract's model validation.
+    # dropped; `locale`, `source` etc. are not recorded.
     synonym: Optional[str] = None
-    status: Optional[JsonValue] = None
+    status: Optional[str] = None
+
+    _lenient_strings = field_validator("synonym", "status", mode="before")(_str_or_none)
 
 
 class ODCSProperty(ODCSBaseModel):
@@ -155,8 +176,13 @@ class ODCSProperty(ODCSBaseModel):
     # Spec shape is a list of objects; bare strings are accepted leniently.
     synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
     # v3.2 (RFC 0034): a `measure` is an aggregate, not a physical column.
-    # Untyped so an off-spec value cannot fail the contract.
-    semanticType: Optional[JsonValue] = None
+    semanticType: Optional[str] = None
+
+    _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
+    _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
+    _lenient_semantic_type = field_validator("semanticType", mode="before")(
+        _str_or_none
+    )
 
 
 class ODCSSchemaObject(ODCSBaseModel):
@@ -171,6 +197,8 @@ class ODCSSchemaObject(ODCSBaseModel):
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
+
+    _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
 
 
 class ODCSQualityArguments(ODCSBaseModel):

@@ -41,8 +41,15 @@ METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
 METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
 METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
 
-# Actor recorded on `deprecation` aspects derived from ODCS `deprecated: true`.
-DEPRECATION_ACTOR = "urn:li:corpuser:datahub"
+# Actor recorded on aspects this source authors (deprecation, link stamps).
+ODCS_ACTOR = "urn:li:corpuser:datahub"
+
+# ODCS v3.2 vocabulary.
+SERVER_TYPE_ICEBERG = "iceberg"
+SEMANTIC_TYPE_MEASURE = "measure"  # RFC 0034: an aggregate, not a column
+SYNONYM_STATUS_DEPRECATED = "deprecated"  # RFC 0041: a former name
+# RFC 0050 variable reference: `${VAR}` / `${VAR:-default}`.
+VARIABLE_MARKER = "${"
 
 UNIT_ROWS = "rows"
 UNIT_PERCENT = "percent"
