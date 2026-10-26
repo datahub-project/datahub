@@ -41,9 +41,8 @@ fi
 
 requested_tag="${1:-}"
 
-# Downloads land in one per-run directory removed on exit. A per-file RETURN
-# trap is not enough: under `set -e` a failed download exits the script
-# without returning from the function, leaving the file behind.
+# Downloads land in one per-run directory removed on EXIT: under `set -e` a
+# failed download exits the script without returning from refresh_one.
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 

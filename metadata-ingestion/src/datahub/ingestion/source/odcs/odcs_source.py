@@ -291,7 +291,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         self._urn_exists_cache: Dict[str, bool] = {}
         # Per-run cache of the persisted `logicalParent` target already on each
         # physical URN (one get_aspect per unique URN), for cross-run conflict
-        # detection. `None` means "no existing link" (or lookup unavailable).
+        # detection. `None` means "no existing link" (or lookup unavailable, or
+        # lookup failed and was already reported).
         self._physical_parent_cache: Dict[str, Optional[str]] = {}
         # URNs whose graph lookup raised and were assumed-present (fail-open),
         # so they are never miscounted as genuinely verified.
@@ -813,17 +814,24 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         if physical_urn in self._physical_parent_cache:
             return self._physical_parent_cache[physical_urn]
+        if physical_urn in self._urn_verify_failed:
+            # The existence check on the same endpoint already failed and
+            # warned; skip a second call and a duplicate warning.
+            self.report.physical_urns_link_check_failed += 1
+            self._physical_parent_cache[physical_urn] = None
+            return None
         target: Optional[str] = None
         try:
             existing = graph.get_aspect(physical_urn, LogicalParentClass)
         except Exception as e:
-            # Advisory-only: the link is still emitted. Reported once per URN
-            # (the result is cached).
+            # Reported once per URN: the result is cached.
             self.report.physical_urns_link_check_failed += 1
             self.report.warning(
                 title="Could not read existing logicalParent link",
-                message="Graph lookup failed; emitted the link without checking "
-                "whether it overwrites one to a different ODCS contract.",
+                message=(
+                    "Graph lookup failed; the link is emitted without checking "
+                    "whether it overwrites one to a different ODCS contract."
+                ),
                 context=physical_urn,
                 exc=e,
             )
