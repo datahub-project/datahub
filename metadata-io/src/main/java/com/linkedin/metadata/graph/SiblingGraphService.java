@@ -12,6 +12,8 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -194,10 +196,22 @@ public class SiblingGraphService {
     final Set<Urn> group = new LinkedHashSet<>();
     group.add(entityUrn);
     if (!separateSiblings) {
-      Siblings siblings =
-          (Siblings) _entityService.getLatestAspect(opContext, entityUrn, SIBLINGS_ASPECT_NAME);
-      if (siblings != null && siblings.hasSiblings()) {
-        group.addAll(siblings.getSiblings());
+      // Follow sibling lists transitively, as getLineage does when it recurses into each sibling.
+      // Lists are not always symmetric: the dbt sibling hook sets a dbt node's list to its
+      // warehouse table alone but appends to the table's list, so two dbt nodes on one table are
+      // only connected through the table.
+      final Deque<Urn> toVisit = new ArrayDeque<>(List.of(entityUrn));
+      while (!toVisit.isEmpty()) {
+        Siblings siblings =
+            (Siblings)
+                _entityService.getLatestAspect(opContext, toVisit.poll(), SIBLINGS_ASPECT_NAME);
+        if (siblings != null && siblings.hasSiblings()) {
+          for (Urn sibling : siblings.getSiblings()) {
+            if (group.add(sibling)) {
+              toVisit.add(sibling);
+            }
+          }
+        }
       }
     }
 

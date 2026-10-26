@@ -1143,4 +1143,46 @@ public class SiblingGraphServiceTest {
     assertEquals(result.getFiltered().intValue(), 2);
     assertEquals(result.getRelationships().size(), 0);
   }
+
+  @Test
+  public void testGetLineageCountFollowsSiblingListsTransitively() {
+    // The dbt sibling hook's shape when two dbt nodes resolve to one warehouse table: each dbt
+    // node lists only the table, the table lists both. Counting from one dbt node must include the
+    // other, as the walk does.
+    // Own URNs: the entity-service mock is shared across tests and not reset.
+    Urn dbtOneUrn =
+        createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,transitive.one,PROD)");
+    Urn tableUrn =
+        createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,transitive.table,PROD)");
+    Urn dbtTwoUrn =
+        createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,transitive.two,PROD)");
+    when(_graphService.getLineageRegistry()).thenReturn(opContext.getLineageRegistry());
+    Siblings dbtOne = new Siblings().setSiblings(new UrnArray(ImmutableList.of(tableUrn)));
+    dbtOne.setPrimary(true);
+    Siblings table =
+        new Siblings().setSiblings(new UrnArray(ImmutableList.of(dbtOneUrn, dbtTwoUrn)));
+    table.setPrimary(false);
+    Siblings dbtTwo = new Siblings().setSiblings(new UrnArray(ImmutableList.of(tableUrn)));
+    dbtTwo.setPrimary(true);
+    when(_mockEntityService.getLatestAspect(
+            any(OperationContext.class), eq(dbtOneUrn), eq(SIBLINGS_ASPECT_NAME)))
+        .thenReturn(dbtOne);
+    when(_mockEntityService.getLatestAspect(
+            any(OperationContext.class), eq(tableUrn), eq(SIBLINGS_ASPECT_NAME)))
+        .thenReturn(table);
+    when(_mockEntityService.getLatestAspect(
+            any(OperationContext.class), eq(dbtTwoUrn), eq(SIBLINGS_ASPECT_NAME)))
+        .thenReturn(dbtTwo);
+    when(_graphService.getLineageCount(
+            any(OperationContext.class),
+            eq(Set.of(dbtOneUrn, tableUrn, dbtTwoUrn)),
+            any(LineageGraphFilters.class),
+            eq(100)))
+        .thenReturn(new LineageCountResult(2, List.of()));
+
+    EntityLineageResult result =
+        _client.getLineageCount(opContext, dbtOneUrn, LineageDirection.UPSTREAM, 100, false, false);
+
+    assertEquals(result.getTotal().intValue(), 2);
+  }
 }
