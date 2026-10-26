@@ -1,7 +1,17 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeGuard,
+    Union,
+)
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
@@ -727,19 +737,18 @@ def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
     return count
 
 
-# Mirrors GMS UrlValidator's institutionalMemory check: the URL must parse
-# as a java.net.URI and use one of these schemes (host not required).
-_LINK_URL_SCHEMES = {"http", "https", "ftp", "mailto"}
-# ponytail: approximates java.net.URI's rejections by the characters it never
-# allows unescaped; port the full RFC 2396 grammar if real URLs slip through.
-_URI_ILLEGAL_CHARS = re.compile(r'[\s"<>\\^`{|}]')
+# Schemes GMS UrlValidator accepts for institutionalMemory links; keep in sync
+# with InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES. Only the scheme is checked:
+# ODCS allows relative paths and non-web URLs (e.g. jdbc:), which GMS rejects.
+_LINK_URL_SCHEMES: FrozenSet[str] = frozenset({"http", "https", "ftp", "mailto"})
 
 
 def _is_storable_link_url(url: str) -> bool:
-    """Whether GMS accepts `url` as an institutionalMemory link."""
-    if _URI_ILLEGAL_CHARS.search(url):
+    """Whether `url` uses a scheme GMS accepts as an institutionalMemory link."""
+    try:
+        return urlparse(url).scheme in _LINK_URL_SCHEMES
+    except ValueError:
         return False
-    return urlparse(url).scheme.lower() in _LINK_URL_SCHEMES
 
 
 def _authoritative_definitions(
@@ -775,7 +784,7 @@ def _institutional_memory_mcp(
     ingesting host's filesystem). The source-file basename is carried in
     DatasetProperties.customProperties instead.
     """
-    seen: set = set()
+    seen: Set[str] = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
     for d in _authoritative_definitions(contract, [schema_entry]):
         if not d.url or d.url in seen or not _is_storable_link_url(d.url):

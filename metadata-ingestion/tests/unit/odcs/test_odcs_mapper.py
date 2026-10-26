@@ -644,6 +644,29 @@ def test_institutional_memory_skips_urls_gms_rejects() -> None:
     ]
 
 
+def test_institutional_memory_omitted_when_every_url_skipped() -> None:
+    # An empty institutionalMemory UPSERT would wipe links added in the UI.
+    # `https://[2001:db8::1/x` makes urlparse raise; it must be skipped, not
+    # abort the contract.
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        authoritative_definitions=[
+            {"url": "../docs/orders.md", "type": "implementation"},
+            {"url": "https://[2001:db8::1/x", "type": "implementation"},
+        ],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    assert not any(isinstance(m.aspect, InstitutionalMemoryClass) for m in mcps)
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "../docs/orders.md",
+        "https://[2001:db8::1/x",
+    ]
+
+
 def test_replicate_false_skips_ownership() -> None:
     contract = _make_contract(
         schema=[{"name": "t"}],
