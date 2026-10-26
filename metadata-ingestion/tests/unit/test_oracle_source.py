@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
+import oracledb
 import pytest
 import sqlalchemy.exc
 from pydantic import ValidationError
@@ -32,6 +33,7 @@ from datahub.ingestion.source.sql.oracle import (
     _sql_type_list,
     extra_oracle_types,
 )
+from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
@@ -41,6 +43,8 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
     QuerySubjectsClass,
+    RecordTypeClass,
+    StringTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -1875,6 +1879,118 @@ class TestOracleQueryExtraction:
         assert "command_type IN" in VSQL_USAGE_QUERY
         assert "ROWNUM" in VSQL_USAGE_QUERY
         assert ":max_queries" in VSQL_USAGE_QUERY
+        # sql_text is capped at 1000 chars; the full statement comes from the CLOB.
+        assert "sql_fulltext" in VSQL_USAGE_QUERY
+
+    def test_extract_queries_uses_full_text_and_strips_empty_hints(
+        self, config_with_query_usage, ctx
+    ):
+        source = OracleSource(config_with_query_usage, ctx)
+
+        long_query = (
+            "INSERT INTO HR.TARGET (A) SELECT A FROM HR.SOURCE WHERE "
+            + " OR ".join(f"A = {i}" for i in range(400))
+        )
+        assert len(long_query) > 1000
+        hinted = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        # Oracle accepts the hint glued to the verb, with or without spaces inside.
+        tight = "INSERT/*+ */ INTO HR.T (A) SELECT/*+*/A FROM HR.S"
+        literal = "SELECT '/*+ */' AS marker FROM HR.S"
+
+        lob = Mock()
+        lob.read.return_value = "SELECT * FROM HR.FROM_LOB"
+        broken_lob = Mock()
+        broken_lob.read.side_effect = oracledb.DatabaseError(
+            "ORA-22922: nonexistent LOB value"
+        )
+
+        engine = _vsql_engine(
+            [
+                _vsql_row("full", long_query[:1000], sql_fulltext=long_query),
+                _vsql_row("fallback", "SELECT 1 FROM HR.SMALL", sql_fulltext=None),
+                _vsql_row("hint", hinted, sql_fulltext=hinted),
+                _vsql_row("tight", tight, sql_fulltext=tight),
+                _vsql_row("literal", literal, sql_fulltext=literal),
+                _vsql_row("lob", "SELECT * FROM HR.FROM_LOB", sql_fulltext=lob),
+                _vsql_row(
+                    "broken_lob", "SELECT * FROM HR.BROKEN", sql_fulltext=broken_lob
+                ),
+            ]
+        )
+
+        queries = {
+            q.session_id: q.query for q in source._extract_queries_from_vsql(engine)
+        }
+
+        assert queries["sql_id:full"] == long_query
+        assert queries["sql_id:fallback"] == "SELECT 1 FROM HR.SMALL"
+        assert queries["sql_id:hint"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
+        assert queries["sql_id:tight"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
+        # Only a hint right after the statement verb is removed; literals stay.
+        assert queries["sql_id:literal"] == literal
+        assert queries["sql_id:lob"] == "SELECT * FROM HR.FROM_LOB"
+        # A LOB that cannot be read falls back to sql_text and warns, instead of
+        # aborting the extraction for every remaining row.
+        assert queries["sql_id:broken_lob"] == "SELECT * FROM HR.BROKEN"
+        assert len(source.report.warnings) == 1
+
+    def test_long_hinted_and_delete_queries_parse_cleanly(self, ctx):
+        """End to end through the real aggregator for the truncation fixes.
+
+        A statement longer than V$SQL.sql_text's 1000 characters, an empty
+        optimizer hint, and a DELETE must all parse: lineage is produced for
+        the writes and neither parse-failure counter moves.
+        """
+        source = OracleSource(_oracle_config(include_query_usage=True), ctx)
+
+        # Cutting this at 1000 chars leaves the IN list unbalanced, so the
+        # truncated text cannot parse; only the full text can.
+        long_query = (
+            "INSERT INTO HR.TARGET (A) SELECT A FROM HR.SOURCE WHERE A IN ("
+            + ", ".join(str(i) for i in range(400))
+            + ")"
+        )
+        assert len(long_query) > 1000
+        hinted_query = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        delete_query = "DELETE FROM HR.T WHERE A = 1"
+
+        mcps = _populate_from_vsql(
+            source,
+            [
+                _vsql_row("long", long_query[:1000], sql_fulltext=long_query),
+                _vsql_row("hint", hinted_query, sql_fulltext=hinted_query),
+                _vsql_row("delete", delete_query, sql_fulltext=delete_query),
+            ],
+        )
+
+        report = source.aggregator.report
+        assert report.num_observed_queries == 3
+        assert report.num_observed_queries_failed == 0
+        assert report.num_observed_queries_column_failed == 0
+
+        lineage = {
+            mcp.entityUrn: {upstream.dataset for upstream in mcp.aspect.upstreams}
+            for mcp in mcps
+            if isinstance(mcp.aspect, UpstreamLineageClass)
+        }
+        assert lineage[make_dataset_urn("oracle", "hr.target", "PROD")] == {
+            make_dataset_urn("oracle", "hr.source", "PROD")
+        }
+        assert lineage[make_dataset_urn("oracle", "hr.t", "PROD")] == {
+            make_dataset_urn("oracle", "hr.s", "PROD")
+        }
+
+    def test_extra_oracle_types_map_to_datahub_types(self):
+        report = SQLSourceReport()
+        for oracle_type in extra_oracle_types:
+            field_type = get_column_type(report, "hr.t", oracle_type())
+            expected = (
+                StringTypeClass
+                if oracle_type.__name__ == "XMLTYPE"
+                else RecordTypeClass
+            )
+            assert isinstance(field_type.type, expected), oracle_type.__name__
+        assert not report.infos
 
     def test_query_usage_integration_flow(self, ctx):
         """Test end-to-end flow of query usage extraction."""
