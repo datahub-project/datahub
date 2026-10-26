@@ -383,11 +383,29 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     return None
 
 
+def _list_items(node: object) -> List[dict]:
+    """Elements of a ListExpression, or [] for any other node."""
+    list_node = _unwrap_csv(node)
+    if not isinstance(list_node, dict) or list_node.get("kind") != "ListExpression":
+        return []
+    content = list_node.get("content", {})
+    if not isinstance(content, dict):
+        return []
+    items = (_unwrap_csv(elem) for elem in content.get("elements", []))
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _text_values(nodes: List[dict]) -> List[str]:
+    values = (get_literal_value(node) for node in nodes)
+    return [value for value in values if value is not None]
+
+
 def _rename_step(invoke_node: dict) -> Optional[ColumnRenameStep]:
     """Pairs from Table.RenameColumns' second argument, or None if absent.
 
-    The argument is a list of {old, new} lists. A trailing MissingField argument
-    is ignored. Pairs that are not text literals are skipped.
+    The argument is either a list of {old, new} lists or a single {old, new}
+    pair. A trailing MissingField argument is ignored. Pairs that are not text
+    literals are skipped.
     """
     content = invoke_node.get("content", {})
     if not isinstance(content, dict) or content.get("kind") != "ArrayWrapper":
@@ -395,33 +413,19 @@ def _rename_step(invoke_node: dict) -> Optional[ColumnRenameStep]:
     elements = content.get("elements", [])
     if len(elements) < 2:
         return None
-    renames = _unwrap_csv(elements[1])
-    if not isinstance(renames, dict) or renames.get("kind") != "ListExpression":
-        return None
-    list_content = renames.get("content", {})
-    if not isinstance(list_content, dict):
-        return None
 
-    renames_in_step: List[ColumnRename] = []
-    for elem in list_content.get("elements", []):
-        pair_node = _unwrap_csv(elem)
-        if not isinstance(pair_node, dict) or pair_node.get("kind") != "ListExpression":
-            continue
-        pair_content = pair_node.get("content", {})
-        if not isinstance(pair_content, dict):
-            continue
-        names: List[str] = []
-        for name_elem in pair_content.get("elements", []):
-            name_node = _unwrap_csv(name_elem)
-            if not isinstance(name_node, dict):
-                continue
-            value = get_literal_value(name_node)
-            if value is not None:
-                names.append(value)
-        if len(names) >= 2:
-            renames_in_step.append(
-                ColumnRename(source_name=names[0], renamed_name=names[1])
-            )
+    items = _list_items(elements[1])
+    single_pair = _text_values(items)
+    pairs = (
+        [single_pair]
+        if len(items) == 2 and len(single_pair) == 2
+        else [_text_values(_list_items(item)) for item in items]
+    )
+    renames_in_step = [
+        ColumnRename(source_name=names[0], renamed_name=names[1])
+        for names in pairs
+        if len(names) >= 2
+    ]
     if not renames_in_step:
         return None
     return ColumnRenameStep(renames=renames_in_step)

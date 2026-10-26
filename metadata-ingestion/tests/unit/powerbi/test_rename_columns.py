@@ -97,6 +97,21 @@ in
     }
 
 
+def test_rename_columns_single_pair_form() -> None:
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db"),
+    gold_dim_customers = Source{[Schema="gold",Item="dim_customers"]}[Data],
+    #"Renamed Columns" = Table.RenameColumns(gold_dim_customers, {"CustomerAccount", "Customer Account"})
+in
+    #"Renamed Columns"
+"""
+    assert _upstream_columns(expression, ["Customer Account", "City"]) == {
+        "Customer Account": ["CustomerAccount"],
+        "City": ["City"],
+    }
+
+
 def test_rename_columns_in_one_call_apply_together() -> None:
     expression = """\
 let
