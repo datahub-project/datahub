@@ -1998,7 +1998,7 @@ class TestPartialEntityHandling:
             }
 
             with patch.object(
-                source, "_process_document_with_throttle", return_value=iter([])
+                source, "_process_single_document", return_value=iter([])
             ) as mock_process:
                 list(source._process_single_event(event))
 
@@ -2034,7 +2034,7 @@ class TestPartialEntityHandling:
             }
 
             with patch.object(
-                source, "_process_document_with_throttle", return_value=iter([])
+                source, "_process_single_document", return_value=iter([])
             ) as mock_process:
                 list(source._process_single_event(event))
 

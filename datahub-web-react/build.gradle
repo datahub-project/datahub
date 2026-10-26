@@ -21,7 +21,9 @@ node {
   }
 
   // Version of node to use.
-  version = '22.16.0'
+  // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
+  // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  version = '22.23.4'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.22'

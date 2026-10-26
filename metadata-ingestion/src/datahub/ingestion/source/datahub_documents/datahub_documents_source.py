@@ -401,7 +401,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 return
 
         # Build document dict
-        doc = {"urn": entity_urn, "text": text}
+        doc = {"urn": entity_urn, "text": text, "source_type": source_type}
         self.report.report_document_fetched()
 
         # Process document and yield work units

@@ -340,7 +340,8 @@ datahub-lineage-file = []
 
 datahub-lite = [
     "duckdb>=1.0.0,<2.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
+    "starlette>=1.3.1,<2.0.0",
     "uvicorn<0.41.0",
 ]
 
@@ -527,6 +528,7 @@ feast = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "numpy<2",
+    "starlette>=1.3.1,<2.0.0",
 ]
 
 fivetran = [
@@ -549,7 +551,7 @@ fivetran = [
     "pip",
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
@@ -1028,7 +1030,7 @@ s3-slim = [
 ]
 
 sac = [
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "requests<3.0.0",
 ]
@@ -1069,7 +1071,7 @@ snowflake = [
     "pip",
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1088,7 +1090,7 @@ snowflake-queries = [
     "pip",
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1105,7 +1107,7 @@ snowflake-slim = [
     "pip",
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
 
@@ -1121,7 +1123,7 @@ snowflake-summary = [
     "pip",
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
@@ -1284,7 +1286,7 @@ all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1384,7 +1386,7 @@ all = [
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
@@ -1409,15 +1411,13 @@ all = [
     "zstd<1.5.6.8",
 ]
 
-cloud = ["acryl-datahub-cloud"]
-
 dev = [
     "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1454,7 +1454,7 @@ dev = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1553,7 +1553,7 @@ dev = [
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
@@ -1563,6 +1563,7 @@ dev = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.10.0",
@@ -1607,7 +1608,7 @@ docs = [
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1644,7 +1645,7 @@ docs = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1743,7 +1744,7 @@ docs = [
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sql-metadata<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
@@ -1753,6 +1754,7 @@ docs = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.24.0,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.10.0",
@@ -1868,6 +1870,7 @@ integration-tests = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
+    "starlette>=1.3.1,<2.0.0",
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -2078,11 +2081,23 @@ datahub = ["py.typed", "constraints.txt"]
 # ===== TOOL CONFIGURATION =====
 
 [tool.uv]
+# Lock resolution is 3.11-3.13 (CI, Docker, bundled venvs). Cap below 3.14 to
+# match unstructured / onnxruntime wheel availability; without this a full
+# re-resolve also tries to solve every extra on 3.14 and fails.
+environments = [
+    "python_full_version >= '3.11' and python_full_version < '3.14'",
+]
 # Security constraints applied during resolution (see each comment).
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
-    "pypdf>=6.10.2",  # GHSA-4pxv-j86v-mhcw (incremental trailer /Size DoS)
-    "authlib>=1.6.11,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF)
+    "pypdf>=6.19.0,<7.0.0",  # GHSA-4pxv-j86v-mhcw; CVE-2026-103000 / GHSA-w23x-9jrw-r45c (page-label DoS). Cap major until reviewed.
+    "authlib>=1.9.0,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF); CVE-2026-96760 fixed in 1.9.0
+    # CVE-2026-102946: fixed in joserfc 1.7.4. Transitive via authlib, whose own floor
+    # (joserfc>=1.6.8) still admits vulnerable versions.
+    "joserfc>=1.7.4,<2.0.0",
+    # CVE-2026-114603: fixed in opentelemetry-api 1.45.1. Transitive via
+    # google-cloud-logging / mlflow-skinny.
+    "opentelemetry-api>=1.45.1",
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
@@ -2090,14 +2105,25 @@ constraint-dependencies = [
     # GHSA-xgmm-8j9v-c9wx: reject JWK JSON as HMAC secret; fixed in PyJWT 2.13.0.
     # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
-    "PyJWT>=2.13.0,<3.0.0",
+    "PyJWT>=2.15.0,<3.0.0",
     # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 (fixed 2.6.3), CVE-2026-44431 (2.7.0).
-    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.7.0 is enforced here at lock time
+    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.8.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
-    "urllib3>=2.7.0,<3.0.0",
+    "urllib3>=2.8.0,<3.0.0",
     # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
     # constraint files pin setuptools, so a base floor breaks those installs).
     "setuptools>=83.0.0",
+    # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
+    # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
+    # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
+    # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
+    # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
+    # as datahub/constraints.txt and constrains every executor-built venv.
+    "pip>=26.2.2",  # 26.2.1 vendors certifi 2026.6.17 (GHSA-6q48-6c7w-9gw2); 26.2.2 fixes
+    # certifi: GHSA-6q48-6c7w-9gw2 (compromised 2026.6.17 CA bundle); fixed in 2026.10.19.
+    # Transitive via requests; not in setup.py. Docker snippet:
+    # docker/snippets/ingestion/constraints.txt.
+    "certifi>=2026.10.19",
     # anyio: CVE-2026-64847 (process-pool workers block on undrained stderr);
     # fixed in 4.14.2. Not in setup.py: Airflow constraints pin anyio==4.10.0
     # (3.0.x), 4.11.0 (3.1.x), 4.13.0 (3.2.x). Enforced here at lock time.
@@ -2110,13 +2136,20 @@ constraint-dependencies = [
     # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
     # snippet: docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
-    # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
-    # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
-    # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
-    # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
-    # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
-    # as datahub/constraints.txt and constrains every executor-built venv.
-    "pip>=26.2",
+    # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
+    # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
+    # docker/snippets/ingestion/constraints.txt.
+    "aiohttp>=3.14.4,<4",
+    # multidict: CVE-2026-104874; fixed in 6.9.1. Transitive via aiohttp/yarl; not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "multidict>=6.9.1",
+    # Mako: CVE-2026-102991; fixed in 1.4.2. Transitive via alembic; not in setup.py.
+    # Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "mako>=1.4.2,<2",
+    # fsspec: CVE-2026-104851; fixed in 2026.6.0. Transitive via s3fs/adlfs/pyiceberg/
+    # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
+    # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "fsspec>=2026.6.0",
 ]
 
 [tool.ruff]
