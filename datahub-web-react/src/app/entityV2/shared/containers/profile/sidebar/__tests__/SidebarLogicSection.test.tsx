@@ -3,12 +3,12 @@ import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import {
     SidebarDataJobTransformationLogicSection,
     SidebarDatasetViewDefinitionSection,
     SidebarQueryLogicSection,
 } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { dataset3, mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -25,6 +25,29 @@ const datasetWithViewProperties = {
     },
 };
 
+const dataJobWithTransformLogic = {
+    urn: 'urn:li:dataJob:1',
+    type: EntityType.DataJob,
+    dataTransformLogic: {
+        transforms: [
+            {
+                queryStatement: {
+                    value: 'SELECT * FROM my_source_table',
+                    language: 'SQL',
+                },
+            },
+        ],
+    },
+    privileges: {
+        canViewQueries: true,
+    },
+};
+
+const dataJobWithoutTransformLogic = {
+    urn: 'urn:li:dataJob:1',
+    type: EntityType.DataJob,
+};
+
 const datasetWithViewPermission = {
     ...datasetWithViewProperties,
     privileges: {
@@ -35,6 +58,9 @@ const datasetWithViewPermission = {
 const queryWithProperties = {
     type: EntityType.Query,
     urn: 'urn:li:query:1',
+    privileges: {
+        canViewQueries: true,
+    },
     properties: {
         statement: {
             value: 'SELECT * FROM my_table WHERE id = 123',
@@ -206,21 +232,21 @@ describe('Sidebar Logic Components', () => {
         });
     });
 
-    describe('SidebarQueryLogicSection', () => {
-        it('renders query logic section', () => {
-            const { getByText } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+    describe('SidebarDataJobTransformationLogicSection', () => {
+        it('renders transformation logic when present', () => {
+            const { getByText, container } = render(
+                <MockedProvider addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
                         <EntityContext.Provider
                             value={{
-                                urn: 'urn:li:query:1',
-                                entityType: EntityType.Query,
+                                urn: 'urn:li:dataJob:1',
+                                entityType: EntityType.DataJob,
                                 entityData: getDataForEntityType({
-                                    data: queryWithProperties,
-                                    entityType: EntityType.Query,
+                                    data: dataJobWithTransformLogic,
+                                    entityType: EntityType.DataJob,
                                     getOverrideProperties: () => ({}),
                                 }),
-                                baseEntity: { entity: queryWithProperties },
+                                baseEntity: { dataJob: dataJobWithTransformLogic },
                                 updateEntity: vi.fn(),
                                 routeToTab: vi.fn(),
                                 refetch: vi.fn(),
@@ -229,29 +255,34 @@ describe('Sidebar Logic Components', () => {
                                 dataNotCombinedWithSiblings: null,
                             }}
                         >
-                            <SidebarQueryLogicSection />
+                            <SidebarDataJobTransformationLogicSection />
                         </EntityContext.Provider>
                     </TestPageContainer>
                 </MockedProvider>,
             );
 
             expect(getByText('Logic')).toBeInTheDocument();
+            const codeElement = container.querySelector('code.language-sql');
+            expect(codeElement).toBeInTheDocument();
+            expect(codeElement?.textContent).toContain('SELECT');
+            expect(codeElement?.textContent).toContain('FROM');
+            expect(codeElement?.textContent).toContain('my_source_table');
         });
 
-        it('shows copy inline without a modal affordance', () => {
-            const { getByTestId, queryByText } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+        it.skip('handles modal interaction for transformation logic', () => {
+            const { getByText, queryByRole } = render(
+                <MockedProvider addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
                         <EntityContext.Provider
                             value={{
-                                urn: 'urn:li:query:1',
-                                entityType: EntityType.Query,
+                                urn: 'urn:li:dataJob:1',
+                                entityType: EntityType.DataJob,
                                 entityData: getDataForEntityType({
-                                    data: queryWithProperties,
-                                    entityType: EntityType.Query,
+                                    data: dataJobWithTransformLogic,
+                                    entityType: EntityType.DataJob,
                                     getOverrideProperties: () => ({}),
                                 }),
-                                baseEntity: { entity: queryWithProperties },
+                                baseEntity: { dataJob: dataJobWithTransformLogic },
                                 updateEntity: vi.fn(),
                                 routeToTab: vi.fn(),
                                 refetch: vi.fn(),
@@ -260,73 +291,44 @@ describe('Sidebar Logic Components', () => {
                                 dataNotCombinedWithSiblings: null,
                             }}
                         >
-                            <SidebarQueryLogicSection />
+                            <SidebarDataJobTransformationLogicSection />
                         </EntityContext.Provider>
                     </TestPageContainer>
                 </MockedProvider>,
             );
 
-            expect(getByTestId('code-block-copy')).toBeInTheDocument();
-            expect(queryByText('See Full')).not.toBeInTheDocument();
+            // Modal should not be visible initially
+            expect(queryByRole('dialog')).not.toBeInTheDocument();
+
+            // Click "See Full" button
+            const seeFullButton = getByText('See Full');
+            fireEvent.click(seeFullButton);
+
+            // Modal should now be visible
+            expect(queryByRole('dialog')).toBeInTheDocument();
+
+            // Close modal
+            const dismissButton = getByText('Dismiss');
+            fireEvent.click(dismissButton);
+
+            // Modal should be hidden again
+            expect(queryByRole('dialog')).not.toBeInTheDocument();
         });
 
-        it('preserves navigation to the full profile when embedded', () => {
-            const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-            const { getByText } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/embed/query/urn:li:query:1']}>
-                        <EntityContext.Provider
-                            value={{
-                                urn: 'urn:li:query:1',
-                                entityType: EntityType.Query,
-                                entityData: getDataForEntityType({
-                                    data: queryWithProperties,
-                                    entityType: EntityType.Query,
-                                    getOverrideProperties: () => ({}),
-                                }),
-                                baseEntity: { entity: queryWithProperties },
-                                updateEntity: vi.fn(),
-                                routeToTab: vi.fn(),
-                                refetch: vi.fn(),
-                                lineage: undefined,
-                                loading: false,
-                                dataNotCombinedWithSiblings: null,
-                            }}
-                        >
-                            <SidebarQueryLogicSection />
-                        </EntityContext.Provider>
-                    </TestPageContainer>
-                </MockedProvider>,
-            );
-
-            fireEvent.click(getByText('See Full'));
-            expect(openSpy).toHaveBeenCalledWith(
-                expect.stringContaining('/View Definition'),
-                '_blank',
-                'noopener,noreferrer',
-            );
-            openSpy.mockRestore();
-        });
-
-        it('does not render when no query properties are present', () => {
-            const queryWithoutProperties = {
-                ...queryWithProperties,
-                properties: null,
-            };
-
+        it('returns null when no transformation logic is present', () => {
             const { container } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+                <MockedProvider addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
                         <EntityContext.Provider
                             value={{
-                                urn: 'urn:li:query:1',
-                                entityType: EntityType.Query,
+                                urn: 'urn:li:dataJob:1',
+                                entityType: EntityType.DataJob,
                                 entityData: getDataForEntityType({
-                                    data: queryWithoutProperties,
-                                    entityType: EntityType.Query,
+                                    data: dataJobWithoutTransformLogic,
+                                    entityType: EntityType.DataJob,
                                     getOverrideProperties: () => ({}),
                                 }),
-                                baseEntity: { entity: queryWithoutProperties },
+                                baseEntity: { dataJob: dataJobWithoutTransformLogic },
                                 updateEntity: vi.fn(),
                                 routeToTab: vi.fn(),
                                 refetch: vi.fn(),
@@ -335,7 +337,7 @@ describe('Sidebar Logic Components', () => {
                                 dataNotCombinedWithSiblings: null,
                             }}
                         >
-                            <SidebarQueryLogicSection />
+                            <SidebarDataJobTransformationLogicSection />
                         </EntityContext.Provider>
                     </TestPageContainer>
                 </MockedProvider>,
@@ -343,9 +345,7 @@ describe('Sidebar Logic Components', () => {
 
             expect(container.firstChild).toBeNull();
         });
-    });
 
-    describe('SidebarDataJobTransformationLogicSection', () => {
         const dataJobWithLogic = {
             type: EntityType.DataJob,
             urn: 'urn:li:dataJob:test',
@@ -459,6 +459,183 @@ describe('Sidebar Logic Components', () => {
                             }}
                         >
                             <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(container.firstChild).toBeNull();
+        });
+    });
+
+    describe('SidebarQueryLogicSection', () => {
+        it('renders query logic section', () => {
+            const { getByText } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithProperties,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithProperties },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(getByText('Logic')).toBeInTheDocument();
+        });
+
+        it('shows copy inline without a modal affordance', () => {
+            const { getByTestId, queryByText } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithProperties,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithProperties },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(getByTestId('code-block-copy')).toBeInTheDocument();
+            expect(queryByText('See Full')).not.toBeInTheDocument();
+        });
+
+        it('preserves navigation to the full profile when embedded', () => {
+            const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+            const { getByText } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/embed/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithProperties,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithProperties },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            fireEvent.click(getByText('See Full'));
+            expect(openSpy).toHaveBeenCalledWith(
+                expect.stringContaining('/View Definition'),
+                '_blank',
+                'noopener,noreferrer',
+            );
+            openSpy.mockRestore();
+        });
+
+        it('does not render when canViewQueries is false', () => {
+            const queryWithoutViewPermission = {
+                ...queryWithProperties,
+                privileges: {
+                    canViewQueries: false,
+                },
+            };
+
+            const { container } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithoutViewPermission,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithoutViewPermission },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(container.firstChild).toBeNull();
+        });
+
+        it('does not render when no query properties are present', () => {
+            const queryWithoutProperties = {
+                ...queryWithProperties,
+                properties: null,
+            };
+
+            const { container } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithoutProperties,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithoutProperties },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
                         </EntityContext.Provider>
                     </TestPageContainer>
                 </MockedProvider>,

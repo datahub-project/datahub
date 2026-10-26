@@ -640,7 +640,16 @@
                     "userEmail": "user@example.com"
                 }
             ],
-            "fieldCounts": []
+            "fieldCounts": [
+                {
+                    "fieldPath": "columnA",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "columnB",
+                    "count": 1
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -678,7 +687,16 @@
                     "userEmail": "user@example.com"
                 }
             ],
-            "fieldCounts": []
+            "fieldCounts": [
+                {
+                    "fieldPath": "columnA",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "columnB",
+                    "count": 1
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -761,10 +779,16 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columna)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD),columnA)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnb)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table_external,PROD),columnB)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnA)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnB)"
                 }
             ]
         }
@@ -866,6 +890,12 @@
             "subjects": [
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnA)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnB)"
                 }
             ]
         }

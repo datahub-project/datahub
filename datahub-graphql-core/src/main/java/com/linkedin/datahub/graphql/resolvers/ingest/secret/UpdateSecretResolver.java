@@ -17,6 +17,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -46,12 +47,14 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
             try {
               EntityResponse response =
                   entityClient.getV2(
-                      context.getOperationContext(),
+                      context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
                       secretUrn.getEntityType(),
                       secretUrn,
                       Set.of(SECRET_VALUE_ASPECT_NAME),
                       false);
-              if (!entityClient.exists(context.getOperationContext(), secretUrn)
+              if (!entityClient.exists(
+                      context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                      secretUrn)
                   || response == null) {
                 throw new IllegalArgumentException(
                     String.format("Secret for urn %s doesn't exists!", secretUrn));

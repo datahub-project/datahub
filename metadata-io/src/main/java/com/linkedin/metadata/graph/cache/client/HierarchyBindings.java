@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.client;
 import com.datahub.authorization.EntityFieldType;
 import com.linkedin.metadata.graph.cache.EntityGraphBinding;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
 import com.linkedin.metadata.graph.cache.KnownEntityGraph;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
@@ -13,6 +14,7 @@ public final class HierarchyBindings {
 
   private static final String DOMAINS_FILTER_FIELD = "domains.keyword";
   private static final String CONTAINER_FILTER_FIELD = "container.keyword";
+  private static final String APPLICATION_GRAPH_ID = "application";
 
   private HierarchyBindings() {}
 
@@ -52,6 +54,17 @@ public final class HierarchyBindings {
                         .graphId(KnownEntityGraph.CONTAINER.getConfigKey())
                         .source(KnownEntityGraph.CONTAINER.getExpectedBuildSource())
                         .build()));
+  }
+
+  @Nonnull
+  public static HierarchyReadSpec applicationSpec(@Nonnull OperationContext opContext) {
+    // No known-graph cache binding exists for Application yet; always walk the
+    // ApplicationPartOf relationship directly off the applicationProperties aspect.
+    return HierarchyReadSpecs.application(
+        EntityGraphBinding.builder()
+            .graphId(APPLICATION_GRAPH_ID)
+            .source(GraphSnapshotSource.GRAPH)
+            .build());
   }
 
   @Nonnull

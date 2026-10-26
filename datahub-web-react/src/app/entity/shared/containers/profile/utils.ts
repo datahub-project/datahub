@@ -1,8 +1,8 @@
 import queryString from 'query-string';
 import { useLocation } from 'react-router';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { EntityType } from '@types';
 

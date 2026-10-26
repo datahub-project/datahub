@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 
 import { TabButtons } from '@components/components/ButtonTabs/TabButtons';
-import { TabContentWrapper } from '@components/components/ButtonTabs/components';
+import { ButtonTabsContainer, TabContentWrapper } from '@components/components/ButtonTabs/components';
 import { ButtonTabsProps } from '@components/components/ButtonTabs/types';
 import {
     appendRenderedTabKey,
@@ -9,7 +9,7 @@ import {
     shouldRenderTabPanel,
 } from '@components/components/ButtonTabs/utils';
 
-export function ButtonTabs({ tabs, defaultKey, onTabClick, fit, className }: ButtonTabsProps) {
+export function ButtonTabs({ tabs, defaultKey, onTabClick, fit, className, fillHeight }: ButtonTabsProps) {
     const [activeKey, setActiveKey] = useState<string | undefined>(() => getInitialActiveTabKey(tabs, defaultKey));
     const [renderedKeys, setRenderedKeys] = useState<string[]>(() => {
         const initial = getInitialActiveTabKey(tabs, defaultKey);
@@ -26,15 +26,15 @@ export function ButtonTabs({ tabs, defaultKey, onTabClick, fit, className }: But
     );
 
     return (
-        <div className={className}>
+        <ButtonTabsContainer className={className} $fillHeight={fillHeight}>
             <TabButtons tabs={tabs} activeTab={activeKey} onTabClick={onTabClickHandler} fit={fit} />
             {tabs
                 .filter((tab) => shouldRenderTabPanel(tab.key, activeKey, renderedKeys))
                 .map((tab) => (
-                    <TabContentWrapper $visible={tab.key === activeKey} key={tab.key}>
+                    <TabContentWrapper $visible={tab.key === activeKey} $fillHeight={fillHeight} key={tab.key}>
                         {tab.content}
                     </TabContentWrapper>
                 ))}
-        </div>
+        </ButtonTabsContainer>
     );
 }

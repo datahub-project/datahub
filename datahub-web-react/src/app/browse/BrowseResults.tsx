@@ -1,5 +1,4 @@
-import { Col, Divider, Empty, List, Pagination, Row } from 'antd';
-import { Content } from 'antd/lib/layout/layout';
+import { EmptyState, Heading, Pagination } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -10,14 +9,32 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { BrowseResultGroup, Entity, EntityType } from '@types';
 
-const EntityList = styled(List)`
-    && {
-        width: 100%;
-        margin-top: 12px;
-        padding: 16px 32px;
-        border-color: ${(props) => props.theme.colors.border};
-        box-shadow: ${(props) => props.theme.colors.shadowSm};
-    }
+const Content = styled.main`
+    padding: 25px 100px;
+`;
+
+const Results = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+`;
+
+const EntityList = styled.div`
+    width: 100%;
+    margin-top: 12px;
+    padding: 16px 32px;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+`;
+
+const EntityListItem = styled.div`
+    cursor: pointer;
+`;
+
+const Divider = styled.hr`
+    margin: 8px 0;
+    border: 0;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface Props {
@@ -71,11 +88,11 @@ export const BrowseResults = ({
 
     return (
         <div>
-            <Content style={{ padding: '25px 100px' }}>
-                <h1 className="ant-typography">{title}</h1>
-                <Row gutter={[4, 8]}>
+            <Content>
+                <Heading type="h1">{title}</Heading>
+                <Results>
                     {groups.map((group) => (
-                        <Col span={24} key={`${group.name}_key`}>
+                        <div key={`${group.name}_key`}>
                             <BrowseResultCard
                                 onClick={() => onGroupClick(group)}
                                 name={group.name}
@@ -83,44 +100,36 @@ export const BrowseResults = ({
                                 url={`${rootPath}/${group.name}`}
                                 type={entityRegistry.getCollectionName(type)}
                             />
-                        </Col>
+                        </div>
                     ))}
                     {(!(groups && groups.length > 0) || (entities && entities.length > 0)) && (
-                        <EntityList
-                            dataSource={entities}
-                            split={false}
-                            renderItem={(item, index) => (
-                                <>
-                                    <List.Item onClick={() => onEntityClick(item as Entity)}>
-                                        {entityRegistry.renderBrowse(type, item)}
-                                    </List.Item>
-                                    {index < entities.length - 1 && <Divider />}
-                                </>
+                        <EntityList>
+                            {entities.length ? (
+                                entities.map((item, index) => (
+                                    <React.Fragment key={item.urn}>
+                                        <EntityListItem onClick={() => onEntityClick(item)}>
+                                            {entityRegistry.renderBrowse(type, item)}
+                                        </EntityListItem>
+                                        {index < entities.length - 1 && <Divider />}
+                                    </React.Fragment>
+                                ))
+                            ) : (
+                                <EmptyState title={t('browse.noEntitiesEmpty')} size="sm" />
                             )}
-                            bordered
-                            locale={{
-                                emptyText: (
-                                    <Empty
-                                        description={t('browse.noEntitiesEmpty')}
-                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                    />
-                                ),
-                            }}
-                        />
+                        </EntityList>
                     )}
-                    <Col span={24}>
+                    <div>
                         <Pagination
-                            style={{ width: '100%', display: 'flex', justifyContent: 'center', paddingTop: 16 }}
-                            current={page}
-                            pageSize={pageSize}
+                            currentPage={page}
+                            itemsPerPage={pageSize}
                             total={totalResults}
                             showTitle
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={false}
                         />
-                    </Col>
-                </Row>
+                    </div>
+                </Results>
             </Content>
         </div>
     );

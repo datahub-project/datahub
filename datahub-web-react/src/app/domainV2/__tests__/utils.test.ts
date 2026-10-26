@@ -1,5 +1,6 @@
 import { ApolloClient, InMemoryCache } from '@apollo/client';
 import { renderHook } from '@testing-library/react-hooks';
+import React from 'react';
 
 import {
     addToListDomainsCache,
@@ -8,10 +9,23 @@ import {
     updateListDomainsCache,
     useSortedDomains,
 } from '@app/domainV2/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Entity as RegistryEntity } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { DomainMock1, DomainMock3, expectedResult } from '@src/Mocks';
+import { EntityRegistryContext } from '@src/entityRegistryContext';
 
 import { Entity, EntityType } from '@types';
+
+function createRegistry(...entities: RegistryEntity<any>[]) {
+    const entityRegistry = new EntityRegistry();
+    entities.forEach((entity) => entityRegistry.register(entity));
+    return entityRegistry;
+}
+
+function registryWrapper(entityRegistry: EntityRegistry) {
+    return ({ children }: { children?: React.ReactNode }) =>
+        React.createElement(EntityRegistryContext.Provider, { value: entityRegistry }, children);
+}
 
 const apolloClient = new ApolloClient({
     cache: new InMemoryCache(),
@@ -154,28 +168,19 @@ describe('Domain V2 utils tests', () => {
     test('useSortedDomains -> should return all domains in an unsorted format if sortBy by is not provided', () => {
         const unsortedDomains = [DomainMock3[1], DomainMock3[0]];
 
-        const { result } = renderHook(() => {
-            const entityRegistry = useEntityRegistry();
-            entityRegistry.register(DomainMock3[0]);
-            entityRegistry.register(DomainMock3[1]);
-
-            return useSortedDomains(unsortedDomains as unknown as Entity[]);
+        const { result } = renderHook(() => useSortedDomains(unsortedDomains as unknown as Entity[]), {
+            wrapper: registryWrapper(createRegistry(DomainMock3[0], DomainMock3[1])),
         });
         expect(result.current).toStrictEqual(unsortedDomains);
     });
     test('useSortedDomains -> should return all domains in a sorted format', () => {
-        const { result } = renderHook(() => {
-            return useSortedDomains(DomainMock3 as unknown as Entity[], 'displayName');
+        const { result } = renderHook(() => useSortedDomains(DomainMock3 as unknown as Entity[], 'displayName'), {
+            wrapper: registryWrapper(createRegistry(DomainMock3[0], DomainMock3[1])),
         });
         expect(result.current).toStrictEqual(DomainMock3);
     });
     test('getParentDomains -> should get all parent domains', () => {
-        const { result } = renderHook(() => {
-            const entityRegistry = useEntityRegistry();
-            entityRegistry.register(DomainMock1);
-
-            return getParentDomains(DomainMock3[0] as unknown as Entity, entityRegistry);
-        });
-        expect(result.current).toStrictEqual(expectedResult);
+        const entityRegistry = createRegistry(DomainMock1);
+        expect(getParentDomains(DomainMock3[0] as unknown as Entity, entityRegistry)).toStrictEqual(expectedResult);
     });
 });

@@ -12,12 +12,16 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -34,6 +38,8 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -292,6 +298,57 @@ public class SemanticSearchServiceTest {
         .setPageSize(0)
         .setNumEntities(0)
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+  }
+
+  @Test
+  public void testEntityFacetCountsReadRegistryEntityNames() throws Exception {
+    // Search V3 facets key entity types by registry name (glossaryTerm); V2 keys are lower-cased
+    SearchResult semanticResult =
+        new SearchResult()
+            .setEntities(
+                new SearchEntityArray(
+                    new SearchEntity()
+                        .setEntity(Urn.createFromString("urn:li:glossaryTerm:revenue"))
+                        .setScore(0.9)))
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(1)
+            .setMetadata(
+                new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(semanticResult);
+    SearchResult facetResult = createMockFacetResult();
+    facetResult
+        .getMetadata()
+        .getAggregations()
+        .add(
+            new AggregationMetadata()
+                .setName("_entityType")
+                .setAggregations(new LongMap(Map.of("glossaryTerm", 3L)))
+                .setFilterValues(new FilterValueArray()));
+    when(mockCachingEntitySearchService.search(
+            any(), anyList(), anyString(), any(), anyList(), eq(0), eq(0), anyList()))
+        .thenReturn(facetResult);
+    when(mockEntityDocCountCache.getNonEmptyEntities(any())).thenReturn(List.of("glossaryterm"));
+
+    SearchResult result =
+        semanticSearchService.semanticSearchAcrossEntities(
+            opContext,
+            List.of("glossaryterm"),
+            "revenue",
+            null,
+            null,
+            0,
+            10,
+            List.of("_entityType"));
+
+    AggregationMetadata entityFacet =
+        result.getMetadata().getAggregations().stream()
+            .filter(agg -> agg.getName().equals("entity"))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(entityFacet.getFilterValues().get(0).getFacetCount().longValue(), 3L);
   }
 
   @Test
@@ -627,6 +684,45 @@ public class SemanticSearchServiceTest {
     // Verify the underlying semantic search was called with empty facets list
     verify(mockSemanticEntitySearchService, times(1))
         .search(any(), anyList(), anyString(), any(), any(), anyInt(), any());
+  }
+
+  @Test
+  public void testKeywordFacetsKeepCallerTemplate() {
+    List<String> entityNames = List.of("dataset");
+    String query = "customer analytics";
+    List<String> facets = List.of("platform");
+    Urn template = UrnUtils.getUrn("urn:li:searchTemplate:structured");
+    OperationContext searching =
+        opContext.withSearchFlags(
+            flags -> flags.setSearchTemplate(template).setIncludeExplain(true).setFulltext(false));
+
+    when(mockSemanticEntitySearchService.search(
+            any(), anyList(), anyString(), any(), any(), anyInt(), any()))
+        .thenReturn(createMockSearchResult(0, 10, 1));
+    when(mockCachingEntitySearchService.search(
+            any(), anyList(), anyString(), any(), anyList(), eq(0), eq(0), anyList()))
+        .thenReturn(createMockFacetResult());
+    when(mockEntityDocCountCache.getNonEmptyEntities(any())).thenReturn(entityNames);
+
+    semanticSearchService.semanticSearchAcrossEntities(
+        searching, entityNames, query, null, null, 0, 10, facets);
+
+    ArgumentCaptor<OperationContext> captured = ArgumentCaptor.forClass(OperationContext.class);
+    verify(mockCachingEntitySearchService)
+        .search(
+            captured.capture(),
+            eq(entityNames),
+            eq("*"),
+            eq(null),
+            anyList(),
+            eq(0),
+            eq(0),
+            eq(facets));
+    SearchFlags applied = captured.getValue().getSearchContext().getSearchFlags();
+    assertEquals(applied.getSearchTemplate(), template);
+    assertTrue(applied.isIncludeExplain());
+    assertTrue(applied.isFulltext());
+    assertTrue(applied.isSkipHighlighting());
   }
 
   @Test

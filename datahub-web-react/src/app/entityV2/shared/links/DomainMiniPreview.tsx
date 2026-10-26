@@ -55,7 +55,7 @@ export const DomainMiniPreview = ({ domain }: { domain: Domain }): JSX.Element =
         <Link to={url}>
             <HoverEntityTooltip entity={domain} placement="bottom" showArrow={false}>
                 <DomainLinkContainer>
-                    <DomainColoredIcon domain={domain} />
+                    <DomainColoredIcon domain={domain} size={24} fontSize={12} />
                     <DomainInfoContainer>
                         <DomainTitle>{domain?.properties?.name}</DomainTitle>
                         <DomainContents>

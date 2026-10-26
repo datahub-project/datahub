@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   cleanup:
     name: Delete Vercel previews for branch
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Fork PRs are not given repo secrets and Vercel does not build previews for
     # them, so there is nothing to clean up.

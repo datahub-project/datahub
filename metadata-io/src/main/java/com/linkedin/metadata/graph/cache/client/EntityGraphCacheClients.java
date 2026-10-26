@@ -38,6 +38,19 @@ public final class EntityGraphCacheClients {
           "GraphExpandRequest requires binding or graphId and source");
     }
     ReadMode mode = shouldSkipCache(request.getOpContext()) ? ReadMode.EPHEMERAL : ReadMode.CACHED;
+    if (request.isRequireFullPath()) {
+      return request
+          .getCache()
+          .expand(
+              graphId,
+              source,
+              request.getDirection(),
+              request.getRoots(),
+              request.getLimit(),
+              request.getMaxDepth(),
+              mode,
+              true);
+    }
     return request
         .getCache()
         .expand(

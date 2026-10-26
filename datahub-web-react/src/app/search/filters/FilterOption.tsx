@@ -1,4 +1,4 @@
-import { CaretUpOutlined } from '@ant-design/icons';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -21,8 +21,8 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '@app/search/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType, Tag } from '@types';
@@ -183,7 +183,7 @@ export default function FilterOption({
                             <CountText>{countText}</CountText>
                             {nestedOptions && nestedOptions.length > 0 && (
                                 <ArrowButton
-                                    icon={<CaretUpOutlined />}
+                                    icon={<CaretUp />}
                                     type="text"
                                     onClick={() => setAreChildrenVisible(!areChildrenVisible)}
                                     isOpen={areChildrenVisible}

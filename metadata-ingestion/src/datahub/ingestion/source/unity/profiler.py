@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional
 
 from databricks.sdk.service.catalog import DataSourceFormat
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -68,7 +68,7 @@ class UnityCatalogProfiler(GenericProfiler):
         }
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         config.options.setdefault("max_overflow", profiling_config.max_workers)
 
         super().__init__(config, report, "databricks")
@@ -206,7 +206,7 @@ def _get_dataset_size_in_bytes(
     # This query only works for delta table.
     # Ref: https://docs.databricks.com/en/delta/table-details.html
     # Note: Any change here should also update _get_dataset_row_count
-    row = conn.execute(f"DESCRIBE DETAIL {name}").fetchone()
+    row = conn.execute(text(f"DESCRIBE DETAIL {name}")).fetchone()
     if row is None:
         return None
     else:
@@ -224,7 +224,7 @@ def _get_dataset_row_count(
         for c in [table.ref.catalog, table.ref.schema, table.ref.table]
     )
     # This query only works efficiently for delta table
-    row = conn.execute(f"select count(*) as numRows from {name}").fetchone()
+    row = conn.execute(text(f"select count(*) as numRows from {name}")).fetchone()
     if row is None:
         return None
     else:

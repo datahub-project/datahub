@@ -5,12 +5,13 @@ from typing import Any, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
     ProfilingConnection,
+    QueryTimeout,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,10 +96,10 @@ class PostgresAdapter(PlatformAdapter):
         results: List[Optional[float]] = []
         for q in quantiles:
             try:
-                percentile_expr = sa.literal_column(
+                percentile_expr: Label = sa.literal_column(
                     f"PERCENTILE_DISC({q}) WITHIN GROUP (ORDER BY {quoted_column} ASC)"
                 ).label("percentile")
-                query = sa.select([percentile_expr]).select_from(table)
+                query = sa.select(percentile_expr).select_from(table)
                 result = conn.execute_rows(query).scalar()
                 results.append(float(result) if result is not None else None)
             except SQLAlchemyError as e:
@@ -112,6 +113,21 @@ class PostgresAdapter(PlatformAdapter):
     # =========================================================================
     # Row Count Estimation
     # =========================================================================
+
+    def get_query_timeout_statements(self, seconds: int) -> Optional[QueryTimeout]:
+        # Milliseconds. Restoring the value read beforehand rather than
+        # DEFAULT keeps a limit the session already carried.
+        return QueryTimeout(
+            read="SHOW statement_timeout",
+            apply=f"SET statement_timeout = {seconds * 1000}",
+            restore="SET statement_timeout = '{value}'",
+        )
+
+    def is_query_timeout(self, e: Exception) -> bool:
+        # 57014 query_canceled, which is what statement_timeout raises. A
+        # user's own pg_cancel_backend() also lands here; retrying that in a
+        # more expensive shape is no better an idea.
+        return getattr(getattr(e, "orig", None), "pgcode", None) == "57014"
 
     def supports_row_count_estimation(self) -> bool:
         """
@@ -159,7 +175,7 @@ class PostgresAdapter(PlatformAdapter):
                 schema="pg_catalog",
             )
             query = (
-                sa.select([sa.cast(pg_class.c.reltuples, sa.BigInteger)])
+                sa.select(sa.cast(pg_class.c.reltuples, sa.BigInteger))
                 .select_from(
                     pg_class.join(
                         pg_namespace, pg_class.c.relnamespace == pg_namespace.c.oid

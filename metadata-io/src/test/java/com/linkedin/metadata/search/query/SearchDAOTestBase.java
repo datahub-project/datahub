@@ -15,6 +15,8 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -48,9 +50,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.commons.lang3.tuple.Triple;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -477,6 +481,19 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.ca_border_wait_times,PROD)");
     assertTrue(explainResponse.isExists());
     assertEquals(explainResponse.getExplanation().getValue(), 1.25f);
+  }
+
+  @Test
+  public void testRawEntity() {
+    Urn urn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact."
+                + "ca_border_wait_times,PROD)");
+
+    // rawEntity leaves the request size unset, which must mean the engine default, not zero hits
+    Map<Urn, SearchResponse> raw = getESSearchDao().rawEntity(getOperationContext(), Set.of(urn));
+
+    assertEquals(raw.get(urn).getHits().getHits().length, 1);
   }
 
   @Test

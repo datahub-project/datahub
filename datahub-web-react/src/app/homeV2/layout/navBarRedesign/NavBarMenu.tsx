@@ -1,4 +1,3 @@
-import { Menu, MenuProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -7,29 +6,23 @@ import NavBarMenuItemDropdown from '@app/homeV2/layout/navBarRedesign/NavBarMenu
 import NavBarMenuItemGroup from '@app/homeV2/layout/navBarRedesign/NavBarMenuItemGroup';
 import { AnyMenuItem, NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 
-const StyledMenu = styled(Menu)`
-    && {
-        background: none;
-        padding: 0;
-        margin: 0;
-        border: 0;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-    }
-
-    && .ant-menu-item-group {
-        width: 100%;
-    }
+const StyledMenu = styled.nav`
+    background: none;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 `;
 
 type Props = {
     menu: NavBarMenuItems;
     selectedKey: string;
     isCollapsed: boolean;
-    style?: any;
+    style?: React.CSSProperties;
     iconSize?: number;
-} & Omit<MenuProps, 'items'>;
+};
 
 export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, style }: Props) {
     const renderMenuItem = (item: AnyMenuItem) => {
@@ -72,7 +65,7 @@ export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, s
     };
 
     return (
-        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []} style={style} data-testid="nav-menu-links">
+        <StyledMenu role="menu" style={style} data-testid="nav-menu-links">
             {menu.items.map((item) => (
                 <React.Fragment key={item.key}>{renderMenuItem(item)}</React.Fragment>
             ))}

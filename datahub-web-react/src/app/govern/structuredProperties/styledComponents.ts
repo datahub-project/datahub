@@ -221,12 +221,6 @@ export const EmptyContainer = styled.div`
     justify-content: center;
     height: 100%;
     width: 100%;
-    gap: 16px;
-
-    svg {
-        width: 160px;
-        height: 160px;
-    }
 `;
 
 export const ActionsContainer = styled.div`
@@ -236,16 +230,12 @@ export const ActionsContainer = styled.div`
 
 export const CardIcons = styled.div`
     display: flex;
+    align-items: center;
     justify-content: end;
     gap: 12px;
 
     div {
-        border: 1px solid ${(props) => props.theme.colors.border};
-        border-radius: 20px;
-        width: 28px;
-        height: 28px;
-        padding: 4px;
-        color: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.icon};
         :hover {
             cursor: pointer;
         }

@@ -1,6 +1,6 @@
-import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import { Modal, Text } from '@components';
-import { Input, Spin, notification } from 'antd';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Input, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -16,6 +16,7 @@ import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabC
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
 
@@ -99,7 +100,7 @@ export default function DownloadAsCsvModal({
             description,
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
+            icon: <StyledSpinner $height={24} />,
         });
     };
 
@@ -221,7 +222,7 @@ export default function DownloadAsCsvModal({
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
                             {t('download.resultsMayVaryTitle')}

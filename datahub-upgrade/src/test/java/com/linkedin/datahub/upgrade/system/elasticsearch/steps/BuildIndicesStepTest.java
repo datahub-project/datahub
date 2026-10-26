@@ -23,8 +23,10 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -102,7 +104,7 @@ public class BuildIndicesStepTest {
   }
 
   @Test
-  public void testParallelReindexKeepsSharedClientBuildersSequential() throws Exception {
+  public void testNonReindexSettingsUpdatesRunConcurrentlyOnASharedClient() throws Exception {
     SearchClientShim<?> clientA = mock(SearchClientShim.class);
     SearchClientShim<?> clientB = mock(SearchClientShim.class);
     ESIndexBuilder a1 = mock(ESIndexBuilder.class);
@@ -152,8 +154,97 @@ public class BuildIndicesStepTest {
             service(opContext, "datasetindex_v3", config("datasetindex_v3"), b1));
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    assertEquals(maxConcurrentA.get(), 1);
+    assertTrue(maxConcurrentA.get() >= 2);
     assertTrue(maxConcurrentAll.get() >= 2);
+  }
+
+  @Test
+  public void testNonReindexSettingsRunConcurrentlyWhenParallelReindexIsOff() throws Exception {
+    SearchClientShim<?> clientA = mock(SearchClientShim.class);
+    SearchClientShim<?> clientB = mock(SearchClientShim.class);
+    ESIndexBuilder builderA = mock(ESIndexBuilder.class);
+    ESIndexBuilder builderB = mock(ESIndexBuilder.class);
+    when(builderA.getSearchClient()).thenAnswer(invocation -> clientA);
+    when(builderB.getSearchClient()).thenAnswer(invocation -> clientB);
+
+    CyclicBarrier barrier = new CyclicBarrier(2);
+    when(builderA.buildIndex(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              barrier.await(5, TimeUnit.SECONDS);
+              return ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
+            });
+    when(builderB.buildIndex(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              barrier.await(5, TimeUnit.SECONDS);
+              return ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
+            });
+
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    UpgradeStepResult result =
+        runStep(
+            false,
+            opContext,
+            service(opContext, "datasetindex_v2", config("datasetindex_v2"), builderA),
+            service(opContext, "datasetindex_v3", config("datasetindex_v3"), builderB));
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(builderA).buildIndex(any(), any());
+    verify(builderB).buildIndex(any(), any());
+  }
+
+  @Test
+  public void testReindexConfigIsAppliedAfterNonReindexSettings() throws Exception {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    ESIndexBuilder builder = mock(ESIndexBuilder.class);
+    when(builder.getSearchClient()).thenAnswer(invocation -> client);
+
+    CountDownLatch settingsFinished = new CountDownLatch(1);
+    ReindexConfig settingsConfig = config("datasetindex_v2");
+    ReindexConfig reindexConfig = config("chartindex_v2");
+    when(reindexConfig.requiresReindex()).thenReturn(true);
+    when(builder.buildIndex(any(), eq(settingsConfig)))
+        .thenAnswer(
+            invocation -> {
+              settingsFinished.countDown();
+              return ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
+            });
+    when(builder.buildIndex(any(), eq(reindexConfig)))
+        .thenAnswer(
+            invocation -> {
+              assertTrue(settingsFinished.await(0, TimeUnit.MILLISECONDS));
+              return ReindexResult.REINDEXING;
+            });
+
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    UpgradeStepResult result =
+        runStep(
+            false,
+            opContext,
+            service(opContext, "datasetindex_v2", settingsConfig, builder),
+            service(opContext, "chartindex_v2", reindexConfig, builder));
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(builder).buildIndex(opContext, settingsConfig);
+    verify(builder).buildIndex(opContext, reindexConfig);
+  }
+
+  @Test
+  public void testSettingsUpdateFailureFailsTheStep() throws Exception {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    ESIndexBuilder builder = mock(ESIndexBuilder.class);
+    when(builder.getSearchClient()).thenAnswer(invocation -> client);
+    when(builder.buildIndex(any(), any())).thenThrow(new IOException("settings update failed"));
+
+    OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+    UpgradeStepResult result =
+        runStep(
+            false,
+            opContext,
+            service(opContext, "datasetindex_v2", config("datasetindex_v2"), builder));
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
   }
 
   private static ReindexConfig config(String name) {
@@ -177,8 +268,16 @@ public class BuildIndicesStepTest {
 
   private static UpgradeStepResult runParallelStep(
       OperationContext opContext, ElasticSearchIndexed... services) {
+    return runStep(true, opContext, services);
+  }
+
+  private static UpgradeStepResult runStep(
+      boolean enableParallelReindex, OperationContext opContext, ElasticSearchIndexed... services) {
     BuildIndicesConfiguration parallel =
-        BuildIndicesConfiguration.builder().enableParallelReindex(true).build();
+        BuildIndicesConfiguration.builder()
+            .enableParallelReindex(enableParallelReindex)
+            .maxConcurrentSettingsUpdates(8)
+            .build();
     ElasticSearchConfiguration esConfig =
         ElasticSearchConfiguration.builder().buildIndices(parallel).build();
     ConfigurationProvider configurationProvider = mock(ConfigurationProvider.class);

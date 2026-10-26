@@ -68,7 +68,7 @@ vi.mock('../QueryBuilderModal', () => ({
     default: () => <div data-testid="query-builder-modal">Modal</div>,
 }));
 
-vi.mock('@app/shared/Loading', () => ({
+vi.mock('@app/sharedV2/Loading', () => ({
     default: () => <div data-testid="loading">Loading...</div>,
 }));
 
