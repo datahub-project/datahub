@@ -96,4 +96,6 @@ public class SearchConfiguration {
         .structuredProperties(structuredProperties)
         .build();
   }
+
+  private QueryCanonicalizationConfiguration canonicalization;
 }
