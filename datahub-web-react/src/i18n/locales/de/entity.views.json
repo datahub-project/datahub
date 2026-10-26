@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Ansichten suchen...",
     "viewSelect.searchPlaceholderLegacy": "Suchen",
     "viewSelect.selectYourView": "Deine Ansicht auswählen",
+    "viewSelect.buttonLabel": "Ansichten",
+    "viewSelect.clearView": "Ansicht zurücksetzen",
     "viewType.privateDescription": "<bold>Privat</bold> – nur für dich sichtbar.",
     "viewType.publicDescription": "<bold>Öffentlich</bold> – für alle sichtbar."
 }

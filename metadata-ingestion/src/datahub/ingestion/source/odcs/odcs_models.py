@@ -1,18 +1,19 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 # Spec-valid fields the source deliberately does not map. The unknown-field
 # walker in odcs_source.py classifies YAML keys three ways: declared on the
 # model (parsed), listed here (spec-valid but unmapped -- one aggregate info per
 # file, no warning), or neither (genuinely unknown -- a per-field warning).
-# These sets are the union of the property keys declared in the vendored v3.0.2
-# and v3.1.0 JSON Schemas minus the model fields; the drift-guard unit test in
+# These sets are the union of the property keys declared in the vendored v3.0.2,
+# v3.1.0 and v3.2.0 JSON Schemas minus the model fields; the drift-guard unit test in
 # tests/unit/odcs/test_odcs_models.py enforces that invariant so a future spec
 # bump fails loudly instead of producing spurious "check spelling" warnings.
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
+        "context",
         "price",
         "roles",
         "slaDefaultElement",
@@ -23,20 +24,24 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
+        "context",
         "customProperties",
         "dataGranularityDescription",
         "id",
         "relationships",
+        "synonyms",
     )
 )
 
 KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
         "businessName",
+        "enum",
         "examples",
         "id",
         "items",
         "logicalTypeOptions",
+        "map",
         "physicalName",
         "relationships",
         "transformDescription",
@@ -51,6 +56,7 @@ KNOWN_UNMAPPED_SERVER_FIELDS = frozenset(
     (
         "customProperties",
         "delimiter",
+        "encoding",
         "endpointUrl",
         "format",
         "id",
@@ -60,6 +66,7 @@ KNOWN_UNMAPPED_SERVER_FIELDS = frozenset(
         "serviceName",
         "stagingDir",
         "stream",
+        "workgroup",
     )
 )
 
@@ -80,6 +87,25 @@ KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(
         "tags",
     )
 )
+
+# Fields the models read but no mapping uses. Reported with the spec-valid but
+# unmapped keys so nothing is dropped without a trace.
+READ_BUT_UNMAPPED_CONTRACT_FIELDS = frozenset(("contractCreatedTs",))
+READ_BUT_UNMAPPED_SCHEMA_FIELDS = frozenset(("businessName",))
+READ_BUT_UNMAPPED_PROPERTY_FIELDS = frozenset(
+    (
+        "classification",
+        "criticalDataElement",
+        "encryptedName",
+        "partitionKeyPosition",
+        "partitioned",
+        "primaryKeyPosition",
+        "unique",
+    )
+)
+READ_BUT_UNMAPPED_QUALITY_FIELDS = frozenset(("method", "schedule", "scheduler"))
+READ_BUT_UNMAPPED_SERVER_FIELDS = frozenset(("environment", "location", "region"))
+READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(("dateIn", "replacedByUsername"))
 
 # v3.1 adds `id` and `description` to authoritative-definition entries.
 KNOWN_UNMAPPED_AUTHDEF_FIELDS = frozenset(("description", "id"))
@@ -117,6 +143,47 @@ class ODCSDescription(ODCSBaseModel):
     limitations: Optional[str] = None
 
 
+def _str_or_none(value: object) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
+def _bool_or_none(value: object) -> Optional[bool]:
+    return value if isinstance(value, bool) else None
+
+
+def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object]]]]:
+    """Keep usable synonym entries (strings, or objects with a string `synonym`).
+
+    An explicit empty list is kept (it clears earlier synonyms); a list in which
+    no entry is usable is treated like a missing key, the same as a non-list.
+    """
+    if not isinstance(value, list):
+        return None
+    if not value:
+        return []
+    kept: List[Union[str, Dict[str, object]]] = [
+        e
+        for e in value
+        if isinstance(e, str)
+        or (isinstance(e, dict) and isinstance(e.get("synonym"), str))
+    ]
+    return kept or None
+
+
+# The v3.2 keys below were ignored before this source parsed them, so an
+# off-spec value must not now reject a contract that used to ingest. Bad values
+# are dropped here; lenient mode already reports them as JSON Schema warnings.
+
+
+class ODCSSynonym(ODCSBaseModel):
+    # v3.2 (RFC 0041). `synonym` is mapped and `status: deprecated` entries are
+    # dropped; `locale`, `source` etc. are not recorded.
+    synonym: Optional[str] = None
+    status: Optional[str] = None
+
+    _lenient_strings = field_validator("synonym", "status", mode="before")(_str_or_none)
+
+
 class ODCSProperty(ODCSBaseModel):
     name: str
     logicalType: Optional[str] = None
@@ -136,6 +203,17 @@ class ODCSProperty(ODCSBaseModel):
     properties: Optional[List["ODCSProperty"]] = None
     customProperties: Optional[List[ODCSCustomProperty]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
+    deprecated: Optional[bool] = None
+    # Spec shape is a list of objects; bare strings are accepted leniently.
+    synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
+    # v3.2 (RFC 0034): a `measure` is an aggregate, not a physical column.
+    semanticType: Optional[str] = None
+
+    _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
+    _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
+    _lenient_semantic_type = field_validator("semanticType", mode="before")(
+        _str_or_none
+    )
 
 
 class ODCSSchemaObject(ODCSBaseModel):
@@ -149,6 +227,9 @@ class ODCSSchemaObject(ODCSBaseModel):
     properties: Optional[List[ODCSProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
+    deprecated: Optional[bool] = None
+
+    _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -247,6 +328,10 @@ class ODCSTeam(ODCSBaseModel):
 
 
 class ODCSServer(ODCSBaseModel):
+    # YAML reads unquoted values such as an AWS account ID (`warehouse`,
+    # `account`) or a numeric database name as numbers.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     server: str
     type: Optional[str] = None
     description: Optional[str] = None
@@ -262,12 +347,15 @@ class ODCSServer(ODCSBaseModel):
     account: Optional[str] = None
     region: Optional[str] = None
     warehouse: Optional[str] = None
+    # v3.2 `iceberg` server (Iceberg REST catalog).
+    catalogUrl: Optional[str] = None
+    namespace: Optional[str] = None
 
 
 class ODCSContract(ODCSBaseModel):
     """Top-level ODCS contract document.
 
-    Field set is the v3.0.x / v3.1.x union of the sections this source maps.
+    Field set is the v3.0.x–v3.2.x union of the sections this source maps.
     Spec-valid-but-unmapped fields are listed in
     `KNOWN_UNMAPPED_CONTRACT_FIELDS`; genuinely unknown fields get a warning
     from the source layer.
@@ -302,3 +390,12 @@ class ODCSContract(ODCSBaseModel):
 
 ODCSProperty.model_rebuild()
 ODCSSchemaObject.model_rebuild()
+
+
+# v3.2 keys whose off-spec values the validators above drop instead of
+# rejecting the contract. Kept next to the validators so the source's
+# "dropped as off-spec" report cannot drift from them.
+LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
+    ODCSSchemaObject: ("deprecated",),
+    ODCSProperty: ("deprecated", "synonyms", "semanticType"),
+}

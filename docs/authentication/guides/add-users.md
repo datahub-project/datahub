@@ -78,9 +78,9 @@ To complete the integration, you'll need the following:
 
 These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](sso/configure-oidc-react.md)) Guide.
 
-### Self-Hosted DataHub
+### DataHub Core
 
-For information about configuring Self-Hosted DataHub to use OpenID Connect (OIDC) to
+For information about configuring DataHub Core to use OpenID Connect (OIDC) to
 perform authentication, check out [OIDC Authentication](sso/configure-oidc-react.md).
 
 > **A note about user URNs**: User URNs are unique identifiers for users on DataHub. The username received from an Identity Provider

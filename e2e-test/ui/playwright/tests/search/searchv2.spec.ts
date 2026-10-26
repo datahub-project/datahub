@@ -7,13 +7,15 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'search' });
 
 test.describe('SearchV2 Features', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
@@ -120,7 +122,8 @@ test.describe('SearchV2 Features', () => {
     await searchPage.searchAndWait('*', 3000);
     await searchPage.expectHasResults();
     await searchPage.expectPaginationVisible();
-    await expect(page.getByText(/of [0-9]+ result/)).toBeVisible();
+    // The total is locale-formatted once it passes 999 ("of 5,146 results"), and may carry a "+" when capped.
+    await expect(page.getByText(/of [0-9][0-9,.]*\+? result/)).toBeVisible();
   });
 
   test('should handle filter option selection with checkboxes', async () => {

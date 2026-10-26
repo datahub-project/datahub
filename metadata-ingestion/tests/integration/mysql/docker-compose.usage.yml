@@ -9,6 +9,9 @@ services:
       MYSQL_ROOT_PASSWORD: example
       MYSQL_DATABASE: test_usage_db
     ports:
-      - 53308:3306
+      # Ephemeral: only the test process needs host access; letting Docker
+      # pick a free port avoids colliding with a leaked container from a
+      # prior run.
+      - "3306"
     volumes:
       - ./setup_usage/setup.sql:/docker-entrypoint-initdb.d/setup.sql

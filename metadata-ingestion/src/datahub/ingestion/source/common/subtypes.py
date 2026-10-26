@@ -27,6 +27,7 @@ class DatasetSubTypes(StrEnum):
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
+    METABASE_MODEL = "Metabase Model"
     SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
     MICROSTRATEGY_DATASET = "MicroStrategy Dataset"
     SAC_MODEL = "Model"
@@ -83,6 +84,8 @@ class DatasetContainerSubTypes(StrEnum):
     CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
+    # A BigQuery Sharing linked dataset: a read-only pointer into another project.
+    BIGQUERY_LINKED_DATASET = "Linked Dataset"
     DATABRICKS_METASTORE = "Metastore"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
@@ -127,6 +130,7 @@ class BIContainerSubTypes(StrEnum):
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
+    METABASE_COLLECTION = "Metabase Collection"
     SIGMA_DATA_MODEL = "Sigma Data Model"
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"
@@ -177,6 +181,7 @@ class BIAssetSubTypes(StrEnum):
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode
     MODE_REPORT = "Report"
@@ -214,6 +219,12 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE_TASK = "Task"
     VERTEX_PIPELINE_TASK_RUN = "Task Run"
 
+    FOLDER = "Folder"
+
+
+class DocumentSubTypes(StrEnum):
+    # Documents that stand for a folder in the source system, matching the value
+    # DataHub uses for natively-created folders.
     FOLDER = "Folder"
 
 

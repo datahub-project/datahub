@@ -1,0 +1,34 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "d867dd0c21a631412d733f920ad297df89a562e13ffcd585ba098faf216d8724",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)",
+                    "column": "payload"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "dictLookup(\"t\".\"payload\", 'k') AS \"v\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT dictLookup(t.payload, {?: }) AS v FROM db.src AS t"
+    }
+}

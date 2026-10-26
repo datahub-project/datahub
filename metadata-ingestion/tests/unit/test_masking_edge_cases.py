@@ -51,17 +51,16 @@ class TestMaskingFilterEdgeCases:
     def test_pattern_rebuild_with_concurrent_modifications(self):
         """Test pattern rebuild when secrets are modified during rebuild."""
         registry = SecretRegistry.get_instance()
-        masking_filter = SecretMaskingFilter(registry)
 
         # Add many secrets
         for i in range(100):
             registry.register_secret(f"SECRET_{i}", f"value_{i}")
 
         # Force pattern rebuild
-        masking_filter._check_and_rebuild_pattern()
+        pattern, _ = registry.get_pattern_and_replacements()
 
         # Verify pattern was rebuilt
-        assert masking_filter._last_version > 0
+        assert pattern is not None
 
     def test_masking_with_very_long_message(self):
         """Test masking with messages exceeding max_message_size."""
@@ -131,15 +130,6 @@ class TestBootstrapEdgeCases:
 
         # Second initialization should be no-op
         initialize_secret_masking()
-        assert is_bootstrapped()
-
-    def test_force_reinitialization(self):
-        """Test force re-initialization."""
-        initialize_secret_masking()
-        assert is_bootstrapped()
-
-        # Force re-init
-        initialize_secret_masking(force=True)
         assert is_bootstrapped()
 
     def test_bootstrap_error_cleared_on_success(self):

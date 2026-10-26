@@ -1,5 +1,6 @@
-import { Icon } from '@components';
 import styled from 'styled-components';
+
+import { Icon } from '@components/components/Icon';
 
 import { borders, radius, spacing, typography } from '@src/alchemy-components/theme';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
@@ -48,7 +49,7 @@ export const TableHeaderCell = styled.th<{
     fontSize: typography.fontSizes.sm,
     fontWeight: typography.fontWeights.medium,
     textAlign: 'start',
-    width: width || 'auto',
+    width,
     maxWidth,
     minWidth,
     borderRight: shouldAddRightBorder ? `1px solid ${theme.colors.border}` : borders.none,
@@ -97,7 +98,7 @@ export const TableCell = styled.td<{
     isExpanded?: boolean;
 }>(({ width, alignment, isGroupHeader, theme }) => ({
     padding: isGroupHeader
-        ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.md}`
+        ? `${spacing.xsm} ${spacing.xsm} ${spacing.xsm} ${spacing.xsm}`
         : `${spacing.md} ${spacing.xsm} ${spacing.md} ${spacing.md}`,
     borderBottom: `1px solid ${theme.colors.border}`,
     color: theme.colors.textSecondary,

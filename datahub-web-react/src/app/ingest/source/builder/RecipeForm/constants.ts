@@ -140,6 +140,15 @@ import {
     HIVE_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/hive';
 import {
+    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+    INFORMIX_DATABASE,
+    INFORMIX_HOST_PORT,
+    INFORMIX_INCLUDE_VIEW_LINEAGE,
+    INFORMIX_PASSWORD,
+    INFORMIX_SERVER,
+    INFORMIX_USERNAME,
+} from '@app/ingest/source/builder/RecipeForm/informix';
+import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
     KAFKA_SASL_PASSWORD,
@@ -161,12 +170,12 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/looker';
 import {
     CONNECTION_TO_PLATFORM_MAP,
-    DEPLOY_KEY,
     LOOKML,
     LOOKML_BASE_URL,
     LOOKML_CLIENT_ID,
     LOOKML_CLIENT_SECRET,
-    LOOKML_GITHUB_INFO_REPO,
+    LOOKML_GIT_INFO_DEPLOY_KEY,
+    LOOKML_GIT_INFO_REPO,
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
 } from '@app/ingest/source/builder/RecipeForm/lookml';
@@ -350,6 +359,12 @@ import {
     TRINO_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/trino';
 import {
+    AUTHENTICATION_TYPE,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    AZURE_CLIENT_ID as DATABRICKS_AZURE_CLIENT_ID,
+    AZURE_CLIENT_SECRET as DATABRICKS_AZURE_CLIENT_SECRET,
+    AZURE_TENANT_ID as DATABRICKS_AZURE_TENANT_ID,
     INCLUDE_COLUMN_LINEAGE,
     TOKEN,
     UNITY_CATALOG_ALLOW,
@@ -358,6 +373,7 @@ import {
     UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
+    WAREHOUSE_ID,
     WORKSPACE_URL,
 } from '@app/ingest/source/builder/RecipeForm/unity_catalog';
 import {
@@ -379,6 +395,7 @@ import {
     CUBE,
     DATABRICKS,
     DBT_CLOUD,
+    INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
     MYSQL,
@@ -541,8 +558,8 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [LOOKML]: {
         fields: [
-            LOOKML_GITHUB_INFO_REPO,
-            DEPLOY_KEY,
+            LOOKML_GIT_INFO_REPO,
+            LOOKML_GIT_INFO_DEPLOY_KEY,
             PROJECT_NAME,
             LOOKML_BASE_URL,
             LOOKML_CLIENT_ID,
@@ -601,6 +618,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
+    },
+    [INFORMIX]: {
+        fields: [
+            INFORMIX_HOST_PORT,
+            INFORMIX_SERVER,
+            INFORMIX_DATABASE,
+            INFORMIX_USERNAME,
+            INFORMIX_PASSWORD,
+            INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+        ],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INFORMIX_INCLUDE_VIEW_LINEAGE, STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Schemas (owners), Tables and Views from ingestion.',
     },
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],
@@ -718,7 +748,17 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [DATABRICKS]: {
-        fields: [WORKSPACE_URL, TOKEN],
+        fields: [
+            AUTHENTICATION_TYPE,
+            WORKSPACE_URL,
+            WAREHOUSE_ID,
+            TOKEN,
+            CLIENT_ID,
+            CLIENT_SECRET,
+            DATABRICKS_AZURE_TENANT_ID,
+            DATABRICKS_AZURE_CLIENT_ID,
+            DATABRICKS_AZURE_CLIENT_SECRET,
+        ],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
             UNITY_METASTORE_ID_DENY,
@@ -878,7 +918,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             AZURE_GRAPH_URL,
         ],
         filterFields: [GROUP_ALLOW, GROUP_DENY, USER_ALLOW, USER_DENY],
-        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED, SKIP_USERS_WITHOUT_GROUP],
+        advancedFields: [AZURE_INGEST_USERS, AZURE_INGEST_GROUPS, STATEFUL_INGESTION_ENABLED],
     },
     [SAC]: {
         fields: [SAC_TENANT_URL, SAC_TOKEN_URL, SAC_CLIENT_ID, SAC_CLIENT_SECRET],

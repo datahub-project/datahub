@@ -125,13 +125,13 @@ const FilterCard = ({
     );
   }
 
-  const supportStatus = filters?.["Support Status"] || "";
+  const supportStatus = (filters?.["Support Status"] || "").trim();
+  const supportTier = supportStatus.toLowerCase();
 
   function getSupportBadgeClass() {
-    const status = supportStatus.trim().toLowerCase();
-    if (status === "certified") return styles.badgeCertified;
-    if (status === "incubating") return styles.badgeIncubating;
-    if (status === "testing") return styles.badgeTesting;
+    if (supportTier === "ga") return styles.badgeGa;
+    if (supportTier === "beta") return styles.badgeBeta;
+    if (supportTier === "alpha") return styles.badgeAlpha;
     return "";
   }
 
@@ -144,8 +144,8 @@ const FilterCard = ({
       >
         {supportStatus && (
           <div className={clsx(styles.supportBadge, getSupportBadgeClass())}>
-            {supportStatus.trim() === "Certified" && "✓ "}
-            {supportStatus.trim()}
+            {supportTier === "ga" && "✓ "}
+            {supportStatus}
           </div>
         )}
         <div className={clsx("card__header", styles.featureHeader)}>

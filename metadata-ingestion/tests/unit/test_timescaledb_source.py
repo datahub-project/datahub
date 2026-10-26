@@ -42,6 +42,14 @@ def _base_config() -> Dict[str, Any]:
     }
 
 
+def _mappings_result(rows: Any) -> MagicMock:
+    # _execute_timescaledb_query reads rows via list(result.mappings()) on SQLAlchemy 2.0;
+    # mock a Result whose .mappings() yields the given dict rows.
+    result = MagicMock()
+    result.mappings.return_value = rows
+    return result
+
+
 def _aspects_of_type(workunits, aspect_class):
     return [
         wu
@@ -110,7 +118,10 @@ class TestTimescaleDBSource:
             }
         ]
 
-        mock_conn.execute.side_effect = [env_result, hypertable_result]
+        mock_conn.execute.side_effect = [
+            env_result,
+            _mappings_result(hypertable_result),
+        ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         hypertables = source._get_hypertables(mock_inspector, "public")
@@ -145,7 +156,7 @@ class TestTimescaleDBSource:
             }
         ]
 
-        mock_conn.execute.side_effect = [env_result, cagg_result]
+        mock_conn.execute.side_effect = [env_result, _mappings_result(cagg_result)]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         caggs = source._get_continuous_aggregates(mock_inspector, "public")
@@ -188,7 +199,7 @@ class TestTimescaleDBSource:
             }
         ]
 
-        mock_conn.execute.side_effect = [env_result, job_result]
+        mock_conn.execute.side_effect = [env_result, _mappings_result(job_result)]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         jobs = source._get_jobs(mock_inspector, "public")
@@ -215,8 +226,8 @@ class TestTimescaleDBSource:
         mock_conn.execute.side_effect = [
             extension_result,
             env_detection_result,
-            hypertables_result,
-            caggs_result,
+            _mappings_result(hypertables_result),
+            _mappings_result(caggs_result),
         ]
 
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
@@ -706,7 +717,9 @@ class TestTimescaleDBErrorScenarios:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "permission denied for table pg_extension", None, None
+            "permission denied for table pg_extension",
+            None,
+            Exception("permission denied"),
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -737,7 +750,9 @@ class TestTimescaleDBErrorScenarios:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "permission denied for schema information_schema", None, None
+            "permission denied for schema information_schema",
+            None,
+            Exception("permission denied"),
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -757,7 +772,9 @@ class TestTimescaleDBErrorScenarios:
         mock_conn.execute.side_effect = [
             env_result,
             DatabaseError(
-                "permission denied for schema timescaledb_information", None, None
+                "permission denied for schema timescaledb_information",
+                None,
+                Exception("permission denied"),
             ),
         ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
@@ -787,7 +804,7 @@ class TestTimescaleDBErrorScenarios:
 
         mock_conn.execute.side_effect = [
             env_result,
-            [malformed_row],
+            _mappings_result([malformed_row]),
         ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -856,7 +873,9 @@ class TestTimescaleDBErrorScenarios:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError(
-            "permission denied for table timescaledb_information.job_stats", None, None
+            "permission denied for table timescaledb_information.job_stats",
+            None,
+            Exception("permission denied"),
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 

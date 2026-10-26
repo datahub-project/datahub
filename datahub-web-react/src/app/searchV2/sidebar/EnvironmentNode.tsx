@@ -14,8 +14,8 @@ import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import useToggle from '@app/shared/useToggle';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import useToggle from '@app/sharedV2/useToggle';
 
 const Count = styled(Typography.Text)`
     font-size: 12px;

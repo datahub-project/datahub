@@ -2,14 +2,18 @@ import logging
 from dataclasses import dataclass
 from typing import Iterable, Optional, Type, TypeVar, Union, overload
 
-from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import WorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.schema_classes import _Aspect
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    GenericAspectClass,
+    _Aspect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +145,21 @@ class MetadataWorkUnit(WorkUnit):
         if len(aspects) > 1:
             logger.warning(f"Found multiple aspects of type {aspect_cls} in MCE {self}")
         return aspects[-1] if aspects else None
+
+    def get_json_patch_aspect(
+        self, aspect_cls: Type[_Aspect]
+    ) -> Optional[GenericAspectClass]:
+        """Return the raw JSON patch payload if this is a PATCH of the given aspect."""
+        mcp = self.metadata
+        if (
+            isinstance(mcp, MetadataChangeProposal)
+            and mcp.changeType == ChangeTypeClass.PATCH
+            and mcp.aspectName == aspect_cls.ASPECT_NAME
+            and mcp.aspect is not None
+            and mcp.aspect.contentType == JSON_PATCH_CONTENT_TYPE
+        ):
+            return mcp.aspect
+        return None
 
     def decompose_mce_into_mcps(self) -> Iterable["MetadataWorkUnit"]:
         from datahub.emitter.mcp_builder import mcps_from_mce

@@ -12,6 +12,7 @@ dependencies {
   api externalDependency.micrometerOtelBridge
   implementation externalDependency.opentelemetrySdk
   api externalDependency.elasticSearchRest
+  api externalDependency.opensearchServer
   implementation externalDependency.httpClient
   api externalDependency.neo4jJavaDriver
   api externalDependency.json

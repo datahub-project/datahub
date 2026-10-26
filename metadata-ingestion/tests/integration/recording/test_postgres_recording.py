@@ -40,20 +40,22 @@ def postgres_runner(docker_compose_runner, pytestconfig):
         test_resources_dir / "docker-compose.yml",
         "postgres",
     ) as docker_services:
-        # Wait for postgres port to be available (mapped to host port 15432)
+        # Port is ephemeral (see docker-compose.yml), so discover what Docker assigned.
+        port = docker_services.port_for("postgres", 5432)
+
         wait_for_port(
             docker_services,
             "datahub-test-postgres-recording",
             5432,
             hostname="localhost",
         )
-        yield docker_services
+        yield port
 
 
 class TestPostgreSQLRecording:
     """Integration test for PostgreSQL recording and replay."""
 
-    def test_postgres_record_replay_validation(self, postgres_runner):
+    def test_postgres_record_replay_validation(self, postgres_runner: int) -> None:
         """Test complete PostgreSQL record/replay cycle with MCP validation.
 
         This test:
@@ -75,7 +77,7 @@ class TestPostgreSQLRecording:
                 "source": {
                     "type": "postgres",
                     "config": {
-                        "host_port": "localhost:15432",
+                        "host_port": f"localhost:{postgres_runner}",
                         "database": "testdb",
                         "username": "testuser",
                         "password": "testpass",

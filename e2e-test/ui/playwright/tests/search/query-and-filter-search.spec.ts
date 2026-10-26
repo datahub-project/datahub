@@ -11,18 +11,21 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'search' });
 
 test.describe('Query and Filter Search', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
 
-  test('should filter by type: Dashboards', async () => {
+  test('should filter by type: Dashboards', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await searchPage.searchAndWait('*', 2000);
     await searchPage.selectFilterOption('Type', 'Dashboards');
     await searchPage.expectUrlContains('filter__entityType');
@@ -83,7 +86,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Pipeline');
   });
 
-  test('should filter by tag', async ({ page }) => {
+  test('should filter by tag', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
     await searchPage.selectFilterOption('Tag', 'PlaywrightFeatureTag');
     await searchPage.expectUrlContains('filter_tags');

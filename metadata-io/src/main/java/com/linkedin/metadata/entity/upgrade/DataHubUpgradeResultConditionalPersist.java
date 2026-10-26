@@ -14,7 +14,6 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -38,6 +37,15 @@ import lombok.extern.slf4j.Slf4j;
 public final class DataHubUpgradeResultConditionalPersist {
 
   public static final int DEFAULT_MAX_ATTEMPTS = 10;
+
+  /**
+   * Attempt cap for client-backed writes. {@code BaseClient} treats a 422 precondition rejection as
+   * retryable and burns ~14s of exponential backoff per call, which multiplies with the attempts
+   * here: 3 bounds a conflict at ~42s on the synchronous MCL consumer thread, against ~140s at
+   * {@link #DEFAULT_MAX_ATTEMPTS}. Exhausting it is not terminal — callers retry on their next
+   * batch.
+   */
+  public static final int CLIENT_MAX_ATTEMPTS = 3;
 
   @FunctionalInterface
   public interface Merge {
@@ -97,13 +105,28 @@ public final class DataHubUpgradeResultConditionalPersist {
       @Nonnull Merge merge,
       int maxAttempts)
       throws Exception {
+    mergeAndPersist(
+        opContext,
+        new EntityServiceUpgradeResultStore(entityService),
+        dataHubUpgradeUrn,
+        merge,
+        maxAttempts);
+  }
+
+  /**
+   * Variant for contexts without a local {@link EntityService} — notably the standalone MAE
+   * consumer, which runs {@code entityClient.impl=restli} and has no datasource. Reach it with an
+   * {@link EntityClientUpgradeResultStore}.
+   */
+  public static void mergeAndPersist(
+      @Nonnull OperationContext opContext,
+      @Nonnull DataHubUpgradeResultStore store,
+      @Nonnull Urn dataHubUpgradeUrn,
+      @Nonnull Merge merge,
+      int maxAttempts)
+      throws Exception {
     for (int attempt = 0; attempt < maxAttempts; attempt++) {
-      EnvelopedAspect env =
-          entityService.getLatestEnvelopedAspect(
-              opContext,
-              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-              dataHubUpgradeUrn,
-              Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
+      EnvelopedAspect env = store.readLatest(opContext, dataHubUpgradeUrn);
 
       Map<String, String> resultMap = new HashMap<>();
       DataHubUpgradeState existingState = null;
@@ -145,8 +168,7 @@ public final class DataHubUpgradeResultConditionalPersist {
       proposal.setHeaders(headers);
 
       try {
-        entityService.ingestProposal(
-            opContext, proposal, AuditStampUtils.createDefaultAuditStamp(), false);
+        store.ingest(opContext, proposal);
         return;
       } catch (ValidationException e) {
         if (!isOptimisticLockConflict(e) || attempt == maxAttempts - 1) {
@@ -167,8 +189,7 @@ public final class DataHubUpgradeResultConditionalPersist {
   }
 
   private static boolean isOptimisticLockConflict(ValidationException e) {
-    String msg = e.getMessage();
-    if (msg != null && msg.contains("Expected version")) {
+    if (isVersionMismatchMessage(e.getMessage())) {
       return true;
     }
     ValidationExceptionCollection coll = e.getValidationExceptionCollection();
@@ -176,9 +197,18 @@ public final class DataHubUpgradeResultConditionalPersist {
       return coll.streamAllExceptions()
           .map(AspectValidationException::getMessage)
           .filter(Objects::nonNull)
-          .anyMatch(m -> m.contains("Expected version"));
+          .anyMatch(DataHubUpgradeResultConditionalPersist::isVersionMismatchMessage);
     }
     return false;
+  }
+
+  /**
+   * Marker text emitted by {@code ConditionalWriteValidator} when {@code If-Version-Match} does not
+   * match the stored aspect. Also the only signal available to {@link DataHubUpgradeResultStore}'s
+   * client implementation, since restli erases the exception type at the wire boundary.
+   */
+  static boolean isVersionMismatchMessage(@Nullable final String message) {
+    return message != null && message.contains("Expected version");
   }
 
   /** Reconstruct {@link DataHubUpgradeResult} from an enveloped aspect value, if present. */

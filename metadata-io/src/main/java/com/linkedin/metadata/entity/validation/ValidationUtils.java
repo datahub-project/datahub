@@ -304,6 +304,22 @@ public class ValidationUtils {
               opContext,
               array.stream().map(urnFunction).collect(Collectors.toList()),
               includeSoftDeleted);
+      // exists() is keyed to this page's URNs, so an empty set means every hit for this search
+      // request was filtered (100% of the returned page). numEntities / total stays as the index
+      // count, so callers can still see count=N with an empty entities list. Warn only in that
+      // all-filtered case — not for partial page mismatches.
+      if (!array.isEmpty() && existingUrns.isEmpty()) {
+        log.warn(
+            "Search/index response had {} hit(s) but 0 existed in the primary store after entity"
+                + " existence check (100% of this search request's results were filtered;"
+                + " DB/ES mismatch). Sample urns: {}",
+            array.size(),
+            array.stream()
+                .limit(5)
+                .map(urnFunction)
+                .map(Urn::toString)
+                .collect(Collectors.toList()));
+      }
       return array.stream().filter(item -> existingUrns.contains(urnFunction.apply(item)));
     } else {
       Set<Urn> validatedUrns =

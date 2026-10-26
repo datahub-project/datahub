@@ -9,8 +9,10 @@ record DocumentContents {
      * This needs to be added to semantic search! 
      */
     @Searchable = {
-        "fieldType": "TEXT",
-        "searchTier": 2
+      "v3": {
+        "queryByDefault": true
+      },
+        "fieldType": "TEXT"
     }
     text: string
 }

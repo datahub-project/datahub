@@ -42,7 +42,7 @@
                     "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
-                    "id": "test-data-factory.DataIngestionPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)"
                 }
             ]
@@ -369,7 +369,7 @@
                     "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
-                    "id": "test-data-factory.DataIngestionPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)"
                 }
             ]
@@ -410,7 +410,7 @@
                     "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
-                    "id": "test-data-factory.DataIngestionPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataIngestionPipeline,PROD)"
                 }
             ]
@@ -652,7 +652,7 @@
                     "urn": "urn:li:container:cdaebfa861d2b2a3853328719496bce5"
                 },
                 {
-                    "id": "test-data-factory.DataProcessingPipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,test-data-factory.DataProcessingPipeline,PROD)"
                 }
             ]

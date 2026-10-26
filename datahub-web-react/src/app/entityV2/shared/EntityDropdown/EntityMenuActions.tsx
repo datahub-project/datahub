@@ -1,4 +1,4 @@
-import { MoreOutlined } from '@ant-design/icons';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -11,8 +11,8 @@ import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptio
 import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
 import RaiseIncidentMenuAction from '@app/entityV2/shared/EntityDropdown/RaiseIncidentMenuAction';
 import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationMenuAction';
-import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import ShareMenuAction from '@app/sharedV2/share/v2/ShareMenuAction';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 export enum EntityMenuItems {
@@ -32,7 +32,7 @@ export enum EntityMenuItems {
     CHANGE_HISTORY,
 }
 
-export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+export const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;

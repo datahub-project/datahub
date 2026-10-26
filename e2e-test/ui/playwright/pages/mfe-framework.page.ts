@@ -85,7 +85,8 @@ export class MFEFrameworkPage {
    * Wait for initial page load and MFE config to be fetched
    */
   async waitForPageLoad(): Promise<void> {
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+    await this.waitForSidebar();
   }
 
   /**

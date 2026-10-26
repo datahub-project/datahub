@@ -1,8 +1,11 @@
-import { Button, Icon, Text } from '@components';
 import { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 import React, { useCallback, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Button } from '@components/components/Button';
+import { Icon } from '@components/components/Icon';
+import { Text } from '@components/components/Text';
 
 const Container = styled.div<{ $dragActive?: boolean }>`
     padding: 16px;

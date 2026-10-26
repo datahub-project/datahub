@@ -687,6 +687,14 @@ def metric_metric_ids_from_model(model: Dict[str, object]) -> List[str]:
     return _expression_target_ids(model, "metric")
 
 
+def metric_attribute_ids_from_model(model: Dict[str, object]) -> List[str]:
+    return _expression_target_ids(model, "attribute")
+
+
+def metric_consolidation_ids_from_model(model: Dict[str, object]) -> List[str]:
+    return _expression_target_ids(model, "consolidation")
+
+
 def _expression_target_ids(model: Dict[str, object], subtype: str) -> List[str]:
     object_ids: Set[str] = set()
     for target in _expression_targets(model):
@@ -791,6 +799,73 @@ def _expression_targets(model: Dict[str, object]) -> List[Dict[str, object]]:
         if token.get("objectId") or token.get("id"):
             targets.append(token)
     return targets
+
+
+def consolidation_attribute_ids(consolidation_model: Dict[str, object]) -> List[str]:
+    """Attribute ids a consolidation's elements are built over.
+
+    Walks each element's expression tree generically (elements_object/
+    object_reference/operator nodes all nest arbitrarily) rather than
+    modeling the tree shape explicitly, matching _expression_targets' "be
+    liberal about where the reference lives" approach.
+    """
+    object_ids: Set[str] = set()
+
+    def visit(node: object) -> None:
+        if isinstance(node, dict):
+            attribute = node.get("attribute")
+            if isinstance(attribute, dict):
+                object_id = _object_id(attribute)
+                if object_id:
+                    object_ids.add(_normalize_object_id(object_id))
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for item in node:
+                visit(item)
+
+    for element in _coerce_dicts(consolidation_model.get("elements")):
+        expression = element.get("expression")
+        if isinstance(expression, dict):
+            visit(expression.get("tree"))
+    return sorted(object_ids)
+
+
+@dataclass(frozen=True)
+class AttributeRelationship:
+    parent_attribute_id: str
+    child_attribute_id: str
+    relationship_table_id: Optional[str]
+    relationship_type: Optional[str]
+
+
+def parse_attribute_relationships(
+    response: Dict[str, object],
+) -> List[AttributeRelationship]:
+    relationships: List[AttributeRelationship] = []
+    for entry in _coerce_dicts(response.get("relationships")):
+        parent = entry.get("parent")
+        child = entry.get("child")
+        parent_id = _object_id(parent) if isinstance(parent, dict) else None
+        child_id = _object_id(child) if isinstance(child, dict) else None
+        if not parent_id or not child_id:
+            continue
+        table = entry.get("relationshipTable")
+        table_id = _object_id(table) if isinstance(table, dict) else None
+        relationship_type = entry.get("relationshipType")
+        relationships.append(
+            AttributeRelationship(
+                parent_attribute_id=_normalize_object_id(parent_id),
+                child_attribute_id=_normalize_object_id(child_id),
+                relationship_table_id=(
+                    _normalize_object_id(table_id) if table_id else None
+                ),
+                relationship_type=(
+                    str(relationship_type) if relationship_type else None
+                ),
+            )
+        )
+    return relationships
 
 
 def _form_name(form: Dict[str, object]) -> Optional[str]:
@@ -930,3 +1005,24 @@ def _created_table_leaf_names(statements: List[str]) -> Set[str]:
         if match:
             names.add(_leaf_identifier(match.group(1)))
     return names
+
+
+# Public reuse surface for other MicroStrategy modules (the semantic-model
+# mapper) that need the same object-id/table-name parsing this module already
+# does for warehouse lineage, without duplicating it.
+def object_id(value: object) -> Optional[str]:
+    return _object_id(value)
+
+
+def normalize_object_id(value: str) -> str:
+    return _normalize_object_id(value)
+
+
+def coerce_dicts(value: object) -> List[Dict[str, object]]:
+    return _coerce_dicts(value)
+
+
+def physical_table_name(
+    physical_table: Dict[str, object], context: WarehouseLineageContext
+) -> Optional[str]:
+    return _physical_table_name(physical_table, context)

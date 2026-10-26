@@ -1,3 +1,6 @@
-export { Select, selectDefaults } from './Select';
+export { Select } from './Select';
 export { SimpleSelect } from './SimpleSelect';
-export type { SelectProps, SelectOption } from './types';
+export { InfiniteScrollSimpleSelect } from './InfiniteScrollSimpleSelect';
+export { NestedSelect } from './Nested/NestedSelect';
+export type { SelectOption } from './types';
+export type { NestedSelectOption } from './Nested/types';

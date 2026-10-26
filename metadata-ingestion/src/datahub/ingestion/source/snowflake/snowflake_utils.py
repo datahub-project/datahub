@@ -11,6 +11,7 @@ from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     DEFAULT_SNOWFLAKE_DOMAIN,
+    SNOWFLAKE_DEFAULT_SCHEMAS,
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
     SnowflakeCloudProvider,
     SnowflakeObjectDomain,
@@ -341,6 +342,11 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
+def is_snowflake_default_schema(schema_name: str) -> bool:
+    """A schema Snowflake creates automatically and ingestion never emits."""
+    return schema_name.upper() in SNOWFLAKE_DEFAULT_SCHEMAS
+
+
 def split_qualified_name(qualified_name: str) -> List[str]:
     """
     Split a qualified name into its constituent parts.
@@ -571,12 +577,12 @@ class SnowflakeIdentifierBuilder:
         return name.replace('"', '""')
 
     @staticmethod
-    def get_quoted_identifier_for_database(db_name):
+    def get_quoted_identifier_for_database(db_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         return f'"{db_name}"'
 
     @staticmethod
-    def get_quoted_identifier_for_schema(db_name, schema_name):
+    def get_quoted_identifier_for_schema(db_name: str, schema_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
         return f'"{db_name}"."{schema_name}"'

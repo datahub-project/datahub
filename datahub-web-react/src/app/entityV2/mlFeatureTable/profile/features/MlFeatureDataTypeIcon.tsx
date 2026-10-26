@@ -14,7 +14,7 @@ import { VideoCamera } from '@phosphor-icons/react/dist/csr/VideoCamera';
 import React from 'react';
 import styled from 'styled-components';
 
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter } from '@app/sharedV2/textUtil';
 
 import { MlFeatureDataType } from '@types';
 

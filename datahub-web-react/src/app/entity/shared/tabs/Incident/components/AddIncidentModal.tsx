@@ -12,7 +12,7 @@ import {
     addActiveIncidentToCache,
     getIncidentDisplayTypes,
 } from '@app/entity/shared/tabs/Incident/incidentUtils';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
@@ -78,6 +78,8 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                     customType: formData.customType || null,
                     title: formData.title,
                     description: formData.description,
+                    startedAt: null,
+                    tags: null,
                     status: {
                         state: IncidentState.Active,
                         message: null,

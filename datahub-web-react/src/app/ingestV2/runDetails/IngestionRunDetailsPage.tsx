@@ -7,7 +7,6 @@ import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
-import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
@@ -15,7 +14,11 @@ import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generat
 
 export default function IngestionRunDetailsPage() {
     const { t } = useTranslation('ingestion');
-    const { urn } = useParams<{ urn: string }>();
+    const { urn: urnParam } = useParams<{ urn: string }>();
+    // useParams returns the raw path segment — colons in the URN are usually
+    // URL-encoded (urn%3Ali%3A...), and GMS rejects encoded URNs as invalid.
+    // Decode once so the executionRequest query gets a clean URN.
+    const urn = decodeURIComponent(urnParam);
 
     const { state } = useLocation();
     const [fromUrl, setFromUrl] = React.useState<string>();
@@ -75,12 +78,7 @@ export default function IngestionRunDetailsPage() {
     );
 
     return (
-        <PageLayout
-            title={t('runDetails.title')}
-            titlePill={titlePill}
-            rightPanelContent={<AIChat />}
-            topBreadcrumb={breadCrumb}
-        >
+        <PageLayout title={t('runDetails.title')} titlePill={titlePill} topBreadcrumb={breadCrumb}>
             <RunDetailsContent
                 urn={urn}
                 data={data}

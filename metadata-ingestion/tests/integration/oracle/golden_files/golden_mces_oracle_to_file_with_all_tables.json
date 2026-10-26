@@ -3990,7 +3990,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -4398,7 +4398,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -6726,7 +6726,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -7542,7 +7542,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(8)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -7782,7 +7782,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -8022,7 +8022,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10194,7 +10194,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10350,7 +10350,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10362,7 +10362,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10410,7 +10410,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10422,7 +10422,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(17)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10434,7 +10434,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -10602,7 +10602,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10650,7 +10650,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10878,7 +10878,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -11094,7 +11094,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -13758,7 +13758,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -13950,7 +13950,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -13986,7 +13986,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14178,7 +14178,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14550,7 +14550,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14766,7 +14766,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14778,7 +14778,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -17662,7 +17662,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "null",
+                                "nativeDataType": "ROWID",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }

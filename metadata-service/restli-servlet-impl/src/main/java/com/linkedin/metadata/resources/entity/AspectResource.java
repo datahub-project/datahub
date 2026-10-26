@@ -1,11 +1,9 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
 import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
-import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
@@ -20,9 +18,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -158,12 +160,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get aspect for " + urn);
           }
+          if (!SensitiveAspectAuthUtil.canReadAspect(opContext, urn, aspectName)) {
+            throw new RestLiServiceException(
+                HttpStatus.S_403_FORBIDDEN,
+                "User is unauthorized to get aspect " + aspectName + " for " + urn);
+          }
 
           final VersionedAspect aspect =
               _entityService.getVersionedAspect(opContext, urn, aspectName, version);
           if (aspect == null) {
               log.warn("Did not find urn: {} aspect: {} version: {}", urn, aspectName, version);
               throw RestliUtils.nonExceptionResourceNotFound();
+          }
+          if (aspectName != null
+              && EntityAuthorizationUtils.isQuerySqlAspectRestricted(opContext, urn, aspectName)) {
+            throw RestliUtils.nonExceptionResourceNotFound();
           }
           return new AnyRecord(aspect.data());
         },
@@ -199,10 +210,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                     ACTION_GET_TIMESERIES_ASPECT, urn.getEntityType()).withUsageOperation(UsageOperation.METADATA_QUERY), _authorizer, auth, true);
     return RestliUtils.toTask(opContext,
         () -> {
-            if (!isAPIAuthorizedUrns(
-                  opContext,
-                  TIMESERIES, READ,
-                  List.of(urn))) {
+            if (!TimeseriesAuthUtil.canReadAspect(opContext, urn, entityName, aspectName)) {
             throw new RestLiServiceException(
                 HttpStatus.S_403_FORBIDDEN,
                 "User is unauthorized to get timeseries aspect for " + urn);
@@ -222,17 +230,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           } else {
             response.setLimit(limit);
           }
-          response.setValues(
-              new EnvelopedAspectArray(
-                  timeseriesAspectService.getAspectValues(opContext,
-                      urn,
-                      entityName,
-                      aspectName,
-                      startTimeMillis,
-                      endTimeMillis,
-                      limit,
-                      filter,
-                      sort)));
+          List<EnvelopedAspect> values =
+              timeseriesAspectService.getAspectValues(opContext,
+                  urn,
+                  entityName,
+                  aspectName,
+                  startTimeMillis,
+                  endTimeMillis,
+                  limit,
+                  filter,
+                  sort);
+          values.forEach(
+              value ->
+                  EntityAuthorizationUtils.stripTopSqlQueriesFromEnvelopedAspect(
+                      opContext, urn, aspectName, value));
+          response.setValues(new EnvelopedAspectArray(values));
           return response;
         },
         MetricRegistry.name(this.getClass(), "getTimeseriesAspectValues"));

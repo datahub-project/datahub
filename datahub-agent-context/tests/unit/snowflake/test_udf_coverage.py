@@ -23,6 +23,18 @@ _TOOLS_WITHOUT_UDFS: dict[str, str] = {
         "Requires multi-step document hierarchy setup and user-context that "
         "doesn't map cleanly to a single stateless Snowflake UDF."
     ),
+    "list_incidents": (
+        "Incident triage is an interactive agent workflow rather than a "
+        "SQL-driven one; UDFs can be added later if demand appears."
+    ),
+    "raise_incident": (
+        "Mutation that should be gated behind agent/user confirmation, which "
+        "a stateless Snowflake UDF cannot provide."
+    ),
+    "resolve_incident": (
+        "Mutation that should be gated behind agent/user confirmation, which "
+        "a stateless Snowflake UDF cannot provide."
+    ),
 }
 
 # Map mcp_tools function name → expected UDF name (uppercase by convention).

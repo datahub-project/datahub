@@ -11,16 +11,17 @@ import { PromptSubTitle } from '@app/entity/shared/entityForm/prompts/Structured
 import VerificationPrompt from '@app/entity/shared/entityForm/prompts/VerificationPrompt';
 import SchemaFieldPrompts from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
 import useShouldShowVerificationPrompt from '@app/entity/shared/entityForm/useShouldShowVerificationPrompt';
-import { DeferredRenderComponent } from '@app/shared/DeferredRenderComponent';
-import Loading from '@app/shared/Loading';
-import useHasComponentRendered from '@app/shared/useHasComponentRendered';
+import { DeferredRenderComponent } from '@app/sharedV2/DeferredRenderComponent';
+import Loading from '@app/sharedV2/Loading';
+import useHasComponentRendered from '@app/sharedV2/useHasComponentRendered';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { FormPrompt } from '@types';
 
 const PaddinglessEditor = styled(Editor)`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
     }
 `;
@@ -55,18 +56,18 @@ interface Props {
 function Form({ formUrn }: Props) {
     const { t } = useTranslation('entity.form');
     const entityRegistry = useEntityRegistry();
-    const { entityType, entityData } = useEntityData();
+    const { entityType, entityData, loading } = useEntityData();
     const { entityPrompts, fieldPrompts } = useGetPromptInfo(formUrn);
     const shouldShowVerificationPrompt = useShouldShowVerificationPrompt(formUrn);
     const { hasRendered } = useHasComponentRendered();
-
-    if (!hasRendered) return <Loading />;
 
     const formAssociation = getFormAssociation(formUrn, entityData);
     const title = formAssociation?.form?.info?.name;
     const associatedUrn = formAssociation?.associatedUrn;
     const description = formAssociation?.form?.info?.description;
     const owners = formAssociation?.form?.ownership?.owners;
+
+    if (!hasRendered || !entityData) return <Loading />;
 
     return (
         <TabWrapper>
@@ -93,6 +94,7 @@ function Form({ formUrn }: Props) {
                     </SubTitle>
                 )}
             </HeaderWrapper>
+            {loading && !entityPrompts?.length && <Loading />}
             {entityPrompts?.map((prompt, index) => (
                 <Prompt
                     key={`${prompt.id}-${entityData?.urn}`}

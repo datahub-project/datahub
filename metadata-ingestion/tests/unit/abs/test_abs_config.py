@@ -140,3 +140,52 @@ def test_abs_config_rejects_empty_path_specs():
         match="path_specs must not be empty",
     ):
         DataLakeSourceConfig.model_validate(config_dict)
+
+
+def test_abs_enable_schema_inference_defaults_to_true():
+    config = DataLakeSourceConfig.model_validate(
+        {
+            "path_specs": [
+                {
+                    "include": "/var/lib/data/{table}/*.parquet",
+                    "file_types": ["parquet"],
+                }
+            ]
+        }
+    )
+    assert config.enable_schema_inference is True
+
+
+def test_abs_enable_schema_inference_can_be_disabled():
+    config = DataLakeSourceConfig.model_validate(
+        {
+            "path_specs": [
+                {
+                    "include": "/var/lib/data/{table}/*.parquet",
+                    "file_types": ["parquet"],
+                }
+            ],
+            "enable_schema_inference": False,
+        }
+    )
+    assert config.enable_schema_inference is False
+
+
+def test_abs_add_partition_columns_rejected_without_schema_inference():
+    from pydantic import ValidationError
+
+    with pytest.raises(
+        ValidationError, match="add_partition_columns_to_schema has no effect"
+    ):
+        DataLakeSourceConfig.model_validate(
+            {
+                "path_specs": [
+                    {
+                        "include": "/var/lib/data/{table}/*.parquet",
+                        "file_types": ["parquet"],
+                    }
+                ],
+                "enable_schema_inference": False,
+                "add_partition_columns_to_schema": True,
+            }
+        )
