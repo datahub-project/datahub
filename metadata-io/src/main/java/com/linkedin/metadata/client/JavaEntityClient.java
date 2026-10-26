@@ -834,7 +834,8 @@ public class JavaEntityClient implements EntityClient {
                   group,
                   auditStamp,
                   opContext.getRetrieverContext(),
-                  opContext.getValidationContext().isAlternateValidation())
+                  opContext.getValidationContext().isAlternateValidation(),
+                  opContext.isSystemAuth())
               .buildSkippingRejected(opContext);
       rejected.addAll(aspectsBatch.getRejectedProposals());
       if (!aspectsBatch.getItems().isEmpty()) {
@@ -864,7 +865,8 @@ public class JavaEntityClient implements EntityClient {
                           batch,
                           auditStamp,
                           opContext.getRetrieverContext(),
-                          opContext.getValidationContext().isAlternateValidation())
+                          opContext.getValidationContext().isAlternateValidation(),
+                          opContext.isSystemAuth())
                       .build(opContext);
 
               List<IngestResult> results =
