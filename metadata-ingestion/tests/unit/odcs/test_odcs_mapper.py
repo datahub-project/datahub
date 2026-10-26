@@ -26,6 +26,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
+    ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
 )
@@ -1873,3 +1874,70 @@ def test_binding_malformed_catalog_url_does_not_raise() -> None:
     assert binding.physical_urn == (
         "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
     )
+
+
+def _field_descriptions(properties: List[Dict[str, Any]]) -> Dict[str, Optional[str]]:
+    entry = ODCSSchemaObject.model_validate({"name": "orders", "properties": properties})
+    schema = build_schema_metadata(entry).schema_metadata
+    assert schema is not None
+    return {f.fieldPath: f.description for f in schema.fields}
+
+
+@pytest.mark.parametrize(
+    "extra, expected",
+    [
+        (
+            {
+                "transformDescription": "Sum of line items.",
+                "transformLogic": "SUM(amount)",
+            },
+            "Order total.\n\n**Derivation:** Sum of line items."
+            "\n\n```sql\nSUM(amount)\n```",
+        ),
+        (
+            {"transformLogic": "SUM(amount)"},
+            "Order total.\n\n**Derivation:**\n\n```sql\nSUM(amount)\n```",
+        ),
+        (
+            {"transformDescription": "Sum of line items."},
+            "Order total.\n\n**Derivation:** Sum of line items.",
+        ),
+        ({"transformDescription": "  ", "transformLogic": ""}, "Order total."),
+        ({}, "Order total."),
+    ],
+)
+def test_field_description_appends_derivation(
+    extra: Dict[str, Any], expected: str
+) -> None:
+    descriptions = _field_descriptions(
+        [{"name": "total", "description": "Order total.", **extra}]
+    )
+    assert descriptions["total"] == expected
+
+
+def test_field_description_derivation_without_base_description() -> None:
+    descriptions = _field_descriptions(
+        [{"name": "total", "transformLogic": "SUM(amount)"}]
+    )
+    assert descriptions["total"] == "**Derivation:**\n\n```sql\nSUM(amount)\n```"
+
+
+def test_field_description_derivation_on_nested_field() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "address",
+                "logicalType": "object",
+                "properties": [{"name": "city", "transformLogic": "upper(city)"}],
+            }
+        ]
+    )
+    assert "upper(city)" in (descriptions["address.city"] or "")
+
+
+def test_transform_fields_off_spec_values_dropped() -> None:
+    prop = ODCSProperty.model_validate(
+        {"name": "total", "transformLogic": 5, "transformDescription": ["x"]}
+    )
+    assert prop.transformLogic is None
+    assert prop.transformDescription is None

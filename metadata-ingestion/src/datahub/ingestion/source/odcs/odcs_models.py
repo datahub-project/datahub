@@ -44,8 +44,6 @@ KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
         "map",
         "physicalName",
         "relationships",
-        "transformDescription",
-        "transformLogic",
         "transformSourceObjects",
     )
 )
@@ -208,12 +206,14 @@ class ODCSProperty(ODCSBaseModel):
     synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
     # v3.2 (RFC 0034): a `measure` is an aggregate, not a physical column.
     semanticType: Optional[str] = None
+    transformLogic: Optional[str] = None
+    transformDescription: Optional[str] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
-    _lenient_semantic_type = field_validator("semanticType", mode="before")(
-        _str_or_none
-    )
+    _lenient_strings = field_validator(
+        "semanticType", "transformLogic", "transformDescription", mode="before"
+    )(_str_or_none)
 
 
 class ODCSSchemaObject(ODCSBaseModel):
@@ -397,5 +397,11 @@ ODCSSchemaObject.model_rebuild()
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
     ODCSSchemaObject: ("deprecated",),
-    ODCSProperty: ("deprecated", "synonyms", "semanticType"),
+    ODCSProperty: (
+        "deprecated",
+        "synonyms",
+        "semanticType",
+        "transformLogic",
+        "transformDescription",
+    ),
 }

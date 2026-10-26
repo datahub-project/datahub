@@ -672,6 +672,25 @@ def _native_data_type(prop: ODCSProperty) -> str:
     return prop.physicalType or prop.logicalType or "unknown"
 
 
+def _field_description(prop: ODCSProperty) -> Optional[str]:
+    """The property description followed by how the column is derived.
+
+    The source rewrites the whole schema aspect every run, so appended sections
+    never accumulate and disappear when the contract drops them.
+    """
+    parts = [_description_to_str(prop.description)]
+    transform_description = (prop.transformDescription or "").strip()
+    transform_logic = (prop.transformLogic or "").strip()
+    if transform_description or transform_logic:
+        derivation = "**Derivation:**"
+        if transform_description:
+            derivation += f" {transform_description}"
+        if transform_logic:
+            derivation += f"\n\n```sql\n{transform_logic}\n```"
+        parts.append(derivation)
+    return "\n\n".join(p for p in parts if p) or None
+
+
 def build_schema_metadata(
     schema_entry: ODCSSchemaObject,
     tag_prefix: Optional[str] = None,
@@ -697,7 +716,7 @@ def build_schema_metadata(
                 fieldPath=field_path,
                 type=data_type,
                 nativeDataType=_native_data_type(prop),
-                description=_description_to_str(prop.description),
+                description=_field_description(prop),
                 nullable=not bool(prop.required),
                 isPartOfKey=bool(prop.primaryKey),
                 globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
