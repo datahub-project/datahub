@@ -564,6 +564,19 @@ class AwsConnectionConfig(ConfigModel):
         """Get an RDS client for generating IAM auth tokens."""
         return self.get_session().client("rds", config=self._aws_config())
 
+    def get_sts_client(self) -> "STSClient":
+        """Get an STS client that honors the shared AWS config (proxy, retries, etc.)."""
+        return self.get_session().client("sts", config=self._aws_config())
+
+
+def make_dynamodb_dataset_name(region: str, table_name: str) -> str:
+    """Single definition of the ``{region}.{table}`` DynamoDB dataset name.
+
+    The DynamoDB and Glue sources must build identical names so Glue job lineage joins the
+    DynamoDB tables emitted by the DynamoDB source.
+    """
+    return f"{region}.{table_name}"
+
 
 def generate_rds_iam_token(
     endpoint: str,
