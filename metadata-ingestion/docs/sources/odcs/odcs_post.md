@@ -48,8 +48,9 @@ provided. Assertion URNs are seeded from the spec's `quality.id` when present, s
 and reordering do not churn identities.
 
 When a table binds to a physical dataset, `{object}` and `${object}` in a rule's `query`
-are replaced with the bound table's name (the dataset name of the physical URN, for example
-`my_catalog.my_schema.orders`). An unbound table keeps the placeholder and gets a warning.
+are replaced with the bound table's name, for example `my_catalog.my_schema.orders`, without
+the platform instance. A `physical_urn_overrides` URN's dataset name is used as written. An
+unbound table keeps the placeholder and gets a warning.
 
 :::warning Routing is exact; nothing is approximated
 

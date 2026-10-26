@@ -133,9 +133,10 @@ from datahub.metadata.schema_classes import (
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
-from datahub.metadata.urns import DataProductUrn
+from datahub.metadata.urns import DataProductUrn, DatasetUrn
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 class RefusalKind(StrEnum):
@@ -169,6 +170,9 @@ class PhysicalBinding:
     physical_urn: Optional[str]
     refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
+    # The table as SQL names it: the URN's dataset name without a platform
+    # instance prefix. None when unbound or when an override URN is malformed.
+    table_name: Optional[str] = None
 
     @property
     def unmapped_reason(self) -> Optional[str]:
@@ -444,6 +448,17 @@ def _compose_physical_name(
     return name.lower() if lowercase else name, None, False
 
 
+def _override_table_name(override_urn: str) -> Optional[str]:
+    # An override URN may carry a platform instance in its name; it cannot be
+    # told apart from the table path, so the name is used as written.
+    if not override_urn:
+        return None
+    try:
+        return DatasetUrn.from_string(override_urn).name
+    except InvalidUrnError:
+        return None
+
+
 def odcs_to_physical_bindings(
     contract: ODCSContract, config: ODCSSourceConfig
 ) -> List[PhysicalBinding]:
@@ -477,6 +492,7 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=override_urn or None,
+                    table_name=_override_table_name(override_urn),
                     refusal=(
                         None
                         if override_urn
@@ -551,6 +567,7 @@ def odcs_to_physical_bindings(
                 logical_urn=logical_urn,
                 physical_urn=physical_urn,
                 name_passthrough=passthrough,
+                table_name=physical_name,
             )
         )
     return bindings

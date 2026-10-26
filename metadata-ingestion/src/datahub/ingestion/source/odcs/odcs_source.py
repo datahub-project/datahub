@@ -102,7 +102,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     StatusClass,
 )
-from datahub.metadata.urns import DataProductUrn, DatasetUrn
+from datahub.metadata.urns import DataProductUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
@@ -1270,13 +1270,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
         # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
-        # The URN's name is the table as the platform's connector names it,
-        # including a `physical_urn_overrides` target.
-        bound_table = (
-            DatasetUrn.from_string(binding.physical_urn).name
-            if binding.physical_urn
-            else None
-        )
+        bound_table = binding.table_name
         if bound_table is None:
             self._report_unreplaced_object_placeholder(schema_entry, source_uri)
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
