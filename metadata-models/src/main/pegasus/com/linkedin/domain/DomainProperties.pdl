@@ -21,6 +21,7 @@ record DomainProperties includes CustomProperties {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -38,6 +39,7 @@ record DomainProperties includes CustomProperties {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -73,7 +75,11 @@ record DomainProperties includes CustomProperties {
   @Searchable = {
     "fieldName": "parentDomain",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentDomain"
+    "hasValuesFieldName": "hasParentDomain",
+    "v3": {
+      "searchLabel": "parent",
+      "hasValuesFieldName": "hasParent",
+    }
   }
   parentDomain: optional Urn
 }

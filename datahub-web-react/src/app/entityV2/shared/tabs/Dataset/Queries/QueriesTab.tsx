@@ -18,8 +18,8 @@ import useDownstreamQueries from '@app/entityV2/shared/tabs/Dataset/Queries/useD
 import { useHighlightedQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useHighlightedQueries';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { useRecentQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useRecentQueries';
-import Loading from '@app/shared/Loading';
-import usePrevious from '@app/shared/usePrevious';
+import Loading from '@app/sharedV2/Loading';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 

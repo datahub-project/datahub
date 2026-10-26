@@ -15,7 +15,7 @@ vi.mock('@app/recommendations/renderer/component/HoverEntityTooltip', () => ({
     HoverEntityTooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('@app/shared/tags/TagProfileDrawer', () => ({
+vi.mock('@app/sharedV2/tags/TagProfileDrawer', () => ({
     TagProfileDrawer: () => null,
 }));
 
@@ -31,7 +31,7 @@ vi.mock('@app/search/context/SearchResultContext', () => ({
     useHasMatchedFieldByUrn: vi.fn(() => false),
 }));
 
-vi.mock('@app/shared/useEmbeddedProfileLinkProps', () => ({
+vi.mock('@app/sharedV2/useEmbeddedProfileLinkProps', () => ({
     useIsEmbeddedProfile: vi.fn(() => false),
 }));
 

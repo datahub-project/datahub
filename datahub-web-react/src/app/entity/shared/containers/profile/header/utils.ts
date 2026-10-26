@@ -1,8 +1,8 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
-import { EntityType, StructuredPropertiesEntry } from '@types';
+import { EntityType } from '@types';
 
 export function getDisplayedEntityType(
     entityData: GenericEntityProperties | null,
@@ -15,8 +15,4 @@ export function getDisplayedEntityType(
         entityRegistry.getEntityName(entityType) ||
         ''
     );
-}
-
-export function filterForAssetBadge(prop: StructuredPropertiesEntry) {
-    return prop.structuredProperty.settings?.showAsAssetBadge && !prop.structuredProperty.settings?.isHidden;
 }

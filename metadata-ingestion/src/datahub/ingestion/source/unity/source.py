@@ -23,6 +23,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from databricks.sdk import WorkspaceClient
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -85,7 +86,10 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
-from datahub.ingestion.source.unity.connection import create_workspace_client
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
@@ -426,10 +430,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             keep_platform_instance_case=True,
         )
 
-        self.init_hive_metastore_proxy()
+        workspace_client = create_workspace_client(self.config)
+        self.init_hive_metastore_proxy(workspace_client)
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            create_workspace_client(self.config),
+            workspace_client,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
@@ -534,13 +539,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             _ExternalSchemaKey, Optional[SchemaResolver]
         ] = {}
 
-    def init_hive_metastore_proxy(self):
+    def init_hive_metastore_proxy(self, workspace_client: WorkspaceClient) -> None:
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
             try:
+                # The SQLAlchemy URL carries no credentials; auth and the warehouse
+                # route come from the workspace client. User connect_args win so
+                # recipes that set them explicitly keep working.
+                options = {
+                    **self.config.options,
+                    "connect_args": {
+                        **get_sql_connection_params(workspace_client),
+                        **self.config.options.get("connect_args", {}),
+                    },
+                }
                 self.hive_metastore_proxy = HiveMetastoreProxy(
                     self.config.get_sql_alchemy_url(HIVE_METASTORE),
-                    self.config.options,
+                    options,
                     self.report,
                 )
                 self.report.hive_metastore_catalog_found = True

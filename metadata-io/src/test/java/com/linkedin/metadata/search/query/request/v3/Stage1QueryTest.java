@@ -530,7 +530,7 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses);
     assertTrue(clauses.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
     assertTrue(clauses.stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
-    // A single word searches the name fields and structured property values
+    // A single word searches the name and qualified-name fields
     MultiMatchQueryBuilder multiMatch =
         clauses.stream()
             .filter(MultiMatchQueryBuilder.class::isInstance)
@@ -538,7 +538,9 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .findFirst()
             .orElseThrow();
     assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
-    assertEquals(multiMatch.fields().keySet(), Set.of("name.text", "name.stemmed"));
+    assertEquals(
+        multiMatch.fields().keySet(),
+        Set.of("name.text", "name.stemmed", "qualifiedName.text", "qualifiedName.stemmed"));
     // Exact names still score a constant above every partial match
     assertTrue(
         clauses.stream()
@@ -564,7 +566,21 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .map(MultiMatchQueryBuilder.class::cast)
             .flatMap(multiMatch -> multiMatch.fields().keySet().stream())
             .collect(Collectors.toSet());
-    assertEquals(fields, Set.of("name.text", "name.stemmed", "other.text", "other.stemmed"));
+    assertEquals(
+        fields,
+        Set.of(
+            "name.text",
+            "name.stemmed",
+            "qualifiedName.text",
+            "qualifiedName.stemmed",
+            "description.text",
+            "description.stemmed",
+            "tags.text",
+            "tags.stemmed",
+            "glossaryTerms.text",
+            "glossaryTerms.stemmed",
+            "other.text",
+            "other.stemmed"));
   }
 
   @Test

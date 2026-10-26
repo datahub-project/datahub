@@ -65,7 +65,7 @@ attrs==25.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   pytest-docker
     #   referencing
     #   zeep
-authlib==1.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+authlib==1.9.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   confluent-kafka
@@ -176,7 +176,7 @@ catalogue==2.0.10 ; python_full_version >= '3.11' and python_full_version < '3.1
     #   thinc
 cattrs==26.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via looker-sdk
-certifi==2026.2.25 ; python_full_version >= '3.11' and python_full_version < '3.14'
+certifi==2026.10.19 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   confluent-kafka
     #   httpcore
@@ -297,7 +297,7 @@ databricks-sdk==0.97.0 ; python_full_version >= '3.11' and python_full_version <
     # via
     #   acryl-datahub
     #   mlflow-skinny
-databricks-sql-connector==4.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+databricks-sql-connector==4.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   databricks-sqlalchemy
@@ -617,7 +617,6 @@ importlib-metadata==8.7.1 ; python_full_version >= '3.11' and python_full_versio
     #   dask
     #   keyring
     #   mlflow-skinny
-    #   opentelemetry-api
 impyla==0.24.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 iniconfig==2.3.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -661,7 +660,7 @@ jmespath==1.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   botocore
 joblib==1.5.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via nltk
-joserfc==1.6.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
+joserfc==1.7.7 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via authlib
 jpype1==1.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
@@ -840,7 +839,7 @@ numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   spacy
     #   thinc
     #   unstructured
-oauthlib==3.3.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+oauthlib==4.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   atlassian-python-api
     #   databricks-sql-connector
@@ -860,17 +859,17 @@ opensearch-protobufs==1.2.0 ; python_full_version >= '3.11' and python_full_vers
     # via opensearch-py
 opensearch-py==3.2.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-opentelemetry-api==1.40.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+opentelemetry-api==1.45.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   google-cloud-logging
     #   mlflow-skinny
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-sdk==1.40.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+opentelemetry-sdk==1.45.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   mlflow-skinny
     #   unstructured-ingest
-opentelemetry-semantic-conventions==0.61b0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+opentelemetry-semantic-conventions==0.66b1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via opentelemetry-sdk
 oracledb==3.4.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
@@ -944,7 +943,7 @@ pinecone-plugin-interface==0.0.7 ; python_full_version >= '3.11' and python_full
     # via
     #   pinecone-client
     #   pinecone-plugin-inference
-pip==26.2.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+pip==26.2.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 platformdirs==4.9.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via

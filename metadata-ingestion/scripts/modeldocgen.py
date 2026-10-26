@@ -95,6 +95,8 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
     schemaVersion: Optional[int] = None
+    # Stores the aspect JSON in the Search V3 document without indexing it.
+    aspectJson: bool = False
 
 
 @dataclass

@@ -6,9 +6,9 @@ import {
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@app/shared/constants';
-import EntityRegistry from '@src/app/entity/EntityRegistry';
+} from '@app/sharedV2/constants';
 import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
+import EntityRegistry from '@src/app/entityV2/EntityRegistry';
 import {
     DISPLAY_NAME_FILTER_NAME,
     ENTITY_TYPES_FILTER_NAME,
