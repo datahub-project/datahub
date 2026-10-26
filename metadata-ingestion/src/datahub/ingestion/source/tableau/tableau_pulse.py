@@ -576,7 +576,7 @@ class TableauPulseExtractor:
                     ]
                 )
             )
-        if self.config.extract_pulse_metric_definition_properties:
+        if self.config.extract_pulse_metrics.include_metric_definition_properties:
             property_rows = _definition_property_rows(definition)
             yield from self._property_definitions(
                 property_rows,
@@ -589,13 +589,13 @@ class TableauPulseExtractor:
             )
             if properties is not None:
                 model_aspects.append(properties)
-        if self.config.extract_pulse_tags:
+        if self.config.extract_pulse_metrics.include_tags:
             model_aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(
                     _tag_names(_field(definition, "tags"))
                 )
             )
-        if self.config.extract_pulse_owner:
+        if self.config.extract_pulse_metrics.include_owner:
             ownership = self._ownership(_field(metadata, "last_updated_user"))
             if ownership is not None:
                 model_aspects.append(ownership)
@@ -666,7 +666,7 @@ class TableauPulseExtractor:
             self._metric_upstreams(datasource_urn, definition, metric),
             self._browse_path(browse_name, model_urn),
         ]
-        if self.config.extract_pulse_metric_properties:
+        if self.config.extract_pulse_metrics.include_metric_properties:
             property_rows = _metric_filter_rows(metric)
             yield from self._property_definitions(
                 property_rows,
@@ -679,7 +679,7 @@ class TableauPulseExtractor:
             )
             if properties is not None:
                 metric_aspects.append(properties)
-        if self.config.extract_pulse_tags:
+        if self.config.extract_pulse_metrics.include_tags:
             metric_aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(
                     _tag_names(
@@ -688,7 +688,7 @@ class TableauPulseExtractor:
                     )
                 )
             )
-        if self.config.extract_pulse_owner:
+        if self.config.extract_pulse_metrics.include_owner:
             metric_user = _field(metric, "last_updated_user") or _field(
                 _as_dict(_field(metric, "metadata")), "last_updated_user"
             )

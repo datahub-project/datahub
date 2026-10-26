@@ -527,6 +527,50 @@ class TableauPageSizeConfig(ConfigModel):
         return self.database_table_page_size or self.page_size
 
 
+class TableauPulseConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Ingest Tableau Pulse metric definitions from the Pulse REST API "
+            "(`GET /api/-/pulse/definitions` and "
+            "`GET /api/-/pulse/definitions/{definition_id}/metrics`). "
+            "Each metric definition is emitted as a semantic model, and each "
+            "metric in that definition is emitted as a metric entity. "
+            "Tableau Cloud only. The options below apply only when this is true."
+        ),
+    )
+    include_metric_definition_properties: bool = Field(
+        default=False,
+        description=(
+            "Add every field returned by Tableau Pulse for a metric definition "
+            "to the semantic model's Properties tab."
+        ),
+    )
+    include_metric_properties: bool = Field(
+        default=False,
+        description=(
+            "Add each Tableau Pulse metric's filters to that metric's Properties tab."
+        ),
+    )
+    include_tags: bool = Field(
+        default=False,
+        description=(
+            "Ingest Tableau Pulse tags onto each metric and its metric "
+            "definition. Personal tags such as favorites are skipped. "
+            "When enabled, ingested tags replace tags entered in DataHub."
+        ),
+    )
+    include_owner: bool = Field(
+        default=False,
+        description=(
+            "Set the Tableau user who last modified a Pulse metric definition "
+            "as the owner of that definition and its metrics. The Tableau user "
+            "id is resolved to a username. When enabled, this replaces owners "
+            "entered in DataHub."
+        ),
+    )
+
+
 _IngestHiddenAssetsOptionsType = Literal["worksheet", "dashboard"]
 _IngestHiddenAssetsOptions: List[_IngestHiddenAssetsOptionsType] = [
     "worksheet",
@@ -638,50 +682,12 @@ class TableauConfig(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
     )
-    extract_pulse_metrics: bool = Field(
-        default=False,
+    extract_pulse_metrics: TableauPulseConfig = Field(
+        default_factory=TableauPulseConfig,
         description=(
-            "Ingest Tableau Pulse metric definitions from the Pulse REST API "
-            "(`GET /api/-/pulse/definitions` and "
-            "`GET /api/-/pulse/definitions/{definition_id}/metrics`). "
-            "Each metric definition is emitted as a semantic model, and each "
-            "metric in that definition is emitted as a metric entity. "
-            "Tableau Cloud only. Disabled by default."
-        ),
-    )
-    extract_pulse_metric_definition_properties: bool = Field(
-        default=False,
-        description=(
-            "Add every field returned by Tableau Pulse for a metric definition "
-            "to the semantic model's Properties tab. Requires "
-            "`extract_pulse_metrics: true`. Disabled by default."
-        ),
-    )
-    extract_pulse_metric_properties: bool = Field(
-        default=False,
-        description=(
-            "Add each Tableau Pulse metric's filters to that metric's "
-            "Properties tab. Requires `extract_pulse_metrics: true`. "
-            "Disabled by default."
-        ),
-    )
-    extract_pulse_tags: bool = Field(
-        default=False,
-        description=(
-            "Ingest Tableau Pulse tags onto each metric and its metric "
-            "definition. Personal tags such as favorites are skipped. "
-            "When enabled, ingested tags replace tags entered in DataHub. "
-            "Requires `extract_pulse_metrics: true`. Disabled by default."
-        ),
-    )
-    extract_pulse_owner: bool = Field(
-        default=False,
-        description=(
-            "Set the Tableau user who last modified a Pulse metric definition "
-            "as the owner of that definition and its metrics. The Tableau user "
-            "id is resolved to a username. When enabled, this replaces owners "
-            "entered in DataHub. Requires `extract_pulse_metrics: true`. "
-            "Disabled by default."
+            "Tableau Pulse ingestion. Set `enabled: true` to ingest Pulse "
+            "metric definitions from Tableau Cloud. `extract_pulse_metrics: true` "
+            "does the same with the nested options left off. Disabled by default."
         ),
     )
 
@@ -856,6 +862,13 @@ class TableauConfig(
                 "`probe run workbooks` listing with --from-run"
             )
         return None
+
+    @field_validator("extract_pulse_metrics", mode="before")
+    @classmethod
+    def _coerce_extract_pulse_metrics(cls, value: Any) -> Any:
+        if isinstance(value, bool):
+            return {"enabled": value}
+        return value
 
     # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
@@ -4958,7 +4971,7 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
-            if self.config.extract_pulse_metrics:
+            if self.config.extract_pulse_metrics.enabled:
                 with PerfTimer() as timer:
                     yield from TableauPulseExtractor(
                         config=self.config,

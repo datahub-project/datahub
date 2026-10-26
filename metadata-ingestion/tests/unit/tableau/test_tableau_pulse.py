@@ -47,9 +47,11 @@ def _config() -> TableauConfig:
             "password": "pass",
             "connect_uri": "https://tableau.example",
             "site": "site",
-            "extract_pulse_metrics": True,
-            "extract_pulse_metric_definition_properties": True,
-            "extract_pulse_metric_properties": True,
+            "extract_pulse_metrics": {
+                "enabled": True,
+                "include_metric_definition_properties": True,
+                "include_metric_properties": True,
+            },
             "page_size": 1,
         }
     )
@@ -162,11 +164,24 @@ def test_extract_pulse_metrics_defaults_off() -> None:
             "site": "site",
         }
     )
-    assert config.extract_pulse_metrics is False
-    assert config.extract_pulse_metric_definition_properties is False
-    assert config.extract_pulse_metric_properties is False
-    assert config.extract_pulse_tags is False
-    assert config.extract_pulse_owner is False
+    pulse = config.extract_pulse_metrics
+    assert pulse.enabled is False
+    assert pulse.include_metric_definition_properties is False
+    assert pulse.include_metric_properties is False
+    assert pulse.include_tags is False
+    assert pulse.include_owner is False
+
+    enabled = TableauConfig.model_validate(
+        {
+            "username": "user",
+            "password": "pass",
+            "connect_uri": "https://tableau.example",
+            "site": "site",
+            "extract_pulse_metrics": True,
+        }
+    )
+    assert enabled.extract_pulse_metrics.enabled is True
+    assert enabled.extract_pulse_metrics.include_owner is False
 
 
 def _owner_urns(workunits: List[Any], entity_urn: str) -> List[str]:
@@ -204,7 +219,7 @@ def _discount_owner_get(url: str, **kwargs: Any) -> _Response:
 
 def test_pulse_owner_uses_the_last_modified_user() -> None:
     extractor = _extractor(_discount_owner_get)
-    extractor.config.extract_pulse_owner = True
+    extractor.config.extract_pulse_metrics.include_owner = True
     tableau_user = mock.Mock()
     tableau_user.name = "analyst"
     tableau_user.email = "analyst@example.com"
@@ -224,7 +239,7 @@ def test_pulse_owner_uses_the_last_modified_user() -> None:
 
 def test_pulse_owner_can_use_email() -> None:
     extractor = _extractor(_discount_owner_get)
-    extractor.config.extract_pulse_owner = True
+    extractor.config.extract_pulse_metrics.include_owner = True
     extractor.config.use_email_as_username = True
     tableau_user = mock.Mock()
     tableau_user.name = "analyst"
@@ -302,7 +317,7 @@ def _tag_urns(workunits: List[Any], entity_urn: str) -> List[str]:
 
 def test_pulse_tags_are_ingested_when_enabled() -> None:
     extractor = _extractor(_tagged_pulse_get)
-    extractor.config.extract_pulse_tags = True
+    extractor.config.extract_pulse_metrics.include_tags = True
     workunits = list(extractor.emit())
 
     assert _tag_urns(
@@ -332,8 +347,8 @@ def test_definition_properties_are_only_emitted_when_enabled() -> None:
         )
 
     extractor = _extractor(get)
-    extractor.config.extract_pulse_metric_definition_properties = False
-    extractor.config.extract_pulse_metric_properties = False
+    extractor.config.extract_pulse_metrics.include_metric_definition_properties = False
+    extractor.config.extract_pulse_metrics.include_metric_properties = False
     workunits = list(extractor.emit())
 
     assert _aspects(workunits, StructuredPropertyDefinitionClass) == []
