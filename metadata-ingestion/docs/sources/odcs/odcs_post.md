@@ -4,6 +4,19 @@ Use the **Important Capabilities** table above as the source of truth for which 
 features this source emits. The notes below cover ODCS-specific behavior that the table
 does not capture.
 
+#### Descriptions
+
+The source owns the descriptions of the logical `odcs` dataset and its fields and rebuilds
+them from the contract on every run, so re-running never duplicates text and removing a
+field from the contract removes its text. Descriptions edited in DataHub are kept and shown
+instead.
+
+- **Dataset:** the table's `description`, then `**Grain:**` with its
+  `dataGranularityDescription`, then the contract `description` (purpose, usage,
+  limitations). A contract with several tables repeats the contract description on each.
+- **Field:** the property's `description`, then a `**Derivation:**` section with its
+  `transformDescription` and its `transformLogic` as a SQL block.
+
 #### Quality rule mapping
 
 Each entry in a `schema[]` (table-level) or `properties[]` (column-level) `quality[]` array
@@ -33,6 +46,10 @@ severity / businessImpact when present), a `dataPlatformInstance` aspect attribu
 the `odcs` platform, and an `externalUrl` from the rule's `authoritativeDefinitions` when
 provided. Assertion URNs are seeded from the spec's `quality.id` when present, so renames
 and reordering do not churn identities.
+
+When a table binds to a physical dataset, `{object}` and `${object}` in a rule's `query`
+are replaced with the bound table's name (the dataset name of the physical URN, for example
+`my_catalog.my_schema.orders`). An unbound table keeps the placeholder and gets a warning.
 
 :::warning Routing is exact; nothing is approximated
 
@@ -186,9 +203,8 @@ in place.
   team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
   `region`. These may land in a follow-up.
 - **Lossy mappings are reported.** Besides the info above: off-spec v3.2 values that were
-  dropped, and `${VAR}` references in quality `query` text, are warnings; team roles defaulted
-  to Technical Owner, and a contract `description` not applied to tables that have their own,
-  are infos.
+  dropped, `${VAR}` references in quality `query` text, and `{object}` placeholders on a
+  table that is not bound, are warnings; team roles defaulted to Technical Owner are infos.
 - **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the
   mappings below are implemented. `logicalType: vector` maps to an array type (dimensions and
   element type are not recorded); `deprecated: true` on a schema object or property emits a
