@@ -14,6 +14,7 @@ import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -47,6 +48,18 @@ public class AspectsBatchImpl implements AspectsBatch {
   @Nonnull private final Collection<? extends BatchItem> items;
   @Nonnull private final Collection<? extends BatchItem> nonRepeatedItems;
   @Getter @Nonnull private final RetrieverContext retrieverContext;
+
+  /**
+   * Proposals left out of the batch, each with its error. Only filled by {@link
+   * AspectsBatchImplBuilder#mcpsRecordingRejected} and {@link
+   * AspectsBatchImplBuilder#buildSkippingRejected}.
+   */
+  @Nullable private final List<Pair<MetadataChangeProposal, Exception>> rejectedProposals;
+
+  @Nonnull
+  public List<Pair<MetadataChangeProposal, Exception>> getRejectedProposals() {
+    return rejectedProposals == null ? List.of() : rejectedProposals;
+  }
 
   @Override
   @Nonnull
@@ -253,23 +266,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                     AuditStamp auditStamp =
                         AttributedActorHeaders.resolve(mcp, callerAuditStamp, trustAttributedActor);
                     try {
-                      if (alternateMCPValidation) {
-                        return ProposedItem.builder()
-                            .build(
-                                mcp,
-                                auditStamp,
-                                retrieverContext.getAspectRetriever().getEntityRegistry());
-                      }
-                      if (mcp.getChangeType().equals(ChangeType.PATCH)) {
-                        return PatchItemImpl.builder()
-                            .build(
-                                mcp,
-                                auditStamp,
-                                retrieverContext.getAspectRetriever().getEntityRegistry());
-                      } else {
-                        return ChangeItemImpl.builder()
-                            .build(mcp, auditStamp, retrieverContext.getAspectRetriever());
-                      }
+                      return toItem(mcp, auditStamp, retrieverContext, alternateMCPValidation);
                     } catch (IllegalArgumentException e) {
                       log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
                       return null;
@@ -278,6 +275,90 @@ public class AspectsBatchImpl implements AspectsBatch {
               .filter(Objects::nonNull)
               .collect(Collectors.toList()));
       return this;
+    }
+
+    /**
+     * Like {@link #mcps(Collection, AuditStamp, RetrieverContext, boolean)}, for a queue consumer
+     * whose batch holds unrelated proposals: a proposal that cannot be turned into an item is
+     * recorded in {@link AspectsBatchImpl#getRejectedProposals()}, instead of being dropped or
+     * failing every proposal of the batch.
+     */
+    public AspectsBatchImplBuilder mcpsRecordingRejected(
+        Collection<MetadataChangeProposal> mcps,
+        AuditStamp auditStamp,
+        RetrieverContext retrieverContext,
+        boolean alternateMCPValidation) {
+      retrieverContext(retrieverContext);
+      List<BatchItem> built = new ArrayList<>();
+      for (MetadataChangeProposal mcp : mcps) {
+        try {
+          built.add(toItem(mcp, auditStamp, retrieverContext, alternateMCPValidation));
+        } catch (IllegalArgumentException | ValidationException e) {
+          reject(mcp, e);
+        }
+      }
+      items(built);
+      return this;
+    }
+
+    private static BatchItem toItem(
+        MetadataChangeProposal mcp,
+        AuditStamp auditStamp,
+        RetrieverContext retrieverContext,
+        boolean alternateMCPValidation) {
+      if (alternateMCPValidation) {
+        return ProposedItem.builder()
+            .build(mcp, auditStamp, retrieverContext.getAspectRetriever().getEntityRegistry());
+      }
+      if (mcp.getChangeType().equals(ChangeType.PATCH)) {
+        return PatchItemImpl.builder()
+            .build(mcp, auditStamp, retrieverContext.getAspectRetriever().getEntityRegistry());
+      }
+      return ChangeItemImpl.builder().build(mcp, auditStamp, retrieverContext.getAspectRetriever());
+    }
+
+    private void reject(MetadataChangeProposal mcp, Exception e) {
+      if (this.rejectedProposals == null) {
+        this.rejectedProposals = new ArrayList<>();
+      }
+      this.rejectedProposals.add(Pair.of(mcp, e));
+    }
+
+    /**
+     * Like {@link #build(OperationContext)}, for a queue consumer whose batch holds unrelated
+     * proposals: a proposal that fails proposal validation is moved to {@link
+     * AspectsBatchImpl#getRejectedProposals()} instead of failing the batch, and one a validator
+     * filters out ({@link ValidationSubType#FILTER}) is dropped without being rejected. The rest
+     * are validated again, since a validator can depend on the other proposals of the batch.
+     */
+    public AspectsBatchImpl buildSkippingRejected(@Nullable OperationContext operationContext) {
+      while (true) {
+        try {
+          return build(operationContext);
+        } catch (ValidationException e) {
+          ValidationExceptionCollection exceptions = e.getValidationExceptionCollection();
+          if (exceptions == null) {
+            throw e;
+          }
+          List<BatchItem> kept = new ArrayList<>(exceptions.successful(this.items));
+          for (BatchItem item : exceptions.exceptions(this.items)) {
+            if (!(item instanceof MCPItem mcpItem)) {
+              throw e;
+            }
+            ValidationExceptionCollection itemExceptions =
+                ValidationExceptionCollection.newCollection();
+            exceptions
+                .getOrDefault(Pair.of(item.getUrn(), item.getAspectName()), Set.of())
+                .forEach(itemExceptions::addException);
+            reject(mcpItem.getMetadataChangeProposal(), new ValidationException(itemExceptions));
+          }
+          if (kept.size() == this.items.size()) {
+            // Nothing could be attributed to a proposal of this batch.
+            throw e;
+          }
+          this.items = kept;
+        }
+      }
     }
 
     private static <T extends BatchItem> List<T> filterRepeats(Collection<T> items) {
@@ -331,7 +412,8 @@ public class AspectsBatchImpl implements AspectsBatch {
         throw new ValidationException(exceptions);
       }
 
-      return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
+      return new AspectsBatchImpl(
+          this.items, this.nonRepeatedItems, this.retrieverContext, this.rejectedProposals);
     }
 
     private AspectsBatchImpl build() {
@@ -348,7 +430,8 @@ public class AspectsBatchImpl implements AspectsBatch {
         this.items = Collections.emptyList();
       }
       this.nonRepeatedItems = filterRepeats(this.items);
-      return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
+      return new AspectsBatchImpl(
+          this.items, this.nonRepeatedItems, this.retrieverContext, this.rejectedProposals);
     }
   }
 

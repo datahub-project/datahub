@@ -21,7 +21,10 @@ public final class SearchQualityPack {
           "ranking",
           "catalog-probe",
           "semantic-probe",
-          "structured-property");
+          "structured-property",
+          "sort",
+          "field-probe",
+          "autocomplete");
 
   private SearchQualityPack() {}
 
@@ -106,6 +109,11 @@ public final class SearchQualityPack {
         }
         if (!urns.contains(grade.path("urn").asText())) {
           throw new IllegalStateException("Judgment " + id + " references an unloaded URN");
+        }
+      }
+      for (JsonNode urn : judgment.path("expectedOrder")) {
+        if (!urns.contains(urn.asText())) {
+          throw new IllegalStateException("Judgment " + id + " expects an unloaded URN");
         }
       }
     }

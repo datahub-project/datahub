@@ -3,6 +3,7 @@ package com.linkedin.metadata.client;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.AuditStamp;
@@ -45,6 +46,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -477,5 +479,46 @@ public class JavaEntityClientTest {
 
     assertEquals(stamp.getActor().toString(), "urn:li:corpuser:bob");
     assertNull(stamp.getImpersonator(GetMode.NULL));
+  }
+
+  private static MetadataChangeProposal containerStatus(String id) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(UrnUtils.getUrn("urn:li:container:" + id))
+        .setAspectName("status")
+        .setEntityType("container")
+        .setChangeType(ChangeType.UPSERT)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+  }
+
+  @Test
+  void ingestValidProposalsWritesTheValidOnesAndReturnsTheRest() throws Exception {
+    MetadataChangeProposal valid = containerStatus("valid");
+    MetadataChangeProposal invalid = containerStatus("invalid").setAspectName("notAnAspect");
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient().ingestValidProposals(opContext, List.of(valid, invalid));
+
+    assertEquals(rejected.size(), 1);
+    assertSame(rejected.get(0).getFirst(), invalid);
+    assertEquals(
+        written.getValue().getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .toList(),
+        List.of(valid));
+  }
+
+  @Test
+  void ingestValidProposalsWritesNothingWhenEveryProposalIsRejected() throws Exception {
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient()
+            .ingestValidProposals(
+                opContext, List.of(containerStatus("invalid").setAspectName("notAnAspect")));
+
+    assertEquals(rejected.size(), 1);
+    verify(_entityService, never())
+        .ingestProposal(any(OperationContext.class), any(), anyBoolean());
   }
 }

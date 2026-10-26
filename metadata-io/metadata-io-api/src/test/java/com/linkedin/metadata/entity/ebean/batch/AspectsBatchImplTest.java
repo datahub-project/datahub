@@ -1,10 +1,14 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
@@ -511,6 +515,127 @@ public class AspectsBatchImplTest {
 
     assertEquals(
         batch.getItems().iterator().next().getAuditStamp().getActor().toString(), SYSTEM_ACTOR);
+  }
+
+  private static MetadataChangeProposal datasetStatus(String name) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(new DatasetUrn(new DataPlatformUrn("platform"), name, FabricType.PROD))
+        .setEntityType(DATASET_ENTITY_NAME)
+        .setAspectName(STATUS_ASPECT_NAME)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
+        .setChangeType(ChangeType.UPSERT);
+  }
+
+  /** Fails every proposal for a dataset named "rejected*" and filters out "filtered*" ones. */
+  private void registerNameBasedValidator() {
+    AspectPayloadValidator validator =
+        new AspectPayloadValidator() {
+          @Override
+          protected Stream<AspectValidationException> validateProposedAspects(
+              @Nonnull OperationFingerprint operationContext,
+              @Nonnull Collection<? extends BatchItem> mcpItems,
+              @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
+            return mcpItems.stream()
+                .flatMap(
+                    item -> {
+                      String name = item.getUrn().getEntityKey().get(1);
+                      if (name.startsWith("rejected")) {
+                        return Stream.of(AspectValidationException.forItem(item, "bad"));
+                      }
+                      if (name.startsWith("filtered")) {
+                        return Stream.of(AspectValidationException.forFilter(item, "skip"));
+                      }
+                      return Stream.empty();
+                    });
+          }
+
+          @Override
+          protected Stream<AspectValidationException> validatePreCommitAspects(
+              @Nonnull OperationFingerprint operationContext,
+              @Nonnull Collection<ChangeMCP> changeMCPs,
+              @Nonnull com.linkedin.metadata.aspect.RetrieverContext retrieverContext) {
+            return Stream.empty();
+          }
+
+          @Override
+          public AspectPluginConfig getConfig() {
+            return AspectPluginConfig.builder()
+                .className("nameBasedValidator")
+                .enabled(true)
+                .supportedOperations(List.of("UPSERT"))
+                .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
+                .build();
+          }
+
+          @Override
+          public AspectPayloadValidator setConfig(@Nonnull AspectPluginConfig config) {
+            return this;
+          }
+        };
+    EntityRegistry registry = spy(testRegistry);
+    doReturn(List.of(validator)).when(registry).getAllAspectPayloadValidators();
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(registry);
+  }
+
+  @Test
+  public void mcpsRecordingRejectedKeepsProposalsThatCannotBeBuilt() {
+    MetadataChangeProposal valid = datasetStatus("valid");
+    MetadataChangeProposal malformedUrn =
+        datasetStatus("malformed")
+            .setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,INVALID)"));
+    MetadataChangeProposal unknownAspect = datasetStatus("unknown").setAspectName("INVALID");
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcpsRecordingRejected(
+                List.of(valid, malformedUrn, unknownAspect),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext,
+                false)
+            .buildSkippingRejected(null);
+
+    assertEquals(batch.getItems().size(), 1);
+    assertEquals(
+        batch.getRejectedProposals().stream().map(Pair::getFirst).toList(),
+        List.of(malformedUrn, unknownAspect));
+  }
+
+  @Test
+  public void buildSkippingRejectedRejectsFatalProposalsAndDropsFilteredOnes() {
+    registerNameBasedValidator();
+    MetadataChangeProposal kept = datasetStatus("kept");
+    MetadataChangeProposal rejected = datasetStatus("rejected");
+    MetadataChangeProposal filtered = datasetStatus("filtered");
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcpsRecordingRejected(
+                List.of(kept, rejected, filtered),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext,
+                false)
+            .buildSkippingRejected(null);
+
+    assertEquals(
+        batch.getItems().stream()
+            .map(item -> ((MCPItem) item).getMetadataChangeProposal())
+            .toList(),
+        List.of(kept));
+    assertEquals(batch.getRejectedProposals().size(), 1);
+    assertSame(batch.getRejectedProposals().get(0).getFirst(), rejected);
+    assertTrue(batch.getRejectedProposals().get(0).getSecond() instanceof ValidationException);
+  }
+
+  @Test(expectedExceptions = ValidationException.class)
+  public void buildStillFailsTheWholeBatch() {
+    registerNameBasedValidator();
+
+    AspectsBatchImpl.builder()
+        .mcps(
+            List.of(datasetStatus("kept"), datasetStatus("rejected")),
+            AuditStampUtils.createDefaultAuditStamp(),
+            retrieverContext)
+        .build(null);
   }
 
   /** Converts unsupported to status aspect */

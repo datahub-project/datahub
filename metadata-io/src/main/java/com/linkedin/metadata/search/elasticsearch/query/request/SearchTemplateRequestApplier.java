@@ -98,7 +98,7 @@ public final class SearchTemplateRequestApplier {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
       searchSourceBuilder.sort(new FieldSortBuilder("urn").order(SortOrder.ASC));
     } else {
-      sort(searchSourceBuilder, sortCriteria, template);
+      sort(opContext, searchSourceBuilder, sortCriteria, template);
     }
     if (!countOnly && !scroll && Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input, "name");
@@ -152,6 +152,7 @@ public final class SearchTemplateRequestApplier {
   }
 
   private void sort(
+      @Nonnull OperationContext opContext,
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nullable List<SortCriterion> sortCriteria,
       @Nullable RenderedSearchTemplate template) {
@@ -171,7 +172,13 @@ public final class SearchTemplateRequestApplier {
       }
       return;
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
+    ESUtils.buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria,
+        entitySpecs,
+        v3SearchFieldResolver,
+        opContext,
+        opContext.getAspectRetriever());
   }
 
   /**
