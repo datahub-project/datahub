@@ -3022,6 +3022,7 @@ def create_lineage_from_sql_statements(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
     is_temp_table: Optional[Callable[[str], bool]] = None,
+    schema_resolver: Optional[SchemaResolver] = None,
 ) -> SqlParsingResult:
     """Parse multiple SQL statements and return merged lineage with temp table resolution.
 
@@ -3050,6 +3051,10 @@ def create_lineage_from_sql_statements(
                        ``CREATE VOLATILE TABLE`` parsed under another platform's
                        dialect); such tables are then collapsed so lineage flows
                        through to the real base tables.
+        schema_resolver: Optional resolver to use instead of building one per
+                         call. The caller keeps ownership (it is not closed
+                         here), so a resolver shared across many calls keeps
+                         its schema cache and fetches each table at most once.
 
     Returns:
         SqlParsingResult containing merged lineage from all statements
@@ -3067,17 +3072,19 @@ def create_lineage_from_sql_statements(
             ValueError("No SQL statements provided")
         )
 
-    schema_resolver = create_schema_resolver(
-        platform=platform,
-        platform_instance=platform_instance,
-        env=env,
-        schema_aware=schema_aware,
-        graph=graph,
-    )
-
     needs_close: bool = True
-    if graph and schema_aware:
+    if schema_resolver is not None:
         needs_close = False
+    else:
+        schema_resolver = create_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            schema_aware=schema_aware,
+            graph=graph,
+        )
+        if graph and schema_aware:
+            needs_close = False
 
     try:
         aggregator = SqlParsingAggregator(
