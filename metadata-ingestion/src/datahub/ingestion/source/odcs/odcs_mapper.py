@@ -76,6 +76,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     VARIABLE_MARKER,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSContext,
     ODCSContract,
     ODCSDescription,
     ODCSEnumValue,
@@ -880,8 +881,47 @@ def _dataset_description(
         _description_to_str(schema_entry.description),
         f"**Grain:** {grain}" if grain else None,
         _description_to_str(contract.description),
+        _context_section([contract.context, schema_entry.context]),
     ]
     return "\n\n".join(p for p in parts if p) or None
+
+
+def _context_section(
+    contexts: List[Optional[Union[str, ODCSContext]]],
+) -> Optional[str]:
+    """v3.2 `context`, contract level first, as one description section.
+
+    Datasets have no aiContext aspect, so the guidance goes where people and
+    Ask DataHub both read it. `${VAR}` in it is prose and kept verbatim.
+    """
+    instructions: List[str] = []
+    constraints: List[str] = []
+    statements: List[str] = []
+    for context in contexts:
+        if isinstance(context, str):
+            context = ODCSContext(instructions=context)
+        if context is None:
+            continue
+        if (context.instructions or "").strip():
+            instructions.append((context.instructions or "").strip())
+        for c in context.constraints or []:
+            if c.constraint.strip():
+                constraints.append(f"- {c.constraint.strip()}")
+        for v in context.verifiedStatements or []:
+            if not v.question.strip():
+                continue
+            line = f"- Q: {v.question.strip()}"
+            if (v.answer or "").strip():
+                line += f" A: {(v.answer or '').strip()}"
+            statements.append(line)
+    parts = list(instructions)
+    if constraints:
+        parts.append("**Do not:**\n" + "\n".join(constraints))
+    if statements:
+        parts.append("**Verified Q&A:**\n" + "\n".join(statements))
+    if not parts:
+        return None
+    return "\n\n".join(["## Guidance for AI and analysts", *parts])
 
 
 def odcs_to_logical_dataset_mcps(

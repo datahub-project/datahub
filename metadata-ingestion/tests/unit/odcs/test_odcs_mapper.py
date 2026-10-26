@@ -2102,3 +2102,58 @@ def test_binding_table_name_from_override_and_malformed_override() -> None:
     )
     assert bindings[0].table_name == "db.sch.a"
     assert bindings[1].table_name is None
+
+
+def test_dataset_description_context_section() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t", "description": "T.", "context": "Prefer the daily view."}]
+    )
+    contract = contract.model_copy(
+        update={
+            "context": ODCSContract.model_validate(
+                {
+                    "id": "c1",
+                    "context": {
+                        "instructions": "Use for revenue analysis.",
+                        "constraints": [
+                            {"constraint": "Do not join without tenant_id."}
+                        ],
+                        "verifiedStatements": [
+                            {
+                                "question": "How is revenue defined?",
+                                "answer": "SUM(amount) of shipped orders.",
+                            },
+                            {"question": "Which orders are late?"},
+                        ],
+                    },
+                }
+            ).context
+        }
+    )
+    assert _dataset_description(contract) == (
+        "T.\n\n## Guidance for AI and analysts\n\n"
+        "Use for revenue analysis.\n\nPrefer the daily view.\n\n"
+        "**Do not:**\n- Do not join without tenant_id.\n\n"
+        "**Verified Q&A:**\n"
+        "- Q: How is revenue defined? A: SUM(amount) of shipped orders.\n"
+        "- Q: Which orders are late?"
+    )
+
+
+def test_context_string_with_variable_kept_verbatim() -> None:
+    contract = ODCSContract.model_validate(
+        {"id": "c1", "context": "Filter on ${REGION}.", "schema": [{"name": "t"}]}
+    )
+    assert "Filter on ${REGION}." in (_dataset_description(contract) or "")
+
+
+def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
+    assert ODCSContract.model_validate({"id": "c1", "context": 5}).context is None
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "context": {"instructions": "  ", "constraints": [{"id": "x"}, "bad"]},
+            "schema": [{"name": "t", "description": "T."}],
+        }
+    )
+    assert _dataset_description(contract) == "T."

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
@@ -13,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
-        "context",
         "price",
         "roles",
         "slaDefaultElement",
@@ -24,7 +23,6 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
-        "context",
         "customProperties",
         "id",
         "relationships",
@@ -198,6 +196,56 @@ class ODCSSynonym(ODCSBaseModel):
     _lenient_strings = field_validator("synonym", "status", mode="before")(_str_or_none)
 
 
+def _context_or_none(value: object) -> object:
+    # String shorthand (= instructions) or the object form; anything else is
+    # off-spec and dropped.
+    return value if isinstance(value, (str, dict)) else None
+
+
+def _entries_with(key: str) -> Callable[[object], Optional[List[object]]]:
+    """Validator keeping list entries that are objects with a string `key`."""
+
+    def keep(value: object) -> Optional[List[object]]:
+        if not isinstance(value, list):
+            return None
+        return [
+            e for e in value if isinstance(e, dict) and isinstance(e.get(key), str)
+        ] or None
+
+    return keep
+
+
+class ODCSContextConstraint(ODCSBaseModel):
+    constraint: str
+
+
+class ODCSVerifiedStatement(ODCSBaseModel):
+    question: str
+    answer: Optional[str] = None
+
+    _lenient_answer = field_validator("answer", mode="before")(_str_or_none)
+
+
+class ODCSContext(ODCSBaseModel):
+    """v3.2 (RFC 0038) guidance for AI agents and tools.
+
+    Entry `id`, `tags`, `customProperties` and `authoritativeDefinitions` are
+    not recorded.
+    """
+
+    instructions: Optional[str] = None
+    constraints: Optional[List[ODCSContextConstraint]] = None
+    verifiedStatements: Optional[List[ODCSVerifiedStatement]] = None
+
+    _lenient_instructions = field_validator("instructions", mode="before")(_str_or_none)
+    _lenient_constraints = field_validator("constraints", mode="before")(
+        _entries_with("constraint")
+    )
+    _lenient_statements = field_validator("verifiedStatements", mode="before")(
+        _entries_with("question")
+    )
+
+
 class ODCSEnumValue(ODCSBaseModel):
     # v3.2 (RFC 0033). `id`, `tags`, `customProperties` and
     # `authoritativeDefinitions` are not recorded.
@@ -259,11 +307,13 @@ class ODCSSchemaObject(ODCSBaseModel):
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
     dataGranularityDescription: Optional[str] = None
+    context: Optional[Union[str, ODCSContext]] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_grain = field_validator("dataGranularityDescription", mode="before")(
         _str_or_none
     )
+    _lenient_context = field_validator("context", mode="before")(_context_or_none)
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -412,6 +462,9 @@ class ODCSContract(ODCSBaseModel):
     customProperties: Optional[List[ODCSCustomProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     contractCreatedTs: Optional[str] = None
+    context: Optional[Union[str, ODCSContext]] = None
+
+    _lenient_context = field_validator("context", mode="before")(_context_or_none)
 
     @property
     def team_members(self) -> List[ODCSTeamMember]:
@@ -430,7 +483,8 @@ ODCSSchemaObject.model_rebuild()
 # rejecting the contract. Kept next to the validators so the source's
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
-    ODCSSchemaObject: ("deprecated", "dataGranularityDescription"),
+    ODCSContract: ("context",),
+    ODCSSchemaObject: ("deprecated", "dataGranularityDescription", "context"),
     ODCSProperty: (
         "deprecated",
         "synonyms",
