@@ -65,6 +65,8 @@ class EntryDataTuple:
     datahub_platform: str
     datahub_dataset_name: str
     datahub_dataset_urn: str
+    # From the entry's ``storage`` aspect, when it points at GCS.
+    storage_gcs_bucket: Optional[str] = None
 
 
 @dataclass(frozen=True)

@@ -29,6 +29,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 logger = logging.getLogger(__name__)
 
+# Dotted parts in dpms_hive_metastore_service.
+DPMS_SERVICE_PARTS = 3
+
 # Probe kinds. Only Project is a DataHub subtype (the one Dataplex emits for
 # project containers); the others are Dataplex's own levels, because DataHub
 # emits no entity for an entry group and an FQN is a second name for an entry.
@@ -313,6 +316,53 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
+    dpms_hive_metastore_service: Optional[str] = Field(
+        default=None,
+        description="Fallback '{project}.{location}.{service}' used to resolve "
+        "'hive_metastore:...' lineage FQNs (which is how Spark and Dataproc "
+        "jobs report lineage) to Dataproc Metastore table URNs when the "
+        "(database, table) pair is not found, or is found under more than one "
+        "service, among the tables ingested in this run. Leave unset to fall "
+        "through to 'include_hive_metastore_nodes' handling.",
+    )
+
+    include_hive_metastore_nodes: bool = Field(
+        default=True,
+        description="Whether 'hive_metastore:...' upstreams that resolve to no "
+        "single Dataproc Metastore table in this run and to no "
+        "'dpms_hive_metastore_service' fallback — usually a table that lives "
+        "only in a Dataproc cluster's own metastore, with no catalog entry — "
+        "are emitted as lineage-only datasets on the 'hive' platform named "
+        "'{database}.{table}', the same treatment GCS bucket upstreams get. "
+        "When false, those upstream edges are skipped and counted in the "
+        "report. Only affects lineage FQNs that would otherwise be dropped as "
+        "unparseable.",
+    )
+
+    include_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to derive a bucket -> table lineage edge from a "
+        "Dataproc Metastore table's own 'storage' aspect. Dataplex never "
+        "reports that hop through the Data Lineage API, so it is the only way "
+        "to see where such a table's files actually live. Off by default "
+        "because the edge is derived from catalog metadata, not reported by "
+        "the Data Lineage API.",
+    )
+
+    resolve_pubsub_subscriptions: bool = Field(
+        default=False,
+        description="Whether 'pubsub:subscription:...' upstream lineage FQNs "
+        "(how Dataflow reports Pub/Sub sources) are resolved to their backing "
+        "topic via the Pub/Sub Admin API, using one cached get_subscription "
+        "call per distinct subscription per run. The resulting edge points at "
+        "the topic's dataset URN — identical to the URN of an ingested Pub/Sub "
+        "topic — so the edge joins the catalogued topic entity. Off by "
+        "default: enabling it needs pubsub.subscriptions.get "
+        "(roles/pubsub.viewer) on each subscription's project. Any failure "
+        "(missing dependency, missing permission, deleted topic) skips the "
+        "edge with a warning, which is exactly the behavior when this is off.",
+    )
+
     lineage_locations: List[str] = Field(
         default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
         description="List of GCP regions to scan for Dataplex lineage data. "
@@ -519,6 +569,20 @@ class DataplexConfig(
             )
 
         return self
+
+    @field_validator("dpms_hive_metastore_service")
+    @classmethod
+    def validate_dpms_hive_metastore_service(
+        cls, value: Optional[str]
+    ) -> Optional[str]:
+        if value is not None:
+            parts = value.split(".")
+            if len(parts) != DPMS_SERVICE_PARTS or not all(parts):
+                raise ValueError(
+                    "dpms_hive_metastore_service must look like "
+                    "'{project}.{location}.{service}'"
+                )
+        return value
 
     @model_validator(mode="after")
     def validate_extraction_method_configuration(self) -> "DataplexConfig":

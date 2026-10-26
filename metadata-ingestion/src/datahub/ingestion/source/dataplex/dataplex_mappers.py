@@ -28,7 +28,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, Pattern, Union
+from typing import Dict, Optional, Pattern, Union
 
 from google.cloud import dataplex_v1
 from typing_extensions import TypeAlias, assert_never
@@ -86,6 +86,7 @@ from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_entry_custom_properties,
 )
 from datahub.ingestion.source.dataplex.dataplex_schema import (
+    extract_gcs_storage_bucket_from_entry_aspects,
     extract_graph_schema_from_entry_aspects,
     extract_schema_from_entry_aspects,
 )
@@ -93,6 +94,9 @@ from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+
+DATAPROC_METASTORE_TABLE_ENTRY_TYPE = "dataproc-metastore-table"
+PUBSUB_TOPIC_ENTRY_TYPE = "pubsub-topic"
 
 # ----------------------------------------------------------------------------
 # Context + result
@@ -655,6 +659,9 @@ def build_dataset(
             platform_instance=None,
             env=ctx.config.env,
         ),
+        storage_gcs_bucket=extract_gcs_storage_bucket_from_entry_aspects(
+            entry, entry.name
+        ),
     )
 
     return EntryMappingResult(
@@ -1053,7 +1060,7 @@ class CloudBigtableTableMapper(EntryMapper):
 
 
 class PubSubTopicMapper(EntryMapper):
-    dataplex_entry_type_short_name = "pubsub-topic"
+    dataplex_entry_type_short_name = PUBSUB_TOPIC_ENTRY_TYPE
     datahub_platform = "pubsub"
     dataplex_fqn_regex = PUBSUB_TOPIC_FQN_REGEX
     datahub_identity = DatasetIdentity("{project_id}.{topic_id}")
@@ -1145,7 +1152,7 @@ class DataprocMetastoreDatabaseMapper(EntryMapper):
 
 
 class DataprocMetastoreTableMapper(EntryMapper):
-    dataplex_entry_type_short_name = "dataproc-metastore-table"
+    dataplex_entry_type_short_name = DATAPROC_METASTORE_TABLE_ENTRY_TYPE
     datahub_platform = "dataproc-metastore"
     dataplex_fqn_regex = DATAPROC_METASTORE_TABLE_FQN_REGEX
     datahub_identity = DatasetIdentity(
@@ -1263,3 +1270,53 @@ def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[s
         if urn:
             return urn
     return None
+
+
+def _mapper_dataset_urn(
+    entry_type: str, identity_fields: Dict[str, str], env: str
+) -> Optional[str]:
+    """URN the ``entry_type`` mapper would mint for these FQN fields."""
+    mapper = ENTRY_MAPPERS[entry_type]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, DatasetIdentity)
+    dataset_name = identity.dataset_name(identity_fields)
+    if dataset_name is None:
+        return None
+    return make_dataset_urn_with_platform_instance(
+        platform=mapper.datahub_platform,
+        name=dataset_name,
+        platform_instance=None,
+        env=env,
+    )
+
+
+def dataproc_metastore_table_urn(
+    *,
+    project_id: str,
+    location: str,
+    service_id: str,
+    database_id: str,
+    table_id: str,
+    env: str,
+) -> Optional[str]:
+    """URN the ``dataproc-metastore-table`` mapper would mint for these fields."""
+    return _mapper_dataset_urn(
+        DATAPROC_METASTORE_TABLE_ENTRY_TYPE,
+        {
+            "project_id": project_id,
+            "location": location,
+            "service_id": service_id,
+            "database_id": database_id,
+            "table_id": table_id,
+        },
+        env,
+    )
+
+
+def pubsub_topic_urn(*, project_id: str, topic_id: str, env: str) -> Optional[str]:
+    """URN the ``pubsub-topic`` mapper would mint for these fields."""
+    return _mapper_dataset_urn(
+        PUBSUB_TOPIC_ENTRY_TYPE,
+        {"project_id": project_id, "topic_id": topic_id},
+        env,
+    )
