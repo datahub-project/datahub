@@ -16,6 +16,7 @@ record TagKey {
     "boostScore": 10.0,
     "fieldName": "id",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },

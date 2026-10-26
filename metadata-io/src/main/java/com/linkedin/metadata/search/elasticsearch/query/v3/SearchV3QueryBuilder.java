@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryH
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseBudget;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPropertySearchCatalog;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredQueryRouting;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
@@ -166,13 +167,8 @@ public class SearchV3QueryBuilder {
     Set<SearchFieldConfig> queried = new LinkedHashSet<>(layer2);
 
     List<String> highlights =
-        SearchTemplateFields.applyHighlight(Set.of(), template.getHighlightFields());
-    if (flags != null && flags.hasCustomHighlightingFields()) {
-      highlights = new ArrayList<>(flags.getCustomHighlightingFields());
-    }
-    if (flags != null && Boolean.TRUE.equals(flags.isSkipHighlighting())) {
-      highlights = List.of();
-    }
+        SearchHighlightSelection.resolve(
+            SearchTemplateFields.applyHighlight(Set.of(), template.getHighlightFields()), flags);
     List<String> queriedFields = searchedFields(queried);
 
     TemplateContext builtContext = context(opContext, entitySpecs, query, template, queried);

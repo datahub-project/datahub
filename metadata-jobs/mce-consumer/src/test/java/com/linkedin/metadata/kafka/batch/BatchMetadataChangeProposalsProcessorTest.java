@@ -374,8 +374,9 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     for (Throwable ingestionException : exceptionCaptor.getAllValues()) {
       verify(mockSpan).recordException(ingestionException);
-      verify(mockSpan).setStatus(StatusCode.ERROR, ingestionException.getMessage());
     }
+    // Rejected proposals don't error the span: the rest of their group was still written.
+    verify(mockSpan, never()).setStatus(any(StatusCode.class), anyString());
 
     // Nothing was written
     verify(mockEntityService, never())
@@ -1151,6 +1152,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
             .map(BatchMetadataChangeProposalsProcessorTest::datasetNames)
             .toList(),
         List.of(List.of("first"), List.of("third")));
+    verify(mockSpan, never()).setStatus(any(StatusCode.class), anyString());
   }
 
   @Test
@@ -1176,6 +1178,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
             .map(mcp -> mcp.getEntityUrn().getEntityKey().get(1))
             .toList(),
         List.of("first", "second"));
+    verify(mockSpan).setStatus(StatusCode.ERROR, "database unavailable");
     verify(mockEntityService, times(2))
         .ingestProposal(any(OperationContext.class), any(), eq(false));
   }

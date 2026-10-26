@@ -10,6 +10,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { DomainsPage } from '../../pages/domains/domains.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'mutations-v2' });
 
@@ -24,13 +25,13 @@ const CONTAINER_URN = 'urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb';
 // Tests share server-side state (domain that is created in test 1 is used by tests 2-4).
 test.describe.configure({ mode: 'serial' });
 
-test.describe('add remove domain', () => {
+test.describe('add remove domain', { tag: [TestTag.P0] }, () => {
   test.beforeEach(async ({ apiMock }) => {
     // Ensure the appConfig query is intercepted for feature flag control
     await apiMock.setFeatureFlags({ showNavBarRedesign: true });
   });
 
-  test('create domain', async ({ page, logger, logDir, apiMock }) => {
+  test('create domain', { tag: [DomainTag.Catalog] }, async ({ page, logger, logDir, apiMock }) => {
     // Enable nested domains for the create test
     await apiMock.setFeatureFlags({ nestedDomainsEnabled: true, showNavBarRedesign: true });
 
@@ -41,7 +42,7 @@ test.describe('add remove domain', () => {
     await expect(page.getByText(testDomain).first()).toBeVisible({ timeout: 15000 });
   });
 
-  test('add entities to domain', async ({ page, logger, logDir, apiMock }) => {
+  test('add entities to domain', { tag: [DomainTag.Catalog] }, async ({ page, logger, logDir, apiMock }) => {
     // Extra budget for the 90-second entity-search retry loop (ES indexing lag after seeding)
     test.setTimeout(120000);
     await apiMock.setFeatureFlags({ nestedDomainsEnabled: false, showNavBarRedesign: true });
@@ -53,7 +54,7 @@ test.describe('add remove domain', () => {
     await domainsPage.addEntitiesToDomain('cypress_project.jaffle_shop.customers', CUSTOMERS_URN);
   });
 
-  test('remove entity from domain', async ({ page, logger, logDir, apiMock }) => {
+  test('remove entity from domain', { tag: [DomainTag.Catalog] }, async ({ page, logger, logDir, apiMock }) => {
     await apiMock.setFeatureFlags({ nestedDomainsEnabled: true, showNavBarRedesign: true });
 
     const domainsPage = new DomainsPage(page, logger, logDir);
@@ -61,32 +62,31 @@ test.describe('add remove domain', () => {
     await domainsPage.removeDomainFromDataset(CUSTOMERS_URN, 'customers', testDomainUrn);
   });
 
-  test('delete a domain and ensure dangling reference is deleted on entities', async ({
-    page,
-    logger,
-    logDir,
-    apiMock,
-  }) => {
-    // This test navigates across multiple pages, adds entities, deletes a domain,
-    // and waits for ES de-indexing — needs more than the default 30-second timeout.
-    test.setTimeout(3 * 60 * 1000);
-    await apiMock.setFeatureFlags({ nestedDomainsEnabled: true, showNavBarRedesign: true });
+  test(
+    'delete a domain and ensure dangling reference is deleted on entities',
+    { tag: [DomainTag.Catalog] },
+    async ({ page, logger, logDir, apiMock }) => {
+      // This test navigates across multiple pages, adds entities, deletes a domain,
+      // and waits for ES de-indexing — needs more than the default 30-second timeout.
+      test.setTimeout(3 * 60 * 1000);
+      await apiMock.setFeatureFlags({ nestedDomainsEnabled: true, showNavBarRedesign: true });
 
-    const domainsPage = new DomainsPage(page, logger, logDir);
+      const domainsPage = new DomainsPage(page, logger, logDir);
 
-    // Assign the container to the domain so we can verify the dangling reference is cleaned up
-    await domainsPage.navigateToDomain(testDomainUrn);
-    await domainsPage.addEntitiesToDomain('jaffle_shop', CONTAINER_URN);
+      // Assign the container to the domain so we can verify the dangling reference is cleaned up
+      await domainsPage.navigateToDomain(testDomainUrn);
+      await domainsPage.addEntitiesToDomain('jaffle_shop', CONTAINER_URN);
 
-    await domainsPage.deleteDomain(testDomainUrn, testDomain);
+      await domainsPage.deleteDomain(testDomainUrn, testDomain);
 
-    // Navigate to the list to verify the domain card is gone
-    await domainsPage.navigate();
-    await domainsPage.expectDomainNotVisible(testDomain);
+      // Navigate to the list to verify the domain card is gone
+      await domainsPage.navigate();
+      await domainsPage.expectDomainNotVisible(testDomain);
 
-    // Navigate to the container and confirm the domain reference is gone
-    await domainsPage.navigateToContainer(CONTAINER_URN);
-    await expect(page.getByText('customers')).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText(testDomain)).not.toBeVisible({ timeout: 10000 });
-  });
+      // Navigate to the container and confirm the domain reference is gone
+      await domainsPage.navigateToContainer(CONTAINER_URN);
+      await expect(page.getByText('customers')).toBeVisible({ timeout: 30000 });
+      await expect(page.getByText(testDomain)).not.toBeVisible({ timeout: 10000 });
+    },
+  );
 });

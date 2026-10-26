@@ -18,6 +18,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { BASE_FEATURE_FLAGS, GHOST_DST_URN, GHOST_SRC_URN, MART_URN, MODEL_DBT_URN, RAW_URN } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-controls' });
 
@@ -41,7 +42,7 @@ test.describe('lineage graph filters', () => {
   }
 
   test.describe('hide transformations', () => {
-    test('takes the dbt model off the graph and puts it back', async () => {
+    test('takes the dbt model off the graph and puts it back', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
       await lineagePage.navigateToDatasetLineage(RAW_URN);
       await lineagePage.waitForGraphToRender();
       await lineagePage.checkNodeExists(MODEL_DBT_URN);

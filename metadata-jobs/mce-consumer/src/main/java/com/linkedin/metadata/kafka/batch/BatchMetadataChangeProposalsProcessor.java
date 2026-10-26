@@ -291,6 +291,9 @@ public class BatchMetadataChangeProposalsProcessor {
           deadLetter(sliceContext, List.of(rejected.getFirst()), rejected.getSecond());
         }
       } catch (Throwable throwable) {
+        // Only a failed group write errors the consume span; a single rejected proposal does not,
+        // since the rest of its group was written.
+        Span.current().setStatus(StatusCode.ERROR, throwable.getMessage());
         deadLetter(sliceContext, group, throwable);
       }
     }
@@ -303,7 +306,6 @@ public class BatchMetadataChangeProposalsProcessor {
     log.error("MCP Processor Error", throwable);
     Span currentSpan = Span.current();
     currentSpan.recordException(throwable);
-    currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
     currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
 
     kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, mcps, throwable);

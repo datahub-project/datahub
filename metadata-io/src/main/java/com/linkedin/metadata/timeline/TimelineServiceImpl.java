@@ -29,6 +29,7 @@ import com.linkedin.metadata.timeline.eventgenerator.GlossaryRelatedTermsChangeE
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.LifecycleStageChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
@@ -310,6 +311,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new VersionPropertiesChangeEventGenerator());
           }
           break;
+        case LIFECYCLE:
+          {
+            aspects.add(STATUS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                STATUS_ASPECT_NAME,
+                new LifecycleStageChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -463,11 +474,27 @@ public class TimelineServiceImpl implements TimelineService {
       Set<String> aspects = new HashSet<>();
       switch (elementName) {
         case LIFECYCLE:
+          {
+            // DocumentInfo handles legacy documentInfo.status.state changes
+            aspects.add(DOCUMENT_INFO_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDocument,
+                elementName,
+                DOCUMENT_INFO_ASPECT_NAME,
+                new DocumentInfoChangeEventGenerator());
+            // Status aspect handles new lifecycleStage field
+            aspects.add(STATUS_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDocument,
+                elementName,
+                STATUS_ASPECT_NAME,
+                new LifecycleStageChangeEventGenerator());
+          }
+          break;
         case DOCUMENTATION:
         case PARENT:
         case RELATED_ENTITIES:
           {
-            // DocumentInfo handles all these categories
             aspects.add(DOCUMENT_INFO_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
                 entityTypeDocument,

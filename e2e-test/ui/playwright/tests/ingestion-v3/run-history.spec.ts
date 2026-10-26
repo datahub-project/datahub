@@ -1,5 +1,6 @@
 import { test } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Pre-seeded from tests/ingestion-v3/fixtures/data.json
 const RUN_HISTORY_SOURCE = 'playwright v3 run history source';
@@ -45,7 +46,7 @@ test.describe('run history tab in manage data sources', () => {
     await ingestionPage.runHistoryTab.expectTabActive();
   });
 
-  test('view past executions in run history tab', async () => {
+  test('view past executions in run history tab', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     await ingestionPage.runHistoryTab.open();
     await ingestionPage.runHistoryTab.filterBySource(RUN_HISTORY_SOURCE);
 

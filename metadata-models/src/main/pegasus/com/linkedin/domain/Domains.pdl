@@ -27,7 +27,7 @@ record Domains {
       "addToFilters": true,
       "filterNameOverride": "Domain",
       "v3": {
-        "queryByDefault": false,
+        "searchLabel": "domains",
         "copyToOther": true
       }
     }

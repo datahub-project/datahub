@@ -193,6 +193,10 @@ public class Constants {
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
+  // Lifecycle stage urns. Stages are defined in
+  // metadata-service/configuration/src/main/resources/bootstrap_mcps/lifecycle-stages.yaml.
+  public static final String LIFECYCLE_STAGE_TYPE_URN_PREFIX = "urn:li:lifecycleStageType:";
+  public static final String DRAFT_LIFECYCLE_STAGE_URN = LIFECYCLE_STAGE_TYPE_URN_PREFIX + "DRAFT";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";

@@ -18,6 +18,7 @@ record DataHubIngestionSourceInfo {
    "fieldType": "TEXT_PARTIAL",
    "boostScore": 10.0,
    "v3": {
+     "queryByDefault": true,
      "searchLabel": "name",
      "mappings": [
        { "type": "KEYWORD" },

@@ -21,6 +21,7 @@ record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
