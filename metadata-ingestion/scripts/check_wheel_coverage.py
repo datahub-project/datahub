@@ -12,6 +12,7 @@ Exits non-zero if gaps are found (unless the package is in KNOWN_EXCEPTIONS).
 import re
 import sys
 from pathlib import Path
+from typing import Collection, Dict, List, Optional, Set, Tuple
 
 import toml
 from packaging.markers import Marker
@@ -19,9 +20,10 @@ from packaging.markers import Marker
 METADATA_INGESTION_DIR = Path(__file__).resolve().parent.parent
 
 # uv.lock is resolved for 3.11-3.13 (see [tool.uv] environments in
-# pyproject.toml), so it only records cp311+ wheels. Published python_requires stays >=3.10; extras that pull
-# unstructured (numba/llvmlite/blis/spacy, ...) fail closed via that stack's
-# own requires-python rather than this lock check.
+# pyproject.toml), so only cp311-cp313 coverage is required; older-CPython wheels
+# the lock also lists are ignored. Published python_requires stays >=3.10; extras
+# that pull unstructured (numba/llvmlite/blis/spacy, ...) fail closed via that
+# stack's own requires-python rather than this lock check.
 REQUIRED_PYTHON_MINORS = {11, 12, 13}
 
 KNOWN_EXCEPTIONS = {
@@ -50,17 +52,17 @@ def parse_uv_lock():
 
 # A package is required for a Python minor if its marker admits that minor on
 # any of these platforms.
-_PLATFORM_ENVIRONMENTS = [
+_PLATFORM_ENVIRONMENTS: List[Dict[str, str]] = [
     {"os_name": "posix", "sys_platform": "linux", "platform_system": "Linux"},
     {"os_name": "posix", "sys_platform": "darwin", "platform_system": "Darwin"},
     {"os_name": "nt", "sys_platform": "win32", "platform_system": "Windows"},
 ]
-_PLATFORM_MACHINES = ["x86_64", "arm64", "aarch64", "AMD64"]
+_PLATFORM_MACHINES: List[str] = ["x86_64", "arm64", "aarch64", "AMD64"]
 
 
-def parse_constraint_markers():
+def parse_constraint_markers() -> Dict[Tuple[str, str], Marker]:
     """Map (name, version) to the environment marker in constraints.txt."""
-    markers = {}
+    markers: Dict[Tuple[str, str], Marker] = {}
     for line in (METADATA_INGESTION_DIR / "constraints.txt").read_text().splitlines():
         m = re.match(r"^([A-Za-z0-9._-]+)==([^\s;]+)\s*;\s*(.+)$", line)
         if m:
@@ -68,15 +70,16 @@ def parse_constraint_markers():
     return markers
 
 
-def installed_minors(marker, minors):
+def installed_minors(marker: Optional[Marker], minors: Collection[int]) -> Set[int]:
     """Return the subset of minors on which the marker selects the package."""
     if marker is None:
         return set(minors)
-    selected = set()
-    for minor in minors:
-        for platform_env in _PLATFORM_ENVIRONMENTS:
-            for machine in _PLATFORM_MACHINES:
-                env = {
+    return {
+        minor
+        for minor in minors
+        if any(
+            marker.evaluate(
+                {
                     **platform_env,
                     "platform_machine": machine,
                     "python_version": f"3.{minor}",
@@ -84,9 +87,11 @@ def installed_minors(marker, minors):
                     "implementation_name": "cpython",
                     "platform_python_implementation": "CPython",
                 }
-                if marker.evaluate(env):
-                    selected.add(minor)
-    return selected
+            )
+            for platform_env in _PLATFORM_ENVIRONMENTS
+            for machine in _PLATFORM_MACHINES
+        )
+    }
 
 
 def get_supported_minors(wheels, max_minor):

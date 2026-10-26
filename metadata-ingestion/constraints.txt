@@ -844,6 +844,7 @@ numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.13'
     #   unstructured
 numpy==2.5.4 ; python_full_version == '3.13.*'
     # via
+    #   acryl-datahub
     #   blis
     #   dask
     #   datasketches

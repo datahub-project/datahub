@@ -704,7 +704,9 @@ plugins: Dict[str, Set[str]] = {
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         # Scoped below 3.13: numpy 1.x has no 3.13 wheels and does not build there.
+        # On 3.13, cap at the next major for the same binary-compatibility reason.
         'numpy<2; python_version < "3.13"',
+        'numpy<3; python_version >= "3.13"',
         *cachetools_lib,
     },
     "feast": {
@@ -720,7 +722,9 @@ plugins: Dict[str, Set[str]] = {
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         # Scoped below 3.13: numpy 1.x has no 3.13 wheels and does not build there.
+        # On 3.13, cap at the next major for the same binary-compatibility reason.
         'numpy<2; python_version < "3.13"',
+        'numpy<3; python_version >= "3.13"',
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
