@@ -22,7 +22,8 @@ type Repository implements EntityWithRelationships & Entity {
   """
   Code-specific properties of the repository.
   """
-  properties: RepositoryProperties @aspectMapping(aspects: ["repositoryProperties"])
+  properties: RepositoryProperties
+    @aspectMapping(aspects: ["repositoryProperties"])
 
   """
   The source binding: where the repository lives and how it's identified.
@@ -52,7 +53,8 @@ type Repository implements EntityWithRelationships & Entity {
   """
   The data platform instance this repository is associated with.
   """
-  dataPlatformInstance: DataPlatformInstance @aspectMapping(aspects: ["dataPlatformInstance"])
+  dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Ownership information for this repository.
@@ -82,12 +84,14 @@ type Repository implements EntityWithRelationships & Entity {
   """
   References to internal/external documentation for this repository.
   """
-  institutionalMemory: InstitutionalMemory @aspectMapping(aspects: ["institutionalMemory"])
+  institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Structured properties attached to this repository.
   """
-  structuredProperties: StructuredProperties @aspectMapping(aspects: ["structuredProperties"])
+  structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The browse path (hierarchical location) of this repository, if any.
@@ -97,7 +101,8 @@ type Repository implements EntityWithRelationships & Entity {
   """
   Edges extending from this entity.
   """
-  relationships(input: RelationshipsInput!): EntityRelationshipsResult @noAspects
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Edges grouped by direction in the lineage graph, so a Repository renders as a lineage node,
