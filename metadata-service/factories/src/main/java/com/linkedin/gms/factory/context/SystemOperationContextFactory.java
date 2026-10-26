@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.EntityTypeUtils;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.PrimaryStorageContext;
@@ -73,7 +74,8 @@ public class SystemOperationContextFactory {
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
-      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache,
+      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -123,6 +125,13 @@ public class SystemOperationContextFactory {
             primaryStorageContext(primaryStorageResolver),
             configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
+    // Attach before the retrievers capture the instance below: OperationContext is immutable, so a
+    // later withX() would leave them holding a context without the canonicalizer.
+    if (queryTimeCanonicalizer != null) {
+      systemOperationContext =
+          systemOperationContext.withQueryTimeCanonicalizer(queryTimeCanonicalizer);
+    }
+
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
@@ -157,7 +166,8 @@ public class SystemOperationContextFactory {
       @Autowired(required = false) @Qualifier("groupService") @Nullable
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
-      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache) {
+      @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache,
+      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -199,6 +209,13 @@ public class SystemOperationContextFactory {
             systemTelemetryContext,
             primaryStorageContext(primaryStorageResolver),
             configurationProvider.getAuthentication().isEnforceExistenceEnabled());
+
+    // Attach before the retrievers capture the instance below: OperationContext is immutable, so a
+    // later withX() would leave them holding a context without the canonicalizer.
+    if (queryTimeCanonicalizer != null) {
+      systemOperationContext =
+          systemOperationContext.withQueryTimeCanonicalizer(queryTimeCanonicalizer);
+    }
 
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
