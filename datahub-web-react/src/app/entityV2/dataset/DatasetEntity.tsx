@@ -62,7 +62,7 @@ import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetS
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
@@ -454,7 +454,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
-                origin={data.origin}
                 subtype={getFirstSubType(data)}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
@@ -489,7 +488,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 urn={data.urn}
                 data={genericProperties}
                 name={this.displayName(data)}
-                origin={data.origin}
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={
                     platformNames?.[0] ||

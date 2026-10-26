@@ -9,7 +9,7 @@ import {
     formatDuration,
     toLocalDateTimeString,
     toRelativeTimeString,
-} from '@app/shared/time/timeUtils';
+} from '@app/sharedV2/time/timeUtils';
 
 import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 

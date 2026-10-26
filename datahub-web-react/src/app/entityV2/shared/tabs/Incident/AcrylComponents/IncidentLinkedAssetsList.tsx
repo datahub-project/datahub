@@ -15,7 +15,7 @@ import { LinkedAssetsContainer } from '@app/entityV2/shared/tabs/Incident/styled
 import { IncidentLinkedAssetsListProps } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button, Loader, Pill } from '@src/alchemy-components';
 import { EntityCapabilityType } from '@src/app/entityV2/Entity';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 
 const RESOURCE_URN_FIELD_NAME = 'resourceUrns';
@@ -36,7 +36,7 @@ export const IncidentLinkedAssetsList = ({
     const { t } = useTranslation('entity.profile.incident');
     const { t: tc } = useTranslation('common.actions');
     const [getEntities, { data: resolvedLinkedAssets, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const [linkedAssets, setLinkedAssets] = useState<any[]>(data?.linkedAssets || []);
     const [isBatchAddAssetListModalVisible, setIsBatchAddAssetListModalVisible] = useState(false);

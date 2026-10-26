@@ -593,6 +593,7 @@ org.opensearch:opensearch-geo:2.19.4=compileClasspath,onnxRuntimeVariant,product
 org.opensearch:opensearch-secure-sm:2.19.4=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.opensearch:opensearch-task-commons:2.19.4=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.opensearch:opensearch-telemetry:2.19.4=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.opensearch:opensearch-testcontainers:2.1.3=testCompileClasspath,testRuntimeClasspath
 org.opensearch:opensearch-x-content:2.19.4=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.opensearch:opensearch:2.19.4=compileClasspath,onnxRuntimeVariant,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.opentest4j:opentest4j:1.3.0=testCompileClasspath,testRuntimeClasspath

@@ -20,7 +20,7 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
-import { validateCustomUrnId } from '@app/shared/textUtil';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
@@ -56,7 +56,6 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
-    // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     isCloning?: boolean;
 }
