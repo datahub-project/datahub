@@ -1,13 +1,57 @@
 """Unit tests for Dataplex helper functions and utilities."""
 
 import json
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+
+import pytest
 
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntryDataTuple,
+    PerLocationRateLimiter,
+    calls_per_minute_bucket,
     make_audit_stamp,
     serialize_field_value,
 )
+
+
+class TestCallsPerMinuteBucket:
+    @pytest.mark.parametrize(
+        "max_calls_per_minute,expected_capacity",
+        [(1000, 1000 / 60), (30, 1.0)],
+    )
+    def test_capacity_is_one_second_of_calls_floored_at_one(
+        self, max_calls_per_minute: int, expected_capacity: float
+    ) -> None:
+        bucket = calls_per_minute_bucket(max_calls_per_minute)
+        assert bucket.rate == pytest.approx(max_calls_per_minute / 60)
+        assert bucket.capacity == pytest.approx(expected_capacity)
+
+
+class TestPerLocationRateLimiter:
+    def test_locations_are_paced_separately_and_projects_share_one(self) -> None:
+        limiter = PerLocationRateLimiter(max_calls_per_minute=1)
+
+        with patch("time.sleep") as sleep:
+            limiter.acquire("projects/project-a/locations/us")
+            limiter.acquire("projects/project-a/locations/eu")
+            assert sleep.call_count == 0
+
+            limiter.acquire("projects/project-b/locations/us")
+            assert sleep.call_count == 1
+
+    @pytest.mark.parametrize(
+        "second_name", ["us", "projects/my-project/locations/us/processes/p1"]
+    )
+    def test_bare_location_and_nested_name_share_the_location_bucket(
+        self, second_name: str
+    ) -> None:
+        limiter = PerLocationRateLimiter(max_calls_per_minute=1)
+
+        with patch("time.sleep") as sleep:
+            limiter.acquire("projects/my-project/locations/us")
+            limiter.acquire(second_name)
+
+        assert sleep.call_count == 1
 
 
 class TestEntryDataTuple:
