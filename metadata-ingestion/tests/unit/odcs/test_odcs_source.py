@@ -555,6 +555,8 @@ def test_unstorable_authoritative_definition_urls_skipped_and_warned(
         "authoritativeDefinitions:\n"
         "  - url: ../docs/orders.md\n"
         "    type: implementation\n"
+        "  - url: jdbc:postgresql://db.example/orders\n"
+        "    type: implementation\n"
         "  - url: https://example.com/def\n"
         "    type: businessDefinition\n"
     )
@@ -572,6 +574,9 @@ def test_unstorable_authoritative_definition_urls_skipped_and_warned(
         if "authoritativeDefinitions" in str(getattr(w, "title", ""))
     ]
     assert len(warnings) == 1
+    # Entries merge by title and message, so count contexts to catch a
+    # regression to one warning per URL.
+    assert len(warnings[0].context) == 1
     assert "../docs/orders.md" in str(warnings[0].context)
 
 

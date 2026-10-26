@@ -260,6 +260,14 @@ def test_adventureworks_contract_fans_out(
     )
     _assert_only_lenient_validation_warnings(report)
     assert report.contracts_skipped == 0
+    # 68 schemas and hundreds of jdbc: URLs still produce one context entry.
+    skipped_link_warnings = [
+        w
+        for w in report.warnings
+        if w.title == "ODCS authoritativeDefinitions URLs skipped"
+    ]
+    assert len(skipped_link_warnings) == 1
+    assert len(skipped_link_warnings[0].context) == 1
 
     logical_urns = {
         m["entityUrn"]
