@@ -16,7 +16,7 @@ public class DefaultEntitySpecTest {
   public void testRelationshipFieldSpecsAreMemoized() {
     AspectSpec aspectSpec =
         new AspectSpec(
-            new AspectAnnotation("testAspect", false, false, null, 1L),
+            new AspectAnnotation("testAspect", false, false, null, 1L, false),
             Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),

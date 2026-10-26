@@ -6,7 +6,7 @@ import com.linkedin.datahub.DataHubSearchConfig
 
 @Aspect = {
    "name": "propertyDefinition",
-   "schemaVersion": 2
+   "schemaVersion": 3
 }
 record StructuredPropertyDefinition {
     /**
@@ -14,8 +14,10 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "fieldType": "KEYWORD",
+      "queryByDefault": true,
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "qualifiedName",
         "mappings": [
           { "type": "KEYWORD" },
@@ -34,6 +36,7 @@ record StructuredPropertyDefinition {
       "fieldType": "WORD_GRAM",
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "name",
         "mappings": [
           { "type": "KEYWORD" },
@@ -85,6 +88,9 @@ record StructuredPropertyDefinition {
     }
     @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "entityTypes"
       }
     }
@@ -102,6 +108,9 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "allowedPlatforms"
       }
     }
@@ -115,6 +124,19 @@ record StructuredPropertyDefinition {
     /**
     * The description of the property. This is the description that will be shown in the UI.
     */
+    @Searchable = {
+      "fieldType": "TEXT",
+      "hasValuesFieldName": "hasDescription",
+      "v3": {
+        "queryByDefault": true,
+        "searchLabel": "description",
+        "mappings": [
+          { "type": "KEYWORD", "index": false, "docValues": false },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
+    }
     description: optional string
 
     /**

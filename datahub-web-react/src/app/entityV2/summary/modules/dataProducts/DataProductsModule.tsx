@@ -11,7 +11,7 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -19,7 +19,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export default function DataProductsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
     const { loading, fetchEntities, total } = useGetChildDataProducts(DEFAULT_PAGE_SIZE);
 

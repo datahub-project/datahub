@@ -10,8 +10,8 @@ import styled from 'styled-components';
 import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
 import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
-import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`

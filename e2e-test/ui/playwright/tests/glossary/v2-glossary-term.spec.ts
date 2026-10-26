@@ -15,6 +15,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { GlossaryPage } from '../../pages/glossary.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'glossary' });
 
@@ -42,7 +43,7 @@ test.describe('glossary term entity operations', () => {
     });
   });
 
-  test('can search related entities by query', async () => {
+  test('can search related entities by query', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await glossaryPage.navigateToGlossaryTermByUrn(SEARCH_TERM_URN);
     await glossaryPage.openRelatedAssetsTab();
     await glossaryPage.searchWithinEntityPage(SEARCH_DATASET);

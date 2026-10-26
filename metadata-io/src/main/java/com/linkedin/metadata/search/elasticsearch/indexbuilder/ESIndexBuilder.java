@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
 import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -52,6 +53,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -159,6 +161,13 @@ public class ESIndexBuilder {
   private final RequestOptions requestOptionsLong;
 
   private final RetryRegistry retryRegistry;
+
+  /**
+   * Search V3 uses one mapping for every entity index. The rendered form is remembered so that
+   * mapping is logged once per process instead of once per index.
+   */
+  private static final Set<String> LOGGED_V3_MAPPINGS = ConcurrentHashMap.newKeySet();
+
   private static RetryRegistry deletionRetryRegistry;
   private final int initialSecondsDelete = 10;
   private final int deleteMultiplier = 9;
@@ -623,10 +632,7 @@ public class ESIndexBuilder {
       result = ReindexResult.CREATED_NEW;
       return result;
     }
-    log.info("Current mappings for index {}", indexState.name());
-    log.info("{}", indexState.currentMappings());
-    log.info("Target mappings for index {}", indexState.name());
-    log.info("{}", indexState.targetMappings());
+    logIndexMappings(indexState);
 
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
@@ -897,10 +903,21 @@ public class ESIndexBuilder {
             indexState.name());
       }
       if (!suppressError) {
-        log.error(
-            "Attempted to apply invalid mappings. Current: {} Target: {}",
-            indexState.currentMappings(),
-            indexState.targetMappings());
+        if (EntityIndexVersion.V3.matches(indexState.name())) {
+          log.error(
+              "Attempted to apply invalid mappings for {}.\n{}",
+              indexState.name(),
+              String.join(
+                  "\n",
+                  ReindexConfig.compactMappingDiff(
+                      propertiesOf(indexState.currentMappings()),
+                      propertiesOf(indexState.targetMappings()))));
+        } else {
+          log.error(
+              "Attempted to apply invalid mappings. Current: {} Target: {}",
+              indexState.currentMappings(),
+              indexState.targetMappings());
+        }
       }
     }
   }
@@ -3265,13 +3282,54 @@ public class ESIndexBuilder {
     log.info("Index {}: migration marked {}", indexName, state);
   }
 
+  /**
+   * V2 logs the live and target mapping on every index. V3 indexes share one mapping, so that
+   * mapping is logged once; a difference is logged separately as a leaf diff.
+   */
+  private void logIndexMappings(@Nonnull ReindexConfig indexState) {
+    if (EntityIndexVersion.V3.matches(indexState.name())) {
+      logV3MappingsOnce(indexState.targetMappings());
+      return;
+    }
+    log.info("Current mappings for index {}", indexState.name());
+    log.info("{}", indexState.currentMappings());
+    log.info("Target mappings for index {}", indexState.name());
+    log.info("{}", indexState.targetMappings());
+  }
+
+  private static void logV3MappingsOnce(@Nullable Map<String, Object> targetMappings) {
+    String rendered =
+        ReindexConfig.ReindexConfigBuilder.normalizeMapForComparison(
+                targetMappings == null ? Map.of() : targetMappings)
+            .toString();
+    if (LOGGED_V3_MAPPINGS.add(rendered)) {
+      log.info("Search V3 mappings: {}", rendered);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> propertiesOf(@Nullable Map<String, Object> mappings) {
+    if (mappings == null) {
+      return Map.of();
+    }
+    Object properties = mappings.get(PROPERTIES);
+    if (properties instanceof Map) {
+      return (Map<String, Object>) properties;
+    }
+    return Map.of();
+  }
+
   public void createIndex(
       @Nonnull OperationContext opContext, String indexName, ReindexConfig state)
       throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
     Map<String, Object> mappings = state.targetMappings();
     Map<String, Object> settings = state.targetSettings();
-    log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    if (EntityIndexVersion.V3.matches(indexName)) {
+      logV3MappingsOnce(mappings);
+    } else {
+      log.info("Creating index {} with targetMappings: {}", indexName, mappings);
+    }
     log.info("Creating index {} with targetSettings: {}", indexName, settings);
 
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);

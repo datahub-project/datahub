@@ -343,6 +343,7 @@ It takes the following parameters:
   this [doc](metadata-model.md#timeseries-aspects) for details.
 - **autoRender**: boolean (optional) - defaults to false. When set to true, the aspect will automatically be displayed
   on entity pages in a tab using a default renderer. **_This is currently only supported for Charts, Dashboards, DataFlows, DataJobs, Datasets, Domains, and GlossaryTerms_**.
+- **aspectJson**: boolean (optional) - defaults to false. Search V3 only. When true, the entity document stores this aspect's JSON, the same JSON stored in SQL, at `_aspects.<aspectName>._aspectJson` and does not index it. Enabling it on an aspect that already has data requires a Search V3 reindex, and the stored JSON increases the size of `_source`.
 - **renderSpec**: RenderSpec (optional) - config for autoRender aspects that controls how they are displayed. **_This is currently only supported for Charts, Dashboards, DataFlows, DataJobs, Datasets, Domains, and GlossaryTerms_**. Contains three fields:
   - **displayType**: One of `tabular`, `properties`. Tabular should be used for a list of data elements, properties for a single data bag.
   - **displayName**: How the aspect should be referred to in the UI. Determines the name of the tab on the entity page.
@@ -426,10 +427,11 @@ It takes the following parameters:
 
 - **queryByDefault**: boolean (optional) - Whether we should match the field for the default search query. True by
   default for text and urn fields. On Search V3, a field queried by default that names no shared field copies into
-  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)).
+  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). Search V3
+  leaves the field out of an unqualified query until `"v3": { "queryByDefault": true }` opts it in.
 
 - **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false.
-  Search V2 reads the field for typeahead. Search V3 does not serve autocomplete, so the flag has no effect on a V3 index.
+  Search V2 reads the field for typeahead. Search V3 autocomplete prefixes `name.text`, or the caller's resolved field, and does not read this flag.
 
 - **addToFilters**: boolean (optional) - Whether or not to add field to filters. Defaults to false
 
@@ -462,7 +464,7 @@ It takes the following parameters:
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **v3**: object (optional) - Read only by Search V3. V2 and V2.5 ignore it. `searchLabel`, set only on this object, is the shared root field the value is copied into (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). `mappings` is the V3 root and its label subfields; when it is omitted, V3 derives them from `fieldType`. `includeSystemModifiedAt: false` turns off the V2 system-modified sidecar. `enabled: false` drops the field from V3 search (its mapping, its copy into a shared root field, and full text) and leaves V2 unchanged. Names use a keyword root, which supplies `.keyword` automatically, plus declared `text` and `stemmed` subfields on the `name` label.
+- **v3**: object (optional) - Read only by Search V3. V2 and V2.5 ignore it. `searchLabel`, set only on this object, is the shared root field the value is copied into (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). `degree` is how far that value sits from the entity: `0` keeps the label, and `1` indexes `<searchLabel>_1`. A URN at degree 1 keeps the parsed name on `<label>_1` and the complete URN on `<label>_1_urn`. `boostScore` inside `v3` is the Search V3 weight of that indexed field; the top-level `boostScore` stays the V2 weight. `mappings` is the V3 root and its label subfields; when it is omitted, V3 derives them from `fieldType`. A field of type `URN` or `URN_PARTIAL`, or a root mapping of type `URN`, stores the full URN on its keyword. Filters, facets, sorts, and ranges read that keyword. The parsed name is projected to `_aspects.<aspect>.<field>__urn_name`. Every URN root is two sibling keywords: `<field>` is the parsed name, and `<field>_urn` is the complete URN. Degree qualifies the label first, so a column tag is `tags_1` and `tags_1_urn`, not `tags_urn_1`. `<field>_urn.lowercase` folds that complete URN with `keyword_normalizer`. `text` and `stemmed` are added to `<field>` only when that field is included in full text. `owners` keeps the parsed keyword and has neither analyzer. A URN that names a shared label copies both values onto that label. A schema field's parent has no label, so the parsed dataset name is `parent`. A schema field's parent has no label, so its parsed dataset name is copied into `other`. The document URN stays an exact keyword, with `urn.lowercase` for a case-insensitive match. The parsed identity is the root field `urn_name`, stored in its original case, with `urn_name.lowercase` for a case-insensitive match. `urn_name` is not a full-text field. `queryByDefault` on this object overrides the top-level flag for V3 only. `includeSystemModifiedAt: false` turns off the V2 system-modified sidecar. `enabled: false` drops the field from V3 search (its mapping, its copy into a shared root field, and full text) and leaves V2 unchanged. Names use a keyword root, which supplies `.keyword` automatically, plus declared `text` and `stemmed` subfields on the `name` label.
 
 - **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted on `KEYWORD` or `TEXT` fields, but every searchable field is indexed under its own name regardless.
 
@@ -470,7 +472,7 @@ It takes the following parameters:
 
 - **eagerGlobalOrdinals**: boolean (optional) - Whether to set `eager_global_ordinals` to true for this field. This improves aggregation performance for frequently aggregated keyword fields by pre-building ordinals at index time. **Note**: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types. Defaults to false.
 
-**⚠️ Note on deprecated parameters:** On Search V3, `boostScore` only weighs a match of a field's whole value, such as an exact name: full-text search matches words in the shared root fields, and each shared field has one weight, shared by all the fields that feed it. `weightsPerFieldValue` applies on Search V2 and V3. Both will be replaced by newer features in future versions. `searchLabel` is not a replacement for either: it does not weight matches.
+**⚠️ Note on deprecated parameters:** On Search V3, the default weight of an indexed field is `v3.boostScore` when that degree sets one, and otherwise the top-level `boostScore`. Every source of one indexed field uses that same score. `weightsPerFieldValue` applies on Search V2 and V3. Both will be replaced by newer features in future versions. `searchLabel` names the field; it does not by itself weight matches.
 
 ##### Example
 
@@ -563,6 +565,16 @@ The search label system provides a powerful way to organize search fields and cr
 - Replaces the previous `sortLabel` and `boostLabel` annotations for a unified approach
 - Useful for creating specialized search, sorting, and ranking operations across multiple aspects
 
+**Degree of separation (`v3.degree`):**
+
+A label can appear on the entity and again on a child or related record. Each distance is its own indexed field. `v3.degree` is a non-negative integer and defaults to `0`. Degree `0` keeps the label (`name`, `tags`, `glossaryTerms`, `owners`). Degree `n` is `<searchLabel>_<n>` (`name_1`, `description_1`, `tags_1`, `glossaryTerms_1`, `owners_2`). Nesting does not assign a degree; only an explicit `v3.degree` does. A schema field path or label is `name` at degree 1.
+
+The degree belongs to the place the shared aspect is used. The same record can be the entity's own metadata in one embedding and a child field in another. A path override that sets only `v3.degree`, `v3.boostScore`, `v3.queryByDefault`, or a combination is merged onto the annotation already in effect. An override that sets `fieldType` still replaces that annotation, and the replacement carries the degree and the V3 score.
+
+`v3.boostScore` is the Search V3 weight of that indexed field. Sources of one indexed field must agree on it, and a farther degree must score lower than a nearer one. `v3.queryByDefault` must agree for that same indexed field, and it may differ across degrees of one label. When it is unset, Search V3 leaves the field out of an unqualified query. A custom model sets `v3.queryByDefault` true to opt in. V2 keeps reading the top-level `boostScore` and `queryByDefault`. A dataset's own description, tags, and glossary terms stay on `description`, `tags`, and `glossaryTerms` and stay in an unqualified search. The same values on a schema field index as `description_1`, `tags_1`, and `glossaryTerms_1`, and a schema field path or label indexes as `name_1`. A schema field leaves `v3.queryByDefault` unset, so an unqualified Search V3 query does not read it. An edited column sets `v3.queryByDefault` false on its path override, because the field annotation itself opts in for a business attribute. Search V2 still reads them through the top-level flag. A business attribute's own edited description, tags, and glossary terms stay queried. An explicit filter on the column field still matches.
+
+The existence boolean follows the same degree. Degree 0 keeps `hasDescription`, `hasTags`, and `hasGlossaryTerms`. Degree 1 indexes `hasDescription_1`, `hasTags_1`, and `hasGlossaryTerms_1`. The aspect document still writes the declared name, and V2 filters keep reading it.
+
 **Entity Field Consolidation (`entityFieldName`):**
 
 - Allows multiple aspects to consolidate into a single entity-level field
@@ -572,7 +584,7 @@ The search label system provides a powerful way to organize search fields and cr
 <a name="shared-search-fields-on-search-v3"></a>
 **Shared search fields on Search V3:**
 
-Search V3 keeps three field surfaces. `_aspects.<aspect>.<field>` is an analyzer-free copy of every searchable aspect field. The resolved V3 root controls its exact capabilities: indexed strings are keywords with a byte-safe `ignore_above`, dates, numbers and booleans use their native type, and a search-only string is stored but not indexed. The document-root field uses that same exact root, and `copy_to` feeds the shared label. The shared label is one root plus the union of its contributors' analyzer subfields. Full-text search reads `text` and `stemmed` only when the label declares them. A search-only label sets `"index": false` and `"docValues": false` on its root; every contributor resolves to that policy, so its document-root and `_aspects` copies are also unindexed.
+Search V3 keeps three field surfaces. A searchable non-object field with no `v3.searchLabel`, or whose label is its own name, is projected to the document root. A field whose label is a different name is not: chart `title` labeled `name` has a root `name` and no root `title`, and `_aspects.chartInfo.title` copies into `name`. Either way the `_aspects.<aspect>.<field>` copy of a root-projected field is stored with `"index": false` and `"doc_values": false` so the value is not indexed twice. Per-aspect system metadata is the exception: `_aspects.<aspect>._systemMetadata.lastObserved`, `aspectCreated.time`, `aspectModified.time`, `aspectCreated.actor`, `aspectModified.actor`, and both `impersonator` fields stay indexed and, except `impersonator`, still copy into the root `_system` object. `v3.source.index` and `v3.source.docValues` turn either capability back on for that copy only. Object fields are not projected to the root, so their `_aspects` copy follows the V3 root: indexed strings are keywords with a byte-safe `ignore_above`, and dates, numbers and booleans use their native type. `copy_to` on the aspect field, including a URN copied to `<field>_urn`, stays, and a parsed-name sibling such as `<field>__urn_name` stays indexed. The document-root field uses the V3 root, and `copy_to` feeds the shared label. The shared label is one root plus the union of its contributors' analyzer subfields. Full-text search reads `text` and `stemmed` only when the label declares them. A search-only label sets `"index": false` and `"docValues": false` on the label root and on the document-root field. That does not change the aspect-source default, and `v3.source` does not change the label root.
 
 `mappings` replaces the fallback for that field. A root entry has `type` and no `subfield`. A subfield entry has both. Omitted `index` and `docValues` mean true. Exactly one root is required, and a subfield requires a `searchLabel`.
 
@@ -587,36 +599,57 @@ Search V3 keeps three field surfaces. `_aspects.<aspect>.<field>` is an analyzer
 }
 ```
 
+That leaves `_aspects.<aspect>.name` stored and not indexed, the same default as every other root-projected field. To keep that copy indexed and aggregatable, set both source flags. Omit a key to leave that capability off. `"index": true` alone is searchable and not sortable or aggregatable.
+
+```json
+"v3": {
+  "searchLabel": "name",
+  "source": { "index": true, "docValues": true }
+}
+```
+
 An indexed keyword root automatically provides the case-preserving `.keyword` representation used by exact queries, so annotations do not declare that subfield again. A description is a text blob: its common label uses a keyword root with `index` and `docValues` both false, plus `text` and `stemmed`. V3 rejects filters with values, facets, sorts, ranges and exact-match boosts on that label or its contributors. An `EXISTS` query on an unindexed text blob cannot work either; use the indexed `hasDescription` boolean to filter for presence.
 
 When `mappings` is omitted, `KEYWORD` is an indexed keyword root. `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM`, `URN` and `URN_PARTIAL` use that root plus `text` and `stemmed` on the label. `DATETIME`, `BOOLEAN`, `COUNT` and `DOUBLE` are one native root. Browse path v2 keeps its path analyzer on the source field. Browse path v1 is not a Search V3 type: those fields stay on V2 and are dropped from the V3 index. Bundled shared labels use explicit mappings so their contract does not depend on fallback. The top-level `fieldType` is still the V2 mapping.
 
-Full-text search reads shared root fields instead of every searchable field. Search V3 does not serve autocomplete.
+Full-text search reads shared root fields instead of every searchable field. Search V3 autocomplete prefixes the shared `name` field.
 The browse path v2 root keeps its path analyzer. Cross-aspect system metadata is the root `_system` object: `created.time`, `created.actor`, `modified.time`, `modified.actor`, `lastObserved`, `runId`, and `lastRunId`. It is not the same as the root `runId`, `systemCreated`, or `systemIndexModified` fields. Each searchable string field copies into:
 
 - the root field its `v3.searchLabel` or `entityFieldName` names. The label is the semantic bucket, so an ingested
   value and an edited value of the same concept share it: names (the root field `name`),
-  `description` for descriptions, edited descriptions, glossary definitions and assertion descriptions,
-  `columns` for schema field paths and labels, `tags` for tags from every aspect, `glossaryTerms` for
-  glossary terms, and `owners` for owner urns. `sourceCreatedAt` and `sourceLastModifiedAt` are times
+  `description` for the entity's own description, edited description, glossary definition and assertion description, and `description_1` for a schema field description,
+  `name_1` for schema field paths and labels, `tags` for tags on the entity and `tags_1` for tags
+  on a schema field, `glossaryTerms` and `glossaryTerms_1` on the same split, and `owners` for owner urns. `sourceCreatedAt` and `sourceLastModifiedAt` are times
   reported by the source platform. An incident's start time is `sourceCreatedAt`. A time or actor
-  recorded when DataHub itself wrote the aspect stays on
-  `systemMetadata` (`aspectCreated`, `aspectModified`), copied to `_system.created.time`,
+  recorded when DataHub itself wrote the aspect stays indexed on
+  `_aspects.<aspect>._systemMetadata` (`aspectCreated` and `aspectModified`, including `actor` and
+  `impersonator`) and copies to `_system.created.time`,
   `_system.created.actor`, `_system.modified.time`, and
-  `_system.modified.actor`, and is not indexed again. The V2 system-modified sidecar
+  `_system.modified.actor`. `impersonator` has no root field. The V2 system-modified sidecar
   (`includeSystemModifiedAt`) is Search V2 and V2.5 only;
 - otherwise, when the field is queried by default, the root field `other`, so V3 still searches every field V2 searches. An
   entity none of whose fields names `name` sends the field its `_entityName` alias names to
-  `name` instead. The urn and the fields queried by default of an entity a reference field names
-  (`@SearchableRef`) only ever copy into `other`.
+  `name` instead. A reference field (`@SearchableRef`) copies the referenced entity's default text
+  fields into `other`. Its raw URN stays exact. A URN field stores the full URN on its keyword and
+  projects the parsed name to `_aspects.<aspect>.<field>__urn_name`. Every URN root keeps the parsed
+  name on `<field>` and the complete URN on `<field>_urn`. Degree qualifies the label first: a column tag is `tags_1` with the full URN `tags_1_urn`. `<field>_urn.lowercase` is the same URN
+  through `keyword_normalizer`. Full text and its exact-match boost read `<field>` only when the
+  field is included in full text. `owners` keeps the parsed keyword and has no `text` or `stemmed`.
+  A URN that names a shared label copies both values onto that label.
+  The document URN stays an exact keyword for identity filters and direct URN lookup. `urn.lowercase` is that same URN through `keyword_normalizer`, and a case-insensitive match reads it. The parsed identity is the root field `urn_name`, in its original case, and a case-insensitive match reads `urn_name.lowercase`. `urn_name` is not included in full text. A dataset URN's parsed name is the dataset name. A
+  schema-field URN's parsed name is the field path with version and type annotations removed,
+  without the parent dataset.
 
-A structured property is not a shared field. A `string`, `rich_text` or `urn` property is full-text indexed only when
+A structured property is not a shared field. A `string` or `rich_text` property is full-text indexed only when
 its definition has a `searchConfiguration`: that adds `text` and `stemmed` subfields to its root keyword field
-`structuredProperties.<field>`. `queryByDefault` decides whether an unqualified search includes the property.
+`structuredProperties.<field>`. A `urn` property with `searchConfiguration` keeps that field as the exact URN, with `.lowercase`, and
+writes the parsed name to `structuredProperties.<field>__urn_name` in its original case. A case-insensitive match reads
+`__urn_name.lowercase`. `text` and `stemmed` on that sibling are what full text reads. `copyTo` copies that name into the named shared
+fields, and `copyUrnTo` copies the complete URN. A destination named in both lists receives both values. A `urn` property without `searchConfiguration` keeps both exact keywords and their `.lowercase` subfields and has no analyzed
+subfields. `queryByDefault` decides whether an unqualified search includes the property.
 `boostScore` is the weight of `.text` (0.8 when unset) and `subfieldBoostScores.stemmed` is the weight of `.stemmed`
 (half the `.text` weight when unset). `copyTo` names shared fields (`name`, `qualifiedName`, `description`,
-`columns`, `other`) or a root field that feeds one. Each value is copied into that shared field, so a query
-on it matches the property. The property field and the stored name stay as they are. Unset copies nowhere.
+`name_1`, `other`) or a root field that feeds one. `copyTo` copies the parsed name for a URN property, and `copyUrnTo` copies the complete URN. A destination named in both lists receives both values. The property field and the stored name stay as they are. Unset copies nowhere.
 `excludeFromFullTextSearch` applies to Search V2 and V2.5; Search V3 ignores it.
 Number and date properties are not analyzed, and a `copyTo` on one is ignored. A property with no `searchConfiguration`
 keeps its keyword, number or date field for filters and facets only.
@@ -628,7 +661,7 @@ name. A label that declares `text` and `stemmed` is analyzed on those subfields 
 shared field 1. A structured property's `.text` subfield weighs its `boostScore`, or 0.8 when that is unset. A field configuration names every opted-in property with `structuredProperties`, or one property with its full field path. A search field
 configuration (`fieldConfigurations` in the search configuration) names a shared field either directly or by any field
 that feeds it, except `other`, which only its own name selects. Matched fields ("Matched on") come from the urn,
-the fields that feed each searched shared field, except `columns`, and of `other` only the fields that
+the fields that feed each searched shared field, except `name_1`, and of `other` only the fields that
 name or tag an entity (`name`, `editedName`, `displayName`, `fullName`, `title`, `tags` and `glossaryTerms`): a match
 in a column or in another field still counts, but is not reported, since its values can be too large to fetch with
 every hit.
@@ -808,4 +841,6 @@ replaces it with its own- this has a different boostScore and a different fieldN
 
 As a result, you can issue a query specifically for tags on Schema Fields via `fieldTags:<tag_name>` or tags directly
 applied to an entity via `tags:<tag_name>`. Since both have `queryByDefault` set to true, you can also search for
-entities with either of these properties just by searching for the tag name.
+entities with either of these properties just by searching for the tag name. On Search V3 the column copy is the
+separate field `tags_1`, so a filter on `tags` matches the entity's own tags. Glossary terms follow the same split
+(`glossaryTerms` and `glossaryTerms_1`).
