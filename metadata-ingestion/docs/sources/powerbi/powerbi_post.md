@@ -92,7 +92,7 @@ Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracl
 
 DirectLake tables lineage to `fabric-onelake`. The upstream dataset name is `{workspaceId}.{itemId}.{schema}.{table}`, the same name the `fabric-onelake` source emits for a lakehouse or warehouse table. `server_to_platform_instance` for that path is keyed by the Power BI workspace id.
 
-Import and DirectQuery use `Sql.Database`, or an ODBC SQL Server connection, against the item's SQL analytics endpoint. That M-query is also how Power BI connects to Microsoft SQL Server, so a host is emitted as `mssql` unless you map it:
+Import and DirectQuery use `Sql.Database`, `Sql.Databases`, `Value.NativeQuery`, or an ODBC SQL Server connection against the workspace's SQL analytics endpoint. That M-query is also how Power BI connects to Microsoft SQL Server, so a host is emitted as `mssql` unless you map it:
 
 ```yaml
 source:
@@ -101,14 +101,18 @@ source:
     fabric_sql_endpoint_to_fabric_onelake:
       contoso.datawarehouse.fabric.microsoft.com:
         workspace_id: ff23fbe3-7418-42f8-a675-9f10eb2b78cb
-        item_id: 2afa2dbd-555b-48c8-b082-35d94f4b7836 # lakehouse or warehouse GUID
+        database_to_item_id:
+          SalesLakehouse: 2afa2dbd-555b-48c8-b082-35d94f4b7836
+          FinanceWarehouse: 6f1c2b0e-0d1a-4c58-9b8e-5a3f6e2d4c11
         platform_instance: contoso # omit when the fabric-onelake recipe sets none
         env: PROD
 ```
 
-`item_id` is the lakehouse or warehouse GUID, not the SQL analytics endpoint GUID. The SQL database name in `Sql.Database` is not part of the `fabric-onelake` dataset name. Host matching ignores case, a `tcp:` prefix, and a trailing `,1433` port. Every SQL Server host absent from this map stays on `mssql`.
+All lakehouses and warehouses in a workspace share one SQL analytics endpoint host, and the SQL database name (the lakehouse or warehouse name) selects the item. `database_to_item_id` maps that name to the lakehouse or warehouse GUID, not the SQL analytics endpoint GUID. Database names and hosts are matched case-insensitively, and a `tcp:` prefix, a port, and ODBC braces are ignored.
 
-`platform_instance`, `env`, and `convert_lineage_urns_to_lowercase` (default `true`) have to match the `fabric-onelake` recipe, including that source's `convert_urns_to_lowercase`, or the lineage URN will not join to the ingested table. If you override `dataset_type_mapping`, keep `FabricOneLake` in it.
+On a mapped host, a table whose database is missing from `database_to_item_id`, or whose name is not `database.schema.table` (for example an ODBC navigation with no schema level), is dropped and listed in the ingestion report under `fabric_sql_endpoint_upstreams_skipped`. SQL Server hosts absent from this map stay on `mssql`.
+
+`platform_instance`, `env`, and `convert_lineage_urns_to_lowercase` (default `true`) have to match the `fabric-onelake` recipe, including that source's `convert_urns_to_lowercase`, or the lineage URN will not join to the ingested table. With lowercasing on, column names in column-level lineage to `fabric-onelake` are lowercased too, as the `fabric-onelake` source does. If you override `dataset_type_mapping`, keep `FabricOneLake` in it.
 
 #### Oracle TNS Aliases and Inline Native Queries
 
