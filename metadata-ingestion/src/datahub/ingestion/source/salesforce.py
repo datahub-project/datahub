@@ -101,12 +101,7 @@ class SalesforceProfilingConfig(ConfigModel):
     # TODO - support field level profiling
 
 
-class SalesforceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-):
-    platform: str = "salesforce"
-
+class SalesforceConnectionConfig(ConfigModel):
     auth: SalesforceAuthType = SalesforceAuthType.USERNAME_PASSWORD
 
     # Username, Password Auth
@@ -137,6 +132,23 @@ class SalesforceConfig(
     access_token: Optional[TransparentSecretStr] = Field(
         None, description="Access token for instance url"
     )
+    api_version: Optional[str] = Field(
+        None,
+        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'",
+    )
+
+    @field_validator("instance_url", mode="after")
+    @classmethod
+    def remove_trailing_slash(cls, v):
+        return config_clean.remove_trailing_slashes(v)
+
+
+class SalesforceConfig(
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    SalesforceConnectionConfig,
+):
+    platform: str = "salesforce"
 
     ingest_tags: bool = Field(
         default=False,
@@ -151,11 +163,6 @@ class SalesforceConfig(
         default=dict(),
         description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
-    api_version: Optional[str] = Field(
-        None,
-        description="If specified, overrides default version used by the Salesforce package. Example value: '59.0'",
-    )
-
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
 
     profile_pattern: AllowDenyPattern = Field(
@@ -173,11 +180,6 @@ class SalesforceConfig(
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
-
-    @field_validator("instance_url", mode="after")
-    @classmethod
-    def remove_trailing_slash(cls, v):
-        return config_clean.remove_trailing_slashes(v)
 
 
 @dataclass
@@ -319,7 +321,7 @@ class SalesforceApi:
         )
 
     @staticmethod
-    def create_salesforce_client(config: SalesforceConfig) -> Salesforce:
+    def create_salesforce_client(config: SalesforceConnectionConfig) -> Salesforce:
         common_args: Dict[str, Any] = {
             "domain": "test" if config.is_sandbox else None,
             "session": requests.Session(),
@@ -384,7 +386,9 @@ class SalesforceApi:
         return sf
 
     @staticmethod
-    def update_salesforce_api_version(config: SalesforceConfig, sf: Salesforce) -> None:
+    def update_salesforce_api_version(
+        config: SalesforceConnectionConfig, sf: Salesforce
+    ) -> None:
         if not config.api_version:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(

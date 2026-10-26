@@ -979,6 +979,11 @@ salesforce = [
     "simple-salesforce<2.0.0",
 ]
 
+salesforce-data360 = [
+    "cachetools<6.0.0",
+    "simple-salesforce<2.0.0",
+]
+
 sap-datasphere = [
     "defusedxml>=0.7.1,<0.8.0",
     "graphql-core>=3.0.0,<4.0.0",
@@ -1904,6 +1909,7 @@ presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
 pulsar = "datahub.ingestion.source.pulsar:PulsarSource"
 salesforce = "datahub.ingestion.source.salesforce:SalesforceSource"
+salesforce-data360 = "datahub.ingestion.source.salesforce_data360.source:SalesforceData360Source"
 demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"

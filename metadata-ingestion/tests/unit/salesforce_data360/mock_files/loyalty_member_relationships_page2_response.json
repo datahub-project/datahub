@@ -1,0 +1,30 @@
+{
+  "currentPageUrl": "/services/data/v64.0/ssot/data-model-objects/Loyalty_Member__dlm/relationships?dataspace=default&limit=500&offset=1",
+  "totalSize": 2,
+  "relationships": [
+    {
+      "name": "Loyalty_Member_Preferred_Email_Id_map_ContactPointEmail_Id_N_1",
+      "cardinality": "ManyToOne",
+      "status": "ACTIVE",
+      "creationType": "Custom",
+      "sourceObject": {
+        "name": "Loyalty_Member__dlm",
+        "label": "Loyalty Member"
+      },
+      "sourceField": {
+        "name": "Preferred_Email_Id__c",
+        "label": "Preferred Email Id",
+        "type": "MktDataModelField"
+      },
+      "targetObject": {
+        "name": "ssot__ContactPointEmail__dlm",
+        "label": "Contact Point Email"
+      },
+      "targetField": {
+        "name": "ssot__Id__c",
+        "label": "Contact Point Email Id",
+        "type": "MktDataModelField"
+      }
+    }
+  ]
+}

@@ -20,6 +20,7 @@ class DatasetSubTypes(StrEnum):
     ELASTIC_DATASTREAM = "Datastream"
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
+    SALESFORCE_DATA_MODEL_OBJECT = "Data Model Object"
     QLIK_DATASET = "Qlik Dataset"
     GRAFANA_DATASET = "Grafana Dataset"
     QUICKSIGHT_DATASET = "Dataset"
