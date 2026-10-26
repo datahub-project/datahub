@@ -51,7 +51,9 @@ def _config() -> PowerBiDashboardSourceConfig:
     )
 
 
-def _upstream_columns(expression: str, columns: List[str]) -> Dict[str, List[str]]:
+def _upstream_columns(
+    expression: str, columns: List[str], upstream: str = _UPSTREAM
+) -> Dict[str, List[str]]:
     config = _config()
     lineages = mquery_parser.get_upstream_tables(
         table=Table(
@@ -68,7 +70,7 @@ def _upstream_columns(expression: str, columns: List[str]) -> Dict[str, List[str
         config=config,
     )
     assert len(lineages) == 1
-    assert lineages[0].upstreams[0].urn == _UPSTREAM
+    assert lineages[0].upstreams[0].urn == upstream
     return {
         info.downstream.column: [ref.column for ref in info.upstreams]
         for info in lineages[0].column_lineage
@@ -162,75 +164,64 @@ in
     assert _upstream_columns(expression, ["City"]) == {"City": ["City"]}
 
 
-def test_apply_renames_sql_output_to_powerbi_field() -> None:
+def test_native_sql_output_renamed_to_powerbi_field() -> None:
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db", [Query="select CustomerAccount, City from gold.dim_customers"]),
+    #"Renamed Columns" = Table.RenameColumns(Source, {{"CustomerAccount", "Customer Account"}})
+in
+    #"Renamed Columns"
+"""
+    # Without a schema, sqlglot lowercases MSSQL identifiers on both sides.
+    assert _upstream_columns(expression, ["Customer Account", "City"]) == {
+        "Customer Account": ["customeraccount"],
+        "City": ["city"],
+    }
+
+
+def test_native_sql_rename_matches_folded_output_names() -> None:
+    # Snowflake folds unquoted identifiers, so sqlglot's output names are not in
+    # the casing Power BI's rename step uses.
+    expression = """\
+let
+    Source = Value.NativeQuery(Snowflake.Databases("acme.snowflakecomputing.com", "COMPUTE_WH"){[Name="DB"]}[Data], "select customer_account, city from db.sch.customers", null, [EnableFolding=true]),
+    #"Renamed Columns" = Table.RenameColumns(Source, {{"CUSTOMER_ACCOUNT", "Customer Account"}})
+in
+    #"Renamed Columns"
+"""
+    assert _upstream_columns(
+        expression,
+        ["Customer Account", "CITY"],
+        upstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.customers,PROD)",
+    ) == {
+        "Customer Account": ["customer_account"],
+        "CITY": ["city"],
+    }
+
+
+def test_native_sql_rename_swap_is_not_snapped_to_old_names() -> None:
+    # The case remap would otherwise pin each output to the field of the same
+    # name, which after the swap is the other column.
+    expression = """\
+let
+    Source = Sql.Database("warehouse.example", "sales_db", [Query="select Name, City from gold.dim_customers"]),
+    #"Renamed Columns" = Table.RenameColumns(Source, {{"Name", "City"}, {"City", "Name"}})
+in
+    #"Renamed Columns"
+"""
+    assert _upstream_columns(expression, ["City", "Name"]) == {
+        "City": ["name"],
+        "Name": ["city"],
+    }
+
+
+def test_sql_lineage_is_not_renamed_again_after_urn_transform() -> None:
     lineage = Lineage(
         upstreams=[],
         downstream_names_are_powerbi_fields=False,
         column_lineage=[
             ColumnLineageInfo(
-                downstream=DownstreamColumnRef(column="CustomerAccount"),
-                upstreams=[ColumnRef(table=_UPSTREAM, column="CustomerAccount")],
-            )
-        ],
-    )
-    result = apply_table_rename_columns(
-        lineage,
-        [
-            ColumnRenameStep(
-                renames=[
-                    ColumnRename(
-                        source_name="CustomerAccount",
-                        renamed_name="Customer Account",
-                    )
-                ]
-            )
-        ],
-        [_column("Customer Account")],
-    )
-    assert result.column_lineage[0].downstream.column == "Customer Account"
-    assert result.column_lineage[0].upstreams[0].column == "CustomerAccount"
-
-
-def test_apply_renames_sql_output_when_name_matches_another_field() -> None:
-    lineage = Lineage(
-        upstreams=[],
-        downstream_names_are_powerbi_fields=False,
-        column_lineage=[
-            ColumnLineageInfo(
-                downstream=DownstreamColumnRef(column="City"),
-                upstreams=[ColumnRef(table=_UPSTREAM, column="City")],
-            ),
-            ColumnLineageInfo(
-                downstream=DownstreamColumnRef(column="Name"),
-                upstreams=[ColumnRef(table=_UPSTREAM, column="Name")],
-            ),
-        ],
-    )
-    result = apply_table_rename_columns(
-        lineage,
-        [
-            ColumnRenameStep(
-                renames=[
-                    ColumnRename(source_name="Name", renamed_name="City"),
-                    ColumnRename(source_name="City", renamed_name="Name"),
-                ]
-            )
-        ],
-        [_column("City"), _column("Name")],
-    )
-    assert {
-        info.upstreams[0].column: info.downstream.column
-        for info in result.column_lineage
-    } == {"City": "Name", "Name": "City"}
-
-
-def test_athena_urn_transform_keeps_sql_rename_direction() -> None:
-    lineage = Lineage(
-        upstreams=[],
-        downstream_names_are_powerbi_fields=False,
-        column_lineage=[
-            ColumnLineageInfo(
-                downstream=DownstreamColumnRef(column="City"),
+                downstream=DownstreamColumnRef(column="Town"),
                 upstreams=[ColumnRef(table=_UPSTREAM, column="City")],
             )
         ],
@@ -243,7 +234,6 @@ def test_athena_urn_transform_keeps_sql_rename_direction() -> None:
                 renames=[ColumnRename(source_name="City", renamed_name="Town")]
             )
         ],
-        [_column("Town"), _column("City")],
     )
     assert result.column_lineage[0].downstream.column == "Town"
     assert result.column_lineage[0].upstreams[0].column == "City"
@@ -251,4 +241,4 @@ def test_athena_urn_transform_keeps_sql_rename_direction() -> None:
 
 def test_apply_renames_is_noop_without_steps() -> None:
     lineage = Lineage(upstreams=[], column_lineage=[])
-    assert apply_table_rename_columns(lineage, [], None) is lineage
+    assert apply_table_rename_columns(lineage, []) is lineage

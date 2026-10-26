@@ -180,13 +180,11 @@ def get_upstream_tables(
                 config=config,
                 reporter=reporter,
                 platform_instance_resolver=platform_instance_resolver,
+                column_rename_steps=f_detail.column_rename_steps,
             ).create_lineage(f_detail)
-            if f_detail.column_rename_steps:
-                lineage = pattern_handler.apply_table_rename_columns(
-                    lineage,
-                    f_detail.column_rename_steps,
-                    table.columns,
-                )
+            lineage = pattern_handler.apply_table_rename_columns(
+                lineage, f_detail.column_rename_steps
+            )
             if lineage.upstreams:
                 lineages.append(lineage)
 

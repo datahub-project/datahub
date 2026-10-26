@@ -2,8 +2,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
-
 from datahub.configuration.env_vars import get_trace_powerbi_mquery_parser
 from datahub.ingestion.source.powerbi.config import DataPlatformPair
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
@@ -11,13 +9,15 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
 
 
-class ColumnRename(BaseModel):
+@dataclass(frozen=True)
+class ColumnRename:
     source_name: str
     renamed_name: str
 
 
-class ColumnRenameStep(BaseModel):
-    renames: List[ColumnRename] = Field(default_factory=list)
+@dataclass
+class ColumnRenameStep:
+    renames: List[ColumnRename] = field(default_factory=list)
 
 
 @dataclass
@@ -77,8 +77,9 @@ class DataPlatformTable:
 class Lineage:
     upstreams: List[DataPlatformTable]
     column_lineage: List[ColumnLineageInfo]
-    # Table navigation copies Power BI field names onto both sides of an edge.
-    # Native SQL lineage still has the query's output names on the downstream side.
+    # Table navigation copies Power BI field names onto both sides of an edge, so
+    # renames are applied afterwards by mapping the upstream side back. Native SQL
+    # lineage applies renames to the query's output names inside parse_custom_sql.
     downstream_names_are_powerbi_fields: bool = True
 
     @staticmethod
