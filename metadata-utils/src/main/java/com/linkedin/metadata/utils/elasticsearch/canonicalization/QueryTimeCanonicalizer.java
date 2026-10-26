@@ -33,10 +33,10 @@ import lombok.extern.slf4j.Slf4j;
  * at a central execution choke point would silently move bounds the user asked for. Callers
  * therefore apply this where they still know the value came from the clock.
  *
- * <p><b>This is not a cache TTL.</b> A 5-minute bucket does not mean results are cached for 5
- * minutes. It means requests within a bucket are byte-identical and therefore <i>eligible</i> to
- * reuse a shard request cache entry. Whether they actually do depends on shard routing, refreshes
- * and cache eviction, none of which this class controls.
+ * <p><b>This is not a cache TTL.</b> A 1-hour bucket does not mean results are cached for an hour.
+ * It means requests within a bucket are byte-identical and therefore <i>eligible</i> to reuse a
+ * shard request cache entry. Whether they actually do depends on shard routing, refreshes and cache
+ * eviction, none of which this class controls.
  *
  * <p><b>Rounding.</b> Under {@link TimeRoundingMode#EXPAND} (the default) lower bounds floor and
  * upper bounds ceil, so the canonical window is always a superset of the requested window and no
