@@ -3374,7 +3374,24 @@ def _make_dynamodb_node(
         pytest.param(
             {"dynamodb.output.tableName": "orders"},
             "999888777666.us-west-2.orders",
-            id="sink-falls-back-to-source-region",
+            id="output-table-falls-back-to-source-region",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-wins-over-malformed-role-arn",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-gov-west-1",
+                "dynamodb.sts.roleArn": " arn:aws-us-gov:iam::444455556666:role/GlueRole\n",
+            },
+            "444455556666.us-gov-west-1.orders",
+            id="govcloud-role-arn-with-whitespace",
         ),
     ],
 )
@@ -3565,6 +3582,8 @@ def test_get_aws_account_id_caps_retries_and_warns_once() -> None:
         if w.title == "Could not resolve AWS account id via STS"
     ]
     assert len(account_id_warnings) == 1
+    # One context entry: the call site warns once, not just the report's title dedup.
+    assert len(account_id_warnings[0].context) == 1
 
 
 def test_get_aws_account_id_missing_account_is_a_failure() -> None:

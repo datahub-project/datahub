@@ -1615,9 +1615,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.report.warning(
                     title="Could not resolve AWS account id via STS",
                     message=(
-                        "Failed to call sts:GetCallerIdentity to resolve the AWS account id used as "
-                        "the DynamoDB platform_instance. DynamoDB DAG nodes without a table ARN or "
-                        "cross-account role ARN will be skipped (no lineage emitted) "
+                        "sts:GetCallerIdentity did not return the AWS account id used as the "
+                        "DynamoDB platform_instance. The call needs no IAM permission, so check "
+                        "network access to STS and the credentials. DynamoDB DAG nodes without a "
+                        "table ARN or cross-account role ARN will be skipped (no lineage emitted) "
                         "rather than emitting a URN with a guessed account."
                     ),
                     exc=exc,
@@ -1708,7 +1709,7 @@ class GlueSource(StatefulIngestionSourceBase):
         if not account_id:
             role_arn = connection_options.get(DYNAMODB_STS_ROLE_ARN)
             if role_arn:
-                role_match = DYNAMODB_STS_ROLE_ARN_PATTERN.match(str(role_arn))
+                role_match = DYNAMODB_STS_ROLE_ARN_PATTERN.match(str(role_arn).strip())
                 if not role_match:
                     # A role ARN means a cross-account read, so the caller's account is wrong.
                     self.report.warning(
@@ -1728,9 +1729,10 @@ class GlueSource(StatefulIngestionSourceBase):
             # Skip the node rather than emit lineage that silently points at nothing.
             self.report.warning(
                 title="Could not resolve DynamoDB account id for node",
-                message="Skipping DynamoDB node: no table ARN account, cross-account role ARN "
+                message="Skipping DynamoDB node: no table ARN account, cross-account role ARN, "
                 "or STS caller identity was available to use as platform_instance. "
-                "Set target_platform_configs.dynamodb or grant sts:GetCallerIdentity.",
+                "Set target_platform_configs.dynamodb.platform_instance, or check that "
+                "sts:GetCallerIdentity is reachable.",
                 context=f"{flow_urn}: {node_label}",
                 log=False,
             )

@@ -1,6 +1,6 @@
 import json
 from types import SimpleNamespace
-from typing import List
+from typing import List, Tuple
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -43,15 +43,19 @@ def _patched_lineage(wu: MetadataWorkUnit) -> UpstreamLineageClass:
     assert mcp.aspect is not None
     upstreams: List[UpstreamClass] = []
     fine_grained: List[FineGrainedLineageClass] = []
-    for op in json.loads(mcp.aspect.value):
+    ops = json.loads(mcp.aspect.value)
+    assert len({op["path"] for op in ops}) == len(ops)
+    for op in ops:
         assert op["op"] == "add"
         parts = [
             part.replace("~1", "/").replace("~0", "~")
             for part in op["path"].split("/")[1:]
         ]
         if parts[0] == "upstreams":
+            assert parts[1] == op["value"]["dataset"]
             upstreams.append(UpstreamClass.from_obj(op["value"]))
         else:
+            assert parts[0] == "fineGrainedLineages"
             _, _, downstream, _, upstream = parts
             fine_grained.append(
                 FineGrainedLineageClass(
@@ -607,6 +611,79 @@ class TestDynamoDBS3ExportLineage:
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),"
             "[version=2.0].[type=string].OrderId)"
         ]
+
+    def _export_lineage_with_graph(
+        self,
+        mock_context: MagicMock,
+        lineage_config: DynamoDBConfig,
+        graph: MagicMock,
+        field_paths: List[str],
+    ) -> Tuple[DynamoDBSource, UpstreamLineageClass]:
+        lineage_config.include_s3_export_column_lineage = True
+        mock_context.graph = graph
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+            field_paths=field_paths,
+        )
+        workunits = list(source._emit_s3_export_lineage())
+        assert len(workunits) == 1
+        return source, _patched_lineage(workunits[0])
+
+    def test_column_lineage_inferred_when_s3_dataset_has_no_schema(
+        self, mock_context, lineage_config
+    ):
+        graph = MagicMock()
+        graph.get_schema_metadata.return_value = None
+        source, lineage = self._export_lineage_with_graph(
+            mock_context, lineage_config, graph, ["orderId"]
+        )
+        assert source.report.s3_export_column_lineage_inferred == 1
+        assert lineage.fineGrainedLineages is not None
+        assert lineage.fineGrainedLineages[0].downstreams == [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),orderId)"
+        ]
+
+    def test_column_lineage_skips_ambiguous_s3_fields(
+        self, mock_context, lineage_config
+    ):
+        graph = MagicMock()
+        graph.get_schema_metadata.return_value = SimpleNamespace(
+            fields=[
+                SimpleNamespace(fieldPath="[version=2.0].[type=string].status"),
+                SimpleNamespace(fieldPath="[version=2.0].[type=long].status"),
+                SimpleNamespace(fieldPath="orderId"),
+            ]
+        )
+        source, lineage = self._export_lineage_with_graph(
+            mock_context, lineage_config, graph, ["status", "orderId"]
+        )
+        assert lineage.fineGrainedLineages is not None
+        assert [f.downstreams for f in lineage.fineGrainedLineages] == [
+            [
+                "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),orderId)"
+            ]
+        ]
+        assert any(
+            "status" in c
+            for i in source.report.infos
+            if i.title == "DynamoDB S3 export column lineage skipped ambiguous fields"
+            for c in i.context
+        )
 
     def test_column_lineage_graph_error_keeps_table_lineage_only(
         self, mock_context, lineage_config

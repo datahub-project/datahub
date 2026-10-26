@@ -159,9 +159,11 @@ class DynamoDBConfig(
         default=False,
         description=(
             "When `include_s3_export_lineage` is enabled, also emit column-level COPY lineage "
-            "inferred from the DynamoDB table's schema. When the S3 export dataset is already in "
-            "DataHub, only fields that match its schema (case-insensitive) are linked; otherwise the "
-            "inferred DynamoDB field paths are used as-is. Off by default: native Export to S3 writes "
+            "inferred from the DynamoDB table's schema. With a DataHub connection and the S3 export "
+            "dataset already in DataHub, only fields that match its schema (case-insensitive) are "
+            "linked. Without a connection, or when the dataset has no schema in DataHub, the "
+            "DynamoDB field paths are used as-is. If the schema cannot be read, only table-level "
+            "lineage is emitted. Off by default: native Export to S3 writes "
             "DynamoDB JSON/Ion, whose field paths often differ from the connector's flattened schema."
         ),
     )
@@ -979,25 +981,29 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 log=False,
             )
 
-    def _resolve_s3_downstream_field_paths(
-        self, s3_urn: str
-    ) -> Optional[Dict[str, str]]:
-        """Map ``lowercased simple field path`` -> ``actual field path`` for the S3 export dataset.
-
-        Returns ``None`` when there is no graph or the S3 dataset has no schema in it, signalling
-        the caller to fall back to inferred identity mapping. Graph errors propagate.
-        """
-        if not self.ctx.graph:
-            return None
-        schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
-        if not schema_metadata:
-            return None
+    def _s3_field_paths_by_simple_name(
+        self, s3_urn: str, schema_metadata: SchemaMetadataClass
+    ) -> Dict[str, str]:
+        """Map ``lowercased simple field path`` -> ``stored field path`` for the S3 dataset."""
         resolved: Dict[str, str] = {}
+        ambiguous: Set[str] = set()
         for schema_field in schema_metadata.fields:
-            simple = get_simple_field_path_from_v2_field_path(schema_field.fieldPath)
+            simple = get_simple_field_path_from_v2_field_path(
+                schema_field.fieldPath
+            ).lower()
             # Keep the stored path: v2 paths only match the dataset's schemaField URNs as-is.
-            resolved[simple.lower()] = schema_field.fieldPath
-        return resolved
+            if resolved.get(simple, schema_field.fieldPath) != schema_field.fieldPath:
+                ambiguous.add(simple)
+            resolved[simple] = schema_field.fieldPath
+        if ambiguous:
+            # Union branches or case variants: any one choice could be the wrong field.
+            self.report.info(
+                title="DynamoDB S3 export column lineage skipped ambiguous fields",
+                message="Several S3 export fields share these names, so no column-level "
+                "lineage was emitted for them.",
+                context=f"{s3_urn}: {', '.join(sorted(ambiguous))}",
+            )
+        return {k: v for k, v in resolved.items() if k not in ambiguous}
 
     def _build_s3_export_fine_grained_lineages(
         self,
@@ -1016,7 +1022,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     continue
                 self.report.s3_export_column_lineage_resolved += 1
             else:
-                # S3 dataset not in the graph: inferred identity mapping, best-effort.
+                # No schema to check against: inferred identity mapping, best-effort.
                 downstream_path = upstream_simple
                 self.report.s3_export_column_lineage_inferred += 1
             fine_grained.append(
@@ -1032,20 +1038,27 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def _build_s3_export_column_lineage(
         self, s3_urn: str, upstreams_by_urn: Dict[str, List[str]]
     ) -> List[FineGrainedLineageClass]:
-        try:
-            downstream_field_paths = self._resolve_s3_downstream_field_paths(s3_urn)
-        except Exception as e:
-            # The dataset may exist with a different schema, so guessed column edges could be
-            # wrong. Keep the table-level lineage only.
-            self.report.warning(
-                title="Failed to read S3 export schema from DataHub",
-                message="Could not fetch the S3 export dataset's schema from DataHub, so no "
-                "column-level lineage was emitted for it. Table-level lineage is unaffected.",
-                context=s3_urn,
-                exc=e,
-                log=False,
-            )
-            return []
+        # None means no schema to check against, so DynamoDB field paths are used as-is.
+        downstream_field_paths: Optional[Dict[str, str]] = None
+        if self.ctx.graph:
+            try:
+                schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
+            except Exception as e:
+                # The dataset may exist with a different schema, so guessed column edges could
+                # be wrong. Keep the table-level lineage only.
+                self.report.warning(
+                    title="Failed to read S3 export schema from DataHub",
+                    message="Could not fetch the S3 export dataset's schema from DataHub, so no "
+                    "column-level lineage was emitted for it. Table-level lineage is unaffected.",
+                    context=s3_urn,
+                    exc=e,
+                    log=False,
+                )
+                return []
+            if schema_metadata:
+                downstream_field_paths = self._s3_field_paths_by_simple_name(
+                    s3_urn, schema_metadata
+                )
         fine_grained: List[FineGrainedLineageClass] = []
         for upstream_urn in sorted(upstreams_by_urn):
             fine_grained.extend(
@@ -1057,15 +1070,14 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 )
             )
         if downstream_field_paths is None and fine_grained:
-            # info, not warning: inferred column lineage is the documented fallback when the S3
-            # export dataset's schema can't be read, not an error.
+            # info, not warning: with no schema to check against, inferred column lineage is the
+            # documented behaviour, not an error.
             self.report.info(
                 title="DynamoDB S3 export column lineage is inferred",
                 message="Column-level lineage was emitted using the DynamoDB field paths as-is "
-                "because the S3 export dataset's schema was not available in DataHub (no metadata "
-                "backend configured, the dataset is not ingested, or its schema could not be "
-                "read). These edges are not validated against the export's real schema; ingest "
-                "the S3 export bucket for validated column lineage.",
+                "because the S3 export dataset has no schema in DataHub (no DataHub connection, "
+                "or the dataset is not ingested). These edges are not validated against the "
+                "export's real schema; ingest the S3 export bucket for validated column lineage.",
                 context=s3_urn,
             )
         elif (
