@@ -2160,8 +2160,6 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     assert "schema[0].deprecated" in warnings
     assert "properties[0].semanticType" in warnings
     infos = _messages(src.report.infos)
-    # Contract description not applied to a table with its own description.
-    assert "contract description not applied" in infos
     # Unresolved variable copied into a SQL assertion.
     assert "${CUTOFF}" in warnings
     # Owner role defaulted.

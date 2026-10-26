@@ -26,7 +26,6 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
         "context",
         "customProperties",
-        "dataGranularityDescription",
         "id",
         "relationships",
         "synonyms",
@@ -228,8 +227,12 @@ class ODCSSchemaObject(ODCSBaseModel):
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
+    dataGranularityDescription: Optional[str] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
+    _lenient_grain = field_validator("dataGranularityDescription", mode="before")(
+        _str_or_none
+    )
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -396,7 +399,7 @@ ODCSSchemaObject.model_rebuild()
 # rejecting the contract. Kept next to the validators so the source's
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
-    ODCSSchemaObject: ("deprecated",),
+    ODCSSchemaObject: ("deprecated", "dataGranularityDescription"),
     ODCSProperty: (
         "deprecated",
         "synonyms",

@@ -832,6 +832,23 @@ def _field_aspect_mcps(
     return mcps
 
 
+def _dataset_description(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject
+) -> Optional[str]:
+    """Table description, then its grain, then the contract description.
+
+    A multi-table contract repeats the contract description on every table:
+    each logical dataset is read on its own, by people and by Ask DataHub.
+    """
+    grain = (schema_entry.dataGranularityDescription or "").strip()
+    parts = [
+        _description_to_str(schema_entry.description),
+        f"**Grain:** {grain}" if grain else None,
+        _description_to_str(contract.description),
+    ]
+    return "\n\n".join(p for p in parts if p) or None
+
+
 def odcs_to_logical_dataset_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
@@ -849,11 +866,7 @@ def odcs_to_logical_dataset_mcps(
     """
     mcps: List[MetadataChangeProposalWrapper] = []
 
-    # Per-table description wins; the contract description is the fallback so a
-    # multi-table contract doesn't smear one description across every table.
-    description = _description_to_str(schema_entry.description) or _description_to_str(
-        contract.description
-    )
+    description = _dataset_description(contract, schema_entry)
     custom_props: Dict[str, str] = {
         PROP_ID: contract.id,
         PROP_SCHEMA_NAME: schema_entry.name,

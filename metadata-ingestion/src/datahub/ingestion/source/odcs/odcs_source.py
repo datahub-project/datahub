@@ -1124,7 +1124,6 @@ class ODCSSource(StatefulIngestionSourceBase):
     ) -> None:
         """Report contract content that parses but does not reach DataHub as written."""
         self._report_dropped_values(raw_dict, contract, source_uri)
-        self._report_shadowed_description(contract, source_uri)
         self._report_variables_in_rules(contract, source_uri)
 
     def _report_dropped_values(
@@ -1168,29 +1167,6 @@ class ODCSSource(StatefulIngestionSourceBase):
                     "mapped; the rest of the contract was ingested."
                 ),
                 context=f"{source_uri}: {', '.join(dropped)}",
-            )
-
-    def _report_shadowed_description(
-        self, contract: ODCSContract, source_uri: str
-    ) -> None:
-        if contract.description is None:
-            return
-        shadowed = [
-            entry.name
-            for entry in contract.schema_ or []
-            if entry.description is not None
-        ]
-        if shadowed:
-            # Info, not warning: tables with their own description are the
-            # common case (the official Bitol examples do it).
-            self.report.info(
-                title="ODCS contract description not applied",
-                message=(
-                    "These tables have their own description, so the contract "
-                    "`description` (usage, purpose, limitations) is not written "
-                    "to them."
-                ),
-                context=f"{source_uri}: {', '.join(shadowed)}",
             )
 
     def _report_variables_in_rules(

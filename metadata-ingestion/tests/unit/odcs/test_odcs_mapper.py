@@ -533,18 +533,47 @@ def test_logical_dataset_mcps_carry_provenance_and_schema() -> None:
     assert props.description is not None and "**purpose**: P" in props.description
 
 
-def test_schema_description_wins_over_contract_description() -> None:
-    contract = _make_contract(
-        schema=[{"name": "t", "description": "Table-level description."}],
-        description="Contract-level description.",
-    )
+def _dataset_description(contract: ODCSContract) -> Optional[str]:
     mcps, _ = odcs_to_logical_dataset_mcps(
         contract=contract,
         schema_entry=_first_schema(contract),
         logical_urn=LOGICAL_URN,
     )
     props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
-    assert props.description == "Table-level description."
+    return props.description
+
+
+def test_dataset_description_combines_table_grain_and_contract() -> None:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "description": "One row per order.",
+                "dataGranularityDescription": "One row per order_id.",
+            }
+        ],
+        description={"purpose": "Revenue analysis.", "usage": "Join on order_id."},
+    )
+    assert _dataset_description(contract) == (
+        "One row per order.\n\n**Grain:** One row per order_id.\n\n"
+        "**purpose**: Revenue analysis.\n\n**usage**: Join on order_id."
+    )
+
+
+def test_dataset_description_blank_grain_ignored() -> None:
+    contract = _make_contract(
+        schema=[
+            {"name": "t", "description": "T.", "dataGranularityDescription": "   "}
+        ]
+    )
+    assert _dataset_description(contract) == "T."
+
+
+def test_grain_off_spec_value_dropped() -> None:
+    entry = ODCSSchemaObject.model_validate(
+        {"name": "t", "dataGranularityDescription": {"x": 1}}
+    )
+    assert entry.dataGranularityDescription is None
 
 
 def test_contract_description_is_fallback() -> None:
