@@ -99,6 +99,13 @@ class TestS3ObjectStore:
         with pytest.raises(ValueError):
             S3ObjectStore.get_object_key("gs://bucket/path")
 
+    def test_get_object_store_bucket_name(self):
+        """The per-store dispatch override resolves the bucket name."""
+        assert (
+            S3ObjectStore.get_object_store_bucket_name("s3://bucket/path/file.txt")
+            == "bucket"
+        )
+
 
 class TestGCSObjectStore:
     """Tests for the GCSObjectStore implementation."""
@@ -175,6 +182,13 @@ class TestGCSObjectStore:
         """Test get_object_key with invalid URI."""
         with pytest.raises(ValueError):
             GCSObjectStore.get_object_key("s3://bucket/path")
+
+    def test_get_object_store_bucket_name(self):
+        """The per-store dispatch override resolves the bucket name."""
+        assert (
+            GCSObjectStore.get_object_store_bucket_name("gs://bucket/path/file.txt")
+            == "bucket"
+        )
 
 
 class TestABSObjectStore:
@@ -269,6 +283,7 @@ class TestABSObjectStore:
                 "abfss://container@account.dfs.core.windows.net/path/to/file.txt",
                 "path/to/file.txt",
             ),
+            ("abfss://container@account.dfs.core.windows.net", ""),
             ("https://account.blob.core.windows.net/container/path", "path"),
             (
                 "https://account.blob.core.windows.net/container/path/to/file.txt",
