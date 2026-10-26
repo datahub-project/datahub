@@ -139,6 +139,10 @@ class TestDataplexConfig:
         assert config.lineage_max_retries == 3
         assert config.lineage_retry_backoff_multiplier == 1.0
 
+        # Rate limit defaults
+        assert config.lineage_max_calls_per_minute == 1000
+        assert config.glossary_lookup_max_calls_per_minute == 600
+
         # Location defaults
         assert config.entries_locations == ["us", "eu", "asia", "global"]
         assert config.lineage_locations == DEFAULT_LINEAGE_LOCATIONS
@@ -229,6 +233,7 @@ class TestDataplexConfig:
         # Verify default retry settings
         assert config.lineage_max_retries == 3
         assert config.lineage_retry_backoff_multiplier == 1.0
+        assert config.lineage_retry_max_wait_seconds == 10
 
     def test_lineage_retry_configuration_custom_values(self):
         """Test lineage retry configuration with custom values."""
@@ -250,8 +255,8 @@ class TestDataplexConfig:
 
         # Test max_retries upper bound
         with pytest.raises(ValidationError) as exc_info:
-            DataplexConfig(project_ids=["test-project"], lineage_max_retries=11)
-        assert "less than or equal to 10" in str(exc_info.value)
+            DataplexConfig(project_ids=["test-project"], lineage_max_retries=21)
+        assert "less than or equal to 20" in str(exc_info.value)
 
         # Test backoff_multiplier lower bound
         with pytest.raises(ValidationError) as exc_info:
@@ -263,29 +268,56 @@ class TestDataplexConfig:
         # Test backoff_multiplier upper bound
         with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(
-                project_ids=["test-project"], lineage_retry_backoff_multiplier=11.0
+                project_ids=["test-project"], lineage_retry_backoff_multiplier=31.0
             )
-        assert "less than or equal to 10" in str(exc_info.value)
+        assert "less than or equal to 30" in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        "field,value,error_type",
+        [
+            ("lineage_retry_max_wait_seconds", 1, "greater_than_equal"),
+            ("lineage_retry_max_wait_seconds", 601, "less_than_equal"),
+            ("lineage_max_calls_per_minute", 0, "greater_than_equal"),
+            ("glossary_lookup_max_calls_per_minute", 0, "greater_than_equal"),
+        ],
+    )
+    def test_pacing_configuration_rejects_out_of_range(
+        self, field: str, value: int, error_type: str
+    ) -> None:
+        with pytest.raises(ValidationError) as exc_info:
+            DataplexConfig.model_validate(
+                {"project_ids": ["test-project"], field: value}
+            )
+        errors = exc_info.value.errors()
+        assert [(e["loc"], e["type"]) for e in errors] == [((field,), error_type)]
 
     def test_lineage_retry_configuration_edge_values(self):
-        """Test lineage retry configuration with edge values (boundaries)."""
+        """Test lineage retry and rate-limit configuration at their boundaries."""
         # Minimum valid values
         config_min = DataplexConfig(
             project_ids=["test-project"],
             lineage_max_retries=1,
             lineage_retry_backoff_multiplier=0.1,
+            lineage_retry_max_wait_seconds=2,
+            lineage_max_calls_per_minute=1,
+            glossary_lookup_max_calls_per_minute=1,
         )
         assert config_min.lineage_max_retries == 1
         assert config_min.lineage_retry_backoff_multiplier == 0.1
+        assert config_min.lineage_retry_max_wait_seconds == 2
+        assert config_min.lineage_max_calls_per_minute == 1
+        assert config_min.glossary_lookup_max_calls_per_minute == 1
 
         # Maximum valid values
         config_max = DataplexConfig(
             project_ids=["test-project"],
-            lineage_max_retries=10,
-            lineage_retry_backoff_multiplier=10.0,
+            lineage_max_retries=20,
+            lineage_retry_backoff_multiplier=30.0,
+            lineage_retry_max_wait_seconds=600,
         )
-        assert config_max.lineage_max_retries == 10
-        assert config_max.lineage_retry_backoff_multiplier == 10.0
+        assert config_max.lineage_max_retries == 20
+        assert config_max.lineage_retry_backoff_multiplier == 30.0
+        assert config_max.lineage_retry_max_wait_seconds == 600
 
     def test_entries_location_default(self):
         """Test that entries locations defaults are set correctly."""

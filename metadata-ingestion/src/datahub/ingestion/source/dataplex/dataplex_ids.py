@@ -171,8 +171,10 @@ SPANNER_TABLE_FQN_REGEX = re.compile(
 SPANNER_GRAPH_FQN_REGEX = re.compile(
     r"^spanner:graph:(?P<project_id>[^.]+)\.regional-(?P<location>[^.]+)\.(?P<instance_id>[^.]+)\.(?P<database_id>[^.]+)\.(?P<graph_id>[^.]+)$"
 )
+# Topic ids cannot contain ':', so a bare topic excludes it and an unquoted
+# domain-scoped project (example.com:my-project) does not match.
 PUBSUB_TOPIC_FQN_REGEX = re.compile(
-    r"^pubsub:topic:(?P<project_id>[^.]+)\.(?P<topic_id>[^.]+)$"
+    r"^pubsub:topic:(?P<project_id>`(?:[^`]|``)+`|[^.`]+)\.(?P<topic_id>`(?:[^`]|``)+`|[^:`]+)$"
 )
 BIGTABLE_INSTANCE_FQN_REGEX = re.compile(
     r"^bigtable:(?P<project_id>[^.]+)\.(?P<instance_id>[^.]+)$"
@@ -241,6 +243,13 @@ def extract_entry_type_short_name(entry_type: str) -> Optional[str]:
     return match.group("entry_type_short_name")
 
 
+def unquote_fqn_segment(segment: str) -> str:
+    """Strip the backticks Dataplex puts around FQN segments with reserved characters."""
+    if len(segment) >= 2 and segment[0] == segment[-1] == "`":
+        return segment[1:-1].replace("``", "`")
+    return segment
+
+
 def parse_with_regex(regex: Pattern[str], value: str) -> Optional[dict[str, str]]:
     """Parse ``value`` with a named-group regex into identity fields.
 
@@ -252,7 +261,7 @@ def parse_with_regex(regex: Pattern[str], value: str) -> Optional[dict[str, str]
     if not match:
         return None
     return {
-        key: matched_value
+        key: unquote_fqn_segment(matched_value)
         for key, matched_value in match.groupdict().items()
         if matched_value is not None
     }

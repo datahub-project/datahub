@@ -2,12 +2,52 @@
 
 import json
 import logging
+import re
+import threading
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from google.cloud import dataplex_v1
 
+from datahub.utilities.ratelimiter import TokenBucket
+
 logger = logging.getLogger(__name__)
+
+SECONDS_PER_MINUTE = 60.0
+
+
+def calls_per_minute_bucket(max_calls_per_minute: int) -> TokenBucket:
+    """Token bucket pacing at ``max_calls_per_minute`` sustained calls."""
+    rate = max_calls_per_minute / SECONDS_PER_MINUTE
+    # A one-second burst, so no 60s window runs far past the limit.
+    return TokenBucket(rate=rate, capacity=max(1.0, rate))
+
+
+LOCATION_IN_RESOURCE_NAME = re.compile(r"(?:^|/)locations/(?P<location>[^/]+)")
+
+
+class PerLocationRateLimiter:
+    """One ``calls_per_minute_bucket`` per API location, shared across threads."""
+
+    def __init__(self, max_calls_per_minute: int) -> None:
+        self.max_calls_per_minute = max_calls_per_minute
+        self._buckets: Dict[str, TokenBucket] = {}
+        self._lock = threading.Lock()
+
+    def acquire(self, resource_name: str) -> None:
+        """Wait for a token for the location of ``resource_name``.
+
+        ``resource_name`` is a ``projects/{p}/locations/{loc}/...`` name or a
+        bare location. Projects sharing a location share its bucket.
+        """
+        match = LOCATION_IN_RESOURCE_NAME.search(resource_name)
+        location = match.group("location") if match else resource_name
+        with self._lock:
+            bucket = self._buckets.get(location)
+            if bucket is None:
+                bucket = calls_per_minute_bucket(self.max_calls_per_minute)
+                self._buckets[location] = bucket
+        bucket.acquire()
 
 
 @dataclass(frozen=True)

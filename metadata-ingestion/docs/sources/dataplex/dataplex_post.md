@@ -110,6 +110,8 @@ reduce wall-clock ingestion time for large deployments.
 **Lineage stage** dispatches one worker per entry to fetch `search_links` results across all
 configured `lineage_locations`, so total API call time scales with
 `max(entries / max_workers_lineage)` rather than `entries × lineage_locations`.
+Each lineage location is paced separately at `lineage_max_calls_per_minute`, so more
+workers stop helping once every location runs at that rate.
 
 Two config fields control the thread pool sizes:
 
@@ -131,13 +133,16 @@ source:
 
     # Parallel processing (tune to your deployment size and API quota)
     max_workers_entries: 20 # default: 10
-    max_workers_lineage: 40 # default: 20
+    max_workers_lineage: 40 # default: 10
 ```
 
-**Lineage Retry Settings** (optional):
+**Lineage Retry and Rate Limit Settings** (optional):
 
-- **`lineage_max_retries`** (default: `3`, range: `1-10`): Retry attempts for transient errors
-- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-10.0`): Backoff delay multiplier
+- **`lineage_max_retries`** (default: `3`, range: `1-20`): Retry attempts for transient errors
+- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-30.0`): Backoff delay multiplier
+- **`lineage_retry_max_wait_seconds`** (default: `10`, range: `2-600`): Upper cap on the backoff between retries. With the default retry settings the backoff never reaches it; it matters only after raising `lineage_max_retries` or `lineage_retry_backoff_multiplier`. Together with more retries or a larger multiplier, set it to about `65`, just past the Data Lineage API's 60-second quota window, so a retry after a 429 can land in a fresh window.
+- **`lineage_max_calls_per_minute`** (default: `1000`): Client-side ceiling on Data Lineage API `search_links` requests per lineage location, shared by all lineage workers and all `project_ids`, and charged once per attempt, including retries. Result pages after the first are not counted. Google's read quota is 1000 requests per minute per project in a multi-region and 2000 in a single region; lower this when several pipelines share a project.
+- **`glossary_lookup_max_calls_per_minute`** (default: `600`): One ceiling for all `lookupEntryLinks` reads during term-association resolution. The default is a conservative choice because Dataplex publishes no separate quota for `lookupEntryLinks`.
 
 **Example Configuration:**
 
@@ -158,8 +163,10 @@ source:
     include_lineage: true # Enable lineage extraction with automatic retries
 
     # Lineage retry settings (optional, defaults shown)
-    lineage_max_retries: 3 # Max retry attempts (range: 1-10)
-    lineage_retry_backoff_multiplier: 1.0 # Exponential backoff multiplier (range: 0.1-10.0)
+    lineage_max_retries: 3 # Max retry attempts (range: 1-20)
+    lineage_retry_backoff_multiplier: 1.0 # Exponential backoff multiplier (range: 0.1-30.0)
+    lineage_retry_max_wait_seconds: 10 # Backoff cap; with more retries, ~65 outlasts the 60s quota window
+    lineage_max_calls_per_minute: 1000 # Data Lineage API read ceiling per location
 ```
 
 **Configuration for Large Deployments:**
@@ -304,7 +311,7 @@ After exhausting retries, the connector logs a warning and continues processing 
 1. **Location scope**: Lineage API requests are scoped using each entry's own Dataplex location.
 2. **Missing permissions**: Ensure service account has `roles/datalineage.viewer` role on all projects.
 3. **No lineage data**: Some entries may not have lineage if they weren't created through supported systems (BigQuery DDL/DML, Cloud Data Fusion, etc.).
-4. **Rate limiting**: If you encounter persistent rate limiting, increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure.
+4. **Rate limiting**: If you get persistent HTTP 429 errors, lower `lineage_max_calls_per_minute` (or `glossary_lookup_max_calls_per_minute` for `lookupEntryLinks` errors) so the connector sends fewer requests. You can also increase `lineage_retry_backoff_multiplier` to add more delay between retries, or decrease `lineage_max_retries` if you prefer faster failure.
 
 #### Others
 
