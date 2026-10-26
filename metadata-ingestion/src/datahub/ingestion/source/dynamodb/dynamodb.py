@@ -226,8 +226,9 @@ class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportM
     # Caveat counter, not a success metric: identity-mapped column edges emitted when the S3
     # export dataset isn't in DataHub, so they're unvalidated against a real schema.
     s3_export_column_lineage_inferred: int = 0
-    # Destinations with no dataset in DataHub, checked only when the recipe has a DataHub
-    # connection. Their lineage lands on an S3 entity that only carries these edges.
+    # Destinations with no ingested dataset (no datasetProperties) in DataHub, checked
+    # only when the recipe has a DataHub connection. Their lineage lands on an S3
+    # entity that only carries these edges.
     s3_export_destinations_not_in_datahub: LossyList[str] = field(
         default_factory=LossyList
     )
@@ -1107,11 +1108,16 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if not self.ctx.graph:
             return
         try:
-            exists = self.ctx.graph.exists(s3_urn)
+            # graph.exists is true for the lineage-only entity this patch creates on
+            # the previous run, so look for datasetProperties, which the S3 source
+            # writes and the lineage patch does not.
+            exists = (
+                self.ctx.graph.get_aspect(s3_urn, DatasetPropertiesClass) is not None
+            )
         except Exception as e:
             self.report.warning(
                 title="Failed to check S3 export destination in DataHub",
-                message="Could not check whether the S3 export dataset exists in DataHub. "
+                message="Could not check whether the S3 export dataset was ingested into DataHub. "
                 "Lineage is still emitted.",
                 context=s3_urn,
                 exc=e,

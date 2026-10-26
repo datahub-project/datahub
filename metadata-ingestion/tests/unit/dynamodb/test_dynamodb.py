@@ -14,6 +14,7 @@ from datahub.ingestion.source.dynamodb.dynamodb import (
 )
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
+    DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -725,21 +726,26 @@ class TestDynamoDBS3ExportLineage:
         ]
 
     @pytest.mark.parametrize(
-        "exists, expected_missing",
+        "dataset_properties, expected_missing",
         [
-            pytest.param(True, [], id="destination-in-datahub"),
             pytest.param(
-                False,
+                DatasetPropertiesClass(name="p"), [], id="destination-ingested"
+            ),
+            pytest.param(
+                None,
                 ["urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD)"],
-                id="destination-not-in-datahub",
+                id="destination-not-ingested",
             ),
         ],
     )
     def test_s3_export_destination_existence_reported(
-        self, mock_context, lineage_config, exists, expected_missing
+        self, mock_context, lineage_config, dataset_properties, expected_missing
     ):
+        # A lineage-only entity from a previous run exists, but has no
+        # datasetProperties, so it still counts as missing.
         mock_context.graph = MagicMock()
-        mock_context.graph.exists.return_value = exists
+        mock_context.graph.exists.return_value = True
+        mock_context.graph.get_aspect.return_value = dataset_properties
         source = self._source_with_one_export(mock_context, lineage_config)
 
         workunits = list(source._emit_s3_export_lineage())
@@ -763,7 +769,7 @@ class TestDynamoDBS3ExportLineage:
         self, mock_context, lineage_config
     ):
         mock_context.graph = MagicMock()
-        mock_context.graph.exists.side_effect = Exception("GMS error")
+        mock_context.graph.get_aspect.side_effect = Exception("GMS error")
         source = self._source_with_one_export(mock_context, lineage_config)
 
         workunits = list(source._emit_s3_export_lineage())
