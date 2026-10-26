@@ -39,7 +39,10 @@ from datahub.ingestion.source.common.object_store_files import (
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
-from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
+from datahub.ingestion.source.odcs.odcs_constants import (
+    OBJECT_PLACEHOLDERS,
+    VARIABLE_MARKER,
+)
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     RefusalKind,
@@ -99,7 +102,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     StatusClass,
 )
-from datahub.metadata.urns import DataProductUrn
+from datahub.metadata.urns import DataProductUrn, DatasetUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.urn import guess_entity_type
@@ -1169,6 +1172,22 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=f"{source_uri}: {', '.join(dropped)}",
             )
 
+    def _report_unreplaced_object_placeholder(
+        self, schema_entry: ODCSSchemaObject, source_uri: str
+    ) -> None:
+        if any(
+            rule.query and any(p in rule.query for p in OBJECT_PLACEHOLDERS)
+            for rule, _, _ in iter_schema_rules(schema_entry)
+        ):
+            self.report.warning(
+                title="ODCS quality rule table placeholder not replaced",
+                message=(
+                    "The schema entry is not bound to a physical table, so "
+                    "{object} in its SQL rules stays as written."
+                ),
+                context=f"{source_uri}: {schema_entry.name}",
+            )
+
     def _report_variables_in_rules(
         self, contract: ODCSContract, source_uri: str
     ) -> None:
@@ -1177,7 +1196,12 @@ class ODCSSource(StatefulIngestionSourceBase):
             for rule, column, _ in iter_schema_rules(entry):
                 body = rule.query or rule.implementation
                 text = body if isinstance(body, str) else json.dumps(body)
-                if body is not None and VARIABLE_MARKER in text:
+                # `${object}` is the table placeholder, replaced once bound
+                # (or reported as unbound), not a variable to resolve.
+                checked = text
+                for placeholder in OBJECT_PLACEHOLDERS:
+                    checked = checked.replace(placeholder, "")
+                if body is not None and VARIABLE_MARKER in checked:
                     location = f"{entry.name}.{column}" if column else entry.name
                     found.append(f"{location}: {text}")
         if found:
@@ -1246,10 +1270,20 @@ class ODCSSource(StatefulIngestionSourceBase):
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
         # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
+        # The URN's name is the table as the platform's connector names it,
+        # including a `physical_urn_overrides` target.
+        bound_table = (
+            DatasetUrn.from_string(binding.physical_urn).name
+            if binding.physical_urn
+            else None
+        )
+        if bound_table is None:
+            self._report_unreplaced_object_placeholder(schema_entry, source_uri)
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
             contract=contract,
             schema_entry=schema_entry,
             logical_urn=binding.logical_urn,
+            bound_table=bound_table,
         )
         self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
         if trace.deprecated_rule_key:

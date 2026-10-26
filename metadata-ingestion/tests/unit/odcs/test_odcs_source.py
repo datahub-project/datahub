@@ -2252,3 +2252,42 @@ def test_explicitly_unbound_entry_is_not_an_unmappable_server(
     )
     list(src.get_workunits_internal())
     assert src.report.unmappable_servers == 0
+
+
+_OBJECT_RULE = """\
+    quality:
+      - type: sql
+        query: SELECT count(*) FROM ${object} WHERE id IS NULL
+        mustBe: 0
+"""
+
+
+def test_object_placeholder_bound_is_replaced_without_warnings(
+    tmp_path: pathlib.Path,
+) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path)
+    workunits = list(src.get_workunits_internal())
+    statements = [
+        a.sqlAssertion.statement
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.sqlAssertion is not None
+    ]
+    assert statements == ["SELECT count(*) FROM appdb.public.t WHERE id IS NULL"]
+    assert "unresolved variable" not in _messages(src.report.warnings)
+    assert "placeholder" not in _messages(src.report.warnings)
+
+
+def test_object_placeholder_unbound_warns(tmp_path: pathlib.Path) -> None:
+    body = _VALID_CONTRACT_BODY.replace("type: postgres", "type: kafka").replace(
+        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path)
+    list(src.get_workunits_internal())
+    warnings = [w for w in src.report.warnings if w.title and "placeholder" in w.title]
+    assert len(warnings) == 1
+    assert "t" in str(warnings[0].context)

@@ -34,6 +34,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     METRIC_NULL_VALUES,
     METRIC_ROW_COUNT,
     METRIC_VALID_VALUES,
+    OBJECT_PLACEHOLDERS,
     ODCS_ACTOR,
     OWNER_ROLE_MAP,
     PLATFORM_GLUE,
@@ -1604,10 +1605,17 @@ def _route_and_build(
     return _route_library_rule(ctx, trace)
 
 
+def substitute_object_placeholder(query: str, table: str) -> str:
+    for placeholder in OBJECT_PLACEHOLDERS:
+        query = query.replace(placeholder, table)
+    return query
+
+
 def odcs_to_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
+    bound_table: Optional[str] = None,
 ) -> Tuple[List[str], List[MetadataChangeProposalWrapper], AssertionRoutingTrace]:
     """Emit Assertion entities for every rule on one schema entry.
 
@@ -1622,6 +1630,12 @@ def odcs_to_assertion_mcps(
     api_version = (contract.apiVersion or "").lstrip("v")
 
     for index, (rule, column, scope) in enumerate(iter_schema_rules(schema_entry)):
+        if bound_table and rule.query:
+            # Before routing, so the SQL assertion and the custom-assertion
+            # fallback show the same query.
+            rule = rule.model_copy(
+                update={"query": substitute_object_placeholder(rule.query, bound_table)}
+            )
         ctx = _RuleContext(
             rule=rule,
             column=column,

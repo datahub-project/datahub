@@ -22,6 +22,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    substitute_object_placeholder,
     unmapped_owner_roles,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -562,9 +563,7 @@ def test_dataset_description_combines_table_grain_and_contract() -> None:
 
 def test_dataset_description_blank_grain_ignored() -> None:
     contract = _make_contract(
-        schema=[
-            {"name": "t", "description": "T.", "dataGranularityDescription": "   "}
-        ]
+        schema=[{"name": "t", "description": "T.", "dataGranularityDescription": "   "}]
     )
     assert _dataset_description(contract) == "T."
 
@@ -1906,7 +1905,9 @@ def test_binding_malformed_catalog_url_does_not_raise() -> None:
 
 
 def _field_descriptions(properties: List[Dict[str, Any]]) -> Dict[str, Optional[str]]:
-    entry = ODCSSchemaObject.model_validate({"name": "orders", "properties": properties})
+    entry = ODCSSchemaObject.model_validate(
+        {"name": "orders", "properties": properties}
+    )
     schema = build_schema_metadata(entry).schema_metadata
     assert schema is not None
     return {f.fieldPath: f.description for f in schema.fields}
@@ -1970,3 +1971,53 @@ def test_transform_fields_off_spec_values_dropped() -> None:
     )
     assert prop.transformLogic is None
     assert prop.transformDescription is None
+
+
+def test_substitute_object_placeholder_all_forms() -> None:
+    query = (
+        "SELECT count(*) FROM {object} a JOIN ${object} b ON a.id = b.id "
+        "WHERE x IN (SELECT id FROM {object})"
+    )
+    assert substitute_object_placeholder(query, "db.sch.orders") == (
+        "SELECT count(*) FROM db.sch.orders a JOIN db.sch.orders b ON a.id = b.id "
+        "WHERE x IN (SELECT id FROM db.sch.orders)"
+    )
+
+
+def _object_rule_infos(bound_table: Optional[str]) -> List[AssertionInfoClass]:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "quality": [
+                    {
+                        "type": "sql",
+                        "query": "SELECT count(*) FROM {object}",
+                        "mustBe": 0,
+                    },
+                    # No threshold: routed to a custom assertion carrying the query.
+                    {"type": "sql", "query": "SELECT count(*) FROM {object}"},
+                ],
+            }
+        ]
+    )
+    _, mcps, _ = odcs_to_assertion_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+        bound_table=bound_table,
+    )
+    return [m.aspect for m in mcps if isinstance(m.aspect, AssertionInfoClass)]
+
+
+def test_sql_rule_object_replaced_in_sql_and_custom_fallback() -> None:
+    sql_info, custom_info = _object_rule_infos("db.sch.orders")
+    assert sql_info.sqlAssertion is not None
+    assert sql_info.sqlAssertion.statement == "SELECT count(*) FROM db.sch.orders"
+    assert _custom_logic(custom_info) == "SELECT count(*) FROM db.sch.orders"
+
+
+def test_sql_rule_object_kept_when_unbound() -> None:
+    sql_info, _ = _object_rule_infos(None)
+    assert sql_info.sqlAssertion is not None
+    assert sql_info.sqlAssertion.statement == "SELECT count(*) FROM {object}"
