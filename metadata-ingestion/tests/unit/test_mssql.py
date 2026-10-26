@@ -580,7 +580,7 @@ def test_use_odbc_removed_field_warning(mock_pipeline_context):
         assert "use_odbc" in str(config_warnings[0].message)
         assert "removed" in str(config_warnings[0].message)
 
-    # is_odbc is determined by source type, stored on instance
+    # is_odbc is determined by source type, and read from the config
     assert source.config.uses_odbc() is True
 
 
@@ -616,8 +616,6 @@ def test_profiler_field_path_follows_column_lowercase_flag(
         assert transform("AccountID") == "accountid"
     else:
         assert transform is None
-    # is_odbc is determined by source type, and read from the config
-    assert source.config.uses_odbc() is True
 
 
 def test_get_columns_does_not_mutate_inspector_cache(mssql_source):

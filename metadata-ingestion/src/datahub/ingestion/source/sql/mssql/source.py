@@ -130,10 +130,10 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
 
 if TYPE_CHECKING:
+    from datahub.ingestion.agent.sql_passthrough import QueryBudget
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
-    from datahub.ingestion.agent.sql_passthrough import QueryBudget
 
 logger: logging.Logger = logging.getLogger(__name__)
 
