@@ -16,6 +16,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -53,6 +54,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    odcs_to_structured_property_mcps,
     unmapped_owner_roles,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
@@ -80,6 +82,9 @@ from datahub.ingestion.source.odcs.odcs_models import (
     ODCSTeam,
     ODCSTeamMember,
 )
+from datahub.ingestion.source.odcs.odcs_structured_properties import (
+    structured_property_definition_mcps,
+)
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -98,6 +103,7 @@ from datahub.metadata.schema_classes import (
     LogicalParentClass,
     OwnershipClass,
     StatusClass,
+    StructuredPropertyDefinitionClass,
 )
 from datahub.metadata.urns import DataProductUrn
 from datahub.utilities.lossy_collections import LossyList
@@ -148,6 +154,13 @@ _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSQualityRule: READ_BUT_UNMAPPED_QUALITY_FIELDS,
     ODCSServer: READ_BUT_UNMAPPED_SERVER_FIELDS,
     ODCSTeamMember: READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
+}
+
+# Read only to emit the opt-in `odcs.*` structured properties: unmapped, and
+# reported as such, when emit_structured_properties is off.
+_STRUCTURED_PROPERTY_ONLY_BY_MODEL: Dict[type, frozenset] = {
+    ODCSSchemaObject: frozenset(("synonyms",)),
+    ODCSProperty: frozenset(("logicalTypeOptions",)),
 }
 
 
@@ -338,6 +351,9 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Logical `odcs` dataset URNs emitted this run, to detect collisions when
         # two contracts resolve to the same {contract_id}.{schema_name}.
         self._seen_logical_urns: Set[str] = set()
+        # `odcs.*` structured properties whose definition could not be confirmed;
+        # their values are never written (GMS would reject the whole patch).
+        self._unavailable_structured_properties: Set[str] = set()
         self._ai_context_unmerged_reported = False
         # Physical URNs already claimed by a logicalParent link this run:
         # logicalParent is single-valued, so a second contract binding the same
@@ -775,6 +791,10 @@ class ODCSSource(StatefulIngestionSourceBase):
             allowed = _model_field_keys(model_cls)
             known_unmapped = _KNOWN_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
             read_unmapped = _READ_BUT_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
+            if not self.config.emit_structured_properties:
+                read_unmapped = read_unmapped | _STRUCTURED_PROPERTY_ONLY_BY_MODEL.get(
+                    model_cls, frozenset()
+                )
             child_models = _CHILD_MODEL_BY_KEY.get(model_cls, {})
             for key, value in node.items():
                 if key not in allowed:
@@ -1117,6 +1137,94 @@ class ODCSSource(StatefulIngestionSourceBase):
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
+            )
+        if self.config.emit_structured_properties:
+            yield from self._structured_property_workunits(
+                contract, schema_entry, logical_urn, source_uri
+            )
+
+    def _structured_property_definition_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Ensure every `odcs.*` definition is usable before any value is written.
+
+        GMS rejects a whole patch whose result holds a value for a missing,
+        soft-deleted or mismatching definition, so with a graph each missing
+        definition is created synchronously here, ahead of all contracts. A
+        definition that cannot be confirmed usable has its values removed, never
+        set, for the run.
+        """
+        graph = self.ctx.graph
+        if graph is None or self.ctx.dry_run_mode:
+            if graph is None:
+                self.report.warning(
+                    title="ODCS structured property definitions not verified",
+                    message="No DataHub connection, so the definitions are emitted "
+                    "ahead of the values but cannot be checked. Sinks that do not "
+                    "preserve order (e.g. Kafka) may reject values; configure "
+                    "`datahub_api`.",
+                )
+            for mcp in structured_property_definition_mcps():
+                yield mcp.as_workunit(is_primary_source=False)
+            return
+        for mcp in structured_property_definition_mcps():
+            urn = str(mcp.entityUrn)
+            wanted = mcp.aspect
+            if not isinstance(wanted, StructuredPropertyDefinitionClass):
+                continue
+            try:
+                existing = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
+                if existing is None:
+                    graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+                    continue
+                status = graph.get_aspect(urn, StatusClass)
+                problem = (
+                    "it is soft-deleted"
+                    if status is not None and status.removed
+                    else _definition_mismatch(existing, wanted)
+                )
+            except Exception as e:
+                self._unavailable_structured_properties.add(wanted.qualifiedName)
+                self.report.warning(
+                    title="Could not create ODCS structured property definition",
+                    message="Values for this property are not written this run; the "
+                    "rest of the run is unaffected.",
+                    context=urn,
+                    exc=e,
+                )
+                continue
+            if problem:
+                # Existing definitions are never overwritten (admin edits win).
+                self._unavailable_structured_properties.add(wanted.qualifiedName)
+                self.report.warning(
+                    title="ODCS structured property definition is not usable",
+                    message="Its values are removed, not written, until the "
+                    "definition matches what this source emits.",
+                    context=f"{urn}: {problem}",
+                )
+
+    def _structured_property_workunits(
+        self,
+        contract: ODCSContract,
+        schema_entry: ODCSSchemaObject,
+        logical_urn: str,
+        source_uri: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        mcps, rejected = odcs_to_structured_property_mcps(
+            schema_entry,
+            logical_urn,
+            self._unavailable_structured_properties,
+        )
+        for index, (mcp, is_primary) in enumerate(mcps):
+            yield MetadataWorkUnit(
+                id=f"{MetadataWorkUnit.generate_workunit_id(mcp)}-{index}",
+                mcp_raw=mcp,
+                is_primary_source=is_primary,
+            )
+        if rejected:
+            self.report.warning(
+                title="ODCS values outside the structured property definition",
+                message="Dropped these values; other values on the same entities "
+                "were still written.",
+                context=f"{source_uri}: {'; '.join(rejected[:20])}",
             )
 
     def _report_lossy_mappings(
@@ -1741,6 +1849,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         self.report.data_product_output_ports_emitted += len(membership.asset_urns)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.emit_structured_properties:
+            yield from self._structured_property_definition_workunits()
         with contextlib.ExitStack() as stack:
             checkout_dir: Optional[pathlib.Path] = None
             if self.config.git_info is not None:
@@ -1807,3 +1917,25 @@ class ODCSSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> ODCSSourceReport:
         return self.report
+
+
+def _definition_mismatch(
+    existing: StructuredPropertyDefinitionClass,
+    wanted: StructuredPropertyDefinitionClass,
+) -> Optional[str]:
+    """Why GMS would reject our values against `existing`, or None if it accepts them."""
+    if existing.valueType != wanted.valueType:
+        return f"value type is {existing.valueType}"
+    if existing.cardinality != wanted.cardinality:
+        return f"cardinality is {existing.cardinality}"
+    missing_types = set(wanted.entityTypes) - set(existing.entityTypes)
+    if missing_types:
+        return f"entity types lack {sorted(missing_types)}"
+    if existing.allowedValues:
+        allowed = {v.value for v in existing.allowedValues}
+        missing = [
+            v.value for v in wanted.allowedValues or [] if v.value not in allowed
+        ]
+        if not wanted.allowedValues or missing:
+            return f"allowed values lack {missing or 'free text'}"
+    return None

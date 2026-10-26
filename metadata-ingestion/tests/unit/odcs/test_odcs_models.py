@@ -5,6 +5,7 @@ from typing import Any, Dict, Set, Type
 import pytest
 from pydantic import BaseModel
 
+from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
@@ -162,3 +163,59 @@ def test_team_members_accepts_both_spec_shapes() -> None:
         ).team_members
         == []
     )
+
+
+def test_v32_descriptive_attributes_parse_leniently() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "apiVersion": "v3.2.0",
+            "schema": [
+                {
+                    "name": "t",
+                    "synonyms": [{"synonym": "orders"}, "purchases"],
+                    "properties": [
+                        {
+                            "name": "col_a",
+                            "logicalType": "vector",
+                            "semanticType": "measure",
+                            "logicalTypeOptions": {"dimensions": 3},
+                        },
+                        # malformed shapes must not fail the whole contract
+                        {"name": "col_b", "logicalTypeOptions": "oops"},
+                    ],
+                }
+            ],
+        }
+    )
+    assert contract.schema_ is not None
+    schema = contract.schema_[0]
+    assert isinstance(schema.synonyms, list) and len(schema.synonyms) == 2
+    assert schema.properties is not None
+    prop = schema.properties[0]
+    assert prop.semanticType == "measure"
+    assert prop.logicalTypeOptions == {"dimensions": 3}
+    assert schema.properties[1].logicalTypeOptions == "oops"
+
+
+def test_emit_structured_properties_defaults_off() -> None:
+    assert (
+        ODCSSourceConfig.model_validate({"path": "/tmp/x"}).emit_structured_properties
+        is False
+    )
+
+
+def test_v32_descriptive_attributes_never_fail_the_contract() -> None:
+    # These keys are only mapped behind emit_structured_properties; off-spec
+    # shapes must not reject a contract that ingested before they were parsed.
+    schema = ODCSSchemaObject.model_validate(
+        {
+            "name": "t",
+            "synonyms": "orders",
+            "properties": [
+                {"name": "col_a", "semanticType": 1, "logicalTypeOptions": ["x"]}
+            ],
+        }
+    )
+    assert schema.properties is not None
+    assert schema.properties[0].logicalTypeOptions == ["x"]

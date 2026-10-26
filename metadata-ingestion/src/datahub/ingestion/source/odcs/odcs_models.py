@@ -29,7 +29,6 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
         "dataGranularityDescription",
         "id",
         "relationships",
-        "synonyms",
     )
 )
 
@@ -40,7 +39,6 @@ KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
         "examples",
         "id",
         "items",
-        "logicalTypeOptions",
         "map",
         "physicalName",
         "relationships",
@@ -208,6 +206,10 @@ class ODCSProperty(ODCSBaseModel):
     synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
     # v3.2 (RFC 0034): a `measure` is an aggregate, not a physical column.
     semanticType: Optional[str] = None
+    # v3.2 vector options, mapped to `odcs.vector.*` structured properties when
+    # emit_structured_properties is on. Untyped (JsonValue) so one malformed
+    # value cannot fail the whole contract's model validation.
+    logicalTypeOptions: Optional[JsonValue] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
@@ -228,6 +230,9 @@ class ODCSSchemaObject(ODCSBaseModel):
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
+    # Untyped like the v3.2 property attributes: mapped only behind
+    # emit_structured_properties, so an off-spec shape must not fail the contract.
+    synonyms: Optional[JsonValue] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
 
