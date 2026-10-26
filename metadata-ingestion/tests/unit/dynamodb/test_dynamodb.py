@@ -741,10 +741,9 @@ class TestDynamoDBS3ExportLineage:
     def test_s3_export_destination_existence_reported(
         self, mock_context, lineage_config, dataset_properties, expected_missing
     ):
-        # A lineage-only entity from a previous run exists, but has no
-        # datasetProperties, so it still counts as missing.
+        # A lineage-only entity from a previous run has no datasetProperties, so
+        # it still counts as missing.
         mock_context.graph = MagicMock()
-        mock_context.graph.exists.return_value = True
         mock_context.graph.get_aspect.return_value = dataset_properties
         source = self._source_with_one_export(mock_context, lineage_config)
 
@@ -754,6 +753,14 @@ class TestDynamoDBS3ExportLineage:
         assert list(source.report.s3_export_destinations_not_in_datahub) == (
             expected_missing
         )
+        # Entity existence is not the signal: a lineage-only stub exists too.
+        mock_context.graph.exists.assert_not_called()
+        infos = [
+            info
+            for info in source.report.infos
+            if info.title == "S3 export destinations not ingested in DataHub"
+        ]
+        assert len(infos) == (1 if expected_missing else 0)
 
     def test_s3_export_destination_check_skipped_without_graph(
         self, mock_context, lineage_config

@@ -1161,3 +1161,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     mcp_raw=mcp,
                     is_primary_source=False,
                 )
+
+        missing = self.report.s3_export_destinations_not_in_datahub
+        if missing:
+            # The LossyList only shows in the raw report; one aggregated entry also
+            # surfaces it in the UI's structured logs.
+            self.report.info(
+                title="S3 export destinations not ingested in DataHub",
+                message="These export destinations have no dataset ingested by another "
+                "source, so their lineage lands on a lineage-only S3 entity. Check the S3 "
+                "source's path_spec and platform_instance, or ingest the bucket.",
+                context=", ".join(missing),
+            )
