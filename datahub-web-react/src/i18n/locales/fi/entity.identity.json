@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Nimi",
     "groups.createModal.name.placeholder": "Nimi ryhmällesi",
     "groups.createModal.name.validationError.empty": "Anna ryhmän nimi.",
-    "groups.createModal.name.validationError.tooLong": "Nimen on oltava enintään 50 merkkiä pitkä.",
+    "groups.createModal.name.validationError.tooLong": "Nimen on oltava enintään 250 merkkiä pitkä.",
     "groups.createModal.title": "Luo uusi ryhmä",
     "groups.createOwnerError": "Sinun lisäämisesi ryhmän omistajaksi automaattisesti epäonnistui. Lisää itsesi omistajaksi manuaalisesti.",
     "groups.createSuccess": "Ryhmä luotu!",
@@ -118,6 +118,7 @@
     "users.columns.name": "Nimi",
     "users.columns.role": "Rooli",
     "users.columns.status": "Tila",
+    "users.copyUrn": "Kopioi URN",
     "users.deleteUser": "Poista käyttäjä",
     "users.emptyTitle": "Ei käyttäjiä!",
     "users.groups.overflowTitle": "Ryhmät",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Tila",
     "users.statusFilter.suspended": "Keskeytetty",
     "users.statusInactive": "Ei aktiivinen",
-    "users.statusNoUrn": "Ei URN:ää"
+    "users.statusNoUrn": "Ei URN:ää",
+    "users.urnCopied": "URN kopioitu leikepöydälle"
 }

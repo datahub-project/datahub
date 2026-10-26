@@ -9,10 +9,12 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.config.kubernetes.DeploymentEnvUpdate;
 import com.linkedin.metadata.config.kubernetes.KubernetesScaleDownConfiguration;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -118,7 +120,7 @@ public class KubernetesScaleDownStepTest {
     config.setEnabled(true);
     config.setUseJavaImplementation(true);
     config.setDeploymentEnvUpdates(
-        "[{\"labelSelector\":\"app.kubernetes.io/name=datahub-gms\",\"env\":{\"PRE_PROCESS_HOOKS_UI_ENABLED\":\"false\",\"MCE_CONSUMER_ENABLED\":\"false\"}}]");
+        "[{\"labelSelector\":\"app.kubernetes.io/name=datahub-gms\",\"env\":{\"PRE_PROCESS_HOOKS_UI_ENABLED\":\"false\",\"MAE_CONSUMER_ENABLED\":\"false\",\"MCE_CONSUMER_ENABLED\":\"false\"}}]");
     step = new KubernetesScaleDownStep(config);
 
     // executable() runs; without in-cluster K8 it fails early (no client). Verifies context
@@ -346,5 +348,73 @@ public class KubernetesScaleDownStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), com.linkedin.upgrade.DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  public void testValidatePreprocessEnvUpdates_uiOffWithMaeOffAllowed() {
+    KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+        List.of(
+            new DeploymentEnvUpdate(
+                "app.kubernetes.io/name=datahub-gms",
+                Map.of("PRE_PROCESS_HOOKS_UI_ENABLED", "false", "MAE_CONSUMER_ENABLED", "false"))));
+  }
+
+  @Test
+  public void testValidatePreprocessEnvUpdates_uiOffWithMclOffAloneThrows() {
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+                    List.of(
+                        new DeploymentEnvUpdate(
+                            "app.kubernetes.io/name=datahub-gms",
+                            Map.of(
+                                "PRE_PROCESS_HOOKS_UI_ENABLED",
+                                "false",
+                                "MCL_CONSUMER_ENABLED",
+                                "false")))));
+    assertTrue(ex.getMessage().contains("MAE_CONSUMER_ENABLED"), ex.getMessage());
+  }
+
+  @Test
+  public void testValidatePreprocessEnvUpdates_uiOffMaeOffMclOnThrows() {
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+                    List.of(
+                        new DeploymentEnvUpdate(
+                            "app.kubernetes.io/name=datahub-gms",
+                            Map.of(
+                                "PRE_PROCESS_HOOKS_UI_ENABLED",
+                                "false",
+                                "MAE_CONSUMER_ENABLED",
+                                "false",
+                                "MCL_CONSUMER_ENABLED",
+                                "true")))));
+    assertTrue(ex.getMessage().contains("19119"), ex.getMessage());
+  }
+
+  @Test
+  public void testValidatePreprocessEnvUpdates_unrelatedKeysAllowed() {
+    KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+        List.of(new DeploymentEnvUpdate("app=gms", Map.of("KEY", "value"))));
+  }
+
+  @Test
+  public void testValidatePreprocessEnvUpdates_uiOffWithoutConsumerOffThrows() {
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                KubernetesScaleDownStep.validatePreprocessEnvUpdates(
+                    List.of(
+                        new DeploymentEnvUpdate(
+                            "app.kubernetes.io/name=datahub-gms",
+                            Map.of("PRE_PROCESS_HOOKS_UI_ENABLED", "false")))));
+    assertTrue(ex.getMessage().contains("19119"), ex.getMessage());
+    assertTrue(ex.getMessage().contains("MAE_CONSUMER_ENABLED"), ex.getMessage());
   }
 }

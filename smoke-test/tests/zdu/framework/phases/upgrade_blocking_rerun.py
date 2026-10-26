@@ -25,7 +25,7 @@ from datetime import datetime
 from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from .upgrade_blocking import _start_deadline_watchdog
-from ..constants import REPO_ROOT
+from ..constants import REPO_ROOT, ZDU_NEW_REVISION
 from ..context import TestContext, UpgradeBlockingReRunResult
 from ..docker_compose import DockerComposeClient
 from ..host_mounts import worktree_mount_env
@@ -33,6 +33,7 @@ from ..log_monitor import Phase1State, _parse_phase1_line
 from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
+
 
 _DEFAULT_TIMEOUT_S = 600
 
@@ -215,6 +216,7 @@ class UpgradeBlockingReRunPhase(Phase):
         env_overrides = {
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
+            "DATAHUB_REVISION": ZDU_NEW_REVISION,
             "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX": "true",
         }
         return self._docker.run_upgrade_job(

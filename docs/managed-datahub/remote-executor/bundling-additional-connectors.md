@@ -104,3 +104,17 @@ ENV PIP_EXTRA_INDEX_URL=""
 ENV UV_EXTRA_INDEX_URL=""
 USER datahub
 ```
+
+## Using a bundled connector
+
+Building the image only makes the venv available — a run actually uses it only when its **CLI version** is set to **`bundled`**
+(the `version` execution argument; defaults to `latest`). Set it on the ingestion source in the DataHub UI under **Advanced → CLI
+Version**:
+
+- **`bundled`** → run from the pre-built `/opt/datahub/venvs/{plugin}-bundled` (no runtime dependency install or associated
+  ephemeral-storage growth).
+- empty (default), **`latest`**, or a specific `acryl-datahub` version → build a dynamic venv at runtime.
+
+If the connector isn't bundled in the image, the run falls back to a dynamic venv — and on a **locked** image (no `uv`/`pip`, or no
+reachable package index) that fallback fails. See
+[Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md#using-a-bundled-venv) for the full picture.

@@ -1,4 +1,4 @@
-import { ApiOutlined } from '@ant-design/icons';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
@@ -11,7 +11,7 @@ import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.gen
 
 import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
-const StyledApiOutlined = styled(ApiOutlined)`
+const StyledApiOutlined = styled(Plugs)`
     && {
         margin: 0px;
         padding: 0px;

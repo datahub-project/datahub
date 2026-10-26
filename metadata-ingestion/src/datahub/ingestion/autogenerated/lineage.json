@@ -186,6 +186,23 @@
             }
           }
         ]
+      },
+      "upstreamMetrics": {
+        "aspect": "upstreamMetrics",
+        "fields": [
+          {
+            "name": "metrics",
+            "path": "metrics",
+            "isLineage": true,
+            "relationship": {
+              "name": "ConsumesMetric",
+              "entityTypes": [
+                "metric"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
       }
     },
     "semanticModel": {
@@ -198,23 +215,6 @@
             "isLineage": true,
             "relationship": {
               "name": "DownstreamOf",
-              "entityTypes": [
-                "dataset"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      },
-      "semanticModelInfo": {
-        "aspect": "semanticModelInfo",
-        "fields": [
-          {
-            "name": "datasets",
-            "path": "datasets",
-            "isLineage": true,
-            "relationship": {
-              "name": "Contains",
               "entityTypes": [
                 "dataset"
               ],
@@ -290,6 +290,23 @@
             }
           }
         ]
+      },
+      "upstreamMetrics": {
+        "aspect": "upstreamMetrics",
+        "fields": [
+          {
+            "name": "metrics",
+            "path": "metrics",
+            "isLineage": true,
+            "relationship": {
+              "name": "ConsumesMetric",
+              "entityTypes": [
+                "metric"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
       }
     },
     "dashboard": {
@@ -352,6 +369,23 @@
               "name": "DashboardContainsDashboard",
               "entityTypes": [
                 "dashboard"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      },
+      "upstreamMetrics": {
+        "aspect": "upstreamMetrics",
+        "fields": [
+          {
+            "name": "metrics",
+            "path": "metrics",
+            "isLineage": true,
+            "relationship": {
+              "name": "ConsumesMetric",
+              "entityTypes": [
+                "metric"
               ],
               "isLineage": true
             }
@@ -504,6 +538,35 @@
             }
           }
         ]
+      },
+      "apiSignature": {
+        "aspect": "apiSignature",
+        "fields": [
+          {
+            "name": "inputDatasetEdges",
+            "path": "inputDatasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Consumes",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputDatasetEdges",
+            "path": "outputDatasetEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "Produces",
+              "entityTypes": [
+                "dataset"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
       }
     },
     "application": {
@@ -571,23 +634,6 @@
       }
     },
     "metric": {
-      "metricInfo": {
-        "aspect": "metricInfo",
-        "fields": [
-          {
-            "name": "semanticModel",
-            "path": "semanticModel",
-            "isLineage": true,
-            "relationship": {
-              "name": "ModeledBy",
-              "entityTypes": [
-                "semanticModel"
-              ],
-              "isLineage": true
-            }
-          }
-        ]
-      },
       "metricUpstreams": {
         "aspect": "metricUpstreams",
         "fields": [
@@ -625,5 +671,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-07-26T20:18:00.599562+00:00"
+  "generated_at": "2026-10-01T14:13:58.793559+00:00"
 }

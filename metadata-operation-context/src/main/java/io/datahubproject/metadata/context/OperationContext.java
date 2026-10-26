@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
+import com.datahub.context.ConfigEnrichment;
 import com.datahub.context.Enrichment;
 import com.datahub.context.EnrichmentBundle;
 import com.datahub.context.OperationFingerprint;
@@ -336,6 +337,51 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return OperationContext.withReadPreference(this, readPreference);
   }
 
+  /**
+   * Internal index-occupancy checks skip template execution. Does not change the search surface or
+   * the template a user search would select.
+   */
+  @Nonnull
+  public OperationContext withSkipTemplateExecution(boolean skipTemplateExecution) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().skipTemplateExecution(skipTemplateExecution).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /** Tags the search surface used to select a query template. Does not select the template. */
+  @Nonnull
+  public OperationContext withSearchSurface(@Nullable String searchSurface) {
+    try {
+      return toBuilder()
+          .searchContext(getSearchContext().toBuilder().searchSurface(searchSurface).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Records the template chosen for this invocation. Selection does not read this field. Replaces
+   * any template recorded by a previous query on the copied context.
+   */
+  @Nonnull
+  public OperationContext withResolvedSearchTemplate(
+      @Nullable ResolvedSearchTemplate resolvedSearchTemplate) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().resolvedSearchTemplate(resolvedSearchTemplate).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   public OperationContext asSession(
       @Nonnull RequestContext.RequestContextBuilder requestContext,
       @Nonnull Authorizer authorizer,
@@ -408,11 +454,16 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return authorizationContext.getAuthorizer().getActorPeers(sessionActorContext.getActorUrn());
   }
 
+  /** Groups the session actor belongs to. */
+  public Collection<Urn> getActorGroups() {
+    return authorizationContext.getAuthorizer().getActorGroups(sessionActorContext.getActorUrn());
+  }
+
   /**
-   * Whether default authentication is system level
-   *
-   * @return
+   * Whether default authentication is system level. Implements {@link
+   * com.datahub.context.OperationFingerprint#isSystemAuth()}.
    */
+  @Override
   public boolean isSystemAuth() {
     return operationContextConfig.isAllowSystemAuthentication()
         && sessionActorContext.isSystemAuth();
@@ -580,79 +631,98 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
    */
   public String getGlobalContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getAuthorizationContext())
-            .add(getSessionActorContext())
-            .add(getSearchContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
-            .add(getRetrieverContext())
-            .add(getObjectMapperContext())
-            .add(
-                getSystemTelemetryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getSystemTelemetryContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+            ImmutableSet.<ContextInterface>builder()
+                .add(getOperationContextConfig())
+                .add(getAuthorizationContext())
+                .add(getSessionActorContext())
+                .add(getSearchContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
+                .add(getRetrieverContext())
+                .add(getObjectMapperContext())
+                .add(
+                    getSystemTelemetryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getSystemTelemetryContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   // Context id specific to contexts which impact search responses
   public String getSearchContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getSessionActorContext())
-            .add(getSearchContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getRetrieverContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+            ImmutableSet.<ContextInterface>builder()
+                .add(getOperationContextConfig())
+                .add(getSessionActorContext())
+                .add(getSearchContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getRetrieverContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum())
+        + enrichmentCacheKeySuffix();
   }
 
   // Context id specific to entity lookups (not search)
   public String getEntityContextId() {
     return String.valueOf(
-        ImmutableSet.<ContextInterface>builder()
-            .add(getOperationContextConfig())
-            .add(getSessionActorContext())
-            .add(
-                getEntityRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getEntityRegistryContext())
-            .add(
-                getServicesRegistryContext() == null
-                    ? EmptyContext.EMPTY
-                    : getServicesRegistryContext())
-            .add(getPrimaryStorageContext())
-            .build()
-            .stream()
-            .map(ContextInterface::getCacheKeyComponent)
-            .filter(Optional::isPresent)
-            .mapToInt(Optional::get)
-            .sum());
+            ImmutableSet.<ContextInterface>builder()
+                .add(getOperationContextConfig())
+                .add(getSessionActorContext())
+                .add(
+                    getEntityRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getEntityRegistryContext())
+                .add(
+                    getServicesRegistryContext() == null
+                        ? EmptyContext.EMPTY
+                        : getServicesRegistryContext())
+                .add(getPrimaryStorageContext())
+                .build()
+                .stream()
+                .map(ContextInterface::getCacheKeyComponent)
+                .filter(Optional::isPresent)
+                .mapToInt(Optional::get)
+                .sum())
+        + enrichmentCacheKeySuffix();
+  }
+
+  /**
+   * Discriminator folded into {@link #getGlobalContextId()}, {@link #getSearchContextId()}, and
+   * {@link #getEntityContextId()} for any per-request enrichment (a request-scoped identity), so a
+   * cache keyed on those ids isolates by enrichment. The empty bundle hashes to {@code 0}, so this
+   * is a no-op when no enrichments are present and only starts to discriminate once a deployment
+   * stamps one — discharging the "fold that discriminator into the OperationContext-level cache
+   * key" obligation noted on {@code SearchContext#getCacheKeyComponent}.
+   */
+  private String enrichmentCacheKeySuffix() {
+    // Collision-resistant string token (not the 32-bit hashCode) so two distinct enrichments can
+    // never share a cache key. Empty bundle -> "", keeping the id byte-identical to a context with
+    // no enrichments.
+    String token = getEnrichmentBundle().stableCacheToken();
+    return token.isEmpty() ? "" : "|" + token;
   }
 
   @Nonnull
@@ -706,14 +776,24 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return getEnrichmentBundle().get(type);
   }
 
+  /** The stamped {@link ConfigEnrichment}'s answer for {@code key}, else {@code defaultValue}. */
+  @Override
+  @Nonnull
+  public <T> T getConfig(@Nonnull final String key, @Nonnull final T defaultValue) {
+    return getEnrichment(ConfigEnrichment.class)
+        .map(enrichment -> enrichment.resolve(this, key, defaultValue))
+        .filter(value -> defaultValue.getClass().isInstance(value))
+        .orElse(defaultValue);
+  }
+
   /**
    * Return a new {@link OperationContext} with {@code enrichment} added to (or replacing) any
    * same-class entry in this context's enrichments. Copy-on-write — the original context is
    * unchanged. Useful for downstream services that need to enhance an existing enrichment, e.g.:
    *
    * <pre>{@code
-   * TenantConfig existing = opContext.getEnrichment(TenantConfig.class).orElseThrow();
-   * OperationContext promoted = opContext.withEnrichment(existing.withTier("premium"));
+   * MyEnrichment existing = opContext.getEnrichment(MyEnrichment.class).orElseThrow();
+   * OperationContext updated = opContext.withEnrichment(existing.withFoo("bar"));
    * }</pre>
    *
    * <p>The record's own {@code withXxx(...)} methods (idiomatic Java records) produce the updated

@@ -1,9 +1,6 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -12,11 +9,7 @@ import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,14 +37,12 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
           Constants.NOTEBOOK_ENTITY_NAME);
 
   private static final String PLATFORM = "platform";
-  private final EntityService<?> entityService;
 
   public TopPlatformsSource(
       EntitySearchService entitySearchService,
       EntityService<?> entityService,
       EntityRegistry entityRegistry) {
     super(entityService, entitySearchService, entityRegistry);
-    this.entityService = entityService;
   }
 
   @Override
@@ -95,21 +86,10 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
     return true;
   }
 
-  @Override
-  protected Set<Urn> getValidCandidateUrns(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> candidateUrns) {
-    // A platform is a valid candidate only if it has a logo. Fetch the dataPlatformInfo aspect for
-    // every candidate in a single batched call rather than one lookup per platform.
-    final Map<Urn, List<RecordTemplate>> aspects =
-        entityService.getLatestAspects(
-            opContext, candidateUrns, Set.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME), false);
-    return candidateUrns.stream()
-        .filter(
-            urn ->
-                aspects.getOrDefault(urn, Collections.emptyList()).stream()
-                    .filter(DataPlatformInfo.class::isInstance)
-                    .map(DataPlatformInfo.class::cast)
-                    .anyMatch(DataPlatformInfo::hasLogoUrl))
-        .collect(Collectors.toSet());
-  }
+  // Note: we intentionally do NOT override getValidCandidateUrns to require a logoUrl. A platform
+  // with ingested assets but no dataPlatformInfo/logoUrl (e.g. a connector whose platform is not
+  // yet in the data-platforms bootstrap seed) must still surface here — the UI renders a default
+  // platform icon when a logo is missing. Filtering on logoUrl silently hid such platforms from
+  // the home page even though they were searchable. The base implementation's existence check is
+  // the only validation we want.
 }

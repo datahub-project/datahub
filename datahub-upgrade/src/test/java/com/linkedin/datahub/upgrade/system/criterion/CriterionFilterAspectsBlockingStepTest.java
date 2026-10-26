@@ -156,9 +156,16 @@ public class CriterionFilterAspectsBlockingStepTest {
   public void testExecutableEmptyStreamMarksSucceeded() {
     CriterionFilterAspectsBlockingStep step = buildStep();
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
@@ -184,15 +191,22 @@ public class CriterionFilterAspectsBlockingStepTest {
             /* batchDelayMs */ 0,
             /* limit */ 5000);
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     step.executable().apply(upgradeContext);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs args = argsCaptor.getValue();
     assertEquals(args.batchSize, 250);
     assertEquals(args.limit, 5000);
@@ -212,16 +226,23 @@ public class CriterionFilterAspectsBlockingStepTest {
             .setResult(new StringMap(Map.of(LAST_URN_KEY, resumeUrnStr)));
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(inProgress));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     CriterionFilterAspectsBlockingStep step = buildStep();
     step.executable().apply(upgradeContext);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     assertEquals(argsCaptor.getValue().lastUrn, resumeUrnStr);
     assertTrue(argsCaptor.getValue().urnBasedPagination);
   }
@@ -233,16 +254,23 @@ public class CriterionFilterAspectsBlockingStepTest {
         new DataHubUpgradeResult().setState(DataHubUpgradeState.IN_PROGRESS);
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any()))
         .thenReturn(Optional.of(inProgress));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(
-            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(
+                        PartitionedStream.<EbeanAspectV2>builder()
+                            .delegateStream(Stream.empty())
+                            .build()));
 
     CriterionFilterAspectsBlockingStep step = buildStep();
     step.executable().apply(upgradeContext);
 
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
-    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(aspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     assertNull(argsCaptor.getValue().lastUrn);
     assertFalse(argsCaptor.getValue().urnBasedPagination);
   }
@@ -257,8 +285,13 @@ public class CriterionFilterAspectsBlockingStepTest {
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockStream.partition(org.mockito.ArgumentMatchers.anyInt()))
         .thenReturn(Stream.of(Stream.of(ebeanAspect)));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
@@ -303,8 +336,13 @@ public class CriterionFilterAspectsBlockingStepTest {
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockStream.partition(org.mockito.ArgumentMatchers.anyInt()))
         .thenReturn(Stream.of(Stream.of(ebeanAspect)));
-    when(aspectDao.streamAspectBatches(any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+    when(aspectDao.streamAspectBatches(
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
     when(upgrade.getUpgradeResult(any(), any(Urn.class), any())).thenReturn(Optional.empty());
 
     CriterionFilterAspectsBlockingStep step =

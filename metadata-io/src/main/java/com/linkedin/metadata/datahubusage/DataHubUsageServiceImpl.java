@@ -2,10 +2,13 @@ package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -44,8 +47,9 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
   }
 
   @Override
-  public String getUsageIndexName() {
-    return indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return indexConvention.getIndexName(
+        opContext, SearchComponent.USAGE, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   /** Searches the DataHub Usage index for backend tracing events */
@@ -72,7 +76,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
     filterQuery.filter(getBackendOnlyEvents());
 
-    SearchRequest searchRequest = new SearchRequest(getUsageIndexName());
+    SearchRequest searchRequest = new SearchRequest(getUsageIndexName(opContext));
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(externalAuditEventsSearchRequest.getSize());
     searchSourceBuilder.query(filterQuery);
@@ -178,7 +182,10 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
   private SearchResponse executeAndExtractDocuments(
       OperationContext opContext, SearchRequest searchRequest) {
     try {
-      return elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.time(
+          opContext,
+          SearchOperation.DATAHUB_USAGE,
+          () -> elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error(String.format("Search query failed: %s", e.getMessage()));
       throw new RuntimeException("Search query failed:", e);

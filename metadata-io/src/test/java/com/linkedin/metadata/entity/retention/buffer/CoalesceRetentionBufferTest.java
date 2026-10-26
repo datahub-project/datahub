@@ -10,6 +10,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.buffer.CoalesceBuffer;
 import com.linkedin.metadata.buffer.CoalesceBuffers;
+import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.function.BinaryOperator;
 import org.testng.annotations.Test;
 
@@ -18,18 +23,21 @@ public class CoalesceRetentionBufferTest {
   private static final Urn TEST_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_table,PROD)");
   private static final String ASPECT = "status";
+  private static final OperationContext SYSTEM_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Test
   @SuppressWarnings("unchecked")
   public void testEnqueueMergesWithKeepMaxLongPolicy() {
     CoalesceBuffer<RetentionKey, Long> coalesceBuffer = mock(CoalesceBuffer.class);
-    CoalesceRetentionBuffer buffer = new CoalesceRetentionBuffer(coalesceBuffer);
+    CoalesceRetentionBuffer buffer =
+        new CoalesceRetentionBuffer(coalesceBuffer, new SimpleRetentionContextResolver());
 
-    buffer.enqueue(TEST_URN, ASPECT, 7L);
+    buffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 7L);
 
     verify(coalesceBuffer, times(1))
         .merge(
-            eq(new RetentionKey(TEST_URN.toString(), ASPECT)),
+            eq(new SimpleRetentionKey(TEST_URN.toString(), ASPECT)),
             eq(7L),
             eq(CoalesceBuffers.KEEP_MAX_LONG));
   }
@@ -38,7 +46,8 @@ public class CoalesceRetentionBufferTest {
   @SuppressWarnings("unchecked")
   public void testDefersApplyIsAlwaysTrue() {
     CoalesceBuffer<RetentionKey, Long> coalesceBuffer = mock(CoalesceBuffer.class);
-    CoalesceRetentionBuffer buffer = new CoalesceRetentionBuffer(coalesceBuffer);
+    CoalesceRetentionBuffer buffer =
+        new CoalesceRetentionBuffer(coalesceBuffer, new SimpleRetentionContextResolver());
 
     assertTrue(buffer.defersApply());
   }

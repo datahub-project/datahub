@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
-import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import TermItem from '@app/glossaryV2/GlossaryBrowser/TermItem';
@@ -21,7 +19,7 @@ import { Loader } from '@src/alchemy-components';
 import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
 
 import { GlossaryNodeFragment } from '@graphql/fragments.generated';
-import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
+import { EntityType, GlossaryTerm } from '@types';
 
 const ItemWrapper = styled.div`
     display: flex;
@@ -125,12 +123,9 @@ function NodeItem(props: Props) {
         history.push(entityRegistry.getEntityUrl(node.type, node.urn));
     }
 
-    const childNodes = children
-        ?.filter((child) => child?.type === EntityType.GlossaryNode)
-        .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
-    const childTerms = children
-        ?.filter((child) => child?.type === EntityType.GlossaryTerm)
-        .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
+    // Preserve scrollAcrossEntities order (type then name via sortInput). Do not re-sort.
+    const childNodes = children?.filter((child) => child?.type === EntityType.GlossaryNode);
+    const childTerms = children?.filter((child) => child?.type === EntityType.GlossaryTerm);
 
     const isMultiSelected = isSelecting && selectedUrns?.includes(node.urn);
     const isOnEntityPage = entityData?.urn === node.urn;
@@ -173,7 +168,7 @@ function NodeItem(props: Props) {
                     )}
                     {children.length > 0 && (
                         <ChildrenWrapper>
-                            {(childNodes as GlossaryNode[]).map((child) => (
+                            {(childNodes as GlossaryNodeFragment[]).map((child) => (
                                 <NodeItem
                                     node={child}
                                     isSelecting={isSelecting}

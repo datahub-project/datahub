@@ -75,6 +75,11 @@ fragment incidentLinkedAssetPreview on Entity {
             ...platformFields
         }
     }
+    ... on MLFeature {
+        name
+        featureNamespace
+        description
+    }
     ... on MLFeatureTable {
         urn
         type
@@ -198,15 +203,6 @@ fragment incidentResultFields on EntityIncidentsResult {
 fragment datasetSiblingIncidents on Dataset {
     siblings {
         isPrimary
-        siblings {
-            urn
-            type
-            ... on Dataset {
-                incidents(start: $start, count: $count, state: $state) {
-                    ...incidentResultFields
-                }
-            }
-        }
     }
     siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
         count
@@ -267,6 +263,30 @@ query getEntityIncidents(
             }
         }
         ... on Chart {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLModel {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeature {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeatureTable {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentResultFields
             }

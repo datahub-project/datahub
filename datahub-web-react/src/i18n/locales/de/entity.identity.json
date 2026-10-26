@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Name",
     "groups.createModal.name.placeholder": "Ein Name für deine Gruppe",
     "groups.createModal.name.validationError.empty": "Gib einen Gruppennamen ein.",
-    "groups.createModal.name.validationError.tooLong": "Der Name darf maximal 50 Zeichen lang sein.",
+    "groups.createModal.name.validationError.tooLong": "Der Name darf maximal 250 Zeichen lang sein.",
     "groups.createModal.title": "Neue Gruppe erstellen",
     "groups.createOwnerError": "Du konntest nicht automatisch als Owner der Gruppe hinzugefügt werden. Bitte füge dich manuell als Owner hinzu.",
     "groups.createSuccess": "Gruppe erstellt!",
@@ -118,6 +118,7 @@
     "users.columns.name": "Name",
     "users.columns.role": "Rolle",
     "users.columns.status": "Status",
+    "users.copyUrn": "URN kopieren",
     "users.deleteUser": "Benutzer löschen",
     "users.emptyTitle": "Keine Benutzer!",
     "users.groups.overflowTitle": "Gruppen",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Status",
     "users.statusFilter.suspended": "Gesperrt",
     "users.statusInactive": "Inaktiv",
-    "users.statusNoUrn": "Kein URN"
+    "users.statusNoUrn": "Kein URN",
+    "users.urnCopied": "URN in die Zwischenablage kopiert"
 }

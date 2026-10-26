@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Nom",
     "groups.createModal.name.placeholder": "Un nom pour votre groupe",
     "groups.createModal.name.validationError.empty": "Saisissez un nom de groupe.",
-    "groups.createModal.name.validationError.tooLong": "Le nom doit comporter 50 caractères maximum.",
+    "groups.createModal.name.validationError.tooLong": "Le nom doit comporter 250 caractères maximum.",
     "groups.createModal.title": "Créer un groupe",
     "groups.createOwnerError": "Impossible de vous ajouter automatiquement comme propriétaire du groupe. Veuillez vous ajouter vous-même comme propriétaire.",
     "groups.createSuccess": "Groupe créé!",
@@ -118,6 +118,7 @@
     "users.columns.name": "Nom",
     "users.columns.role": "Rôle",
     "users.columns.status": "Statut",
+    "users.copyUrn": "Copier l'Urn",
     "users.deleteUser": "Supprimer l'utilisateur",
     "users.emptyTitle": "Aucun utilisateur!",
     "users.groups.overflowTitle": "Groupes",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Statut",
     "users.statusFilter.suspended": "Suspendu",
     "users.statusInactive": "Inactif",
-    "users.statusNoUrn": "Aucun URN"
+    "users.statusNoUrn": "Aucun URN",
+    "users.urnCopied": "Urn copié dans le presse-papiers"
 }

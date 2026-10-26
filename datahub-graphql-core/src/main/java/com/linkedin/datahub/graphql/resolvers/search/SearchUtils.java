@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -16,6 +18,7 @@ import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -32,6 +35,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -47,6 +51,10 @@ public class SearchUtils {
   private SearchUtils() {}
 
   private static final int DEFAULT_SEARCH_COUNT = 10;
+
+  /** Search-document field on structured properties listing the entity type URNs they apply to. */
+  public static final String STRUCTURED_PROPERTY_ENTITY_TYPES_FIELD = "entityTypes";
+
   private static final int DEFAULT_SCROLL_COUNT = 10;
   private static final String DEFAULT_SCROLL_KEEP_ALIVE = "5m";
 
@@ -532,5 +540,56 @@ public class SearchUtils {
         },
         className,
         "searchAcrossEntities");
+  }
+
+  /**
+   * Doc-level, fail-open check of whether a structured property applies to any of the searched
+   * entity types. {@code entityTypesJson} is the JSON-stringified {@code entityTypes} field from
+   * the structured property's search document: a list of entity type URNs such as {@code
+   * urn:li:entityType:datahub.dataset}. A property is kept when the searched entity list is empty,
+   * when entityTypes is missing/empty/unparseable (fail open: an extra facet for an unrelated type
+   * is harmless, a missing facet is not), or when at least one of its entity types matches a
+   * searched entity name.
+   */
+  public static boolean structuredPropertyAppliesToEntityTypes(
+      @Nonnull final ObjectMapper objectMapper,
+      @Nullable final String entityTypesJson,
+      @Nonnull final List<String> searchedEntityNames) {
+    if (searchedEntityNames.isEmpty() || entityTypesJson == null) {
+      return true;
+    }
+    final List<String> entityTypeUrns;
+    try {
+      entityTypeUrns = objectMapper.readValue(entityTypesJson, new TypeReference<>() {});
+    } catch (Exception e) {
+      log.warn(
+          "Failed to parse structured property entityTypes {}; keeping facet", entityTypesJson, e);
+      return true;
+    }
+    if (entityTypeUrns == null || entityTypeUrns.isEmpty()) {
+      return true;
+    }
+    final Set<String> searchedNames =
+        searchedEntityNames.stream()
+            .map(name -> name.toLowerCase(Locale.ROOT))
+            .collect(Collectors.toSet());
+    // Entity type URNs come in both the modern urn:li:entityType:datahub.dataset and the legacy
+    // urn:li:entityType:dataset forms. Reuse the canonical parser (same helper the mapping side
+    // uses) so both resolve; null/unparseable entries are kept (fail open).
+    return entityTypeUrns.stream()
+        .anyMatch(
+            typeUrn -> {
+              if (typeUrn == null) {
+                return true;
+              }
+              final String entityName;
+              try {
+                entityName = StructuredPropertyUtils.getEntityTypeId(UrnUtils.getUrn(typeUrn));
+              } catch (Exception e) {
+                return true;
+              }
+              return entityName == null
+                  || searchedNames.contains(entityName.toLowerCase(Locale.ROOT));
+            });
   }
 }

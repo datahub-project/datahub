@@ -5,7 +5,7 @@ source:
   config:
     username: root
     password: ""
-    host_port: localhost:54000
+    host_port: "localhost:${TIDB_PORT}"
     database: datahub_test
 
 sink:

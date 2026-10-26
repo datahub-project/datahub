@@ -30,6 +30,7 @@ from datahub.cli.ingest_cli import ingest
 from datahub.cli.lineage_cli import lineage
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.recipe_cli import recipe
 from datahub.cli.recording_cli import recording
 from datahub.cli.search_cli import search
 from datahub.cli.specific.agent_skill_cli import agent_skill
@@ -311,7 +312,10 @@ def _validate_init_inputs(
         case_sensitive=False,
     ),
     default=None,
-    help="Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise)",
+    help=(
+        "Token expiration duration (default: ONE_MONTH for localhost, ONE_HOUR otherwise). "
+        "NO_EXPIRY requires ACCESS_TOKEN_ALLOW_NO_EXPIRY=true on the server (disabled by default)."
+    ),
 )
 @click.option(
     "--force",
@@ -595,6 +599,7 @@ datahub.add_command(recording)
 datahub.add_command(datapack)
 datahub.add_command(api)
 datahub.add_command(agent_skill)
+datahub.add_command(recipe)
 
 try:
     from datahub.cli.iceberg_cli import iceberg

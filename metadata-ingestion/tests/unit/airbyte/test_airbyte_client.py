@@ -185,6 +185,36 @@ class TestAirbyteOSSClient:
             result_key="data",
         )
 
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
+    def test_list_connections_skips_inactive_by_default(self, mock_paginate_results):
+        mock_paginate_results.return_value = [
+            {
+                "connectionId": "active-id",
+                "name": "Active Connection",
+                "sourceId": "source-id-1",
+                "destinationId": "destination-id-1",
+                "status": "active",
+            },
+            {
+                "connectionId": "inactive-id",
+                "name": "Inactive Connection",
+                "sourceId": "source-id-2",
+                "destinationId": "destination-id-2",
+                "status": "inactive",
+            },
+        ]
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        connections = client.list_connections("workspace-id-1")
+        assert [c.connection_id for c in connections] == ["active-id"]
+
+        connections = client.list_connections("workspace-id-1", include_inactive=True)
+        assert [c.connection_id for c in connections] == ["active-id", "inactive-id"]
+
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_http_error_handling(self, mock_make_request):
         mock_make_request.side_effect = requests.exceptions.HTTPError(
@@ -226,7 +256,9 @@ class TestAirbyteClientBase:
             def list_destinations(self, workspace_id, pattern=None):
                 return []
 
-            def list_connections(self, workspace_id, pattern=None):
+            def list_connections(
+                self, workspace_id, pattern=None, include_inactive=False
+            ):
                 return []
 
         class IncompleteClient(AirbyteBaseClient):
@@ -1253,6 +1285,30 @@ class TestClientErrorHandling:
 
         assert "Request timed out" in str(exc_info.value)
 
+    @pytest.mark.parametrize("status_code", [401, 403])
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._do_get")
+    def test_make_request_raises_authentication_error_on_auth_status(
+        self, mock_do_get, status_code
+    ):
+        response = MagicMock()
+        response.status_code = status_code
+        response.text = "Unauthorized"
+        response.json.side_effect = ValueError("not json")
+        mock_do_get.side_effect = requests.HTTPError(
+            f"{status_code} Client Error", response=response
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteAuthenticationError) as exc_info:
+            client._make_request("/streams")
+
+        assert exc_info.value.status_code == status_code
+
 
 class TestFetchStreamApiMetadata:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
@@ -1399,12 +1455,43 @@ class TestFetchStreamApiMetadata:
         assert metadata.namespaces_by_name == {}
         mock_list_streams.assert_not_called()
 
+    @pytest.mark.parametrize(
+        "error,expected_status",
+        [
+            (
+                AirbyteApiError(
+                    "Airbyte API request failed: 404 - /streams endpoint missing",
+                    status_code=404,
+                ),
+                404,
+            ),
+            (
+                # Message mentions 404 but status_code is unset (retry exhaustion /
+                # connection error). Must still mark unavailable; status stays None.
+                AirbyteApiError(
+                    "Airbyte API request failed: 500 - upstream returned code=404 in body"
+                ),
+                None,
+            ),
+            (
+                AirbyteApiError("500 Internal Server Error", status_code=500),
+                500,
+            ),
+            (
+                AirbyteApiError(
+                    "Error connecting to Airbyte API: Max retries exceeded with url: "
+                    "/api/public/v1/streams (Caused by ResponseError('too many 500 "
+                    "error responses'))"
+                ),
+                None,
+            ),
+        ],
+    )
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_api_metadata_404_returns_empty(self, mock_list_streams):
-        mock_list_streams.side_effect = AirbyteApiError(
-            "Airbyte API request failed: 404 - /streams endpoint missing",
-            status_code=404,
-        )
+    def test_fetch_stream_api_metadata_api_error_returns_unavailable(
+        self, mock_list_streams, error, expected_status
+    ):
+        mock_list_streams.side_effect = error
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1414,10 +1501,96 @@ class TestFetchStreamApiMetadata:
 
         metadata = client._fetch_stream_api_metadata("source-id-123")
 
+        assert metadata.unavailable is True
+        assert metadata.unavailable_status_code == expected_status
+        assert metadata.unavailable_message == str(error)
         assert metadata.property_fields_by_stream == {}
         assert metadata.namespaces_by_name == {}
-        # Flagged so the source can warn once per source instead of failing quietly.
-        assert metadata.unavailable is True
+        assert metadata.namespaces_absent is False
+
+    @pytest.mark.parametrize("status_code", [400, 422])
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_client_error_reraises(
+        self, mock_list_streams, status_code
+    ):
+        mock_list_streams.side_effect = AirbyteApiError(
+            f"Airbyte API request failed: {status_code} - bad request",
+            status_code=status_code,
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._fetch_stream_api_metadata("source-id-123")
+
+        assert exc_info.value.status_code == status_code
+        assert client._stream_api_metadata_cache.get("source-id-123") is None
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_invalid_json_reraises(self, mock_list_streams):
+        # 2xx with a non-JSON body keeps the HTTP status, so it must not degrade
+        # to unavailable the way a connection error (status_code=None) does.
+        mock_list_streams.side_effect = AirbyteApiError(
+            "Airbyte API returned invalid JSON (HTTP 200)", status_code=200
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._fetch_stream_api_metadata("source-id-123")
+
+        assert exc_info.value.status_code == 200
+        assert not AirbyteOSSClient._is_streams_api_unavailable_error(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.requests.Session.get")
+    def test_do_get_invalid_json_preserves_http_status(self, mock_get):
+        response = MagicMock()
+        response.status_code = 200
+        response.raise_for_status.return_value = None
+        response.json.side_effect = ValueError("Expecting value")
+        mock_get.return_value = response
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._do_get("http://localhost:8000/api/public/v1/streams")
+
+        assert exc_info.value.status_code == 200
+        assert "invalid JSON" in str(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_flags_namespaceless_response(
+        self, mock_list_streams
+    ):
+        # Airbyte below 1.7.0 describes the streams but has no namespace field,
+        # which the source can only warn about if the client flags it.
+        mock_list_streams.return_value = [
+            {"streamName": "users", "propertyFields": [["id"]]}
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is True
+        assert metadata.unavailable is False
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_caches_per_source(self, mock_list_streams):
@@ -1485,12 +1658,12 @@ class TestFetchStreamApiMetadata:
         assert metadata.namespaces_by_name == {"users": ["public"]}
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_api_metadata_ignores_404_substring_without_status(
+    def test_fetch_stream_api_metadata_does_not_flag_unreadable_response(
         self, mock_list_streams
     ):
-        mock_list_streams.side_effect = AirbyteApiError(
-            "Airbyte API request failed: 500 - upstream returned code=404 in body"
-        )
+        # No namespace survives, but the cause is the payloads rather than the
+        # Airbyte version, so the version warning must not claim this one.
+        mock_list_streams.return_value = ["not-an-object", 7]
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1498,8 +1671,11 @@ class TestFetchStreamApiMetadata:
         )
         client = AirbyteOSSClient(config)
 
-        with pytest.raises(AirbyteApiError, match="500"):
-            client._fetch_stream_api_metadata("source-id-123")
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert len(metadata.skipped_rows) == 2
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is False
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_api_metadata_reraises_authentication_error(
@@ -1517,21 +1693,6 @@ class TestFetchStreamApiMetadata:
         client = AirbyteOSSClient(config)
 
         with pytest.raises(AirbyteAuthenticationError, match="401"):
-            client._fetch_stream_api_metadata("source-id-123")
-
-    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_api_metadata_non_404_reraises(self, mock_list_streams):
-        mock_list_streams.side_effect = AirbyteApiError(
-            "500 Internal Server Error", status_code=500
-        )
-
-        config = AirbyteClientConfig(
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-        )
-        client = AirbyteOSSClient(config)
-
-        with pytest.raises(AirbyteApiError, match="500"):
             client._fetch_stream_api_metadata("source-id-123")
 
 
@@ -1608,6 +1769,34 @@ class TestGetConnection:
         assert stream is not None
         assert stream.name == "events"
         assert stream.namespace == "my_schema"
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_connection_survives_streams_500(
+        self, mock_make_request, mock_list_streams
+    ):
+        mock_make_request.return_value = {
+            "connectionId": "conn-123",
+            "sourceId": "source-123",
+            "destinationId": "dest-123",
+            "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
+        }
+        mock_list_streams.side_effect = AirbyteApiError(
+            "500 Internal Server Error", status_code=500
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client.get_connection("conn-123")
+
+        assert result.connection_id == "conn-123"
+        assert result.streams_api_unavailable is True
+        assert result.sync_catalog is not None
+        assert result.sync_catalog.streams[0].stream.name == "users"
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_connection_with_existing_sync_catalog(self, mock_make_request):

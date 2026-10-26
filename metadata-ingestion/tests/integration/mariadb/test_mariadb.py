@@ -11,8 +11,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2024-04-14 07:00:00"
-MARIADB_PORT = 3306
-MARIADB_USAGE_PORT = 53301
+MARIADB_PORT = 3306  # MariaDB's container-internal port
 
 
 @pytest.fixture(scope="module")
@@ -32,10 +31,18 @@ def is_mariadb_up(container_name: str, port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
-def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir, request):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "mariadb"
     ) as docker_services:
+        # The compose file exposes the port ephemerally, so a leaked container from
+        # a prior run can never hold onto the port a fresh run needs. mariadb_to_file.yml
+        # picks it up via ${MARIADB_HOST_PORT}.
+        host_port = docker_services.port_for("testmariadb", MARIADB_PORT)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("MARIADB_HOST_PORT", str(host_port))
+        request.addfinalizer(mp.undo)
+
         wait_for_port(
             docker_services,
             "testmariadb",
@@ -43,7 +50,7 @@ def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             timeout=120,
             checker=lambda: is_mariadb_up("testmariadb", MARIADB_PORT),
         )
-        yield docker_services
+        yield host_port
 
 
 @pytest.mark.parametrize(
@@ -86,6 +93,10 @@ def mariadb_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir
     with docker_compose_runner(
         test_resources_dir / "docker-compose.usage.yml", "mariadb-usage"
     ) as docker_services:
+        # The compose file exposes the port ephemerally, so a leaked container from
+        # a prior run can never hold onto the port a fresh run needs.
+        host_port = docker_services.port_for("testmariadbusage", MARIADB_PORT)
+
         wait_for_port(
             docker_services,
             "testmariadbusage",
@@ -95,10 +106,8 @@ def mariadb_usage_runner(docker_compose_runner, pytestconfig, test_resources_dir
             # init server that logs the same banner without a port.
             checker=lambda: is_mariadb_up("testmariadbusage", MARIADB_PORT),
         )
-        mysql_usage_helpers.execute_usage_workload(
-            port=MARIADB_USAGE_PORT, password="password"
-        )
-        yield docker_services
+        mysql_usage_helpers.execute_usage_workload(port=host_port, password="password")
+        yield host_port
 
 
 @pytest.mark.integration
@@ -106,7 +115,7 @@ def test_mariadb_usage_performance_schema(mariadb_usage_runner, tmp_path):
     mcps = mysql_usage_helpers.run_usage_pipeline(
         platform="mariadb",
         usage_source="performance_schema",
-        port=MARIADB_USAGE_PORT,
+        port=mariadb_usage_runner,
         password="password",
         output_path=tmp_path / "perf.json",
     )
@@ -127,7 +136,7 @@ def test_mariadb_usage_general_log(mariadb_usage_runner, tmp_path):
     mcps = mysql_usage_helpers.run_usage_pipeline(
         platform="mariadb",
         usage_source="general_log",
-        port=MARIADB_USAGE_PORT,
+        port=mariadb_usage_runner,
         password="password",
         output_path=tmp_path / "glog.json",
     )
@@ -155,7 +164,7 @@ def test_mariadb_usage_general_log(mariadb_usage_runner, tmp_path):
     [
         (
             {
-                "host_port": "localhost:53300",
+                "host_port": None,  # filled in from mariadb_runner's ephemeral port below
                 "database": "test_db",
                 "username": "root",
                 "password": "password",
@@ -164,7 +173,7 @@ def test_mariadb_usage_general_log(mariadb_usage_runner, tmp_path):
         ),
         (
             {
-                "host_port": "localhost:5330",
+                "host_port": "localhost:1",  # deliberately unreachable, not the fixture's port
                 "database": "wrong_db",
                 "username": "wrong_user",
                 "password": "wrong_pass",
@@ -176,6 +185,8 @@ def test_mariadb_usage_general_log(mariadb_usage_runner, tmp_path):
 @time_machine.travel(FROZEN_TIME)
 @pytest.mark.integration
 def test_mariadb_test_connection(mariadb_runner, config_dict, is_success):
+    if config_dict["host_port"] is None:
+        config_dict = {**config_dict, "host_port": f"localhost:{mariadb_runner}"}
     report = test_connection_helpers.run_test_connection(MariaDBSource, config_dict)
     if is_success:
         test_connection_helpers.assert_basic_connectivity_success(report)

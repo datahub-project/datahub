@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { AssertionListPage } from '../../pages/assertion-list.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'quality' });
 
@@ -35,8 +36,12 @@ async function executeGraphQL<T>(page: Page, query: string, variables: Record<st
   );
 }
 
-test('renders and searches the paginated Quality assertion list', async ({ page, logger, logDir }) => {
-  test.setTimeout(120_000);
+test.beforeEach(async ({ apiMock }) => {
+  await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
+});
+
+test('paginates, sorts, searches, and filters the Quality assertion list', async ({ page, logger, logDir }) => {
+  test.setTimeout(180_000);
   await page.goto('/');
 
   const description = `Headless assertion ${Date.now()}`;

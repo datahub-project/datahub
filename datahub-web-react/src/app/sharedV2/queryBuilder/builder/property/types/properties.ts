@@ -437,34 +437,6 @@ const datasetProps: Property[] = [
         ],
     },
     {
-        id: 'assertions',
-        get displayName() {
-            return i18next.t('shared.query-builder:prop.assertions');
-        },
-        children: [
-            {
-                id: 'assertionsSummary.passingAssertionDetails',
-                get displayName() {
-                    return i18next.t('shared.query-builder:prop.passingAssertions');
-                },
-                get description() {
-                    return i18next.t('shared.query-builder:prop.passingAssertionsDesc');
-                },
-                valueType: ValueTypeId.EXISTS_LIST,
-            },
-            {
-                id: 'assertionsSummary.failingAssertionDetails',
-                get displayName() {
-                    return i18next.t('shared.query-builder:prop.failingAssertions');
-                },
-                get description() {
-                    return i18next.t('shared.query-builder:prop.failingAssertionsDesc');
-                },
-                valueType: ValueTypeId.EXISTS_LIST,
-            },
-        ],
-    },
-    {
         id: 'incidents',
         get displayName() {
             return i18next.t('shared.query-builder:prop.incidents');

@@ -1,5 +1,5 @@
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import OperatorSelect from '@app/sharedV2/queryBuilder/OperatorSelect';
 import PropertySelect from '@app/sharedV2/queryBuilder/PropertySelect';
@@ -7,13 +7,8 @@ import ValuesSelect from '@app/sharedV2/queryBuilder/ValuesSelect';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { getOperatorOptions, getValueOptions } from '@app/sharedV2/queryBuilder/builder/property/utils';
 import { PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
-import {
-    CardIcons,
-    ConditionContainer,
-    IconsContainer,
-    SelectContainer,
-} from '@app/sharedV2/queryBuilder/styledComponents';
-import { Icon } from '@src/alchemy-components';
+import { ConditionContainer, IconsContainer, SelectContainer } from '@app/sharedV2/queryBuilder/styledComponents';
+import { Button } from '@src/alchemy-components';
 
 interface Props {
     selectedPredicate?: PropertyPredicate;
@@ -29,11 +24,17 @@ interface Props {
  */
 
 const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, properties, index, depth }: Props) => {
-    const property =
-        (selectedPredicate &&
-            selectedPredicate.property &&
-            properties.find((prop) => prop.id === selectedPredicate.property)) ||
-        undefined;
+    const selectedPropertyId = selectedPredicate?.property;
+    // A property can be a top-level entry or a child of a parent group (e.g. structured
+    // properties), so resolve the leaf that carries the value type / options either way.
+    const property = useMemo(() => {
+        if (!selectedPropertyId) {
+            return undefined;
+        }
+        return properties
+            .flatMap((candidate) => [candidate, ...(candidate.children ?? [])])
+            .find((candidate) => candidate.id === selectedPropertyId);
+    }, [properties, selectedPropertyId]);
 
     const operatorOptions = (property?.valueType && getOperatorOptions(property.valueType)) || undefined;
     const valueOptions = (property && selectedPredicate && getValueOptions(property, selectedPredicate)) || undefined;
@@ -89,9 +90,14 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
                 />
             </SelectContainer>
             <IconsContainer>
-                <CardIcons>
-                    <Icon icon={Trash} size="md" onClick={() => onDeletePredicate(index)} />
-                </CardIcons>
+                <Button
+                    variant="text"
+                    color="red"
+                    icon={{ icon: Trash, size: 'lg', color: 'iconError' }}
+                    isCircle
+                    onClick={() => onDeletePredicate(index)}
+                    data-testid="query-builder-delete-condition-button"
+                />
             </IconsContainer>
         </ConditionContainer>
     );

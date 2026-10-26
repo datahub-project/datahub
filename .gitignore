@@ -70,12 +70,6 @@ post-workflow-validation-summary.md
 smoke-test/spark-smoke-test/docker/workspace/
 smoke-test/spark-smoke-test/__pycache__/
 
-# cypress integration test generated files
-**/cypress/videos
-**/cypress/screenshots
-**/cypress/results
-**/cypress/node_modules
-
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
 
@@ -172,6 +166,10 @@ metadata-service/servlet/bin/
 metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
+
+# Per-run TLS material for the Oracle and SQL Server integration fixtures.
+metadata-ingestion/tests/integration/mssql/.tls/
+metadata-ingestion/tests/integration/oracle/.tls/
 
 # Git credentials (should never be committed)
 .git-credentials

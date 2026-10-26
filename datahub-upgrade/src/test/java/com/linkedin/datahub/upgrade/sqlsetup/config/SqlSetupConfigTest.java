@@ -11,7 +11,6 @@ import com.linkedin.datahub.upgrade.sqlsetup.SqlSetupArgs;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.ebean.Database;
 import java.lang.reflect.Field;
@@ -27,7 +26,6 @@ public class SqlSetupConfigTest {
   private static final String BANDS_JSON =
       "[{\"range\":[0,3],\"weight\":70},{\"range\":[4,6],\"weight\":20},{\"range\":[7,9],\"weight\":10}]";
 
-  @Mock private EntityRegistry mockEntityRegistry;
   @Mock private Database mockDatabase;
 
   private SqlSetupConfig sqlSetupConfig;
@@ -55,6 +53,7 @@ public class SqlSetupConfigTest {
     System.clearProperty("DB_TYPE");
     System.clearProperty("CREATE_TABLES");
     System.clearProperty("CREATE_DB");
+    System.clearProperty("CREATE_SCHEMA");
     System.clearProperty("CDC_MCL_PROCESSING_ENABLED");
     System.clearProperty("CDC_USER");
     System.clearProperty("CDC_PASSWORD");
@@ -62,7 +61,7 @@ public class SqlSetupConfigTest {
 
   @Test
   public void testOperationContext() {
-    OperationContext operationContext = sqlSetupConfig.operationContext(mockEntityRegistry);
+    OperationContext operationContext = sqlSetupConfig.operationContext();
 
     assertNotNull(operationContext);
     assertTrue(operationContext instanceof OperationContext);
@@ -119,6 +118,7 @@ public class SqlSetupConfigTest {
     // Set up environment variables
     System.setProperty("CREATE_TABLES", "true");
     System.setProperty("CREATE_DB", "false");
+    System.setProperty("CREATE_SCHEMA", "false");
     System.setProperty("CREATE_USER", "true");
     System.setProperty("CREATE_USER_USERNAME", "testuser");
     // Note: No password set means IAM authentication will be used
@@ -133,6 +133,7 @@ public class SqlSetupConfigTest {
     assertNotNull(args);
     assertEquals(args.isCreateTables(), true);
     assertEquals(args.isCreateDatabase(), false);
+    assertEquals(args.isCreateSchema(), false);
     assertEquals(args.isCreateUser(), true);
     assertEquals(args.isCdcEnabled(), true);
     assertEquals(args.getCdcUser(), "custom_cdc");
@@ -147,6 +148,7 @@ public class SqlSetupConfigTest {
     // Clear environment variables to test defaults
     System.clearProperty("CREATE_TABLES");
     System.clearProperty("CREATE_DB");
+    System.clearProperty("CREATE_SCHEMA");
     System.clearProperty("CREATE_USER");
     System.clearProperty("CDC_MCL_PROCESSING_ENABLED");
     System.clearProperty("CDC_USER");
@@ -160,6 +162,7 @@ public class SqlSetupConfigTest {
     assertNotNull(args);
     assertEquals(args.isCreateTables(), true); // Default value
     assertEquals(args.isCreateDatabase(), true); // Default value
+    assertEquals(args.isCreateSchema(), true); // Default value
     assertEquals(args.isCreateUser(), false); // Default value
     assertEquals(args.isCdcEnabled(), false); // Default value
     assertEquals(args.getCdcUser(), "datahub_cdc"); // Default value
@@ -172,6 +175,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -230,6 +234,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             true, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -255,6 +260,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             true, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -279,6 +285,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -308,6 +315,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -337,6 +345,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             true, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -362,6 +371,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -457,6 +467,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             true, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -480,6 +491,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             true, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -503,6 +515,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -530,6 +543,7 @@ public class SqlSetupConfigTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             true, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType

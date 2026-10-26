@@ -54,6 +54,15 @@ class PlatformDetail(ConfigModel):
         "If None (default), automatically detects 2-tier vs 3-tier platforms by checking if schema equals database. "
         "Set to True to force 3-tier (database.schema.table), or False to force 2-tier (database.table).",
     )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description="Schema to use when no per-stream schema is known (e.g. 'dbo' for SQL Server). "
+        "Airbyte only exposes per-stream namespaces from version 1.7.0 onwards, "
+        "so on older deployments this is the only way to get a schema tier into the dataset URN. "
+        "Only a namespace reported by Airbyte, or a per-table schema in the connector configuration, "
+        "takes precedence; this deliberately outranks the connector-wide schema key, which sometimes "
+        "holds a database name rather than a schema.",
+    )
     convert_urns_to_lowercase: bool = Field(
         default=True,
         description=(
@@ -252,6 +261,15 @@ class AirbyteSourceConfig(
         default_factory=dict,
         description="A mapping from Airbyte destination ID to its platform/instance/env/database details. "
         "Use this to override platform details for specific destinations.",
+    )
+
+    include_inactive_connections: bool = Field(
+        default=False,
+        description=(
+            "Also ingest connections that are disabled in Airbyte. "
+            "By default, connections reported as inactive are skipped with no "
+            "warning, even if they still appear healthy in the Airbyte UI."
+        ),
     )
 
     include_statuses: bool = Field(

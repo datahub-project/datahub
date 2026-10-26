@@ -1,5 +1,8 @@
 namespace com.linkedin.metadata.query
 
+import com.linkedin.common.Urn
+import com.linkedin.search.template.HighlightFieldOverrides
+
 /**
  * Set of flags to control search behavior
  */
@@ -63,6 +66,22 @@ record SearchFlags {
    customHighlightingFields:optional array[string]
 
   /**
+   * Search V3 adjustment of the template highlight set for one request.
+   * {@code replace} cannot be combined with {@code add} or {@code remove}. An explicitly
+   * present empty value clears the template set. {@code customHighlightingFields} replaces
+   * the set instead of adjusting it. {@code skipHighlighting} clears the result.
+   */
+   highlightFields: optional HighlightFieldOverrides
+
+  /**
+   * Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li
+   * only — not a GraphQL SearchFlags input). Nested paths and wildcards are passed through to
+   * fetch_source; extraFields copies exact top-level _source keys. Empty or absent fetches no
+   * extra document fields — only the default urn include.
+   */
+   fetchExtraFields:optional array[string]
+
+  /**
    * invoke query rewrite chain for filters based on configured rewriters
    */
    rewriteQuery: optional boolean = true
@@ -93,4 +112,39 @@ record SearchFlags {
     id: int
     max: int
   }
+
+  /**
+   * Include Elasticsearch scoring explanation in search results.
+   * When enabled, each result includes detailed score breakdown in extraProperties._explain.
+   * Note: Adds 10-30% computational overhead - use for debugging only.
+   */
+  includeExplain: optional boolean = false
+
+  /**
+   * Elasticsearch search type for controlling IDF calculation across shards.
+   * - QUERY_THEN_FETCH: Shard-local IDF (default, faster, but less accurate scoring)
+   * - DFS_QUERY_THEN_FETCH: Global IDF across all shards (more accurate scoring)
+   *
+   * Only affects relevance scoring in multi-shard scenarios.
+   * DFS mode adds 20-50% latency overhead but provides consistent scoring.
+   */
+  searchType: optional string = "QUERY_THEN_FETCH"
+
+  /**
+   * Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring
+   * below this floor are dropped, letting an agent abstain instead of returning weak matches. When
+   * null/unset, no floor is applied. Currently honored only by the semantic search path.
+   *
+   * The value is compared against the engine's raw kNN relevance score (cosine-derived), which is
+   * not a normalized 0..1 value; its scale depends on the embedding model and search engine, so a
+   * suitable floor must be calibrated per deployment rather than assumed.
+   */
+  minScore: optional float
+
+  /**
+   * Caller-selected search template URN. When set, selection skips classification, sub-intent,
+   * and engine lookup. The resolved template is not written back onto this field. The caller must
+   * have the MANAGE_SYSTEM_OPERATIONS privilege.
+   */
+  searchTemplate: optional Urn
 }

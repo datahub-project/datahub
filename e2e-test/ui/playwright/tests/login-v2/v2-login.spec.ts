@@ -11,11 +11,13 @@
 
 import { test, expect } from '../../fixtures/login-test';
 import { users } from '../../data/users';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.describe('Login with Theme V2', () => {
   test.beforeEach(async ({ apiMock, page }) => {
     // Force Theme V2 on via route interception — no GraphQLHelper required.
     await apiMock.setFeatureFlags({
+      ...GLOBAL_FEATURE_FLAGS,
       themeV2Enabled: true,
       themeV2Default: true,
       showNavBarRedesign: true,

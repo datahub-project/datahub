@@ -19,8 +19,6 @@ test.describe('Entity-level Structured Properties', () => {
     structuredPropertiesPage = new StructuredPropertiesPage(page, logger, logDir);
     datasetPage = new DatasetPage(page, logger, logDir);
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await structuredPropertiesPage.navigate();
   });
 
@@ -106,6 +104,7 @@ test.describe('Entity-level Structured Properties', () => {
   });
 
   test('Verify the absence of hidden structured property', async ({ cleanup }) => {
+    test.setTimeout(120000);
     const propertyName = withRandomSuffix('prop-hidden');
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty({
       name: propertyName,

@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -36,7 +37,7 @@ export default function ColumnsModule(props: ModuleProps) {
 
     const navigateToSchemaTab = () => {
         const baseUrl = entityRegistry.getEntityUrl(EntityType.Dataset, entityUrn);
-        history.push(`${baseUrl}/Columns`);
+        history.push(`${baseUrl}/${EntityTabPath.COLUMNS}`);
     };
 
     const { data, loading, error, refetch } = useGetDatasetSchemaQuery({

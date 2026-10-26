@@ -12,7 +12,7 @@ import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSideb
 import useDomainOwnerAggregations from '@app/domainV2/nestedDomains/domainSidebarFilters/useDomainOwnerAggregations';
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { TreeContainer } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import {
@@ -58,7 +58,7 @@ function DomainNavigatorInner({
 }: Props) {
     const { t } = useTranslation('governance.domain');
     const { t: tm } = useTranslation('misc');
-    const { selectedOwnerUrns, setAvailableOwners } = useDomainSidebarFilters();
+    const { selectedOwnerUrns, setAvailableOwners, sortSelection } = useDomainSidebarFilters();
     const expansion = useTreeExpansionRegistry();
     const isSidebar = variant === 'sidebar';
 
@@ -76,6 +76,7 @@ function DomainNavigatorInner({
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({
         selectedOwnerUrns: isSidebar ? selectedOwnerUrns : undefined,
         ignoreParentScope: isFiltering,
+        sort: isSidebar ? sortSelection : undefined,
     });
 
     // Dropdown options come from a dedicated aggregation query that covers

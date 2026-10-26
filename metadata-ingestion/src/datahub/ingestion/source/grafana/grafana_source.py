@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Grafana")
 @config_class(GrafanaSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")

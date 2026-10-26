@@ -13,7 +13,7 @@ const StatsContainer = styled.div<{ shouldWrap?: boolean }>`
 const StatDivider = styled.div`
     padding-left: 10px;
     margin-right: 10px;
-    border-right: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-right: 1px solid ${(props) => props.theme.colors.border};
     height: 21px;
 `;
 

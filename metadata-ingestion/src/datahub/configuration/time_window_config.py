@@ -1,14 +1,41 @@
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Any, List
+from typing import Annotated, Any, List
 
 import humanfriendly
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    Field,
+    ValidationInfo,
+    WithJsonSchema,
+    field_validator,
+    model_validator,
+)
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.datetimes import parse_absolute_time, parse_relative_timespan
 from datahub.metadata.schema_classes import CalendarIntervalClass
 from datahub.utilities.str_enum import StrEnum
+
+# A datetime that also accepts a negative relative timespan (e.g. "-7d").
+# `parse_start_time` resolves the string at runtime; this only widens the generated
+# JSON schema, which a bare `datetime` advertises as `date-time` only, so schema
+# validators (IDE, ingestion UI, CI) stop rejecting the documented relative syntax.
+RelativeOrAbsoluteDatetime = Annotated[
+    datetime,
+    WithJsonSchema(
+        {
+            "anyOf": [
+                {"type": "string", "format": "date-time"},
+                {
+                    "type": "string",
+                    "pattern": r"^\s*-\s*\d+(\.\d+)?\s*(ms|milliseconds?|s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?|w|weeks?|y|years?)\s*$",
+                },
+            ],
+            "description": "ISO 8601 datetime, or a negative relative timespan like '-7d' / '-7 days'.",
+        },
+        mode="validation",
+    ),
+]
 
 
 @enum.unique
@@ -46,10 +73,10 @@ class BaseTimeWindowConfig(ConfigModel):
         default_factory=lambda: datetime.now(tz=timezone.utc),
         description="Latest date of lineage/usage to consider. Default: Current time in UTC",
     )
-    start_time: datetime = Field(
+    start_time: RelativeOrAbsoluteDatetime = Field(
         default=None,
         description="Earliest date of lineage/usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`). You can also specify relative time with respect to end_time such as '-7 days' Or '-7d'.",
-    )  # type: ignore
+    )  # type: ignore[assignment]  # real default is computed in the default_start_time validator
 
     @field_validator("start_time", mode="before")
     @classmethod

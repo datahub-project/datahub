@@ -262,8 +262,8 @@ public class DeleteEntityUtils {
   }
 
   @Nullable
-  public static MetadataChangeProposal removeFormFromFormsAspect(
-      @Nonnull Forms formsAspect, @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+  public static Forms removeFormFromForms(
+      @Nonnull Forms formsAspect, @Nonnull final Urn deletedUrn) {
     final AtomicReference<Forms> updatedAspect;
     try {
       updatedAspect = new AtomicReference<>(formsAspect.copy());
@@ -289,7 +289,17 @@ public class DeleteEntityUtils {
     updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
 
     if (!formsAspect.equals(updatedAspect.get())) {
-      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
+      return updatedAspect.get();
+    }
+    return null;
+  }
+
+  @Nullable
+  public static MetadataChangeProposal removeFormFromFormsAspect(
+      @Nonnull Forms formsAspect, @Nonnull final Urn assetUrn, @Nonnull final Urn deletedUrn) {
+    final Forms updated = removeFormFromForms(formsAspect, deletedUrn);
+    if (updated != null) {
+      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updated);
     }
     return null;
   }

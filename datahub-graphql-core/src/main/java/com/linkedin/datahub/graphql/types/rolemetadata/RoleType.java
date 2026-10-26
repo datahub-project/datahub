@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.RoleMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -70,12 +71,15 @@ public class RoleType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, Constants.ROLE_KEY);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               Constants.ROLE_ENTITY_NAME,
               new HashSet<>(externalRolesUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : externalRolesUrns) {

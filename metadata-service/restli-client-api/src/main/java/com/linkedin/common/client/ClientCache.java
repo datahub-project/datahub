@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Weigher;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.cache.client.ClientCacheConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
@@ -14,9 +15,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Generic cache with common configuration for limited weight, per item expiry, and batch loading
@@ -32,6 +33,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
   @Nonnull private final Function<Iterable<? extends K>, Map<K, V>> loadFunction;
   @Nonnull private final Weigher<K, V> weigher;
   @Nonnull private final BiFunction<C, K, Integer> ttlSecondsFunction;
+
+  /** Optional per-value TTL adjustment. Used to expire negative entries faster than hits. */
+  @Nonnull private final BiFunction<V, Integer, Integer> ttlAdjustment;
 
   public @Nullable V get(@Nonnull K key) {
     return cache.get(key);
@@ -53,7 +57,20 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
     return cache.asMap().keySet();
   }
 
+  @VisibleForTesting
+  LoadingCache<K, V> getCache() {
+    return cache;
+  }
+
   public static class ClientCacheBuilder<K, V, C extends ClientCacheConfig> {
+
+    private BiFunction<V, Integer, Integer> ttlAdjustment = (value, configured) -> configured;
+
+    public ClientCacheBuilder<K, V, C> ttlAdjustment(
+        BiFunction<V, Integer, Integer> ttlAdjustment) {
+      this.ttlAdjustment = ttlAdjustment;
+      return this;
+    }
 
     private ClientCacheBuilder<K, V, C> cache(LoadingCache<K, V> cache) {
       return null;
@@ -91,7 +108,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
                   new Expiry<K, V>() {
                     public long expireAfterCreate(
                         @Nonnull K key, @Nonnull V aspect, long currentTime) {
-                      int ttlSeconds = ttlSecondsFunction.apply(config, key);
+                      BiFunction<V, Integer, Integer> adjust =
+                          ttlAdjustment == null ? (value, configured) -> configured : ttlAdjustment;
+                      int ttlSeconds = adjust.apply(aspect, ttlSecondsFunction.apply(config, key));
                       if (ttlSeconds < 0) {
                         ttlSeconds = Integer.MAX_VALUE;
                       }
@@ -113,6 +132,19 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
         caffeine.recordStats();
       }
 
+      try {
+        /*
+         Caffeine 2 and 3 are mostly API-compatible but differ in the signature of
+         'CacheLoader.loadAll'.
+         Caffeine 2 creeping into the classpath of code meant for Caffeine 3 leads to silent but
+         non-critical issues so we want a warning.
+        */
+        CacheLoader.class.getMethod("loadAll", Set.class);
+      } catch (NoSuchMethodException | SecurityException e) {
+        log.warn(
+            "Could not find CacheLoader.loadAll(Set<>). Please ensure classpath does not contain Caffeine 2");
+      }
+
       LoadingCache<K, V> cache = caffeine.build(loader);
 
       if (config.isStatsEnabled() && metricUtils != null) {
@@ -120,7 +152,9 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
             config.getName(), cache, metricUtils.getRegistry());
       }
 
-      return new ClientCache<>(config, cache, loadFunction, weigher, ttlSecondsFunction);
+      BiFunction<V, Integer, Integer> adjust =
+          ttlAdjustment == null ? (value, configured) -> configured : ttlAdjustment;
+      return new ClientCache<>(config, cache, loadFunction, weigher, ttlSecondsFunction, adjust);
     }
   }
 }

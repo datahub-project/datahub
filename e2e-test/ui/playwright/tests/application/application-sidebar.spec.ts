@@ -49,7 +49,12 @@ test.describe('Application Sidebar Integration', () => {
       const request = route.request();
       const postData = request.postDataJSON();
 
-      if (postData?.operationName === 'appConfig') {
+      if (postData?.operationName !== 'appConfig') {
+        await route.continue();
+        return;
+      }
+
+      try {
         const response = await route.fetch();
         const json = await response.json();
 
@@ -58,8 +63,11 @@ test.describe('Application Sidebar Integration', () => {
         }
 
         await route.fulfill({ response, json });
-      } else {
-        await route.continue();
+      } catch {
+        // Navigation or context teardown aborts an in-flight appConfig and disposes the
+        // fetched body (`apiResponse.json: Response has been disposed`). The handler
+        // rejection fails the test even after the assertion has passed.
+        await route.abort().catch(() => undefined);
       }
     });
   }
@@ -119,6 +127,7 @@ test.describe('Application Sidebar Integration', () => {
     logger?.info(`Navigating to dataset: ${DATASET_WITHOUT_APP_NAME}`);
     await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     logger?.info(`Adding application: ${TEST_APP_NAME}`);

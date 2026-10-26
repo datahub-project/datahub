@@ -5,7 +5,10 @@ import {
 import {
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
+    CONTENTS_MODULE,
     DATA_PRODUCTS_MODULE,
+    DATA_SOURCES_MODULE,
+    LINEAGE_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType, SummaryElementType } from '@types';
@@ -51,7 +54,7 @@ describe('getDefaultSummaryPageTemplate', () => {
                 surface: {
                     surfaceType: PageTemplateSurfaceType.AssetSummary,
                 },
-                rows: [{ modules: expect.any(Array) }],
+                rows: [{ modules: expect.any(Array) }, { modules: expect.any(Array) }],
                 assetSummary: {
                     summaryElements: [
                         { elementType: SummaryElementType.Created },
@@ -65,6 +68,7 @@ describe('getDefaultSummaryPageTemplate', () => {
         });
 
         expect(result.properties.rows[0].modules).toHaveLength(2);
+        expect(result.properties.rows[1].modules).toHaveLength(1);
     });
 
     it('should return correct template for GlossaryTerm entity type', () => {
@@ -152,8 +156,38 @@ describe('getDefaultSummaryPageTemplate', () => {
         expect(result.properties.rows[0].modules).toHaveLength(1);
     });
 
-    it('should return template with empty arrays for unsupported entity types', () => {
+    it.each([
+        [EntityType.Application, 1, 1],
+        [EntityType.Container, 1, 1],
+        [EntityType.Chart, 1, 2],
+        [EntityType.Dashboard, 2, 2],
+    ])('should return correct template for %s entity type', (entityType, rowCount, moduleCount) => {
+        const result = getDefaultSummaryPageTemplate(entityType);
+
+        expect(result.properties.rows).toHaveLength(rowCount);
+        expect(result.properties.rows[0].modules).toHaveLength(moduleCount);
+        expect(result.properties.assetSummary?.summaryElements).toEqual([
+            { elementType: SummaryElementType.Created },
+            { elementType: SummaryElementType.Owners },
+            { elementType: SummaryElementType.Domain },
+            { elementType: SummaryElementType.Tags },
+            { elementType: SummaryElementType.GlossaryTerms },
+        ]);
+    });
+
+    it('should use Dashboards plus Lineage for Chart summaries', () => {
         const result = getDefaultSummaryPageTemplate(EntityType.Chart);
+        expect(result.properties.rows[0].modules).toEqual([ASSETS_MODULE, LINEAGE_MODULE]);
+    });
+
+    it('should use Data Sources, Contents, and Lineage for Dashboard summaries', () => {
+        const result = getDefaultSummaryPageTemplate(EntityType.Dashboard);
+        expect(result.properties.rows[0].modules).toEqual([DATA_SOURCES_MODULE, CONTENTS_MODULE]);
+        expect(result.properties.rows[1].modules).toEqual([LINEAGE_MODULE]);
+    });
+
+    it('should return template with empty arrays for unsupported entity types', () => {
+        const result = getDefaultSummaryPageTemplate(EntityType.DataFlow);
 
         expect(result).toEqual({
             urn: 'urn:li:dataHubPageTemplate:asset_summary_default',
@@ -189,7 +223,11 @@ describe('getDefaultSummaryPageTemplate', () => {
             expect(result.type).toBe(EntityType.DatahubPageTemplate);
             expect(result.properties.visibility.scope).toBe(PageTemplateScope.Personal);
             expect(result.properties.surface.surfaceType).toBe(PageTemplateSurfaceType.AssetSummary);
-            if (entityType === EntityType.Domain || entityType === EntityType.Dataset) {
+            if (
+                entityType === EntityType.Domain ||
+                entityType === EntityType.Dataset ||
+                entityType === EntityType.DataProduct
+            ) {
                 expect(result.properties.rows).toHaveLength(2);
             } else {
                 expect(result.properties.rows).toHaveLength(1);

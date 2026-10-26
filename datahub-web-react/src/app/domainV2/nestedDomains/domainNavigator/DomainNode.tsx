@@ -9,9 +9,8 @@ import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
-import Loading from '@app/shared/Loading';
-import { BodyContainer, BodyGridExpander } from '@app/shared/components';
-import useToggle from '@app/shared/useToggle';
+import Loading from '@app/sharedV2/Loading';
+import { BodyContainer, BodyGridExpander } from '@app/sharedV2/components';
 import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
 import { useTreeExpansionRegistry } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeExpansionRegistry';
 import {
@@ -19,6 +18,7 @@ import {
     TREE_ROW_ENTITY_ICON_SIZE,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
+import useToggle from '@app/sharedV2/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain } from '@types';
@@ -169,16 +169,17 @@ export default function DomainNode({
     const expansion = useTreeExpansionRegistry();
     const isInSelectMode = !!selectDomainOverride;
     const isSidebarVariant = variant === 'sidebar';
-    // Propagate the sidebar's owner selection down into every level of the
-    // tree so child-domain scrolls are filtered server-side too (mirrors how
+    // Propagate the sidebar's owner / sort selection down into every level of the
+    // tree so child-domain scrolls stay consistent with the root (mirrors how
     // the root scroll is filtered in `DomainNavigator`). Picker variants
     // intentionally don't inherit the sidebar filter — they have their own
     // scope. Returns noop defaults outside the sidebar provider tree.
-    const { selectedOwnerUrns } = useDomainSidebarFilters();
+    const { selectedOwnerUrns, sortSelection } = useDomainSidebarFilters();
     const { domains, loading, scrollRef } = useScrollDomains({
         parentDomain: domain.urn,
         skip: !isOpen || shouldHideDomain,
         selectedOwnerUrns: isSidebarVariant ? selectedOwnerUrns : undefined,
+        sort: isSidebarVariant ? sortSelection : undefined,
     });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);

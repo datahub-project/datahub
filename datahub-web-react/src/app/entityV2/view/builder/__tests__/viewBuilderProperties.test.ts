@@ -121,11 +121,8 @@ describe('viewBuilderProperties', () => {
         expect(viewBuilderProperties.find((p) => p.id === 'hasActiveIncidents')?.displayName).toBe(
             'Has Active Incidents',
         );
-        expect(viewBuilderProperties.find((p) => p.id === 'hasFailingAssertions')?.displayName).toBe(
-            'Has Failing Assertions',
-        );
 
-        const booleanIds = ['hasDescription', 'removed', 'hasActiveIncidents', 'hasFailingAssertions'];
+        const booleanIds = ['hasDescription', 'removed', 'hasActiveIncidents'];
         booleanIds.forEach((id) => {
             expect(viewBuilderProperties.find((p) => p.id === id)?.valueType).toBe(ValueTypeId.BOOLEAN);
         });

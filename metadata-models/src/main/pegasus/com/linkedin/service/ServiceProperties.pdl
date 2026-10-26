@@ -1,5 +1,6 @@
 namespace com.linkedin.service
 
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 
 /**
@@ -14,9 +15,9 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "serviceProperties",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
-record ServiceProperties {
+record ServiceProperties includes CustomProperties {
 
   /**
    * Display name shown in UI and search results.
@@ -25,7 +26,16 @@ record ServiceProperties {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "fieldNameAliases": [ "_entityName" ]
+    "fieldNameAliases": [ "_entityName" ],
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   displayName: string
 
@@ -34,7 +44,16 @@ record ServiceProperties {
    */
   @Searchable = {
     "fieldType": "TEXT",
-    "hasValuesFieldName": "hasDescription"
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 

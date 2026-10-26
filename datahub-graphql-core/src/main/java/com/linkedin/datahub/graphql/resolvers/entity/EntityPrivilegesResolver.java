@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -69,6 +70,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             case Constants.DOCUMENT_ENTITY_NAME:
               return getDocumentPrivileges(urn, context);
+            case Constants.QUERY_ENTITY_NAME:
+              return getQueryPrivileges(urn, context);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
@@ -133,10 +136,23 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return AuthUtil.isAuthorizedUrns(context.getOperationContext(), LINEAGE, UPDATE, List.of(urn));
   }
 
+  /**
+   * Whether {@code canViewQueries} should read as granted for this entity — delegates to {@link
+   * EntityAspectAuthorizationUtils#canViewQueriesOnEntity}, which folds in the escape valve
+   * (query-view authorization disabled) and system auth alongside the ordinary per-entity check,
+   * matching the same guard {@code ListQueriesResolver}/{@code QueryType} apply before their own
+   * subject-dataset lookups.
+   */
+  private boolean canViewQueries(Urn urn, QueryContext context) {
+    return EntityAspectAuthorizationUtils.canViewQueriesOnEntity(
+        context.getOperationContext(), urn);
+  }
+
   private EntityPrivileges getDatasetPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
     // Schema Field Edits are a bit of a hack.
+    result.setCanViewQueries(canViewQueries(urn, context));
     result.setCanEditQueries(AuthorizationUtils.canCreateQuery(ImmutableList.of(urn), context));
     result.setCanEditSchemaFieldTags(
         LabelUtils.isAuthorizedToUpdateTags(
@@ -157,6 +173,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private EntityPrivileges getChartPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     result.setCanEditEmbed(EmbedUtils.isAuthorizedToUpdateEmbedForEntity(urn, context));
+    result.setCanViewQueries(canViewQueries(urn, context));
     addCommonPrivileges(result, urn, context);
     return result;
   }
@@ -170,22 +187,55 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
 
   private EntityPrivileges getDataJobPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
+    result.setCanViewQueries(canViewQueries(urn, context));
     addCommonPrivileges(result, urn, context);
     return result;
+  }
+
+  private EntityPrivileges getQueryPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanViewQueries(isQueryEntityViewable(urn, context));
+    return result;
+  }
+
+  /**
+   * A Query entity's statement is visible when query-view authorization is off, for system auth, or
+   * when {@link EntityAspectAuthorizationUtils#filterViewableQueryEntities} accepts this URN. That
+   * is the same subject-dataset check {@code QueryType} uses before returning the entity.
+   */
+  private boolean isQueryEntityViewable(Urn urn, QueryContext context) {
+    io.datahubproject.metadata.context.OperationContext opContext = context.getOperationContext();
+    if (!EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)
+        || opContext.isSystemAuth()) {
+      return true;
+    }
+    return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            opContext,
+            opContext,
+            opContext.getAspectRetriever(),
+            List.of(urn),
+            EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
+        .contains(urn);
   }
 
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, urn, context);
-    // Document-specific: canManageEntity includes ability to delete/move documents
+    // Document-specific: editing controls moves; deletion is resolved in addCommonPrivileges.
     result.setCanManageEntity(AuthorizationUtils.canEditDocument(urn, context));
     return result;
   }
 
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
+    result.setCanDeleteEntity(
+        Constants.DOCUMENT_ENTITY_NAME.equals(urn.getEntityType())
+            ? AuthorizationUtils.canDeleteDocument(urn, context)
+            : AuthorizationUtils.canDeleteEntity(urn, context));
     result.setCanEditLineage(canEditEntityLineage(urn, context));
-    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditProperties(
+        AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditAssertionOwners(

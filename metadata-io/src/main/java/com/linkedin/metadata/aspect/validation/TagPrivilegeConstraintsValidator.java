@@ -15,7 +15,6 @@ import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -23,7 +22,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
@@ -32,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,40 +60,68 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
     List<AspectValidationException> failures = new ArrayList<>();
 
+    Map<String, Map<Urn, Aspect>> currentAspects =
+        fetchCurrentAspects(operationContext, items, aspectRetriever);
+
     for (BatchItem item : items) {
+      Aspect currentAspect =
+          currentAspects
+              .getOrDefault(item.getAspectName(), Collections.emptyMap())
+              .get(item.getUrn());
       switch (item.getAspectName()) {
         case GLOBAL_TAGS_ASPECT_NAME:
-          failures.addAll(
-              validateGlobalTags(
-                  session,
-                  item,
-                  aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      operationContext, item.getUrn(), GLOBAL_TAGS_ASPECT_NAME)));
+          failures.addAll(validateGlobalTags(session, item, aspectRetriever, currentAspect));
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
-          failures.addAll(
-              validateSchemaMetadata(
-                  session,
-                  item,
-                  aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      operationContext, item.getUrn(), SCHEMA_METADATA_ASPECT_NAME)));
+          failures.addAll(validateSchemaMetadata(session, item, aspectRetriever, currentAspect));
           break;
         case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
           failures.addAll(
-              validateEditableSchemaMetadata(
-                  session,
-                  item,
-                  aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      operationContext, item.getUrn(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME)));
+              validateEditableSchemaMetadata(session, item, aspectRetriever, currentAspect));
           break;
         default:
           break;
       }
     }
     return failures;
+  }
+
+  @Nonnull
+  private Map<String, Map<Urn, Aspect>> fetchCurrentAspects(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull List<? extends BatchItem> items,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Map<String, Set<Urn>> urnsByAspectName = new HashMap<>();
+    for (BatchItem item : items) {
+      switch (item.getAspectName()) {
+        case GLOBAL_TAGS_ASPECT_NAME:
+        case SCHEMA_METADATA_ASPECT_NAME:
+        case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
+          urnsByAspectName
+              .computeIfAbsent(item.getAspectName(), name -> new HashSet<>())
+              .add(item.getUrn());
+          break;
+        default:
+          break;
+      }
+    }
+
+    Map<String, Map<Urn, Aspect>> currentAspects = new HashMap<>();
+    urnsByAspectName.forEach(
+        (aspectName, urns) -> {
+          Map<Urn, Aspect> byUrn = new HashMap<>();
+          AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+                  aspectRetriever, operationContext, urns, Set.of(aspectName))
+              .forEach(
+                  (urn, aspectsByName) -> {
+                    Aspect aspect = aspectsByName.get(aspectName);
+                    if (aspect != null) {
+                      byUrn.put(urn, aspect);
+                    }
+                  });
+          currentAspects.put(aspectName, byUrn);
+        });
+    return currentAspects;
   }
 
   private List<AspectValidationException> validateGlobalTags(
@@ -107,18 +134,8 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
         currentTagsAspect == null
             ? null
             : RecordUtils.toRecordTemplate(GlobalTags.class, currentTagsAspect.data());
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      newTags = patchItem.applyPatch(currentTags, aspectRetriever).getAspect(GlobalTags.class);
-    } else {
-      newTags = item.getAspect(GlobalTags.class);
-    }
+    newTags =
+        PatchItemImpl.resolveProposedAspect(item, currentTags, aspectRetriever, GlobalTags.class);
     if (newTags != null) {
       Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
       if (!AuthUtil.isAPIAuthorizedForTagModification(
@@ -163,19 +180,9 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
         currentSchemaAspect == null
             ? null
             : RecordUtils.toRecordTemplate(SchemaMetadata.class, currentSchemaAspect.data());
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      schemaMetadata =
-          patchItem.applyPatch(currentSchema, aspectRetriever).getAspect(SchemaMetadata.class);
-    } else {
-      schemaMetadata = item.getAspect(SchemaMetadata.class);
-    }
+    schemaMetadata =
+        PatchItemImpl.resolveProposedAspect(
+            item, currentSchema, aspectRetriever, SchemaMetadata.class);
     if (schemaMetadata != null) {
       final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
       if (currentSchema != null) {
@@ -221,21 +228,9 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
             ? null
             : RecordUtils.toRecordTemplate(
                 EditableSchemaMetadata.class, currentSchemaAspect.data());
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      editableSchemaMetadata =
-          patchItem
-              .applyPatch(currentSchema, aspectRetriever)
-              .getAspect(EditableSchemaMetadata.class);
-    } else {
-      editableSchemaMetadata = item.getAspect(EditableSchemaMetadata.class);
-    }
+    editableSchemaMetadata =
+        PatchItemImpl.resolveProposedAspect(
+            item, currentSchema, aspectRetriever, EditableSchemaMetadata.class);
     if (editableSchemaMetadata != null) {
       final Map<String, GlobalTags> existingTagsMap = new HashMap<>();
       if (currentSchema != null) {

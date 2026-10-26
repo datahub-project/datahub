@@ -1,22 +1,25 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
 import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
-import BusinessGlossaryPage from '@app/glossaryV2/BusinessGlossaryPage';
 import GlossarySidebar from '@app/glossaryV2/GlossarySidebar';
 import { shouldShowGlossary } from '@app/identity/user/UserUtils';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
     HierarchicalBrowseMainContent,
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseLayout.components';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 import { Entity } from '@src/types.generated';
+
+const EntityPageV2 = lazyNamed(() => import('@app/entityV2/EntityPage'), 'EntityPage');
+const BusinessGlossaryPage = lazyDefault(() => import('@app/glossaryV2/BusinessGlossaryPage'));
 
 export default function GlossaryRoutes() {
     const entityRegistry = useEntityRegistry();
@@ -27,8 +30,8 @@ export default function GlossaryRoutes() {
     const [nodeToDeletedUrn, setNodeToDeletedUrn] = useState<Record<string, string>>({});
 
     const appConfig = useAppConfig();
-    const authenticatedUser = useGetAuthenticatedUser();
-    const canManageGlossary = authenticatedUser?.platformPrivileges?.manageGlossaries || false;
+    const { platformPrivileges } = useUserContext();
+    const canManageGlossary = platformPrivileges?.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -52,19 +55,21 @@ export default function GlossaryRoutes() {
             <HierarchicalBrowseContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <GlossarySidebar />
                 <HierarchicalBrowseMainContent>
-                    <Switch>
-                        {entityRegistry.getGlossaryEntities().map((entity) => (
+                    <Suspense fallback={<SuspenseBlock />}>
+                        <Switch>
+                            {entityRegistry.getGlossaryEntities().map((entity) => (
+                                <Route
+                                    key={entity.getPathName()}
+                                    path={`/${entity.getPathName()}/:urn`}
+                                    render={() => <EntityPageV2 entityType={entity.type} />}
+                                />
+                            ))}
                             <Route
-                                key={entity.getPathName()}
-                                path={`/${entity.getPathName()}/:urn`}
-                                render={() => <EntityPageV2 entityType={entity.type} />}
+                                path={PageRoutes.GLOSSARY}
+                                render={() => (showGlossary ? <BusinessGlossaryPage /> : <Redirect to="/" />)}
                             />
-                        ))}
-                        <Route
-                            path={PageRoutes.GLOSSARY}
-                            render={() => (showGlossary ? <BusinessGlossaryPage /> : <Redirect to="/" />)}
-                        />
-                    </Switch>
+                        </Switch>
+                    </Suspense>
                 </HierarchicalBrowseMainContent>
             </HierarchicalBrowseContentWrapper>
         </GlossaryEntityContext.Provider>

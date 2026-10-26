@@ -3594,6 +3594,7 @@ class TestHelperFunctions:
         assert has_three_level_hierarchy("trino") is True
         assert has_three_level_hierarchy("redshift") is True
         assert has_three_level_hierarchy("snowflake") is True
+        assert has_three_level_hierarchy("mssql") is True
 
         # Platforms without schema support
         assert has_three_level_hierarchy("mysql") is False
@@ -4654,7 +4655,70 @@ class TestPlatformDetection:
         platform = connector._extract_platform_from_jdbc_url(
             "jdbc:sqlserver://localhost:1433;databaseName=mydb"
         )
-        assert platform == "sqlserver"
+        assert platform == "mssql"
+
+    def test_extract_platform_from_jdbc_url_unknown_protocol(self) -> None:
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:unknown://localhost:1234/mydb",
+        }
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:unknown://localhost:1234/mydb"
+        )
+        assert platform == "unknown"
+
+    def test_extract_platform_from_jdbc_url_db2_protocol_fallback(self) -> None:
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:db2://localhost:50000/mydb",
+        }
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:db2://localhost:50000/mydb"
+        )
+        assert platform == "db2"
+
+    def test_extract_platform_from_jdbc_url_unknown_vendor_stays_unknown(self) -> None:
+        connector_config = {
+            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+            "connection.url": "jdbc:mycompany://localhost:1234/mydb",
+        }
+        manifest = ConnectorManifest(
+            name="test",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],
+        )
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+        connector = ConfluentJDBCSourceConnector(manifest, config, report)
+
+        platform = connector._extract_platform_from_jdbc_url(
+            "jdbc:mycompany://localhost:1234/mydb"
+        )
+        assert platform == "unknown"
 
     def test_extract_platform_from_invalid_jdbc_url(self) -> None:
         """Test platform extraction for invalid JDBC URL returns 'unknown'."""

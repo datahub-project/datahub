@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.systemmetadata.cache.KeyAspectEntityCountCache;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -47,15 +48,15 @@ public abstract class KeyAspectEntityCountIntegrationTestBase
 
   private final IndexConvention indexConvention =
       new IndexConventionImpl(
-          IndexConventionImpl.IndexConventionConfig.builder()
-              .prefix("es_key_aspect_entity_count_test")
-              .hashIdAlgo("MD5")
-              .build(),
+          IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+          new ConfiguredIndexPrefixResolver("es_key_aspect_entity_count_test"),
           SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), getSearchClient());
     systemMetadataService = buildSystemMetadataService();
     keyAspectEntityCountService = buildKeyAspectEntityCountService();
     systemMetadataService.reindexAll(operationContext, Collections.emptySet());

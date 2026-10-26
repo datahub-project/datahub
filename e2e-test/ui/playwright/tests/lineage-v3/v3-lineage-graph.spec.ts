@@ -233,6 +233,14 @@ const BASE_FEATURE_FLAGS = {
 
 // ── Test Suite ───────────────────────────────────────────────────────────────
 
+// beforeAll's seedAdditionalNodes call (unlike seedTimeRangeLineage, which is
+// now lock-protected in lineage-time-seeder.ts because it's also called from
+// v3-lineage-impact-analysis.spec.ts) is unique to this file and has no such
+// guard. Under workers_per_shard > 1, fullyParallel can still schedule this
+// describe block's own tests across two workers, each running beforeAll
+// concurrently. Force one worker so it stays genuinely single-shot.
+test.describe.configure({ mode: 'default' });
+
 test.describe('lineage v3 — lineage graph', () => {
   let lineagePage: LineageV3Page;
 
@@ -545,6 +553,17 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeExists(NODE6_DATASET_URN, NODE4_DATASET_URN);
     await lineagePage.checkEdgeExists(NODE4_DATASET_URN, NODE7_DATAJOB_URN);
     await lineagePage.checkEdgeExists(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
+  });
+
+  test('draws manually added edges dashed, and ingested ones solid', async () => {
+    // node5's upstream edge from node1 is seeded with `properties.source = UI`, which is what
+    // marks a lineage edge as manually added; node1 -> node2 is an ordinary ingested edge.
+    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
+    await lineagePage.checkEdgeExists(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN);
+    await lineagePage.checkEdgeExists(NODE1_DATASET_URN, NODE2_DATASET_URN);
+
+    await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN, true);
+    await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE2_DATASET_URN, false);
   });
 
   test('should allow to expand and filter children', async ({ apiMock }) => {

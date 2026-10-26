@@ -6,7 +6,8 @@ import TabItem from '@theme/TabItem';
 This guide specifically covers how to create and report results for custom assertions in DataHub.
 Custom Assertions are those not natively run or directly modeled by DataHub, and managed by a 3rd party framework or tool.
 
-**CUSTOM is the only supported assertion type for external / self-reported checks** (dbt, Great Expectations, partner tools, SDK integrations).
+**CUSTOM is the recommended assertion type for external / self-reported checks** (dbt, Great Expectations, partner tools, SDK integrations).
+(The ODCS contract source is an exception: it currently emits typed assertions for quality rules it can represent exactly. See the [ODCS source docs](/docs/generated/ingestion/sources/odcs.md#quality-rule-mapping).)
 Do not emit native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) for externally managed assertions — those are intended for assertions DataHub evaluates / schedules natively.
 The legacy `DATASET` / `DatasetAssertionInfo` shape is deprecated; new writers should use `CUSTOM` with optional structured fields on `CustomAssertionInfo` (scope, operator, aggregation, parameters, fields, nativeType).
 
@@ -25,7 +26,7 @@ In this guide, you will learn how to
 
 ## Prerequisites
 
-The actor making API calls must have the `Edit Assertions` and `Edit Monitors` privileges for the Tables being monitored.
+The actor making API calls must have the `Edit Assertions` privilege for the Tables being monitored.
 
 ## Create And Update Custom Assertions
 
@@ -174,11 +175,24 @@ The upsert API will return the unique identifier (URN) for the assertion if you 
 To create or update a custom assertion in Python, use `client.assertions.sync_custom_assertion`.
 This wraps the same `upsertCustomAssertion` GraphQL mutation.
 
+:::note
+With `acryl-datahub` 1.7.0 and earlier, `client.assertions` requires the
+`acryl-datahub-cloud` package and raises `SdkUsageError` without it. Use
+`DataHubGraph.upsert_custom_assertion` below instead.
+
+In releases after 1.7.0, open-source `acryl-datahub` provides an
+`AssertionClient` fallback, so `client.assertions.sync_custom_assertion` works
+without the cloud package. Other cloud-only assertion methods still require
+`acryl-datahub-cloud`.
+:::
+
 ```python
 {{ inline /metadata-ingestion/examples/library/sync_custom_assertion.py show_path_as_comment }}
 ```
 
-Lower-level `DataHubGraph.upsert_custom_assertion` is also available if you are not using the V2 SDK:
+If you are not using the V2 SDK, you can call the lower-level
+`DataHubGraph.upsert_custom_assertion` directly. This is also the path to use
+with `acryl-datahub` 1.7.0 and earlier:
 
 ```python
 {{ inline /metadata-ingestion/examples/library/upsert_custom_assertion.py show_path_as_comment }}
@@ -219,6 +233,10 @@ mutation reportAssertionResult {
 }
 ```
 
+Set `timestampMillis` to the time the assertion was actually executed in the external tool. Results are keyed by
+assertion and timestamp: re-sending a result with the same `timestampMillis` overwrites the earlier one rather than adding
+a new entry (`runId` is not part of this key).
+
 The `type` field is used to communicate the latest health status of the assertion.
 
 The `properties` field is used to provide additional key-value pair context that will be displayed alongside the result
@@ -250,8 +268,10 @@ If the result is `true`, the result was successfully reported.
 </TabItem>
 <TabItem value="python" label="Python">
 
-To report an assertion result in Python, use `client.assertions.report_assertion_result`
-(or `DataHubGraph.report_assertion_result`).
+To report an assertion result in Python, use `client.assertions.report_assertion_result`.
+On `acryl-datahub` 1.7.0 and earlier, use
+`DataHubGraph.report_assertion_result` instead if `acryl-datahub-cloud` is not
+installed.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/report_assertion_result.py show_path_as_comment }}

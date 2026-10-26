@@ -1,13 +1,12 @@
-import { SearchBar, Text } from '@components';
-import { Pagination, message } from 'antd';
-import React, { useState } from 'react';
+import { Pagination, SearchBar, Text, toast } from '@components';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { ViewsTable } from '@app/entityV2/view/ViewsTable';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from '@app/entityV2/view/utils';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';
 import { DataHubViewType } from '@types';
@@ -154,6 +153,12 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
 
     const theme = useTheme();
 
+    useEffect(() => {
+        if (error) {
+            toast.error(t('loadError'), { duration: 3 });
+        }
+    }, [error, t]);
+
     if (!totalViews) {
         return (
             <EmptyContainer>
@@ -167,7 +172,6 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
     return (
         <>
             {!viewsData && loading && <Message type="loading" content={t('loading')} />}
-            {error && message.error({ content: t('loadError'), duration: 3 })}
             <ViewsContainer>
                 <StyledTabToolbar>
                     <SearchContainer>
@@ -180,11 +184,11 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
                 {totalViews >= pageSize && (
                     <PaginationContainer>
                         <StyledPagination
-                            current={page}
-                            pageSize={pageSize}
+                            currentPage={page}
+                            itemsPerPage={pageSize}
                             total={totalViews}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={false}
                         />
                     </PaginationContainer>

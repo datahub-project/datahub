@@ -1,5 +1,6 @@
 import logging
 import os
+import signal
 import tempfile
 from contextlib import contextmanager
 from typing import Generator
@@ -8,7 +9,11 @@ from unittest.mock import Mock
 import pytest
 from click.testing import CliRunner
 
-from datahub_actions.cli.actions import actions, pipeline_config_to_pipeline
+from datahub_actions.cli.actions import (
+    actions,
+    handle_shutdown,
+    pipeline_config_to_pipeline,
+)
 from datahub_actions.pipeline.pipeline import Pipeline
 from datahub_actions.pipeline.pipeline_manager import PipelineManager
 
@@ -448,3 +453,45 @@ def test_type_annotations() -> None:
     # These assertions serve as runtime checks
     assert isinstance(runner, CliRunner)
     assert isinstance(config_dict, dict)
+
+
+def test_run_registers_sigterm_handler(
+    temp_config_file: str,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_pipeline: Mock,
+    mock_pipeline_manager: Mock,
+) -> None:
+    """Container runtimes stop with SIGTERM, but only SIGINT was registered, so a
+    container stop killed the process without running the stop_all() path that
+    flushes consumer offsets. Asserts on `run` rather than on the registration
+    helper, so dropping the call from `run` fails the test."""
+
+    def mock_create_pipeline(config: dict) -> Pipeline:
+        return mock_pipeline
+
+    def mock_sleep(seconds: int) -> None:
+        raise KeyboardInterrupt()
+
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+    try:
+        with (
+            local_monkeypatch(
+                monkeypatch,
+                "datahub_actions.pipeline.pipeline.Pipeline.create",
+                mock_create_pipeline,
+            ),
+            local_monkeypatch(monkeypatch, "time.sleep", mock_sleep),
+            local_monkeypatch(
+                monkeypatch,
+                "datahub_actions.cli.actions.pipeline_manager",
+                mock_pipeline_manager,
+            ),
+        ):
+            CliRunner().invoke(actions, ["run", "-c", temp_config_file])
+
+        assert signal.getsignal(signal.SIGTERM) is handle_shutdown
+        assert signal.getsignal(signal.SIGINT) is handle_shutdown
+    finally:
+        signal.signal(signal.SIGINT, previous_sigint)
+        signal.signal(signal.SIGTERM, previous_sigterm)

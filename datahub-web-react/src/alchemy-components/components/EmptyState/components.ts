@@ -49,6 +49,7 @@ export const TextWrapper = styled.div({
 
 export const ActionsWrapper = styled.div({
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.xsm,

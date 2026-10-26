@@ -8,9 +8,9 @@ import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
 import { decodeUrn } from '@app/entityV2/shared/utils';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import TabFullSizedContext from '@app/shared/TabFullsizedContext';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TabFullSizedContext from '@app/sharedV2/TabFullsizedContext';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

@@ -29,6 +29,13 @@ extend type Query {
   ): ScrollAcrossLineageResults
 
   """
+  How many entities a graph query on a node reaches, without returning any of them
+  """
+  searchAcrossLineageCounts(
+    input: SearchAcrossLineageCountsInput!
+  ): SearchAcrossLineageCounts
+
+  """
   Autocomplete a search query against a specific DataHub Entity Type
   """
   autoComplete(input: AutoCompleteInput!): AutoCompleteResults
@@ -125,6 +132,26 @@ input SearchInput {
 }
 
 """
+Search V3 highlight-field adjustment. replace cannot be combined with add or remove.
+"""
+input HighlightFieldOverrides {
+  """
+  Field names added to the template set.
+  """
+  add: [String!]
+
+  """
+  Field names removed from the template set.
+  """
+  remove: [String!]
+
+  """
+  Field names that replace the template set.
+  """
+  replace: [String!]
+}
+
+"""
 Set of flags to control search behavior
 """
 input SearchFlags {
@@ -183,6 +210,13 @@ input SearchFlags {
   customHighlightingFields: [String!]
 
   """
+  Search V3 adjustment of the template highlight set. replace cannot be combined with add or
+  remove. An empty object clears the template set. customHighlightingFields replaces the set.
+  skipHighlighting clears it.
+  """
+  highlightFields: HighlightFieldOverrides
+
+  """
   Whether or not to fetch and request for structured property facets when doing a search
   """
   includeStructuredPropertyFacets: Boolean
@@ -191,6 +225,39 @@ input SearchFlags {
   Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
   """
   filterNonLatestVersions: Boolean
+
+  """
+  Include Elasticsearch scoring explanation in search results.
+  Explanations appear in SearchResult.extraProperties with key '_explain'.
+  Note: Adds computational overhead - use for debugging only.
+  """
+  includeExplain: Boolean
+
+  """
+  Elasticsearch search type for controlling IDF calculation across shards.
+  - QUERY_THEN_FETCH: Shard-local IDF (default, faster, production behavior)
+  - DFS_QUERY_THEN_FETCH: Global IDF across all shards (slower, more accurate for debugging)
+  Note: DFS mode adds 20-50% latency overhead - use for debugging only.
+  """
+  searchType: String
+
+  """
+  Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
+  floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
+  only by the semantic search path.
+
+  The value is compared against the engine's raw kNN relevance score (cosine-derived), which is not
+  a normalized 0..1 value; its scale depends on the embedding model and search engine, so a suitable
+  floor must be calibrated per deployment rather than assumed.
+  """
+  minScore: Float
+
+  """
+  Caller-selected search template URN (`urn:li:searchTemplate:<id>`). When set, the server uses this
+  template and skips query classification and engine lookup. The resolved template is not written
+  back onto this field. The caller must have the MANAGE_SYSTEM_OPERATIONS privilege.
+  """
+  searchTemplate: String
 }
 
 """
@@ -216,6 +283,95 @@ input LineageFlags {
   a large amount of additional hops to occur and should be used with caution.
   """
   ignoreAsHops: [EntityTypeToPlatforms!]
+}
+
+"""
+Input for counting what a graph query on a node reaches. Deliberately narrow: it carries only what
+is needed to count, so there is no paging, sorting, or free-text query to configure.
+"""
+input SearchAcrossLineageCountsInput {
+  """
+  Urn of the source node
+  """
+  urn: String!
+
+  """
+  The direction of the relationship, either incoming or outgoing from the source entity
+  """
+  direction: LineageDirection!
+
+  """
+  Entity types to count. If not provided, all entities are counted.
+  """
+  types: [EntityType!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
+
+  """
+  Whether to count all unmaterialized entities, not just the ones the entity index can return.
+  Lineage graphs point at these constantly -- fine-grained lineage writes graph edges without
+  materializing the schema fields it connects -- so counting them means reading the count off the
+  graph instead of the index.
+
+  validateSchemaFields narrows this: an unmaterialized schema field is counted only while its
+  parent dataset's schemaMetadata still declares it.
+  """
+  includeGhostEntities: Boolean
+
+  """
+  Whether to count soft deleted entities. Ignored when includeGhostEntities is set, which counts
+  off the graph and so never consults the soft-delete state held in the entity index.
+  """
+  includeSoftDeleted: Boolean
+
+  """
+  Whether to check that schema fields counted off the graph still exist, by reading the
+  schemaMetadata of the datasets holding them. The graph keeps its edges long after a column is
+  removed or its dataset deleted, so without this those columns are still counted.
+
+  Defaults to AUTO, which checks whenever doing so is cheap.
+  """
+  validateSchemaFields: SchemaFieldValidationMode = AUTO
+}
+
+"""
+Whether to check that schema fields read off the lineage graph still exist
+"""
+enum SchemaFieldValidationMode {
+  """
+  Do not check. Counts may include columns their parent no longer declares.
+  """
+  NONE
+
+  """
+  Check when it is cheap to, which is nearly always: the read is batched per parent dataset and
+  columns share parents heavily, so counting very many columns is usually few reads. Skipped when a
+  walk fans out over more parent datasets than are worth fetching.
+  """
+  AUTO
+
+  """
+  Check however many parent datasets it takes.
+  """
+  ALWAYS
+}
+
+"""
+How many entities a graph query on a node reaches
+"""
+type SearchAcrossLineageCounts {
+  """
+  The number of entities reached
+  """
+  total: Int!
 }
 
 input EntityTypeToPlatforms {
@@ -649,6 +805,10 @@ type SearchResults {
   Search suggestions based on the query provided for alternate query texts
   """
   suggestions: [SearchSuggestion!]
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 type ExtraProperty {
@@ -686,6 +846,11 @@ type SearchResult {
   Additional properties about the search result. Used for rendering in the UI
   """
   extraProperties: [ExtraProperty!]
+
+  """
+  How each field matched. Set when includeExplain is true.
+  """
+  explainMatches: [ExplainMatch!]
 }
 
 """
@@ -726,6 +891,10 @@ type ScrollResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 """
@@ -771,6 +940,10 @@ type SearchAcrossLineageResults {
   Indicates whether the results are partial due to reaching the maxRelations limit or timeout
   """
   isPartial: Boolean
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 """
@@ -811,6 +984,10 @@ type ScrollAcrossLineageResults {
   Indicates whether the results are partial due to reaching the maxRelations limit or timeout
   """
   isPartial: Boolean
+  """
+  Templates visited while choosing this result, when the caller asked for an explanation
+  """
+  routeChain: [String!]
 }
 
 """
@@ -861,6 +1038,11 @@ type SearchAcrossLineageResult {
   Whether this relationship was ignored as a hop
   """
   ignoredAsHop: Boolean!
+
+  """
+  How each field matched. Set when includeExplain is true.
+  """
+  explainMatches: [ExplainMatch!]
 }
 
 """
@@ -891,6 +1073,36 @@ type MatchedField {
   Entity if the value is an urn
   """
   entity: Entity
+}
+
+"""
+How a field matched. Present when the caller asked for an explanation.
+"""
+type ExplainMatch {
+  """
+  The same name a matched field reports: a logical field, or a structured property URN
+  """
+  field: String!
+
+  """
+  Matched text
+  """
+  value: String!
+
+  """
+  Indexed path that matched, such as name.keyword or name.stemmed
+  """
+  subfield: String!
+
+  """
+  exact, prefix, word, contains, or nameAndValue
+  """
+  mode: String!
+
+  """
+  Query text that produced the hit
+  """
+  query: String!
 }
 
 """
