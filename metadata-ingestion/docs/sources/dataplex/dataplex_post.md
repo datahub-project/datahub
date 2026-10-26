@@ -146,10 +146,11 @@ project, location or service. The connector resolves that pair in order:
 2. the `dpms_hive_metastore_service` fallback (`{project}.{location}.{service}`):
    that service's table if this run ingested it, otherwise a Dataproc
    Metastore URN minted under the configured service;
-3. with `include_hive_metastore_nodes` (default `true`), a lineage-only `hive`
-   dataset named `{database}.{table}` — matching DataHub's Hive connector
-   convention, so a later real Hive ingestion of the same metastore joins those
-   URNs rather than duplicating them;
+3. with `include_hive_metastore_nodes` (default `true`), a `hive` dataset URN
+   named `{database}.{table}` — matching DataHub's Hive connector convention, so
+   a later real Hive ingestion of the same metastore joins those URNs rather
+   than duplicating them. Only the edge is written; the node itself needs
+   [`include_lineage_only_upstreams`](#lineage-only-upstream-nodes);
 4. otherwise the edge is skipped and counted under
    `num_hive_metastore_fqns_unresolved`.
 
@@ -163,6 +164,41 @@ to an upstream, the edge is withheld for that run and counted under
 every time, so remove that location from `lineage_locations`. A lookup where
 every location fails emits nothing.
 
+#### Lineage-only Upstream Nodes
+
+An upstream that exists only because a lineage edge points at it (a GCS bucket,
+an uncatalogued hive table, or a table in a project outside the configured
+scope) has no entity in DataHub, so the edge exists but the node does not show
+in lineage views. Set `include_lineage_only_upstreams: true` to create a minimal
+entity for it: `status`, display name and subtype.
+
+- Only upstreams that do not exist in DataHub yet are written. An upstream that
+  already exists, for example one another connector ingests, is left untouched.
+- These entities are never tracked for stale-metadata removal, so this connector
+  never soft-deletes them, even after the edge disappears.
+- Checking which upstreams exist needs a DataHub graph connection (the
+  `datahub-rest` sink or `datahub_api`). Without one, nothing is written and the
+  report says why. A failed check writes nothing for that upstream, warns once
+  and counts it under `num_upstream_node_checks_failed`.
+- A BigQuery or Spanner upstream gets no subtype, because a table and a view (or
+  a graph) share one URN shape.
+- The display name is sent as a patch. If another connector creates the same
+  entity between the check and the write, its other properties survive, but its
+  `status` and subtype are replaced until that connector runs again.
+- With the pipeline flag `auto_resolve_lineage_urns` enabled, no node is written
+  for an upstream on a platform it reconciles, because it may later point the
+  edge at another casing of the URN. These are counted under
+  `num_upstream_nodes_casing_skipped`.
+
+#### Incremental Lineage
+
+By default, an entry that has edges this run gets its `upstreamLineage`
+replaced with them, so an edge the Data Lineage API stops reporting is removed.
+An entry with no edges this run is not written and keeps its stored edges. The
+API keeps links for a limited time, so set `incremental_lineage: true` to send
+lineage as a patch instead: new edges are added and edges the API no longer
+reports are kept. Patches need a DataHub server that supports them.
+
 #### Configuration Options
 
 **Metadata Extraction:**
@@ -170,9 +206,11 @@ every location fails emits nothing.
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a complex type spelling such as `array<struct<...>>` or `ARRAY<INT64>` (matched case-insensitively) — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children. On BigQuery entries, nested field names are lowercased to match the BigQuery connector. Complex type spellings the Hive type parser cannot read, such as `ARRAY<STRING(MAX)>` or `STRUCT<a INT64>`, keep a single flat row.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 - **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
+- **`include_lineage_only_upstreams`** (default: `false`): Create minimal entities for upstreams that do not exist in DataHub; see [Lineage-only Upstream Nodes](#lineage-only-upstream-nodes)
+- **`incremental_lineage`** (default: `false`): Add new lineage edges without removing old ones; see [Incremental Lineage](#incremental-lineage)
 - **`include_storage_lineage`** (default: `false`): Derive a bucket → table edge from a Dataproc Metastore table's `storage` aspect
 - **`resolve_pubsub_subscriptions`** (default: `false`): Resolve `pubsub:subscription:` upstreams to their backing topic
-- **`include_hive_metastore_nodes`** (default: `true`): Emit `hive_metastore:` upstreams that neither this run's tables nor `dpms_hive_metastore_service` resolve as lineage-only `hive` datasets
+- **`include_hive_metastore_nodes`** (default: `true`): Point `hive_metastore:` upstreams that neither this run's tables nor `dpms_hive_metastore_service` resolve at a `hive` dataset URN named `{database}.{table}`; creating the node needs `include_lineage_only_upstreams`
 - **`dpms_hive_metastore_service`** (default: unset): `{project}.{location}.{service}` fallback for resolving `hive_metastore:` upstreams
 
 #### Parallel Processing

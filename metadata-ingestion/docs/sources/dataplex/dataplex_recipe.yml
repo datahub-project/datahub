@@ -54,6 +54,13 @@ source:
     # include_hive_metastore_nodes: true    # default: true
     # dpms_hive_metastore_service: "my-gcp-project.us-west1.my-service"
 
+    # Optional: create minimal entities for upstreams that are not in DataHub,
+    # so the nodes show in lineage views. Needs a DataHub graph connection.
+    # include_lineage_only_upstreams: true
+
+    # Optional: add lineage edges as patches instead of overwriting them.
+    # incremental_lineage: true
+
     # Optional: Extraction method (default: api)
     # Use 'export' for central-catalog / federated setups where assets surface
     # in a catalog project via Dataplex catalog linking and list_entries returns

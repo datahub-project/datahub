@@ -11,6 +11,9 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
@@ -232,6 +235,7 @@ class DataplexConfig(
     PlatformInstanceConfigMixin,
     StatefulIngestionConfigBase,
     StatefulLineageConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
     """Configuration for Google Dataplex source.
 
@@ -347,8 +351,9 @@ class DataplexConfig(
         "single Dataproc Metastore table in this run and to no "
         "'dpms_hive_metastore_service' fallback — usually a table that lives "
         "only in a Dataproc cluster's own metastore, with no catalog entry — "
-        "are emitted as lineage-only datasets on the 'hive' platform named "
-        "'{database}.{table}', the same treatment GCS bucket upstreams get. "
+        "get an edge to a dataset URN on the 'hive' platform named "
+        "'{database}.{table}', as GCS bucket upstreams do. Only the edge is "
+        "written; 'include_lineage_only_upstreams' also creates the node. "
         "When false, those upstream edges are skipped and counted in the "
         "report. Only affects lineage FQNs that would otherwise be dropped as "
         "unparseable.",
@@ -362,6 +367,18 @@ class DataplexConfig(
         "to see where such a table's files actually live. Off by default "
         "because the edge is derived from catalog metadata, not reported by "
         "the Data Lineage API.",
+    )
+
+    include_lineage_only_upstreams: bool = Field(
+        default=False,
+        description="Whether to create a minimal entity (status, name and "
+        "subtype) for a lineage upstream that does not exist in DataHub yet, "
+        "such as a GCS bucket, an uncatalogued hive table, or a table in a "
+        "project outside the configured scope. Without it the edge exists but "
+        "the node does not appear in lineage views. Needs a DataHub graph "
+        "connection to check which upstreams exist; nothing is written for an "
+        "upstream that already exists, and these entities are never tracked "
+        "for stale-metadata removal.",
     )
 
     resolve_pubsub_subscriptions: bool = Field(

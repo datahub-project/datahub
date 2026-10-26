@@ -28,7 +28,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Optional, Pattern, Tuple, Union
+from typing import Dict, Optional, Pattern, Set, Tuple, Union
 
 from google.cloud import dataplex_v1
 from typing_extensions import TypeAlias, assert_never
@@ -1309,6 +1309,46 @@ def _mapper_dataset_urn(
         name=dataset_name,
         platform_instance=None,
         env=env,
+    )
+
+
+@dataclass(frozen=True)
+class LineageStubSpec:
+    """How to label a lineage-only upstream dataset."""
+
+    display_name: str
+    subtype: Optional[str]
+
+
+def lineage_stub_spec(platform: str, dataset_name: str) -> LineageStubSpec:
+    """Label a dataset named by the Dataset mappers for ``platform``.
+
+    The subtype stays unset when those mappers disagree, as BigQuery table and view do.
+    """
+    subtypes: Set[Optional[str]] = set()
+    segment_counts: Set[int] = set()
+    for mapper in ENTRY_MAPPERS.values():
+        if (
+            mapper.datahub_main_entity_type is not Dataset
+            or mapper.datahub_platform != platform
+        ):
+            continue
+        identity = mapper.datahub_identity
+        assert isinstance(identity, DatasetIdentity)
+        subtypes.add(mapper.datahub_subtype)
+        segment_counts.add(identity.name_format.count(".") + 1)
+
+    display_name = dataset_name
+    if len(segment_counts) == 1:
+        segment_count = next(iter(segment_counts))
+        # Names start with the project id, the only field that may hold ':'
+        # (example.com:proj). Dots appear only in that domain or the last field.
+        segments = dataset_name.split(":", 1)[-1].split(".", segment_count - 1)
+        if len(segments) == segment_count:
+            display_name = segments[-1]
+    return LineageStubSpec(
+        display_name=display_name,
+        subtype=next(iter(subtypes)) if len(subtypes) == 1 else None,
     )
 
 

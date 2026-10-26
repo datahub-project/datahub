@@ -301,7 +301,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     source_report=self.report,
                     lineage_client=self.lineage_client,
                     redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+                    graph=self.ctx.graph,
                     credentials=credentials,
+                    lineage_urn_casing=self.ctx.flags.auto_resolve_lineage_urns,
                 )
             )
         else:
