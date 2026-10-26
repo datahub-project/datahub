@@ -91,7 +91,7 @@ For more details, see [Google Cloud Knowledge Catalog (Dataplex) Lineage Documen
 
 **Metadata Extraction:**
 
-- **`include_schema`** (default: `true`): Extract column metadata and types
+- **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a complex type spelling such as `array<struct<...>>` or `ARRAY<INT64>` (matched case-insensitively) — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children. On BigQuery entries, nested field names are lowercased to match the BigQuery connector. Complex type spellings the Hive type parser cannot read, such as `ARRAY<STRING(MAX)>` or `STRUCT<a INT64>`, keep a single flat row.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 
 #### Parallel Processing
