@@ -67,7 +67,10 @@ public final class LifecycleStageAssignmentUtils {
     }
 
     if (!isUserAssignableForEntity(stageUrn, stageInfo, targetUrn.getEntityType())) {
-      throw invalidStage(String.format("Lifecycle stage '%s' is system-managed.", stageUrn));
+      throw invalidStage(
+          isDocumentDraft(stageUrn, targetUrn.getEntityType())
+              ? "The DRAFT lifecycle stage is reserved for internal document working copies."
+              : String.format("Lifecycle stage '%s' is system-managed.", stageUrn));
     }
 
     final Status currentStatus =
@@ -98,7 +101,16 @@ public final class LifecycleStageAssignmentUtils {
     List<String> entityTypes = stageInfo.hasEntityTypes() ? stageInfo.getEntityTypes() : null;
     boolean applies =
         entityTypes == null || entityTypes.isEmpty() || entityTypes.contains(entityType);
-    return applies && stageInfo.getSettings().isUserAssignable();
+    return applies
+        && stageInfo.getSettings().isUserAssignable()
+        && !isDocumentDraft(stageUrn, entityType);
+  }
+
+  private static boolean isDocumentDraft(Urn stageUrn, String entityType) {
+    // DRAFT predates userAssignable and was bootstrapped as generally assignable. Keep this
+    // document-specific guard until existing deployments have migrated that stage setting.
+    return Constants.DOCUMENT_ENTITY_NAME.equals(entityType)
+        && Constants.DRAFT_LIFECYCLE_STAGE_URN.equals(stageUrn.toString());
   }
 
   private static DataHubGraphQLException invalidStage(String reason) {

@@ -16,16 +16,16 @@ public class LifecycleStageAssignmentUtilsTest {
   private static final Urn DRAFT = UrnUtils.getUrn("urn:li:lifecycleStageType:DRAFT");
 
   @Test
-  public void testAssignableOnlyToListedEntityTypes() {
+  public void testDraftIsAssignableToGlossaryButNotDocuments() {
     LifecycleStageTypeInfo info =
         new LifecycleStageTypeInfo()
             .setName("Draft")
-            .setEntityTypes(new StringArray(List.of("glossaryTerm")))
+            .setEntityTypes(new StringArray(List.of("document", "glossaryTerm")))
             .setSettings(new LifecycleStageSettings().setUserAssignable(true));
 
     assertTrue(
         LifecycleStageAssignmentUtils.isUserAssignableForEntity(DRAFT, info, "glossaryTerm"));
-    assertFalse(LifecycleStageAssignmentUtils.isUserAssignableForEntity(DRAFT, info, "dataset"));
+    assertFalse(LifecycleStageAssignmentUtils.isUserAssignableForEntity(DRAFT, info, "document"));
   }
 
   @Test
