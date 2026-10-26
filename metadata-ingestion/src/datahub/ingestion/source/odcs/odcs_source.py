@@ -152,6 +152,14 @@ _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeamMember: READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
 }
 
+# Read only to emit the opt-in `odcs.*` structured properties: unmapped, and
+# reported as such, when emit_structured_properties is off.
+_STRUCTURED_PROPERTY_ONLY_BY_MODEL: Dict[type, frozenset] = {
+    ODCSContract: frozenset(("context",)),
+    ODCSSchemaObject: frozenset(("context", "synonyms")),
+    ODCSProperty: frozenset(("enum", "logicalTypeOptions", "transformLogic")),
+}
+
 # v3.2 keys whose off-spec values the models drop instead of rejecting the
 # contract (see odcs_models); reported when present but parsed to nothing.
 _LENIENT_KEYS = ("deprecated", "synonyms", "semanticType")
@@ -754,6 +762,10 @@ class ODCSSource(StatefulIngestionSourceBase):
             allowed = _model_field_keys(model_cls)
             known_unmapped = _KNOWN_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
             read_unmapped = _READ_BUT_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
+            if not self.config.emit_structured_properties:
+                read_unmapped = read_unmapped | _STRUCTURED_PROPERTY_ONLY_BY_MODEL.get(
+                    model_cls, frozenset()
+                )
             child_models = _CHILD_MODEL_BY_KEY.get(model_cls, {})
             for key, value in node.items():
                 if key not in allowed:

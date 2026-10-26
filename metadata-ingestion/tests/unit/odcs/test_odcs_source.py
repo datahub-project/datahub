@@ -2298,3 +2298,19 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     assert "${CUTOFF}" in warnings
     # Owner role defaulted.
     assert "data steward" in infos
+
+
+def test_structured_property_fields_reported_when_flag_off(
+    tmp_path: pathlib.Path,
+) -> None:
+    # Parsed only for the opt-in structured properties: with the flag off they
+    # are as unmapped as in a source without the feature, and reported so.
+    workunits, src = _sp_workunits(tmp_path)
+    ignored = src.report.spec_fields_ignored
+    assert "<root>.context" in ignored
+    assert "<root>.schema[0].synonyms" in ignored
+    assert (
+        "<root>.schema[0].properties[0].semanticType" not in ignored
+    )  # used for measures
+    _, with_flag = _sp_workunits(tmp_path, emit_structured_properties=True)
+    assert "<root>.context" not in with_flag.report.spec_fields_ignored
