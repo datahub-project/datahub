@@ -738,13 +738,19 @@ def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
 
 
 # Schemes GMS UrlValidator accepts for institutionalMemory links; keep in sync
-# with InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES. Only the scheme is checked:
-# ODCS allows relative paths and non-web URLs (e.g. jdbc:), which GMS rejects.
+# with InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES. ODCS allows relative paths
+# and non-web URLs (e.g. jdbc:), which GMS rejects.
 _LINK_URL_SCHEMES: FrozenSet[str] = frozenset({"http", "https", "ftp", "mailto"})
+# Characters java.net.URI never accepts unescaped, as found in hand-written
+# links (spaces in Confluence titles, Grafana {}, Kibana |). Not full URI
+# validation: other syntax errors are still rejected by GMS.
+_URI_ILLEGAL_CHARS = re.compile(r'[\s\x00-\x1f\x7f-\x9f"<>\\^`{|}]')
 
 
 def _is_storable_link_url(url: str) -> bool:
-    """Whether `url` uses a scheme GMS accepts as an institutionalMemory link."""
+    """Whether GMS accepts `url` as an institutionalMemory link."""
+    if _URI_ILLEGAL_CHARS.search(url):
+        return False
     try:
         return urlparse(url).scheme in _LINK_URL_SCHEMES
     except ValueError:

@@ -998,7 +998,8 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS authoritativeDefinitions URLs skipped",
                 message=(
-                    "DataHub only stores absolute http, https, ftp or mailto links, "
+                    "DataHub only stores absolute http, https, ftp or mailto links "
+                    'that are valid URIs (no spaces or characters like | { } " < >), '
                     "so these authoritativeDefinitions URLs were not added as links."
                 ),
                 context=f"{source_uri}: {', '.join(unstorable_urls)}",

@@ -12,6 +12,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_mapper import (
     RefusalKind,
+    _is_storable_link_url,
     _make_owners,
     _operator_and_params_from_threshold,
     build_schema_metadata,
@@ -642,6 +643,25 @@ def test_institutional_memory_skips_urls_gms_rejects() -> None:
         "docs/col.md",
         "jdbc:postgresql://db.example/t",
     ]
+
+
+@pytest.mark.parametrize(
+    "url, storable",
+    [
+        ("HTTPS://Example.com/x", True),
+        ("mailto:data-team@example.com", True),
+        ("ftp://files.example.com/spec.pdf", True),
+        ("jdbc:postgresql://db.example/t", False),
+        ("../docs/x.md", False),
+        ("javascript:alert(1)", False),
+        ("https://[2001:db8::1/x", False),
+        ("https://wiki.example/My Page", False),
+        ("https://grafana.example/d?var={a}", False),
+        ("https://wiki.example/My\u00a0Page", False),
+    ],
+)
+def test_is_storable_link_url(url: str, storable: bool) -> None:
+    assert _is_storable_link_url(url) == storable
 
 
 def test_institutional_memory_omitted_when_every_url_skipped() -> None:

@@ -578,6 +578,7 @@ def test_unstorable_authoritative_definition_urls_skipped_and_warned(
     # regression to one warning per URL.
     assert len(warnings[0].context) == 1
     assert "../docs/orders.md" in str(warnings[0].context)
+    assert "jdbc:postgresql://db.example/orders" in str(warnings[0].context)
 
 
 def test_data_contract_skipped_when_no_assertions(tmp_path: pathlib.Path) -> None:

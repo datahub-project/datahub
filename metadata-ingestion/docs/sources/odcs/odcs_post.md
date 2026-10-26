@@ -173,8 +173,9 @@ in place.
   Express uniqueness as a `quality[]` rule (`metric: duplicateValues` with `mustBe: 0`) to get
   a typed field assertion.
 - `authoritativeDefinitions` URLs that DataHub can't store as links (relative paths such as
-  `../docs/orders.md`, or schemes other than http, https, ftp and mailto) are skipped and
-  reported in one warning per file.
+  `../docs/orders.md`, schemes other than http, https, ftp and mailto, or URLs containing
+  spaces or characters such as `|`, `{` and `}`) are skipped and reported in one warning per
+  file.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
 - Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
