@@ -26,7 +26,7 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
-import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
+import { EditableSchemaMetadata, Post, SchemaField, SchemaMetadata, TimeWindow, UsageQueryResult } from '@types';
 
 // Query cards and the query editor sit behind this tab. The schema drawer itself
 // should not download the syntax highlighter or Monaco.
@@ -89,6 +89,7 @@ const Tabs = styled.div``;
 interface Props {
     schemaFields: SchemaField[];
     editableSchemaMetadata?: EditableSchemaMetadata | null;
+    schemaMetadata?: SchemaMetadata | null;
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
     openTimelineDrawer?: boolean;
@@ -105,6 +106,7 @@ interface Props {
 export default function SchemaFieldDrawer({
     schemaFields,
     editableSchemaMetadata,
+    schemaMetadata,
     expandedDrawerFieldPath,
     setExpandedDrawerFieldPath,
     openTimelineDrawer,
@@ -197,6 +199,7 @@ export default function SchemaFieldDrawer({
             properties: {
                 schemaFields,
                 editableSchemaMetadata,
+                schemaMetadata,
                 expandedDrawerFieldPath,
                 usageStats,
                 fieldProfile,
@@ -270,6 +273,7 @@ export default function SchemaFieldDrawer({
                             <FieldHeader
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
+                                schemaMetadata={schemaMetadata}
                             />
                             <Body onKeyDown={(e) => e.stopPropagation()}>
                                 {selectedTab && (

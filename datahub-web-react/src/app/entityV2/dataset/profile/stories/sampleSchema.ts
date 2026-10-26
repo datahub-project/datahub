@@ -312,6 +312,57 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
     ],
 };
 
+export const sampleSchemaWithCompositeFk: SchemaMetadata = {
+    ...sampleSchemaWithPkFk,
+    foreignKeys: [
+        {
+            name: 'composite_constraint',
+            sourceFields: [
+                {
+                    urn: 'datasetUrn',
+                    type: EntityType.Dataset,
+                    parent: { urn: 'test', type: EntityType.Dataset },
+                    fieldPath: 'shipping_address',
+                },
+                {
+                    urn: 'datasetUrn',
+                    type: EntityType.Dataset,
+                    parent: { urn: 'test', type: EntityType.Dataset },
+                    fieldPath: 'id',
+                },
+            ],
+            foreignFields: [
+                {
+                    urn: dataset3.urn,
+                    type: EntityType.Dataset,
+                    parent: { urn: dataset3.name, type: EntityType.Dataset },
+                    fieldPath: 'address',
+                },
+                {
+                    urn: dataset3.urn,
+                    type: EntityType.Dataset,
+                    parent: { urn: dataset3.name, type: EntityType.Dataset },
+                    fieldPath: 'address_id',
+                },
+            ],
+            foreignDataset: dataset3,
+        },
+        {
+            name: 'unresolved_constraint',
+            sourceFields: [
+                {
+                    urn: 'datasetUrn',
+                    type: EntityType.Dataset,
+                    parent: { urn: 'test', type: EntityType.Dataset },
+                    fieldPath: 'shipping_address',
+                },
+            ],
+            foreignFields: [],
+            foreignDataset: null,
+        },
+    ],
+};
+
 export const sampleSchemaWithoutFields: SchemaMetadata | Schema | null = {
     name: 'MockSchema',
     platformUrn: 'mock:urn',
