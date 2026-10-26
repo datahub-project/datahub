@@ -58,6 +58,8 @@ Lineage is written as a patch, so upstreams that other sources write to the same
 - **Destination path.** The emitted S3 URN is the export's configured destination (`s3://bucket/prefix`). DynamoDB actually writes the data one level deeper, under `s3://bucket/prefix/AWSDynamoDB/{exportId}/data/…`. If your S3 source ingests with a `path_spec` pointed at that deeper data path, point it at the `s3://bucket/prefix` level (or add a matching `path_spec`) so the URNs join.
 - **Platform instance.** The S3 URN carries no `platform_instance` by default. If your S3 source ingests the export bucket with a `platform_instance`, set `s3_export_platform_instance` to the same value, otherwise these edges point at an S3 URN that does not exist.
 
+When the recipe has a DataHub connection, the ingestion report lists export destinations that have no dataset in DataHub under `s3_export_destinations_not_in_datahub`. Those edges land on an S3 entity that only carries lineage, which usually means one of the two settings above does not match your S3 source.
+
 **Exports started by Glue jobs.** The [Glue DynamoDB export connector](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-connect-dynamodb-home.html) (`dynamodb.export: "ddb"`) requests a regular DynamoDB export on every job run, so those exports appear in `ListExports` and get COPY edges like any other. If the job sets neither `dynamodb.s3.bucket` nor `dynamodb.s3.prefix`, the export goes to the job's temporary directory (`--TempDir`), so the lineage points at that temporary path, and a scheduled job's exports also count against `max_exports_per_table`. Set `dynamodb.s3.bucket` and `dynamodb.s3.prefix` on those jobs to give the exports a stable destination.
 
 ### Limitations

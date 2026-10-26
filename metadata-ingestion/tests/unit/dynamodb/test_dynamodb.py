@@ -724,6 +724,81 @@ class TestDynamoDBS3ExportLineage:
             "Failed to read S3 export schema from DataHub"
         ]
 
+    @pytest.mark.parametrize(
+        "exists, expected_missing",
+        [
+            pytest.param(True, [], id="destination-in-datahub"),
+            pytest.param(
+                False,
+                ["urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD)"],
+                id="destination-not-in-datahub",
+            ),
+        ],
+    )
+    def test_s3_export_destination_existence_reported(
+        self, mock_context, lineage_config, exists, expected_missing
+    ):
+        mock_context.graph = MagicMock()
+        mock_context.graph.exists.return_value = exists
+        source = self._source_with_one_export(mock_context, lineage_config)
+
+        workunits = list(source._emit_s3_export_lineage())
+
+        assert len(workunits) == 1
+        assert list(source.report.s3_export_destinations_not_in_datahub) == (
+            expected_missing
+        )
+
+    def test_s3_export_destination_check_skipped_without_graph(
+        self, mock_context, lineage_config
+    ):
+        source = self._source_with_one_export(mock_context, lineage_config)
+
+        workunits = list(source._emit_s3_export_lineage())
+
+        assert len(workunits) == 1
+        assert list(source.report.s3_export_destinations_not_in_datahub) == []
+
+    def test_s3_export_destination_check_error_keeps_lineage(
+        self, mock_context, lineage_config
+    ):
+        mock_context.graph = MagicMock()
+        mock_context.graph.exists.side_effect = Exception("GMS error")
+        source = self._source_with_one_export(mock_context, lineage_config)
+
+        workunits = list(source._emit_s3_export_lineage())
+
+        assert len(workunits) == 1
+        assert list(source.report.s3_export_destinations_not_in_datahub) == []
+        assert [w.title for w in source.report.warnings] == [
+            "Failed to check S3 export destination in DataHub"
+        ]
+
+    @staticmethod
+    def _source_with_one_export(
+        mock_context: MagicMock, lineage_config: DynamoDBConfig
+    ) -> DynamoDBSource:
+        source = DynamoDBSource(
+            ctx=mock_context, config=lineage_config, platform="dynamodb"
+        )
+        mock_client = MagicMock()
+        mock_client.list_exports.return_value = {
+            "ExportSummaries": [
+                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
+            ]
+        }
+        mock_client.describe_export.return_value = {
+            "ExportDescription": {"S3Bucket": "b", "S3Prefix": "p"}
+        }
+        source._collect_s3_export_lineage(
+            dynamodb_client=mock_client,
+            table_arn="arn:table/x",
+            dataset_urn="urn:li:dataset:(urn:li:dataPlatform:dynamodb,x,PROD)",
+            dataset_name="us-west-2.x",
+            field_paths=["orderId"],
+        )
+        return source
+
     def test_column_lineage_resolved_but_nothing_matches_warns(
         self, mock_context, lineage_config
     ):
