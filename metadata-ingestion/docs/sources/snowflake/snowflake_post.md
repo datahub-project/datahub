@@ -504,6 +504,20 @@ Sources that read Snowflake columns from elsewhere need the same consideration, 
 
 Profiling handles these columns too. The SQLAlchemy driver folds reflected column names before DataHub sees them, so the profiler re-reads the column list and addresses each column by its as-stored, quoted name. With `preserve_column_case: true` every column gets its own profile, matched to its own schema field. With the option off, the pair shares one field path, so a single profile is emitted for it — mirroring the schema, where the duplicate field is dropped.
 
+#### Probe support (`snowflake-queries`)
+
+The `snowflake-queries` source supports `datahub recipe probe`, connecting with its `connection` block.
+
+- `probe run sql` runs one read-only `SELECT` over `INFORMATION_SCHEMA` and named `SNOWFLAKE.ACCOUNT_USAGE` catalog views. Use it to list databases, schemas and tables. `QUERY_HISTORY` is refused, because it holds the text of user queries.
+- `probe filter` needs no connection. It judges names the way this source judges each object in the query log, as `database.schema.table`, folded to lower case when `convert_urns_to_lowercase` is on. Pass the database and schema with `--parent`.
+
+| `--kind`   | Judged by                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| `Database` | `database_pattern`                                                                                      |
+| `Schema`   | `schema_pattern`, against `database.schema` when `match_fully_qualified_names` is on                    |
+| `Table`    | `table_pattern`; `temporary_tables_pattern` excludes it first (`excluded_by: temporary_tables_pattern`) |
+| `View`     | as `Table`: this source does not tell views from tables, so `view_pattern` has no effect                |
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
