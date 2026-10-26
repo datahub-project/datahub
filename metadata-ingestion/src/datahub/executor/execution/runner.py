@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import shlex
 import shutil
 import subprocess
@@ -26,6 +27,8 @@ from expandvars import (
     UnboundVariable,
     expand as _expandvars_expand,
 )
+
+import datahub
 
 # TODO: promote to a public config_loader helper.
 from datahub.configuration.config_loader import _extract_env_var_names
@@ -114,6 +117,79 @@ def _bundled_constraints_path(venv_loc: pathlib.Path) -> Optional[pathlib.Path]:
         logger.warning("No bundled constraints.txt in installed acryl-datahub.")
         return None
     return matches[0]
+
+
+def _executor_constraints_path() -> Optional[pathlib.Path]:
+    """Locate datahub/constraints.txt shipped with the acryl-datahub running this executor."""
+    path = pathlib.Path(datahub.__file__).parent / "constraints.txt"
+    return path if path.is_file() else None
+
+
+# Leading project name of a requirement line (PEP 508 name, before extras/specifier/URL).
+_REQUIREMENT_NAME_RE = re.compile(r"^([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)")
+_URL_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
+
+
+def _normalize_package_name(name: str) -> str:
+    # PEP 503 normalization, so "Setup_Tools" and "setuptools" compare equal.
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _explicit_requirement_names(pip_reqs: list[str]) -> set[str]:
+    """Project names a requirements list names directly, PEP 503 normalized.
+
+    Pip options (``-e``, ``--index-url``), comments, and bare URLs or paths carry no
+    leading project name and are skipped.
+    """
+    names: set[str] = set()
+    for req in pip_reqs:
+        stripped = req.strip()
+        if stripped.startswith(("-", "#")) or _URL_SCHEME_RE.match(stripped):
+            continue
+        match = _REQUIREMENT_NAME_RE.match(stripped)
+        if match:
+            names.add(_normalize_package_name(match.group(1)))
+    return names
+
+
+def _no_datahub_constraints_path(
+    venv_loc: pathlib.Path, pip_reqs: list[str]
+) -> Optional[pathlib.Path]:
+    """Constraints for a venv whose recipe pulls acryl-datahub in transitively.
+
+    With NO_ACRYL_DATAHUB there is no pass-1 install to pin acryl-datahub's tree,
+    so pass 2 resolves the whole tree from scratch and a freshly started executor
+    picks up whatever upstream published since the release was tested (pyarrow
+    26.0.0 broke datahub-usage-reporting on every instance that way). System
+    source packages pin acryl-datahub to the executor's own release, so the lock
+    shipped with the executor's acryl-datahub is the right one to apply.
+
+    Packages the recipe names directly are dropped from the lock: they are
+    installed from a local path or deliberately overridden, and the lock's PyPI
+    pin for them (e.g. ``acryl-datahub-cloud==<released>``) would conflict.
+    """
+    source = _executor_constraints_path()
+    if source is None:
+        logger.warning(
+            "No constraints.txt in the executor's acryl-datahub; "
+            "installing %d extra requirement(s) unconstrained.",
+            len(pip_reqs),
+        )
+        return None
+
+    exclude = _explicit_requirement_names(pip_reqs)
+    kept: list[str] = []
+    for line in source.read_text().splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            match = _REQUIREMENT_NAME_RE.match(stripped)
+            if match and _normalize_package_name(match.group(1)) in exclude:
+                continue
+        kept.append(line)
+
+    dest = venv_loc / "constraints.txt"
+    dest.write_text("\n".join(kept) + "\n")
+    return dest
 
 
 @functools.cache
@@ -638,16 +714,47 @@ async def setup_venv(
         runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
         await runner.execute(install_cmd, env=install_env)
 
-    # Pass 2: Install extra_pip_requirements without constraints.
+    # Pass 2: Install extra_pip_requirements. After a pass-1 install these are
+    # additions on top of an already-pinned acryl-datahub tree, so they go in
+    # unconstrained and uv only adds what is missing. With NO_ACRYL_DATAHUB there
+    # was no pass 1 and this install resolves the whole tree, so it runs under the
+    # executor's own lock (see _no_datahub_constraints_path).
     if venv_config.requirements_file is None and expanded_pip_reqs:
         extra_req_file = venv_loc / "extra-requirements.txt"
         extra_req_file.write_text("\n".join(expanded_pip_reqs))
         runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
         runner._logs.append_masked("\n".join(expanded_pip_reqs))
-        await runner.execute(
-            [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
-            env=venv_env,
+        extra_cmd = [_find_uv(), "pip", "install", "-r", str(extra_req_file)]
+        constraints_path = (
+            _no_datahub_constraints_path(venv_loc, expanded_pip_reqs)
+            if version == VENV_NO_DATAHUB
+            else None
         )
+        if constraints_path is None:
+            await runner.execute(extra_cmd, env=venv_env)
+        else:
+            runner._logs.append(
+                f"Installing extra requirements under constraints: {constraints_path}\n"
+            )
+            try:
+                await runner.execute(
+                    [*extra_cmd, "--constraint", str(constraints_path)], env=venv_env
+                )
+            except subprocess.CalledProcessError:
+                # The lock could not satisfy the recipe, which is a release bug in
+                # the lock, not a reason to take a system source down everywhere at
+                # once. Fall back to the unconstrained install, loudly, so the run
+                # still happens and the mismatch shows up in its logs.
+                logger.warning(
+                    "Constrained install of %d extra requirement(s) failed; "
+                    "retrying without the executor's constraints.",
+                    len(expanded_pip_reqs),
+                )
+                runner._logs.append(
+                    "WARNING: constrained install failed; retrying extra "
+                    "requirements without constraints.\n"
+                )
+                await runner.execute(extra_cmd, env=venv_env)
 
     return venv_reference
 
