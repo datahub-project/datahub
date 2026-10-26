@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
+        "context",
         "price",
         "roles",
         "slaDefaultElement",
@@ -23,6 +24,7 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
+        "context",
         "customProperties",
         "dataGranularityDescription",
         "id",
@@ -33,6 +35,7 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
 KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
         "businessName",
+        "enum",
         "examples",
         "id",
         "items",
@@ -40,6 +43,7 @@ KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
         "physicalName",
         "relationships",
         "transformDescription",
+        "transformLogic",
         "transformSourceObjects",
     )
 )
@@ -202,12 +206,10 @@ class ODCSProperty(ODCSBaseModel):
     synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
     # v3.2 (RFC 0034): a `measure` is an aggregate, not a physical column.
     semanticType: Optional[str] = None
-    # v3.2 descriptive attributes, mapped to `odcs.*` structured properties when
+    # v3.2 vector options, mapped to `odcs.vector.*` structured properties when
     # emit_structured_properties is on. Untyped (JsonValue) so one malformed
     # value cannot fail the whole contract's model validation.
-    transformLogic: Optional[JsonValue] = None
     logicalTypeOptions: Optional[JsonValue] = None
-    enum: Optional[List[JsonValue]] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
@@ -231,9 +233,6 @@ class ODCSSchemaObject(ODCSBaseModel):
     # Untyped like the v3.2 property attributes: mapped only behind
     # emit_structured_properties, so an off-spec shape must not fail the contract.
     synonyms: Optional[JsonValue] = None
-    # v3.2 (RFC 0038) AI context: a string or {instructions, verifiedStatements,
-    # constraints}. Kept verbatim; `${...}` inside it is prose, not a variable.
-    context: Optional[JsonValue] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
 
@@ -376,8 +375,6 @@ class ODCSContract(ODCSBaseModel):
     domain: Optional[str] = None
     dataProduct: Optional[str] = None
     tenant: Optional[str] = None
-    # v3.2 (RFC 0038) AI context; see ODCSSchemaObject.context.
-    context: Optional[JsonValue] = None
     description: Optional[Union[str, ODCSDescription]] = None
     tags: Optional[List[str]] = None
     schema_: Optional[List[ODCSSchemaObject]] = Field(default=None, alias="schema")

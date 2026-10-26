@@ -210,26 +210,22 @@ in place.
   `synonyms` or `semanticType` values are dropped and reported as a warning rather than
   rejecting the contract; with `strict_validation: true` the contract fails JSON Schema
   validation instead.
-  `context`, schema-object `synonyms`, `enum`, `semanticType` (beyond the measure exclusion
-  above), `transformLogic` and vector
+  Schema-object `synonyms`, `semanticType` (beyond the measure exclusion above) and vector
   `logicalTypeOptions` are mapped only with `emit_structured_properties` (below). Accepted but
-  not yet mapped: the server fields `encoding` and `workgroup`.
+  not yet mapped: `context`, `enum`, and the server fields `encoding` and `workgroup`.
 - **Structured properties (opt-in).** With `emit_structured_properties: true` the source
   writes these `odcs.*` structured properties onto the logical dataset and its fields:
 
   | Property                            | Type                                   | Applies to     | From                                   |
   | ----------------------------------- | -------------------------------------- | -------------- | -------------------------------------- |
   | `odcs.semanticType`                 | string: `column`/`measure`/`dimension` | field          | `semanticType`                         |
-  | `odcs.transformLogic`               | string                                 | field          | `transformLogic`                       |
   | `odcs.synonyms`                     | string, multiple                       | dataset, field | `synonyms[].synonym`                   |
-  | `odcs.enumValues`                   | string, multiple                       | field          | `enum[].value`                         |
   | `odcs.vector.dimensions`            | number                                 | field          | vector `logicalTypeOptions.dimensions` |
   | `odcs.vector.elementType`           | string (spec list)                     | field          | vector `elementType`                   |
   | `odcs.vector.distanceMetric`        | string (spec list)                     | field          | vector `distanceMetric`                |
   | `odcs.vector.normalized`            | string: `true`/`false`                 | field          | vector `normalized`                    |
   | `odcs.vector.embeddingModel`        | string                                 | field          | vector `embeddingModel`                |
   | `odcs.vector.embeddingModelVersion` | string                                 | field          | vector `embeddingModelVersion`         |
-  | `odcs.context`                      | string (YAML)                          | dataset        | contract- and schema-level `context`   |
 
   DataHub rejects values for a structured property that has no definition, so before any
   contract is ingested the source checks each definition and creates the missing ones
@@ -243,9 +239,7 @@ in place.
   Values are not cleared on fields or tables that are removed from the contract, nor when the
   flag is turned off, and `odcs.*` values edited in the UI are overwritten on the next run. Values outside a definition's allowed values
   are dropped and reported. Synonyms with `status: deprecated` are skipped; synonym
-  `locale`/`source` and enum labels are not recorded. `odcs.context` holds the contract's and
-  the schema object's `context` blocks as YAML, verbatim (a `${...}` inside it is prose, not a
-  variable). String values can be filtered on but are not matched by free-text search. Values
+  `locale`/`source` are not recorded. String values can be filtered on but are not matched by free-text search. Values
   live on the logical dataset, which renders only with Logical Models enabled.
 
 - **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept

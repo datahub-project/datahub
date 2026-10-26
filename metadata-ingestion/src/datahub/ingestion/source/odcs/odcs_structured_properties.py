@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from typing import AbstractSet, Dict, Iterable, List, Tuple, Union
 
-import yaml
 from pydantic import JsonValue
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -54,16 +53,12 @@ SPECS: Tuple[_PropertySpec, ...] = (
         ("column", "measure", "dimension"),
     ),
     _PropertySpec(
-        "odcs.transformLogic", "ODCS Transform Logic", "string", False, _FIELD
-    ),
-    _PropertySpec(
         "odcs.synonyms",
         "ODCS Synonyms",
         "string",
         True,
         (DATASET_ENTITY_TYPE, SCHEMA_FIELD_ENTITY_TYPE),
     ),
-    _PropertySpec("odcs.enumValues", "ODCS Enum Values", "string", True, _FIELD),
     _PropertySpec(
         "odcs.vector.dimensions", "ODCS Vector Dimensions", "number", False, _FIELD
     ),
@@ -101,11 +96,6 @@ SPECS: Tuple[_PropertySpec, ...] = (
         "string",
         False,
         _FIELD,
-    ),
-    # Contract- and schema-level `context` (RFC 0038), serialized as YAML so the
-    # instructions / verifiedStatements / constraints structure survives.
-    _PropertySpec(
-        "odcs.context", "ODCS AI Context", "string", False, (DATASET_ENTITY_TYPE,)
     ),
 )
 _SPECS_BY_NAME = {spec.qualified_name: spec for spec in SPECS}
@@ -188,49 +178,16 @@ def _synonym_terms(
     return terms
 
 
-class _ContextDumper(yaml.SafeDumper):
-    """Writes multi-line strings as `|` blocks so agents and the UI read prose."""
-
-
-def _represent_str(dumper: yaml.SafeDumper, value: str) -> yaml.ScalarNode:
-    style = "|" if "\n" in value else None
-    return dumper.represent_scalar("tag:yaml.org,2002:str", value, style=style)
-
-
-_ContextDumper.add_representer(str, _represent_str)
-
-
-def dataset_property_values(
-    schema_entry: ODCSSchemaObject, contract_context: JsonValue = None
-) -> PropertyValues:
+def dataset_property_values(schema_entry: ODCSSchemaObject) -> PropertyValues:
     result = PropertyValues()
     _put(result, "odcs.synonyms", _clean_strings(_synonym_terms(schema_entry.synonyms)))
-    context = {
-        level: value
-        for level, value in (
-            ("contract", contract_context),
-            ("schema", schema_entry.context),
-        )
-        if not (value is None or value in ([], {}) or str(value).strip() == "")
-    }
-    if context:
-        result.values["odcs.context"] = [
-            yaml.dump(
-                context, Dumper=_ContextDumper, sort_keys=False, allow_unicode=True
-            )
-        ]
     return result
 
 
 def field_property_values(prop: ODCSProperty) -> PropertyValues:
     result = PropertyValues()
     _put(result, "odcs.semanticType", _clean_strings([prop.semanticType]))
-    _put(result, "odcs.transformLogic", _clean_strings([prop.transformLogic]))
     _put(result, "odcs.synonyms", _clean_strings(_synonym_terms(prop.synonyms)))
-    enum_values = [
-        e.get("value") if isinstance(e, dict) else e for e in prop.enum or []
-    ]
-    _put(result, "odcs.enumValues", _clean_strings(enum_values))
 
     options = prop.logicalTypeOptions
     if (prop.logicalType or "").strip().lower() != "vector" or not isinstance(

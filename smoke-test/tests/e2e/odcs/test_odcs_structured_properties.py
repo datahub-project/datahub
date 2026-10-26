@@ -39,7 +39,6 @@ kind: DataContract
 id: {contract_id}
 version: 1.0.0
 status: active
-context: Use for revenue analysis.
 schema:
   - name: orders
     synonyms:
@@ -47,9 +46,6 @@ schema:
     properties:
       - name: status
         logicalType: string
-        enum:
-          - value: open
-          - value: shipped
       - name: total
         logicalType: number
 {total_attributes}
@@ -57,7 +53,6 @@ schema:
 
 _MEASURE = """\
         semanticType: measure
-        transformLogic: SUM(amount)
 """
 
 
@@ -152,14 +147,6 @@ def test_odcs_structured_properties_end_to_end(
         assert dataset_values[make_structured_property_urn("odcs.synonyms")] == [
             "Sales"
         ]
-        assert make_structured_property_urn("odcs.context") in dataset_values
-        status_values = _values(
-            graph_client, make_schema_field_urn(logical_urn, "status")
-        )
-        assert status_values[make_structured_property_urn("odcs.enumValues")] == [
-            "open",
-            "shipped",
-        ]
         total_values = _values(graph_client, total_field)
         assert total_values[make_structured_property_urn("odcs.semanticType")] == [
             "measure"
@@ -176,7 +163,6 @@ def test_odcs_structured_properties_end_to_end(
 
         rerun = _values(graph_client, total_field)
         assert make_structured_property_urn("odcs.semanticType") not in rerun
-        assert make_structured_property_urn("odcs.transformLogic") not in rerun
         assert rerun[other_property] == ["kept"]
     finally:
         # The `odcs.*` definitions are instance-wide and shared; leave them.

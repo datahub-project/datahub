@@ -159,9 +159,8 @@ _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
 # Read only to emit the opt-in `odcs.*` structured properties: unmapped, and
 # reported as such, when emit_structured_properties is off.
 _STRUCTURED_PROPERTY_ONLY_BY_MODEL: Dict[type, frozenset] = {
-    ODCSContract: frozenset(("context",)),
-    ODCSSchemaObject: frozenset(("context", "synonyms")),
-    ODCSProperty: frozenset(("enum", "logicalTypeOptions", "transformLogic")),
+    ODCSSchemaObject: frozenset(("synonyms",)),
+    ODCSProperty: frozenset(("logicalTypeOptions",)),
 }
 
 
@@ -1213,7 +1212,6 @@ class ODCSSource(StatefulIngestionSourceBase):
             schema_entry,
             logical_urn,
             self._unavailable_structured_properties,
-            contract.context,
         )
         for index, (mcp, is_primary) in enumerate(mcps):
             yield MetadataWorkUnit(

@@ -179,9 +179,7 @@ def test_v32_descriptive_attributes_parse_leniently() -> None:
                             "name": "col_a",
                             "logicalType": "vector",
                             "semanticType": "measure",
-                            "transformLogic": "SUM(col_a)",
                             "logicalTypeOptions": {"dimensions": 3},
-                            "enum": [{"value": "x"}, 2, None],
                         },
                         # malformed shapes must not fail the whole contract
                         {"name": "col_b", "logicalTypeOptions": "oops"},
@@ -196,9 +194,7 @@ def test_v32_descriptive_attributes_parse_leniently() -> None:
     assert schema.properties is not None
     prop = schema.properties[0]
     assert prop.semanticType == "measure"
-    assert prop.transformLogic == "SUM(col_a)"
     assert prop.logicalTypeOptions == {"dimensions": 3}
-    assert prop.enum == [{"value": "x"}, 2, None]
     assert schema.properties[1].logicalTypeOptions == "oops"
 
 
@@ -217,9 +213,9 @@ def test_v32_descriptive_attributes_never_fail_the_contract() -> None:
             "name": "t",
             "synonyms": "orders",
             "properties": [
-                {"name": "col_a", "semanticType": 1, "transformLogic": {"sql": "x"}}
+                {"name": "col_a", "semanticType": 1, "logicalTypeOptions": ["x"]}
             ],
         }
     )
     assert schema.properties is not None
-    assert schema.properties[0].transformLogic == {"sql": "x"}
+    assert schema.properties[0].logicalTypeOptions == ["x"]

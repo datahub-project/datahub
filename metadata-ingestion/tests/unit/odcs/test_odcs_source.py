@@ -2028,10 +2028,10 @@ def test_structured_properties_emitted_without_graph(tmp_path: pathlib.Path) -> 
             getattr(wu.metadata, "aspect", None), StructuredPropertyDefinitionClass
         )
     ]
-    assert len(def_indexes) == 11
+    assert len(def_indexes) == 8
     assert not any(workunits[i].is_primary_source for i in def_indexes)
     # Definitions lead the stream, ahead of every contract workunit.
-    assert def_indexes == list(range(11))
+    assert def_indexes == list(range(8))
     patches = _sp_patch_wus(workunits)
     dataset = [
         wu for wu in patches if wu.metadata.entityUrn.startswith("urn:li:dataset:")
@@ -2098,7 +2098,7 @@ def test_structured_property_definitions_created_via_graph(
     )
     assert not _aspects_of(workunits, StructuredPropertyDefinitionClass)
     created = [c.args[0].entityUrn for c in graph.emit_mcp.call_args_list]
-    assert len(created) == 10 and not any(u.endswith("odcs.synonyms") for u in created)
+    assert len(created) == 7 and not any(u.endswith("odcs.synonyms") for u in created)
     assert "odcs.semanticType" in _set_paths(workunits)
     assert "odcs.synonyms" in _set_paths(workunits)
     titles = " ".join(str(w.title) for w in src.report.warnings)
@@ -2173,12 +2173,7 @@ def test_dry_run_does_not_write_definitions(tmp_path: pathlib.Path) -> None:
     src.ctx.dry_run_mode = True
     workunits = list(src.get_workunits_internal())
     assert not graph.emit_mcp.called
-    assert len(_aspects_of(workunits, StructuredPropertyDefinitionClass)) == 11
-
-
-def test_contract_context_reaches_the_dataset(tmp_path: pathlib.Path) -> None:
-    workunits, _ = _sp_workunits(tmp_path, emit_structured_properties=True)
-    assert "odcs.context" in _set_paths(workunits)
+    assert len(_aspects_of(workunits, StructuredPropertyDefinitionClass)) == 8
 
 
 _VARIABLE_SERVER_BODY = """\
@@ -2378,13 +2373,12 @@ def test_structured_property_fields_reported_when_flag_off(
     # are as unmapped as in a source without the feature, and reported so.
     workunits, src = _sp_workunits(tmp_path)
     ignored = src.report.spec_fields_ignored
-    assert "<root>.context" in ignored
     assert "<root>.schema[*].synonyms" in ignored
     assert (
         "<root>.schema[*].properties[*].semanticType" not in ignored
     )  # used for measures
     _, with_flag = _sp_workunits(tmp_path, emit_structured_properties=True)
-    assert "<root>.context" not in with_flag.report.spec_fields_ignored
+    assert "<root>.schema[*].synonyms" not in with_flag.report.spec_fields_ignored
 
 
 _SPEC_VALID_BODY = """\
