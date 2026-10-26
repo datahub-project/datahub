@@ -1219,6 +1219,16 @@ def _relation_keys_match(a: _RelationKey, b: _RelationKey) -> bool:
     return a[-n:] == b[-n:]
 
 
+# ``v=2`` / ``version="2"`` keyword of a versioned ``ref``.
+_REF_VERSION_RE = re.compile(r"""\b(?:v|version)\s*=\s*(['"]?)([^'",)\s]+)\1""")
+# Models with no version in their unique id.
+_UNVERSIONED = ""
+
+
+def _normalize_ref_version(version: str) -> str:
+    return version.lower().lstrip("v")
+
+
 class _RelationResolver:
     """Resolves a foreign-key ``to`` value to the referenced relation.
 
@@ -1226,42 +1236,72 @@ class _RelationResolver:
     or compiled to the referenced relation (``"db"."schema"."customers"``,
     after ``dbt run``/``build``). Test kwargs keep the raw form. Both are
     resolved to the referenced node's relation so aliases and quoting match.
+    A ref that cannot be resolved to exactly one node resolves to None.
     """
 
     def __init__(self, nodes: Iterable["DBTNode"]) -> None:
-        self._by_ref_name: Dict[str, _RelationKey] = {}
-        self._by_package_ref: Dict[Tuple[str, str], _RelationKey] = {}
+        # (package, name) -> version -> relation; version is "" if unversioned.
+        self._refs: Dict[Tuple[str, str], Dict[str, _RelationKey]] = {}
         self._by_source: Dict[Tuple[str, str], _RelationKey] = {}
         for node in nodes:
             key = tuple(
                 part.lower() for part in (node.database, node.schema, node.name) if part
             )
-            id_parts = node.dbt_name.split(".")
+            id_parts = node.dbt_name.lower().split(".")
             if node.node_type == "source" and len(id_parts) >= 4:
-                self._by_source[(id_parts[2].lower(), id_parts[3].lower())] = key
+                self._by_source[(id_parts[2], id_parts[3])] = key
             elif node.node_type in {"model", "seed", "snapshot"} and len(id_parts) >= 3:
-                package, name = id_parts[1].lower(), id_parts[2].lower()
-                self._by_ref_name.setdefault(name, key)
-                self._by_package_ref[(package, name)] = key
+                # Versioned models have unique ids like ``model.pkg.orders.v2``.
+                version = (
+                    _normalize_ref_version(id_parts[3])
+                    if len(id_parts) >= 4
+                    else _UNVERSIONED
+                )
+                self._refs.setdefault((id_parts[1], id_parts[2]), {})[version] = key
+
+    def _resolve_ref(
+        self, package: Optional[str], name: str, version: Optional[str]
+    ) -> Optional[_RelationKey]:
+        candidates: List[_RelationKey] = []
+        for (ref_package, ref_name), versions in self._refs.items():
+            if ref_name != name or (package is not None and ref_package != package):
+                continue
+            if version is not None:
+                if version in versions:
+                    candidates.append(versions[version])
+            else:
+                candidates.extend(versions.values())
+        # An unversioned ref to a model with several versions means its latest
+        # version, which the manifest node alone does not say; treat that, and
+        # a name shared across packages, as unresolved.
+        return candidates[0] if len(candidates) == 1 else None
 
     def resolve(self, value: Optional[str]) -> Optional[_RelationKey]:
         if not value:
             return None
         ref_match = _REF_OR_SOURCE_RE.search(value)
         if ref_match:
+            version_match = _REF_VERSION_RE.search(value)
+            positional = _REF_VERSION_RE.sub("", value)
             # ``ref('model')``, ``ref('package', 'model')``, ``source('src', 'tbl')``.
-            args = [arg.lower() for arg in _QUOTED_ARG_RE.findall(value)]
+            args = [arg.lower() for arg in _QUOTED_ARG_RE.findall(positional)]
             if not args:
                 return None
-            if ref_match.group(1).lower() == "source" and len(args) >= 2:
-                resolved = self._by_source.get((args[-2], args[-1]))
-            elif len(args) >= 2:
-                resolved = self._by_package_ref.get((args[-2], args[-1]))
-            else:
-                resolved = self._by_ref_name.get(args[-1])
+            if ref_match.group(1).lower() == "source":
+                if len(args) < 2:
+                    return None
+                return self._by_source.get((args[-2], args[-1]))
             # An unresolvable ref (e.g. to another project) could name a
             # relation in any schema, so it is not matched by name alone.
-            return resolved
+            return self._resolve_ref(
+                package=args[-2] if len(args) >= 2 else None,
+                name=args[-1],
+                version=(
+                    _normalize_ref_version(version_match.group(2))
+                    if version_match
+                    else None
+                ),
+            )
         return _split_relation_name(value) or None
 
 
@@ -6242,7 +6282,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         its own entries: a contract that keeps authored content is rewritten
         without them and released from this source's state, while one holding
         only dbt entries is left to stale entity removal. If this run had
-        failures, dropped contracts are kept unchanged instead.
+        failures, dropped contracts are kept unchanged and stay tracked.
         """
         dropped = sorted(self._previous_contract_urns() - self._contract_urns_written)
         if not dropped or self.ctx.graph is None:
@@ -6261,13 +6301,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             contract = existing.get(urn)
             if contract is None:
                 continue
-            properties = (
-                contract.properties if uncertain else contract.without_dbt_entries()
-            )
+            if uncertain:
+                # Kept unchanged and still tracked by this source, so the next
+                # clean run decides what happens to it.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn, aspect=contract.properties
+                ).as_workunit()
+                continue
+            properties = contract.without_dbt_entries()
             if properties is None:
                 continue
             # Not a primary workunit: stale entity removal skips the URN and
-            # stops tracking it, so the contract is not soft-deleted.
+            # stops tracking it, so the authored contract is not soft-deleted.
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=properties
             ).as_workunit(is_primary_source=False)
@@ -6380,6 +6425,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return cached
 
         pending_contracts: List[_PendingContract] = []
+        assertion_mcps: List[MetadataChangeProposalWrapper] = []
         for node in non_test_nodes:
             if not node.contract or not node.contract.enforced:
                 continue
@@ -6402,13 +6448,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     kind="emission",
                 )
                 continue
-            yield from mcps
+            assertion_mcps.extend(mcps)
             pending_contracts.append(pending)
 
         if not pending_contracts:
             return
 
+        # Read existing contracts before writing this run's assertions: the
+        # schema assertion records which tests dbt attached last run, and a
+        # sink that writes as it goes would otherwise overwrite it first.
         existing_contracts: Dict[str, _ExistingContract] = {}
+        read_failed = False
         if self.ctx.graph is None:
             self.report.info(
                 title="dbt Data Contracts written without merging",
@@ -6423,7 +6473,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     [pending.contract_urn for pending in pending_contracts]
                 )
             except _ContractPrefetchError:
-                return
+                read_failed = True
+
+        yield from assertion_mcps
+        if read_failed:
+            return
 
         for pending in pending_contracts:
             try:

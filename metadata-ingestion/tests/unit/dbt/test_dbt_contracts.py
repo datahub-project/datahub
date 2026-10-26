@@ -1,7 +1,8 @@
+import contextlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
@@ -38,6 +39,9 @@ from datahub.ingestion.source.dbt.dbt_core import (
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionRunEventClass,
@@ -604,6 +608,27 @@ def test_unresolvable_foreign_key_target_is_not_matched_by_name() -> None:
     assert resolver.resolve("ref('missing')") is None
 
 
+def test_versioned_ref_resolves_to_its_version() -> None:
+    versions = []
+    for version in ("1", "2"):
+        node = _make_model(name="orders", alias=f"orders_v{version}")
+        node.dbt_name = f"model.test_pkg.orders.v{version}"
+        versions.append(node)
+    resolver = _RelationResolver(versions)
+    assert resolver.resolve("ref('orders', v=2)") == (
+        "test_db",
+        "test_schema",
+        "orders_v2",
+    )
+    assert resolver.resolve("ref('test_pkg', 'orders', version='1')") == (
+        "test_db",
+        "test_schema",
+        "orders_v1",
+    )
+    # Without a version, dbt picks the latest, which the nodes do not record.
+    assert resolver.resolve("ref('orders')") is None
+
+
 def test_test_urns_omitted_when_test_definitions_disabled() -> None:
     source = _make_source(entities_enabled={"test_definitions": "NO"})
     model = _make_model()
@@ -877,22 +902,61 @@ def test_one_failing_model_does_not_stop_the_others() -> None:
     assert source.report.node_emission_failures == 1
 
 
+class _WriteThroughGraph:
+    """Fake graph whose reads see every aspect written so far, like a sink
+    that writes each workunit as it is produced."""
+
+    def __init__(self) -> None:
+        self.aspects: Dict[str, Dict[str, Any]] = {}
+        self.mock = mock.Mock()
+        self.mock.get_entities.side_effect = self.get_entities
+        self.mock.get_config.return_value = {"statefulIngestionCapable": True}
+
+    def write(self, mcp: Any) -> None:
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspect is not None:
+            self.aspects.setdefault(str(mcp.entityUrn), {})[mcp.aspect.ASPECT_NAME] = (
+                mcp.aspect
+            )
+
+    def get_entities(
+        self, entity_name: str, urns: List[str], aspects: List[str], **kwargs: Any
+    ) -> Dict[str, Dict[str, Any]]:
+        return {
+            urn: {
+                name: (aspect, None)
+                for name, aspect in self.aspects[urn].items()
+                if name in aspects
+            }
+            for urn in urns
+            if urn in self.aspects
+        }
+
+
 def _run_stateful(
     tmp_path: Path,
     *,
     enforced: bool,
     previous_urns: List[str],
-    graph: mock.Mock,
-) -> List[Any]:
-    """Run the source through its workunit processors, incl. stale removal."""
-    manifest = _build_contract_manifest()
+    graph: Any,
+    failing_test_emission: bool = False,
+    manifest: Optional[Dict[str, Any]] = None,
+) -> Tuple[List[Any], List[str]]:
+    """Run the source through its workunit processors, incl. stale removal.
+
+    Returns the workunits and the URNs in this run's checkpoint.
+    """
+    manifest = manifest or _build_contract_manifest()
     manifest["nodes"]["model.contract_test.orders"]["config"]["contract"][
         "enforced"
     ] = enforced
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text(json.dumps(manifest))
-    graph.get_config.return_value = {"statefulIngestionCapable": True}
-    ctx = PipelineContext(run_id="run-2", pipeline_name="dbt-contracts", graph=graph)
+    write_through = graph if isinstance(graph, _WriteThroughGraph) else None
+    graph_mock = write_through.mock if write_through else graph
+    graph_mock.get_config.return_value = {"statefulIngestionCapable": True}
+    ctx = PipelineContext(
+        run_id="next-run", pipeline_name="dbt-contracts", graph=graph_mock
+    )
     source = DBTCoreSource(
         DBTCoreConfig(
             manifest_path=str(manifest_path),
@@ -912,13 +976,30 @@ def _run_stateful(
     previous = Checkpoint(
         job_name="dbt_stateful_ingestion",
         pipeline_name="dbt-contracts",
-        run_id="run-1",
+        run_id="previous-run",
         state=GenericCheckpointState(urns=previous_urns),
     )
-    with mock.patch.object(
-        source.state_provider, "get_last_checkpoint", return_value=previous
+    workunits: List[Any] = []
+    with (
+        mock.patch.object(
+            source.state_provider, "get_last_checkpoint", return_value=previous
+        ),
+        mock.patch(
+            "datahub.ingestion.source.dbt.dbt_common.make_assertion_from_test",
+            side_effect=RuntimeError("boom"),
+        )
+        if failing_test_emission
+        else contextlib.nullcontext(),
     ):
-        return list(source.get_workunits())
+        for wu in source.get_workunits():
+            if write_through:
+                write_through.write(wu.metadata)
+            workunits.append(wu)
+    checkpoint = source.state_provider.get_current_checkpoint(
+        StaleEntityRemovalHandler.compute_job_id("dbt")
+    )
+    assert checkpoint is not None
+    return workunits, list(checkpoint.state.urns)
 
 
 def _soft_deleted(workunits: List[Any]) -> List[str]:
@@ -942,7 +1023,7 @@ _E2E_CONTRACT_URN = "urn:li:dataContract:" + mce_builder.datahub_guid(
 def test_stateful_read_failure_does_not_soft_delete_contract(tmp_path: Path) -> None:
     graph = mock.Mock()
     graph.get_entities.side_effect = RuntimeError("GMS unavailable")
-    workunits = _run_stateful(
+    workunits, _ = _run_stateful(
         tmp_path, enforced=True, previous_urns=[_E2E_CONTRACT_URN], graph=graph
     )
     assert _E2E_CONTRACT_URN not in _soft_deleted(workunits)
@@ -964,7 +1045,7 @@ def test_stateful_dropped_contract_keeps_authored_content(
         )
     )
     graph = _graph_with_contracts({_E2E_CONTRACT_URN: existing}, _EXISTING_DQ_INFOS)
-    workunits = _run_stateful(
+    workunits, _ = _run_stateful(
         tmp_path, enforced=False, previous_urns=[_E2E_CONTRACT_URN], graph=graph
     )
     rewritten = [
@@ -1358,3 +1439,73 @@ def test_cloud_test_connection_rejects_unknown_environment() -> None:
         )
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is False
+
+
+def _contract_dq(graph: _WriteThroughGraph) -> List[str]:
+    props = graph.aspects[_E2E_CONTRACT_URN][DataContractPropertiesClass.ASPECT_NAME]
+    return [c.assertion for c in props.dataQuality or []]
+
+
+def _is_removed(graph: _WriteThroughGraph, urn: str) -> bool:
+    status = graph.aspects.get(urn, {}).get(StatusClass.ASPECT_NAME)
+    return bool(status and status.removed)
+
+
+def test_test_dbt_stops_attaching_leaves_the_contract(tmp_path: Path) -> None:
+    graph = _WriteThroughGraph()
+    _, state = _run_stateful(tmp_path, enforced=True, previous_urns=[], graph=graph)
+    test_urns = [
+        urn
+        for urn in _contract_dq(graph)
+        if "dbt_test_upstream_unique_id"
+        in (graph.aspects[urn][AssertionInfoClass.ASPECT_NAME].customProperties or {})
+    ]
+    assert len(test_urns) == 1
+
+    # The test loses its contract tag and no longer matches a constraint.
+    manifest = _build_contract_manifest()
+    test_node = manifest["nodes"]["test.contract_test.orders_email_not_null"]
+    test_node["tags"] = []
+    test_node["config"]["tags"] = []
+    manifest["nodes"]["model.contract_test.orders"]["columns"]["email"][
+        "constraints"
+    ] = []
+    _run_stateful(
+        tmp_path, enforced=True, previous_urns=state, graph=graph, manifest=manifest
+    )
+    assert test_urns[0] not in _contract_dq(graph)
+
+
+@pytest.mark.parametrize("authored", [True, False])
+def test_contract_dropped_during_a_run_with_node_failures_is_revisited(
+    tmp_path: Path, authored: bool
+) -> None:
+    graph = _WriteThroughGraph()
+    if authored:
+        graph.aspects[_E2E_CONTRACT_URN] = {
+            DataContractPropertiesClass.ASPECT_NAME: DataContractPropertiesClass(
+                entity=_ENTITY_URN,
+                dataQuality=[
+                    DataQualityContractClass(assertion="urn:li:assertion:authored")
+                ],
+            )
+        }
+    _, state1 = _run_stateful(tmp_path, enforced=True, previous_urns=[], graph=graph)
+    # The model stops enforcing its contract in a run where another node fails:
+    # the contract is kept unchanged and stays tracked.
+    _, state2 = _run_stateful(
+        tmp_path,
+        enforced=False,
+        previous_urns=state1,
+        graph=graph,
+        failing_test_emission=True,
+    )
+    assert _E2E_CONTRACT_URN in state2
+    assert not _is_removed(graph, _E2E_CONTRACT_URN)
+    # The next clean run finishes the job.
+    _run_stateful(tmp_path, enforced=False, previous_urns=state2, graph=graph)
+    if authored:
+        assert not _is_removed(graph, _E2E_CONTRACT_URN)
+        assert _contract_dq(graph) == ["urn:li:assertion:authored"]
+    else:
+        assert _is_removed(graph, _E2E_CONTRACT_URN)

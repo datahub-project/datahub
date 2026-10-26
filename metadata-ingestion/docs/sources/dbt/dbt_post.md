@@ -878,7 +878,7 @@ models:
                 tags: ["contract"] # no matching constraint, so tag it
 ```
 
-With the default `contract_test_tag: "contract"`, any test tagged with `contract` is added to the Data Contract's data quality assertions and also continues to run as a regular dbt test. A tagged test that reads several models (such as `relationships`) is attached only to the model it is declared on. A `relationships` test is matched to a `foreign_key` only when both targets resolve to the same relation in the ingested project; for a target in another project or package, tag the test instead.
+With the default `contract_test_tag: "contract"`, any test tagged with `contract` is added to the Data Contract's data quality assertions and also continues to run as a regular dbt test. A tagged test that reads several models (such as `relationships`) is attached only to the model it is declared on. A `relationships` test is matched to a `foreign_key` only when both targets resolve to the same relation in the ingested project; for a target in another project or package, or a `ref` without `v=` to a versioned model, tag the test instead.
 
 ##### Warehouse Constraint Enforcement
 
