@@ -1,4 +1,4 @@
-# Default lifecycle stage types for glossary terms.
+# Default lifecycle stage types for documents and glossary terms.
 # Increment the version in bootstrap_mcps.yaml to re-bootstrap after changes.
 #
 # Lifecycle stages control search visibility via the hideInSearch setting and
@@ -23,6 +23,7 @@
       Entity has been approved and is live. Visible in default searches
       and browse for all users.
     entityTypes:
+      - document
       - glossaryTerm
     settings:
       hideInSearch: false
@@ -40,8 +41,11 @@
     name: Draft
     description: >-
       Entity is being drafted and is not yet ready for review.
+      Users may assign this stage to glossary terms; document drafts are internal
+      working copies and cannot be assigned or proposed through lifecycle APIs.
       Hidden from default searches but discoverable via explicit lifecycle stage filter.
     entityTypes:
+      - document
       - glossaryTerm
     settings:
       hideInSearch: true
@@ -61,6 +65,7 @@
       Entity has been submitted for steward review and approval.
       Hidden from default searches until a reviewer approves and publishes it.
     entityTypes:
+      - document
       - glossaryTerm
     settings:
       hideInSearch: true
@@ -80,6 +85,7 @@
       Entity was reviewed and rejected. The author should address reviewer feedback,
       update the entity, and resubmit for review.
     entityTypes:
+      - document
       - glossaryTerm
     settings:
       hideInSearch: true
@@ -100,6 +106,7 @@
       Remains visible in search with a deprecated label so consumers can
       identify affected assets and migrate to a replacement.
     entityTypes:
+      - document
       - glossaryTerm
     settings:
       hideInSearch: false
@@ -120,6 +127,7 @@
       Use this instead of hard-delete to preserve audit history.
       Can be restored by clearing the lifecycle stage.
     entityTypes:
+      - document
       - glossaryTerm
     settings:
       hideInSearch: true
