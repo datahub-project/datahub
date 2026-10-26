@@ -73,7 +73,10 @@ public final class SearchTemplateContextVariables {
   public static final String FLAGS = "flags";
   public static final String SYNONYMS = "synonyms";
 
-  /** Text of one {@link #SYNONYMS} element. A nested section must not use {@code {{.}}}. */
+  /**
+   * Text of one {@link #SYNONYMS} element. {@code {{.}}} is that text at the synonym section. A
+   * nested section must use this name, because it replaces the current element.
+   */
   public static final String SYNONYM = "synonym";
 
   public static final String MULTI_WORD = "multiWord";

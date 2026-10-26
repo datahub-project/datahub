@@ -253,18 +253,33 @@ public final class SearchTemplateMustache {
   }
 
   /**
-   * One map per synonym. {@code {{#qualifiedNameFields}}} pushes its own context, so {@code {{.}}}
-   * inside that section is no longer the synonym text.
+   * One map per synonym. {@code {{synonym}}} still resolves inside a nested section such as {@code
+   * {{#qualifiedNameFields}}}. {@code {{.}}} at the synonym section is the synonym text, so a
+   * stored template written that way keeps searching the synonym.
    */
   @Nonnull
   public static List<Map<String, String>> synonymElements(@Nonnull List<String> synonyms) {
     List<Map<String, String>> elements = new ArrayList<>(synonyms.size());
     for (String synonym : synonyms) {
-      Map<String, String> element = new LinkedHashMap<>();
-      element.put(SearchTemplateContextVariables.SYNONYM, synonym);
-      elements.add(element);
+      elements.add(new SynonymElement(synonym));
     }
     return elements;
+  }
+
+  /** {@code toString} is the synonym so Mustache {@code {{.}}} writes the text, not the map. */
+  private static final class SynonymElement extends LinkedHashMap<String, String> {
+    private final String text;
+
+    private SynonymElement(@Nonnull String text) {
+      super(1);
+      this.text = text;
+      put(SearchTemplateContextVariables.SYNONYM, text);
+    }
+
+    @Override
+    public String toString() {
+      return text;
+    }
   }
 
   @Nonnull
