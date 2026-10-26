@@ -77,9 +77,9 @@ how to disable replication.
 - Files are loaded leniently by default (`strict_validation: false`) so that contracts with
   extra or non-conformant fields are accepted with warnings. Spec-valid sections the source
   does not read (SLA, support, pricing, relationships, …) are summarized once per file as an
-  info (`report.spec_fields_ignored`); genuinely unknown fields warn individually. Some fields
-  the source reads are still not mapped and are not in that summary — see
-  [Limitations](#limitations). Set `strict_validation: true` to fail on
+  info (`report.spec_fields_ignored`), together with fields the source reads but does not map;
+  genuinely unknown fields warn individually. See [Limitations](#limitations) for the full
+  list and the other lossy mappings that are reported. Set `strict_validation: true` to fail on
   JSON Schema violations — recommended for multi-tenant or untrusted directories.
 - **Stale-metadata removal uses standard stateful ingestion.** Enable it via the
   `stateful_ingestion` block (server-side checkpoints; requires a DataHub graph). When you

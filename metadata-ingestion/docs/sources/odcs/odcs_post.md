@@ -94,7 +94,8 @@ Notes on `glue` and `iceberg`:
 - Glue stores names in lowercase, so composed `glue` names are lowercased
   (`lowercase_physical_urns: false` opts out).
 - An `iceberg` server binds to `glue` when its `catalogUrl` is an AWS Glue host
-  (`glue.<region>.amazonaws.com`, including FIPS and China endpoints) and `warehouse` is absent
+  (`glue.<region>.amazonaws.com`, including FIPS and China endpoints, with or without
+  `https://`) and `warehouse` is absent
   or the account ID; the namespace is then the Glue database. A `warehouse` naming another
   catalog (for example S3 Tables, `<account>:s3tablescatalog/<bucket>`) leaves the entry
   unbound. Any other `catalogUrl` binds to `iceberg`. A `server_overrides` platform replaces
@@ -176,9 +177,14 @@ in place.
 - Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
   keys), `customProperties` → DataHub `customProperties` (only the `odcs.*` provenance
   subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
-  `logicalParent` column links, and ODCS export. Spec-valid sections the source does not
-  read are reported once per file (info) via `report.spec_fields_ignored`. These fields are
-  read but **not mapped and not reported**: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`, `classification`, `criticalDataElement` and `encryptedName` on properties, `businessName` on schema objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`, team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` / `region`. These may land in a follow-up.
+  `logicalParent` column links, and ODCS export. Spec-valid fields the source does not map
+  are reported once per file as an info and listed in `report.spec_fields_ignored`. Besides
+  whole sections such as SLA, support and price, these include fields the source reads but
+  does not map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`, `classification`, `criticalDataElement` and `encryptedName` on properties, `businessName` on schema objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`, team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` / `region`. These may land in a follow-up.
+- **Lossy mappings are reported.** Besides the info above: off-spec v3.2 values that were
+  dropped, and `${VAR}` references in quality `query` text, are warnings; team roles defaulted
+  to Technical Owner, and a contract `description` not applied to tables that have their own,
+  are infos.
 - **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the
   mappings below are implemented. `logicalType: vector` maps to an array type (dimensions and
   element type are not recorded); `deprecated: true` on a schema object or property emits a
@@ -190,13 +196,15 @@ in place.
   schema-compliance assertion. Column-level `quality[]` rules on a measure still become field
   assertions on the logical dataset; they cannot be evaluated against a physical table.
   Deleting the `deprecated` key does not undo an earlier run; set `deprecated: false`
-  instead. A present `synonyms` key is asserted even when empty, so removing every synonym
-  clears them. With a DataHub connection the synonyms are merged into the field's existing AI
-  context (instructions and examples are kept, and the field is skipped with a warning if that
-  context cannot be read); without one, the AI context aspect is written as a whole. Off-spec
-  `deprecated`, `synonyms` or `semanticType` values are dropped rather than rejecting the
-  contract; they are reported as JSON Schema warnings when the bundled v3.2 schema is
-  available (see the schema-validation limitation below).
+  instead. The contract owns a field's synonyms: they **replace** synonyms set on that field
+  in DataHub. Only an explicit `synonyms: []` clears them; deleting the key, or a list with no
+  usable entry, leaves earlier synonyms in place. With a DataHub connection the field's other
+  AI context (instructions, examples) is kept, and the field is skipped with a warning if that
+  context cannot be read; without one, the AI context aspect is written as a whole (reported
+  once as an info). With `strict_validation: false` (the default), off-spec `deprecated`,
+  `synonyms` or `semanticType` values are dropped and reported as a warning rather than
+  rejecting the contract; with `strict_validation: true` the contract fails JSON Schema
+  validation instead.
   `context`, schema-object `synonyms`, `enum`, `semanticType` (beyond the measure exclusion
   above), `transformLogic` and vector
   `logicalTypeOptions` are mapped only with `emit_structured_properties` (below). Accepted but
@@ -236,12 +244,13 @@ in place.
   live on the logical dataset, which renders only with Logical Models enabled.
 
 - **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept
-  verbatim. A server `type`, a server field or `physicalName` that contains one leaves the
-  physical binding
-  unbound, reported as a warning; use `physical_urn_overrides` to bind it explicitly.
-  Variables elsewhere are not checked: a `${VAR}` in a `type: sql` quality `query` is copied
-  into the SQL assertion unresolved, so resolve variables before ingestion (for example with
-  `envsubst` in CI).
+  verbatim. A server `type`, a name-composing server field, an Iceberg `catalogUrl` or
+  `warehouse`, or `physicalName` that contains one leaves the physical binding unbound,
+  reported as a warning; use `physical_urn_overrides` to bind it explicitly. A server refused
+  this way stops the search: later servers are not tried, since the contract may not describe
+  them. A `${VAR}` in a `type: sql` quality `query` is copied into the SQL assertion
+  unresolved and reported as a warning, so resolve variables before ingestion (for example
+  with `envsubst` in CI).
 - **ODPS documents are not read.** `emit_data_product_association` marks the datasets a
   contract governs as output ports of the product the contract names, but the product side
   of the Bitol model is not ingested: no ODPS file is parsed, so port names, port versions,

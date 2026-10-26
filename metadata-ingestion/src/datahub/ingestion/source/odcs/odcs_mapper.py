@@ -1,6 +1,7 @@
 import json
 import re
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import (
     AbstractSet,
     Dict,
@@ -48,6 +49,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     METRIC_VALID_VALUES,
     ODCS_ACTOR,
     OWNER_ROLE_MAP,
+    PLATFORM_GLUE,
     PLATFORM_NAME_PARTS,
     PROP_API_VERSION,
     PROP_ASSERTION,
@@ -270,79 +272,118 @@ _GLUE_ENDPOINT_HOST = re.compile(r"^glue(-fips)?\.[a-z0-9-]+\.amazonaws\.com(\.c
 _AWS_ACCOUNT_ID = re.compile(r"^\d{12}$")
 
 
-def _unresolved_variable_reason(what: str, value: object) -> str:
-    return (
+class RefusalKind(str, Enum):
+    UNMAPPABLE = "unmappable"
+    UNRESOLVED_VARIABLE = "unresolved_variable"
+
+
+@dataclass(frozen=True)
+class BindingRefusal:
+    """Why a schema entry was left without a physical binding."""
+
+    kind: RefusalKind
+    message: str
+
+
+def _unresolved_variable(what: str, value: object) -> BindingRefusal:
+    return BindingRefusal(
+        RefusalKind.UNRESOLVED_VARIABLE,
         f"{what} '{value}' contains an unresolved ODCS variable; resolve it or "
-        "supply a physical_urn_overrides entry"
+        "supply a physical_urn_overrides entry",
     )
 
 
+def _server_type(server: ODCSServer) -> str:
+    return (server.type or "").strip().lower()
+
+
 def _is_iceberg_server(server: ODCSServer) -> bool:
-    return (server.type or "").strip().lower() == SERVER_TYPE_ICEBERG
+    return _server_type(server) == SERVER_TYPE_ICEBERG
 
 
-def _platform_for_server(server: ODCSServer) -> Tuple[Optional[str], Optional[str]]:
-    """`(platform, refusal)` for a server's spec-required `type`.
+def _url_host(url: str) -> str:
+    # A scheme-less `glue.<region>.amazonaws.com/iceberg` has no parsed host.
+    return urlparse(url if "://" in url else f"//{url}").hostname or ""
+
+
+def _server_refusal(server: ODCSServer) -> Optional[BindingRefusal]:
+    """A refusal when this server's platform cannot be known.
+
+    A refused server stops the search: binding a later server in its place
+    would link the contract to a table it may not describe.
+    """
+    if VARIABLE_MARKER in _server_type(server):
+        return _unresolved_variable(f"server '{server.server}' type", server.type)
+    if not _is_iceberg_server(server):
+        return None
+    for attr in ("catalogUrl", "warehouse"):
+        value = getattr(server, attr) or ""
+        if VARIABLE_MARKER in value:
+            return _unresolved_variable(f"server '{server.server}' {attr}", value)
+    warehouse = (server.warehouse or "").strip()
+    if (
+        _GLUE_ENDPOINT_HOST.match(_url_host(server.catalogUrl or ""))
+        and warehouse
+        and not _AWS_ACCOUNT_ID.match(warehouse)
+    ):
+        # e.g. `<account>:s3tablescatalog/<bucket>`: a federated catalog the
+        # Glue connector does not catalog.
+        return BindingRefusal(
+            RefusalKind.UNMAPPABLE,
+            f"server '{server.server}' warehouse '{warehouse}' names a Glue catalog "
+            "other than the account's default, which the Glue connector does not "
+            "catalog; supply a physical_urn_overrides entry",
+        )
+    return None
+
+
+def _platform_for_server(server: ODCSServer) -> Optional[str]:
+    """DataHub platform for a server's spec-required `type` (None if unmapped).
 
     An `iceberg` server whose REST catalog is AWS Glue's default catalog holds
     tables the Glue connector catalogs, so it binds to `glue`; other Iceberg
-    catalogs bind to `iceberg`. A refusal means this server's platform cannot be
-    known, so no later server may be bound in its place.
+    catalogs bind to `iceberg`. Callers check _server_refusal first.
     """
-    server_type = (server.type or "").strip().lower()
-    if VARIABLE_MARKER in server_type:
-        return None, _unresolved_variable_reason(
-            f"server '{server.server}' type", server.type
-        )
-    if server_type == SERVER_TYPE_ICEBERG:
-        catalog_url = server.catalogUrl or ""
-        if VARIABLE_MARKER in catalog_url:
-            return None, _unresolved_variable_reason(
-                f"server '{server.server}' catalogUrl", catalog_url
-            )
-        if _GLUE_ENDPOINT_HOST.match(urlparse(catalog_url).hostname or ""):
-            warehouse = (server.warehouse or "").strip()
-            if warehouse and not _AWS_ACCOUNT_ID.match(warehouse):
-                # e.g. `<account>:s3tablescatalog/<bucket>`: a federated catalog
-                # the Glue connector does not catalog.
-                return None, (
-                    f"server '{server.server}' warehouse '{warehouse}' names a Glue "
-                    "catalog other than the account's default, which the Glue "
-                    "connector does not catalog; supply a physical_urn_overrides entry"
-                )
-            return "glue", None
-    return SERVER_TYPE_TO_PLATFORM.get(server_type), None
+    if _is_iceberg_server(server) and _GLUE_ENDPOINT_HOST.match(
+        _url_host(server.catalogUrl or "")
+    ):
+        return PLATFORM_GLUE
+    return SERVER_TYPE_TO_PLATFORM.get(_server_type(server))
 
 
 def _resolve_server(
     contract: ODCSContract, config: ODCSSourceConfig
-) -> Tuple[Optional[ResolvedServer], Optional[str]]:
+) -> Tuple[Optional[ResolvedServer], Optional[BindingRefusal]]:
     """Pick the first contract server that maps to a DataHub platform.
 
     The platform comes from a matching `server_overrides` entry when it sets
     one, else from the spec-required `servers[].type` (see
     _platform_for_server). Returns `(resolved, None)` on success or
-    `(None, reason)` when no server is mappable or a server is refused.
+    `(None, refusal)` when no server is mappable or a server is refused.
     """
     if not contract.servers:
-        return None, "contract declares no servers[]"
+        return None, BindingRefusal(
+            RefusalKind.UNMAPPABLE, "contract declares no servers[]"
+        )
     unmappable: List[str] = []
     for server in contract.servers:
         mapping = _override_for_server(server.server, config.server_overrides)
         if mapping is not None and mapping.platform:
             platform: Optional[str] = mapping.platform
         else:
-            platform, refusal = _platform_for_server(server)
-            if refusal:
+            refusal = _server_refusal(server)
+            if refusal is not None:
                 return None, refusal
+            platform = _platform_for_server(server)
         if platform:
             return ResolvedServer(
                 server=server, platform=platform, mapping=mapping
             ), None
         unmappable.append(f"{server.server} (type={server.type or 'missing'})")
-    return None, (
+    return None, BindingRefusal(
+        RefusalKind.UNMAPPABLE,
         "no servers[] entry maps to a DataHub platform; "
-        f"unmappable: {', '.join(unmappable)}"
+        f"unmappable: {', '.join(unmappable)}",
     )
 
 
@@ -351,14 +392,14 @@ def _compose_physical_name(
     server: ODCSServer,
     table: str,
     convert_to_lowercase: bool,
-) -> Tuple[Optional[str], Optional[str], bool]:
+) -> Tuple[Optional[str], Optional[BindingRefusal], bool]:
     """Compose the fully-qualified physical dataset name for a platform.
 
     Follows each platform connector's URN naming convention (postgres:
     `database.schema.table`, bigquery: `project.dataset.table`, ...). A `table`
     that already contains a dot is passed through as-is, on the assumption the
     contract author supplied a pre-qualified physicalName. Returns
-    `(name, None, passthrough)` on success or `(None, reason, False)` when the
+    `(name, None, passthrough)` on success or `(None, refusal, False)` when the
     name cannot be composed. Lowercasing applies only to platforms whose
     connectors lowercase by default (see LOWERCASE_BY_DEFAULT_PLATFORMS).
     Values containing an unresolved `${...}` variable are refused.
@@ -367,7 +408,7 @@ def _compose_physical_name(
     # source does not resolve them; composing one into a URN would bind the
     # logical dataset to a dataset that does not exist.
     if VARIABLE_MARKER in table:
-        return None, _unresolved_variable_reason("physicalName", table), False
+        return None, _unresolved_variable("physicalName", table), False
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
@@ -379,8 +420,12 @@ def _compose_physical_name(
     if parts_spec is None:
         return (
             None,
-            f"platform '{platform}' has no name-composition rule; supply a "
-            "fully-qualified dotted physicalName or a physical_urn_overrides entry",
+            BindingRefusal(
+                RefusalKind.UNMAPPABLE,
+                f"platform '{platform}' has no name-composition rule; supply a "
+                "fully-qualified dotted physicalName or a physical_urn_overrides "
+                "entry",
+            ),
             False,
         )
     values: List[str] = []
@@ -390,7 +435,7 @@ def _compose_physical_name(
         if value and VARIABLE_MARKER in str(value):
             return (
                 None,
-                _unresolved_variable_reason(
+                _unresolved_variable(
                     f"server '{server.server}' {attr.rstrip('_')}", value
                 ),
                 False,
@@ -402,8 +447,11 @@ def _compose_physical_name(
     if missing:
         return (
             None,
-            f"server '{server.server}' is missing {'/'.join(missing)} needed to "
-            f"qualify a {platform} table name",
+            BindingRefusal(
+                RefusalKind.UNMAPPABLE,
+                f"server '{server.server}' is missing {'/'.join(missing)} needed to "
+                f"qualify a {platform} table name",
+            ),
             False,
         )
     name = ".".join([*values, table])
@@ -430,7 +478,7 @@ def odcs_to_physical_bindings(
         return bindings
 
     overrides = config.physical_urn_overrides.get(contract.id)
-    resolved, server_reason = _resolve_server(contract, config)
+    resolved, server_refusal = _resolve_server(contract, config)
 
     for index, schema_entry in enumerate(contract.schema_):
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
@@ -471,13 +519,14 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=server_reason,
-                    unresolved_variable=VARIABLE_MARKER in (server_reason or ""),
+                    unmapped_reason=server_refusal.message if server_refusal else None,
+                    unresolved_variable=server_refusal is not None
+                    and server_refusal.kind is RefusalKind.UNRESOLVED_VARIABLE,
                 )
             )
             continue
 
-        physical_name, compose_reason, passthrough = _compose_physical_name(
+        physical_name, compose_refusal, passthrough = _compose_physical_name(
             platform=resolved.platform,
             server=resolved.server,
             table=table,
@@ -490,8 +539,11 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=compose_reason,
-                    unresolved_variable=VARIABLE_MARKER in (compose_reason or ""),
+                    unmapped_reason=compose_refusal.message
+                    if compose_refusal
+                    else None,
+                    unresolved_variable=compose_refusal is not None
+                    and compose_refusal.kind is RefusalKind.UNRESOLVED_VARIABLE,
                 )
             )
             continue

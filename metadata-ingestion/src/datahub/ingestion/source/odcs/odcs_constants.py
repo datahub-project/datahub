@@ -46,6 +46,7 @@ ODCS_ACTOR = "urn:li:corpuser:datahub"
 
 # ODCS v3.2 vocabulary.
 SERVER_TYPE_ICEBERG = "iceberg"
+PLATFORM_GLUE = "glue"
 SEMANTIC_TYPE_MEASURE = "measure"  # RFC 0034: an aggregate, not a column
 SYNONYM_STATUS_DEPRECATED = "deprecated"  # RFC 0041: a former name
 # RFC 0050 variable reference: `${VAR}` / `${VAR:-default}`.
