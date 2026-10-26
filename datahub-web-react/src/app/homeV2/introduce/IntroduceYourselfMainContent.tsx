@@ -1,10 +1,10 @@
 import { Tooltip } from '@components';
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import CheckIcon from '@mui/icons-material/Check';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import { Button, Select, message } from 'antd';
-import { orderBy } from 'lodash';
+import orderBy from 'lodash/orderBy';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -16,7 +16,7 @@ import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections
 import { PLATFORMS_MODULE_ID } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
 import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '@app/homeV2/shared/types';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
@@ -123,7 +123,7 @@ const SelectWrapper = styled.div`
         position: absolute;
         left: 10px;
         z-index: 99;
-        fill: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 
     .ant-select-arrow {
@@ -465,10 +465,10 @@ export const IntroduceYourselfMainContent = () => {
                 <Title>{t('introduceYourself.mainTitle')}</Title>
                 <Subtitle>{t('introduceYourself.mainSubtitle')}</Subtitle>
                 <SelectWrapper>
-                    <AccountCircleOutlinedIcon />
+                    <UserCircle />
                     <Select
                         placeholder={t('introduceYourself.rolePlaceholder')}
-                        suffixIcon={<KeyboardArrowDownOutlinedIcon />}
+                        suffixIcon={<CaretDown />}
                         data-testid="introduce-role-select"
                         size="large"
                         style={selectStyles}
@@ -484,7 +484,7 @@ export const IntroduceYourselfMainContent = () => {
                     </Select>
                 </SelectWrapper>
                 <SelectWrapper>
-                    <SettingsOutlinedIcon />
+                    <Gear />
                     <Select
                         placeholder={t('introduceYourself.dataToolsPlaceholder')}
                         size="large"
@@ -507,7 +507,7 @@ export const IntroduceYourselfMainContent = () => {
                                     <SelectOption data-testid={`platform-option-${platformNameForTestId}`}>
                                         <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
                                             <PsuedoCheckBox checked={isChecked}>
-                                                {isChecked && <CheckIcon />}
+                                                {isChecked && <Check />}
                                             </PsuedoCheckBox>
                                             <PlatformIcon
                                                 platform={platform.platform}

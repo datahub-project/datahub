@@ -87,6 +87,10 @@ CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, can be disabled via configuration `include_column_lineage`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class FivetranSource(StatefulIngestionSourceBase):
     """
     This plugin extracts fivetran users, connectors, destinations and sync history.

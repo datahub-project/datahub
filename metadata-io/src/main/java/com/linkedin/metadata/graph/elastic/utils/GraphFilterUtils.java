@@ -134,9 +134,9 @@ public class GraphFilterUtils {
   public static QueryBuilder getEdgeTimeFilterQuery(
       final long startTimeMillis, final long endTimeMillis) {
     log.debug(
-        String.format(
-            "Adding edge time filters for start time: %s, end time: %s",
-            startTimeMillis, endTimeMillis));
+        "Adding edge time filters for start time: {}, end time: {}",
+        startTimeMillis,
+        endTimeMillis);
     /*
      * One of the following must be true in order for the edge to be returned (should = OR)
      *

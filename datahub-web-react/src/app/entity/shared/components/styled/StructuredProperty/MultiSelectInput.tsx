@@ -58,6 +58,7 @@ export default function MultiSelectInput({
         <SimpleSelect
             width="full"
             placeholder={t('structuredProperty.selectPlaceholder')}
+            showSearch
             values={selectedValues.map(String)}
             isMultiSelect
             options={options}

@@ -1,7 +1,7 @@
 import Editor from '@monaco-editor/react';
 import React from 'react';
 
-import '@conf/monaco';
+import { useMonacoTheme } from '@app/theme/useMonacoTheme';
 
 type Props = {
     initialText: string;
@@ -11,8 +11,11 @@ type Props = {
 };
 
 export const YamlEditor = ({ initialText, height, onChange, isDisabled = false }: Props) => {
+    const monacoTheme = useMonacoTheme();
+
     return (
         <Editor
+            {...monacoTheme}
             options={{
                 readOnly: isDisabled,
                 minimap: { enabled: false },

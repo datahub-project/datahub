@@ -53,6 +53,7 @@
     "properties.save.error": "Structured Propertyを保存できません。問題が発生しました。",
     "properties.search.placeholder": "検索...",
     "properties.searchInProperties.placeholder": "プロパティ内を検索...",
+    "properties.showCountMoreValues": "{{total, number}}件の値のうちさらに{{count}}件を表示",
     "properties.structuredProperty.title": "Structured Property",
     "properties.updated.success": "Structured Propertyを更新しました!"
 }

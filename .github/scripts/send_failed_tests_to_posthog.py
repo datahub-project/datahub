@@ -57,7 +57,7 @@ def _detect_junit_subtype(xml_file: Path) -> str:
     Distinguish between Playwright and Pytest JUnit XML by content.
 
     Playwright's JUnit reporter sets testsuite.name to the spec file path
-    (e.g. "tests/domains/domains.spec.ts"), which is reliable for detection.
+    (e.g. "tests/e2e/domains/domains.spec.ts"), which is reliable for detection.
     """
     try:
         tree = ET.parse(xml_file)

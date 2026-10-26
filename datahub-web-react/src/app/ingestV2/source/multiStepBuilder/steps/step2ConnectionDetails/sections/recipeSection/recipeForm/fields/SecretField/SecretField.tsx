@@ -1,6 +1,5 @@
 import { useApolloClient } from '@apollo/client';
 import { AutoComplete, Input, radius, spacing } from '@components';
-import { Divider } from 'antd';
 import React, { ReactNode, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -12,8 +11,10 @@ import { useSecrets } from '@app/ingestV2/source/multiStepBuilder/steps/step2Con
 import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 import { encodeSecret } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/utils';
 
-const StyledDivider = styled(Divider)`
+const StyledDivider = styled.hr`
     margin: ${spacing.xsm} 0;
+    border: none;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {

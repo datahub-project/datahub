@@ -30,6 +30,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -287,7 +288,10 @@ public class UpdateStructuredPropertyResolver
   private EntityResponse getExistingStructuredProperty(
       @Nonnull final QueryContext context, @Nonnull final Urn propertyUrn) throws Exception {
     return _entityClient.getV2(
-        context.getOperationContext(), STRUCTURED_PROPERTY_ENTITY_NAME, propertyUrn, null);
+        context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+        STRUCTURED_PROPERTY_ENTITY_NAME,
+        propertyUrn,
+        null);
   }
 
   private StructuredPropertyDefinition getExistingStructuredPropertyDefinition(

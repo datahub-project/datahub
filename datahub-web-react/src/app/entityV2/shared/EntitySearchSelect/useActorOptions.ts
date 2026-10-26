@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { ActorEntity, filterActors } from '@app/entityV2/shared/utils/actorUtils';
-import { useGetRecommendations } from '@app/shared/recommendation';
+import { useGetRecommendations } from '@app/sharedV2/recommendation';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
 import { useGetUserGroupsQuery } from '@graphql/user.generated';

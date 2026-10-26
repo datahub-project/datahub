@@ -1,5 +1,5 @@
 import { Pill, Popover } from '@components';
-import { capitalize } from 'lodash';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,7 +9,7 @@ import {
     formatDuration,
     toLocalDateTimeString,
     toRelativeTimeString,
-} from '@app/shared/time/timeUtils';
+} from '@app/sharedV2/time/timeUtils';
 
 import { DataProcessInstanceRunResultType, DataProcessRunEvent } from '@types';
 

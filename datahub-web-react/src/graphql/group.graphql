@@ -202,6 +202,25 @@ query getNativeGroupMembers($urn: String!, $start: Int!, $count: Int!) {
     }
 }
 
+# Fetched by the hover card on open, so owner lists don't run a member count for every group owner.
+query getGroupMemberCount($urn: String!) {
+    corpGroup(urn: $urn) {
+        urn
+        type
+        memberCount: relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: INCOMING
+                start: 0
+                count: 0
+                includeSoftDelete: false
+            }
+        ) {
+            total
+        }
+    }
+}
+
 query listGroups($input: ListGroupsInput!) {
     listGroups(input: $input) {
         start

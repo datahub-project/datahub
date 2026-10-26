@@ -25,4 +25,27 @@ describe('useDocumentImportSuccess', () => {
         expect(loadChildren).toHaveBeenCalledTimes(3);
         vi.useRealTimers();
     });
+
+    it('also refreshes domain-grouped documents when a callback is provided', () => {
+        vi.useFakeTimers();
+        const loadChildren = vi.fn();
+        const onRefreshGroupedDocuments = vi.fn();
+        const { result } = renderHook(() =>
+            useDocumentImportSuccess({
+                loadChildren,
+                onRefreshGroupedDocuments,
+            }),
+        );
+
+        act(() => {
+            result.current();
+        });
+        act(() => {
+            vi.runAllTimers();
+        });
+
+        expect(loadChildren).toHaveBeenCalledTimes(3);
+        expect(onRefreshGroupedDocuments).toHaveBeenCalledTimes(3);
+        vi.useRealTimers();
+    });
 });

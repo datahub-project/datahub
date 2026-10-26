@@ -1,5 +1,5 @@
-import { Column } from '@components';
-import { Tooltip, Typography } from 'antd';
+import { Column, Tooltip } from '@components';
+import { Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -15,7 +15,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
+import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
 import { AssertionResultType, AssertionType, DataContract } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 

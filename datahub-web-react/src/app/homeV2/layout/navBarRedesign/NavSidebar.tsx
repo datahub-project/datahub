@@ -43,8 +43,8 @@ import {
     NAV_SIDEBAR_ID,
     NAV_SIDEBAR_WIDTH_COLLAPSED,
     NAV_SIDEBAR_WIDTH_EXPANDED,
-} from '@app/shared/constants';
-import { useIsHomePage } from '@app/shared/useIsHomePage';
+} from '@app/sharedV2/constants';
+import { useIsHomePage } from '@app/sharedV2/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
@@ -289,6 +289,11 @@ export const NavSidebar = () => {
                         link: PageRoutes.METRICS,
                         dataTestId: 'nav-menu-item-metrics',
                         isHidden: !config?.featureFlags?.metricsEnabled,
+                        badge: {
+                            label: 'BETA',
+                            show: true,
+                            showDot: false,
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

@@ -1,6 +1,6 @@
-import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
-import { Button, Pagination, Spin, Typography } from 'antd';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { Button, Pagination, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -17,6 +17,7 @@ import { combineSiblingsInSearchResults } from '@app/search/utils/combineSibling
 import { UnionType } from '@app/search/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 import { SearchCfg } from '@src/conf';
 
 import { Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
@@ -64,17 +65,15 @@ const StyledPagination = styled(Pagination)`
 
 const LoadingContainer = styled.div`
     padding-top: 40px;
-    padding-bottom: 40px;
+    padding-bottom: 58px;
     width: 100%;
     text-align: center;
     flex: 1;
 `;
 
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
+const StyledLoading = styled(StyledSpinner)`
     color: ${(props) => props.theme.colors.textSecondary};
-    padding-bottom: 18px;
-]`;
+`;
 
 const ErrorMessage = styled.div`
     padding-top: 70px;
@@ -212,7 +211,7 @@ export const EmbeddedListSearchResults = ({
                 <ResultContainer>
                     {loading && (
                         <LoadingContainer>
-                            <Spin indicator={<StyledLoading />} />
+                            <StyledLoading $height={32} />
                         </LoadingContainer>
                     )}
                     {isLineageTab && !loading && isServerOverloadError && (
@@ -229,7 +228,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                            <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
                                 {t('viewAll.resultsIncomplete')}{' '}
                                 {platform && (

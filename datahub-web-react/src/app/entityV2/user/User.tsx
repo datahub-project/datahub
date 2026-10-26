@@ -5,11 +5,13 @@ import * as React from 'react';
 import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import UserProfile from '@app/entityV2/user/UserProfile';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { Preview } from '@app/entityV2/user/preview/Preview';
 
 import { CorpUser, EntityType, SearchResult } from '@types';
+
+const UserProfile = lazyProfileComponent('UserProfile', () => import('@app/entityV2/user/UserProfile'));
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -46,7 +48,7 @@ export class UserEntity implements Entity<CorpUser> {
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpUser) => (
+    renderPreview = (_previewType: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
             name={this.displayName(data)}
@@ -59,6 +61,8 @@ export class UserEntity implements Entity<CorpUser> {
     };
 
     displayName = (data: CorpUser) => {
+        if (data?.username === '__datahub_system') return 'Datahub System';
+
         // SDK default writer (`CorpUserUrn("__ingestion")`) — raw username renders as
         // "__ingestion" with a broken avatar glyph; show a human label instead.
         if (data.urn === INGESTION_ACTOR_URN || data.username === '__ingestion') {

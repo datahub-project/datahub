@@ -112,7 +112,7 @@ type AnnotatableSpan = {
  * terms, treated as non-sensitive internal identifiers, and they show which resource a failing
  * request relates to.
  */
-export function setPageAttributes(span: { setAttribute: (key: string, value: string) => unknown }): void {
+function setPageAttributes(span: { setAttribute: (key: string, value: string) => unknown }): void {
     span.setAttribute('page.path', window.location.pathname);
     span.setAttribute('page.url', window.location.href);
     if (window.location.search) {

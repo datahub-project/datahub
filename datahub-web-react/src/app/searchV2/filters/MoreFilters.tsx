@@ -1,5 +1,5 @@
-import { CaretDownFilled } from '@ant-design/icons';
-import { Dropdown } from 'antd';
+import { Dropdown } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -82,7 +82,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
         >
             <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters}>
                 {t('filters.moreCount', { count: numActiveFilters })}
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
+                <CaretDown size={12} weight="fill" />
             </SearchFilterLabel>
         </Dropdown>
     );

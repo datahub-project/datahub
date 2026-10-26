@@ -10,7 +10,7 @@ import {
     GetSearchResultsParams,
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
-import { useEntityQueryParams } from '@app/entityV2/shared/containers/profile/utils';
+import { useEntityQueryParams } from '@app/entityV2/shared/containers/profile/entityData';
 import { decodeComma } from '@app/entityV2/shared/utils';
 import {
     EXTRA_EMBEDDED_LIST_SEARCH_ENTITY_TYPES_TO_SUPPLEMENT_SEARCHABLE_ENTITY_TYPES,
@@ -22,7 +22,7 @@ import {
     DownloadSearchResultsParams,
 } from '@app/search/utils/types';
 import useFilters from '@app/search/utils/useFilters';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
 import useSortInput from '@src/app/searchV2/sorting/useSortInput';
 
@@ -103,7 +103,7 @@ export const EmbeddedListSearchSection = ({
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
     const selectedSortOption = useSelectedSortOption();
     const sortInput = useSortInput(selectedSortOption);
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const searchableEntityTypes = entityRegistry.getSearchEntityTypes();
 

@@ -1,16 +1,21 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Agents
+# Custom Agents
 
 <FeatureAvailability saasOnly />
 
-:::caution Private Beta
-Starting in DataHub Cloud v1.0.1, Agents is in **Private Beta** and available only on DataHub Cloud. To enable this feature for your organization, contact the DataHub team.
+:::caution Public Beta
+Custom agents are part of the DataHub Cloud **Context** add-on and are in Public Beta.
 :::
 
 **Agents** lets you create custom AI agents that can autonomously execute tasks against your metadata graph — on a schedule, in response to events, or on demand. Each agent can be configured with specific instructions, tools, plugins, and a scoped view of your data ecosystem.
 
-Agents extends [Ask DataHub](ask-datahub.md) from a conversational assistant into an automation platform with three core concepts:
+Custom agents serve two purposes:
+
+- **Answering questions for a domain.** Scope an agent to one domain, with its own instructions and plugins, and make it available in Ask DataHub or to your own agents over MCP. See [Build a Data Agent](../../managed-datahub/build-a-data-agent/overview.md).
+- **Maintaining your context layer.** Schedule tasks that keep context healthy as your data changes, such as filling in missing descriptions, flagging undocumented tables in a domain, or reporting on ownership gaps.
+
+Agents extend [Ask DataHub](ask-datahub.md) from a conversational assistant into an automation platform with three core concepts:
 
 - **Agents** — Custom, purpose-built AI agents with tailored instructions, tool access, and scope
 - **Tasks** — Repeatable units of work assigned to an agent, triggered manually, on a schedule, or by events
@@ -47,15 +52,17 @@ Navigate to **Context > Agents** and click **Create Agent**.
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/agents/agents_create_agent.png"/>
 </p>
 
-| Field                        | Description                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Name**                     | Display name for the agent.                                                                       |
-| **Description**              | Optional summary of the agent's purpose.                                                          |
-| **Instructions**             | Detailed guidance for the agent's behavior. Supports `@` mentions to reference specific assets.   |
-| **Tools**                    | Select which DataHub tools the agent can use (e.g. search, lineage, mutations).                   |
-| **AI Plugins**               | Connect external MCP servers (e.g. Snowflake, GitHub) to give the agent access to external tools. |
-| **View**                     | Scope the agent's search to a specific View, limiting which assets it can discover.               |
-| **Show in Ask DataHub Chat** | When enabled, this agent appears as a selectable persona in the Ask DataHub chat interface.       |
+| Field                        | Description                                                                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name**                     | Display name for the agent.                                                                                                                          |
+| **Tagline**                  | One line shown on agent cards and chat headers.                                                                                                      |
+| **Description**              | What the agent does and when to use it. Ask DataHub reads this to decide when to route a question to the agent, so write it as "Does X. Use when Y." |
+| **Instructions**             | Detailed guidance for the agent's behavior. Supports `@` mentions to reference specific assets.                                                      |
+| **Tools**                    | Select which DataHub tools the agent can use (e.g. search, lineage, mutations).                                                                      |
+| **AI Plugins**               | Connect external MCP servers (e.g. Snowflake, GitHub) to give the agent access to external tools.                                                    |
+| **Scope**                    | Limit which assets and documents the agent can discover, either **By Domain** or **By View**.                                                        |
+| **Require Tool Review**      | Ask for confirmation in chat before the agent runs a tool that changes metadata.                                                                     |
+| **Show in Ask DataHub Chat** | When enabled, this agent appears as a selectable persona in the Ask DataHub chat interface.                                                          |
 
 ### Agent Detail Page
 
@@ -65,6 +72,13 @@ Click any agent to view its configuration, associated tasks, and pending decisio
 - **Chat** with the agent directly via the chat drawer
 - **Create tasks** assigned to this agent
 - **Review pending decisions** the agent has requested
+- **Track quality** on the **Evals** tab, which runs [Context Evals](context/context-evals.md) against this agent and shows its pass rate over time
+
+### Using an Agent Outside DataHub
+
+You can add an agent to a [scoped MCP server](scoped-mcp-servers.md#expose-a-datahub-agent-as-a-tool), where it appears as a single tool (for example, `ask_agent__finance-analyst`). Other agents and MCP clients can then hand it a question and get an answer back.
+
+For a walkthrough of building a data analytics agent this way, see [Build a Data Agent](../../managed-datahub/build-a-data-agent/overview.md).
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/agents/agents_agent_detail.png"/>
@@ -149,7 +163,7 @@ You can also **Dismiss** a decision, which aborts the task run.
 ## FAQ
 
 **Can I use Agents without DataHub Cloud?**
-No. Agents is a DataHub Cloud-only feature currently in Private Beta.
+No. Agents are part of the DataHub Cloud Context add-on, currently in Public Beta.
 
 **Can multiple tasks share the same agent?**
 Yes. An agent is a reusable persona — you can create as many tasks as you need, each with different instructions and triggers, all executed by the same agent.

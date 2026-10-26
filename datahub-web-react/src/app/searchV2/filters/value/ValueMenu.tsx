@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
@@ -11,7 +11,7 @@ import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
 import EnumValueMenu from '@app/searchV2/filters/value/EnumValueMenu';
 import TextValueMenu from '@app/searchV2/filters/value/TextValueMenu';
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { EntityType, FacetFilterInput } from '@src/types.generated';
 
 interface Props {

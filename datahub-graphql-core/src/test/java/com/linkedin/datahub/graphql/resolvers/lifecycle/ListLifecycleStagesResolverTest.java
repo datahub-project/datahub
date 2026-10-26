@@ -7,12 +7,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LifecycleStageType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -41,6 +46,8 @@ public class ListLifecycleStagesResolverTest {
 
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     when(mockEnv.getContext()).thenReturn(mockContext);
+    // graphql-java passes enum arguments as Strings, not as EntityType instances.
+    when(mockEnv.getArgument("entityType")).thenReturn("DOCUMENT");
 
     SearchResult searchResult = new SearchResult();
     searchResult.setEntities(
@@ -63,7 +70,55 @@ public class ListLifecycleStagesResolverTest {
     LifecycleStageType stage = result.get(0);
     assertEquals(stage.getUrn(), STAGE_URN.toString());
     assertEquals(stage.getName(), "Draft");
+    assertFalse(stage.getUserAssignable());
     assertTrue(stage.getHideInSearch());
+  }
+
+  @Test
+  public void testListKeepsDraftAssignableForGlossaryTerms() throws Exception {
+    EntityClient mockClient = mock(EntityClient.class);
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument("entityType")).thenReturn("GLOSSARY_TERM");
+
+    SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(
+        new SearchEntityArray(List.of(new SearchEntity().setEntity(STAGE_URN))));
+    searchResult.setFrom(0);
+    searchResult.setPageSize(1);
+    searchResult.setNumEntities(1);
+    searchResult.setMetadata(new SearchResultMetadata());
+    when(mockClient.search(any(), eq("lifecycleStageType"), any(), any(), any(), eq(0), eq(1000)))
+        .thenReturn(searchResult);
+    when(mockClient.batchGetV2(any(), eq("lifecycleStageType"), any(), any()))
+        .thenReturn(
+            Map.of(STAGE_URN, LifecycleStageTestUtils.makeStageResponse(STAGE_URN, "Draft", true)));
+
+    ListLifecycleStagesResolver resolver = new ListLifecycleStagesResolver(mockClient);
+    List<LifecycleStageType> result = resolver.get(mockEnv).get();
+
+    assertEquals(result.size(), 1);
+    assertTrue(result.get(0).getUserAssignable());
+  }
+
+  @Test
+  public void testRejectsEntityTypeWithoutEntityName() {
+    EntityClient mockClient = mock(EntityClient.class);
+    QueryContext mockContext = mock(QueryContext.class);
+
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    // OTHER is schema-valid but has no backing entity name.
+    when(mockEnv.getArgument("entityType")).thenReturn(EntityType.OTHER.name());
+
+    ListLifecycleStagesResolver resolver = new ListLifecycleStagesResolver(mockClient);
+    DataHubGraphQLException exception =
+        expectThrows(DataHubGraphQLException.class, () -> resolver.get(mockEnv));
+
+    assertEquals(exception.errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
   }
 
   @Test

@@ -10,6 +10,7 @@ import styled from 'styled-components';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
 import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
 import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
@@ -17,7 +18,6 @@ import {
     SchemaFieldDrawerTabs,
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
-import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
@@ -27,6 +27,13 @@ import { TabRenderType } from '@app/entityV2/shared/types';
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
+
+// Query cards and the query editor sit behind this tab. The schema drawer itself
+// should not download the syntax highlighter or Monaco.
+const SchemaFieldQueriesSidebarTab = lazyProfileComponent(
+    'SchemaFieldQueriesSidebarTab',
+    () => import('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab'),
+);
 
 const DEFAULT_SELECTED_TAB_KEY = 'About';
 
