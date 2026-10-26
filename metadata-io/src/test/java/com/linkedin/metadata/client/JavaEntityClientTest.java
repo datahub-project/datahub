@@ -521,4 +521,21 @@ public class JavaEntityClientTest {
     verify(_entityService, never())
         .ingestProposal(any(OperationContext.class), any(), anyBoolean());
   }
+
+  @Test
+  void ingestValidProposalsHonorsAttributedActorForSystemCaller() throws Exception {
+    MetadataChangeProposal queued = containerStatus("queued");
+    AttributedActorHeaders.stamp(queued, "urn:li:corpuser:alice");
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    getJavaEntityClient().ingestValidProposals(opContext, List.of(queued));
+
+    AuditStamp stamp = written.getValue().getItems().iterator().next().getAuditStamp();
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(
+        stamp.getImpersonator().toString(),
+        opContext.getSessionAuthentication().getActor().toUrnStr());
+  }
 }

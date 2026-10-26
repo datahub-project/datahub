@@ -591,6 +591,7 @@ public class AspectsBatchImplTest {
                 List.of(valid, malformedUrn, unknownAspect),
                 AuditStampUtils.createDefaultAuditStamp(),
                 retrieverContext,
+                false,
                 false)
             .buildSkippingRejected(null);
 
@@ -613,6 +614,7 @@ public class AspectsBatchImplTest {
                 List.of(kept, rejected, filtered),
                 AuditStampUtils.createDefaultAuditStamp(),
                 retrieverContext,
+                false,
                 false)
             .buildSkippingRejected(null);
 

@@ -263,10 +263,13 @@ public class AspectsBatchImpl implements AspectsBatch {
           mcps.stream()
               .map(
                   mcp -> {
-                    AuditStamp auditStamp =
-                        AttributedActorHeaders.resolve(mcp, callerAuditStamp, trustAttributedActor);
                     try {
-                      return toItem(mcp, auditStamp, retrieverContext, alternateMCPValidation);
+                      return toItem(
+                          mcp,
+                          callerAuditStamp,
+                          retrieverContext,
+                          alternateMCPValidation,
+                          trustAttributedActor);
                     } catch (IllegalArgumentException e) {
                       log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
                       return null;
@@ -282,17 +285,27 @@ public class AspectsBatchImpl implements AspectsBatch {
      * whose batch holds unrelated proposals: a proposal that cannot be turned into an item is
      * recorded in {@link AspectsBatchImpl#getRejectedProposals()}, instead of being dropped or
      * failing every proposal of the batch.
+     *
+     * @param trustAttributedActor as in {@link #mcps(Collection, AuditStamp, RetrieverContext,
+     *     boolean, boolean)}
      */
     public AspectsBatchImplBuilder mcpsRecordingRejected(
         Collection<MetadataChangeProposal> mcps,
-        AuditStamp auditStamp,
+        AuditStamp callerAuditStamp,
         RetrieverContext retrieverContext,
-        boolean alternateMCPValidation) {
+        boolean alternateMCPValidation,
+        boolean trustAttributedActor) {
       retrieverContext(retrieverContext);
       List<BatchItem> built = new ArrayList<>();
       for (MetadataChangeProposal mcp : mcps) {
         try {
-          built.add(toItem(mcp, auditStamp, retrieverContext, alternateMCPValidation));
+          built.add(
+              toItem(
+                  mcp,
+                  callerAuditStamp,
+                  retrieverContext,
+                  alternateMCPValidation,
+                  trustAttributedActor));
         } catch (IllegalArgumentException | ValidationException e) {
           reject(mcp, e);
         }
@@ -301,11 +314,15 @@ public class AspectsBatchImpl implements AspectsBatch {
       return this;
     }
 
+    /** Every proposal becomes an item here, so each path applies the attributed actor alike. */
     private static BatchItem toItem(
         MetadataChangeProposal mcp,
-        AuditStamp auditStamp,
+        AuditStamp callerAuditStamp,
         RetrieverContext retrieverContext,
-        boolean alternateMCPValidation) {
+        boolean alternateMCPValidation,
+        boolean trustAttributedActor) {
+      AuditStamp auditStamp =
+          AttributedActorHeaders.resolve(mcp, callerAuditStamp, trustAttributedActor);
       if (alternateMCPValidation) {
         return ProposedItem.builder()
             .build(mcp, auditStamp, retrieverContext.getAspectRetriever().getEntityRegistry());
