@@ -12,7 +12,7 @@ import { convertAggregationsToOperationsData } from '@app/entityV2/shared/tabs/D
 import { Button, Text } from '@src/alchemy-components';
 import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@src/app/sharedV2/formatNumber';
 import dayjs from '@utils/dayjs';
 
 // dayjs format token (localized weekday + date), not user-visible text.

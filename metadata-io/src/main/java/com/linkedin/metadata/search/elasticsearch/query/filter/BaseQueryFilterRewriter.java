@@ -273,7 +273,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
       @Nullable CascadeOperationContext cascade) {
 
     if (cascade != null) {
-      cascade.recordHop();
+      cascade.recordHop(queryUrns.size());
     }
 
     Set<String> entityTypes =

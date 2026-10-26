@@ -10,7 +10,7 @@ import {
     TimeColumn,
 } from '@app/ingest/source/executions/IngestionExecutionTableColumns';
 import { SUCCESS, getIngestionSourceStatus } from '@app/ingest/source/utils';
-import { formatDuration } from '@app/shared/formatDuration';
+import { formatDuration } from '@app/sharedV2/formatDuration';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 

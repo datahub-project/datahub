@@ -185,6 +185,10 @@ x-datahub-gms-service: &datahub-gms-service
     MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
     DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
     VIEW_AUTHORIZATION_ENABLED: ${VIEW_AUTHORIZATION_ENABLED:-false}
+    # Same values as system-update, which writes them onto the index. Unset, these stay at 3s
+    # instead of the image default of 60s.
+    ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS:-3}
+    ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS: ${ELASTICSEARCH_INDEX_REFRESH_INTERVAL_USAGE_SECONDS:-3}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
   healthcheck:

@@ -11,6 +11,7 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
+import co.elastic.clients.elasticsearch._types.ScriptField;
 import co.elastic.clients.elasticsearch._types.SearchType;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch._types.SlicedScroll;
@@ -566,6 +567,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     }
     if (searchSourceBuilder.stats() != null && !searchSourceBuilder.stats().isEmpty()) {
       esSearchRequest.stats(searchSourceBuilder.stats());
+    }
+    if (searchSourceBuilder.scriptFields() != null
+        && !searchSourceBuilder.scriptFields().isEmpty()) {
+      esSearchRequest.scriptFields(
+          searchSourceBuilder.scriptFields().stream()
+              .collect(
+                  Collectors.toMap(
+                      SearchSourceBuilder.ScriptField::fieldName,
+                      scriptField ->
+                          new ScriptField.Builder()
+                              .script(convertScript(scriptField.script()))
+                              .ignoreFailure(scriptField.ignoreFailure())
+                              .build())));
     }
 
     co.elastic.clients.elasticsearch.core.SearchResponse<JsonNode> esSearchResponse =
