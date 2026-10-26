@@ -24,6 +24,7 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
 )
 from datahub.metadata.urns import VersionSetUrn
+from tests.e2e.utils import with_test_retry
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -184,23 +185,28 @@ def test_glossary_term_version_history_via_graphql(graph_client: DataHubGraph):
     """Both versions should be discoverable through the VersionSet versionsSearch query."""
     _emit_v2(graph_client)
 
-    result = graph_client.execute_graphql(
-        """
-        query getVersionHistory($urn: String!) {
-          versionSet(urn: $urn) {
-            versionsSearch(input: {query: "*", count: 10, searchFlags: {skipCache: true}}) {
-              searchResults {
-                entity {
-                  urn
+    # Search indexing can lag the writes above, so poll rather than assert once.
+    @with_test_retry(max_attempts=12)
+    def _assert_both_versions_found():
+        result = graph_client.execute_graphql(
+            """
+            query getVersionHistory($urn: String!) {
+              versionSet(urn: $urn) {
+                versionsSearch(input: {query: "*", count: 10, searchFlags: {skipCache: true}}) {
+                  searchResults {
+                    entity {
+                      urn
+                    }
+                  }
                 }
               }
             }
-          }
-        }
-        """,
-        variables={"urn": VERSION_SET_URN},
-    )
-    search_results = result["versionSet"]["versionsSearch"]["searchResults"]
-    found_urns = {r["entity"]["urn"] for r in search_results}
-    assert TERM_V1_URN in found_urns, "v1 should appear in version history"
-    assert TERM_V2_URN in found_urns, "v2 should appear in version history"
+            """,
+            variables={"urn": VERSION_SET_URN},
+        )
+        search_results = result["versionSet"]["versionsSearch"]["searchResults"]
+        found_urns = {r["entity"]["urn"] for r in search_results}
+        assert TERM_V1_URN in found_urns, "v1 should appear in version history"
+        assert TERM_V2_URN in found_urns, "v2 should appear in version history"
+
+    _assert_both_versions_found()
