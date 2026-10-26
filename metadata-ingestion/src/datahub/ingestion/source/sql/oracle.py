@@ -433,8 +433,10 @@ VSQL_USAGE_QUERY = (
 # into Hint"), which ETL tools emit routinely. A hint is only meaningful right
 # after the statement verb, so only that position is matched and string literals
 # elsewhere in the statement are left alone.
+# Oracle also accepts the hint with no whitespace after the verb (INSERT/*+ */),
+# so the whitespace on both sides is optional and replaced by a single space.
 _EMPTY_HINT_PATTERN = re.compile(
-    r"\b(SELECT|INSERT|UPDATE|DELETE|MERGE)\s+/\*\+\s*\*/", re.IGNORECASE
+    r"\b(SELECT|INSERT|UPDATE|DELETE|MERGE)\s*/\*\+\s*\*/\s*", re.IGNORECASE
 )
 
 
@@ -2413,7 +2415,7 @@ class OracleSource(SQLAlchemySource):
                 text = None
         if not text:
             text = row.get("sql_text") or ""
-        return _EMPTY_HINT_PATTERN.sub(r"\1", text)
+        return _EMPTY_HINT_PATTERN.sub(r"\1 ", text)
 
     def _check_vsql_prerequisites(
         self, engine: sqlalchemy.engine.Engine

@@ -1893,6 +1893,8 @@ class TestOracleQueryExtraction:
         )
         assert len(long_query) > 1000
         hinted = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        # Oracle accepts the hint glued to the verb, with or without spaces inside.
+        tight = "INSERT/*+ */ INTO HR.T (A) SELECT/*+*/A FROM HR.S"
         literal = "SELECT '/*+ */' AS marker FROM HR.S"
 
         lob = Mock()
@@ -1907,6 +1909,7 @@ class TestOracleQueryExtraction:
                 _vsql_row("full", long_query[:1000], sql_fulltext=long_query),
                 _vsql_row("fallback", "SELECT 1 FROM HR.SMALL", sql_fulltext=None),
                 _vsql_row("hint", hinted, sql_fulltext=hinted),
+                _vsql_row("tight", tight, sql_fulltext=tight),
                 _vsql_row("literal", literal, sql_fulltext=literal),
                 _vsql_row("lob", "SELECT * FROM HR.FROM_LOB", sql_fulltext=lob),
                 _vsql_row(
@@ -1922,6 +1925,7 @@ class TestOracleQueryExtraction:
         assert queries["sql_id:full"] == long_query
         assert queries["sql_id:fallback"] == "SELECT 1 FROM HR.SMALL"
         assert queries["sql_id:hint"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
+        assert queries["sql_id:tight"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
         # Only a hint right after the statement verb is removed; literals stay.
         assert queries["sql_id:literal"] == literal
         assert queries["sql_id:lob"] == "SELECT * FROM HR.FROM_LOB"
