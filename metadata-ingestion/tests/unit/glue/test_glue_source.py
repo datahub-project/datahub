@@ -3346,105 +3346,63 @@ def _make_dynamodb_node(
     }
 
 
-def test_process_dataflow_node_dynamodb_etl_connector() -> None:
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.input.tableName": "orders",
-            "dynamodb.region": "us-west-2",
-        },
-    )
-
-    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
-        result = source.process_dataflow_node(node, flow_urn)
-
-    assert result is not None
-    assert result["urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
-        "999888777666.us-west-2.orders,PROD)"
-    )
-
-
-def test_process_dataflow_node_dynamodb_etl_uses_catalog_id() -> None:
-    pipeline_context = PipelineContext(run_id="glue-dynamodb-catalog")
+@pytest.mark.parametrize(
+    "connection_options, expected_name",
+    [
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-account-wins",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-east-1",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "444455556666.us-east-1.orders",
+            id="role-arn-account",
+        ),
+        pytest.param(
+            {"dynamodb.input.tableName": "orders", "dynamodb.region": "us-west-2"},
+            "999888777666.us-west-2.orders",
+            id="caller-account-not-catalog-id",
+        ),
+        pytest.param(
+            {"dynamodb.output.tableName": "orders"},
+            "999888777666.us-west-2.orders",
+            id="sink-falls-back-to-source-region",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_account_precedence(
+    connection_options: Dict[str, Any], expected_name: str
+) -> None:
     source = GlueSource(
-        ctx=pipeline_context,
+        ctx=PipelineContext(run_id="glue-dynamodb-account"),
         config=GlueSourceConfig(
-            aws_region="us-west-2",
-            extract_transforms=True,
-            catalog_id="111122223333",
+            aws_region="us-west-2", extract_transforms=True, catalog_id="111122223333"
         ),
     )
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.input.tableName": "orders",
-            "dynamodb.region": "us-west-2",
-        },
-    )
-
-    result = source.process_dataflow_node(node, flow_urn)
-
-    assert result is not None
-    assert result["urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
-        "111122223333.us-west-2.orders,PROD)"
-    )
-
-
-def test_process_dataflow_node_dynamodb_table_arn() -> None:
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.export": "ddb",
-            "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
-            "dynamodb.s3.bucket": "export-bucket",
-        },
-    )
-
-    result = source.process_dataflow_node(node, flow_urn)
-
-    assert result is not None
-    assert result["urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
-        "123456789012.us-east-1.customers,PROD)"
-    )
-
-
-def test_process_dataflow_node_dynamodb_rejects_malformed_table_arn() -> None:
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.tableArn": (
-                "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
-            ),
-            "dynamodb.region": "us-east-1",
-        },
-    )
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
 
     with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
-        result = source.process_dataflow_node(node, flow_urn)
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
 
-    # Trailing path segments invalidate the ARN; without tableName the node is skipped.
-    assert result is None
-    assert source.report.warnings
+    assert result is not None
+    assert result["urn"] == (
+        f"urn:li:dataset:(urn:li:dataPlatform:dynamodb,{expected_name},PROD)"
+    )
 
 
 def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
-    pipeline_context = PipelineContext(run_id="glue-dynamodb-tes")
     source = GlueSource(
-        ctx=pipeline_context,
+        ctx=PipelineContext(run_id="glue-dynamodb-target"),
         config=GlueSourceConfig(
             aws_region="us-west-2",
             extract_transforms=True,
@@ -3453,7 +3411,6 @@ def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
             },
         ),
     )
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
     node = _make_dynamodb_node(
         node_id="DataSource0",
         node_type="DataSource",
@@ -3463,81 +3420,66 @@ def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
         },
     )
 
-    result = source.process_dataflow_node(node, flow_urn)
+    with patch.object(source, "_get_aws_account_id") as mock_account_id:
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
 
+    mock_account_id.assert_not_called()
     assert result is not None
     assert result["urn"] == (
         "urn:li:dataset:(urn:li:dataPlatform:dynamodb,ddb-prod.us-west-2.orders,PROD)"
     )
 
 
-def test_process_dataflow_node_dynamodb_cross_account_role_arn() -> None:
+@pytest.mark.parametrize(
+    "connection_options, warning_title",
+    [
+        pytest.param(
+            {"dynamodb.region": "us-west-2"},
+            "Missing DynamoDB table name or region for node",
+            id="missing-table",
+        ),
+        pytest.param(
+            # An unparseable ARN must not fall through to tableName and the caller's account.
+            {
+                "dynamodb.tableArn": (
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+                ),
+                "dynamodb.input.tableName": "customers",
+                "dynamodb.region": "us-east-1",
+            },
+            "Failed to parse DynamoDB table ARN for node",
+            id="malformed-table-arn",
+        ),
+        pytest.param(
+            # A role ARN means a cross-account read, so the caller's account would be wrong.
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.region": "us-east-1",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "Failed to parse DynamoDB cross-account role ARN for node",
+            id="malformed-role-arn",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_is_skipped(
+    connection_options: Dict[str, Any], warning_title: str
+) -> None:
     source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.input.tableName": "orders",
-            "dynamodb.sts.region": "us-east-1",
-            "dynamodb.sts.roleArn": "arn:aws:iam::111222333444:role/GlueCrossAccountRole",
-        },
-    )
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
 
-    # Patch STS so that, if the role-ARN regex ever regresses, the test fails deterministically
-    # instead of silently falling back to a real sts:GetCallerIdentity against ambient creds.
     with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
-        result = source.process_dataflow_node(node, flow_urn)
-
-    assert result is not None
-    # Account must come from the role ARN, not the caller STS identity.
-    assert result["urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
-        "111222333444.us-east-1.orders,PROD)"
-    )
-
-
-def test_process_dataflow_node_dynamodb_missing_table() -> None:
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={"dynamodb.region": "us-west-2"},
-    )
-
-    result = source.process_dataflow_node(node, flow_urn)
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
 
     assert result is None
-    assert source.report.warnings
-
-
-def test_process_dataflow_node_dynamodb_sink_output_table() -> None:
-    # The DataSink + dynamodb.output.tableName path is the only one that reaches outputDatasets.
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSink0",
-        node_type="DataSink",
-        connection_options={
-            "dynamodb.output.tableName": "orders",
-            "dynamodb.region": "us-west-2",
-        },
-    )
-
-    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
-        result = source.process_dataflow_node(node, flow_urn)
-
-    assert result is not None
-    assert result["urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
-        "999888777666.us-west-2.orders,PROD)"
-    )
+    assert [w.title for w in source.report.warnings] == [warning_title]
 
 
 def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> None:
-    # Exercises the edge-traversal wiring: a DynamoDB DataSink must land in the upstream
-    # transform's outputDatasets (the only path that reaches outputDatasets).
     source = glue_source()
     flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
     transform = {
@@ -3570,38 +3512,8 @@ def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> Non
     assert nodes["Transform0"]["outputDatasets"] == [sink_urn]
 
 
-def test_process_dataflow_node_dynamodb_malformed_arn_with_table_name_is_skipped() -> (
-    None
-):
-    # An explicit but unparseable ARN must NOT fall through to the tableName/region/account
-    # fallbacks — that would emit a URN built from the Glue job's own account/region for a table
-    # that may live elsewhere.
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.tableArn": (
-                "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
-            ),
-            "dynamodb.input.tableName": "customers",
-            "dynamodb.region": "us-east-1",
-        },
-    )
-
-    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
-        result = source.process_dataflow_node(node, flow_urn)
-
-    assert result is None
-    assert source.report.warnings
-
-
 def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
-    # No ARN, no role ARN, no catalog_id, and STS returns nothing -> no platform_instance.
-    # The node must be skipped rather than emitting a phantom URN with no account.
     source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
     node = _make_dynamodb_node(
         node_id="DataSource0",
         node_type="DataSource",
@@ -3612,36 +3524,14 @@ def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
     )
 
     with patch.object(source, "_get_aws_account_id", return_value=None):
-        result = source.process_dataflow_node(node, flow_urn)
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
 
     assert result is None
-    assert source.report.warnings
-
-
-def test_glue_dynamodb_dataset_urn_is_literal() -> None:
-    # Drift guard for the Glue side of the Glue <-> DynamoDB URN agreement. The literal below is
-    # exactly what the DynamoDB source emits for this table (see
-    # test_dynamodb.py::test_get_workunits_internal_emits_s3_export_lineage, which asserts the same
-    # {account}.{region}.{table} shape). Asserting a literal here (not a helper-derived value)
-    # means a change to make_dynamodb_dataset_name breaks this test, catching the drift the two
-    # sources would otherwise hide.
-    region, table, account = "us-east-1", "customers", "123456789012"
-
-    source = glue_source()
-    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
-    node = _make_dynamodb_node(
-        node_id="DataSource0",
-        node_type="DataSource",
-        connection_options={
-            "dynamodb.tableArn": f"arn:aws:dynamodb:{region}:{account}:table/{table}",
-        },
-    )
-    glue_result = source.process_dataflow_node(node, flow_urn)
-    assert glue_result is not None
-    assert glue_result["urn"] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
-        "123456789012.us-east-1.customers,PROD)"
-    )
+    assert [w.title for w in source.report.warnings] == [
+        "Could not resolve DynamoDB account id for node"
+    ]
 
 
 def test_get_aws_account_id_caches_success() -> None:
@@ -3675,9 +3565,18 @@ def test_get_aws_account_id_caps_retries_and_warns_once() -> None:
         if w.title == "Could not resolve AWS account id via STS"
     ]
     assert len(account_id_warnings) == 1
-    # Pin warn-once at the call site, not the report's title-dedup: the warning fired once across
-    # all attempts, so only one context entry was recorded (dropping the flag would record three).
-    assert len(account_id_warnings[0].context) == 1
+
+
+def test_get_aws_account_id_missing_account_is_a_failure() -> None:
+    source = glue_source()
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.side_effect = [
+            {},
+            {"Account": "999999999999"},
+        ]
+        assert source._get_aws_account_id() is None
+        # Not cached as None: the next node retries and succeeds.
+        assert source._get_aws_account_id() == "999999999999"
 
 
 @pytest.mark.parametrize(

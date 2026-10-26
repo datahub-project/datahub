@@ -1601,6 +1601,8 @@ class GlueSource(StatefulIngestionSourceBase):
             account_id = (
                 self.source_config.get_sts_client().get_caller_identity().get("Account")
             )
+            if not account_id:
+                raise ValueError("GetCallerIdentity returned no Account")
         except Exception as exc:
             # Don't cache a transient failure immediately, so a later node can retry instead of
             # every DynamoDB URN inheriting a missing account for the rest of the run — but stop
@@ -1614,8 +1616,8 @@ class GlueSource(StatefulIngestionSourceBase):
                     title="Could not resolve AWS account id via STS",
                     message=(
                         "Failed to call sts:GetCallerIdentity to resolve the AWS account id used as "
-                        "the DynamoDB platform_instance. DynamoDB DAG nodes without a table ARN, "
-                        "cross-account role ARN, or catalog_id will be skipped (no lineage emitted) "
+                        "the DynamoDB platform_instance. DynamoDB DAG nodes without a table ARN or "
+                        "cross-account role ARN will be skipped (no lineage emitted) "
                         "rather than emitting a URN with a guessed account."
                     ),
                     exc=exc,
@@ -1700,26 +1702,34 @@ class GlueSource(StatefulIngestionSourceBase):
             return self._make_dataset_urn_for_platform(DYNAMODB_PLATFORM, dataset_name)
 
         # Mirror the DynamoDB source: default platform_instance to the AWS account id.
-        # ETL connector nodes often omit tableArn; account-id precedence is:
-        #   target_platform_configs platform_instance (handled above)
-        #   > tableArn account > cross-account role ARN account > catalog_id > caller STS identity.
+        # Precedence: tableArn account > cross-account role ARN account > caller STS identity.
+        # catalog_id is not used: Glue only lists the caller's jobs, so a node with neither ARN
+        # reads a table in the caller's account even when the catalog lives elsewhere.
         if not account_id:
             role_arn = connection_options.get(DYNAMODB_STS_ROLE_ARN)
             if role_arn:
                 role_match = DYNAMODB_STS_ROLE_ARN_PATTERN.match(str(role_arn))
-                if role_match:
-                    account_id = role_match.group(1)
-        platform_instance = (
-            account_id or self.source_config.catalog_id or self._get_aws_account_id()
-        )
+                if not role_match:
+                    # A role ARN means a cross-account read, so the caller's account is wrong.
+                    self.report.warning(
+                        title="Failed to parse DynamoDB cross-account role ARN for node",
+                        message="Skipping DynamoDB node: its dynamodb.sts.roleArn could not be "
+                        "parsed, so the table's account is unknown. No lineage emitted for "
+                        "this node.",
+                        context=f"{flow_urn}: {node_label}: {role_arn}",
+                        log=False,
+                    )
+                    return None
+                account_id = role_match.group(1)
+        platform_instance = account_id or self._get_aws_account_id()
         if platform_instance is None:
             # The DynamoDB source always derives platform_instance from the table ARN account,
             # so a URN without one would never join the real table (it creates a phantom dataset).
             # Skip the node rather than emit lineage that silently points at nothing.
             self.report.warning(
                 title="Could not resolve DynamoDB account id for node",
-                message="Skipping DynamoDB node: no table ARN account, cross-account role ARN, "
-                "catalog_id, or STS caller identity was available to use as platform_instance. "
+                message="Skipping DynamoDB node: no table ARN account, cross-account role ARN "
+                "or STS caller identity was available to use as platform_instance. "
                 "Set target_platform_configs.dynamodb or grant sts:GetCallerIdentity.",
                 context=f"{flow_urn}: {node_label}",
                 log=False,

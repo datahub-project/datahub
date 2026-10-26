@@ -87,7 +87,7 @@ When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(
 
 This covers `extract_transforms: true` Glue ETL jobs that read from or write to DynamoDB — for example DynamoDB → Glue catalog / Iceberg / Parquet. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to their Iceberg/S3 storage.
 
-The account id used as `platform_instance` is resolved in this order: a configured `target_platform_configs.dynamodb.platform_instance`, then the node's `dynamodb.tableArn` account, then a cross-account `dynamodb.sts.roleArn` account, then the Glue `catalog_id`, then the `sts:GetCallerIdentity` caller account. To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
+The account id used as `platform_instance` is resolved in this order: a configured `target_platform_configs.dynamodb.platform_instance`, then the node's `dynamodb.tableArn` account, then a cross-account `dynamodb.sts.roleArn` account, then the `sts:GetCallerIdentity` caller account. The Glue `catalog_id` is not used, because Glue only lists jobs in the caller's account. A node whose table ARN or role ARN cannot be parsed is skipped with a warning. To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
 
 For capturing native DynamoDB **Export to S3** jobs (JSON/Ion) rather than Glue ETL, use the DynamoDB source's `include_s3_export_lineage` option instead — that is a DynamoDB-source feature, not a Glue one.
 

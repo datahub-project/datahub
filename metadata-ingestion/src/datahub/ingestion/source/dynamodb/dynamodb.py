@@ -80,8 +80,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
     UpstreamClass,
-    UpstreamLineageClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -151,7 +151,7 @@ class DynamoDBConfig(
         description=(
             "When enabled, discovers existing DynamoDB Export to S3 jobs via ListExports/DescribeExport "
             "and emits COPY lineage from each DynamoDB table to its S3 destination. "
-            "Does not start or manage exports — only reads export metadata from the past 90 days. "
+            "Does not start or manage exports — only reads export metadata, which AWS keeps for about 90 days. "
             "Requires dynamodb:ListExports and dynamodb:DescribeExport."
         ),
     )
@@ -984,30 +984,19 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     ) -> Optional[Dict[str, str]]:
         """Map ``lowercased simple field path`` -> ``actual field path`` for the S3 export dataset.
 
-        Returns ``None`` when the S3 dataset's schema is not available in the graph, signalling the
-        caller to fall back to inferred identity mapping from the DynamoDB field paths.
+        Returns ``None`` when there is no graph or the S3 dataset has no schema in it, signalling
+        the caller to fall back to inferred identity mapping. Graph errors propagate.
         """
         if not self.ctx.graph:
             return None
-        try:
-            schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
-        except Exception as e:
-            # A GMS/network error must not abort lineage emit — fall back to inferred mapping.
-            self.report.warning(
-                title="Failed to read S3 export schema from DataHub",
-                message="Could not fetch the S3 export dataset's schema from DataHub; will fall "
-                "back to inferred identity column mapping.",
-                context=s3_urn,
-                exc=e,
-                log=False,
-            )
-            return None
+        schema_metadata = self.ctx.graph.get_schema_metadata(s3_urn)
         if not schema_metadata:
             return None
         resolved: Dict[str, str] = {}
         for schema_field in schema_metadata.fields:
             simple = get_simple_field_path_from_v2_field_path(schema_field.fieldPath)
-            resolved[simple.lower()] = simple
+            # Keep the stored path: v2 paths only match the dataset's schemaField URNs as-is.
+            resolved[simple.lower()] = schema_field.fieldPath
         return resolved
 
     def _build_s3_export_fine_grained_lineages(
@@ -1022,18 +1011,18 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             upstream_simple = get_simple_field_path_from_v2_field_path(field_path)
             if downstream_field_paths is not None:
                 # S3 dataset is known: only link fields that actually exist on it.
-                downstream_simple = downstream_field_paths.get(upstream_simple.lower())
-                if downstream_simple is None:
+                downstream_path = downstream_field_paths.get(upstream_simple.lower())
+                if downstream_path is None:
                     continue
                 self.report.s3_export_column_lineage_resolved += 1
             else:
                 # S3 dataset not in the graph: inferred identity mapping, best-effort.
-                downstream_simple = upstream_simple
+                downstream_path = upstream_simple
                 self.report.s3_export_column_lineage_inferred += 1
             fine_grained.append(
                 FineGrainedLineageClass(
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                    downstreams=[make_schema_field_urn(s3_urn, downstream_simple)],
+                    downstreams=[make_schema_field_urn(s3_urn, downstream_path)],
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     upstreams=[make_schema_field_urn(upstream_urn, upstream_simple)],
                 )
@@ -1043,7 +1032,20 @@ class DynamoDBSource(StatefulIngestionSourceBase):
     def _build_s3_export_column_lineage(
         self, s3_urn: str, upstreams_by_urn: Dict[str, List[str]]
     ) -> List[FineGrainedLineageClass]:
-        downstream_field_paths = self._resolve_s3_downstream_field_paths(s3_urn)
+        try:
+            downstream_field_paths = self._resolve_s3_downstream_field_paths(s3_urn)
+        except Exception as e:
+            # The dataset may exist with a different schema, so guessed column edges could be
+            # wrong. Keep the table-level lineage only.
+            self.report.warning(
+                title="Failed to read S3 export schema from DataHub",
+                message="Could not fetch the S3 export dataset's schema from DataHub, so no "
+                "column-level lineage was emitted for it. Table-level lineage is unaffected.",
+                context=s3_urn,
+                exc=e,
+                log=False,
+            )
+            return []
         fine_grained: List[FineGrainedLineageClass] = []
         for upstream_urn in sorted(upstreams_by_urn):
             fine_grained.extend(
@@ -1102,12 +1104,18 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 else []
             )
             self.report.s3_export_lineage_edges += len(upstreams)
-            # is_primary_source=False keeps S3 export datasets out of stateful ingestion
-            # tracking so the DynamoDB source can't soft-delete S3 entities it doesn't own.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=s3_urn,
-                aspect=UpstreamLineageClass(
-                    upstreams=upstreams,
-                    fineGrainedLineages=fine_grained or None,
-                ),
-            ).as_workunit(is_primary_source=False)
+            # Patch rather than replace: other sources (Glue, Spark, other DynamoDB recipes)
+            # can write upstreams to the same S3 dataset.
+            patch_builder = DatasetPatchBuilder(s3_urn)
+            for upstream in upstreams:
+                patch_builder.add_upstream_lineage(upstream)
+            for fine_grained_lineage in fine_grained:
+                patch_builder.add_fine_grained_lineage(fine_grained_lineage)
+            for mcp in patch_builder.build():
+                # is_primary_source=False keeps S3 export datasets out of stateful ingestion
+                # tracking so the DynamoDB source can't soft-delete S3 entities it doesn't own.
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp),
+                    mcp_raw=mcp,
+                    is_primary_source=False,
+                )

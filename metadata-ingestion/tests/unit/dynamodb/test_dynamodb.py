@@ -1,17 +1,25 @@
+import json
 from types import SimpleNamespace
+from typing import List
 from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dynamodb.dynamodb import (
     PAGE_SIZE,
     DynamoDBConfig,
     DynamoDBSource,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    MetadataChangeProposalClass,
+    UpstreamClass,
     UpstreamLineageClass,
 )
 
@@ -24,6 +32,85 @@ def mock_context():
     mock_ctx.run_id = "test_run"
     mock_ctx.graph = None
     return mock_ctx
+
+
+def _patched_lineage(wu: MetadataWorkUnit) -> UpstreamLineageClass:
+    """Rebuild the UpstreamLineage the S3 export patch would add."""
+    mcp = wu.metadata
+    assert isinstance(mcp, MetadataChangeProposalClass)
+    assert mcp.changeType == ChangeTypeClass.PATCH
+    assert mcp.aspectName == UpstreamLineageClass.ASPECT_NAME
+    assert mcp.aspect is not None
+    upstreams: List[UpstreamClass] = []
+    fine_grained: List[FineGrainedLineageClass] = []
+    for op in json.loads(mcp.aspect.value):
+        assert op["op"] == "add"
+        parts = [
+            part.replace("~1", "/").replace("~0", "~")
+            for part in op["path"].split("/")[1:]
+        ]
+        if parts[0] == "upstreams":
+            upstreams.append(UpstreamClass.from_obj(op["value"]))
+        else:
+            _, _, downstream, _, upstream = parts
+            fine_grained.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[downstream],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[upstream],
+                )
+            )
+    return UpstreamLineageClass(
+        upstreams=upstreams, fineGrainedLineages=fine_grained or None
+    )
+
+
+def _lineage_workunits(workunits: List[MetadataWorkUnit]) -> List[MetadataWorkUnit]:
+    return [
+        wu
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == UpstreamLineageClass.ASPECT_NAME
+    ]
+
+
+def _mock_orders_table_client() -> MagicMock:
+    mock_client = MagicMock()
+    mock_client.meta.region_name = "us-west-2"
+
+    list_tables_paginator = MagicMock()
+    list_tables_paginator.paginate.return_value = [{"TableNames": ["orders"]}]
+    scan_paginator = MagicMock()
+    scan_paginator.paginate.return_value = [
+        {
+            "Items": [
+                {
+                    "orderId": {"S": "1"},
+                    "customer": {"M": {"name": {"S": "a"}}},
+                }
+            ]
+        }
+    ]
+
+    def _get_paginator(name):
+        return list_tables_paginator if name == "list_tables" else scan_paginator
+
+    mock_client.get_paginator.side_effect = _get_paginator
+    mock_client.describe_table.return_value = {
+        "Table": {
+            "TableArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders",
+            "ItemCount": 1,
+            "KeySchema": [{"AttributeName": "orderId", "KeyType": "HASH"}],
+        }
+    }
+    mock_client.list_exports.return_value = {
+        "ExportSummaries": [{"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}]
+    }
+    mock_client.describe_export.return_value = {
+        "ExportDescription": {"S3Bucket": "export-bucket", "S3Prefix": "orders"}
+    }
+    return mock_client
 
 
 class TestDynamoDBTagsIngestion:
@@ -316,23 +403,21 @@ class TestDynamoDBS3ExportLineage:
         # so stateful ingestion can't soft-delete them.
         assert workunits[0].is_primary_source is False
 
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        assert mcp.aspect.upstreams[0].dataset == dataset_urn
-        assert mcp.aspect.fineGrainedLineages is not None
-        assert len(mcp.aspect.fineGrainedLineages) == 2
+        lineage = _patched_lineage(workunits[0])
+        assert lineage.upstreams[0].dataset == dataset_urn
+        assert lineage.fineGrainedLineages is not None
+        assert len(lineage.fineGrainedLineages) == 2
         # graph is None in the fixture, so column lineage falls back to inferred identity mapping
         assert source.report.s3_export_column_lineage_inferred == 2
         assert source.report.s3_export_column_lineage_resolved == 0
-        assert mcp.aspect.fineGrainedLineages[0].upstreams == [
+        assert lineage.fineGrainedLineages[0].upstreams == [
             f"urn:li:schemaField:({dataset_urn},orderId)"
         ]
-        assert mcp.aspect.fineGrainedLineages[0].downstreams == [
+        assert lineage.fineGrainedLineages[0].downstreams == [
             "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,export-bucket/dynamo/orders,PROD),orderId)"
         ]
         assert (
-            mcp.entityUrn
+            workunits[0].get_urn()
             == "urn:li:dataset:(urn:li:dataPlatform:s3,export-bucket/dynamo/orders,PROD)"
         )
         mock_client.describe_export.assert_has_calls(
@@ -389,17 +474,15 @@ class TestDynamoDBS3ExportLineage:
 
         workunits = list(source._emit_s3_export_lineage())
         assert len(workunits) == 1
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        upstream_urns = {u.dataset for u in mcp.aspect.upstreams}
+        lineage = _patched_lineage(workunits[0])
+        upstream_urns = {u.dataset for u in lineage.upstreams}
         assert upstream_urns == {upstream_a, upstream_b}
         assert source.report.s3_export_lineage_edges == 2
         # Two tables, one shared destination: the counter tracks distinct destinations (1), not
         # (table, destination) pairs (2).
         assert source.report.s3_export_locations_found == 1
-        assert mcp.aspect.fineGrainedLineages is not None
-        assert len(mcp.aspect.fineGrainedLineages) == 3
+        assert lineage.fineGrainedLineages is not None
+        assert len(lineage.fineGrainedLineages) == 3
 
     def test_list_exports_error_is_warning(self, mock_context, lineage_config):
         source = DynamoDBSource(
@@ -447,7 +530,7 @@ class TestDynamoDBS3ExportLineage:
         )
 
     def test_column_lineage_off_by_default(self, mock_context, lineage_config):
-        # include_s3_export_column_lineage is omitted, so the new default (False)
+        # include_s3_export_column_lineage is omitted, so the default (False)
         # applies: table-level COPY only, no fine-grained lineage.
         assert lineage_config.include_s3_export_column_lineage is False
         source = DynamoDBSource(
@@ -471,12 +554,10 @@ class TestDynamoDBS3ExportLineage:
             field_paths=["id"],
         )
         workunits = list(source._emit_s3_export_lineage())
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        assert not mcp.aspect.fineGrainedLineages
-        assert len(mcp.aspect.upstreams) == 1
-        assert mcp.aspect.upstreams[0].dataset == dataset_urn
+        lineage = _patched_lineage(workunits[0])
+        assert not lineage.fineGrainedLineages
+        assert len(lineage.upstreams) == 1
+        assert lineage.upstreams[0].dataset == dataset_urn
 
     def test_column_lineage_resolves_against_s3_schema(
         self, mock_context, lineage_config
@@ -486,7 +567,7 @@ class TestDynamoDBS3ExportLineage:
         lineage_config.include_s3_export_column_lineage = True
         s3_schema = SimpleNamespace(
             fields=[
-                SimpleNamespace(fieldPath="OrderId"),
+                SimpleNamespace(fieldPath="[version=2.0].[type=string].OrderId"),
                 SimpleNamespace(fieldPath="total"),
             ]
         )
@@ -514,26 +595,24 @@ class TestDynamoDBS3ExportLineage:
             field_paths=["orderId", "missing_field"],
         )
         workunits = list(source._emit_s3_export_lineage())
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        assert mcp.aspect.fineGrainedLineages is not None
-        assert len(mcp.aspect.fineGrainedLineages) == 1
+        lineage = _patched_lineage(workunits[0])
+        assert lineage.fineGrainedLineages is not None
+        assert len(lineage.fineGrainedLineages) == 1
         assert source.report.s3_export_column_lineage_resolved == 1
         assert source.report.s3_export_column_lineage_inferred == 0
-        fgl = mcp.aspect.fineGrainedLineages[0]
+        fgl = lineage.fineGrainedLineages[0]
         assert fgl.upstreams == [f"urn:li:schemaField:({dataset_urn},orderId)"]
-        # downstream uses the S3 dataset's actual field casing (OrderId), not the DynamoDB casing
+        # The downstream keeps the S3 dataset's stored field path, v2 prefix and casing included.
         assert fgl.downstreams == [
-            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),OrderId)"
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD),"
+            "[version=2.0].[type=string].OrderId)"
         ]
 
-    def test_column_lineage_graph_error_falls_back_to_inferred(
+    def test_column_lineage_graph_error_keeps_table_lineage_only(
         self, mock_context, lineage_config
     ):
-        # When get_schema_metadata raises (e.g. GMS network error), _emit_s3_export_lineage
-        # must still emit the table-level COPY edge and fall back to inferred identity mapping
-        # rather than aborting.
+        # The S3 dataset may exist with a different schema, so a read error must not fall back
+        # to guessed column edges.
         lineage_config.include_s3_export_column_lineage = True
         mock_context.graph = MagicMock()
         mock_context.graph.get_schema_metadata.side_effect = Exception("GMS error")
@@ -560,24 +639,13 @@ class TestDynamoDBS3ExportLineage:
         workunits = list(source._emit_s3_export_lineage())
         # Table-level COPY edge must be present.
         assert len(workunits) == 1
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        assert len(mcp.aspect.upstreams) == 1
-        # Column lineage falls back to inferred identity mapping.
-        assert mcp.aspect.fineGrainedLineages is not None
-        assert len(mcp.aspect.fineGrainedLineages) == 1
-        fgl = mcp.aspect.fineGrainedLineages[0]
-        assert fgl.upstreams == [f"urn:li:schemaField:({dataset_urn},orderId)"]
-        s3_urn = "urn:li:dataset:(urn:li:dataPlatform:s3,b/p,PROD)"
-        assert fgl.downstreams == [f"urn:li:schemaField:({s3_urn},orderId)"]
-        assert source.report.s3_export_column_lineage_inferred == 1
-        assert source.report.s3_export_column_lineage_resolved == 0
-        # A warning must be recorded for the graph error, with the correct title.
-        assert any(
-            w.title == "Failed to read S3 export schema from DataHub"
-            for w in source.report.warnings
-        )
+        lineage = _patched_lineage(workunits[0])
+        assert [u.dataset for u in lineage.upstreams] == [dataset_urn]
+        assert not lineage.fineGrainedLineages
+        assert source.report.s3_export_column_lineage_inferred == 0
+        assert [w.title for w in source.report.warnings] == [
+            "Failed to read S3 export schema from DataHub"
+        ]
 
     def test_column_lineage_resolved_but_nothing_matches_warns(
         self, mock_context, lineage_config
@@ -609,10 +677,8 @@ class TestDynamoDBS3ExportLineage:
             field_paths=["orderId"],
         )
         workunits = list(source._emit_s3_export_lineage())
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        assert isinstance(mcp.aspect, UpstreamLineageClass)
-        assert not mcp.aspect.fineGrainedLineages
+        lineage = _patched_lineage(workunits[0])
+        assert not lineage.fineGrainedLineages
         assert any(
             w.title == "DynamoDB S3 export column lineage produced no matches"
             for w in source.report.warnings
@@ -639,10 +705,8 @@ class TestDynamoDBS3ExportLineage:
             dataset_name="us-west-2.x",
         )
         workunits = list(source._emit_s3_export_lineage())
-        mcp = workunits[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
         assert (
-            mcp.entityUrn
+            workunits[0].get_urn()
             == "urn:li:dataset:(urn:li:dataPlatform:s3,lake.bucket/prefix,PROD)"
         )
 
@@ -832,6 +896,28 @@ class TestDynamoDBS3ExportLineage:
             "repeating pagination token" in w.message for w in source.report.warnings
         )
 
+    def test_get_workunits_internal_skips_s3_export_lineage_by_default(
+        self, mock_context
+    ):
+        source = DynamoDBSource(
+            ctx=mock_context,
+            config=DynamoDBConfig(
+                aws_access_key_id="test",
+                aws_secret_access_key="test",
+                aws_region="us-west-2",
+            ),
+            platform="dynamodb",
+        )
+        mock_client = _mock_orders_table_client()
+
+        with patch.object(
+            DynamoDBConfig, "get_dynamodb_client", return_value=mock_client
+        ):
+            workunits = list(source.get_workunits_internal())
+
+        mock_client.list_exports.assert_not_called()
+        assert not _lineage_workunits(workunits)
+
     def test_get_workunits_internal_emits_s3_export_lineage(
         self, mock_context, lineage_config
     ):
@@ -842,60 +928,18 @@ class TestDynamoDBS3ExportLineage:
         source = DynamoDBSource(
             ctx=mock_context, config=lineage_config, platform="dynamodb"
         )
-        mock_client = MagicMock()
-        mock_client.meta.region_name = "us-west-2"
-
-        list_tables_paginator = MagicMock()
-        list_tables_paginator.paginate.return_value = [{"TableNames": ["orders"]}]
-        scan_paginator = MagicMock()
-        scan_paginator.paginate.return_value = [
-            {
-                "Items": [
-                    {
-                        "orderId": {"S": "1"},
-                        "customer": {"M": {"name": {"S": "a"}}},
-                    }
-                ]
-            }
-        ]
-
-        def _get_paginator(name):
-            return list_tables_paginator if name == "list_tables" else scan_paginator
-
-        mock_client.get_paginator.side_effect = _get_paginator
-        mock_client.describe_table.return_value = {
-            "Table": {
-                "TableArn": "arn:aws:dynamodb:us-west-2:123456789012:table/orders",
-                "ItemCount": 1,
-                "KeySchema": [{"AttributeName": "orderId", "KeyType": "HASH"}],
-            }
-        }
-        mock_client.list_exports.return_value = {
-            "ExportSummaries": [
-                {"ExportArn": "arn:export/1", "ExportStatus": "COMPLETED"}
-            ]
-        }
-        mock_client.describe_export.return_value = {
-            "ExportDescription": {"S3Bucket": "export-bucket", "S3Prefix": "orders"}
-        }
+        mock_client = _mock_orders_table_client()
 
         with patch.object(
             DynamoDBConfig, "get_dynamodb_client", return_value=mock_client
         ):
             workunits = list(source.get_workunits_internal())
 
-        lineage_wus = [
-            wu
-            for wu in workunits
-            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
-        ]
+        lineage_wus = _lineage_workunits(workunits)
         assert len(lineage_wus) == 1
         lineage_wu = lineage_wus[0]
         assert lineage_wu.is_primary_source is False
-        assert isinstance(lineage_wu.metadata, MetadataChangeProposalWrapper)
-        aspect = lineage_wu.metadata.aspect
-        assert isinstance(aspect, UpstreamLineageClass)
+        aspect = _patched_lineage(lineage_wu)
         ddb_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
             "123456789012.us-west-2.orders,PROD)"
