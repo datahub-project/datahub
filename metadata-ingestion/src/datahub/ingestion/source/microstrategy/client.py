@@ -983,6 +983,7 @@ class MicroStrategyClient:
         reauth_attempted = False
         attempt = 0
         while attempt < attempts:
+            started = time.perf_counter()
             try:
                 response = self.session.request(
                     method=method,
@@ -993,12 +994,17 @@ class MicroStrategyClient:
                     **kwargs,
                 )
             except requests.RequestException as error:
+                self.report.report_api_call(
+                    method, path, None, time.perf_counter() - started
+                )
                 # Network-level failures (connection errors, timeouts) are
                 # transient; HTTP error statuses are handled below so that
                 # non-retryable 4xx responses fail fast.
                 last_error = error
                 if attempt < attempts - 1:
-                    time.sleep(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    delay = float(min(2**attempt, _MAX_RETRY_DELAY_SECONDS))
+                    self.report.report_api_retry(delay)
+                    time.sleep(delay)
                     attempt += 1
                     continue
                 self.report.report_api_error()
@@ -1006,6 +1012,9 @@ class MicroStrategyClient:
                     f"MicroStrategy API request failed: {method} {path}: {error}"
                 ) from error
 
+            self.report.report_api_call(
+                method, path, response.status_code, time.perf_counter() - started
+            )
             if expected_statuses and response.status_code in expected_statuses:
                 return response
             if response.status_code == 401 and not path.startswith(
@@ -1021,7 +1030,9 @@ class MicroStrategyClient:
                 reauth_attempted = True
                 continue
             if response.status_code in retry_statuses and attempt < attempts - 1:
-                time.sleep(self._retry_delay(response, attempt))
+                delay = self._retry_delay(response, attempt)
+                self.report.report_api_retry(delay)
+                time.sleep(delay)
                 attempt += 1
                 continue
             try:
