@@ -859,6 +859,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         dataset_properties = DatasetPropertiesClass(
             name=table,
+            qualifiedName=dataset_name,
             description=description,
             customProperties=properties,
         )
@@ -1358,6 +1359,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         dataset_properties = DatasetPropertiesClass(
             name=view,
+            qualifiedName=dataset_name,
             description=description,
             customProperties=properties,
         )

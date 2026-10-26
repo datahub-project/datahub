@@ -1776,6 +1776,7 @@
                             "is_view": "True"
                         },
                         "name": "array_struct_test_presto_view",
+                        "qualifiedName": "db1.array_struct_test_presto_view",
                         "tags": []
                     }
                 },
@@ -1967,6 +1968,7 @@
                             "is_view": "True"
                         },
                         "name": "array_struct_test_view",
+                        "qualifiedName": "db1.array_struct_test_view",
                         "tags": []
                     }
                 },

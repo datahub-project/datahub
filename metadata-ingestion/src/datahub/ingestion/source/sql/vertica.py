@@ -515,6 +515,7 @@ class VerticaSource(SQLAlchemySource):
 
         dataset_properties = DatasetPropertiesClass(
             name=projection,
+            qualifiedName=dataset_name,
             description=description,
             customProperties=properties,
         )
@@ -742,6 +743,7 @@ class VerticaSource(SQLAlchemySource):
 
         dataset_properties = DatasetPropertiesClass(
             name=table,
+            qualifiedName=dataset_name,
             description=description,
             customProperties=properties,
         )

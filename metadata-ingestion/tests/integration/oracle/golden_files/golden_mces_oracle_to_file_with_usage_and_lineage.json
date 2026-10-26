@@ -230,6 +230,7 @@
                             "view_definition": "SELECT\n    SYSDATE AS refresh_date,\n    'Analytics Data' AS description,\n    1 AS record_count\nFROM DUAL"
                         },
                         "name": "simple_analytics",
+                        "qualifiedName": "analytics_schema.simple_analytics",
                         "tags": []
                     }
                 },
@@ -826,6 +827,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "departments",
+                        "qualifiedName": "hr_schema.departments",
                         "tags": []
                     }
                 },
@@ -982,6 +984,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "employees",
+                        "qualifiedName": "hr_schema.employees",
                         "tags": []
                     }
                 },
@@ -1237,6 +1240,7 @@
                             "view_definition": "SELECT\n    department_id,\n    COUNT(*) AS employee_count,\n    AVG(salary) AS avg_salary,\n    MAX(salary) AS max_salary,\n    MIN(salary) AS min_salary\nFROM employees\nGROUP BY department_id"
                         },
                         "name": "employee_summary",
+                        "qualifiedName": "hr_schema.employee_summary",
                         "tags": []
                     }
                 },
@@ -1817,6 +1821,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "orders",
+                        "qualifiedName": "sales_schema.orders",
                         "tags": []
                     }
                 },
@@ -1997,6 +2002,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "order_items",
+                        "qualifiedName": "sales_schema.order_items",
                         "tags": []
                     }
                 },
@@ -2180,6 +2186,7 @@
                             "view_definition": "SELECT\n    TO_CHAR(order_date, 'YYYY-MM') AS order_month,\n    COUNT(*) AS order_count,\n    SUM(order_total) AS total_revenue,\n    AVG(order_total) AS avg_order_value\nFROM orders\nGROUP BY TO_CHAR(order_date, 'YYYY-MM')"
                         },
                         "name": "order_summary",
+                        "qualifiedName": "sales_schema.order_summary",
                         "tags": []
                     }
                 },
@@ -2843,6 +2850,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_dictstate$",
+                        "qualifiedName": "system.logmnr_dictstate$",
                         "tags": []
                     }
                 },
@@ -3071,6 +3079,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_gtlo",
+                        "qualifiedName": "system.logmnrc_gtlo",
                         "tags": []
                     }
                 },
@@ -3803,6 +3812,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_gtcs",
+                        "qualifiedName": "system.logmnrc_gtcs",
                         "tags": []
                     }
                 },
@@ -4559,6 +4569,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_seq_gg",
+                        "qualifiedName": "system.logmnrc_seq_gg",
                         "tags": []
                     }
                 },
@@ -4835,6 +4846,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_con_gg",
+                        "qualifiedName": "system.logmnrc_con_gg",
                         "tags": []
                     }
                 },
@@ -5123,6 +5135,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_concol_gg",
+                        "qualifiedName": "system.logmnrc_concol_gg",
                         "tags": []
                     }
                 },
@@ -5327,6 +5340,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_ind_gg",
+                        "qualifiedName": "system.logmnrc_ind_gg",
                         "tags": []
                     }
                 },
@@ -5627,6 +5641,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_indcol_gg",
+                        "qualifiedName": "system.logmnrc_indcol_gg",
                         "tags": []
                     }
                 },
@@ -5831,6 +5846,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_shard_ts",
+                        "qualifiedName": "system.logmnrc_shard_ts",
                         "tags": []
                     }
                 },
@@ -6035,6 +6051,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_tspart",
+                        "qualifiedName": "system.logmnrc_tspart",
                         "tags": []
                     }
                 },
@@ -6239,6 +6256,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_ts",
+                        "qualifiedName": "system.logmnrc_ts",
                         "tags": []
                     }
                 },
@@ -6443,6 +6461,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_gsii",
+                        "qualifiedName": "system.logmnrc_gsii",
                         "tags": []
                     }
                 },
@@ -6659,6 +6678,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_gsba",
+                        "qualifiedName": "system.logmnrc_gsba",
                         "tags": []
                     }
                 },
@@ -6923,6 +6943,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrc_user",
+                        "qualifiedName": "system.logmnrc_user",
                         "tags": []
                     }
                 },
@@ -7139,6 +7160,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_seed$",
+                        "qualifiedName": "system.logmnr_seed$",
                         "tags": []
                     }
                 },
@@ -7451,6 +7473,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_dictionary$",
+                        "qualifiedName": "system.logmnr_dictionary$",
                         "tags": []
                     }
                 },
@@ -7919,6 +7942,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_obj$",
+                        "qualifiedName": "system.logmnr_obj$",
                         "tags": []
                     }
                 },
@@ -8231,6 +8255,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_tab$",
+                        "qualifiedName": "system.logmnr_tab$",
                         "tags": []
                     }
                 },
@@ -8507,6 +8532,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_col$",
+                        "qualifiedName": "system.logmnr_col$",
                         "tags": []
                     }
                 },
@@ -8855,6 +8881,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_attrcol$",
+                        "qualifiedName": "system.logmnr_attrcol$",
                         "tags": []
                     }
                 },
@@ -9023,6 +9050,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_ts$",
+                        "qualifiedName": "system.logmnr_ts$",
                         "tags": []
                     }
                 },
@@ -9227,6 +9255,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_ind$",
+                        "qualifiedName": "system.logmnr_ind$",
                         "tags": []
                     }
                 },
@@ -9431,6 +9460,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_user$",
+                        "qualifiedName": "system.logmnr_user$",
                         "tags": []
                     }
                 },
@@ -9599,6 +9629,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_tabpart$",
+                        "qualifiedName": "system.logmnr_tabpart$",
                         "tags": []
                     }
                 },
@@ -9779,6 +9810,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_tabsubpart$",
+                        "qualifiedName": "system.logmnr_tabsubpart$",
                         "tags": []
                     }
                 },
@@ -9971,6 +10003,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_tabcompart$",
+                        "qualifiedName": "system.logmnr_tabcompart$",
                         "tags": []
                     }
                 },
@@ -10139,6 +10172,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_type$",
+                        "qualifiedName": "system.logmnr_type$",
                         "tags": []
                     }
                 },
@@ -10547,6 +10581,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_coltype$",
+                        "qualifiedName": "system.logmnr_coltype$",
                         "tags": []
                     }
                 },
@@ -10811,6 +10846,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_attribute$",
+                        "qualifiedName": "system.logmnr_attribute$",
                         "tags": []
                     }
                 },
@@ -11207,6 +11243,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_lob$",
+                        "qualifiedName": "system.logmnr_lob$",
                         "tags": []
                     }
                 },
@@ -11399,6 +11436,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_con$",
+                        "qualifiedName": "system.logmnr_con$",
                         "tags": []
                     }
                 },
@@ -11591,6 +11629,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_container$",
+                        "qualifiedName": "system.logmnr_container$",
                         "tags": []
                     }
                 },
@@ -11843,6 +11882,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_cdef$",
+                        "qualifiedName": "system.logmnr_cdef$",
                         "tags": []
                     }
                 },
@@ -12071,6 +12111,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_ccol$",
+                        "qualifiedName": "system.logmnr_ccol$",
                         "tags": []
                     }
                 },
@@ -12263,6 +12304,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_icol$",
+                        "qualifiedName": "system.logmnr_icol$",
                         "tags": []
                     }
                 },
@@ -12467,6 +12509,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_lobfrag$",
+                        "qualifiedName": "system.logmnr_lobfrag$",
                         "tags": []
                     }
                 },
@@ -12659,6 +12702,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_indpart$",
+                        "qualifiedName": "system.logmnr_indpart$",
                         "tags": []
                     }
                 },
@@ -12839,6 +12883,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_indsubpart$",
+                        "qualifiedName": "system.logmnr_indsubpart$",
                         "tags": []
                     }
                 },
@@ -13031,6 +13076,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_indcompart$",
+                        "qualifiedName": "system.logmnr_indcompart$",
                         "tags": []
                     }
                 },
@@ -13211,6 +13257,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_logmnr_buildlog",
+                        "qualifiedName": "system.logmnr_logmnr_buildlog",
                         "tags": []
                     }
                 },
@@ -13463,6 +13510,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_ntab$",
+                        "qualifiedName": "system.logmnr_ntab$",
                         "tags": []
                     }
                 },
@@ -13655,6 +13703,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_opqtype$",
+                        "qualifiedName": "system.logmnr_opqtype$",
                         "tags": []
                     }
                 },
@@ -13907,6 +13956,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_subcoltype$",
+                        "qualifiedName": "system.logmnr_subcoltype$",
                         "tags": []
                     }
                 },
@@ -14135,6 +14185,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_kopm$",
+                        "qualifiedName": "system.logmnr_kopm$",
                         "tags": []
                     }
                 },
@@ -14303,6 +14354,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_props$",
+                        "qualifiedName": "system.logmnr_props$",
                         "tags": []
                     }
                 },
@@ -14471,6 +14523,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_enc$",
+                        "qualifiedName": "system.logmnr_enc$",
                         "tags": []
                     }
                 },
@@ -14699,6 +14752,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_refcon$",
+                        "qualifiedName": "system.logmnr_refcon$",
                         "tags": []
                     }
                 },
@@ -14903,6 +14957,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_idnseq$",
+                        "qualifiedName": "system.logmnr_idnseq$",
                         "tags": []
                     }
                 },
@@ -15083,6 +15138,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_partobj$",
+                        "qualifiedName": "system.logmnr_partobj$",
                         "tags": []
                     }
                 },
@@ -15503,6 +15559,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnrp_ctas_part_map",
+                        "qualifiedName": "system.logmnrp_ctas_part_map",
                         "tags": []
                     }
                 },
@@ -15707,6 +15764,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logmnr_shard_ts",
+                        "qualifiedName": "system.logmnr_shard_ts",
                         "tags": []
                     }
                 },
@@ -15875,6 +15933,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "logstdby$apply_progress",
+                        "qualifiedName": "system.logstdby$apply_progress",
                         "tags": []
                     }
                 },
@@ -16082,6 +16141,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_workload",
+                        "qualifiedName": "system.mview_workload",
                         "description": "This view gives DBA access to shared workload",
                         "tags": []
                     }
@@ -16356,6 +16416,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_filter",
+                        "qualifiedName": "system.mview_filter",
                         "description": "Workload filter records",
                         "tags": []
                     }
@@ -16582,6 +16643,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_log",
+                        "qualifiedName": "system.mview_log",
                         "description": "Advisor session log",
                         "tags": []
                     }
@@ -16832,6 +16894,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_filterinstance",
+                        "qualifiedName": "system.mview_filterinstance",
                         "description": "Workload filter instance records",
                         "tags": []
                     }
@@ -17070,6 +17133,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_recommendations",
+                        "qualifiedName": "system.mview_recommendations",
                         "description": "This view gives DBA access to summary recommendations",
                         "tags": []
                     }
@@ -17344,6 +17408,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_evaluations",
+                        "qualifiedName": "system.mview_evaluations",
                         "description": "This view gives DBA access to summary evaluation output",
                         "tags": []
                     }
@@ -17570,6 +17635,7 @@
                             "view_definition": ""
                         },
                         "name": "mview_exceptions",
+                        "qualifiedName": "system.mview_exceptions",
                         "description": "This view gives DBA access to dimension validation results",
                         "tags": []
                     }
@@ -17772,6 +17838,7 @@
                             "view_definition": ""
                         },
                         "name": "scheduler_program_args",
+                        "qualifiedName": "system.scheduler_program_args",
                         "tags": []
                     }
                 },
@@ -18009,6 +18076,7 @@
                             "view_definition": ""
                         },
                         "name": "scheduler_job_args",
+                        "qualifiedName": "system.scheduler_job_args",
                         "tags": []
                     }
                 },
@@ -18234,6 +18302,7 @@
                             "view_definition": "SELECT PRODUCT, USERID, ATTRIBUTE, SCOPE,\n         NUMERIC_VALUE, CHAR_VALUE, DATE_VALUE, LONG_VALUE\n  FROM SQLPLUS_PRODUCT_PROFILE\n  WHERE USERID = 'PUBLIC' OR\n        USERID LIKE SYS_CONTEXT('USERENV','CURRENT_USER')"
                         },
                         "name": "product_privs",
+                        "qualifiedName": "system.product_privs",
                         "tags": []
                     }
                 },
