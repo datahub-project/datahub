@@ -1,4 +1,3 @@
-import contextlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +9,7 @@ import pytest
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt.dbt_cloud import (
     DBTCloudConfig,
     DBTCloudSource,
@@ -50,8 +50,6 @@ from datahub.metadata.schema_classes import (
     AssertionTypeClass,
     DataContractPropertiesClass,
     DataQualityContractClass,
-    FreshnessContractClass,
-    SchemaContractClass,
     StatusClass,
 )
 
@@ -190,13 +188,16 @@ def _contract_mcps(
     tests: Sequence[DBTNode] = (),
     other_nodes: Sequence[DBTNode] = (),
 ) -> List[MetadataChangeProposalWrapper]:
-    return list(
-        source.create_contract_mcps(
-            non_test_nodes=list(models),
-            test_nodes=list(tests),
-            all_nodes_map={n.dbt_name: n for n in [*models, *other_nodes]},
-        )
-    )
+    mcps: List[MetadataChangeProposalWrapper] = []
+    for item in source.create_contract_mcps(
+        non_test_nodes=list(models),
+        test_nodes=list(tests),
+        all_nodes_map={n.dbt_name: n for n in [*models, *other_nodes]},
+    ):
+        metadata = item.metadata if isinstance(item, MetadataWorkUnit) else item
+        assert isinstance(metadata, MetadataChangeProposalWrapper)
+        mcps.append(metadata)
+    return mcps
 
 
 def _dq_urns_by_entity(
@@ -768,32 +769,21 @@ def test_inferred_timing_is_not_emitted_as_process_run() -> None:
     assert list(source._create_dataprocess_instance_mcps(node, None))
 
 
-def _info(**custom_properties: str) -> AssertionInfoClass:
-    return AssertionInfoClass(
-        type=AssertionTypeClass.CUSTOM, customProperties=custom_properties
-    )
-
-
 def _graph_with_contracts(
     contracts: Dict[str, DataContractPropertiesClass],
-    infos: Dict[str, AssertionInfoClass],
+    removed: bool = False,
 ) -> mock.Mock:
     def get_entities(
         entity_name: str, urns: List[str], aspects: List[str], **kwargs: Any
     ) -> Dict[str, Dict[str, Any]]:
-        if entity_name == "dataContract":
-            return {
-                urn: {DataContractPropertiesClass.ASPECT_NAME: (contracts[urn], None)}
-                for urn in urns
-                if urn in contracts
+        return {
+            urn: {
+                DataContractPropertiesClass.ASPECT_NAME: (contracts[urn], None),
+                StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None),
             }
-        if entity_name == "assertion" and AssertionInfoClass.ASPECT_NAME in aspects:
-            return {
-                urn: {AssertionInfoClass.ASPECT_NAME: (infos[urn], None)}
-                for urn in urns
-                if urn in infos
-            }
-        return {}
+            for urn in urns
+            if urn in contracts
+        }
 
     graph = mock.Mock()
     graph.get_entities.side_effect = get_entities
@@ -808,65 +798,64 @@ def _contract_urn(node: DBTNode, env: str = "PROD") -> str:
 def _existing_contract(*dq_urns: str) -> DataContractPropertiesClass:
     return DataContractPropertiesClass(
         entity=_ENTITY_URN,
-        schema=[SchemaContractClass(assertion="urn:li:assertion:authored-schema")],
-        freshness=[
-            FreshnessContractClass(assertion="urn:li:assertion:authored-freshness")
-        ],
         dataQuality=[DataQualityContractClass(assertion=urn) for urn in dq_urns],
     )
 
 
-# Entries on an existing contract: an authored assertion, a dbt test a user
-# added in DataHub, and what dbt wrote last run (its schema assertion, which
-# records the test it attached, and a constraint that has since been removed).
-_EXISTING_DQ_INFOS = {
-    "urn:li:assertion:authored": _info(),
-    "urn:li:assertion:user-added-dbt-test": _info(dbt_unique_id="test.p.accepted"),
-    "urn:li:assertion:old-schema": _info(
-        source="dbt_contract",
-        dbt_attached_test_assertions="urn:li:assertion:previously-attached-test",
-    ),
-    "urn:li:assertion:removed-constraint": _info(source="dbt_column_constraint"),
-    "urn:li:assertion:previously-attached-test": _info(dbt_unique_id="test.p.nn"),
-}
-
-
-def test_contract_upsert_replaces_only_dbt_owned_entries() -> None:
+def test_existing_non_dbt_contract_is_left_untouched() -> None:
     source = _make_source()
     node = _make_model()
-    existing = _existing_contract(*_EXISTING_DQ_INFOS)
     source.ctx.graph = _graph_with_contracts(
-        {_contract_urn(node): existing}, _EXISTING_DQ_INFOS
+        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")}
     )
     mcps = _contract_mcps(source, [node])
-    props = next(
-        mcp.aspect
-        for mcp in mcps
-        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    assert _dq_urns_by_entity(mcps) == {}
+    assert source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn in (
+        _assertion_infos(mcps)
     )
-    assert props.schema == existing.schema
-    assert props.freshness == existing.freshness
-    assert [c.assertion for c in props.dataQuality or []] == [
-        "urn:li:assertion:authored",
-        "urn:li:assertion:user-added-dbt-test",
-        source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn,
+    assert source.report.num_contracts_skipped_existing == 1
+
+
+def test_dbt_contract_is_rewritten_with_fresh_entries() -> None:
+    source = _make_source()
+    node = _make_model()
+    schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
+    source.ctx.graph = _graph_with_contracts(
+        {_contract_urn(node): _existing_contract(schema_urn, "urn:li:assertion:old")}
+    )
+    assert _dq_urns(_contract_mcps(source, [node])) == [schema_urn]
+
+
+def test_soft_deleted_contract_is_treated_as_absent() -> None:
+    source = _make_source()
+    node = _make_model()
+    source.ctx.graph = _graph_with_contracts(
+        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")},
+        removed=True,
+    )
+    assert _dq_urns(_contract_mcps(source, [node])) == [
+        source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
     ]
 
 
-def test_schema_assertion_records_attached_tests() -> None:
+def test_replace_existing_contracts_writes_without_reading() -> None:
+    source = _make_source(replace_existing_contracts_with_dbt=True)
+    node = _make_model()
+    graph = _graph_with_contracts(
+        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")}
+    )
+    source.ctx.graph = graph
+    assert _dq_urns(_contract_mcps(source, [node])) == [
+        source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
+    ]
+    graph.get_entities.assert_not_called()
+
+
+def test_contract_written_with_warning_when_no_graph() -> None:
     source = _make_source()
-    model = _make_model()
-    test_node = _make_test("orders_check", [model.dbt_name], tagged=True)
-    infos = _assertion_infos(_contract_mcps(source, [model], [test_node]))
-    schema_info = next(
-        i
-        for i in infos.values()
-        if (i.customProperties or {}).get("source") == "dbt_contract"
-    )
-    assert schema_info.customProperties is not None
-    assert schema_info.customProperties["dbt_attached_test_assertions"] == (
-        source._make_test_assertion_urn(test_node, model.dbt_name, 1)
-    )
+    assert source.ctx.graph is None
+    assert _dq_urns_by_entity(_contract_mcps(source, [_make_model()]))
+    assert source.report.warnings
 
 
 def test_contract_read_failure_is_reported_as_failure() -> None:
@@ -938,14 +927,12 @@ def _run_stateful(
     enforced: bool,
     previous_urns: List[str],
     graph: Any,
-    failing_test_emission: bool = False,
-    manifest: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[Any], List[str]]:
     """Run the source through its workunit processors, incl. stale removal.
 
     Returns the workunits and the URNs in this run's checkpoint.
     """
-    manifest = manifest or _build_contract_manifest()
+    manifest = _build_contract_manifest()
     manifest["nodes"]["model.contract_test.orders"]["config"]["contract"][
         "enforced"
     ] = enforced
@@ -980,16 +967,8 @@ def _run_stateful(
         state=GenericCheckpointState(urns=previous_urns),
     )
     workunits: List[Any] = []
-    with (
-        mock.patch.object(
-            source.state_provider, "get_last_checkpoint", return_value=previous
-        ),
-        mock.patch(
-            "datahub.ingestion.source.dbt.dbt_common.make_assertion_from_test",
-            side_effect=RuntimeError("boom"),
-        )
-        if failing_test_emission
-        else contextlib.nullcontext(),
+    with mock.patch.object(
+        source.state_provider, "get_last_checkpoint", return_value=previous
     ):
         for wu in source.get_workunits():
             if write_through:
@@ -1029,41 +1008,33 @@ def test_stateful_read_failure_does_not_soft_delete_contract(tmp_path: Path) -> 
     assert _E2E_CONTRACT_URN not in _soft_deleted(workunits)
 
 
-@pytest.mark.parametrize("authored", [True, False])
-def test_stateful_dropped_contract_keeps_authored_content(
-    tmp_path: Path, authored: bool
-) -> None:
-    # The model no longer enforces its contract. A contract dbt only merged
-    # into loses dbt's entries but is kept; one dbt alone wrote is removed.
-    dbt_entries = ["urn:li:assertion:old-schema", "urn:li:assertion:removed-constraint"]
-    existing = (
-        _existing_contract("urn:li:assertion:authored", *dbt_entries)
-        if authored
-        else DataContractPropertiesClass(
-            entity=_ENTITY_URN,
-            dataQuality=[DataQualityContractClass(assertion=u) for u in dbt_entries],
-        )
-    )
-    graph = _graph_with_contracts({_E2E_CONTRACT_URN: existing}, _EXISTING_DQ_INFOS)
+def test_stateful_dropped_contract_is_soft_deleted(tmp_path: Path) -> None:
+    graph = _WriteThroughGraph()
+    _, state = _run_stateful(tmp_path, enforced=True, previous_urns=[], graph=graph)
+    assert _E2E_CONTRACT_URN in state
     workunits, _ = _run_stateful(
-        tmp_path, enforced=False, previous_urns=[_E2E_CONTRACT_URN], graph=graph
+        tmp_path, enforced=False, previous_urns=state, graph=graph
     )
-    rewritten = [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, DataContractPropertiesClass)
-    ]
-    if authored:
-        assert _E2E_CONTRACT_URN not in _soft_deleted(workunits)
-        (props,) = rewritten
-        assert [c.assertion for c in props.dataQuality or []] == [
-            "urn:li:assertion:authored"
-        ]
-        assert props.schema == existing.schema
-    else:
-        assert rewritten == []
-        assert _E2E_CONTRACT_URN in _soft_deleted(workunits)
+    assert _E2E_CONTRACT_URN in _soft_deleted(workunits)
+
+
+def test_stateful_skipped_contract_is_not_soft_deleted(tmp_path: Path) -> None:
+    # Tracked by an earlier run, but no longer dbt's (e.g. its schema assertion
+    # was removed from the contract in DataHub).
+    graph = _WriteThroughGraph()
+    authored = _existing_contract("urn:li:assertion:authored")
+    graph.aspects[_E2E_CONTRACT_URN] = {
+        DataContractPropertiesClass.ASPECT_NAME: authored
+    }
+    workunits, state = _run_stateful(
+        tmp_path, enforced=True, previous_urns=[_E2E_CONTRACT_URN], graph=graph
+    )
+    assert _E2E_CONTRACT_URN not in _soft_deleted(workunits)
+    assert _E2E_CONTRACT_URN not in state
+    assert (
+        graph.aspects[_E2E_CONTRACT_URN][DataContractPropertiesClass.ASPECT_NAME]
+        is authored
+    )
 
 
 def _build_contract_manifest() -> Dict[str, Any]:
@@ -1439,73 +1410,3 @@ def test_cloud_test_connection_rejects_unknown_environment() -> None:
         )
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is False
-
-
-def _contract_dq(graph: _WriteThroughGraph) -> List[str]:
-    props = graph.aspects[_E2E_CONTRACT_URN][DataContractPropertiesClass.ASPECT_NAME]
-    return [c.assertion for c in props.dataQuality or []]
-
-
-def _is_removed(graph: _WriteThroughGraph, urn: str) -> bool:
-    status = graph.aspects.get(urn, {}).get(StatusClass.ASPECT_NAME)
-    return bool(status and status.removed)
-
-
-def test_test_dbt_stops_attaching_leaves_the_contract(tmp_path: Path) -> None:
-    graph = _WriteThroughGraph()
-    _, state = _run_stateful(tmp_path, enforced=True, previous_urns=[], graph=graph)
-    test_urns = [
-        urn
-        for urn in _contract_dq(graph)
-        if "dbt_test_upstream_unique_id"
-        in (graph.aspects[urn][AssertionInfoClass.ASPECT_NAME].customProperties or {})
-    ]
-    assert len(test_urns) == 1
-
-    # The test loses its contract tag and no longer matches a constraint.
-    manifest = _build_contract_manifest()
-    test_node = manifest["nodes"]["test.contract_test.orders_email_not_null"]
-    test_node["tags"] = []
-    test_node["config"]["tags"] = []
-    manifest["nodes"]["model.contract_test.orders"]["columns"]["email"][
-        "constraints"
-    ] = []
-    _run_stateful(
-        tmp_path, enforced=True, previous_urns=state, graph=graph, manifest=manifest
-    )
-    assert test_urns[0] not in _contract_dq(graph)
-
-
-@pytest.mark.parametrize("authored", [True, False])
-def test_contract_dropped_during_a_run_with_node_failures_is_revisited(
-    tmp_path: Path, authored: bool
-) -> None:
-    graph = _WriteThroughGraph()
-    if authored:
-        graph.aspects[_E2E_CONTRACT_URN] = {
-            DataContractPropertiesClass.ASPECT_NAME: DataContractPropertiesClass(
-                entity=_ENTITY_URN,
-                dataQuality=[
-                    DataQualityContractClass(assertion="urn:li:assertion:authored")
-                ],
-            )
-        }
-    _, state1 = _run_stateful(tmp_path, enforced=True, previous_urns=[], graph=graph)
-    # The model stops enforcing its contract in a run where another node fails:
-    # the contract is kept unchanged and stays tracked.
-    _, state2 = _run_stateful(
-        tmp_path,
-        enforced=False,
-        previous_urns=state1,
-        graph=graph,
-        failing_test_emission=True,
-    )
-    assert _E2E_CONTRACT_URN in state2
-    assert not _is_removed(graph, _E2E_CONTRACT_URN)
-    # The next clean run finishes the job.
-    _run_stateful(tmp_path, enforced=False, previous_urns=state2, graph=graph)
-    if authored:
-        assert not _is_removed(graph, _E2E_CONTRACT_URN)
-        assert _contract_dq(graph) == ["urn:li:assertion:authored"]
-    else:
-        assert _is_removed(graph, _E2E_CONTRACT_URN)
