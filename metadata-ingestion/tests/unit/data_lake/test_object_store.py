@@ -408,29 +408,37 @@ class TestObjectStoreSourceAdapter:
     @pytest.mark.parametrize(
         "table_path,full_path,region,expected",
         [
-            # Single-object dataset: bare key, region defaults to us-east-1.
-            (
+            pytest.param(
                 "s3://bucket/path/to/file.txt",
                 "s3://bucket/path/to/file.txt",
                 None,
                 "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-east-1&prefix=path/to/file.txt",
+                id="single-object-default-region",
             ),
-            # Single-object dataset with an explicit region.
-            (
+            pytest.param(
                 "s3://bucket/path/to/file.txt",
                 "s3://bucket/path/to/file.txt",
                 "us-west-2",
                 "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-west-2&prefix=path/to/file.txt",
+                id="single-object-explicit-region",
             ),
-            # Folder-backed (partitioned) dataset: table_path != full_path, so the
-            # prefix gets a trailing slash for the console to open the folder.
-            (
+            pytest.param(
                 "s3://bucket/path/to/table",
                 "s3://bucket/path/to/table/year=2024/part-0.parquet",
                 "us-west-2",
                 "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-west-2&prefix=path/to/table/",
+                id="folder",
             ),
-            ("gs://bucket/path", "gs://bucket/path", None, None),
+            pytest.param(
+                "s3://bucket",
+                "s3://bucket/part-0.parquet",
+                "us-west-2",
+                "https://s3.console.aws.amazon.com/s3/buckets/bucket?region=us-west-2&prefix=",
+                id="bucket-root-folder",
+            ),
+            pytest.param(
+                "gs://bucket/path", "gs://bucket/path", None, None, id="not-s3"
+            ),
         ],
     )
     def test_get_s3_external_url(self, table_path, full_path, region, expected):
@@ -446,19 +454,25 @@ class TestObjectStoreSourceAdapter:
     @pytest.mark.parametrize(
         "table_path,full_path,expected",
         [
-            # Single-object dataset: links to the object details page.
-            (
+            pytest.param(
                 "gs://bucket/path/to/file.txt",
                 "gs://bucket/path/to/file.txt",
                 "https://console.cloud.google.com/storage/browser/_details/bucket/path/to/file.txt",
+                id="single-object",
             ),
-            # Folder-backed dataset: trailing slash so the browser opens the prefix.
-            (
+            pytest.param(
                 "gs://bucket/path/to/table",
                 "gs://bucket/path/to/table/year=2024/part-0.parquet",
                 "https://console.cloud.google.com/storage/browser/bucket/path/to/table/",
+                id="folder",
             ),
-            ("s3://bucket/path", "s3://bucket/path", None),
+            pytest.param(
+                "gs://bucket",
+                "gs://bucket/part-0.parquet",
+                "https://console.cloud.google.com/storage/browser/bucket/",
+                id="bucket-root-folder",
+            ),
+            pytest.param("s3://bucket/path", "s3://bucket/path", None, id="not-gcs"),
         ],
     )
     def test_get_gcs_external_url(self, table_path, full_path, expected):
@@ -592,7 +606,6 @@ class TestObjectStoreSourceAdapter:
         """Test the get_external_url method."""
         mock_table_data = MagicMock()
         mock_table_data.table_path = table_path
-        # Single-object datasets (file.txt) have full_path == table_path.
         mock_table_data.full_path = table_path
 
         if platform == "s3":
