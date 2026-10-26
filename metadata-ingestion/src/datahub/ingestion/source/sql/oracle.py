@@ -2389,8 +2389,8 @@ class OracleSource(SQLAlchemySource):
         try:
             with engine.connect() as conn:
                 inspector = inspect(conn)
-                # Get database name once outside the loop since it doesn't change per row
-                db_name = self.get_db_name(inspector)
+                # Same database name as dataset URNs (None when they are schema.table).
+                db_name = self._get_urn_db_name(inspector)
                 result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:

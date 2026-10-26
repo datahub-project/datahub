@@ -1438,10 +1438,58 @@ class TestOracleQueryExtraction:
         assert len(queries) == 2
         assert queries[0].query == "SELECT * FROM HR.EMPLOYEES WHERE dept_id = 10"
         assert queries[0].default_schema == "HR"
-        assert queries[0].default_db == "TESTDB"
         assert queries[0].session_id == "sql_id:abc123"
         assert queries[1].query == "SELECT COUNT(*) FROM SALES.ORDERS"
         assert queries[1].default_schema == "SALES"
+
+    @pytest.mark.parametrize(
+        "add_database_name_to_urn, expected_default_db",
+        [
+            # Flag off: dataset URNs are schema.table, so query lineage must not
+            # qualify unqualified tables with the database name.
+            (False, None),
+            # Flag on: the detected name, as in dataset URNs.
+            (True, "testdb"),
+        ],
+    )
+    def test_extract_queries_default_db_matches_dataset_urns(
+        self, ctx, add_database_name_to_urn, expected_default_db
+    ):
+        config = OracleConfig.model_validate(
+            {
+                "host_port": "localhost:1521",
+                "service_name": "my_service",
+                "include_query_usage": True,
+                "add_database_name_to_urn": add_database_name_to_urn,
+            }
+        )
+        source = OracleSource(config, ctx)
+
+        mock_result = Mock()
+        mock_result.mappings.return_value = [
+            {
+                "sql_id": "abc123",
+                "sql_text": "SELECT * FROM my_table",
+                "parsing_schema_name": "my_schema",
+                "first_load_time": None,
+            }
+        ]
+        mock_conn = Mock()
+        mock_conn.execute.return_value = mock_result
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=None)
+        mock_engine = Mock()
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch("sqlalchemy.inspect", return_value=Mock()),
+            patch.object(source, "get_db_name", return_value="testdb"),
+        ):
+            queries = list(source._extract_queries_from_vsql(mock_engine))
+
+        assert len(queries) == 1
+        assert queries[0].default_db == expected_default_db
+        assert queries[0].default_schema == "my_schema"
 
     def test_extract_queries_with_exclude_patterns(self, ctx):
         """Test query extraction with exclude patterns."""
