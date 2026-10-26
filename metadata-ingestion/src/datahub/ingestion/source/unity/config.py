@@ -12,6 +12,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Enables,
     Filters,
     HiddenFromDocs,
 )
@@ -22,7 +23,12 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
-from datahub.ingestion.agent.verdicts import ClassifyContext, ancestors_in
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+)
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
 )
@@ -34,7 +40,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.profiling.config import ProfilingConfig
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    sql_structural_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -59,6 +68,13 @@ logger = logging.getLogger(__name__)
 # Configuration default constants
 INCLUDE_TAGS_DEFAULT = True
 INCLUDE_HIVE_METASTORE_DEFAULT = True
+
+# The kinds process_tables judges in one loop, by table_like_rejected_by.
+_TABLE_LIKE_KINDS = (
+    DatasetSubTypes.TABLE,
+    DatasetSubTypes.VIEW,
+    DatasetSubTypes.METRIC_VIEW,
+)
 
 
 class LineageDataSource(ConfigEnum):
@@ -272,19 +288,23 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
 
-    notebook_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description=(
-            "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
-            " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
-            " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
-        ),
+    notebook_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.NOTEBOOK)] = (
+        Field(
+            default=AllowDenyPattern.allow_all(),
+            description=(
+                "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
+                " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
+                " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+            ),
+        )
     )
 
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
 
-    metric_view_pattern: AllowDenyPattern = Field(
+    metric_view_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.METRIC_VIEW)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
@@ -326,9 +346,12 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    include_notebooks: bool = pydantic.Field(
-        default=False,
-        description="Ingest notebooks, represented as DataHub datasets.",
+    # get_workunits_internal runs process_notebooks only with this on.
+    include_notebooks: Annotated[bool, Enables(DatasetSubTypes.NOTEBOOK)] = (
+        pydantic.Field(
+            default=False,
+            description="Ingest notebooks, represented as DataHub datasets.",
+        )
     )
 
     include_ownership: bool = pydantic.Field(
@@ -709,12 +732,79 @@ class UnityCatalogSourceConfig(
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         # The metastore has no pattern, so it is left out of the chain; a
-        # --parent naming it is simply not judged.
+        # --parent naming it is simply not judged. Notebooks live in the
+        # workspace tree, not under a catalog, so they have no container.
+        if kind == DatasetSubTypes.NOTEBOOK:
+            return ()
         return ancestors_in(
             (DatasetContainerSubTypes.CATALOG, DatasetContainerSubTypes.SCHEMA),
             kind,
-            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
         )
+
+    def pinned_catalogs(self) -> Optional[List[str]]:
+        """The catalogs _get_catalogs reads one by one, or None when it lists
+        every catalog: `catalogs: []` lists all, as an unset one does."""
+        return self.catalogs or None
+
+    def table_like_rejected_by(
+        self, qualified_name: str, *, is_view: bool, is_metric_view: bool
+    ) -> Optional[str]:
+        """The field that makes process_tables drop one table, view or metric
+        view, in the order it checks them, or None when it is ingested.
+        table_pattern applies to every kind; metric_view_pattern only while
+        include_metric_views is on."""
+        if not self.table_pattern.allowed(qualified_name):
+            return "table_pattern"
+        if is_view:
+            if not self.include_views:
+                return "include_views"
+            if not self.view_pattern.allowed(qualified_name):
+                return "view_pattern"
+        elif is_metric_view:
+            if self.include_metric_views and not self.metric_view_pattern.allowed(
+                qualified_name
+            ):
+                return "metric_view_pattern"
+        elif not self.include_tables:
+            return "include_tables"
+        return None
+
+    def notebook_ingested(self, path: str) -> bool:
+        return self.include_notebooks and self.notebook_pattern.allowed(path)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # A kind switch's exclusion (include_views: false) stands.
+        if ctx.structural is not None:
+            return None
+        if ctx.kind in _TABLE_LIKE_KINDS:
+            # Read off this config, which is the copy --try-allow/--try-deny
+            # edited; a tried view_pattern cannot rescue a view table_pattern
+            # drops, and the verdict says which pattern to change.
+            rejected_by = self.table_like_rejected_by(
+                ctx.target,
+                is_view=ctx.kind == DatasetSubTypes.VIEW,
+                is_metric_view=ctx.kind == DatasetSubTypes.METRIC_VIEW,
+            )
+            if rejected_by is None:
+                return Verdict.include()
+            return Verdict.exclude(rejected_by)
+        pinned = self.pinned_catalogs()
+        if ctx.kind == DatasetContainerSubTypes.CATALOG and pinned is not None:
+            # Case-folded because catalogs.get resolves names
+            # case-insensitively and the listing reports the stored name.
+            if ctx.name.casefold() not in {name.casefold() for name in pinned}:
+                return Verdict.exclude("catalogs")
+        return sql_structural_verdict(self, ctx)
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: unity_probe imports proxy.py, which imports this module
+        from datahub.ingestion.source.unity.unity_probe import (
+            UnityCatalogMetadataProbe,
+        )
+
+        return UnityCatalogMetadataProbe
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

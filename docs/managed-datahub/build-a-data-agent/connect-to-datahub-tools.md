@@ -40,13 +40,17 @@ Tools alone aren't enough. Without guidance, an agent tends to search repeatedly
 
 Choose how to install the skills:
 
-| Your agent                                              | How to get the skills                                                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Claude**                                              | Install the DataHub plugin from the [Claude plugin marketplace](https://claude.com/marketplace/plugins). It bundles the DataHub connector and skills.               |
-| **ChatGPT**                                             | Install the DataHub plugin from [ChatGPT plugins](https://chatgpt.com/plugins). It bundles the DataHub connector and skills.                                        |
-| **Claude Code**                                         | Run `claude plugin install datahub-skills`.                                                                                                                         |
-| **Cursor, Codex, GitHub Copilot, Gemini CLI, Windsurf** | Run `npx skills add datahub-project/datahub-skills -a <agent>`, for example `-a cursor`.                                                                            |
-| **LangChain, CrewAI, or a custom agent**                | Add the contents of the skill files from the [repository](https://github.com/datahub-project/datahub-skills) to your agent's system prompt. They're plain Markdown. |
+:::note
+The DataHub Cloud plugin always connects to your **default** MCP server, so use it only for a global agent. For a domain agent, connect your scoped server instead and install `datahub-skills`.
+:::
+
+| Your agent                                              | How to get the skills                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Claude**                                              | Global agent: install the DataHub Cloud plugin, which includes the DataHub connector and skills ([Setup](../../dev-guides/agent-context/plugins.md#claude)). Domain agent: add your scoped server as a custom connector, then install `datahub-skills` from **Customize → Plugins**.              |
+| **ChatGPT**                                             | Global agent: install the DataHub Cloud plugin, which includes the DataHub connector and skills ([Setup](../../dev-guides/agent-context/plugins.md#chatgpt-and-codex)). Domain agent: add your scoped server as a [custom connector](../../features/feature-guides/mcp.md#configure-your-client). |
+| **Claude Code**                                         | Run `claude plugin install datahub-skills@claude-plugins-official`.                                                                                                                                                                                                                               |
+| **Cursor, Codex, GitHub Copilot, Gemini CLI, Windsurf** | Run `npx skills add datahub-project/datahub-skills -a <agent>`, for example `-a cursor`.                                                                                                                                                                                                          |
+| **LangChain, CrewAI, or a custom agent**                | Add the contents of the skill files from the [repository](https://github.com/datahub-project/datahub-skills) to your agent's system prompt. They're plain Markdown.                                                                                                                               |
 
 :::note
 If you use a scoped MCP server, leave its **Tools** empty to include everything, or make sure the SQL context tools are selected. The skill depends on them.

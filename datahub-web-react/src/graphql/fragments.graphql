@@ -491,7 +491,7 @@ fragment nonRecursiveDatasetFields on Dataset {
         typeNames
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -536,7 +536,7 @@ fragment nonRecursiveDataFlowFields on DataFlow {
         ...platformFields
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -813,7 +813,7 @@ fragment nonRecursiveMLFeature on MLFeature {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -899,7 +899,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     ...entityDataProduct
     tags {
@@ -977,7 +977,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     applications {
         ...entityApplication
@@ -1405,6 +1405,31 @@ fragment entityDomain on DomainAssociation {
     }
 }
 
+# Same selection as entityDomain without the per-domain asset/child counts
+fragment entityDomainWithoutCounts on DomainAssociation {
+    domain {
+        urn
+        type
+        properties {
+            name
+            description
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        displayProperties {
+            ...displayPropertiesFields
+        }
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    associatedUrn
+    attribution {
+        ...attributionFields
+    }
+}
+
 fragment entityApplication on ApplicationAssociation {
     application {
         urn
@@ -1424,7 +1449,7 @@ fragment entityApplication on ApplicationAssociation {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
             total

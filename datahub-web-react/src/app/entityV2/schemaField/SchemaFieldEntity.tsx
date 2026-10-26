@@ -9,6 +9,7 @@ import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/schemaField/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import {
     EntityProfile,
@@ -21,8 +22,8 @@ import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { FetchedEntity } from '@app/lineage/types';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
-import TabFullsizedContext from '@src/app/shared/TabFullsizedContext';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
+import TabFullsizedContext from '@src/app/sharedV2/TabFullsizedContext';
 
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
 import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '@types';
@@ -68,12 +69,14 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                 tabs={[
                     {
                         name: i18next.t('entity.types:tab.lineage'),
+                        path: EntityTabPath.LINEAGE,
                         component: LineageTab,
                         icon: TreeStructure,
                         supportsFullsize: true,
                     },
                     {
                         name: i18next.t('entity.types:tab.properties'),
+                        path: EntityTabPath.PROPERTIES,
                         component: PropertiesTab,
                         icon: ListBullets,
                     },
