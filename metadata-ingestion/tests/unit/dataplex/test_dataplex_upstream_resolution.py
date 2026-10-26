@@ -341,7 +341,7 @@ class TestStorageLineage:
         extractor = make_extractor(include_storage_lineage=True)
         entry = make_dpms_table_entry(storage_gcs_bucket="my-bucket")
 
-        edges = extractor._extract_lineage_edges_for_entry(
+        edges, _mappings = extractor._extract_lineage_edges_for_entry(
             entry, {"upstream": [], "downstream": []}
         )
 
@@ -352,7 +352,7 @@ class TestStorageLineage:
         extractor = make_extractor()
         entry = make_dpms_table_entry(storage_gcs_bucket="my-bucket")
 
-        edges = extractor._extract_lineage_edges_for_entry(
+        edges, _mappings = extractor._extract_lineage_edges_for_entry(
             entry, {"upstream": [], "downstream": []}
         )
 
@@ -368,7 +368,7 @@ class TestStorageLineage:
         extractor = make_extractor(include_storage_lineage=True)
         entry = make_dpms_table_entry(storage_gcs_bucket="my-bucket")
 
-        edges = extractor._extract_lineage_edges_for_entry(entry, None)
+        edges, _mappings = extractor._extract_lineage_edges_for_entry(entry, None)
 
         assert edges == set()
 
@@ -376,7 +376,7 @@ class TestStorageLineage:
         extractor = make_extractor(include_storage_lineage=True)
         entry = make_dpms_table_entry(storage_gcs_bucket="my-bucket")
 
-        edges = extractor._extract_lineage_edges_for_entry(
+        edges, _mappings = extractor._extract_lineage_edges_for_entry(
             entry,
             {
                 "upstream": ["gcs:my-bucket/warehouse/my_database.db/my_table"],
@@ -385,6 +385,8 @@ class TestStorageLineage:
         )
 
         assert len(edges) == 1
+        assert extractor.report.num_storage_lineage_edges_added == 1
+        assert extractor.report.num_lineage_edges_added == 0
 
 
 def _resolver(extractor: DataplexLineageExtractor, client: Mock) -> None:

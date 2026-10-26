@@ -3,7 +3,7 @@
 import logging
 from typing import Annotated, Dict, List, Literal, Optional, Sequence
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
@@ -316,6 +316,21 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
+    include_column_lineage: bool = Field(
+        default=False,
+        description="Whether to extract column-level lineage via column-scoped "
+        "Data Lineage API lookups. For each entry that has table-level lineage, "
+        "one extra search_links call is issued per batch of 20 columns per "
+        "parent that returned links, so this multiplies Data Lineage API read "
+        "volume. Lower 'max_workers_lineage' to slow that volume down: the pool "
+        "size is the binding constraint on sustained call rate, while "
+        "'lineage_max_calls_per_minute' is a ceiling that only engages once the "
+        "pool can outrun it. Requires both 'include_lineage' and "
+        "'include_schema'; if either is off, column lineage is disabled with a "
+        "warning rather than failing the source.",
+    )
+    _column_lineage_unmet_dependencies: List[str] = PrivateAttr(default_factory=list)
+
     dpms_hive_metastore_service: Optional[str] = Field(
         default=None,
         description="Fallback '{project}.{location}.{service}' used to resolve "
@@ -583,6 +598,29 @@ class DataplexConfig(
                     "'{project}.{location}.{service}'"
                 )
         return value
+
+    @model_validator(mode="after")
+    def validate_column_lineage_dependencies(self) -> "DataplexConfig":
+        """Column lineage needs table lineage and schemas; degrade rather than fail."""
+        unmet = [
+            name
+            for name, enabled in (
+                ("include_lineage", self.include_lineage),
+                ("include_schema", self.include_schema),
+            )
+            if not enabled
+        ]
+        if self.include_column_lineage and unmet:
+            logger.warning(
+                "Disabling 'include_column_lineage': it requires %s to be enabled. "
+                "Column-level lineage will be skipped; table-level lineage and the "
+                "rest of Dataplex ingestion are unaffected. Set "
+                "'include_column_lineage: false' explicitly to silence this.",
+                " and ".join(f"'{name}'" for name in unmet),
+            )
+            self.include_column_lineage = False
+            self._column_lineage_unmet_dependencies = unmet
+        return self
 
     @model_validator(mode="after")
     def validate_extraction_method_configuration(self) -> "DataplexConfig":

@@ -110,6 +110,10 @@ def _resolve_project_numbers(
     "Optionally enabled via configuration `include_lineage`",
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration `include_column_lineage`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
 )
@@ -273,6 +277,17 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 config=self.config,
                 pipeline_name=self.ctx.pipeline_name,
                 run_id=self.ctx.run_id,
+            )
+
+        if self.config._column_lineage_unmet_dependencies:
+            self.report.warning(
+                title="Dataplex column lineage disabled",
+                message="'include_column_lineage' was turned off because a setting "
+                "it requires is disabled. Table-level lineage and the rest of the "
+                "ingestion are unaffected.",
+                context="disabled: "
+                + ", ".join(self.config._column_lineage_unmet_dependencies),
+                log=False,
             )
 
         if self.config.include_lineage:

@@ -5,7 +5,7 @@ import logging
 import re
 import threading
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from google.cloud import dataplex_v1
 
@@ -65,6 +65,9 @@ class EntryDataTuple:
     datahub_platform: str
     datahub_dataset_name: str
     datahub_dataset_urn: str
+    # Lineage-addressable fieldPaths; empty unless include_column_lineage.
+    # A tuple keeps the dataclass hashable.
+    schema_field_paths: Tuple[str, ...] = ()
     # From the entry's ``storage`` aspect, when it points at GCS.
     storage_gcs_bucket: Optional[str] = None
 

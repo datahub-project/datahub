@@ -43,6 +43,10 @@ source:
     # include_lineage: true   # Extract lineage (default: true)
     # include_schema: true    # Extract schema metadata (default: true)
 
+    # Optional: Column-level lineage. Requires include_lineage and
+    # include_schema; multiplies Data Lineage API read volume.
+    # include_column_lineage: true
+
     # Optional: upstreams the Data Lineage API reports that are not catalog
     # entries (GCS buckets, cluster-local hive tables, Pub/Sub subscriptions).
     # include_storage_lineage: true         # bucket -> table edge from the storage aspect

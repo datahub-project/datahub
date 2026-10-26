@@ -75,7 +75,6 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 
 **Not Supported:**
 
-- **Column-level lineage**: The connector extracts only table-level lineage (column-level lineage is available in Dataplex Lineage API but not exposed through this connector)
 - **Custom sources**: Only Google Cloud systems with automatic lineage tracking are supported
 - **BigQuery Data Transfer Service**: Recurring loads are not automatically tracked
 
@@ -86,6 +85,44 @@ Only **BigQuery** lineage has been thoroughly tested with this connector. Lineag
 - Lineage is only available for entries with active lineage tracking enabled
 
 For more details, see [Google Cloud Knowledge Catalog (Dataplex) Lineage Documentation](https://docs.cloud.google.com/dataplex/docs/about-data-lineage).
+
+#### Column-level Lineage
+
+Set `include_column_lineage: true` to additionally extract column-to-column
+mappings. For each entry that has table-level lineage, the connector issues one
+extra `search_links` call per batch of 20 columns per parent that returned
+links, and attaches the result as `fineGrainedLineages` on the same
+`upstreamLineage` aspect.
+
+Column lineage requires both `include_lineage` and `include_schema`. If either
+is off, column lineage is disabled with a warning rather than failing the
+source.
+
+Because this multiplies Data Lineage API read volume, lower
+`max_workers_lineage` to slow the call rate down: the pool size is the binding
+constraint on sustained throughput, while `lineage_max_calls_per_minute` is a
+ceiling that only engages once the pool can outrun it.
+
+The Data Lineage API names nested columns by simple dotted names. Downstream
+columns are matched to the entry's own fieldPaths (`[version=2.0]` paths for
+nested columns); a downstream column the schema does not contain is skipped
+and counted under `num_column_names_unmatched`. Upstream columns are remapped
+to their own fieldPaths only when the upstream is ingested in the same run;
+otherwise the API's dotted name is emitted as is.
+
+If a column lookup for an entry fails, that entry's `upstreamLineage` is not
+emitted for the run, so the lineage stored by an earlier run is kept.
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    include_lineage: true
+    include_schema: true
+    include_column_lineage: true
+```
 
 #### Lineage Upstreams Outside the Catalog
 
@@ -132,6 +169,7 @@ every location fails emits nothing.
 
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a complex type spelling such as `array<struct<...>>` or `ARRAY<INT64>` (matched case-insensitively) — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children. On BigQuery entries, nested field names are lowercased to match the BigQuery connector. Complex type spellings the Hive type parser cannot read, such as `ARRAY<STRING(MAX)>` or `STRUCT<a INT64>`, keep a single flat row.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
+- **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
 - **`include_storage_lineage`** (default: `false`): Derive a bucket → table edge from a Dataproc Metastore table's `storage` aspect
 - **`resolve_pubsub_subscriptions`** (default: `false`): Resolve `pubsub:subscription:` upstreams to their backing topic
 - **`include_hive_metastore_nodes`** (default: `true`): Emit `hive_metastore:` upstreams that neither this run's tables nor `dpms_hive_metastore_service` resolve as lineage-only `hive` datasets
