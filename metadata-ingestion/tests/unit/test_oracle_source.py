@@ -1617,6 +1617,36 @@ class TestOracleQueryExtraction:
         assert not source._is_allowed_table(denied)
         assert not source._is_allowed_table("employees")
 
+    @pytest.mark.parametrize(
+        ("overrides", "expected"),
+        [
+            pytest.param({}, "", id="two-part urns"),
+            pytest.param(
+                {"add_database_name_to_urn": True}, "", id="service_name only"
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "database": "orcl"},
+                "orcl",
+                id="database",
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "urn_db_name": "ORCL"},
+                "orcl",
+                id="urn_db_name normalised",
+            ),
+        ],
+    )
+    def test_procedure_default_db_matches_entity_urns(self, ctx, overrides, expected):
+        # Procedure lineage must resolve tables to the same tier as the crawl;
+        # "" tells the procedure parser to build two-part URNs.
+        config = _oracle_config(**overrides)
+        source = OracleSource(config, ctx)
+
+        assert source._get_procedure_default_db() == expected
+        assert config.get_identifier("hr", "t") == (
+            f"{expected}.hr.t" if expected else "hr.t"
+        )
+
     def test_aggregator_receives_allowed_table_filter(self, ctx):
         source = OracleSource(_oracle_config(schema_pattern={"allow": ["hr"]}), ctx)
         hr_urn = make_dataset_urn("oracle", "hr.employees", "PROD")

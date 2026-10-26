@@ -1877,11 +1877,11 @@ class OracleSource(SQLAlchemySource):
         - "": Explicitly exclude database from URNs (two-tier: schema.table)
         - str: Use specific database name in URNs (three-tier: database.schema.table)
 
-        This ensures procedure lineage URNs match the URN format of tables/views.
+        This ensures procedure lineage URNs match the URN format of tables/views,
+        including the urn_db_name case, by deriving the database the same way
+        get_identifier does.
         """
-        if self.config.add_database_name_to_urn and self.config.database:
-            return self.config.database
-        return ""
+        return self.config.urn_database_name() or ""
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
