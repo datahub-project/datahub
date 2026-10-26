@@ -122,6 +122,10 @@ class DatahubLineageConfig(ConfigModel):
     # raise-on-failure guarantees.
     emit_mode: EmitMode
 
+    # If true, a task start emits its DAG run's DataFlow only once per worker
+    # instead of on every task. The scheduler's DAG-run event is unaffected.
+    dedupe_dataflow_per_dag_run: bool = False
+
     @property
     def _datahub_connection_ids(self) -> List[str]:
         """
@@ -229,6 +233,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
     emit_mode = conf.get("datahub", "emit_mode", fallback=EmitMode.ASYNC.value)
+    dedupe_dataflow_per_dag_run = conf.get(
+        "datahub", "dedupe_dataflow_per_dag_run", fallback=False
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -260,6 +267,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         enable_datajob_lineage=enable_lineage,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
         emit_mode=emit_mode,
+        dedupe_dataflow_per_dag_run=dedupe_dataflow_per_dag_run,
     )
 
 
