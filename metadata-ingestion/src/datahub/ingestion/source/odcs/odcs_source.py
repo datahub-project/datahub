@@ -1156,6 +1156,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ):
                     check(raw_prop, prop, f"{path}.properties[{i}]")
 
+        check(raw_dict, contract, "<root>")
         raw_schema = raw_dict.get("schema")
         if isinstance(raw_schema, list):
             for i, (raw_entry, entry) in enumerate(

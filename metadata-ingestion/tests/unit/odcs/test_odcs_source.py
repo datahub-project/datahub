@@ -2310,3 +2310,10 @@ def test_malformed_override_does_not_stop_the_file(tmp_path: pathlib.Path) -> No
     ]
     assert statements == ["SELECT count(*) FROM ${object} WHERE id IS NULL"]
     assert not src.report.failures
+
+
+def test_off_spec_contract_context_is_reported(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_BODY.replace("status: active\n", "status: active\ncontext: 5\n")
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    assert "<root>.context" in _messages(src.report.warnings)
