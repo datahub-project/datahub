@@ -105,8 +105,8 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateC
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -316,13 +316,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .v3(new SearchV3Configuration().setTemplates(shippedTemplateConfiguration()))
                     .build())
             .build();
-    SearchTemplates.install(
+    SearchTemplateCoordinator coordinator =
         new SearchTemplateCoordinator(
             config,
             null,
             new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -396,6 +396,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             SearchContext.builder()
                 .indexConvention(indexConvention)
                 .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                .searchTemplateRuntime(coordinator)
                 .searchableFieldTypes(
                     ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
@@ -733,7 +734,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @AfterClass(alwaysRun = true)
   public void deleteV3Indices() throws IOException {
-    SearchTemplates.install(null);
     for (String index : createdIndices) {
       getSearchClient()
           .deleteIndex(
@@ -2622,7 +2622,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   private static void assertShippedClasspathTemplate(
       OperationContext context, String query, boolean scroll, String... expectedChain) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(context);
     assertNotNull(coordinator);
     OperationContext bound = coordinator.bind(context, query, scroll);
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();

@@ -60,7 +60,6 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -89,18 +88,13 @@ public class SearchTemplateRenderTest {
     harness.setup();
     harness.installCatalog();
     dataset = harness.registry.getEntitySpec("dataset");
-    SearchTemplates.install(
+    harness.useRuntime(
         new SearchTemplateCoordinator(
             harness.elastic(),
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
             SearchTemplateComponentRegistry.empty()));
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
   }
 
   @Test

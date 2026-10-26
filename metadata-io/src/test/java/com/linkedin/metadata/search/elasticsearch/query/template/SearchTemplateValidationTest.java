@@ -24,7 +24,6 @@ import com.linkedin.search.template.SearchTemplateRetrievalBridge;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -50,11 +49,6 @@ public class SearchTemplateValidationTest {
   public void setup() {
     harness = new SearchTemplateFixtures.Harness();
     harness.setup();
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
   }
 
   @DataProvider

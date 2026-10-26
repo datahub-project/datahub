@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
@@ -75,7 +76,9 @@ public class SystemOperationContextFactory {
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
       @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache,
-      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer) {
+      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer,
+      @Autowired(required = false) @Nullable
+          final SearchTemplateCoordinator searchTemplateCoordinator) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -98,7 +101,8 @@ public class SystemOperationContextFactory {
             entityRegistry,
             mappingsBuilder,
             configurationProvider.getElasticSearch().getSearch(),
-            searchClusterRegistry);
+            searchClusterRegistry,
+            searchTemplateCoordinator);
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -167,7 +171,9 @@ public class SystemOperationContextFactory {
           final GroupService groupService,
       @Autowired(required = false) @Nullable PrimaryStorageResolver primaryStorageResolver,
       @Qualifier("entityGraphCache") @Lazy @Nonnull final EntityGraphCache entityGraphCache,
-      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer) {
+      @Autowired(required = false) @Nullable final QueryTimeCanonicalizer queryTimeCanonicalizer,
+      @Autowired(required = false) @Nullable
+          final SearchTemplateCoordinator searchTemplateCoordinator) {
 
     EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
@@ -184,7 +190,8 @@ public class SystemOperationContextFactory {
             entityRegistry,
             mappingsBuilder,
             configurationProvider.getElasticSearch().getSearch(),
-            searchClusterRegistry);
+            searchClusterRegistry,
+            searchTemplateCoordinator);
 
     OperationContext systemOperationContext =
         OperationContext.asSystem(
@@ -230,10 +237,12 @@ public class SystemOperationContextFactory {
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull MappingsBuilder mappingsBuilder,
       @Nullable SearchConfiguration searchConfiguration,
-      @Nonnull SearchClusterRegistry searchClusterRegistry) {
+      @Nonnull SearchClusterRegistry searchClusterRegistry,
+      @Nullable SearchTemplateCoordinator searchTemplateCoordinator) {
     return SearchContext.builder()
         .indexConvention(components.getIndexConvention())
         .searchClusterAccess(searchClusterRegistry)
+        .searchTemplateRuntime(searchTemplateCoordinator)
         .searchableFieldTypes(ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
         .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
         .defaultSearchEntityNames(

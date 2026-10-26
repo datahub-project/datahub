@@ -444,7 +444,7 @@ public final class SearchTemplateWalk {
   private static void requireSupported(
       @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     SearchTemplateComponentRegistry registry =
         coordinator == null ? SearchTemplateComponentRegistry.empty() : coordinator.components();
     SearchTemplateCapabilities.requireSupported(

@@ -70,8 +70,8 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateC
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -194,13 +194,13 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                     .v3(new SearchV3Configuration().setTemplates(templateConfiguration()))
                     .build())
             .build();
-    SearchTemplates.install(
+    SearchTemplateCoordinator coordinator =
         new SearchTemplateCoordinator(
             config,
             null,
             new SearchTemplateLoader(0, SearchTemplateSource.STORAGE),
             ForkJoinPool.commonPool(),
-            componentRegistry()));
+            componentRegistry());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -265,6 +265,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                 SearchContext.builder()
                     .indexConvention(indexConvention)
                     .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                    .searchTemplateRuntime(coordinator)
                     .searchableFieldTypes(
                         ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                     .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
@@ -327,7 +328,6 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
 
   @AfterClass(alwaysRun = true)
   public void deleteIndices() throws Exception {
-    SearchTemplates.install(null);
     for (String index : createdIndices) {
       getSearchClient()
           .deleteIndex(
@@ -390,7 +390,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSearchFlags(flags -> flags.setFulltext(true));
     ResolvedSearchTemplate entities =
-        SearchTemplates.current()
+        SearchTemplateRuntimes.coordinator(keyword)
             .bind(keyword, "experimental investigation of the aerodynamics", false)
             .getSearchContext()
             .getResolvedSearchTemplate();
@@ -401,7 +401,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSearchFlags(flags -> flags.setFulltext(true));
     ResolvedSearchTemplate lineageTemplate =
-        SearchTemplates.current()
+        SearchTemplateRuntimes.coordinator(lineage)
             .bind(lineage, "pet profiles", false)
             .getSearchContext()
             .getResolvedSearchTemplate();
@@ -463,7 +463,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSkipTemplateExecution(true)
             .withSearchFlags(flags -> flags.setFulltext(true));
-    assertFalse(SearchTemplates.current().executes(javaContext));
+    assertFalse(SearchTemplateRuntimes.coordinator(javaContext).executes(javaContext));
     JsonNode file = judgments();
     double floor =
         file.path("floors").path(engineName()).path("javaBuilderBenchmarkNdcgAt10").asDouble(0.0);
@@ -619,7 +619,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSkipTemplateExecution(true)
             .withSearchFlags(flags -> flags.setFulltext(true));
-    assertFalse(SearchTemplates.current().executes(javaContext));
+    assertFalse(SearchTemplateRuntimes.coordinator(javaContext).executes(javaContext));
     scoreGroup("longtail-ecommerce", true, "javaBuilderLongtailEcommerceNdcgAt10");
   }
 

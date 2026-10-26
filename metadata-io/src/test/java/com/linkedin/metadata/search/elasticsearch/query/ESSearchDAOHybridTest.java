@@ -33,7 +33,6 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -178,13 +177,14 @@ public class ESSearchDAOHybridTest {
     harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = harness.elastic();
     elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
-    SearchTemplates.install(
-        new SearchTemplateCoordinator(
-            elastic,
-            null,
-            harness.loader,
-            ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+    harness.opContext =
+        harness.opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                harness.loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
     try {
       OperationContext searching =
           TestOperationContexts.withFixedSearchClient(harness.opContext, client)
@@ -213,7 +213,7 @@ public class ESSearchDAOHybridTest {
       verify(reranker, never())
           .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
     } finally {
-      SearchTemplates.install(null);
+      harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
     }
   }
 

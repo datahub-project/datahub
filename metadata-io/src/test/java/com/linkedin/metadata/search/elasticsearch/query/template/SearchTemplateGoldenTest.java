@@ -45,7 +45,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ForkJoinPool;
 import org.opensearch.index.query.QueryBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -68,11 +67,6 @@ public class SearchTemplateGoldenTest {
     harness.setup();
     harness.installCatalog();
     harness.installShippedTemplates();
-  }
-
-  @AfterMethod
-  public void clearCatalog() {
-    SearchTemplates.install(null);
   }
 
   @Test

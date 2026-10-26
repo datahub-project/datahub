@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -68,12 +67,7 @@ public class SearchTemplateOperationsTest {
             harness.loader,
             ForkJoinPool.commonPool(),
             SearchTemplateComponentRegistry.empty());
-    SearchTemplates.install(coordinator);
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
+    opContext = opContext.withSearchTemplateRuntime(coordinator);
   }
 
   @Test

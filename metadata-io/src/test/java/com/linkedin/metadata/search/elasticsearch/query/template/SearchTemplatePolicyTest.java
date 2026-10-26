@@ -27,7 +27,6 @@ import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -48,11 +47,6 @@ public class SearchTemplatePolicyTest {
     harness.setup();
     harness.installCatalog();
     dataset = harness.registry.getEntitySpec("dataset");
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
   }
 
   @Test

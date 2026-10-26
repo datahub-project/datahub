@@ -628,7 +628,7 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
         "{ \"window_size\": 10, \"query\": { \"rescore_query\": { \"match_all\": {} }, \"query_weight\": 1.0, \"rescore_query_weight\": 1.0 } }");
     store(SEARCH_TEMPLATE_FULLTEXT_URN, rescored);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(
+    useRuntime(
         new SearchTemplateCoordinator(
             elastic,
             null,

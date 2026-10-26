@@ -33,7 +33,6 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.sort.SortBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -71,12 +70,7 @@ public class SearchTemplateParityTest {
             SearchTemplateComponentRegistry.empty());
     javaBuilder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     dataset = harness.registry.getEntitySpec("dataset");
-    SearchTemplates.install(coordinator);
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
+    harness.opContext = harness.opContext.withSearchTemplateRuntime(coordinator);
   }
 
   @DataProvider
@@ -227,17 +221,11 @@ public class SearchTemplateParityTest {
         handler.getSearchRequest(scroll, "orders", filter, null, 0, 0, List.of("platform"));
     assertCountOnly(templateCount);
 
-    SearchTemplates.install(null);
-    SearchRequest javaRequest;
-    SearchRequest javaCount;
-    try {
-      javaRequest =
-          handler.getSearchRequest(scroll, "orders", filter, sort, 0, 10, List.of("platform"));
-      javaCount =
-          handler.getSearchRequest(scroll, "orders", filter, null, 0, 0, List.of("platform"));
-    } finally {
-      SearchTemplates.install(coordinator);
-    }
+    OperationContext javaScroll = scroll.withSearchTemplateRuntime(null);
+    SearchRequest javaRequest =
+        handler.getSearchRequest(javaScroll, "orders", filter, sort, 0, 10, List.of("platform"));
+    SearchRequest javaCount =
+        handler.getSearchRequest(javaScroll, "orders", filter, null, 0, 0, List.of("platform"));
     assertCountOnly(javaCount);
     String value = "urn:li:dataPlatform:hive";
     assertTrue(templateRequest.source().toString().contains(value), "template filter");

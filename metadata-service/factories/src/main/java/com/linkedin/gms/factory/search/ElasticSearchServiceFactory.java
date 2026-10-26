@@ -22,11 +22,9 @@ import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -109,9 +107,7 @@ public class ElasticSearchServiceFactory {
       final EntityDocumentIdHasher entityDocumentIdHasher,
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
-      final SearchClusterRegistry searchClusterRegistry,
-      @Nullable final SearchTemplateCoordinator searchTemplateCoordinator) {
-    SearchTemplates.installProcessWide(searchTemplateCoordinator);
+      final SearchClusterRegistry searchClusterRegistry) {
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -197,26 +193,29 @@ public class ElasticSearchServiceFactory {
   }
 
   @Bean
+  protected SearchTemplateComponentRegistry searchTemplateComponentRegistry(
+      final ObjectProvider<List<SearchTemplateComponent>> searchTemplateComponents) {
+    return new SearchTemplateComponentRegistry(searchTemplateComponents.getIfAvailable(List::of));
+  }
+
+  @Bean
   @Nullable
   protected SearchTemplateCoordinator searchTemplateCoordinator(
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       @Qualifier("searchTemplateLadderExecutor") final ExecutorService searchTemplateLadderExecutor,
-      final ObjectProvider<List<SearchTemplateComponent>> searchTemplateComponents) {
+      final SearchTemplateComponentRegistry searchTemplateComponentRegistry) {
     if (searchTemplateLoader == null) {
       return null;
     }
     searchTemplateLoader.installDocuments(
         new SearchTemplateDocumentSource(elasticSearchConfiguration.getEntityIndex()));
-    SearchTemplateComponentRegistry registry =
-        new SearchTemplateComponentRegistry(searchTemplateComponents.getIfAvailable(List::of));
-    SearchTemplateComponents.install(registry);
     return new SearchTemplateCoordinator(
         elasticSearchConfiguration,
         customSearchConfiguration,
         searchTemplateLoader,
         searchTemplateLadderExecutor,
-        registry);
+        searchTemplateComponentRegistry);
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")
