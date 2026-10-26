@@ -1353,6 +1353,7 @@ def test_binding_unresolved_variable_leaves_unbound(
     assert bindings[0].physical_urn is None
     assert bindings[0].unmapped_reason is not None
     assert "unresolved ODCS variable" in bindings[0].unmapped_reason
+    assert bindings[0].unresolved_variable
 
 
 def test_schema_assertion_excludes_measures() -> None:
@@ -1570,6 +1571,7 @@ def test_malformed_synonyms_and_deprecated_never_fail_the_contract() -> None:
                     {
                         "name": "col_a",
                         "deprecated": "maybe",
+                        "semanticType": 5,
                         "synonyms": [42, None, {"synonym": 5}, "ok", ["x"]],
                     },
                     {"name": "col_b", "synonyms": "abc"},
@@ -1717,4 +1719,78 @@ def test_binding_override_platform_ignores_catalog_url_variable() -> None:
     )
     assert binding.physical_urn == (
         "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
+    )
+
+
+def test_synonyms_with_no_valid_entry_leave_existing_ones_alone() -> None:
+    # Like a non-list value, a list with no usable entry is treated as absent;
+    # only an explicit empty list clears.
+    mcps = _logical_mcps(
+        [{"name": "t", "properties": [{"name": "col_a", "synonyms": [42, None]}]}]
+    )
+    assert not _aspects_for(
+        mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
+    )
+
+
+def test_binding_variable_in_server_name_is_unmappable_not_a_variable() -> None:
+    contract = _make_contract(
+        servers=[{"server": "${ENV}_wh", "type": "kafka"}],
+        schema=[{"name": "t"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn is None
+    assert not binding.unresolved_variable
+
+
+def test_binding_iceberg_warehouse_variable_is_a_variable_refusal() -> None:
+    binding = _iceberg_binding(
+        server={
+            "type": "iceberg",
+            "catalogUrl": "https://glue.us-east-1.amazonaws.com/iceberg",
+            "namespace": "sales",
+            "warehouse": "${WH}",
+        }
+    )
+    assert binding.physical_urn is None
+    assert binding.unresolved_variable
+    assert binding.unmapped_reason and "warehouse" in binding.unmapped_reason
+
+
+def test_binding_numeric_server_fields_are_accepted() -> None:
+    # YAML reads an unquoted account ID as an int; it must not reject the contract.
+    binding = _iceberg_binding(
+        server={
+            "type": "iceberg",
+            "catalogUrl": "https://glue.us-east-1.amazonaws.com/iceberg",
+            "namespace": "sales",
+            "warehouse": 123456789012,
+        }
+    )
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"
+    )
+    contract = _make_contract(
+        servers=[
+            {"server": "g", "type": "glue", "account": 123456789012, "database": 2024}
+        ],
+        schema=[{"name": "t", "physicalName": "orders"}],
+    )
+    (glue,) = odcs_to_physical_bindings(contract, _config())
+    assert glue.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,2024.orders,PROD)"
+    )
+
+
+def test_binding_iceberg_catalog_url_without_scheme() -> None:
+    binding = _iceberg_binding(
+        server={
+            "type": "iceberg",
+            "catalogUrl": "glue.us-east-1.amazonaws.com/iceberg",
+            "namespace": "Sales",
+        },
+        physical_name="Orders",
+    )
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"
     )

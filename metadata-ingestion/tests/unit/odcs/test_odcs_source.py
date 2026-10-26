@@ -2004,4 +2004,94 @@ def test_ai_context_skipped_when_existing_aspect_cannot_be_read(
     workunits = list(src.get_workunits_internal())
     # Never overwrite user-entered AI context blindly.
     assert not _ai_context_aspects(workunits)
+    assert src.report.ai_context_merge_skipped == 1
     assert any("AI context" in str(w.title) for w in src.report.warnings)
+
+
+def _synonym_source(
+    tmp_path: pathlib.Path, body: str, graph: Optional[Any] = None
+) -> ODCSSource:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    return _make_source(tmp_path, graph=graph, path=str(contract_file))
+
+
+def _graph_without_ai_context() -> MagicMock:
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = None
+    return graph
+
+
+def test_ai_context_written_when_field_has_none_yet(tmp_path: pathlib.Path) -> None:
+    # The normal first run under a REST sink.
+    src = _synonym_source(tmp_path, _SYNONYM_BODY, _graph_without_ai_context())
+    (ai,) = _ai_context_aspects(list(src.get_workunits_internal()))
+    assert ai.synonyms == ["fresh"]
+
+
+def test_empty_synonyms_skip_fields_without_ai_context(tmp_path: pathlib.Path) -> None:
+    body = _SYNONYM_BODY.replace(
+        "        synonyms:\n          - synonym: fresh\n", "        synonyms: []\n"
+    )
+    assert "synonyms: []" in body
+    src = _synonym_source(tmp_path, body, _graph_without_ai_context())
+    assert not _ai_context_aspects(list(src.get_workunits_internal()))
+
+
+def test_ai_context_without_graph_is_reported_once(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _SYNONYM_BODY)
+    assert _ai_context_aspects(list(src.get_workunits_internal()))
+    notes = [i for i in src.report.infos if "AI context" in str(i.title)]
+    assert len(notes) == 1
+
+
+_LOSSY_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: lossy
+version: 1.0.0
+status: active
+description:
+  purpose: Contract-level purpose.
+team:
+  - username: alice@example.com
+    role: data steward
+schema:
+  - name: t
+    description: Table description.
+    deprecated: "true"
+    quality:
+      - type: sql
+        query: SELECT COUNT(*) FROM t WHERE ts > ${CUTOFF}
+        mustBeLessThan: 10
+    properties:
+      - name: col_a
+        criticalDataElement: true
+        classification: confidential
+        semanticType: 5
+"""
+
+
+def _messages(entries: Any) -> str:
+    return " ".join(f"{e.title} {e.message} {e.context}" for e in entries)
+
+
+def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _LOSSY_BODY)
+    list(src.get_workunits_internal())
+    ignored = " ".join(src.report.spec_fields_ignored)
+    # Read by the model but not mapped.
+    assert "properties[0].criticalDataElement" in ignored
+    assert "properties[0].classification" in ignored
+    warnings = _messages(src.report.warnings)
+    # Off-spec values dropped by the model.
+    assert "schema[0].deprecated" in warnings
+    assert "properties[0].semanticType" in warnings
+    infos = _messages(src.report.infos)
+    # Contract description not applied to a table with its own description.
+    assert "contract description not applied" in infos
+    # Unresolved variable copied into a SQL assertion.
+    assert "${CUTOFF}" in warnings
+    # Owner role defaulted.
+    assert "data steward" in infos

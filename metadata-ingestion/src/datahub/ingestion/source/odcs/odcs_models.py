@@ -88,6 +88,25 @@ KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(
     )
 )
 
+# Fields the models read but no mapping uses. Reported with the spec-valid but
+# unmapped keys so nothing is dropped without a trace.
+READ_BUT_UNMAPPED_CONTRACT_FIELDS = frozenset(("contractCreatedTs",))
+READ_BUT_UNMAPPED_SCHEMA_FIELDS = frozenset(("businessName",))
+READ_BUT_UNMAPPED_PROPERTY_FIELDS = frozenset(
+    (
+        "classification",
+        "criticalDataElement",
+        "encryptedName",
+        "partitionKeyPosition",
+        "partitioned",
+        "primaryKeyPosition",
+        "unique",
+    )
+)
+READ_BUT_UNMAPPED_QUALITY_FIELDS = frozenset(("method", "schedule", "scheduler"))
+READ_BUT_UNMAPPED_SERVER_FIELDS = frozenset(("environment", "location", "region"))
+READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(("dateIn", "replacedByUsername"))
+
 # v3.1 adds `id` and `description` to authoritative-definition entries.
 KNOWN_UNMAPPED_AUTHDEF_FIELDS = frozenset(("description", "id"))
 
@@ -132,11 +151,23 @@ def _bool_or_none(value: object) -> Optional[bool]:
     return value if isinstance(value, bool) else None
 
 
-def _synonym_entries(value: object) -> Optional[list]:
-    """Keep spec-shaped synonym entries (strings or objects); drop the rest."""
+def _synonym_entries(value: object) -> Optional[List[Union[str, dict]]]:
+    """Keep usable synonym entries (strings, or objects with a string `synonym`).
+
+    An explicit empty list is kept (it clears earlier synonyms); a list in which
+    no entry is usable is treated like a missing key, the same as a non-list.
+    """
     if not isinstance(value, list):
         return None
-    return [e for e in value if isinstance(e, (str, dict))]
+    if not value:
+        return []
+    kept: List[Union[str, dict]] = [
+        e
+        for e in value
+        if isinstance(e, str)
+        or (isinstance(e, dict) and isinstance(e.get("synonym"), str))
+    ]
+    return kept or None
 
 
 # The v3.2 keys below were ignored before this source parsed them, so an
@@ -297,6 +328,10 @@ class ODCSTeam(ODCSBaseModel):
 
 
 class ODCSServer(ODCSBaseModel):
+    # YAML reads unquoted values such as an AWS account ID (`warehouse`,
+    # `account`) or a numeric database name as numbers.
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     server: str
     type: Optional[str] = None
     description: Optional[str] = None
