@@ -69,6 +69,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     icon,
     renderCustomOptionText,
     selectLabelProps,
+    filterResultsByQuery = true,
     onSearchChange,
     emptyState,
     descriptionMaxWidth,
@@ -112,7 +113,9 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const filteredOptions = useMemo(() => {
-        const filtered = options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()));
+        const filtered = filterResultsByQuery
+            ? options.filter((option) => option.label.toLowerCase().includes(searchQuery.toLowerCase()))
+            : options;
 
         if (!isMultiSelect || openSelectedValues.length === 0) return filtered;
 
@@ -122,7 +125,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
             const bSelected = selectedSet.has(b.value) ? 0 : 1;
             return aSelected - bSelected;
         });
-    }, [options, searchQuery, isMultiSelect, openSelectedValues]);
+    }, [options, searchQuery, filterResultsByQuery, isMultiSelect, openSelectedValues]);
 
     const handleSelectClick = useCallback(() => {
         if (!isDisabled && !isReadOnly) {

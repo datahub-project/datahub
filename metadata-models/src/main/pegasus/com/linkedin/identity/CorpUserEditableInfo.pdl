@@ -22,6 +22,9 @@ record CorpUserEditableInfo {
    */
   @Searchable = {
     "/*": {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "TEXT"
     }
   }
@@ -32,6 +35,9 @@ record CorpUserEditableInfo {
    */
   @Searchable = {
     "/*": {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "TEXT"
     }
   }
@@ -48,7 +54,16 @@ record CorpUserEditableInfo {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   displayName: optional string
 

@@ -31,13 +31,14 @@ import {
     isGhostEntity,
     onClickPreventSelect,
 } from '@app/lineageV3/common';
+import HorizontalHandle from '@app/lineageV3/components/HorizontalHandle';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import HealthIcon from '@app/previewV2/HealthIcon';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 
@@ -59,12 +60,6 @@ export const LoadingWrapper = styled.div`
     position: absolute;
     top: 10px;
     transform: translateY(-50%);
-`;
-
-const HorizontalHandle = styled(Handle)<{ position: Position }>`
-    background: initial;
-    border: initial;
-    ${({ position }) => (position === Position.Left ? 'left: 0;' : 'right: 0;')}
 `;
 
 const VerticalHandle = styled(Handle)<{ position: Position }>`

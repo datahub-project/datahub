@@ -12,6 +12,10 @@ record AgentSkillKey {
    * Unique identifier for the skill, e.g. "customer-service-skill" or a
    * generated UUID.
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   id: string
 }

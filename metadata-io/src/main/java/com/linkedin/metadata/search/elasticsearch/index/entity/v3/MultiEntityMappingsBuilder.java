@@ -22,11 +22,11 @@ import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -56,9 +56,9 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>Aspect-based field organization under {@code _aspects} object
  *   <li>Real root-level projected fields for the V2.5-compatible search surface
- *   <li>Root-level projected fields own copy_to into the {@code _search} aggregate fields
+ *   <li>Root-level projected fields own copy_to into the shared root labels
  *   <li>Structured properties support under {@code structuredProperties} field
- *   <li>Search label organization under {@code _search} object
+ *   <li>Search label organization at the document root
  * </ul>
  *
  * <p>Key features:
@@ -87,11 +87,7 @@ import lombok.extern.slf4j.Slf4j;
  *       }
  *     },
  *     "owners": { "type": "keyword" },
- *     "_search": {
- *       "properties": {
- *         "entityName": { "type": "keyword" }
- *       }
- *     }
+ *     "name": { "type": "keyword" }
  *   }
  * }
  * }</pre>
@@ -112,57 +108,26 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   private final int keywordMaxLength;
 
-  /** Engine-specific search-as-you-type shape of the {@code _search.autocomplete} ngram field. */
+  /** Engine-specific shape of a declared partial ngram subfield. */
   @Nonnull private final Map<String, String> partialNgramConfig;
 
   @Nonnull private final List<V3MappingContributor> mappingContributors;
 
   /**
-   * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
+   * Constructs a new MultiEntityMappingsBuilder.
    *
-   * <p>This constructor initializes the builder and optionally loads base mapping configuration
-   * from a resource file if specified in the configuration. The base configuration is merged with
-   * generated mappings to provide system-level field definitions.
+   * <p>Optionally loads base mapping configuration from a resource file if specified in the
+   * configuration. The base configuration is merged with generated mappings. Callers pass {@code
+   * null} for the search client, {@link ESUtils#KEYWORD_MAXLENGTH}, or {@link List#of()} when they
+   * have no engine-specific ngram config, keyword limit, or extra mapping contributor.
    *
    * @param entityIndexConfiguration the configuration containing v3 search settings and optional
    *     mapping configuration resource path
+   * @param searchClientShim engine client used for partial-ngram mapping, or null for the default
+   * @param keywordMaxLength maximum keyword length, or a non-positive value for the default
+   * @param mappingContributors extra V3 mapping contributors
    * @throws IOException if there's an error loading the mapping configuration resource
-   * @throws IllegalArgumentException if the configuration is null
    */
-  public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
-      throws IOException {
-    this(entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim)
-      throws IOException {
-    this(entityIndexConfiguration, searchClientShim, ESUtils.KEYWORD_MAXLENGTH, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
-      throws IOException {
-    this(entityIndexConfiguration, null, keywordMaxLength, List.of());
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      int keywordMaxLength,
-      @Nonnull List<V3MappingContributor> mappingContributors)
-      throws IOException {
-    this(entityIndexConfiguration, null, keywordMaxLength, mappingContributors);
-  }
-
-  public MultiEntityMappingsBuilder(
-      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
-      @Nullable SearchClientShim<?> searchClientShim,
-      int keywordMaxLength)
-      throws IOException {
-    this(entityIndexConfiguration, searchClientShim, keywordMaxLength, List.of());
-  }
-
   public MultiEntityMappingsBuilder(
       @Nonnull EntityIndexConfiguration entityIndexConfiguration,
       @Nullable SearchClientShim<?> searchClientShim,
@@ -190,8 +155,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   /**
    * {@inheritDoc}
    *
-   * <p>Generates index mappings for all search groups defined in the entity registry. Each search
-   * group gets its own index with mappings that support all entities within that group.
+   * <p>Generates one index mapping per V3 index key. Every index receives the same mapping, built
+   * from registry entities that declare at least one {@code @Searchable} field.
    *
    * @param opContext the operation context containing entity registry and search configuration
    * @return collection of index mappings, one per search group, or empty if v3 is disabled
@@ -217,26 +182,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   public Collection<IndexMapping> getIndexMappings(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-    if (entityIndexConfiguration.getV3().isEnabled()) {
-      // Generate one index mapping per V3 index key (explicit searchGroup, else unset fallback)
-      return V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).keySet().stream()
-          .map(
-              indexKey -> {
-                Map<String, Object> mappings =
-                    getMappingsForMultipleEntities(
-                        opContext.getEntityRegistry(), indexKey, structuredProperties);
-                return IndexMapping.builder()
-                    .indexName(
-                        opContext
-                            .getSearchContext()
-                            .getIndexConvention()
-                            .getEntityIndexNameV3(opContext, indexKey))
-                    .mappings(mappings)
-                    .build();
-              })
-          .collect(Collectors.toList());
+    if (!entityIndexConfiguration.getV3().isEnabled()) {
+      return Collections.emptyList();
     }
-    return Collections.emptyList();
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    return indexMappings(
+        opContext,
+        entityRegistry,
+        getMappingsForSearchableEntities(entityRegistry, structuredProperties));
   }
 
   /**
@@ -249,8 +202,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * @param opContext the operation context containing entity registry and search configuration
    * @param urn the URN of the entity for which to generate mappings
    * @param property the new structured property definition to include
-   * @return collection containing a single index mapping for the entity's search group, or empty if
-   *     v3 is disabled or entity has no search group
+   * @return the shared mapping for every V3 index, or empty if v3 is disabled or the property names
+   *     no known entity type
    */
   @Override
   public Collection<IndexMapping> getIndexMappingsWithNewStructuredProperty(
@@ -262,55 +215,51 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return Collections.emptyList();
     }
 
-    List<IndexMapping> result = new ArrayList<>();
-
-    // Get entity types from the property definition (e.g., urn:li:entityType:datahub.dataset)
     if (property.getEntityTypes() == null || property.getEntityTypes().isEmpty()) {
       log.warn("Property {} has no entity types defined", urn);
-      return result;
+      return Collections.emptyList();
     }
 
-    Map<String, List<EntitySpec>> searchGroupToEntitySpecs = new HashMap<>();
-
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    boolean knownEntityType = false;
     for (Urn entityTypeUrn : property.getEntityTypes()) {
-      // Extract entity type name from URN, handling both formats:
-      // - urn:li:entityType:dataset (legacy)
-      // - urn:li:entityType:datahub.dataset (production)
       String entityTypeName = getEntityTypeId(entityTypeUrn);
       if (entityTypeName == null) {
         log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
         continue;
       }
-
-      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
-
-      if (entitySpec != null) {
-        String indexKey = V3IndexKeys.resolve(entitySpec);
-        searchGroupToEntitySpecs.computeIfAbsent(indexKey, k -> new ArrayList<>()).add(entitySpec);
+      if (entityRegistry.getEntitySpec(entityTypeName) != null) {
+        knownEntityType = true;
       } else {
         log.warn("Missing entitySpec for entity type: {}", entityTypeName);
       }
     }
-
-    // Build mappings for each search group
-    for (Map.Entry<String, List<EntitySpec>> entry : searchGroupToEntitySpecs.entrySet()) {
-      String searchGroup = entry.getKey();
-      Map<String, Object> mappings =
-          getMappingsForMultipleEntities(
-              opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
-
-      result.add(
-          IndexMapping.builder()
-              .indexName(
-                  opContext
-                      .getSearchContext()
-                      .getIndexConvention()
-                      .getEntityIndexNameV3(opContext, searchGroup))
-              .mappings(mappings)
-              .build());
+    if (!knownEntityType) {
+      return Collections.emptyList();
     }
 
-    return result;
+    return indexMappings(
+        opContext,
+        entityRegistry,
+        getMappingsForSearchableEntities(entityRegistry, List.of(Pair.of(urn, property))));
+  }
+
+  private List<IndexMapping> indexMappings(
+      @Nonnull OperationContext opContext,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull Map<String, Object> sharedMappings) {
+    return V3IndexKeys.groupEntitySpecs(entityRegistry).keySet().stream()
+        .map(
+            indexKey ->
+                IndexMapping.builder()
+                    .indexName(
+                        opContext
+                            .getSearchContext()
+                            .getIndexConvention()
+                            .getEntityIndexNameV3(opContext, indexKey))
+                    .mappings(deepCopyMap(sharedMappings))
+                    .build())
+        .collect(Collectors.toList());
   }
 
   /**
@@ -365,38 +314,21 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Builds mappings from multiple entity specs and a collection of structured properties. This
-   * method aggregates mappings from all entities and merges them into a single mapping structure.
-   * Fields are structured based on aspect names to provide better organization.
-   *
-   * <p>This method performs the following operations:
-   *
-   * <ul>
-   *   <li>Extracts all entity specs for the given search group
-   *   <li>Detects and resolves field name and type conflicts
-   *   <li>Generates mappings for each entity spec
-   *   <li>Merges all mappings into a unified structure
-   *   <li>Creates real root-level projected fields
-   *   <li>Merges with base configuration if available
-   *   <li>Builds the _search section for label organization
-   * </ul>
+   * Builds one mapping from every registry entity that declares a searchable field. Entities with
+   * none are not inputs. Contributor fields are unioned across every index key onto that mapping.
    *
    * @param entityRegistry entity registry containing all entity specifications
-   * @param searchGroup the search group to get entities from
-   * @param structuredProperties structured properties for all entities
-   * @return combined mappings with aspect-based field structure for all entities
-   * @throws IllegalArgumentException if the searchGroup does not exist in the registry
+   * @param structuredProperties structured properties included in the shared mapping
+   * @return the shared mapping applied to every V3 index
    */
-  private Map<String, Object> getMappingsForMultipleEntities(
+  private Map<String, Object> getMappingsForSearchableEntities(
       @Nonnull EntityRegistry entityRegistry,
-      @Nonnull String searchGroup,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
-    // Extract entity specs from the registry based on searchGroup
-    Collection<EntitySpec> entitySpecs = V3IndexKeys.entitySpecsForKey(entityRegistry, searchGroup);
+    List<EntitySpec> entitySpecs = searchableEntitySpecs(entityRegistry);
 
     if (entitySpecs.isEmpty()) {
-      log.warn("No entities found for search group '{}'", searchGroup);
+      log.warn("No searchable entities found for the shared V3 mapping");
       return new HashMap<>();
     }
 
@@ -445,8 +377,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       } catch (IllegalArgumentException e) {
         throw new IllegalArgumentException(
             String.format(
-                "Non-resolvable field type conflicts detected in search group '%s'. %s",
-                searchGroup, e.getMessage()),
+                "Non-resolvable field type conflicts detected across searchable entities. %s",
+                e.getMessage()),
             e);
       }
     }
@@ -461,7 +393,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
               entitySpec,
               structuredProperties,
               fieldNameConflicts,
-              fieldNameAliasConflicts);
+              fieldNameAliasConflicts,
+              entitySpecs);
       combinedMappings = MultiEntityMappingsUtils.mergeMappings(combinedMappings, entityMappings);
     }
 
@@ -483,9 +416,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     applyGeneratedRootSystemMappings(combinedMappings);
 
-    applyMappingContributors(combinedMappings, searchGroup);
+    applyUnifiedMappingContributors(combinedMappings, entityRegistry);
 
-    // Build _search section with all copy_to destination fields
+    // Shared labels are root fields. The base mapping's _search object is not part of the index.
     Map<String, Object> searchSection =
         MultiEntityMappingsUtils.buildSearchSection(
             entitySpecs, combinedMappings, partialNgramConfig);
@@ -493,8 +426,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @SuppressWarnings("unchecked")
       Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
       if (properties != null) {
-        keepBaseSearchFields(properties.get("_search"), searchSection);
-        properties.put("_search", searchSection);
+        placeSharedFieldsAtRoot(properties, searchSection);
       }
     }
 
@@ -502,22 +434,56 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * The base configuration types the {@code _search._system_*} fields that per-aspect system
-   * metadata copies into; without them the engine maps those copies dynamically. Fields built from
-   * the models' search labels take precedence.
+   * Puts each shared label on the document root. When a source field has the label's name, that
+   * document path is the label: the label mapping replaces the root projection and keeps {@code
+   * copy_to}. Cross-aspect system metadata stays in the root {@code _system} object.
    */
   @SuppressWarnings("unchecked")
-  private static void keepBaseSearchFields(
-      @Nullable final Object baseSearchSection, @Nonnull final Map<String, Object> searchSection) {
-    if (!(baseSearchSection instanceof Map)
-        || !(((Map<String, Object>) baseSearchSection).get(PROPERTIES) instanceof Map)) {
-      return;
+  private static void placeSharedFieldsAtRoot(
+      @Nonnull final Map<String, Object> properties,
+      @Nonnull final Map<String, Object> searchSection) {
+    properties.remove("_search");
+    final Map<String, Object> searchProperties =
+        searchSection.get(PROPERTIES) instanceof Map
+            ? new HashMap<>((Map<String, Object>) searchSection.get(PROPERTIES))
+            : new HashMap<>();
+    searchProperties.forEach(
+        (name, mapping) -> {
+          if (name.startsWith("_")
+              || name.endsWith(V3SearchFields.FULL_URN_SUFFIX) && properties.containsKey(name)
+              || isObjectMapping(properties.get(name))) {
+            return;
+          }
+          if (properties.get(name) instanceof Map) {
+            properties.put(name, withPreservedCopyTo(properties.get(name), mapping));
+          } else if (!properties.containsKey(name)) {
+            properties.put(name, mapping);
+          }
+        });
+  }
+
+  /**
+   * An object mapping, such as the structured-property value object, cannot take analyzed
+   * subfields.
+   */
+  private static boolean isObjectMapping(@Nullable final Object mapping) {
+    return mapping instanceof Map<?, ?> field
+        && ("object".equals(field.get(TYPE)) || field.get(PROPERTIES) instanceof Map);
+  }
+
+  /**
+   * The label mapping replaces a same-named root projection. {@code copy_to} on the projection
+   * still feeds other destinations, such as {@code autocomplete}.
+   */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> withPreservedCopyTo(
+      @Nonnull final Object existing, @Nonnull final Object mapping) {
+    final Map<String, Object> replaced = new HashMap<>((Map<String, Object>) mapping);
+    final Object copyTo = ((Map<String, Object>) existing).get(COPY_TO);
+    if (copyTo != null) {
+      replaced.put(COPY_TO, copyTo);
     }
-    final Map<String, Object> merged =
-        new HashMap<>(
-            (Map<String, Object>) ((Map<String, Object>) baseSearchSection).get(PROPERTIES));
-    merged.putAll((Map<String, Object>) searchSection.get(PROPERTIES));
-    searchSection.put(PROPERTIES, merged);
+    return replaced;
   }
 
   @SuppressWarnings("unchecked")
@@ -533,10 +499,15 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         existingUrnMapping instanceof Map
             ? new HashMap<>((Map<String, Object>) existingUrnMapping)
             : new HashMap<>(Map.of(TYPE, ESUtils.KEYWORD_FIELD_TYPE));
-    // Exact urn matches use the keyword; full-text search finds the urn's parts in _search.other,
-    // as V2 searches the urn by default
-    urnMapping.put(COPY_TO, List.of(V3SearchFields.path(V3SearchFields.OTHER)));
+    // The document URN is an exact key. Case-insensitive match reads urn.lowercase. The parsed
+    // identity is urn_name, in its original case, with urn_name.lowercase.
+    urnMapping.remove(COPY_TO);
+    urnMapping.remove(ESUtils.IGNORE_ABOVE);
+    urnMapping.remove("normalizer");
+    urnMapping.put(
+        "fields", Map.of(V3SearchFields.LOWERCASE, V3SearchFields.lowercaseKeywordField()));
     properties.put("urn", urnMapping);
+    properties.put(MappingConstants.URN_NAME_FIELD, V3SearchFields.fullUrnRootMapping());
     // The projector writes _entityType into every V3 document; without an explicit mapping,
     // dynamic mapping makes it analyzed text and the entity-type facet aggregation (and exact
     // filters on camelCase entity names) fail on the consolidated index. No normalizer: the
@@ -545,30 +516,71 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         V3SearchDocumentProjector.ENTITY_TYPE_FIELD, new HashMap<>(Map.of(TYPE, "keyword")));
   }
 
-  private void applyMappingContributors(
-      @Nonnull Map<String, Object> combinedMappings, @Nonnull String searchGroup) {
+  /**
+   * Registry entities that declare at least one {@code @Searchable} field, in name order so the
+   * merged mapping does not depend on registry iteration order.
+   */
+  @Nonnull
+  private static List<EntitySpec> searchableEntitySpecs(@Nonnull EntityRegistry entityRegistry) {
+    return V3SearchFields.searchableEntitySpecs(entityRegistry);
+  }
+
+  /**
+   * Unions contributor roots across every index key. An identical field is kept once. A different
+   * mapping for the same name fails the build.
+   */
+  @SuppressWarnings("unchecked")
+  private void applyUnifiedMappingContributors(
+      @Nonnull Map<String, Object> combinedMappings, @Nonnull EntityRegistry entityRegistry) {
     if (mappingContributors.isEmpty()) {
       return;
     }
-    @SuppressWarnings("unchecked")
-    Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
+    Map<String, Object> properties = (Map<String, Object>) combinedMappings.get(PROPERTIES);
     if (properties == null) {
       properties = new HashMap<>();
-      combinedMappings.put("properties", properties);
+      combinedMappings.put(PROPERTIES, properties);
     }
-    for (V3MappingContributor contributor : mappingContributors) {
-      Map<String, Object> extras = contributor.extraRootProperties(searchGroup);
-      for (Map.Entry<String, Object> extra : extras.entrySet()) {
-        if (properties.containsKey(extra.getKey())
-            || MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {
-          throw new IllegalArgumentException(
-              "V3 mapping contributor attempted to overwrite existing property '"
-                  + extra.getKey()
-                  + "'");
+    for (String indexKey : V3IndexKeys.groupEntitySpecs(entityRegistry).keySet()) {
+      for (V3MappingContributor contributor : mappingContributors) {
+        for (Map.Entry<String, Object> extra :
+            contributor.extraRootProperties(indexKey).entrySet()) {
+          if (MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {
+            throw new IllegalArgumentException(
+                "V3 mapping contributor attempted to overwrite existing property '"
+                    + extra.getKey()
+                    + "'");
+          }
+          Object existing = properties.get(extra.getKey());
+          if (existing == null) {
+            properties.put(extra.getKey(), extra.getValue());
+          } else if (!existing.equals(extra.getValue())) {
+            throw new IllegalArgumentException(
+                "V3 mapping contributor field '" + extra.getKey() + "' differs across indexes");
+          }
         }
-        properties.put(extra.getKey(), extra.getValue());
       }
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> deepCopyMap(@Nonnull Map<String, Object> source) {
+    return (Map<String, Object>) deepCopy(source);
+  }
+
+  private static Object deepCopy(@Nullable Object value) {
+    if (value instanceof Map<?, ?> map) {
+      Map<String, Object> copy = new HashMap<>();
+      map.forEach((key, child) -> copy.put(String.valueOf(key), deepCopy(child)));
+      return copy;
+    }
+    if (value instanceof List<?> list) {
+      List<Object> copy = new ArrayList<>();
+      for (Object child : list) {
+        copy.add(deepCopy(child));
+      }
+      return copy;
+    }
+    return value;
   }
 
   /**
@@ -596,7 +608,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull final EntitySpec entitySpec,
       @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
       @Nullable Map<String, Set<String>> fieldNameConflicts,
-      @Nullable Map<String, Set<String>> fieldNameAliasConflicts) {
+      @Nullable Map<String, Set<String>> fieldNameAliasConflicts,
+      @Nonnull Collection<EntitySpec> indexGroup) {
 
     // Use empty collections as defaults for null parameters
     if (structuredProperties == null) {
@@ -612,7 +625,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     // Create aspect mappings using AspectMappingBuilder
     Map<String, Object> aspectMappings =
         AspectMappingBuilder.createAspectMappings(
-            entitySpec, finalFieldNameConflicts, fieldNameAliasConflicts);
+            entitySpec, finalFieldNameConflicts, fieldNameAliasConflicts, indexGroup);
 
     // Log aspect mappings
     for (Map.Entry<String, Object> entry : aspectMappings.entrySet()) {
@@ -702,7 +715,13 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   public Map<String, Object> getIndexMappings(
       @Nonnull EntityRegistry entityRegistry, @Nonnull EntitySpec entitySpec) {
-    return getIndexMappings(entityRegistry, entitySpec, null, null, null);
+    return getIndexMappings(
+        entityRegistry,
+        entitySpec,
+        null,
+        null,
+        null,
+        V3SearchFields.indexGroupSpecs(entityRegistry, List.of(entitySpec)));
   }
 
   /**
@@ -718,7 +737,13 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final EntitySpec entitySpec,
       @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
-    return getIndexMappings(entityRegistry, entitySpec, structuredProperties, null, null);
+    return getIndexMappings(
+        entityRegistry,
+        entitySpec,
+        structuredProperties,
+        null,
+        null,
+        V3SearchFields.indexGroupSpecs(entityRegistry, List.of(entitySpec)));
   }
 
   /**
@@ -759,6 +784,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     String aspectName = aspectSpec.getName();
 
     for (SearchableFieldSpec searchableFieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
+        continue;
+      }
       FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
 
       // Skip object field types from root projection unless handled through field aliases.
@@ -860,7 +888,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * @param rootFields map to populate with root field configurations
    * @param fieldNameToAllPaths map of field names to all their paths
    * @param entitySpecs all entity specifications for type resolution
-   * @param entityNameFallbacks fields that feed {@code _search.entityName} without naming it
+   * @param entityNameFallbacks fields that feed the root field {@code name} without naming it
    */
   private static void createRootFieldsForFieldNames(
       @Nonnull Map<String, Object> rootFields,
@@ -868,6 +896,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull Collection<EntitySpec> entitySpecs,
       @Nonnull Set<SearchableFieldSpec> entityNameFallbacks) {
 
+    V3SearchFields.validateFullUrnSiblings(entitySpecs);
     final Map<String, List<SearchableFieldSpec>> sharedFieldSources =
         V3SearchFields.rootSourceFieldSpecs(entitySpecs);
     for (Map.Entry<String, Set<String>> entry : fieldNameToAllPaths.entrySet()) {
@@ -940,10 +969,10 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Aliases {@code _entityName} to {@code _search.entityName} when a root field of the index copies
-   * into it. Otherwise the alias points at the root field it names, as on V2: with one index per
-   * entity, {@code _search.entityName} is only mapped when a field feeds it, and an alias to an
-   * unmapped field makes the index mapping invalid.
+   * Aliases {@code _entityName} to the root field {@code name} when a root field of the index
+   * copies into it. Otherwise the alias points at the root field it names, as on V2: {@code name}
+   * is only mapped as a shared field when a field feeds it, and an alias to an unmapped field makes
+   * the index mapping invalid.
    */
   private static Map<String, Object> createEntityNameAliasMapping(
       @Nonnull String alias,
@@ -981,9 +1010,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           continue;
         }
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          fieldSpec
-              .getSearchableAnnotation()
-              .getHasValuesFieldName()
+          if (!fieldSpec.getSearchableAnnotation().isV3Searchable()) {
+            continue;
+          }
+          SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+          resolved
+              .indexedHasValuesFieldName()
+              .ifPresent(
+                  fieldName ->
+                      rootFields.putIfAbsent(
+                          fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
+          SearchableAnnotation.sharedHasValuesName(resolved)
               .ifPresent(
                   fieldName ->
                       rootFields.putIfAbsent(
@@ -995,18 +1032,20 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
                   fieldName ->
                       rootFields.putIfAbsent(
                           fieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE)));
-          ESUtils.getSystemModifiedAtFieldName(fieldSpec)
-              .ifPresent(
-                  fieldName ->
-                      rootFields.putIfAbsent(
-                          fieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE)));
+          if (fieldSpec.getSearchableAnnotation().resolvedForV3().isIncludeSystemModifiedAt()) {
+            ESUtils.getSystemModifiedAtFieldName(fieldSpec)
+                .ifPresent(
+                    fieldName ->
+                        rootFields.putIfAbsent(
+                            fieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE)));
+          }
         }
       }
     }
   }
 
   /**
-   * @param entityNameFallbacks fields that feed {@code _search.entityName} without naming it
+   * @param entityNameFallbacks fields that feed the root field {@code name} without naming it
    * @param sharedFieldSources every source field of the root field, whose shared {@code _search}
    *     fields it copies into (see {@link V3SearchFields#rootSourceFieldSpecs}); none for an alias
    */
@@ -1018,15 +1057,35 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull Set<SearchableFieldSpec> entityNameFallbacks,
       @Nonnull List<SearchableFieldSpec> sharedFieldSources) {
 
+    if (V3SearchFields.omitsSourceRoot(rootFieldName, entitySpecs)) {
+      log.debug(
+          "Omitting root projection '{}' because every source uses a different search label",
+          rootFieldName);
+      return;
+    }
     final List<SearchableFieldSpec> sourceFieldSpecs =
         findSearchableFieldSpecsForPaths(entitySpecs, allPaths);
     final Map<String, Object> rootFieldMapping =
-        resolveProjectedRootFieldMapping(rootFieldName, sourceFieldSpecs);
+        resolveProjectedRootFieldMapping(rootFieldName, sourceFieldSpecs, entitySpecs, allPaths);
 
     addSearchCopyToDestinations(
         rootFieldMapping, sharedFieldSources, rootFieldName, entityNameFallbacks);
 
     rootFields.put(rootFieldName, rootFieldMapping);
+    if (V3SearchFields.isParsedUrnRoot(rootFieldName, entitySpecs)) {
+      final String sibling = V3SearchFields.fullUrnField(rootFieldName);
+      if (rootFields.containsKey(sibling)) {
+        throw new IllegalArgumentException(
+            "Search V3 field '"
+                + sibling
+                + "' collides with the full URN sibling of '"
+                + rootFieldName
+                + "'");
+      }
+      final Map<String, Object> fullUrn = V3SearchFields.fullUrnRootMapping();
+      applyProjectedRootFieldOptions(fullUrn, sourceFieldSpecs);
+      rootFields.put(sibling, fullUrn);
+    }
     log.debug("Creating real root projection field '{}'", rootFieldName);
   }
 
@@ -1060,8 +1119,70 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return sourceFieldSpecs;
   }
 
+  private static String describeProjectedRootContributor(
+      @Nonnull EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      @Nonnull SearchableFieldSpec fieldSpec,
+      @Nonnull FieldMapping root) {
+    SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
+    return String.format(
+        "%s.%s %s fieldName=%s fieldType=%s %s index=%s docValues=%s",
+        entitySpec.getName(),
+        aspectSpec.getName(),
+        fieldSpec.getPath(),
+        annotation.getFieldName(),
+        annotation.getFieldType(),
+        root.getType(),
+        root.isIndex(),
+        root.isDocValues());
+  }
+
+  private static List<String> describeProjectedRootContributors(
+      @Nonnull Collection<EntitySpec> entitySpecs, @Nonnull Set<String> allPaths) {
+    final List<String> contributors = new ArrayList<>();
+    FieldMapping reference = null;
+    String referenceDescription = null;
+    for (String path : allPaths) {
+      final String[] pathParts = path.split("\\.", 3);
+      if (pathParts.length < 3) {
+        continue;
+      }
+      final String aspectName = pathParts[1];
+      final String fieldName = pathParts[2];
+      for (EntitySpec entitySpec : entitySpecs) {
+        for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+          if (!aspectName.equals(aspectSpec.getName())) {
+            continue;
+          }
+          for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+            if (!fieldName.equals(fieldSpec.getSearchableAnnotation().getFieldName())) {
+              continue;
+            }
+            FieldMapping root =
+                FieldMapping.rootOf(FieldMapping.of(fieldSpec.getSearchableAnnotation()));
+            String description =
+                describeProjectedRootContributor(entitySpec, aspectSpec, fieldSpec, root);
+            if (reference == null) {
+              reference = root;
+              referenceDescription = description;
+            } else if (!reference.sameRoot(root)) {
+              contributors.add(description);
+            }
+          }
+        }
+      }
+    }
+    if (referenceDescription != null && !contributors.isEmpty()) {
+      contributors.add(0, referenceDescription);
+    }
+    return contributors;
+  }
+
   private static Map<String, Object> resolveProjectedRootFieldMapping(
-      @Nonnull String rootFieldName, @Nonnull List<SearchableFieldSpec> sourceFieldSpecs) {
+      @Nonnull String rootFieldName,
+      @Nonnull List<SearchableFieldSpec> sourceFieldSpecs,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull Set<String> allPaths) {
     if (sourceFieldSpecs.isEmpty()) {
       log.warn(
           "Could not find source fields for V3 root projection '{}', defaulting to keyword",
@@ -1069,35 +1190,28 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return new HashMap<>(FieldTypeMapper.getMappingsForKeyword());
     }
 
-    final Set<String> elasticsearchTypes =
+    final List<FieldMapping> roots =
         sourceFieldSpecs.stream()
             .map(
                 fieldSpec ->
-                    FieldTypeMapper.getElasticsearchTypeForFieldType(
-                        fieldSpec.getSearchableAnnotation().getFieldType(), fieldSpec))
-            .collect(Collectors.toSet());
-
-    final String resolvedElasticsearchType;
-    try {
-      resolvedElasticsearchType = ConflictResolver.resolveTypeConflict(elasticsearchTypes);
-    } catch (IllegalArgumentException e) {
+                    FieldMapping.rootOf(FieldMapping.of(fieldSpec.getSearchableAnnotation())))
+            .collect(Collectors.toList());
+    final FieldMapping root = roots.get(0);
+    if (roots.stream().anyMatch(other -> !root.sameRoot(other))) {
       throw new IllegalArgumentException(
           String.format(
-              "Non-resolvable field type conflict for projected root field '%s' with types %s. %s",
-              rootFieldName, elasticsearchTypes, e.getMessage()),
-          e);
+              "Projected root field '%s' contributors must resolve to the same V3 root: %s",
+              rootFieldName,
+              String.join("; ", describeProjectedRootContributors(entitySpecs, allPaths))));
     }
-    // The field is mapped as its source fields of the resolved type are, subfields included
-    final List<SearchableFieldSpec> resolvedFieldSpecs =
-        sourceFieldSpecs.stream()
-            .filter(
-                fieldSpec ->
-                    resolvedElasticsearchType.equals(
-                        FieldTypeMapper.getElasticsearchTypeForFieldType(
-                            fieldSpec.getSearchableAnnotation().getFieldType(), fieldSpec)))
-            .collect(Collectors.toList());
+    if (sourceFieldSpecs.stream().allMatch(MultiEntityMappingsBuilder::isExactUrnValue)
+        && V3SearchFields.isParsedUrnRoot(rootFieldName, entitySpecs)) {
+      return V3SearchFields.parsedUrnRootMapping(
+          V3SearchFields.urnRootHasAnalyzers(rootFieldName, entitySpecs));
+    }
+    // The source field stores the exact root. Analyzer subfields live on the shared label.
     final Map<String, Object> rootFieldMapping =
-        new HashMap<>(FieldTypeMapper.getRichestCompatibleMapping(resolvedFieldSpecs));
+        new HashMap<>(FieldTypeMapper.mappingForRoot(root, sourceFieldSpecs.get(0)));
 
     applyProjectedRootFieldOptions(rootFieldMapping, sourceFieldSpecs);
     return rootFieldMapping;
@@ -1124,6 +1238,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   @SuppressWarnings("unchecked")
   private static void putEagerGlobalOrdinals(@Nonnull Map<String, Object> fieldMapping) {
+    if (fieldMapping.get(PROPERTIES) instanceof Map<?, ?> properties
+        && properties.get(ESUtils.KEYWORD) instanceof Map<?, ?> keywordProperty) {
+      ((Map<String, Object>) keywordProperty).put("eager_global_ordinals", true);
+      return;
+    }
     if (fieldMapping.get(ESUtils.FIELDS) instanceof Map<?, ?> subfields
         && subfields.get(ESUtils.KEYWORD) instanceof Map<?, ?> keyword) {
       Map<String, Object> keywordMapping = new HashMap<>((Map<String, Object>) keyword);
@@ -1134,6 +1253,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return;
     }
     fieldMapping.put("eager_global_ordinals", true);
+  }
+
+  /** A raw URN is stored exactly. Its full-text identity is projected separately. */
+  private static boolean isExactUrnValue(@Nonnull SearchableFieldSpec fieldSpec) {
+    SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
+    FieldType fieldType = annotation.getFieldType();
+    if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+      return true;
+    }
+    return FieldMapping.of(annotation).stream()
+        .anyMatch(mapping -> mapping.isRoot() && mapping.getType() == FieldMapping.Type.URN);
   }
 
   private static boolean isEagerGlobalOrdinalsSupported(@Nonnull final FieldType fieldType) {
@@ -1147,15 +1277,23 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull List<SearchableFieldSpec> sourceFieldSpecs,
       @Nonnull String rootFieldName,
       @Nonnull Set<SearchableFieldSpec> entityNameFallbacks) {
+    final boolean exactUrnValue =
+        !sourceFieldSpecs.isEmpty()
+            && sourceFieldSpecs.stream().allMatch(MultiEntityMappingsBuilder::isExactUrnValue);
+    // The parsed-name keyword under the aspect copies a URN. The raw value stays exact.
+    if (exactUrnValue) {
+      return;
+    }
     final List<String> copyToDestinations =
         V3SearchFields.destinations(sourceFieldSpecs, entityNameFallbacks).stream()
             .map(V3SearchFields::path)
+            .filter(destination -> !destination.equals(rootFieldName))
             .collect(Collectors.toList());
 
     if (!copyToDestinations.isEmpty()) {
       rootFieldMapping.put(COPY_TO, copyToDestinations);
       log.debug(
-          "Adding _search copy_to destinations for root projection field '{}': {}",
+          "Adding copy_to destinations for root projection field '{}': {}",
           rootFieldName,
           copyToDestinations);
     }
@@ -1219,17 +1357,28 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   /**
    * Gets the mappings for a field's copy under {@code _aspects.<aspect>}, which stays unanalyzed
-   * (see {@link FieldTypeMapper#getAspectMappingsForFieldType}) and copies into no {@code _search}
-   * field.
+   * (see {@link FieldTypeMapper#mappingForAspectRoot}). A field also projected to the document root
+   * leaves this copy unindexed unless {@code v3.source} re-enables index or doc values. A field
+   * whose search label differs from its source name carries {@code copy_to} into that label, even
+   * when another entity keeps a root with the same source name.
    */
   public static Map<String, Object> getAspectMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec, @Nonnull final String aspectName) {
+    if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
+      return Map.of();
+    }
+    SearchableAnnotation annotation = searchableFieldSpec.getSearchableAnnotation().resolvedForV3();
+    FieldMapping root = FieldMapping.rootOf(FieldMapping.of(annotation));
+    boolean copyToLabel =
+        annotation
+            .indexedFieldName()
+            .filter(label -> !label.equals(annotation.getFieldName()))
+            .isPresent();
     return buildFieldMappings(
         searchableFieldSpec,
         aspectName,
-        false,
-        FieldTypeMapper.getAspectMappingsForFieldType(
-            searchableFieldSpec.getSearchableAnnotation().getFieldType(), searchableFieldSpec));
+        copyToLabel,
+        FieldTypeMapper.mappingForAspectRoot(root, searchableFieldSpec));
   }
 
   private static Map<String, Object> buildFieldMappings(
@@ -1237,6 +1386,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull final String aspectName,
       final boolean includeSearchCopyTo,
       @Nonnull final Map<String, Object> fieldTypeMapping) {
+    if (!searchableFieldSpec.getSearchableAnnotation().isV3Searchable()) {
+      return Map.of();
+    }
     FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
     String baseFieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
 
@@ -1248,35 +1400,37 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappings = new HashMap<>();
     Map<String, Object> mappingForField = new HashMap<>(fieldTypeMapping);
 
-    // Handle eagerGlobalOrdinals - set eager_global_ordinals to true if specified and field type is
-    // appropriate
-    searchableFieldSpec
-        .getSearchableAnnotation()
-        .getEagerGlobalOrdinals()
-        .ifPresent(
-            eagerGlobalOrdinals -> {
-              if (eagerGlobalOrdinals) {
-                // Only apply eager_global_ordinals to appropriate field types
-                if (fieldType == FieldType.KEYWORD
-                    || fieldType == FieldType.URN
-                    || fieldType == FieldType.URN_PARTIAL) {
-                  putEagerGlobalOrdinals(mappingForField);
-                  log.debug("Setting eager_global_ordinals=true for field '{}'", baseFieldName);
-                } else {
-                  log.debug(
-                      "Skipping eager_global_ordinals for field '{}' with field type '{}' (not supported)",
-                      baseFieldName,
-                      fieldType);
-                }
-              }
-            });
-
     if (includeSearchCopyTo) {
       addSearchCopyToDestinations(
           mappingForField, List.of(searchableFieldSpec), baseFieldName, Set.of());
     }
 
-    applyProjectedRootFieldOptions(mappingForField, List.of(searchableFieldSpec));
+    // An unindexed aspect copy has no ordinals. copy_to on that copy still reaches the label.
+    if (!Boolean.FALSE.equals(mappingForField.get(ESUtils.INDEX))) {
+      // Handle eagerGlobalOrdinals - set eager_global_ordinals to true if specified and field type
+      // is appropriate
+      searchableFieldSpec
+          .getSearchableAnnotation()
+          .getEagerGlobalOrdinals()
+          .ifPresent(
+              eagerGlobalOrdinals -> {
+                if (eagerGlobalOrdinals) {
+                  // Only apply eager_global_ordinals to appropriate field types
+                  if (fieldType == FieldType.KEYWORD
+                      || fieldType == FieldType.URN
+                      || fieldType == FieldType.URN_PARTIAL) {
+                    putEagerGlobalOrdinals(mappingForField);
+                    log.debug("Setting eager_global_ordinals=true for field '{}'", baseFieldName);
+                  } else {
+                    log.debug(
+                        "Skipping eager_global_ordinals for field '{}' with field type '{}' (not supported)",
+                        baseFieldName,
+                        fieldType);
+                  }
+                }
+              });
+      applyProjectedRootFieldOptions(mappingForField, List.of(searchableFieldSpec));
+    }
 
     // Create field directly under aspect name (not prefixed)
     // For MAP_ARRAY fields with "/$key" field name, use the schema field name instead
@@ -1303,8 +1457,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
               mappings.put(numValuesFieldName, ImmutableMap.of(TYPE, ESUtils.LONG_FIELD_TYPE));
             });
 
-    // Add systemModifiedAt field if specified
-    if (ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
+    // Add systemModifiedAt field if V3 still searches the V2 sidecar
+    if (searchableFieldSpec.getSearchableAnnotation().resolvedForV3().isIncludeSystemModifiedAt()
+        && ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).isPresent()) {
       String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(searchableFieldSpec).get();
       mappings.put(modifiedAtFieldName, ImmutableMap.of(TYPE, ESUtils.DATE_FIELD_TYPE));
     }
@@ -1338,20 +1493,10 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     String baseFieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
 
-    final Map<String, Object> urnMapping;
-    if (aspectCopy) {
-      urnMapping = FieldTypeMapper.getMappingsForUrn();
-    } else if (queriedByDefault) {
-      // V2 searches the urn of every reference it searches
-      urnMapping =
-          Map.of(
-              TYPE,
-              ESUtils.KEYWORD_FIELD_TYPE,
-              COPY_TO,
-              List.of(V3SearchFields.path(V3SearchFields.OTHER)));
-    } else {
-      urnMapping = Map.of(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
-    }
+    // The reference URN stays exact. A referenced name that is queried by default still copies
+    // into other; the raw URN does not.
+    final Map<String, Object> urnMapping =
+        aspectCopy ? FieldTypeMapper.getMappingsForUrn() : Map.of(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     if (depth == 0) {
       mappings.put(baseFieldName, urnMapping);
       return mappings;
@@ -1394,8 +1539,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   /**
    * A referenced entity's field under a reference field. When full-text search reads the reference,
-   * its string values queried by default copy into {@code _search.other}, as V2 searches them at
-   * the reference's boost; never into the shared fields that name the referencing entity.
+   * its string values queried by default copy into the root field {@code other}, as V2 searches
+   * them at the reference's boost; never into the shared fields that name the referencing entity.
    */
   @SuppressWarnings("unchecked")
   private static Map<String, Object> getMappingsForReferencedField(
@@ -1408,6 +1553,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     if (queriedByDefault
         && annotation.isQueryByDefault()
         && V3SearchFields.isStringFieldType(annotation.getFieldType())
+        && annotation.getFieldType() != FieldType.URN
+        && annotation.getFieldType() != FieldType.URN_PARTIAL
         && mappings.get(annotation.getFieldName()) instanceof Map<?, ?> fieldMapping) {
       final Map<String, Object> withCopyTo = new HashMap<>((Map<String, Object>) fieldMapping);
       withCopyTo.put(COPY_TO, List.of(V3SearchFields.path(V3SearchFields.OTHER)));

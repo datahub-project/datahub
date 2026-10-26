@@ -6,13 +6,14 @@ import { test, expect } from '../../fixtures/base-test';
 import { PoliciesPage } from '../../pages/settings/policies.page';
 import { withRandomSuffix } from '../../utils/random';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Both tests mutate the same global, un-namespaced system policy list with no
 // per-test isolation; running them concurrently on separate workers causes
 // collisions on shared backend state.
 test.describe.configure({ mode: 'serial' });
 
-test.describe('create and manage platform and metadata policies', () => {
+test.describe('create and manage platform and metadata policies', { tag: [TestTag.P0] }, () => {
   let policiesPage: PoliciesPage;
 
   test.beforeEach(async ({ page, cleanup }) => {
@@ -20,7 +21,7 @@ test.describe('create and manage platform and metadata policies', () => {
     await policiesPage.navigate();
   });
 
-  test('verify create, edit, delete platform policy', async () => {
+  test('verify create, edit, delete platform policy', { tag: [DomainTag.Catalog] }, async () => {
     const platformPolicyName = withRandomSuffix('Platform test policy');
     const platformPolicyEdited = withRandomSuffix('Platform test policy EDITED');
 
@@ -37,7 +38,7 @@ test.describe('create and manage platform and metadata policies', () => {
     await policiesPage.deletePolicy(platformPolicyEdited, `Delete ${platformPolicyEdited}`);
   });
 
-  test('verify create, edit, delete metadata policy', async () => {
+  test('verify create, edit, delete metadata policy', { tag: [DomainTag.Catalog] }, async () => {
     const metadataPolicyName = withRandomSuffix('Metadata test policy');
     const metadataPolicyEdited = withRandomSuffix('Metadata test policy EDITED');
 
@@ -54,7 +55,7 @@ test.describe('create and manage platform and metadata policies', () => {
     await policiesPage.deletePolicy(metadataPolicyEdited, `Delete ${metadataPolicyEdited}`);
   });
 
-  test('verify conditions and resource values persist after save', async ({ page }) => {
+  test('verify conditions and resource values persist after save', { tag: [DomainTag.Catalog] }, async ({ page }) => {
     const policyName = withRandomSuffix('Policy Conditions Persist');
 
     await policiesPage.waitForReady();

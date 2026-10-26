@@ -54,7 +54,7 @@ import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { MatchContext } from '@app/searchV2/matches/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
@@ -322,7 +322,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
@@ -354,7 +353,6 @@ export class DashboardEntity implements Entity<Dashboard> {
                 name={data.properties?.name}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 tags={data.globalTags || undefined}
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}

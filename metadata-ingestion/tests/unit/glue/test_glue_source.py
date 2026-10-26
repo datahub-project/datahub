@@ -2,7 +2,7 @@ import base64
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, cast
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -29,6 +29,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    TargetPlatformConfig,
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
@@ -3322,6 +3323,280 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         result["urn"]
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
     )
+
+
+def _make_dynamodb_node(
+    node_id: str,
+    node_type: str,
+    connection_options: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {"Name": "connection_type", "Value": '"dynamodb"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": json.dumps(connection_options),
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "connection_options, expected_name",
+    [
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-account-wins",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-east-1",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "444455556666.us-east-1.orders",
+            id="role-arn-account",
+        ),
+        pytest.param(
+            {"dynamodb.input.tableName": "orders", "dynamodb.region": "us-west-2"},
+            "999888777666.us-west-2.orders",
+            id="caller-account-not-catalog-id",
+        ),
+        pytest.param(
+            {"dynamodb.output.tableName": "orders"},
+            "999888777666.us-west-2.orders",
+            id="output-table-falls-back-to-source-region",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-wins-over-malformed-role-arn",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-gov-west-1",
+                "dynamodb.sts.roleArn": " arn:aws-us-gov:iam::444455556666:role/GlueRole\n",
+            },
+            "444455556666.us-gov-west-1.orders",
+            id="govcloud-role-arn-with-whitespace",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": " arn:aws:dynamodb:us-east-1:123456789012:table/customers\n",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-with-whitespace",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_account_precedence(
+    connection_options: Dict[str, Any], expected_name: str
+) -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-account"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2", extract_transforms=True, catalog_id="111122223333"
+        ),
+    )
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is not None
+    assert result["urn"] == (
+        f"urn:li:dataset:(urn:li:dataPlatform:dynamodb,{expected_name},PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-target"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=True,
+            target_platform_configs={
+                "dynamodb": TargetPlatformConfig(platform_instance="ddb-prod"),
+            },
+        ),
+    )
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id") as mock_account_id:
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    mock_account_id.assert_not_called()
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,ddb-prod.us-west-2.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "connection_options, warning_title",
+    [
+        pytest.param(
+            {"dynamodb.region": "us-west-2"},
+            "Missing DynamoDB table name or region for node",
+            id="missing-table",
+        ),
+        pytest.param(
+            # An unparseable ARN must not fall through to tableName and the caller's account.
+            {
+                "dynamodb.tableArn": (
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+                ),
+                "dynamodb.input.tableName": "customers",
+                "dynamodb.region": "us-east-1",
+            },
+            "Failed to parse DynamoDB table ARN for node",
+            id="malformed-table-arn",
+        ),
+        pytest.param(
+            # A role ARN means a cross-account read, so the caller's account would be wrong.
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.region": "us-east-1",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "Failed to parse DynamoDB cross-account role ARN for node",
+            id="malformed-role-arn",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_is_skipped(
+    connection_options: Dict[str, Any], warning_title: str
+) -> None:
+    source = glue_source()
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [warning_title]
+
+
+def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    transform = {
+        "Id": "Transform0",
+        "NodeType": "ApplyMapping",
+        "Args": [],
+        "LineNumber": 1,
+    }
+    sink = _make_dynamodb_node(
+        node_id="DataSink0",
+        node_type="DataSink",
+        connection_options={
+            "dynamodb.output.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+    graph = {
+        "DagNodes": [transform, sink],
+        "DagEdges": [{"Source": "Transform0", "Target": "DataSink0"}],
+    }
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        nodes = source.process_dataflow_graph(graph, flow_urn)
+
+    sink_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+    assert nodes["DataSink0"]["urn"] == sink_urn
+    assert nodes["Transform0"]["outputDatasets"] == [sink_urn]
+
+
+def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
+    source = glue_source()
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value=None):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [
+        "Could not resolve DynamoDB account id for node"
+    ]
+
+
+def test_get_aws_account_id_caches_success() -> None:
+    source = glue_source()
+    # Patch on the class, not the pydantic-v2 config instance (instance setattr is intercepted).
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.return_value = {
+            "Account": "999999999999"
+        }
+        assert source._get_aws_account_id() == "999999999999"
+        assert source._get_aws_account_id() == "999999999999"
+        # A successful lookup is cached: STS is called once, not per node.
+        assert mock_sts.return_value.get_caller_identity.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "sts_result",
+    [
+        pytest.param(Exception("throttled"), id="sts-error"),
+        pytest.param({}, id="no-account-in-response"),
+    ],
+)
+def test_get_aws_account_id_failure_is_cached_and_warned_once(
+    sts_result: Union[Exception, Dict[str, str]],
+) -> None:
+    source = glue_source()
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        get_caller_identity = mock_sts.return_value.get_caller_identity
+        if isinstance(sts_result, Exception):
+            get_caller_identity.side_effect = sts_result
+        else:
+            get_caller_identity.return_value = sts_result
+        assert source._get_aws_account_id() is None
+        assert source._get_aws_account_id() is None
+        assert get_caller_identity.call_count == 1
+    account_id_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not resolve AWS account id via STS"
+    ]
+    assert len(account_id_warnings) == 1
+    assert len(account_id_warnings[0].context) == 1
 
 
 @pytest.mark.parametrize(

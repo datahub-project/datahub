@@ -26,6 +26,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     _ResultProxyFake,
     _RowProxyFake,
     flattenable_query,
+    gate_query,
     get_query_columns,
     is_single_row_query,
     single_row_query,
@@ -119,6 +120,7 @@ def _schedule(
     multiparams: Any = (),
     combinable: bool = True,
     flattenable: bool = True,
+    gate: bool = False,
 ) -> _Capture:
     """Schedule a query on the combiner.
 
@@ -131,6 +133,8 @@ def _schedule(
         query = single_row_query(query)
         if flattenable:
             query = flattenable_query(query)
+    if gate:
+        query = gate_query(query)
 
     def execute() -> None:
         try:
@@ -142,6 +146,61 @@ def _schedule(
 
     qc.run(execute)
     return cap
+
+
+class TestGateQueries:
+    """A table that cannot be read must not cost one failure per column."""
+
+    def test_failed_gate_abandons_the_rest(self, engine, test_table):
+        bad = sa.select(sa.func.count(sa.column("nope")).label("c")).select_from(
+            test_table
+        )
+        others = [
+            sa.select(sa.func.count(sa.column("nope")).label(f"c{i}")).select_from(
+                test_table
+            )
+            for i in range(5)
+        ]
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, bad, gate=True)
+            caps = [_schedule(qc, conn, q) for q in others]
+            qc.flush()
+
+        assert gate.exc is not None
+        # Every one resolves, with the gate's error, but only the gate ran.
+        assert all(c.done and c.exc is not None for c in caps)
+        assert combiner.report.queries_skipped_after_gate == len(others)
+        assert combiner.report.uncombined_queries_issued == 1
+
+    def test_a_healthy_gate_does_not_suppress_anything(self, engine, test_table):
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            gate = _schedule(qc, conn, good, gate=True)
+            other = _schedule(qc, conn, good)
+            qc.flush()
+
+        assert gate.result.scalar() == 3
+        assert other.result.scalar() == 3
+        assert combiner.report.queries_skipped_after_gate == 0
+
+    def test_a_failed_gate_does_not_leak_into_the_next_flush(self, engine, test_table):
+        # One main greenlet profiles one table after another.
+        bad = sa.select(sa.func.count(sa.column("nope")).label("c")).select_from(
+            test_table
+        )
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        combiner = _make_combiner()
+        with engine.connect() as conn, combiner.activate() as qc:
+            _schedule(qc, conn, bad, gate=True)
+            qc.flush()
+
+            later = _schedule(qc, conn, good)
+            qc.flush()
+
+        assert later.exc is None
+        assert later.result.scalar() == 3
 
 
 class TestBatchingAndPartitioning:
@@ -207,6 +266,21 @@ class TestBatchingAndPartitioning:
 
         assert cap.result.scalar() == 3
         assert not any("WITH" in s.upper() for s in statements)
+
+    def test_max_queries_to_combine_knob_splits_the_batch(self, engine, test_table):
+        # 4 queries with a cap of 2 take two statements; the module default of
+        # 40 would take one.
+        queries = [
+            sa.select(sa.func.count().label(f"rowcount_{i}")).select_from(test_table)
+            for i in range(4)
+        ]
+        combiner = _make_combiner(max_queries_to_combine=2)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.result.scalar() == 3 for c in caps)
+        assert combiner.report.combined_queries_issued == 2
 
     def test_untagged_query_goes_uncombined(self, engine, test_table):
         # The single-row tag partitions the queue: an untagged query is NOT
@@ -954,6 +1028,76 @@ class TestFlattenPath:
         assert calls[:2] == ["rollback", "cte"]
         assert combiner.report.flat_group_cte_recoveries == 1
         assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
+
+    def test_a_timed_out_flat_group_skips_the_cte_reroute(self, engine, test_table):
+        # The re-route cross-joins one subquery per query, so it scans the
+        # table once per query where the flat statement scanned it once. A
+        # statement the server ran out of time on cannot finish in a shape that
+        # costs more, and attempting it spends the limit a second time.
+        queries = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(2)
+        ]
+        combiner = _make_combiner(flatten_enabled=True, is_query_timeout=lambda e: True)
+        calls: List[str] = []
+
+        def _cte_must_not_run(queue: Any) -> None:
+            # Raises rather than returning: a stub that "succeeds" without
+            # resolving the futures leaves flush() waiting forever, so a
+            # regression here would hang the suite instead of failing it.
+            calls.append("cte")
+            raise sa.exc.OperationalError("SELECT", {}, Exception("x"))
+
+        with (
+            engine.connect() as conn,
+            combiner.activate() as qc,
+            patch.object(
+                combiner,
+                "_execute_flat_select",
+                side_effect=sa.exc.OperationalError("SELECT", {}, Exception("x")),
+            ),
+            patch.object(
+                combiner, "_execute_cte_combine", side_effect=_cte_must_not_run
+            ),
+        ):
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert calls == []
+        assert combiner.report.flat_group_cte_recoveries == 0
+        assert combiner.report.flat_group_serial_fallbacks == 1
+        assert combiner.report.query_timeouts == 1
+        # Serial still runs: one scan computing one aggregate can finish where
+        # one scan computing many did not.
+        assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
+
+    def test_every_timed_out_serial_retry_is_counted(self, engine, test_table):
+        # The counter exists to show the estimate-only case, where no row count
+        # fails first and so every query pays the limit on its own. Counting
+        # only the batch would report one where the user spent N.
+        queries = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(3)
+        ]
+        combiner = _make_combiner(is_query_timeout=lambda e: True)
+
+        # Fail at the driver so the real serial path runs, rather than stubbing
+        # the method whose counting is under test.
+        def _deny_every_select(conn, cursor, statement, *_):
+            if statement.strip().upper().startswith(("SELECT", "WITH")):
+                raise sa.exc.OperationalError(statement, {}, Exception("timed out"))
+
+        sa.event.listen(engine, "before_cursor_execute", _deny_every_select)
+        try:
+            with engine.connect() as conn, combiner.activate() as qc:
+                caps = [_schedule(qc, conn, q) for q in queries]
+                qc.flush()
+        finally:
+            sa.event.remove(engine, "before_cursor_execute", _deny_every_select)
+
+        assert all(c.exc is not None for c in caps)
+        # One for the combined statement, then one per retry -- not one total.
+        assert combiner.report.query_timeouts == 1 + len(queries)
 
 
 class TestRollbackFailure:

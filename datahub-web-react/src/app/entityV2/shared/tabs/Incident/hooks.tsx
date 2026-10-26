@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -17,8 +17,8 @@ import { IncidentPriorityLabel } from '@src/alchemy-components/components/Incide
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpUser, EntityPrivileges, IncidentType } from '@src/types.generated';
 
 export const useIncidentsTableColumns = (refetch: () => void, privileges?: EntityPrivileges) => {
@@ -143,10 +143,10 @@ export const useIncidentURNCopyLink = (incidentUrn: string) => {
         });
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
-                message.success(t('toast.linkCopied'));
+                toast.success(t('toast.linkCopied'));
             },
             () => {
-                message.error(t('toast.linkCopyFailed'));
+                toast.error(t('toast.linkCopyFailed'));
             },
         );
     };
@@ -209,7 +209,7 @@ export const useOpenIncidentDetailModal = (setFocusIncidentUrn) => {
 };
 
 export default function useGetUserName() {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return useCallback(
         (user: CorpUser) => {

@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { EMPTY_MESSAGES, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
@@ -17,7 +18,7 @@ import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummar
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
 import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useIsEmbeddedProfile } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 const LINE_LIMIT = 5;
@@ -25,24 +26,20 @@ const LINE_LIMIT = 5;
 /* eslint-disable i18next/no-literal-string -- route tab name identifiers, not UI text */
 /* eslint-enable i18next/no-literal-string */
 
-interface Properties {
-    hideLinksButton?: boolean;
-}
-
 interface Props {
-    properties?: Properties;
     readOnly?: boolean;
 }
 
-export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
+export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
+    const { isInFormContext } = useEntityFormContext();
+    const readOnly = readOnlyFromProps || isInFormContext;
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const urn = useMutationUrn();
 
-    const hideLinksButton = properties?.hideLinksButton;
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const routeToTab = useRouteToTab();
 
@@ -79,7 +76,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                 lineLimit={LINE_LIMIT}
                             />
                         )}
-                        {hasContent && <LinksSection hideLinksButton={hideLinksButton} readOnly />}
+                        {hasContent && <LinksSection readOnly />}
                         {!hasContent && <EmptySectionText message={EMPTY_MESSAGES.documentation.title} />}
                     </>
                 }
