@@ -15,7 +15,14 @@ instead.
   `dataGranularityDescription`, then the contract `description` (purpose, usage,
   limitations). A contract with several tables repeats the contract description on each.
 - **Field:** the property's `description`, then a `**Derivation:**` section with its
-  `transformDescription` and its `transformLogic` as a SQL block.
+  `transformDescription` and its `transformLogic` as a SQL block, then `**Allowed values:**`
+  from the v3.2 `enum` (each value with its `label` and `description`).
+- **v3.2 `context`:** contract-level and then table-level `context` is appended to the dataset
+  description as a `## Guidance for AI and analysts` section: the instructions (or the string
+  form), a `**Do not:**` list from `constraints` and a `**Verified Q&A:**` list from
+  `verifiedStatements`. Datasets have no AI context aspect, so the description is where people
+  and Ask DataHub read it. `${VAR}` references in it are kept as written. Entry `id`, `tags`,
+  `customProperties` and `authoritativeDefinitions` are not recorded.
 
 #### Quality rule mapping
 
@@ -227,8 +234,9 @@ in place.
   `synonyms` or `semanticType` values are dropped and reported as a warning rather than
   rejecting the contract; with `strict_validation: true` the contract fails JSON Schema
   validation instead.
-  Accepted but not yet mapped: `context`, schema-object `synonyms`, `enum`, other
-  `semanticType` uses, and the server fields `encoding` and `workgroup`. These may land in a
+  `context` and `enum` go into descriptions (see [Descriptions](#descriptions)). Accepted but not
+  yet mapped: schema-object `synonyms`, other `semanticType` uses, `map` key and value
+  types, and the server fields `encoding` and `workgroup`. These may land in a
   follow-up.
 - **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept
   verbatim. A server `type`, a name-composing server field, an Iceberg `catalogUrl` (or, on a

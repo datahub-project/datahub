@@ -201,6 +201,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / ODCS)** ODCS v3.2 `context` (instructions, constraints, verified Q&A) is added to the logical dataset description as a "Guidance for AI and analysts" section, and v3.2 `enum` values are listed in field descriptions as "Allowed values". **Action:** none. Descriptions change on the next ingestion run.
+
 - [#20697](https://github.com/datahub-project/datahub/pull/20697) **(Ingestion / ODCS)** Descriptions of logical `odcs` datasets and their fields now include more of the contract: the dataset description adds the table's grain (`dataGranularityDescription`) and the contract `description` (purpose, usage, limitations), even when the table has its own description; field descriptions add a derivation section from `transformDescription` and `transformLogic`. `{object}` and `${object}` in SQL quality rules are replaced with the bound physical table's name. **Action:** none. Descriptions change on the next ingestion run; descriptions edited in DataHub are not affected.
 
 - **(GMS / Lifecycle stages)** Lifecycle stage settings gain `userAssignable` (default `true`; set `false` for system-managed stages). `listLifecycleStages` takes an optional `entityType`, and `userAssignable` then reflects whether the stage can be assigned to that type. `EntityPrivileges.canEditLifecycleStage` tells clients whether the viewer may set a stage. Lifecycle stage changes on documents and glossary terms now appear in their change history under the new `LIFECYCLE` change category. **Action:** none.
