@@ -15,6 +15,7 @@ UPSTREAM_REPO="bitol-io/open-data-contract-standard"
 KNOWN_VERSIONS=(
   "v3.0.2 odcs-json-schema-v3.0.2.json odcs-v3.0.2.json"
   "v3.1.0 odcs-json-schema-v3.1.0.json odcs-v3.1.0.json"
+  "v3.2.0 odcs-json-schema-v3.2.0.json odcs-v3.2.0.json"
 )
 
 # Resolve the schema directory relative to this script's location, so the
