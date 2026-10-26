@@ -1810,18 +1810,14 @@ def ranking_judgments() -> list[dict[str, Any]]:
                     "relevance": 1,
                 },
             ],
-            "orderedContains": [
-                "snowflake,long_tail_companions.analytics.pet_details",
-            ],
             # Snowflake qualifiedName is long_tail_companions.analytics.pet_details.
             # The dbt copy's name is only pet_details and it has no qualified name,
-            # which is why Snowflake is graded 2 and dbt is graded 1. The partial
-            # competitors are pet_status_history, order_details, and
-            # order_details_replica. A qualified path can rank ahead of this
-            # terminal-name match as its lexical score changes per catalog, so
-            # the dbt copy must remain in the top five rather than a fixed slot.
-            # The Looker namesake long_tail_companions.view.pet_details has no
-            # analytics segment and is not promoted.
+            # which is why Snowflake is graded 2 and dbt is graded 1. The dbt and
+            # Snowflake order_details siblings are the same table and can tie ahead
+            # of pet_details, so this probe does not pin a first hit. The dbt
+            # pet_details copy must remain in the top five. The Looker namesake
+            # long_tail_companions.view.pet_details has no analytics segment and
+            # is not promoted.
             "containsInTop": {
                 "n": 5,
                 "values": ["dbt,long_tail_companions.analytics.pet_details"],
@@ -2380,11 +2376,12 @@ def entity_weight_probes(
             "entityTypes": ["glossaryTerm", "dataProduct", "dataset"],
             "surfaces": ["keyword"],
             "orderedContains": [
-                "glossaryTerm:entityboost",
+                "dataProduct:entityboost",
             ],
-            # Entity-type weights multiply each entity's lexical score. The glossary term's 10x
-            # weight remains the expected leader, but the data product and dataset have equal
-            # names and may exchange places as IDF and field length change per catalog.
+            # Entity-type weights multiply each entity's lexical score. The data product
+            # weight is above the glossary term, so an equal name and description ranks
+            # the data product first. The dataset keeps the same name and stays in the
+            # top three.
             "containsInTop": {
                 "n": 3,
                 "values": [
@@ -2393,8 +2390,8 @@ def entity_weight_probes(
                 ],
             },
             "grades": [
-                {"urn": ENTITY_BOOST_TERM, "relevance": 2},
-                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 1},
+                {"urn": ENTITY_BOOST_TERM, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 2},
                 {"urn": ENTITY_BOOST_DATASET, "relevance": 1},
             ],
         },
@@ -2405,12 +2402,14 @@ def entity_weight_probes(
             "entityTypes": ["glossaryNode", "dataProduct"],
             "surfaces": ["keyword"],
             "orderedContains": [
-                "glossaryNode:entityboost",
                 "dataProduct:entityboost",
+                "glossaryNode:entityboost",
             ],
+            # The data product weight is above the glossary node, so an equal name
+            # ranks the data product first.
             "grades": [
-                {"urn": ENTITY_BOOST_NODE, "relevance": 2},
-                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 1},
+                {"urn": ENTITY_BOOST_NODE, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 2},
             ],
         },
         {

@@ -210,6 +210,7 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
     pet_details = next(
         item for item in keyword_probes if item["id"] == "ranking-partial-pet-details"
     )
+    assert "orderedContains" not in pet_details
     assert pet_details["containsInTop"] == {
         "n": 5,
         "values": ["dbt,long_tail_companions.analytics.pet_details"],
@@ -246,7 +247,11 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "entity-boost-domain",
     ]
     term = boosts[0]
-    assert term["orderedContains"] == ["glossaryTerm:entityboost"]
+    assert term["orderedContains"] == ["dataProduct:entityboost"]
+    assert boosts[1]["orderedContains"] == [
+        "dataProduct:entityboost",
+        "glossaryNode:entityboost",
+    ]
     assert term["containsInTop"] == {
         "n": 3,
         "values": ["dataProduct:entityboost", "catalogprobe,entityboost"],

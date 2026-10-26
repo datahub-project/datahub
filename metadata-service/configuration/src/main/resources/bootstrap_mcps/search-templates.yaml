@@ -441,15 +441,15 @@
         enabled: true
     entityTypeBoosts:
       - entityType: glossaryTerm
-        weight: 10.0
+        weight: 6.0
       - entityType: glossaryNode
-        weight: 10.0
+        weight: 6.0
       - entityType: domain
         weight: 5.0
       - entityType: container
         weight: 2.0
       - entityType: dataProduct
-        weight: 5.0
+        weight: 10.0
       - entityType: tag
         weight: 2.0
       - entityType: chart
@@ -1054,15 +1054,15 @@
         enabled: true
     entityTypeBoosts:
       - entityType: glossaryTerm
-        weight: 10.0
+        weight: 6.0
       - entityType: glossaryNode
-        weight: 10.0
+        weight: 6.0
       - entityType: domain
         weight: 5.0
       - entityType: container
         weight: 2.0
       - entityType: dataProduct
-        weight: 5.0
+        weight: 10.0
       - entityType: tag
         weight: 2.0
       - entityType: chart
@@ -1160,15 +1160,15 @@
         enabled: true
     entityTypeBoosts:
       - entityType: glossaryTerm
-        weight: 10.0
+        weight: 6.0
       - entityType: glossaryNode
-        weight: 10.0
+        weight: 6.0
       - entityType: domain
         weight: 5.0
       - entityType: container
         weight: 2.0
       - entityType: dataProduct
-        weight: 5.0
+        weight: 10.0
       - entityType: tag
         weight: 2.0
       - entityType: chart
@@ -1305,15 +1305,15 @@
         enabled: true
     entityTypeBoosts:
       - entityType: glossaryTerm
-        weight: 10.0
+        weight: 6.0
       - entityType: glossaryNode
-        weight: 10.0
+        weight: 6.0
       - entityType: domain
         weight: 5.0
       - entityType: container
         weight: 2.0
       - entityType: dataProduct
-        weight: 5.0
+        weight: 10.0
       - entityType: tag
         weight: 2.0
       - entityType: chart
