@@ -14,6 +14,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     SourceReport,
     StructuredLogCategory,
+    TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -73,7 +74,7 @@ AggregatorCacheKey = Tuple[str, Optional[str], str]
 
 @platform_name("Hightouch")
 @config_class(HightouchSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -87,7 +88,7 @@ AggregatorCacheKey = Tuple[str, Optional[str], str]
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
 )
-class HightouchSource(StatefulIngestionSourceBase):
+class HightouchSource(StatefulIngestionSourceBase, TestableSource):
     config: HightouchSourceConfig
     report: HightouchSourceReport
     platform: str = HIGHTOUCH_PLATFORM
@@ -325,18 +326,18 @@ class HightouchSource(StatefulIngestionSourceBase):
         source = self._get_source(model.source_id)
         yield from self._model_handler.get_model_workunits(model, source)
 
-    def test_connection(self) -> TestConnectionReport:
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
         try:
-            self.api_client.get_workspaces()
+            config = HightouchSourceConfig.parse_obj_allow_extras(config_dict)
+            HightouchAPIClient(config.api_config).get_workspaces()
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False,
-                failure_reason=f"Failed to connect to Hightouch API: {str(e)}",
+                failure_reason=f"Failed to connect to Hightouch API: {e}",
             )
-            return test_report
-
         return test_report
 
     def get_workunits_internal(
@@ -350,9 +351,12 @@ class HightouchSource(StatefulIngestionSourceBase):
         self.report.report_api_call()
         syncs = self.api_client.get_syncs()
 
-        filtered_syncs = [
-            sync for sync in syncs if self.config.sync_patterns.allowed(sync.slug)
-        ]
+        filtered_syncs: List[HightouchSync] = []
+        for sync in syncs:
+            if self.config.sync_patterns.allowed(sync.slug):
+                filtered_syncs.append(sync)
+            else:
+                self.report.report_syncs_dropped(sync.slug)
 
         all_models = []
         if self.config.emit_models_as_datasets:
@@ -390,12 +394,14 @@ class HightouchSource(StatefulIngestionSourceBase):
                 )
 
         if self.config.emit_models_as_datasets and all_models:
-            standalone_models = [
-                model
-                for model in all_models
-                if model.id not in emitted_model_ids
-                and self.config.model_patterns.allowed(model.name)
-            ]
+            standalone_models: List[HightouchModel] = []
+            for model in all_models:
+                if model.id in emitted_model_ids:
+                    continue
+                if self.config.model_patterns.allowed(model.name):
+                    standalone_models.append(model)
+                else:
+                    self.report.report_models_dropped(model.name)
 
             for model in standalone_models:
                 try:

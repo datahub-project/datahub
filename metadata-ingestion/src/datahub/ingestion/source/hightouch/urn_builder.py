@@ -76,6 +76,21 @@ class HightouchUrnBuilder:
         bare_table = name.split(".")[-1]
         return f"{database}.{bare_table}" if database else bare_table
 
+    @staticmethod
+    def _qualify(name: str, database: str, schema: str = "") -> str:
+        # Add only the missing qualifiers. A three-part name is already complete,
+        # and a two-part name already carries its schema (or its database, when it
+        # starts with it); qualifying either again yields a four-part name that
+        # never matches the platform's own URN.
+        parts = name.split(".")
+        if len(parts) >= 3 or (
+            database and name.lower().startswith(f"{database.lower()}.")
+        ):
+            return name
+        if len(parts) == 2:
+            return f"{database}.{name}" if database else name
+        return ".".join(part for part in (database, schema, name) if part)
+
     def qualified_table_name(
         self, model: HightouchModel, source: HightouchSourceConnection
     ) -> str:
@@ -89,20 +104,7 @@ class HightouchUrnBuilder:
         database = self._resolve_source_database(source, source_details)
 
         if source_details.include_schema_in_urn:
-            if schema:
-                parts = [part for part in (database, schema, table_name) if part]
-                return ".".join(parts)
-            # Qualification is requested but no schema is configured: preserve any
-            # schema already embedded in the model name (e.g. "schema.table"). Only
-            # prepend the database when the name is not already fully qualified — a
-            # three-part name (db.schema.table), possibly with a different database,
-            # would otherwise become an invalid four-part name.
-            already_qualified = len(
-                table_name.split(".")
-            ) >= 3 or table_name.startswith(f"{database}.")
-            if database and not already_qualified:
-                return f"{database}.{table_name}"
-            return table_name
+            return self._qualify(table_name, database, schema)
 
         # include_schema_in_urn is false: drop any existing schema/database
         # qualification down to the bare table name so the option actually removes
@@ -168,7 +170,7 @@ class HightouchUrnBuilder:
         dest_details = self._get_cached_destination_details(destination)
 
         if dest_details.database:
-            table_name = f"{dest_details.database.lower()}.{table_name}"
+            table_name = self._qualify(table_name, dest_details.database.lower())
 
         return DatasetUrn.create_from_ids(
             platform_id=dest_details.platform or destination.type.lower(),

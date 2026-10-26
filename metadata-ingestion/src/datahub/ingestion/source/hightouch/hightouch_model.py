@@ -317,26 +317,28 @@ class HightouchModelHandler:
                     dataset_urn, str(source_table_urn)
                 )
 
+            # Table-model lineage is emitted only here, not through the SQL
+            # aggregator: the aggregator's own UpstreamLineage for this URN would
+            # replace this aspect and drop its column-level lineage.
             if model.query_type == QUERY_TYPE_TABLE:
                 fine_grained_lineages = (
                     self.lineage_handler.generate_table_model_column_lineage(
                         model, dataset_urn, str(source_table_urn), schema_fields or []
                     )
                 )
-                if fine_grained_lineages:
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=UpstreamLineageClass(
-                            upstreams=[
-                                UpstreamClass(
-                                    dataset=str(source_table_urn),
-                                    type=DatasetLineageTypeClass.COPY,
-                                )
-                            ],
-                            fineGrainedLineages=fine_grained_lineages,
-                        ),
-                    ).as_workunit()
-                    self.report.column_lineage_emitted += len(fine_grained_lineages)
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=UpstreamLineageClass(
+                        upstreams=[
+                            UpstreamClass(
+                                dataset=str(source_table_urn),
+                                type=DatasetLineageTypeClass.COPY,
+                            )
+                        ],
+                        fineGrainedLineages=fine_grained_lineages or None,
+                    ),
+                ).as_workunit()
+                self.report.column_lineage_emitted += len(fine_grained_lineages or [])
 
     def emit_model(
         self,

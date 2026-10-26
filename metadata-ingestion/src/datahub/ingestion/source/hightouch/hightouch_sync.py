@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Set, Union
 
 from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -91,6 +91,7 @@ class HightouchSyncHandler:
         self.get_model = get_model
         self.get_source = get_source
         self.get_destination = get_destination
+        self._dropped_model_ids: Set[str] = set()
 
     def generate_dataflow_from_sync(self, sync: HightouchSync) -> DataFlow:
         return DataFlow(
@@ -99,6 +100,12 @@ class HightouchSyncHandler:
             env=self.config.env,
             display_name=sync.slug,
             platform_instance=self.config.platform_instance,
+        )
+
+    def emits_model_dataset(self, model: HightouchModel) -> bool:
+        return (
+            self.config.emit_models_as_datasets
+            and self.config.model_patterns.allowed(model.name)
         )
 
     def get_inlet_urns_for_model(
@@ -113,7 +120,9 @@ class HightouchSyncHandler:
             )
             return []
 
-        if not self.config.emit_models_as_datasets:
+        # A model denied by model_patterns is never emitted, so lineage goes to its
+        # source tables instead of to a model dataset that would not exist.
+        if not self.emits_model_dataset(model):
             if model.query_type == QUERY_TYPE_TABLE and model.name:
                 table_name = self.urn_builder.qualified_table_name(model, source)
                 return [self.urn_builder.make_upstream_table_urn(table_name, source)]
@@ -131,7 +140,7 @@ class HightouchSyncHandler:
             )
             self.report.warning(
                 title="No upstream lineage for non-table model",
-                message="emit_models_as_datasets=False and the model's SQL upstream "
+                message="The model is not emitted as a dataset and its SQL upstream "
                 "tables could not be resolved, so no upstream lineage can be "
                 "emitted for this sync.",
                 context=f"sync_slug: {sync.slug} (query_type: {model.query_type})",
@@ -215,8 +224,8 @@ class HightouchSyncHandler:
         # table*, whose schema does not match the model's aliased/transformed output
         # columns, so field mappings would point at nonexistent source fields — emit
         # only table-level lineage there.
-        cll_upstream_is_model_output = self.config.emit_models_as_datasets or (
-            model is not None and model.query_type == QUERY_TYPE_TABLE
+        cll_upstream_is_model_output = model is not None and (
+            self.emits_model_dataset(model) or model.query_type == QUERY_TYPE_TABLE
         )
         if model and outlet_urn and len(inlets) == 1 and cll_upstream_is_model_output:
             model_schema_fields = self.model_schema_fields_cache.get(model.id)
@@ -363,14 +372,16 @@ class HightouchSyncHandler:
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self.report.report_syncs_scanned()
 
-        model = None
         if self.config.emit_models_as_datasets:
             model = self.get_model(sync.model_id)
-            if model and self.config.model_patterns.allowed(model.name):
+            if model and self.emits_model_dataset(model):
                 source = self.get_source(model.source_id)
                 yield from self.model_handler.emit_model(
                     model, source, referenced_columns=sync.referenced_columns
                 )
+            elif model and model.id not in self._dropped_model_ids:
+                self._dropped_model_ids.add(model.id)
+                self.report.report_models_dropped(model.name)
 
         destination = self.get_destination(sync.destination_id)
         outlet_urn = None

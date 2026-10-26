@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
@@ -21,10 +22,11 @@ from datahub.ingestion.source.hightouch.models import (
     HightouchSync,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     GlobalTagsClass,
+    MetadataChangeProposalClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
-    SiblingsClass,
     StringTypeClass,
     SubTypesClass,
     UpstreamLineageClass,
@@ -911,6 +913,16 @@ def test_table_model_column_lineage_emitted_end_to_end(
     assert source_instance.report.column_lineage_emitted == 2
 
 
+def _sibling_patches(workunits: list) -> list:
+    return [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu, "metadata", None), MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "siblings"
+        and wu.metadata.changeType == ChangeTypeClass.PATCH
+    ]
+
+
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
 def test_siblings_emission_for_single_table_raw_sql_models(
     mock_api_client_class, pipeline_context
@@ -957,24 +969,17 @@ def test_siblings_emission_for_single_table_raw_sql_models(
 
     workunits = list(source_instance._get_model_workunits(model))
 
-    siblings_workunits = [
-        wu
-        for wu in workunits
-        if hasattr(wu, "metadata")
-        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, SiblingsClass)
-    ]
+    siblings_workunits = _sibling_patches(workunits)
 
-    # Should emit sibling aspect on the Hightouch model (primary)
+    # A patch on the Hightouch model (primary) adds the upstream table as a
+    # sibling without replacing siblings that other sources already wrote.
     assert len(siblings_workunits) == 1
-    sibling_wu = siblings_workunits[0]
-    assert isinstance(sibling_wu.metadata, MetadataChangeProposalWrapper)
-    assert isinstance(sibling_wu.metadata.aspect, SiblingsClass)
-    assert sibling_wu.metadata.aspect.primary is True
-    assert len(sibling_wu.metadata.aspect.siblings) == 1
-    # Should reference the upstream snowflake table
-    assert "snowflake" in sibling_wu.metadata.aspect.siblings[0]
-    assert "customers" in sibling_wu.metadata.aspect.siblings[0]
+    ops = json.loads(siblings_workunits[0].metadata.aspect.value)
+    sibling_values = [op["value"] for op in ops if op["path"].startswith("/siblings/")]
+    assert {"op": "add", "path": "/primary", "value": True} in ops
+    assert len(sibling_values) == 1
+    assert "snowflake" in sibling_values[0]
+    assert "customers" in sibling_values[0]
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
@@ -1023,13 +1028,7 @@ def test_no_siblings_for_multi_table_raw_sql_models(
 
     workunits = list(source_instance._get_model_workunits(model))
 
-    siblings_workunits = [
-        wu
-        for wu in workunits
-        if hasattr(wu, "metadata")
-        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, SiblingsClass)
-    ]
+    siblings_workunits = _sibling_patches(workunits)
 
     # Should NOT emit siblings for multi-table queries
     assert len(siblings_workunits) == 0
@@ -1079,13 +1078,7 @@ def test_no_siblings_when_include_sibling_relationships_false(
 
     workunits = list(source_instance._get_model_workunits(model))
 
-    siblings_workunits = [
-        wu
-        for wu in workunits
-        if hasattr(wu, "metadata")
-        and isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, SiblingsClass)
-    ]
+    siblings_workunits = _sibling_patches(workunits)
 
     assert len(siblings_workunits) == 0
 

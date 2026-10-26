@@ -71,15 +71,14 @@ def pipeline_context():
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_test_connection_success(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
+def test_test_connection_success(mock_api_client_class):
     mock_client = MagicMock()
     mock_api_client_class.return_value = mock_client
     mock_client.get_workspaces.return_value = []
 
-    source = HightouchIngestionSource(hightouch_config, pipeline_context)
-    report = source.test_connection()
+    report = HightouchIngestionSource.test_connection(
+        {"api_config": {"api_key": "test_api_key"}}
+    )
 
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is True
@@ -87,17 +86,16 @@ def test_test_connection_success(
 
 
 @patch("datahub.ingestion.source.hightouch.hightouch.HightouchAPIClient")
-def test_test_connection_failure(
-    mock_api_client_class, hightouch_config, pipeline_context
-):
+def test_test_connection_failure(mock_api_client_class):
     mock_client = MagicMock()
     mock_api_client_class.return_value = mock_client
     mock_client.get_workspaces.side_effect = requests.exceptions.ConnectionError(
         "unreachable"
     )
 
-    source = HightouchIngestionSource(hightouch_config, pipeline_context)
-    report = source.test_connection()
+    report = HightouchIngestionSource.test_connection(
+        {"api_config": {"api_key": "test_api_key"}}
+    )
 
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is False

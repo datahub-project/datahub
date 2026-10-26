@@ -12,7 +12,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402390,
+        "lastObserved": 1704110400298,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -30,7 +30,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402393,
+        "lastObserved": 1704110400299,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -46,7 +46,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402394,
+        "lastObserved": 1704110400300,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -64,7 +64,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402579,
+        "lastObserved": 1704110400320,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402585,
+        "lastObserved": 1704110400320,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402588,
+        "lastObserved": 1704110400321,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -114,7 +114,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402648,
+        "lastObserved": 1704110400325,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -150,7 +150,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402649,
+        "lastObserved": 1704110400325,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -218,7 +218,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402651,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -237,7 +237,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402653,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -255,7 +255,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402654,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -278,7 +278,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402655,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -286,18 +286,24 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,customers,PROD)"
-            ],
-            "primary": true
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:snowflake,customers,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:snowflake,customers,PROD)"
+            },
+            {
+                "op": "add",
+                "path": "/primary",
+                "value": true
+            }
+        ]
     },
     "systemMetadata": {
-        "lastObserved": 1704110402665,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -313,7 +319,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402666,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -333,7 +339,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402666,
+        "lastObserved": 1704110400326,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -349,7 +355,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402682,
+        "lastObserved": 1704110400327,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -367,7 +373,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402682,
+        "lastObserved": 1704110400327,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -383,7 +389,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402683,
+        "lastObserved": 1704110400327,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -403,7 +409,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402684,
+        "lastObserved": 1704110400327,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -419,7 +425,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402688,
+        "lastObserved": 1704110400327,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -452,7 +458,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402689,
+        "lastObserved": 1704110400327,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -473,7 +479,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402690,
+        "lastObserved": 1704110400328,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -497,7 +503,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402691,
+        "lastObserved": 1704110400328,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -513,7 +519,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402698,
+        "lastObserved": 1704110400328,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -549,7 +555,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402700,
+        "lastObserved": 1704110400328,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -574,7 +580,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402761,
+        "lastObserved": 1704110400328,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -593,7 +599,32 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402762,
+        "lastObserved": 1704110400328,
+        "runId": "hightouch-test-patterns",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:snowflake,Product Events,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:snowflake,Product Events,PROD)"
+            },
+            {
+                "op": "add",
+                "path": "/primary",
+                "value": true
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1704110400329,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -602,17 +633,23 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "siblings",
+    "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,Product Events,PROD)"
-            ],
-            "primary": true
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,Product Events,PROD)",
+                    "type": "COPY"
+                }
+            ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402762,
+        "lastObserved": 1704110400329,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -628,7 +665,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402762,
+        "lastObserved": 1704110400329,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -648,7 +685,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402763,
+        "lastObserved": 1704110400329,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -656,12 +693,14 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Contact,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "json": {
-            "upstreams": [
-                {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
+                "value": {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
@@ -669,11 +708,11 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hightouch,customer-360-model,PROD)",
                     "type": "COPY"
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
-        "lastObserved": 1704110402783,
+        "lastObserved": 1704110400331,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -688,7 +727,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1704110402783,
+                        "time": 1704110400331,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -740,36 +779,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402785,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hightouch,product-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1704110402785,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,Product Events,PROD)",
-                    "type": "COPY"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110402984,
+        "lastObserved": 1704110400333,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -785,7 +795,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402991,
+        "lastObserved": 1704110400333,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -801,7 +811,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402991,
+        "lastObserved": 1704110400333,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -817,7 +827,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402993,
+        "lastObserved": 1704110400334,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -833,7 +843,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402993,
+        "lastObserved": 1704110400334,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -849,7 +859,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402993,
+        "lastObserved": 1704110400334,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -865,23 +875,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402994,
-        "runId": "hightouch-test-patterns",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Contact,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1704110402995,
+        "lastObserved": 1704110400334,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -897,7 +891,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402995,
+        "lastObserved": 1704110400334,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }
@@ -913,7 +907,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1704110402996,
+        "lastObserved": 1704110400334,
         "runId": "hightouch-test-patterns",
         "lastRunId": "no-run-id-provided"
     }

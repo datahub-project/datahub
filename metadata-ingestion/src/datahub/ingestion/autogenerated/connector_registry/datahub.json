@@ -2069,7 +2069,7 @@
       "classname": "datahub.ingestion.source.hightouch.hightouch.HightouchSource",
       "platform_id": "hightouch",
       "platform_name": "Hightouch",
-      "support_status": "TESTING"
+      "support_status": "ALPHA"
     },
     "hive": {
       "capabilities": [

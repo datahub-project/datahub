@@ -2,7 +2,6 @@ import logging
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 from datahub.emitter.mce_builder import make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.hightouch.config import (
@@ -38,10 +37,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     SchemaFieldClass,
-    SiblingsClass,
     UpstreamClass,
-    UpstreamLineageClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -234,36 +232,10 @@ class HightouchLineageHandler:
         if not aggregator:
             return
 
-        if model.query_type == QUERY_TYPE_TABLE and model.name:
-            table_name = self.urn_builder.qualified_table_name(model, source)
-            upstream_urn = self.urn_builder.make_upstream_table_urn(table_name, source)
-
-            try:
-                # Column-level lineage for table models is emitted directly in
-                # _emit_model_aspects via the UpstreamLineage aspect with
-                # fineGrainedLineages, so we only register table-level lineage here.
-                aggregator.add_known_lineage_mapping(
-                    upstream_urn=str(upstream_urn),
-                    downstream_urn=model_urn,
-                    lineage_type=DatasetLineageTypeClass.COPY,
-                )
-
-            except Exception as e:
-                reraise_if_programming_error(e, f"registering lineage for {model.id}")
-                self.report.report_lineage_resolution_failure(
-                    f"table_model_lineage model_id: {model.id}"
-                )
-                self.report.warning(
-                    title="Could not register table-level lineage",
-                    message="Table-level lineage from the upstream table to this "
-                    "model could not be registered and will be missing.",
-                    context=f"model_id: {model.id}",
-                    exc=e,
-                )
-
-        # For raw_sql models, register view definition for SQL parsing (skipped when
+        # Table models emit their own UpstreamLineage in the model handler. For
+        # raw_sql models, register the view definition for SQL parsing (skipped when
         # SQL parsing is disabled so no lineage is derived from the model's SQL).
-        elif (
+        if (
             self.config.parse_model_sql
             and model.raw_sql
             and model.query_type == QUERY_TYPE_RAW_SQL
@@ -457,49 +429,55 @@ class HightouchLineageHandler:
             )
 
     def emit_all_destination_lineage(self) -> Iterable[MetadataWorkUnit]:
-        """Called after all syncs processed to emit consolidated lineage."""
+        """Called after all syncs processed to emit consolidated lineage.
+
+        Destinations are usually owned by another connector (a warehouse table or
+        an ingested SaaS object), so lineage is added as a patch rather than
+        replacing their UpstreamLineage, and the workunits are not primary so
+        stateful ingestion never soft-deletes those datasets.
+        """
         for destination_urn, lineage_data in self._destination_lineage.items():
-            upstreams = [
-                UpstreamClass(
-                    dataset=upstream_urn,
-                    type=DatasetLineageTypeClass.COPY,
+            if not lineage_data.upstreams:
+                continue
+            patch_builder = DatasetPatchBuilder(destination_urn)
+            for upstream_urn in sorted(lineage_data.upstreams):
+                patch_builder.add_upstream_lineage(
+                    UpstreamClass(
+                        dataset=upstream_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    )
                 )
-                for upstream_urn in lineage_data.upstreams
-            ]
-
-            fine_grained_lineages = (
-                lineage_data.fine_grained_lineages
-                if lineage_data.fine_grained_lineages
-                else None
-            )
-
-            if upstreams:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=destination_urn,
-                    aspect=UpstreamLineageClass(
-                        upstreams=upstreams,
-                        fineGrainedLineages=fine_grained_lineages,
-                    ),
-                ).as_workunit()
+            for fine_grained_lineage in lineage_data.fine_grained_lineages:
+                patch_builder.add_fine_grained_lineage(fine_grained_lineage)
+            for mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp),
+                    mcp_raw=mcp,
+                    is_primary_source=False,
+                )
 
     def emit_sibling_aspects(
         self, model_urn: str, source_table_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=model_urn,
-            aspect=SiblingsClass(
-                primary=True,
-                siblings=[source_table_urn],
-            ),
-        ).as_workunit()
+        # Patches, not full Siblings aspects: the source table may already have
+        # siblings (e.g. from dbt), and several models can share one source table.
+        for mcp in (
+            DatasetPatchBuilder(model_urn)
+            .add_sibling(source_table_urn, primary=True)
+            .build()
+        ):
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            )
 
-        # Only emit a sibling aspect on the source table if it was preloaded (i.e.
-        # it exists in DataHub), to avoid creating ghost entities.
+        # Only link the source table back if it was preloaded (i.e. it exists in
+        # DataHub), to avoid creating ghost entities.
         if source_table_urn in self._registered_urns:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=source_table_urn,
-                aspect=SiblingsClass(
-                    primary=False,
-                    siblings=[model_urn],
-                ),
-            ).as_workunit()
+            for mcp in (
+                DatasetPatchBuilder(source_table_urn).add_sibling(model_urn).build()
+            ):
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp),
+                    mcp_raw=mcp,
+                    is_primary_source=False,
+                )
