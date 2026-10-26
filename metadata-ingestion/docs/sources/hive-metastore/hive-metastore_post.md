@@ -198,11 +198,11 @@ S3 Bucket → Hive Table → Presto View
 - **Complex SQL**: Very complex SQL with non-standard syntax may have incomplete lineage
 - **Cross-Database References**: Lineage is extracted for references within the same Hive metastore
 
-#### Schema Filtering
+#### Database Filtering
 
-For large metastore deployments with many databases, use filtering to limit ingestion scope:
+For large metastore deployments with many databases, use filtering to limit ingestion scope.
 
-##### Database Filtering
+In Hive, "database" and "schema" are synonyms (`CREATE DATABASE` and `CREATE SCHEMA` are interchangeable), and DataHub shows each Hive database as a Schema container. This connector filters them with `database_pattern`. It does **not** apply `schema_pattern`, so filters placed there have no effect.
 
 ```yaml
 source:
@@ -210,34 +210,16 @@ source:
   config:
     # ... connection config ...
 
-    # Only ingest from specific databases
-    schema_pattern:
+    # Only ingest from specific Hive databases
+    database_pattern:
       allow:
         - "^production_.*" # All databases starting with production_
-        - "analytics" # Specific database
+        - "^analytics_db$" # Specific database
       deny:
         - ".*_test$" # Exclude test databases
 ```
 
-##### Table Filtering with SQL
-
-For filtering by database name, use pattern-based filtering:
-
-```yaml
-source:
-  type: hive-metastore
-  config:
-    # ... connection config ...
-
-    # Filter to specific databases using regex patterns
-    database_pattern:
-      allow:
-        - "^production_db$"
-        - "^analytics_db$"
-      deny:
-        - "^test_.*"
-        - ".*_staging$"
-```
+Use `table_pattern` and `view_pattern` to filter individual tables and views. They match against `database.table` (or `catalog.database.table` when `include_catalog_name_in_ids` is enabled).
 
 **Note**: The deprecated `*_where_clause_suffix` options have been removed for security reasons. Use `database_pattern` and `table_pattern` for filtering.
 
@@ -267,7 +249,7 @@ The Hive Metastore connector is significantly faster than the Hive connector bec
      max_overflow: 20
    ```
 
-2. **Schema Filtering**: Use `schema_pattern` to limit scope and reduce query time.
+2. **Database Filtering**: Use `database_pattern` to limit scope and reduce query time.
 
 3. **Stateful Ingestion**: Enable to only process changes:
 
@@ -393,7 +375,7 @@ Same as the Hive connector:
 **Solutions**:
 
 - Verify database user has SELECT on all metastore tables
-- Check if tables are filtered by `schema_pattern`, `database_pattern`, or `table_pattern`
+- Check if tables are filtered by `database_pattern`, `table_pattern`, or `view_pattern`
 - Query metastore directly to verify tables exist:
 
 ```sql

@@ -14,6 +14,8 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -22,7 +24,7 @@ import org.testng.annotations.Test;
 
 public class MappingsBuilderFactoryTest {
 
-  /** Search V3 does not support autocomplete, so its mappings have no shared autocomplete field. */
+  /** Search V3 does not support autocomplete, so its mappings have no autocomplete field. */
   @Test
   @SuppressWarnings("unchecked")
   public void testV3MappingsHaveNoAutocompleteField() {
@@ -43,7 +45,11 @@ public class MappingsBuilderFactoryTest {
 
     MappingsBuilder mappingsBuilder =
         new MappingsBuilderFactory()
-            .createMultiEntityMappingsBuilder(configProvider, searchClusterRegistry, null);
+            .createMultiEntityMappingsBuilder(
+                configProvider,
+                searchClusterRegistry,
+                null,
+                new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher()));
 
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     IndexMapping datasets =
@@ -51,11 +57,9 @@ public class MappingsBuilderFactoryTest {
             .filter(mapping -> mapping.getIndexName().endsWith("datasetindex_v3"))
             .findFirst()
             .orElseThrow();
-    Map<String, Object> search =
-        (Map<String, Object>)
-            ((Map<String, Object>) datasets.getMappings().get("properties")).get("_search");
-    Map<String, Object> searchFields = (Map<String, Object>) search.get("properties");
-    assertNotNull(searchFields.get("entityName"));
-    assertNull(searchFields.get("autocomplete"));
+    Map<String, Object> properties = (Map<String, Object>) datasets.getMappings().get("properties");
+    assertNotNull(properties.get("name"));
+    assertNull(properties.get("autocomplete"));
+    assertNull(properties.get("_search"));
   }
 }

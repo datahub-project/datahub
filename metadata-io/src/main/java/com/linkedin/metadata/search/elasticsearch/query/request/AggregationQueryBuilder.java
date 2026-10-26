@@ -17,6 +17,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
@@ -59,13 +61,23 @@ public class AggregationQueryBuilder {
   private final Set<String> allFacetFields;
   protected final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
 
+  @Nullable private final SearchFieldResolver v3FieldResolver;
+
   private Map<String, String> filtersToDisplayName;
 
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
+    this(configs, entitySearchAnnotations, null);
+  }
+
+  public AggregationQueryBuilder(
+      @Nonnull final SearchConfiguration configs,
+      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
+      @Nullable SearchFieldResolver v3FieldResolver) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
+    this.v3FieldResolver = v3FieldResolver;
 
     List<SearchableAnnotation> annotations =
         this.entitySearchAnnotations.values().stream()
@@ -94,6 +106,26 @@ public class AggregationQueryBuilder {
     facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
+        .collect(Collectors.toList());
+  }
+
+  /** {@code _entityType} and the {@code _entityType} + {@code typeNames} aggregation. */
+  public List<AggregationBuilder> getEntityTypeAggregations(@Nonnull OperationContext opContext) {
+    List<AggregationBuilder> aggregations = new ArrayList<>();
+    aggregations.add(facetToAggregationBuilder(opContext, INDEX_VIRTUAL_FIELD));
+    aggregations.add(
+        facetToAggregationBuilder(
+            opContext,
+            String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames")));
+    return aggregations;
+  }
+
+  /** Caller facets only. Invalid names are dropped, matching {@link #getAggregations}. */
+  public List<AggregationBuilder> getCallerAggregations(
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
+    return facets.stream()
+        .filter(this::isValidAggregate)
+        .map(facet -> facetToAggregationBuilder(opContext, facet))
         .collect(Collectors.toList());
   }
 
@@ -207,7 +239,11 @@ public class AggregationQueryBuilder {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
+    if (v3FieldResolver != null && v3FieldResolver.contains(facet)) {
+      return v3FieldResolver.exactPath(facet, Intent.FACET);
+    }
+    // Structured properties and V2 keyword fields share one resolver (SP type → parent vs
+    // .keyword).
     return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
   }
 

@@ -2,7 +2,7 @@ import { Select, SelectOption } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { useAggregateAcrossEntitiesLazyQuery } from '@graphql/search.generated';
 

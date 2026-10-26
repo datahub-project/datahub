@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import warnings
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional, Sequence
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -11,14 +11,28 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationWarning,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.agent.verdicts import (
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+)
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
+)
+from datahub.ingestion.source.fivetran.fivetran_selection import (
+    NULL_DESTINATION_ID,
+    UNKNOWN,
+    ConnectorFacts,
+    MaybeConnectorId,
+    MaybeDestinationId,
+    connector_verdict,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -89,6 +103,30 @@ KNOWN_DATA_PLATFORM_MAPPING = {
 # Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
 # TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
 DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE]
+
+# Fivetran emits no subtypes for its DataFlows, so there is no DataHub subtype
+# to borrow for these probe levels. `probe filter --kind` still needs a name
+# for each, and declaring it here keeps the probe's `kind=` and the Filters()
+# annotations below from drifting apart (the same arrangement as Hex's
+# HEX_CATEGORY_KIND).
+FIVETRAN_DESTINATION_KIND = "Destination"
+FIVETRAN_CONNECTOR_KIND = "Connector"
+
+# Set on each `probe run connectors` record. A saved run drops a NULL
+# destination_id and a masked one alike, so only this flag says it was NULL.
+DESTINATION_ID_IS_NULL = "destination_id_is_null"
+
+# REST ingestion keeps a connector when connector_patterns allows its id OR its
+# name (FivetranLogRestReader.get_allowed_connectors_list); DB ingestion
+# matches the name only. A verdict given only the name is half the REST rule,
+# and the caller has to be told.
+REST_CONNECTOR_MATCH_NOTE = (
+    "log_source is rest_api, so ingestion keeps a connector when "
+    "connector_patterns allows EITHER its connector_id OR its name; this "
+    "verdict judged only the name. Pass the connector's connector_id too "
+    "(`probe run connectors --report-to out.json`, then `probe filter "
+    "--from-run out.json`): the connector is ingested if either is included."
+)
 
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
@@ -307,11 +345,15 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             "expose)."
         ),
     )
-    connector_patterns: AllowDenyPattern = Field(
+    connector_patterns: Annotated[
+        AllowDenyPattern, Filters(FIVETRAN_CONNECTOR_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filtering regex patterns for connector names.",
     )
-    destination_patterns: AllowDenyPattern = Field(
+    destination_patterns: Annotated[
+        AllowDenyPattern, Filters(FIVETRAN_DESTINATION_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for destination ids to filter in ingestion. "
         "Fivetran destination IDs are usually two word identifiers e.g. canyon_tolerable, and are not the same as the destination database name. "
@@ -465,6 +507,90 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             "if you have very large connectors that legitimately need more."
         ),
     )
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Connectors sit under a destination: both readers drop every
+        connector on a destination destination_patterns denies, before
+        connector_patterns is consulted."""
+        return ancestors_in(
+            (FIVETRAN_DESTINATION_KIND,), kind, (FIVETRAN_CONNECTOR_KIND,)
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """The connector verdict both readers make, from what `probe filter`
+        was given.
+
+        Two rules no single pattern states:
+
+        - destination_patterns drops every connector on a denied destination.
+          With --parent the framework judges that itself; a `--from-run`
+          listing taken without --destination has no parent, so the
+          destination comes from each record's destination_id instead.
+        - REST mode keeps a connector when connector_patterns allows its id OR
+          its name (FivetranLogRestReader.get_allowed_connectors_list); DB mode
+          matches the name alone. The id arrives as the connector_id attribute.
+
+        Which exclusion is reported when both apply follows each reader's
+        order: DB checks connector_patterns first, REST checks the destination
+        before it lists the destination's connectors."""
+        if ctx.kind != FIVETRAN_CONNECTOR_KIND or ctx.structural is not None:
+            return None
+        rest = self.log_source == "rest_api"
+        attributes = ctx.attributes
+        connector_id: MaybeConnectorId = attributes.get("connector_id", UNKNOWN)
+        if (
+            rest
+            and connector_id is UNKNOWN
+            and not self.connector_patterns.allowed(ctx.target)
+        ):
+            ctx.warn(REST_CONNECTOR_MATCH_NOTE)
+        destination_id: MaybeDestinationId
+        if ctx.parent_path:
+            # The framework judges the --parent destination itself.
+            destination_id = UNKNOWN
+        elif "destination_id" in attributes:
+            destination_id = attributes["destination_id"]
+        elif not rest and attributes.get(DESTINATION_ID_IS_NULL) == "true":
+            destination_id = None
+        else:
+            destination_id = UNKNOWN
+            self._warn_destination_not_applied(ctx)
+        verdict = connector_verdict(
+            self,
+            ConnectorFacts(
+                name=ctx.target,
+                connector_id=connector_id,
+                destination_id=destination_id,
+            ),
+            rest=rest,
+        )
+        if verdict.excluded_by == NULL_DESTINATION_ID:
+            ctx.warn(
+                "this connector has no destination_id in the log; ingestion "
+                "matches destination_patterns against it and stops the run "
+                "with an error unless connector_patterns drops it first"
+            )
+        return verdict
+
+    def _warn_destination_not_applied(self, ctx: VerdictContext) -> None:
+        if not self.destination_patterns.is_allow_all():
+            ctx.warn(
+                "destination_patterns is set, but no destination was given for "
+                "these connectors, so it was not applied: ingestion drops every "
+                "connector on a denied destination. Pass --parent "
+                "<destination_id>, or judge a `probe run connectors` listing "
+                "with --from-run, which carries each connector's destination_id."
+            )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Imported here: fivetran_probe imports the log readers, which import
+        # this module, so a top-level import would be circular.
+        from datahub.ingestion.source.fivetran.fivetran_probe import (
+            FivetranMetadataProbe,
+        )
+
+        return FivetranMetadataProbe
 
     @model_validator(mode="after")
     def validate_log_source_credentials(self) -> "FivetranSourceConfig":

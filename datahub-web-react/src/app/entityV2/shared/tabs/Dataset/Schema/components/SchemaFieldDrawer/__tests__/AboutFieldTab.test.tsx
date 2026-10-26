@@ -19,11 +19,11 @@ vi.mock('@app/entity/shared/EntityContext', () => ({
     useRefetch: () => vi.fn(),
 }));
 
-vi.mock('@app/shared/hooks/useFileUpload', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUpload', () => ({
     default: () => ({ uploadFile: vi.fn() }),
 }));
 
-vi.mock('@app/shared/hooks/useFileUploadAnalyticsCallbacks', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks', () => ({
     default: () => ({ onFileUploadStart: vi.fn(), onFileUploadSuccess: vi.fn(), onFileUploadError: vi.fn() }),
 }));
 

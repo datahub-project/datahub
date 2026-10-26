@@ -8,6 +8,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'search' });
 
@@ -20,7 +21,7 @@ test.describe('Search Functionality', () => {
     await searchPage.navigateToHome();
   });
 
-  test('should search all entities and see results', async () => {
+  test('should search all entities and see results', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await searchPage.searchAndWait('*', 5000);
     await searchPage.expectHasResults();
   });
@@ -30,25 +31,29 @@ test.describe('Search Functionality', () => {
     await searchPage.expectNoResults();
   });
 
-  test('should search, find a result, and visit the dataset page', async ({ page }) => {
-    test.setTimeout(45000);
-    await searchPage.searchAndWait('fct_playwright_users_created', 5000);
+  test(
+    'should search, find a result, and visit the dataset page',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      test.setTimeout(45000);
+      await searchPage.searchAndWait('fct_playwright_users_created', 5000);
 
-    // Wait for results — seeder fixture guarantees data is present.
-    await expect(page.getByText(/of [0-9]+ result/)).toBeVisible({ timeout: 30000 });
+      // Wait for results — seeder fixture guarantees data is present.
+      await expect(page.getByText(/of [0-9]+ result/)).toBeVisible({ timeout: 30000 });
 
-    await searchPage.clickResult('fct_playwright_users_created');
+      await searchPage.clickResult('fct_playwright_users_created');
 
-    await page.waitForURL(/.*dataset.*fct_playwright_users_created.*/);
-    await page.waitForLoadState('networkidle');
+      await page.waitForURL(/.*dataset.*fct_playwright_users_created.*/);
+      await page.waitForLoadState('networkidle');
 
-    // The V2 entity page shows the platform as an icon (not text), so we verify
-    // the entity type and schema fields that are rendered as visible text.
-    await searchPage.expectTextVisible('Dataset');
-    await searchPage.expectTextVisible('fct_playwright_users_created');
-    await searchPage.expectTextVisible('user_id');
-    await searchPage.expectTextVisible('Id of the user');
-  });
+      // The V2 entity page shows the platform as an icon (not text), so we verify
+      // the entity type and schema fields that are rendered as visible text.
+      await searchPage.expectTextVisible('Dataset');
+      await searchPage.expectTextVisible('fct_playwright_users_created');
+      await searchPage.expectTextVisible('user_id');
+      await searchPage.expectTextVisible('Id of the user');
+    },
+  );
 
   test('should filter by glossary term', async () => {
     await searchPage.searchAndWait('*', 2000);

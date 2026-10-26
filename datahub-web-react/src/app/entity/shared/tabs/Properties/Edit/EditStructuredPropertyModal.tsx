@@ -5,8 +5,8 @@ import styled from 'styled-components';
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal, toast } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
@@ -41,7 +41,7 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { t } = useTranslation('entity.profile.tabs');
     const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const { refetch: entityRefetch } = useEntityContext();

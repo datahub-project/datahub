@@ -4,9 +4,9 @@ import { Route, Switch } from 'react-router-dom';
 import { DomainsContext, UpdatedDomain } from '@app/domainV2/DomainsContext';
 import ManageDomainsSidebar from '@app/domainV2/nestedDomains/ManageDomainsSidebar';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
-import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     HierarchicalBrowseContentWrapper,
     HierarchicalBrowseMainContent,

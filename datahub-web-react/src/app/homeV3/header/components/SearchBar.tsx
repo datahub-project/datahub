@@ -7,7 +7,7 @@ import styled, { useTheme } from 'styled-components';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const Container = styled.div`
     display: flex;
@@ -25,7 +25,7 @@ const StyledButton = styled(Button)`
 
 export default function SearchBar() {
     const { t } = useTranslation(['home.v3', 'search']);
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const searchViewAll = useSearchViewAll();
     const search = useGoToSearchPage(null);
     const themeConfig = useTheme();
