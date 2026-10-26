@@ -26,6 +26,7 @@ const PROFILE_IMPORT_ALLOWLIST = [
     'RelatedTermTypes',
     'useGetColumnTabCount',
     'useGlossaryRelatedAssetsTabCount',
+    'useGlossaryRelatedTermsTabCount',
     'lineageV3/types',
     'lineageV3/utils/lineageUtils',
     'lineageV3/utils/downgradeV2FieldPath',
