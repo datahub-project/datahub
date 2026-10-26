@@ -248,7 +248,6 @@ DYNAMODB_STS_ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/
 # Cap STS GetCallerIdentity retries: building a session + client is expensive (~seconds with an
 # SSO profile) and _aws_config() already retries internally, so don't re-attempt once per node for
 # a persistent failure (AccessDenied) or sustained throttling across an unbounded node count.
-MAX_STS_ACCOUNT_ID_ATTEMPTS = 3
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -836,8 +835,6 @@ class GlueSource(StatefulIngestionSourceBase):
         self._seen_column_param_urns: Set[str] = set()
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
-        self._aws_account_id_sts_warned: bool = False
-        self._aws_account_id_sts_attempts: int = 0
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -1604,25 +1601,19 @@ class GlueSource(StatefulIngestionSourceBase):
             if not account_id:
                 raise ValueError("GetCallerIdentity returned no Account")
         except Exception as exc:
-            # Don't cache a transient failure immediately, so a later node can retry instead of
-            # every DynamoDB URN inheriting a missing account for the rest of the run — but stop
-            # retrying after a few attempts so a persistent failure doesn't re-hit STS per node.
-            self._aws_account_id_sts_attempts += 1
-            if self._aws_account_id_sts_attempts >= MAX_STS_ACCOUNT_ID_ATTEMPTS:
-                self._aws_account_id_loaded = True
-            if not self._aws_account_id_sts_warned:
-                self._aws_account_id_sts_warned = True
-                self.report.warning(
-                    title="Could not resolve AWS account id via STS",
-                    message=(
-                        "sts:GetCallerIdentity did not return the AWS account id used as the "
-                        "DynamoDB platform_instance. The call needs no IAM permission, so check "
-                        "network access to STS and the credentials. DynamoDB DAG nodes without a "
-                        "table ARN or cross-account role ARN will be skipped (no lineage emitted) "
-                        "rather than emitting a URN with a guessed account."
-                    ),
-                    exc=exc,
-                )
+            # Cache the failure too: STS is called once per run, not once per node.
+            self._aws_account_id_loaded = True
+            self.report.warning(
+                title="Could not resolve AWS account id via STS",
+                message=(
+                    "sts:GetCallerIdentity did not return the AWS account id used as the "
+                    "DynamoDB platform_instance. The call needs no IAM permission, so check "
+                    "network access to STS and the credentials. DynamoDB DAG nodes without a "
+                    "table ARN or cross-account role ARN will be skipped (no lineage emitted) "
+                    "rather than emitting a URN with a guessed account."
+                ),
+                exc=exc,
+            )
             return None
         self._aws_account_id = account_id
         self._aws_account_id_loaded = True
@@ -1650,7 +1641,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         table_arn = connection_options.get(DYNAMODB_TABLE_ARN)
         if table_arn:
-            match = DYNAMODB_TABLE_ARN_PATTERN.match(str(table_arn))
+            match = DYNAMODB_TABLE_ARN_PATTERN.match(str(table_arn).strip())
             if not match:
                 # The table ARN is the most authoritative signal in the node. If it is present
                 # but unparseable, do NOT fall through to the tableName/region/account fallbacks —

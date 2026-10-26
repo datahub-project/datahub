@@ -2,7 +2,7 @@ import base64
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, cast
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -26,7 +26,6 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
     GLUE_NATIVE_CONNECTION_TYPE_MAP,
     JDBC_PLATFORM_MAP,
-    MAX_STS_ACCOUNT_ID_ATTEMPTS,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
@@ -3393,6 +3392,13 @@ def _make_dynamodb_node(
             "444455556666.us-gov-west-1.orders",
             id="govcloud-role-arn-with-whitespace",
         ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": " arn:aws:dynamodb:us-east-1:123456789012:table/customers\n",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-with-whitespace",
+        ),
     ],
 )
 def test_process_dataflow_node_dynamodb_account_precedence(
@@ -3564,38 +3570,33 @@ def test_get_aws_account_id_caches_success() -> None:
         assert mock_sts.return_value.get_caller_identity.call_count == 1
 
 
-def test_get_aws_account_id_caps_retries_and_warns_once() -> None:
+@pytest.mark.parametrize(
+    "sts_result",
+    [
+        pytest.param(Exception("throttled"), id="sts-error"),
+        pytest.param({}, id="no-account-in-response"),
+    ],
+)
+def test_get_aws_account_id_failure_is_cached_and_warned_once(
+    sts_result: Union[Exception, Dict[str, str]],
+) -> None:
     source = glue_source()
     with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
-        mock_sts.return_value.get_caller_identity.side_effect = Exception("throttled")
-        for _ in range(MAX_STS_ACCOUNT_ID_ATTEMPTS):
-            assert source._get_aws_account_id() is None
-        calls_at_cap = mock_sts.return_value.get_caller_identity.call_count
-        # Transient failures retry up to the cap...
-        assert calls_at_cap == MAX_STS_ACCOUNT_ID_ATTEMPTS
-        # ...then stop re-hitting STS for the rest of the run.
+        get_caller_identity = mock_sts.return_value.get_caller_identity
+        if isinstance(sts_result, Exception):
+            get_caller_identity.side_effect = sts_result
+        else:
+            get_caller_identity.return_value = sts_result
         assert source._get_aws_account_id() is None
-        assert mock_sts.return_value.get_caller_identity.call_count == calls_at_cap
+        assert source._get_aws_account_id() is None
+        assert get_caller_identity.call_count == 1
     account_id_warnings = [
         w
         for w in source.report.warnings
         if w.title == "Could not resolve AWS account id via STS"
     ]
     assert len(account_id_warnings) == 1
-    # One context entry: the call site warns once, not just the report's title dedup.
     assert len(account_id_warnings[0].context) == 1
-
-
-def test_get_aws_account_id_missing_account_is_a_failure() -> None:
-    source = glue_source()
-    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
-        mock_sts.return_value.get_caller_identity.side_effect = [
-            {},
-            {"Account": "999999999999"},
-        ]
-        assert source._get_aws_account_id() is None
-        # Not cached as None: the next node retries and succeeds.
-        assert source._get_aws_account_id() == "999999999999"
 
 
 @pytest.mark.parametrize(
