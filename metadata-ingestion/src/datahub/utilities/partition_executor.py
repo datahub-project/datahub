@@ -173,6 +173,57 @@ class _BatchPartitionWorkItem(NamedTuple):
     done_callback: Optional[Callable[[Future], None]]
 
 
+class BatchItemFailures(Exception):
+    """Raised by a `process_batch` callable to report per-item outcomes.
+
+    A batch call is all-or-nothing at the transport layer, so one invalid item fails
+    every item batched with it. A processor that can determine each item's individual
+    outcome — typically by retrying them one at a time — raises this instead of the
+    underlying error, and the executor delivers each item its own outcome rather than
+    sharing one failure across the batch.
+
+    `outcomes` is positionally aligned with the list handed to `process_batch`.
+    `None` at an index means that item succeeded.
+    """
+
+    def __init__(self, outcomes: List[Optional[BaseException]]) -> None:
+        failed = sum(1 for outcome in outcomes if outcome is not None)
+        super().__init__(f"{failed} of {len(outcomes)} batch items failed")
+        self.outcomes = outcomes
+
+
+def _extract_per_item_outcomes(
+    batch: List[_BatchPartitionWorkItem], future: Future
+) -> Optional[List[Optional[BaseException]]]:
+    # Returns None whenever per-item outcomes are unavailable or untrustworthy, which
+    # keeps the caller on the pre-existing shared-future path.
+    if future.cancelled() or not future.done():
+        return None
+
+    exception = future.exception()
+    if not isinstance(exception, BatchItemFailures):
+        return None
+
+    if len(exception.outcomes) != len(batch):
+        logger.warning(
+            "Ignoring per-item batch outcomes: got %d outcomes for a batch of %d",
+            len(exception.outcomes),
+            len(batch),
+        )
+        return None
+
+    return exception.outcomes
+
+
+def _future_for_outcome(outcome: Optional[BaseException]) -> Future:
+    future: Future = Future()
+    if outcome is None:
+        future.set_result(None)
+    else:
+        future.set_exception(outcome)
+    return future
+
+
 def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
@@ -319,9 +370,14 @@ class BatchPartitionExecutor(Closeable):
                     self._pending_count.release()
 
             # Separate from the above loop to avoid holding the lock while calling the callbacks.
-            for item in batch:
-                if item.done_callback:
+            per_item_outcomes = _extract_per_item_outcomes(batch, future)
+            for index, item in enumerate(batch):
+                if not item.done_callback:
+                    continue
+                if per_item_outcomes is None:
                     item.done_callback(future)
+                else:
+                    item.done_callback(_future_for_outcome(per_item_outcomes[index]))
 
         def _find_ready_items(max_to_add: int) -> List[_BatchPartitionWorkItem]:
             with clearinghouse_state_lock:
