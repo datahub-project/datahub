@@ -142,7 +142,7 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
     pet_profile = next(item for item in ranking if item["id"] == "ranking-pet-profile")
     assert "dashboards.14" not in json.dumps(pet_profile)
     assert pet_profile["containsInTop"] == {
-        "n": 5,
+        "n": 3,
         "values": ["pet_profiles", "pet_profiles"],
     }
     pet_details = next(
