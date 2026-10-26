@@ -14,6 +14,7 @@ from datahub.ingestion.source.dataplex.dataplex_mappers import (
     ContainerIdentity,
     DatasetIdentity,
     EntryMappingContext,
+    MLModelIdentity,
     _extract_datetime,
     _extract_description,
     _extract_display_name,
@@ -24,6 +25,7 @@ from datahub.ingestion.source.dataplex.dataplex_mappers import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.mlmodel import MLModel
 
 ENTRY_TYPE_PREFIX = "projects/123/locations/global/entryTypes/"
 
@@ -174,6 +176,30 @@ CASES = [
         "Table",
     ),
     (
+        "vertexai-feature-group",
+        "vertex_ai:featuregroup:my-project.us-west2.my_feature_group",
+        "",
+        "Dataset",
+        "my-project.us-west2.feature_group.my_feature_group",
+        "Feature Group",
+    ),
+    (
+        "vertexai-feature-online-store",
+        "vertex_ai:featureonlinestore:my-project.us-west2.my_store",
+        "",
+        "Dataset",
+        "my-project.us-west2.feature_online_store.my_store",
+        "Feature Online Store",
+    ),
+    (
+        "vertexai-model-version",
+        "vertex_ai:model:my-project.us-west2.123456.1",
+        "",
+        "MLModel",
+        "my-project.model.123456_1",
+        None,
+    ),
+    (
         "dataproc-metastore-service",
         "dataproc_metastore:my-project.us-west1.my-service",
         "",
@@ -225,7 +251,20 @@ def test_mapper_builds_expected_entity(
     assert result is not None
     assert result.main_entity is not None
 
-    # Every entry also emits its owning project container as an additional entity.
+    if main_type == "MLModel":
+        # An MLModel has no DataHub container parent, no subtype slot, and is
+        # not a lineage node.
+        assert isinstance(result.main_entity, MLModel)
+        assert result.additional_entities == []
+        assert result.lineage_entry is None
+        assert dataset_name is not None
+        assert result.main_entity.urn.urn() == (
+            f"urn:li:mlModel:(urn:li:dataPlatform:{mapper.datahub_platform},"
+            f"{dataset_name},PROD)"
+        )
+        return
+
+    # Every other entry also emits its owning project container.
     assert len(result.additional_entities) == 1
     project_container = result.additional_entities[0]
     assert isinstance(project_container, Container)
@@ -434,6 +473,52 @@ def test_dataset_name_format_fields_are_captured_by_fqn_regex(short_name: str) -
     regex_groups = set(mapper.dataplex_fqn_regex.groupindex.keys())
     assert fmt_fields.issubset(regex_groups), (
         f"{short_name}: format fields {fmt_fields} not all in regex groups {regex_groups}"
+    )
+
+
+def test_model_id_format_fields_are_captured_by_fqn_regex() -> None:
+    mapper = ENTRY_MAPPERS["vertexai-model-version"]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, MLModelIdentity)
+    assert _format_fields(identity.id_format).issubset(
+        set(mapper.dataplex_fqn_regex.groupindex.keys())
+    )
+
+
+def test_feature_group_and_online_store_with_one_id_get_different_urns() -> None:
+    urns = set()
+    for short_name, fqn in [
+        ("vertexai-feature-group", "vertex_ai:featuregroup:my-project.us-west2.shared"),
+        (
+            "vertexai-feature-online-store",
+            "vertex_ai:featureonlinestore:my-project.us-west2.shared",
+        ),
+    ]:
+        result = ENTRY_MAPPERS[short_name].map(
+            _make_entry(short_name=short_name, fqn=fqn, parent_entry=""), _ctx()
+        )
+        assert result is not None and result.main_entity is not None
+        urns.add(result.main_entity.urn.urn())
+
+    assert len(urns) == 2
+
+
+def test_unparseable_model_fqn_is_skipped_with_a_warning() -> None:
+    ctx = _ctx()
+    result = ENTRY_MAPPERS["vertexai-model-version"].map(
+        _make_entry(
+            short_name="vertexai-model-version",
+            fqn="vertex_ai:model:my-project.us-west2.123456",
+            parent_entry="",
+        ),
+        ctx,
+    )
+
+    assert result is None
+    warning = ctx.report.warning
+    assert isinstance(warning, Mock)
+    assert (
+        warning.call_args.kwargs["title"] == "Unparseable Dataplex fully_qualified_name"
     )
 
 

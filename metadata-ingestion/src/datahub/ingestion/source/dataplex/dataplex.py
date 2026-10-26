@@ -138,15 +138,16 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     the existing hierarchy (for example project -> instance -> database -> table)
     and the FQN / parent-entry regexes it needs. Then add a small ``EntryMapper``
     subclass in ``dataplex_mappers.py`` that declares the DataHub platform, its
-    main entity type (Container or Dataset), the subtype constant from
+    main entity type (Container, Dataset or MLModel), the subtype constant from
     ``subtypes.py``, and delegates to the shared ``build_dataset`` /
-    ``build_container`` helper; finally register the mapper in ``ENTRY_MAPPERS``.
+    ``build_container`` / ``build_mlmodel`` helper; finally register the mapper
+    in ``ENTRY_MAPPERS``.
     FQN formats and parent hierarchy must be derived from:
     https://cloud.google.com/dataplex/docs/fully-qualified-names
 
-    Decide whether the entry maps to a Container or Dataset based on whether it is
-    a logical grouping level (instance/database/dataset) versus a concrete asset
-    (table/topic). Use subtype constants from ``datahub.ingestion.source.common.subtypes``.
+    Decide whether the entry maps to a Container or a Dataset / MLModel based on
+    whether it is a logical grouping level (instance/database/dataset) versus a
+    concrete asset (table/topic/model). Use subtype constants from ``datahub.ingestion.source.common.subtypes``.
     Top-level containers may not have ``parent_entry`` and should rely on key hierarchy
     for parent traversal. Also note that Spanner entries are currently fetched through
     a search workaround, which bypasses entry-group filtering and must be controlled

@@ -1,0 +1,390 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "vertexai",
+                "project_id": "test-project",
+                "dataplex_ingested": "true",
+                "dataplex_project_id": "test-project",
+                "dataplex_entry_type": "projects/test-project/locations/global/entryTypes/vertexai-feature-group",
+                "dataplex_source_platform": "vertexai"
+            },
+            "name": "test-project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-q0gwht",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-q0gwht",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-q0gwht",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-q0gwht",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_group.my_feature_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-q0gwht",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_group.my_feature_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us-central1/entryGroups/@vertexai/entries/my_feature_group",
+                "dataplex_entry_group": "@vertexai",
+                "dataplex_fully_qualified_name": "vertex_ai:featuregroup:test-project.us-central1.my_feature_group",
+                "dataplex_entry_type": "projects/test-project/locations/global/entryTypes/vertexai-feature-group"
+            },
+            "name": "my_feature_group",
+            "description": "Features for the churn model",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_group.my_feature_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_group.my_feature_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature Group"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_online_store.my_online_store,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us-central1/entryGroups/@vertexai/entries/my_online_store",
+                "dataplex_entry_group": "@vertexai",
+                "dataplex_fully_qualified_name": "vertex_ai:featureonlinestore:test-project.us-central1.my_online_store",
+                "dataplex_entry_type": "projects/test-project/locations/global/entryTypes/vertexai-feature-online-store"
+            },
+            "name": "my_online_store",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_online_store.my_online_store,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+                    "urn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_group.my_feature_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57",
+                    "urn": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_online_store.my_online_store,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4c09bf28ce5e6b18ffcaefe9f9363f57"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_online_store.my_online_store,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_online_store.my_online_store,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_online_store.my_online_store,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Feature Online Store"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project.model.123456_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project.model.123456_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us-central1/entryGroups/@vertexai/entries/123456@1",
+                "dataplex_entry_group": "@vertexai",
+                "dataplex_fully_qualified_name": "vertex_ai:model:test-project.us-central1.123456.1",
+                "dataplex_entry_type": "projects/test-project/locations/global/entryTypes/vertexai-model-version"
+            },
+            "name": "123456@1",
+            "description": "Churn model, version 1",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:vertexai,test-project.model.123456_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:vertexai"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertexai,test-project.us-central1.feature_group.my_feature_group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-8x6f5d",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
