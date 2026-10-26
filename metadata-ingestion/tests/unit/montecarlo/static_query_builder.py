@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, Sequence
 
 from datahub.ingestion.source.montecarlo.queries import TABLE_MONITOR_QUERY
 from datahub.ingestion.source.montecarlo.query_builder import (
+    MonteCarloGraphQLType,
     SchemaDrift,
     alerts_fallback_query,
     custom_rules_fallback_query,
@@ -55,6 +56,8 @@ class StaticQueryBuilder:
         return get_metrics_v4_fallback_query()
 
     def check_drift(
-        self, strict: bool = False, types: Optional[list] = None
+        self,
+        strict: bool = False,
+        types: Optional[Sequence[MonteCarloGraphQLType]] = None,
     ) -> SchemaDrift:
         return SchemaDrift()

@@ -16,11 +16,12 @@ from datahub.ingestion.source.montecarlo.query_builder import (
     DriftVerdict,
     FieldSpec,
     IntrospectingQueryBuilder,
+    MonteCarloGraphQLType,
+    _build_selection_with_subshapes,
+    _emit_fallback_selection,
     _parse_type_shape,
     _TypeShape,
     drift_abort_title,
-    dynamic_selection_for_shape,
-    fallback_selection_for_type,
     iter_leaf_field_specs,
     spec_value,
 )
@@ -236,7 +237,9 @@ def test_drift_proceed_on_current_gateway_shape() -> None:
         )
     )
     for strict in (False, True):
-        drift = builder.check_drift(strict=strict, types=["Monitor"])
+        drift = builder.check_drift(
+            strict=strict, types=[MonteCarloGraphQLType.MONITOR]
+        )
         assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
         assert drift.per_type["Monitor"].missing == []
         assert drift.verdict == DriftVerdict.PROCEED
@@ -247,7 +250,7 @@ def test_drift_degraded_when_optional_fields_missing() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
     assert "description" in drift.per_type["Monitor"].missing
     assert drift.per_type["Monitor"].critical_missing == []
@@ -259,7 +262,7 @@ def test_drift_abort_when_strict_and_optional_missing() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
-    drift = builder.check_drift(strict=True, types=["Monitor"])
+    drift = builder.check_drift(strict=True, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
 
 
@@ -269,7 +272,7 @@ def test_drift_proceed_when_no_drift() -> None:
             Monitor=_introspect_response(_live_monitor_shape()),
         )
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
     assert drift.per_type["Monitor"].missing == []
     assert drift.verdict == DriftVerdict.PROCEED
@@ -281,7 +284,7 @@ def test_drift_reports_new_uningested_fields() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert "monitorSqlBlocks" in drift.per_type["Monitor"].new_fields
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
 
@@ -318,7 +321,7 @@ def test_builder_falls_back_when_introspection_fails() -> None:
     assert "subTypes" in alert_q
     assert "assets" in alert_q
     assert any("introspection failed" in w for w in warnings)
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.verdict == DriftVerdict.PROCEED
 
 
@@ -359,7 +362,9 @@ def test_builder_fallback_does_not_poison_other_types() -> None:
     alert_q = builder.alerts_query()
     assert any(line.strip() == "id" for line in alert_q.splitlines())
     assert "monitorUuids" in alert_q
-    drift = builder.check_drift(strict=False, types=["Monitor", "Alert"])
+    drift = builder.check_drift(
+        strict=False, types=[MonteCarloGraphQLType.MONITOR, MonteCarloGraphQLType.ALERT]
+    )
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
     assert drift.per_type["Alert"].verdict == DriftVerdict.PROCEED
     # Monitor failed but Alert was still introspected.
@@ -387,7 +392,7 @@ def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
     assert "whereCondition" in query
     assert "priority" in query
     assert "uuid" in query
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert not any(
         m.startswith("comparisons.") for m in drift.per_type["Monitor"].missing
     )
@@ -427,7 +432,7 @@ def test_successful_empty_parent_aborts_instead_of_fallback() -> None:
     # not an introspection failure. The gate must ABORT on missing critical
     # fields rather than PROCEED and send the hardcoded fallback.
     builder = _builder_with_introspection({"Monitor": {"mc_type": {"fields": []}}})
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
     assert "uuid" in drift.per_type["Monitor"].critical_missing
     assert "entityMcons" in drift.per_type["Monitor"].critical_missing
@@ -447,7 +452,7 @@ def test_empty_comparison_drops_field_and_reports_nested_drift() -> None:
     query = builder.monitors_query()
     assert "comparisons" not in query
     assert "uuid" in query
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
     assert any(m.startswith("comparisons.") for m in drift.per_type["Monitor"].missing)
     assert drift.verdict == DriftVerdict.DEGRADED
@@ -469,7 +474,7 @@ def test_partial_comparison_reports_nested_drift() -> None:
     assert "comparisonType" in query
     assert "operator" in query
     assert "metric" not in query
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
     assert "comparisons.metric" in drift.per_type["Monitor"].missing
 
@@ -656,14 +661,14 @@ def test_drift_abort_when_strict_and_introspection_fails() -> None:
         raise RuntimeError("transient introspection blip")
 
     builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
-    drift = builder.check_drift(strict=True, types=["Monitor"])
+    drift = builder.check_drift(strict=True, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
     assert drift.per_type["Monitor"].introspection_failed
 
 
 def test_drift_type_absent_does_not_fake_critical_list() -> None:
     builder = _builder_with_introspection({"Monitor": {"mc_type": None}})
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     td = drift.per_type["Monitor"]
     assert td.verdict == DriftVerdict.ABORT
     assert td.type_absent
@@ -680,7 +685,7 @@ def test_degraded_message_includes_spec_impact() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     missing = drift.per_type["Monitor"].missing
     assert "whereCondition" in missing
     cfg = make_config(include_alerts=False)
@@ -700,7 +705,7 @@ def test_partial_comparison_drift_message_names_dotted_path() -> None:
             ),
         )
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert "comparisons.customMetric" in drift.per_type["Monitor"].missing
     cfg = make_config(include_alerts=False, strict_schema_drift=False)
     source = _build_source(cfg)
@@ -809,7 +814,7 @@ def test_strict_without_critical_miss_title_not_critical_fields() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
-    drift = builder.check_drift(strict=True, types=["Monitor"])
+    drift = builder.check_drift(strict=True, types=[MonteCarloGraphQLType.MONITOR])
     title = drift_abort_title(drift.per_type["Monitor"], strict=True)
     assert "strict mode" in title
     assert "critical fields missing" not in title
@@ -902,7 +907,7 @@ def test_drift_proceed_when_only_severity_alias_present() -> None:
     builder = _builder_with_introspection(
         _full_nested_responses(Monitor=_introspect_response(shape))
     )
-    drift = builder.check_drift(strict=False, types=["Monitor"])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType.MONITOR])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
     query = builder.monitors_query()
     assert "severity" in query
@@ -955,7 +960,7 @@ def test_drift_abort_when_critical_field_missing(
     if type_name == "Alert":
         responses["AlertAsset"] = _introspect_response({"mcon": "SCALAR:String"})
     builder = _builder_with_introspection(responses)
-    drift = builder.check_drift(strict=False, types=[type_name])
+    drift = builder.check_drift(strict=False, types=[MonteCarloGraphQLType(type_name)])
     assert drift.per_type[type_name].verdict == DriftVerdict.ABORT
     assert critical_path in drift.per_type[type_name].critical_missing
 
@@ -989,7 +994,7 @@ def test_field_spec_consistency_with_selections() -> None:
         "AlertAsset": _shape_from_field_names({"mcon": "SCALAR:String"}),
     }
     for type_spec in TYPE_SPECS.values():
-        fallback = fallback_selection_for_type(type_spec, "")
+        fallback = _emit_fallback_selection(type_spec.fields, "")
         for name in _iter_in_fallback_graphql_names(type_spec.fields):
             assert name in fallback, (
                 f"{name} missing from {type_spec.type_name} fallback"
@@ -1025,7 +1030,9 @@ def test_field_spec_consistency_with_selections() -> None:
                     "assets": "OBJECT:AlertAsset",
                 }
             )
-        dynamic = dynamic_selection_for_shape(type_spec, live, nested_shapes, indent="")
+        dynamic = _build_selection_with_subshapes(
+            type_spec.fields, live, nested_shapes, indent=""
+        )
         for spec in type_spec.fields:
             if spec.children:
                 continue
@@ -1127,7 +1134,11 @@ def test_drift_proceed_when_asset_filter_fields_are_interface_kind() -> None:
     )
     for strict in (False, True):
         drift = builder.check_drift(
-            strict=strict, types=["TableMonitor", "AssetSelection"]
+            strict=strict,
+            types=[
+                MonteCarloGraphQLType.TABLE_MONITOR,
+                MonteCarloGraphQLType.ASSET_SELECTION,
+            ],
         )
         assert drift.per_type["TableMonitor"].verdict == DriftVerdict.PROCEED
         assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
@@ -1151,7 +1162,13 @@ def test_table_monitor_keeps_asset_selection_when_nested_introspection_fails() -
     assert "filtersJoiner" in query
     assert "databases" in query
     assert "filters" in query
-    drift = builder.check_drift(strict=False, types=["TableMonitor", "AssetSelection"])
+    drift = builder.check_drift(
+        strict=False,
+        types=[
+            MonteCarloGraphQLType.TABLE_MONITOR,
+            MonteCarloGraphQLType.ASSET_SELECTION,
+        ],
+    )
     assert drift.per_type["TableMonitor"].verdict == DriftVerdict.PROCEED
     assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
 
@@ -1177,7 +1194,13 @@ def test_table_monitor_keeps_databases_when_asset_selection_database_introspecti
     assert "name" in query
     assert "schemas" in query
     assert "filters" in query
-    drift = builder.check_drift(strict=False, types=["TableMonitor", "AssetSelection"])
+    drift = builder.check_drift(
+        strict=False,
+        types=[
+            MonteCarloGraphQLType.TABLE_MONITOR,
+            MonteCarloGraphQLType.ASSET_SELECTION,
+        ],
+    )
     assert drift.per_type["AssetSelection"].verdict == DriftVerdict.PROCEED
 
 
@@ -1468,3 +1491,47 @@ def test_table_scope_drift_locks_table_monitor_resolution() -> None:
 
     client._resolve_table_monitor_entity_mcons("mon-tbl-2", None)
     assert len(report.failures) == 1
+
+
+def test_table_scope_degraded_warning_names_missing_fields() -> None:
+    report = MonteCarloSourceReport()
+    client = MonteCarloClient(make_config(), page_size=100, report=report)
+    asset_selection_shape = _live_asset_selection_shape()
+    del asset_selection_shape["filtersJoiner"]
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "TableMonitor":
+            return _introspect_response(_live_table_monitor_shape())
+        if type_name == "AssetSelection":
+            return _introspect_response(asset_selection_shape)
+        if type_name == "AssetSelectionDatabase":
+            return _introspect_response(
+                {"name": "SCALAR:String", "schemas": "SCALAR:String"}
+            )
+        if type_name == "AssetSelectionResult":
+            return _introspect_response(
+                {"selected": "SCALAR:Boolean", "mcon": "SCALAR:String"}
+            )
+        if type_name == "AssetFilterInterface":
+            return _introspect_response(_live_asset_filter_shape())
+        if "getTableMonitor" in query:
+            return {
+                "get_table_monitor": {"warehouse_uuid": "wh", "asset_selection": {}}
+            }
+        raise AssertionError(f"unexpected: {query[:60]!r}")
+
+    client.set_query_builder(
+        IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    )
+    client._call = fake_call  # type: ignore[method-assign]
+    client._resolve_table_monitor_entity_mcons("mon-tbl", None)
+    drift_warnings = [
+        w
+        for w in report.warnings
+        if w.title == "Monte Carlo schema drift (AssetSelection)"
+    ]
+    assert len(drift_warnings) == 1
+    assert "filtersJoiner" in (drift_warnings[0].message or "")
+    assert report.build_failures == 0
+    assert len(report.failures) == 0

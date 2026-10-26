@@ -291,8 +291,8 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
                 targets
                 and (alert.alert_type or "").upper() == ALERT_TYPE_SCHEMA_CHANGES
             ):
-                if self.client._schema_change_join_disabled:
-                    self.client._warn_schema_change_join_disabled_once()
+                if self.client.schema_change_join_disabled:
+                    self.client.warn_schema_change_join_disabled_once()
                 else:
                     self.client.join_schema_changes_for_alert(
                         alert,
@@ -315,8 +315,8 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
         # rules, alerts). ABORT skips only that phase (stale-removal lock); other
         # phases still run. DEGRADED is reported for every drifted type.
         drift = self.client.check_schema_drift(self.config.strict_schema_drift)
-        if self.config.include_alerts and self.client._schema_change_join_disabled:
-            self.client._warn_schema_change_join_disabled_once()
+        if self.config.include_alerts and self.client.schema_change_join_disabled:
+            self.client.warn_schema_change_join_disabled_once()
         skip = self._phase_skip_flags_from_drift(drift)
 
         if self.config.include_assertions:

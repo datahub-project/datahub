@@ -1,8 +1,23 @@
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Protocol, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+)
 
+from datahub.ingestion.source.montecarlo.queries import (
+    ASSET_FILTER_INLINE_SELECTION,
+    TABLE_MONITOR_QUERY,
+)
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -48,6 +63,7 @@ _CUSTOM_METRIC_FIELDS: Tuple[FieldSpec, ...] = (
 
 COMPARISONS_FIELD = FieldSpec(
     name="comparisons",
+    impact="assertion operator, thresholds and column scope; measured run events",
     in_fallback=True,
     children=(
         FieldSpec(name="comparisonType"),
@@ -72,13 +88,19 @@ MONITOR_TYPE_SPEC = TypeSpec(
         FieldSpec(name="uuid", critical=True),
         FieldSpec(name="name"),
         FieldSpec(name="description"),
-        FieldSpec(name="monitorType"),
+        FieldSpec(
+            name="monitorType",
+            impact="assertion type, monitor_type_pattern filtering, TABLE monitor scope",
+        ),
         FieldSpec(
             name="whereCondition",
             impact="row filter on nativeParameters",
         ),
         FieldSpec(name="entityMcons", critical=True),
-        FieldSpec(name="resourceId"),
+        FieldSpec(
+            name="resourceId",
+            impact="nativeParameters resource_id slot",
+        ),
         FieldSpec(
             name="priority",
             aliases=("severity",),
@@ -96,7 +118,7 @@ CUSTOM_RULE_TYPE_SPEC = TypeSpec(
         FieldSpec(name="ruleName"),
         FieldSpec(name="ruleType"),
         FieldSpec(name="description"),
-        FieldSpec(name="customSql"),
+        FieldSpec(name="customSql", impact="assertion logic (the rule's SQL)"),
         FieldSpec(name="entityMcons", critical=True),
         FieldSpec(
             name="priority",
@@ -391,9 +413,9 @@ class TypeDrift:
 
     type_name: str
     verdict: DriftVerdict
-    missing: list = field(default_factory=list)
-    critical_missing: list = field(default_factory=list)
-    new_fields: list = field(default_factory=list)
+    missing: List[str] = field(default_factory=list)
+    critical_missing: List[str] = field(default_factory=list)
+    new_fields: List[str] = field(default_factory=list)
     type_absent: bool = False
     introspection_failed: bool = False
 
@@ -587,9 +609,9 @@ def _collect_missing_paths(
     object_shapes: Dict[str, _TypeShape],
     prefix: str,
     critical_only: bool,
-) -> Tuple[list, list]:
-    missing: list = []
-    critical_missing: list = []
+) -> Tuple[List[str], List[str]]:
+    missing: List[str] = []
+    critical_missing: List[str] = []
     for spec in fields:
         if spec.fragment_only:
             continue
@@ -678,7 +700,9 @@ class QueryBuilder(Protocol):
     def get_metrics_v4_query(self) -> str: ...
 
     def check_drift(
-        self, strict: bool = False, types: Optional[list] = None
+        self,
+        strict: bool = False,
+        types: Optional[Sequence[MonteCarloGraphQLType]] = None,
     ) -> SchemaDrift: ...
 
 
@@ -806,12 +830,6 @@ def get_job_executions_fallback_query() -> str:
 def get_metrics_v4_fallback_query() -> str:
     metric = _emit_fallback_selection(METRIC_TYPE_SPEC.fields, "      ")
     return _GET_METRICS_V4_ENVELOPE.format(metric_selection=metric)
-
-
-def _table_monitor_fallback_query() -> str:
-    from datahub.ingestion.source.montecarlo.queries import TABLE_MONITOR_QUERY
-
-    return TABLE_MONITOR_QUERY
 
 
 def _emit_asset_selection_selection(
@@ -1005,15 +1023,10 @@ class IntrospectingQueryBuilder:
         return self._build(WAREHOUSE_TABLE_TYPE_SPEC, _GET_TABLE_ENVELOPE, "    ")
 
     def table_monitor_query(self) -> str:
-        from datahub.ingestion.source.montecarlo.queries import (
-            ASSET_FILTER_INLINE_SELECTION,
-        )
-
         type_name = TABLE_MONITOR_TYPE_SPEC.type_name.value
         shape = self._introspect(type_name)
-        fallback = _table_monitor_fallback_query()
         if shape.introspection_failed:
-            return fallback
+            return TABLE_MONITOR_QUERY
         self._introspect_spec_subtypes(TABLE_MONITOR_TYPE_SPEC.fields, shape)
         selection = _build_table_monitor_selection(
             shape,
@@ -1021,7 +1034,7 @@ class IntrospectingQueryBuilder:
             ASSET_FILTER_INLINE_SELECTION,
         )
         if not selection.strip():
-            return fallback
+            return TABLE_MONITOR_QUERY
         return _wrap(_TABLE_MONITOR_ENVELOPE, selection)
 
     def evaluate_asset_selection_query(self) -> str:
@@ -1072,15 +1085,14 @@ class IntrospectingQueryBuilder:
         return envelope.format(node_selection=node_selection)
 
     def check_drift(
-        self, strict: bool = False, types: Optional[list] = None
+        self,
+        strict: bool = False,
+        types: Optional[Sequence[MonteCarloGraphQLType]] = None,
     ) -> SchemaDrift:
         drift = SchemaDrift()
-        default_types = [spec.type_name.value for spec in TYPE_SPECS.values()]
-        type_names = types if types is not None else default_types
-        for type_name in type_names:
-            type_spec = type_spec_by_graphql_name(type_name)
-            if type_spec is None:
-                continue
+        for graphql_type in types if types is not None else list(TYPE_SPECS):
+            type_spec = TYPE_SPECS[graphql_type]
+            type_name = type_spec.type_name.value
             shape = self._introspect(type_name)
             if shape.introspection_failed:
                 drift.per_type[type_name] = TypeDrift(
@@ -1102,18 +1114,3 @@ class IntrospectingQueryBuilder:
                 object_shapes=self._object_shapes(),
             )
         return drift
-
-
-def fallback_selection_for_type(type_spec: TypeSpec, indent: str) -> str:
-    return _emit_fallback_selection(type_spec.fields, indent)
-
-
-def dynamic_selection_for_shape(
-    type_spec: TypeSpec,
-    shape: _TypeShape,
-    object_shapes: Dict[str, _TypeShape],
-    indent: str,
-) -> str:
-    return _build_selection_with_subshapes(
-        type_spec.fields, shape, object_shapes, indent
-    )

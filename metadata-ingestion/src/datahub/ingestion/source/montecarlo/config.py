@@ -232,8 +232,9 @@ class MonteCarloSourceConfig(
         description="Maximum number of tables to ingest per pattern-scoped TABLE "
         "monitor. TABLE monitors often cover a warehouse via tags or activity "
         "filters; each covered table becomes its own assertion, so this cap "
-        "bounds API calls (evaluateAssetSelection + getTable) and assertion "
-        "count. Remaining tables are skipped with a warning. Raise it if a "
+        "bounds getTable calls and assertion count. evaluateAssetSelection is "
+        "always paged to completion so the cap applies to a stable, sorted "
+        "table list. Remaining tables are skipped with a warning. Raise it if a "
         "TABLE monitor's coverage is truncated in the run report.",
     )
     strict_schema_drift: bool = Field(

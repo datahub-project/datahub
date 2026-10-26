@@ -17,6 +17,7 @@ from datahub.ingestion.source.montecarlo.query_builder import (
     ALERT_TYPE_SPEC,
     CUSTOM_RULE_TYPE_SPEC,
     MONITOR_TYPE_SPEC,
+    TYPE_SPECS,
     DriftVerdict,
     IntrospectingQueryBuilder,
     MonteCarloGraphQLType,
@@ -25,6 +26,7 @@ from datahub.ingestion.source.montecarlo.query_builder import (
     TypeDrift,
     drift_abort_title,
     field_spec_by_name,
+    format_degraded_missing_message,
     spec_value,
 )
 from datahub.ingestion.source.montecarlo.report import MonteCarloSourceReport
@@ -433,6 +435,10 @@ class MonteCarloClient:
     def run_events_disabled(self) -> bool:
         return self._run_events_disabled
 
+    @property
+    def schema_change_join_disabled(self) -> bool:
+        return self._schema_change_join_disabled
+
     def check_schema_drift(self, strict: bool = False) -> SchemaDrift:
         """Introspect live GraphQL types and diff them against the connector
         field specs. Returns per-type PROCEED/DEGRADED/ABORT verdicts.
@@ -440,16 +446,24 @@ class MonteCarloClient:
         WarehouseTable with assertions; SchemaChange with alerts; run-history
         types only when run_events_lookback_days is set; TableMonitor types on
         first TABLE-scope resolution."""
-        types: list = []
+        types: List[MonteCarloGraphQLType] = []
         if self.config.include_assertions:
-            types.extend(["Monitor", "CustomRule", "WarehouseTable"])
+            types.extend(
+                [
+                    MonteCarloGraphQLType.MONITOR,
+                    MonteCarloGraphQLType.CUSTOM_RULE,
+                    MonteCarloGraphQLType.WAREHOUSE_TABLE,
+                ]
+            )
         if self.config.include_alerts:
-            types.extend(["Alert", "SchemaChange"])
+            types.extend(
+                [MonteCarloGraphQLType.ALERT, MonteCarloGraphQLType.SCHEMA_CHANGE]
+            )
         if self.config.run_events_lookback_days:
             types.extend(
                 [
-                    MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG.value,
-                    MonteCarloGraphQLType.METRIC.value,
+                    MonteCarloGraphQLType.JOB_EXECUTION_HISTORY_LOG,
+                    MonteCarloGraphQLType.METRIC,
                 ]
             )
         drift = self._query_builder.check_drift(strict, types=types)
@@ -474,7 +488,11 @@ class MonteCarloClient:
         strict = self.config.strict_schema_drift
         drift = self._query_builder.check_drift(
             strict,
-            types=["TableMonitor", "AssetSelection", "AssetSelectionResult"],
+            types=[
+                MonteCarloGraphQLType.TABLE_MONITOR,
+                MonteCarloGraphQLType.ASSET_SELECTION,
+                MonteCarloGraphQLType.ASSET_SELECTION_RESULT,
+            ],
         )
         abort_drifts = [
             td for td in drift.per_type.values() if td.verdict == DriftVerdict.ABORT
@@ -482,11 +500,16 @@ class MonteCarloClient:
         self._table_scope_drift_lock = bool(abort_drifts)
         for type_drift in drift.per_type.values():
             if type_drift.verdict == DriftVerdict.DEGRADED:
+                missing_text = format_degraded_missing_message(
+                    TYPE_SPECS[MonteCarloGraphQLType(type_drift.type_name)],
+                    type_drift.missing,
+                )
                 self._warn(
                     title=f"Monte Carlo schema drift ({type_drift.type_name})",
                     message=(
-                        "TABLE monitor scope queries may omit fields no longer "
-                        "exposed by the live schema."
+                        "TABLE monitor scope fields no longer exposed by the live "
+                        f"schema: {missing_text}. Ingesting without them. Set "
+                        "strict_schema_drift=true to abort on any drift."
                     ),
                     context=type_drift.summary(),
                 )
@@ -515,7 +538,7 @@ class MonteCarloClient:
             + "; ".join(td.summary() for td in abort_drifts),
         )
 
-    def _warn_schema_change_join_disabled_once(self) -> None:
+    def warn_schema_change_join_disabled_once(self) -> None:
         if not self._schema_change_join_disabled or self._schema_change_join_warned:
             return
         self._schema_change_join_warned = True
