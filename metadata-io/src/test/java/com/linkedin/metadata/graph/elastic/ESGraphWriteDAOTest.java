@@ -24,6 +24,7 @@ import java.util.Optional;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.update.UpdateRequest;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.script.Script;
@@ -386,6 +387,42 @@ public class ESGraphWriteDAOTest {
 
     assertNotNull(result, "Should return BulkByScrollResponse when writable");
     verify(mockBulkProcessor, times(1)).deleteByQuery(any(OperationContext.class), any(), any());
+  }
+
+  @Test
+  public void testDeleteByQueryRefreshesByDefault() {
+    assertEquals(testDao.getDeleteByQueryUrnBatchSize(), 1);
+
+    testDao.deleteByQuery(opContext, GraphFilters.ALL);
+
+    verify(mockBulkProcessor, times(1))
+        .deleteByQuery(eq(opContext), any(QueryBuilder.class), eq("graph_service_v1"));
+    verifyNoMoreInteractions(mockBulkProcessor);
+  }
+
+  @Test
+  public void testDeleteByQueryWithoutRefresh() {
+    GraphQueryConfiguration noRefreshConfig =
+        config.toBuilder().deleteByQueryRefresh(false).deleteByQueryUrnBatchSize(500).build();
+    ESGraphWriteDAO noRefreshDao =
+        new ESGraphWriteDAO(TEST_INDEX_CONVENTION, mockBulkProcessor, 0, noRefreshConfig);
+    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
+    when(mockBulkProcessor.deleteByQuery(
+            any(OperationContext.class),
+            any(QueryBuilder.class),
+            eq(false),
+            eq(true),
+            eq("graph_service_v1")))
+        .thenReturn(Optional.of(mockResponse));
+
+    BulkByScrollResponse result = noRefreshDao.deleteByQuery(opContext, GraphFilters.ALL);
+
+    assertEquals(result, mockResponse);
+    assertEquals(noRefreshDao.getDeleteByQueryUrnBatchSize(), 500);
+    verify(mockBulkProcessor, times(1))
+        .deleteByQuery(
+            eq(opContext), any(QueryBuilder.class), eq(false), eq(true), eq("graph_service_v1"));
+    verifyNoMoreInteractions(mockBulkProcessor);
   }
 
   @Test

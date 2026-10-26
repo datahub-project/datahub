@@ -188,6 +188,33 @@ public class ESBulkProcessor implements Closeable {
       @Nonnull OperationContext opContext,
       QueryBuilder queryBuilder,
       boolean refresh,
+      boolean proceedOnConflicts,
+      String... indices) {
+    return deleteByQuery(
+        opContext,
+        queryBuilder,
+        refresh,
+        proceedOnConflicts,
+        bulkRequestsLimit,
+        defaultTimeout,
+        indices);
+  }
+
+  public Optional<BulkByScrollResponse> deleteByQuery(
+      @Nonnull OperationContext opContext,
+      QueryBuilder queryBuilder,
+      boolean refresh,
+      int limit,
+      TimeValue timeout,
+      String... indices) {
+    return deleteByQuery(opContext, queryBuilder, refresh, false, limit, timeout, indices);
+  }
+
+  public Optional<BulkByScrollResponse> deleteByQuery(
+      @Nonnull OperationContext opContext,
+      QueryBuilder queryBuilder,
+      boolean refresh,
+      boolean proceedOnConflicts,
       int limit,
       TimeValue timeout,
       String... indices) {
@@ -199,6 +226,9 @@ public class ESBulkProcessor implements Closeable {
             .setRetryBackoffInitialTime(TimeValue.timeValueSeconds(retryInterval))
             .setTimeout(timeout)
             .setRefresh(refresh);
+    if (proceedOnConflicts) {
+      deleteByQueryRequest.setConflicts("proceed");
+    }
     deleteByQueryRequest.indices(indices);
 
     try {
