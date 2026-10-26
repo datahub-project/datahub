@@ -15,7 +15,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
+import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
 import { AssertionResultType, AssertionType, DataContract } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 

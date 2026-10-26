@@ -2,7 +2,7 @@ import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     PlatformIcon,
@@ -32,7 +32,7 @@ import {
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@src/app/shared/constants';
+} from '@src/app/sharedV2/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { AggregationMetadata, EntityType, FilterOperator } from '@types';

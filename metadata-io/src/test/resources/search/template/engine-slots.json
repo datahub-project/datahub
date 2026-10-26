@@ -1,0 +1,25 @@
+{
+  "fixtures" : {
+    "elasticsearch8" : {
+      "engineSlot" : "elasticsearch8",
+      "marker" : true,
+      "urn" : "urn:li:searchTemplate:fixtureEs8"
+    },
+    "opensearch2" : {
+      "engineSlot" : "opensearch2",
+      "marker" : true,
+      "urn" : "urn:li:searchTemplate:fixtureOs2"
+    },
+    "opensearch3" : {
+      "engineSlot" : "default",
+      "marker" : false,
+      "urn" : "urn:li:searchTemplate:fulltext"
+    }
+  },
+  "shipped" : {
+    "elasticsearch8" : "urn:li:searchTemplate:fulltext",
+    "elasticsearch9" : "urn:li:searchTemplate:fulltext",
+    "opensearch2" : "urn:li:searchTemplate:fulltext",
+    "opensearch3" : "urn:li:searchTemplate:fulltext"
+  }
+}

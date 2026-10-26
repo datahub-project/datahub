@@ -22,7 +22,7 @@ fragment recommendationEntityPreview on Entity {
             typeNames
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -68,7 +68,7 @@ fragment recommendationEntityPreview on Entity {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -96,7 +96,7 @@ fragment recommendationEntityPreview on Entity {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -125,7 +125,7 @@ fragment recommendationEntityPreview on Entity {
             ...platformFields
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields
@@ -154,7 +154,7 @@ fragment recommendationEntityPreview on Entity {
             ...glossaryTerms
         }
         domain {
-            ...entityDomain
+            ...entityDomainWithoutCounts
         }
         deprecation {
             ...deprecationFields

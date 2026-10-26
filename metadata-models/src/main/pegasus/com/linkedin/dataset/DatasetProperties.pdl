@@ -21,7 +21,15 @@ record DatasetProperties includes CustomProperties, ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: optional string
 
@@ -33,7 +41,15 @@ record DatasetProperties includes CustomProperties, ExternalReference {
     "addToFilters": false,
     "enableAutocomplete": true,
     "boostScore": 10.0,
-    "searchLabel": "qualifiedName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "qualifiedName",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   qualifiedName: optional string
 
@@ -43,7 +59,16 @@ record DatasetProperties includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "sanitizeRichText": true
+    "sanitizeRichText": true,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -60,7 +85,12 @@ record DatasetProperties includes CustomProperties, ExternalReference {
     "/time": {
       "fieldName": "createdAt",
       "fieldType": "DATETIME",
-      "searchLabel": "createdAt"
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   created: optional TimeStamp
@@ -72,7 +102,12 @@ record DatasetProperties includes CustomProperties, ExternalReference {
     "/time": {
       "fieldName": "lastModifiedAt",
       "fieldType": "DATETIME",
-      "searchLabel": "lastModifiedAt"
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: optional TimeStamp
