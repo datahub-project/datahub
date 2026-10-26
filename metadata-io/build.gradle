@@ -140,6 +140,9 @@ dependencies {
   // it as a runtime dependency instead of relying on a transitive chain that could break and cause
   // NoClassDefFoundError at startup.
   implementation externalDependency.caffeine
+  implementation externalDependency.mustache
+  implementation externalDependency.jacksonDataFormatYaml
+  implementation externalDependency.re2j
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
     exclude group: 'com.fasterxml.jackson.core'

@@ -41,11 +41,11 @@ vi.mock('@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect', () => ({
     ActorsSearchSelect: () => null,
 }));
 
-vi.mock('@app/shared/textUtil', () => ({
+vi.mock('@app/sharedV2/textUtil', () => ({
     validateCustomUrnId: () => true,
 }));
 
-vi.mock('@app/shared/useEnterKeyListener', () => ({
+vi.mock('@app/sharedV2/useEnterKeyListener', () => ({
     useEnterKeyListener: () => {},
 }));
 

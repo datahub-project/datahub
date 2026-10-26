@@ -18,6 +18,7 @@ record GlossaryNodeInfo includes CustomProperties {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -38,7 +39,11 @@ record GlossaryNodeInfo includes CustomProperties {
   @Searchable = {
     "fieldName": "parentNode",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentNode"
+    "hasValuesFieldName": "hasParentNode",
+    "v3": {
+      "searchLabel": "parent",
+      "hasValuesFieldName": "hasParent",
+    }
   }
   parentNode: optional GlossaryNodeUrn
 
@@ -52,6 +57,7 @@ record GlossaryNodeInfo includes CustomProperties {
       "boostScore": 10.0,
       "fieldNameAliases": [ "_entityName" ],
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "name",
         "mappings": [
           { "type": "KEYWORD" },
@@ -66,6 +72,9 @@ record GlossaryNodeInfo includes CustomProperties {
      * Optional id for the GlossaryNode
      */
     @Searchable = {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "TEXT_PARTIAL",
     }
     id: optional string

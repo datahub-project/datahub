@@ -712,6 +712,11 @@ module.exports = {
           },
           items: [
             {
+              label: "Best Practices",
+              type: "doc",
+              id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
+            },
+            {
               label: "Ossie Compatibility",
               type: "doc",
               id: "docs/features/feature-guides/ossie-compatibility",
@@ -1650,6 +1655,7 @@ module.exports = {
       "Developing on DataHub": [
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
+        "docs/developers/search-v3-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",

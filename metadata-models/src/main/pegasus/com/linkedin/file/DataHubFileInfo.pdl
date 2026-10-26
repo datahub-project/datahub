@@ -19,6 +19,9 @@ record DataHubFileInfo {
    * The original filename as uploaded by the user
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   originalFileName: string
@@ -62,7 +65,10 @@ record DataHubFileInfo {
     "entityTypes": [ "dataset", "chart", "container", "dashboard", "dataFlow", "dataJob", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct", "businessAttribute", "document" ]
   }
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "copyToOther": true
+    }
   }
   referencedByAsset: optional Urn
   
@@ -74,7 +80,10 @@ record DataHubFileInfo {
     "entityTypes": ["schemaField"]
   }
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "copyToOther": true
+    }
   }
   schemaField: optional Urn
 

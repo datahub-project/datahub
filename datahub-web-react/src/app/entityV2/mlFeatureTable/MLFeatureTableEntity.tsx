@@ -33,7 +33,7 @@ import {
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
 import { EntityType, MlFeatureTable, SearchResult } from '@types';

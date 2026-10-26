@@ -9,7 +9,7 @@ import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import dayjs from '@utils/dayjs';
 

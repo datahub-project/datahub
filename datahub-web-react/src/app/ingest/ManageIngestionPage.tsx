@@ -11,7 +11,7 @@ import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
 import { TabType } from '@app/ingest/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { NoPageFound } from '@app/shared/NoPageFound';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
