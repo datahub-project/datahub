@@ -674,6 +674,16 @@ class TableauConfig(
             "Requires `extract_pulse_metrics: true`. Disabled by default."
         ),
     )
+    extract_pulse_owner: bool = Field(
+        default=False,
+        description=(
+            "Set the Tableau user who last modified a Pulse metric definition "
+            "as the owner of that definition and its metrics. The Tableau user "
+            "id is resolved to a username. When enabled, this replaces owners "
+            "entered in DataHub. Requires `extract_pulse_metrics: true`. "
+            "Disabled by default."
+        ),
+    )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""

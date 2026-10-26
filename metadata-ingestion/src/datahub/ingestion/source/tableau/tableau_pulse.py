@@ -37,6 +37,9 @@ from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
     MetricUpstreamsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     SemanticModelInfoClass,
     StatusClass,
     StructuredPropertiesClass,
@@ -479,6 +482,7 @@ class TableauPulseExtractor:
         self.datasource_fields = datasource_fields or {}
         self.graph = graph
         self._defined_properties: Set[str] = set()
+        self._resolved_users: Dict[str, str] = {}
 
     def emit(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -591,6 +595,10 @@ class TableauPulseExtractor:
                     _tag_names(_field(definition, "tags"))
                 )
             )
+        if self.config.extract_pulse_owner:
+            ownership = self._ownership(_field(metadata, "last_updated_user"))
+            if ownership is not None:
+                model_aspects.append(ownership)
         yield from _workunits(model_urn, model_aspects)
         self.report.num_pulse_definitions += 1
 
@@ -680,6 +688,17 @@ class TableauPulseExtractor:
                     )
                 )
             )
+        if self.config.extract_pulse_owner:
+            metric_user = _field(metric, "last_updated_user") or _field(
+                _as_dict(_field(metric, "metadata")), "last_updated_user"
+            )
+            if not metric_user:
+                metric_user = _field(
+                    _as_dict(_field(definition, "metadata")), "last_updated_user"
+                )
+            ownership = self._ownership(metric_user)
+            if ownership is not None:
+                metric_aspects.append(ownership)
         yield from _workunits(metric_urn, metric_aspects)
         self.report.num_pulse_metrics += 1
 
@@ -746,6 +765,69 @@ class TableauPulseExtractor:
         if not assignments:
             return None
         return StructuredPropertiesClass(properties=assignments)
+
+    def _ownership(self, user: Any) -> Optional[OwnershipClass]:
+        identifier = self._owner_identifier(user)
+        if not identifier:
+            return None
+        return OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=builder.make_user_urn(identifier),
+                    type=OwnershipTypeClass.DATAOWNER,
+                )
+            ]
+        )
+
+    def _owner_identifier(self, user: Any) -> Optional[str]:
+        if isinstance(user, str):
+            return self._choose_identifier(None, user)
+        if not isinstance(user, dict):
+            return None
+        email = _field(user, "email")
+        username = _field(user, "username") or _field(user, "name")
+        identifier = self._choose_identifier(email, username)
+        if identifier:
+            return identifier
+        user_id = _field(user, "id")
+        if isinstance(user_id, str) and user_id.strip():
+            return self._resolve_tableau_user(user_id.strip())
+        return None
+
+    def _choose_identifier(self, email: Any, username: Any) -> Optional[str]:
+        email_text = email.strip() if isinstance(email, str) else ""
+        username_text = username.strip() if isinstance(username, str) else ""
+        if self.config.use_email_as_username:
+            if email_text:
+                return email_text
+            if username_text:
+                self.report.num_email_fallback_to_username += 1
+                return username_text
+            return None
+        return username_text or None
+
+    def _resolve_tableau_user(self, user_id: str) -> Optional[str]:
+        if user_id in self._resolved_users:
+            return self._resolved_users[user_id] or None
+        try:
+            user = self.server.users.get_by_id(user_id)
+        except Exception as exc:
+            self._resolved_users[user_id] = ""
+            self.report.warning(
+                title="Failed to resolve Tableau Pulse owner",
+                message=(
+                    "The Pulse last-modified user id could not be resolved "
+                    "to a Tableau user, so no owner was set."
+                ),
+                context=user_id,
+                exc=exc,
+            )
+            return None
+        identifier = self._choose_identifier(
+            getattr(user, "email", None), getattr(user, "name", None)
+        )
+        self._resolved_users[user_id] = identifier or ""
+        return identifier
 
     def _resolve_datasource(self, keys: Sequence[str]) -> Optional[str]:
         for key in keys:

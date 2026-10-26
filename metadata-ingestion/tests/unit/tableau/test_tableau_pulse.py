@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     MetricInfoClass,
     MetricRelationshipsClass,
     MetricUpstreamsClass,
+    OwnershipClass,
     SemanticModelInfoClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
@@ -165,6 +166,83 @@ def test_extract_pulse_metrics_defaults_off() -> None:
     assert config.extract_pulse_metric_definition_properties is False
     assert config.extract_pulse_metric_properties is False
     assert config.extract_pulse_tags is False
+    assert config.extract_pulse_owner is False
+
+
+def _owner_urns(workunits: List[Any], entity_urn: str) -> List[str]:
+    urns: List[str] = []
+    for wu in workunits:
+        aspect = getattr(wu.metadata, "aspect", None)
+        if isinstance(aspect, OwnershipClass) and wu.metadata.entityUrn == entity_urn:
+            urns.extend(owner.owner for owner in aspect.owners)
+    return urns
+
+
+def _discount_owner_get(url: str, **kwargs: Any) -> _Response:
+    if url.endswith("/metrics"):
+        return _Response(
+            {
+                "metrics": [
+                    {"id": "metric-default", "is_default": True, "specification": {}}
+                ]
+            }
+        )
+    return _Response(
+        {
+            "definitions": [
+                {
+                    "metadata": {
+                        "id": "def-1",
+                        "name": "Discount",
+                        "last_updated_user": {"id": "user-1"},
+                    }
+                }
+            ]
+        }
+    )
+
+
+def test_pulse_owner_uses_the_last_modified_user() -> None:
+    extractor = _extractor(_discount_owner_get)
+    extractor.config.extract_pulse_owner = True
+    tableau_user = mock.Mock()
+    tableau_user.name = "analyst"
+    tableau_user.email = "analyst@example.com"
+    extractor.server.users.get_by_id.return_value = tableau_user
+
+    workunits = list(extractor.emit())
+
+    extractor.server.users.get_by_id.assert_called_once_with("user-1")
+    assert _owner_urns(
+        workunits, "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-1)"
+    ) == ["urn:li:corpuser:analyst"]
+    assert _owner_urns(
+        workunits,
+        "urn:li:metric:(urn:li:dataPlatform:tableau,site.def-1,metric-default)",
+    ) == ["urn:li:corpuser:analyst"]
+
+
+def test_pulse_owner_can_use_email() -> None:
+    extractor = _extractor(_discount_owner_get)
+    extractor.config.extract_pulse_owner = True
+    extractor.config.use_email_as_username = True
+    tableau_user = mock.Mock()
+    tableau_user.name = "analyst"
+    tableau_user.email = "analyst@example.com"
+    extractor.server.users.get_by_id.return_value = tableau_user
+
+    workunits = list(extractor.emit())
+
+    assert _owner_urns(
+        workunits, "urn:li:semanticModel:(urn:li:dataPlatform:tableau,site,def-1)"
+    ) == ["urn:li:corpuser:analyst@example.com"]
+
+
+def test_pulse_owner_is_skipped_when_disabled() -> None:
+    extractor = _extractor(_discount_owner_get)
+    workunits = list(extractor.emit())
+    assert _aspects(workunits, OwnershipClass) == []
+    extractor.server.users.get_by_id.assert_not_called()
 
 
 def _tagged_pulse_get(url: str, **kwargs: Any) -> _Response:
