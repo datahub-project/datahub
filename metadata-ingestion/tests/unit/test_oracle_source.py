@@ -1696,46 +1696,105 @@ def test_generated_procedure_sql_fragments():
     )
 
 
-def test_oracle_get_identifier_uses_urn_db_name():
-    """get_identifier must prefix the DB name from urn_db_name when add_database_name_to_urn=True
-    and service_name is used (so config.database is None).
+def _urn_test_source(**config: object) -> OracleSource:
+    with patch("datahub.ingestion.source.sql.oracle.oracledb"):
+        return OracleSource(
+            OracleConfig.model_validate(
+                {
+                    "host_port": "host:1521",
+                    "add_database_name_to_urn": True,
+                    **config,
+                }
+            ),
+            PipelineContext(run_id="test-oracle-urn-db-name"),
+        )
 
-    ALL_UPPERCASE urn_db_name must be normalised to lowercase, matching Oracle's
-    normalize_name convention used in get_db_name, so entity URNs and lineage URNs
-    share the same db component and can be joined.
-    """
-    config = OracleConfig.parse_obj(
-        {
-            "username": "user",
-            "password": "password",
-            "host_port": "host:1521",
-            "service_name": "my_pdb.example.com",
-            "add_database_name_to_urn": True,
-            "urn_db_name": "MY_PDB",
-        }
+
+def _urn_test_inspector(detected_db_name: Optional[str]) -> Mock:
+    """A service_name inspector whose DB_NAME_QUERY returns detected_db_name,
+    or raises a DatabaseError when it is None."""
+    inspector = Mock()
+    inspector.engine.url.database = None
+    inspector.bind = Mock(spec=Connection)
+    if detected_db_name is None:
+        inspector.bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
+            "query failed", None, Exception("query failed")
+        )
+    else:
+        inspector.bind.execute.return_value.scalar.return_value = detected_db_name
+    inspector.dialect.normalize_name.side_effect = lambda name: (
+        name.lower() if name.isupper() else name
     )
+    return inspector
 
-    # MY_PDB (all-caps) must be normalised to my_pdb so entity and lineage URNs match
+
+@pytest.mark.parametrize(
+    "config, detected, expected",
+    [
+        # Auto-detected via DB_NAME_QUERY and normalised like the containers' name.
+        ({"service_name": "my_service"}, "MY_PDB", "my_pdb.my_schema.my_table"),
+        # urn_db_name overrides detection; ALL_UPPERCASE is normalised, other case kept.
+        (
+            {"service_name": "my_service", "urn_db_name": "MY_PDB"},
+            "OTHER",
+            "my_pdb.my_schema.my_table",
+        ),
+        (
+            {"service_name": "my_service", "urn_db_name": "My_Pdb"},
+            "OTHER",
+            "My_Pdb.my_schema.my_table",
+        ),
+        # database wins and is used as configured.
+        ({"database": "my_db"}, "OTHER", "my_db.my_schema.my_table"),
+        # Flag off: never prefixed.
+        (
+            {"service_name": "my_service", "add_database_name_to_urn": False},
+            "MY_PDB",
+            "my_schema.my_table",
+        ),
+    ],
+)
+def test_oracle_get_identifier_database_name(config, detected, expected):
+    source = _urn_test_source(**config)
+    inspector = _urn_test_inspector(detected)
+
+    for _ in range(2):
+        assert (
+            source.get_identifier(
+                schema="my_schema", entity="my_table", inspector=inspector
+            )
+            == expected
+        )
+    # Detection runs at most once per source, and only when nothing is configured.
+    assert inspector.bind.execute.call_count <= 1
+    # Procedure lineage URNs use the same database name as tables.
+    db_prefix = expected[: -len("my_schema.my_table")].rstrip(".")
+    assert source._get_procedure_default_db(inspector) == db_prefix
+    assert not source.report.warnings
+
+
+def test_oracle_get_identifier_detection_failure_falls_back_to_schema_table():
+    source = _urn_test_source(service_name="my_service")
+    inspector = _urn_test_inspector(None)
+
     assert (
-        config.get_identifier(schema="EDW", table="AERODROME_H")
-        == "my_pdb.EDW.AERODROME_H"
+        source.get_identifier(
+            schema="my_schema", entity="my_table", inspector=inspector
+        )
+        == "my_schema.my_table"
+    )
+    assert source.get_db_schema("my_schema.my_table") == (None, "my_schema")
+    assert source._get_procedure_default_db(inspector) == ""
+    assert len(source.report.warnings) == 1
+
+
+def test_oracle_get_db_schema_uses_detected_name_for_two_part_identifier():
+    source = _urn_test_source(service_name="my_service")
+    source.get_identifier(
+        schema="my_schema", entity="my_table", inspector=_urn_test_inspector("MY_PDB")
     )
 
-    # already-lowercase value must be preserved as-is
-    config2 = OracleConfig.parse_obj(
-        {
-            "username": "user",
-            "password": "password",
-            "host_port": "host:1521",
-            "service_name": "my_pdb.example.com",
-            "add_database_name_to_urn": True,
-            "urn_db_name": "my_pdb",
-        }
-    )
-    assert (
-        config2.get_identifier(schema="EDW", table="AERODROME_H")
-        == "my_pdb.EDW.AERODROME_H"
-    )
+    assert source.get_db_schema("my_schema.my_table") == ("my_pdb", "my_schema")
 
 
 def test_oracle_get_db_schema_avoids_none_string():
