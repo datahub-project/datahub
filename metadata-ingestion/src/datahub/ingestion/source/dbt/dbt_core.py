@@ -1104,6 +1104,13 @@ def load_run_results(
         )
         return
 
+    if which not in _RELATION_BUILDING_COMMANDS:
+        # Model results from other commands (or files without args.which) say
+        # nothing about contracts, so they produce no contract run events.
+        logger.debug(
+            f"run_results from command {which!r} will not produce contract run events"
+        )
+
     dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
 
     # Parse every result before attaching any, so a file that fails partway

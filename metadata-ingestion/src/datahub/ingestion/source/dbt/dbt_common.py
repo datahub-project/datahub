@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from enum import Enum, auto
 from functools import cached_property
 from typing import (
-    AbstractSet,
     Any,
     Callable,
     Dict,
@@ -93,7 +92,11 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_custom_assertion_info,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
+from datahub.ingestion.source.state.entity_removal_state import (
+    GenericCheckpointState,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -188,7 +191,7 @@ from datahub.utilities.server_config_util import ServiceFeature
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
-from datahub.utilities.urns.urn import Urn
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -1158,10 +1161,20 @@ class ConstraintScope(str, Enum):
 
 
 _CONTRACT_SCHEMA_SOURCE = "dbt_contract"
-# Present on every assertion this source emits (dbt tests and contract
-# assertions); identifies the data-quality entries the dbt source owns on an
-# existing Data Contract.
 _DBT_UNIQUE_ID_PROPERTY = "dbt_unique_id"
+# ``source`` custom property values of assertions derived from a dbt contract.
+_CONTRACT_ASSERTION_SOURCES = frozenset(
+    {
+        _CONTRACT_SCHEMA_SOURCE,
+        f"dbt_{ConstraintScope.COLUMN.value}_constraint",
+        f"dbt_{ConstraintScope.MODEL.value}_constraint",
+    }
+)
+# Recorded on the schema assertion: the dbt test assertions this source
+# attached to the contract, so the next run can tell them apart from tests a
+# user added to the contract in DataHub.
+_ATTACHED_TESTS_PROPERTY = "dbt_attached_test_assertions"
+_DATA_CONTRACT_ENTITY_TYPE = "dataContract"
 # dbt applies constraints only to these materializations; views and
 # ephemerals get the column/type preflight but no constraint DDL.
 _CONSTRAINT_MATERIALIZATIONS = frozenset({"table", "incremental"})
@@ -1217,6 +1230,7 @@ class _RelationResolver:
 
     def __init__(self, nodes: Iterable["DBTNode"]) -> None:
         self._by_ref_name: Dict[str, _RelationKey] = {}
+        self._by_package_ref: Dict[Tuple[str, str], _RelationKey] = {}
         self._by_source: Dict[Tuple[str, str], _RelationKey] = {}
         for node in nodes:
             key = tuple(
@@ -1226,7 +1240,9 @@ class _RelationResolver:
             if node.node_type == "source" and len(id_parts) >= 4:
                 self._by_source[(id_parts[2].lower(), id_parts[3].lower())] = key
             elif node.node_type in {"model", "seed", "snapshot"} and len(id_parts) >= 3:
-                self._by_ref_name.setdefault(id_parts[2].lower(), key)
+                package, name = id_parts[1].lower(), id_parts[2].lower()
+                self._by_ref_name.setdefault(name, key)
+                self._by_package_ref[(package, name)] = key
 
     def resolve(self, value: Optional[str]) -> Optional[_RelationKey]:
         if not value:
@@ -1239,9 +1255,13 @@ class _RelationResolver:
                 return None
             if ref_match.group(1).lower() == "source" and len(args) >= 2:
                 resolved = self._by_source.get((args[-2], args[-1]))
+            elif len(args) >= 2:
+                resolved = self._by_package_ref.get((args[-2], args[-1]))
             else:
                 resolved = self._by_ref_name.get(args[-1])
-            return resolved or (args[-1],)
+            # An unresolvable ref (e.g. to another project) could name a
+            # relation in any schema, so it is not matched by name alone.
+            return resolved
         return _split_relation_name(value) or None
 
 
@@ -1315,15 +1335,33 @@ class _PendingContract:
 
 @dataclass(frozen=True)
 class _ExistingContract:
-    properties: Optional[DataContractPropertiesClass]
+    properties: DataContractPropertiesClass
     status: Optional[DataContractStatusClass]
+    # Data-quality entries this source put on the contract: contract-derived
+    # assertions and the dbt tests it attached. Everything else is authored.
+    dbt_owned_assertions: FrozenSet[str]
+
+    def without_dbt_entries(self) -> Optional[DataContractPropertiesClass]:
+        """The contract minus dbt's entries, or None if nothing else is left."""
+        remaining = [
+            entry
+            for entry in self.properties.dataQuality or []
+            if entry.assertion not in self.dbt_owned_assertions
+        ]
+        if not (remaining or self.properties.schema or self.properties.freshness):
+            return None
+        return DataContractPropertiesClass(
+            entity=self.properties.entity,
+            schema=self.properties.schema,
+            freshness=self.properties.freshness,
+            dataQuality=remaining or None,
+        )
 
 
-@dataclass
-class _ExistingContracts:
-    by_urn: Dict[str, _ExistingContract] = field(default_factory=dict)
-    # Existing data-quality assertions emitted by a dbt source.
-    dbt_owned_assertions: Set[str] = field(default_factory=set)
+def _make_data_contract_urn(entity_urn: str) -> str:
+    # Same GUID as DataContract.urn so YAML-authored and ingested contracts
+    # land on one entity per dataset.
+    return f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn})}"
 
 
 class _ContractPrefetchError(Exception):
@@ -1354,10 +1392,17 @@ def _foreign_key_matches_test(
     if test_columns and constraint.columns and test_columns != constraint.columns:
         return False
     kw_args = test_info.kw_args or {}
-    test_to = resolver.resolve(kw_args.get("to"))
-    constraint_to = resolver.resolve(constraint.to)
-    if test_to and constraint_to and not _relation_keys_match(test_to, constraint_to):
-        return False
+    if constraint.to:
+        # Both targets must resolve to the same relation; a target that cannot
+        # be resolved is not assumed to match.
+        test_to = resolver.resolve(kw_args.get("to"))
+        constraint_to = resolver.resolve(constraint.to)
+        if (
+            test_to is None
+            or constraint_to is None
+            or not _relation_keys_match(test_to, constraint_to)
+        ):
+            return False
     test_field = kw_args.get("field")
     if (
         test_field
@@ -2436,6 +2481,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # browse paths. Sibling tables share ancestors, so without this every
         # table in a schema re-reads that schema's and database's container.
         self._container_parent_cache: Dict[str, Optional[str]] = {}
+        # Data Contracts written in this run, across projects.
+        self._contract_urns_written: Set[str] = set()
 
     def _node_context(self, node: DBTNode) -> str:
         return f"{node.dbt_name} ({node.dbt_file_path})"
@@ -3193,6 +3240,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 yield from self._emit_project(project)
             finally:
                 self._current_project = None
+
+        yield from self._reconcile_dropped_contracts()
 
     def _emit_project(
         self, project: DBTProject
@@ -5474,6 +5523,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         entity_urn: str,
+        attached_test_urns: Sequence[str] = (),
     ) -> _ContractAssertion:
         assert node.contract is not None
         assertion_urn = self._make_contract_assertion_urn(node, {"contract": "schema"})
@@ -5484,6 +5534,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         }
         if node.contract.checksum:
             custom_properties["dbt_contract_checksum"] = node.contract.checksum
+        if attached_test_urns:
+            custom_properties[_ATTACHED_TESTS_PROPERTY] = ",".join(
+                sorted(attached_test_urns)
+            )
 
         assertion_info = make_contract_assertion_info(
             name=None,
@@ -6032,31 +6086,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
 
     def _prefetch_existing_contracts(
-        self, contracts: Sequence[_PendingContract]
-    ) -> Optional[_ExistingContracts]:
-        """Batch-read existing contracts and which of their DQ entries dbt owns.
+        self, contract_urns: Sequence[str]
+    ) -> Dict[str, _ExistingContract]:
+        """Batch-read existing contracts and which of their entries dbt owns.
 
-        Returns None without a graph (or when the read fails); contracts are
-        then written from this run's assertions alone.
+        A failed read is reported as a failure, which also makes stale entity
+        removal keep the previous state, so no contract is soft-deleted because
+        this run could not read it.
         """
         graph = self.ctx.graph
-        if graph is None:
-            self.report.info(
-                title="dbt Data Contracts written without merging",
-                message="No DataHub graph is available (e.g. file sink), so "
-                "ingested Data Contracts replace any existing contract on the "
-                "same dataset instead of merging with its authored entries.",
-            )
-            return None
-
-        result = _ExistingContracts()
+        assert graph is not None
+        result: Dict[str, _ExistingContract] = {}
         try:
+            contracts: Dict[
+                str,
+                Tuple[DataContractPropertiesClass, Optional[DataContractStatusClass]],
+            ] = {}
             for chunk in more_itertools.chunked(
-                [contract.contract_urn for contract in contracts],
-                _CONTRACT_PREFETCH_CHUNK_SIZE,
+                contract_urns, _CONTRACT_PREFETCH_CHUNK_SIZE
             ):
                 entities = graph.get_entities(
-                    entity_name="dataContract",
+                    entity_name=_DATA_CONTRACT_ENTITY_TYPE,
                     urns=list(chunk),
                     aspects=[
                         DataContractPropertiesClass.ASPECT_NAME,
@@ -6067,22 +6117,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     properties = _get_prefetched_aspect(
                         aspects, DataContractPropertiesClass
                     )
-                    status = _get_prefetched_aspect(aspects, DataContractStatusClass)
-                    if properties is not None or status is not None:
-                        result.by_urn[urn] = _ExistingContract(
-                            properties=properties, status=status
+                    if properties is not None:
+                        contracts[urn] = (
+                            properties,
+                            _get_prefetched_aspect(aspects, DataContractStatusClass),
                         )
 
-            existing_dq_urns = sorted(
-                {
-                    entry.assertion
-                    for contract in result.by_urn.values()
-                    if contract.properties is not None
-                    for entry in contract.properties.dataQuality or []
-                }
-            )
+            infos: Dict[str, AssertionInfoClass] = {}
             for chunk in more_itertools.chunked(
-                existing_dq_urns, _CONTRACT_PREFETCH_CHUNK_SIZE
+                sorted(
+                    {
+                        entry.assertion
+                        for properties, _ in contracts.values()
+                        for entry in properties.dataQuality or []
+                    }
+                ),
+                _CONTRACT_PREFETCH_CHUNK_SIZE,
             ):
                 entities = graph.get_entities(
                     entity_name="assertion",
@@ -6091,42 +6141,56 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 for urn, aspects in entities.items():
                     info = _get_prefetched_aspect(aspects, AssertionInfoClass)
-                    if info is not None and _DBT_UNIQUE_ID_PROPERTY in (
-                        info.customProperties or {}
-                    ):
-                        result.dbt_owned_assertions.add(urn)
+                    if info is not None:
+                        infos[urn] = info
         except Exception as e:
-            self.report.warning(
+            self.report.failure(
                 title="Failed to read existing Data Contracts",
-                message="Could not batch-read existing Data Contracts; skipping "
-                "Data Contract entities for this run so authored contract "
-                "entries are not overwritten. Contract assertions are still "
-                "emitted.",
+                message="Could not read existing Data Contracts, so dbt Data "
+                "Contracts were not updated in this run. Contract assertions are "
+                "still emitted, and no contract is removed.",
                 exc=e,
             )
             raise _ContractPrefetchError() from e
+
+        for urn, (properties, status) in contracts.items():
+            owned: Set[str] = set()
+            for entry in properties.dataQuality or []:
+                custom_properties = (
+                    infos[entry.assertion].customProperties or {}
+                    if entry.assertion in infos
+                    else {}
+                )
+                if custom_properties.get("source") in _CONTRACT_ASSERTION_SOURCES:
+                    owned.add(entry.assertion)
+                    attached = custom_properties.get(_ATTACHED_TESTS_PROPERTY)
+                    if attached:
+                        owned.update(attached.split(","))
+            result[urn] = _ExistingContract(
+                properties=properties,
+                status=status,
+                dbt_owned_assertions=frozenset(owned),
+            )
         return result
 
     def _create_data_contract_for_node(
         self,
         pending: _PendingContract,
         existing: Optional[_ExistingContract],
-        dbt_owned_assertions: AbstractSet[str],
     ) -> List[MetadataChangeProposalWrapper]:
         """Upsert the dataset's Data Contract with this run's dbt assertions.
 
-        Existing data-quality entries that this source owns (their assertion
-        carries ``dbt_unique_id``) are replaced by the current set, so removed
-        constraints, tests and columns drop out. Entries from other sources or
-        authored in DataHub, and the schema / freshness sections, are kept.
+        dbt's previous entries (contract-derived assertions and the tests it
+        attached) are replaced by the current set, so removed constraints,
+        tests and columns drop out. Entries added in DataHub or by other
+        sources, and the schema / freshness sections, are kept.
         """
-        existing_props = existing.properties if existing else None
+        base = existing.without_dbt_entries() if existing else None
         merged_dq: List[DataQualityContractClass] = []
         seen_dq_urns: Set[str] = set()
-        for entry in (existing_props.dataQuality if existing_props else None) or []:
-            urn = entry.assertion
-            if urn and urn not in seen_dq_urns and urn not in dbt_owned_assertions:
-                seen_dq_urns.add(urn)
+        for entry in (base.dataQuality if base else None) or []:
+            if entry.assertion not in seen_dq_urns:
+                seen_dq_urns.add(entry.assertion)
                 merged_dq.append(entry)
         for urn in pending.data_quality_assertion_urns:
             if urn not in seen_dq_urns:
@@ -6135,8 +6199,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         properties = DataContractPropertiesClass(
             entity=pending.entity_urn,
-            schema=existing_props.schema if existing_props else None,
-            freshness=existing_props.freshness if existing_props else None,
+            schema=base.schema if base else None,
+            freshness=base.freshness if base else None,
             dataQuality=merged_dq or None,
         )
         status = (
@@ -6152,6 +6216,62 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         ]
 
+    def _previous_contract_urns(self) -> Set[str]:
+        """Data Contracts this source wrote in the last stateful run."""
+        # Same conditions as the stale entity removal handler.
+        stateful = self.config.stateful_ingestion
+        if not stateful or not stateful.remove_stale_metadata:
+            return set()
+        checkpoint = self.state_provider.get_last_checkpoint(
+            StaleEntityRemovalHandler.compute_job_id(self.platform),
+            GenericCheckpointState,
+        )
+        if checkpoint is None:
+            return set()
+        return {
+            urn
+            for urn in checkpoint.state.urns
+            if guess_entity_type(urn) == _DATA_CONTRACT_ENTITY_TYPE
+        }
+
+    def _reconcile_dropped_contracts(self) -> Iterable[MetadataWorkUnit]:
+        """Handle contracts written last run that this run did not write.
+
+        Stale entity removal would soft-delete them, including contracts that
+        were authored in DataHub and only merged into by dbt. dbt only removes
+        its own entries: a contract that keeps authored content is rewritten
+        without them and released from this source's state, while one holding
+        only dbt entries is left to stale entity removal. If this run had
+        failures, dropped contracts are kept unchanged instead.
+        """
+        dropped = sorted(self._previous_contract_urns() - self._contract_urns_written)
+        if not dropped or self.ctx.graph is None:
+            return
+        try:
+            existing = self._prefetch_existing_contracts(dropped)
+        except _ContractPrefetchError:
+            return
+
+        uncertain = bool(
+            self.report.failures
+            or self.report.node_extraction_failures
+            or self.report.node_emission_failures
+        )
+        for urn in dropped:
+            contract = existing.get(urn)
+            if contract is None:
+                continue
+            properties = (
+                contract.properties if uncertain else contract.without_dbt_entries()
+            )
+            if properties is None:
+                continue
+            # Not a primary workunit: stale entity removal skips the URN and
+            # stops tracking it, so the contract is not soft-deleted.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=properties
+            ).as_workunit(is_primary_source=False)
+
     def _create_contract_assertions_for_node(
         self,
         node: DBTNode,
@@ -6166,8 +6286,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         mcps: List[MetadataChangeProposalWrapper] = []
 
+        # The test URN must match the one create_test_entity_mcps emits, which
+        # depends on the *filtered* upstream set, not the raw manifest list.
+        test_urns: List[str] = []
+        if self.config.entities_enabled.can_emit_test_definitions:
+            declared = self._declared_constraints(node)
+            for test_node in contract_tests:
+                filtered_upstreams = filtered_upstreams_for(test_node)
+                if node.dbt_name not in filtered_upstreams:
+                    continue
+                if not self._should_attach_test_to_contract(
+                    test_node, node, declared, resolver
+                ):
+                    continue
+                test_urns.append(
+                    self._make_test_assertion_urn(
+                        test_node, node.dbt_name, len(filtered_upstreams)
+                    )
+                )
+
         schema_assertion = self._create_schema_assertion_for_contract(
-            node=node, entity_urn=entity_urn
+            node=node, entity_urn=entity_urn, attached_test_urns=test_urns
         )
         mcps.extend(schema_assertion.mcps)
         assertion_urns = [schema_assertion.urn]
@@ -6197,31 +6336,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
             )
 
-        # The test URN must match the one create_test_entity_mcps emits, which
-        # depends on the *filtered* upstream set, not the raw manifest list.
-        if self.config.entities_enabled.can_emit_test_definitions:
-            declared = self._declared_constraints(node)
-            for test_node in contract_tests:
-                filtered_upstreams = filtered_upstreams_for(test_node)
-                if node.dbt_name not in filtered_upstreams:
-                    continue
-                if not self._should_attach_test_to_contract(
-                    test_node, node, declared, resolver
-                ):
-                    continue
-                assertion_urns.append(
-                    self._make_test_assertion_urn(
-                        test_node, node.dbt_name, len(filtered_upstreams)
-                    )
-                )
-
         return mcps, _PendingContract(
             node=node,
             entity_urn=entity_urn,
-            # Same GUID as DataContract.urn so YAML-authored and ingested
-            # contracts land on one entity per dataset.
-            contract_urn=f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn})}",
-            data_quality_assertion_urns=assertion_urns,
+            contract_urn=_make_data_contract_urn(entity_urn),
+            data_quality_assertion_urns=assertion_urns + test_urns,
         )
 
     def create_contract_mcps(
@@ -6289,27 +6408,29 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not pending_contracts:
             return
 
-        # Read existing contracts in batches rather than per model.
-        try:
-            existing_contracts = self._prefetch_existing_contracts(pending_contracts)
-        except _ContractPrefetchError:
-            return
+        existing_contracts: Dict[str, _ExistingContract] = {}
+        if self.ctx.graph is None:
+            self.report.info(
+                title="dbt Data Contracts written without merging",
+                message="No DataHub graph is available (e.g. file sink), so "
+                "ingested Data Contracts replace any existing contract on the "
+                "same dataset instead of merging with its authored entries.",
+            )
+        else:
+            # Read existing contracts in batches rather than per model.
+            try:
+                existing_contracts = self._prefetch_existing_contracts(
+                    [pending.contract_urn for pending in pending_contracts]
+                )
+            except _ContractPrefetchError:
+                return
 
         for pending in pending_contracts:
             try:
                 yield from self._create_data_contract_for_node(
-                    pending,
-                    existing=(
-                        existing_contracts.by_urn.get(pending.contract_urn)
-                        if existing_contracts
-                        else None
-                    ),
-                    dbt_owned_assertions=(
-                        existing_contracts.dbt_owned_assertions
-                        if existing_contracts
-                        else frozenset()
-                    ),
+                    pending, existing=existing_contracts.get(pending.contract_urn)
                 )
+                self._contract_urns_written.add(pending.contract_urn)
                 self.report.num_contracts_emitted += 1
             except Exception as e:
                 self._record_node_failure(
