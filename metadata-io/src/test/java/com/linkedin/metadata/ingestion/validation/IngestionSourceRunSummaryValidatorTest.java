@@ -3,6 +3,7 @@ package com.linkedin.metadata.ingestion.validation;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -13,12 +14,15 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
+import com.linkedin.ingestion.DataHubIngestionSourceConfig;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -28,6 +32,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.key.DataHubIngestionSourceKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -114,6 +119,36 @@ public class IngestionSourceRunSummaryValidatorTest {
   }
 
   @Test
+  public void testMissingSourceKeyIsFiltered() {
+    sources.clear();
+
+    List<AspectValidationException> errors =
+        preCommit(
+            write(summary(NEW_RUN, 200), null),
+            item(INGESTION_SOURCE_KEY_ASPECT_NAME, new DataHubIngestionSourceKey().setId("a")));
+
+    assertEquals(errors.size(), 2);
+    assertTrue(errors.stream().allMatch(e -> e.getSubType() == ValidationSubType.FILTER));
+  }
+
+  @Test
+  public void testSourceCreatedInSameBatchIsWritten() {
+    sources.clear();
+
+    assertTrue(
+        preCommit(
+                write(summary(NEW_RUN, 200), null),
+                item(INGESTION_SOURCE_KEY_ASPECT_NAME, new DataHubIngestionSourceKey().setId("a")),
+                item(
+                    INGESTION_INFO_ASPECT_NAME,
+                    new DataHubIngestionSourceInfo()
+                        .setName("source-a")
+                        .setType("mysql")
+                        .setConfig(new DataHubIngestionSourceConfig().setRecipe("{}"))))
+            .isEmpty());
+  }
+
+  @Test
   public void testSummaryNotMatchingItsRunIsFiltered() {
     assertFiltered(preCommit(write(summary(NEW_RUN, Long.MAX_VALUE), null)));
   }
@@ -133,8 +168,18 @@ public class IngestionSourceRunSummaryValidatorTest {
     assertTrue(preCommit(write(summary(NEW_RUN, 200).setLastRunStatus("SUCCESS"), null)).isEmpty());
   }
 
-  private List<AspectValidationException> preCommit(ChangeMCP item) {
-    return validator.validatePreCommit(SYSTEM, List.of(item), retrieverContext).toList();
+  private List<AspectValidationException> preCommit(ChangeMCP... items) {
+    return validator.validatePreCommit(SYSTEM, List.of(items), retrieverContext).toList();
+  }
+
+  private ChangeMCP item(String aspectName, RecordTemplate aspect) {
+    return ChangeItemImpl.builder()
+        .changeType(ChangeType.UPSERT)
+        .urn(SOURCE_URN)
+        .aspectName(aspectName)
+        .recordTemplate(aspect)
+        .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+        .build(aspectRetriever);
   }
 
   private static void assertFiltered(List<AspectValidationException> errors) {
