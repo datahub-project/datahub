@@ -167,18 +167,20 @@ in place.
   the column by its dotted property path (`address.city`), matching the logical dataset's
   own `schemaMetadata`. Propagation onto physical datasets whose connectors encode nested
   struct paths differently is subject to the platform propagation mechanism.
-- **Property-level `unique: true` / `required: true` flags are not emitted as
-  assertions** — they map into `schemaMetadata` (nullability, keys) and are enforced via
-  the schema-compliance assertion; express uniqueness checks as `quality[]` rules
-  (`metric: duplicateValues` with `mustBe: 0`) to get a typed field assertion.
+- **Property-level `required` / `primaryKey` map into `schemaMetadata`** (nullability,
+  keys); `unique: true` is not mapped and is not checked by the schema-compliance assertion.
+  Express uniqueness as a `quality[]` rule (`metric: duplicateValues` with `mustBe: 0`) to get
+  a typed field assertion.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
 - Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
   keys), `customProperties` → DataHub `customProperties` (only the `odcs.*` provenance
   subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
-  `logicalParent` column links, and ODCS export. Spec-valid-but-unmapped fields are
-  reported once per file via `report.spec_fields_ignored`. These may land in a follow-up.
-- **ODCS v3.2 coverage.** `logicalType: vector` maps to an array type (dimensions and
+  `logicalParent` column links, and ODCS export. Spec-valid sections the source does not
+  read are reported once per file (info) via `report.spec_fields_ignored`. These fields are
+  read but **not mapped and not reported**: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`, `classification`, `criticalDataElement` and `encryptedName` on properties, `businessName` on schema objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`, team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` / `region`. These may land in a follow-up.
+- **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the
+  mappings below are implemented. `logicalType: vector` maps to an array type (dimensions and
   element type are not recorded); `deprecated: true` on a schema object or property emits a
   `deprecation` aspect on the logical dataset or field, and an explicit `deprecated: false`
   clears it (an absent key emits nothing); property
@@ -192,8 +194,9 @@ in place.
   clears them. With a DataHub connection the synonyms are merged into the field's existing AI
   context (instructions and examples are kept, and the field is skipped with a warning if that
   context cannot be read); without one, the AI context aspect is written as a whole. Off-spec
-  `deprecated`, `synonyms` or `semanticType` values are dropped (and reported as JSON Schema
-  warnings) rather than rejecting the contract.
+  `deprecated`, `synonyms` or `semanticType` values are dropped rather than rejecting the
+  contract; they are reported as JSON Schema warnings when the bundled v3.2 schema is
+  available (see the schema-validation limitation below).
   `context`, schema-object `synonyms`, `enum`, `semanticType` (beyond the measure exclusion
   above), `transformLogic` and vector
   `logicalTypeOptions` are mapped only with `emit_structured_properties` (below). Accepted but
@@ -222,8 +225,10 @@ in place.
   allowed values) is reported; its values are removed, not written, for that run. Without a
   DataHub connection (for example a file sink) or in a dry run, the definitions are emitted
   ahead of the values but cannot be checked.
-  Values follow the contract: a value removed from the contract is removed from DataHub;
-  other structured properties are never touched. Values outside a definition's allowed values
+  Values follow the contract for the fields the contract still declares: a value removed from
+  the contract is removed from DataHub, and other structured properties are never touched.
+  Values are not cleared on fields or tables that are removed from the contract, nor when the
+  flag is turned off, and `odcs.*` values edited in the UI are overwritten on the next run. Values outside a definition's allowed values
   are dropped and reported. Synonyms with `status: deprecated` are skipped; synonym
   `locale`/`source` and enum labels are not recorded. `odcs.context` holds the contract's and
   the schema object's `context` blocks as YAML, verbatim (a `${...}` inside it is prose, not a
@@ -234,6 +239,9 @@ in place.
   verbatim. A server `type`, a server field or `physicalName` that contains one leaves the
   physical binding
   unbound, reported as a warning; use `physical_urn_overrides` to bind it explicitly.
+  Variables elsewhere are not checked: a `${VAR}` in a `type: sql` quality `query` is copied
+  into the SQL assertion unresolved, so resolve variables before ingestion (for example with
+  `envsubst` in CI).
 - **ODPS documents are not read.** `emit_data_product_association` marks the datasets a
   contract governs as output ports of the product the contract names, but the product side
   of the Bitol model is not ingested: no ODPS file is parsed, so port names, port versions,

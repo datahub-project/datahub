@@ -21,8 +21,9 @@ this source and is being phased out. To ingest ODCS YAML, use `source.type: odcs
 ### Prerequisites
 
 **A single ODCS file may describe multiple tables.** Each `schema[]` entry becomes its own
-logical `odcs` Dataset. Contract-level metadata (description, owners, top-level tags)
-applies to every logical dataset by default. See the Concept Mapping table on the platform
+logical `odcs` Dataset. Contract-level owners and top-level tags apply to every logical
+dataset by default; the contract `description` is used only for a table that has no
+description of its own. See the Concept Mapping table on the platform
 Overview above for per-row semantics, and the [Limitations](#limitations) section below for
 how to disable replication.
 
@@ -74,9 +75,11 @@ how to disable replication.
   enable `LOGICAL_MODELS_ENABLED` to see the logical models, their assertions, and their
   physical links.
 - Files are loaded leniently by default (`strict_validation: false`) so that contracts with
-  extra or non-conformant fields are accepted with warnings. Spec-valid fields the source
-  does not map (SLA, support, pricing, relationships, …) are summarized once per file as an
-  info; genuinely unknown fields warn individually. Set `strict_validation: true` to fail on
+  extra or non-conformant fields are accepted with warnings. Spec-valid sections the source
+  does not read (SLA, support, pricing, relationships, …) are summarized once per file as an
+  info (`report.spec_fields_ignored`); genuinely unknown fields warn individually. Some fields
+  the source reads are still not mapped and are not in that summary — see
+  [Limitations](#limitations). Set `strict_validation: true` to fail on
   JSON Schema violations — recommended for multi-tenant or untrusted directories.
 - **Stale-metadata removal uses standard stateful ingestion.** Enable it via the
   `stateful_ingestion` block (server-side checkpoints; requires a DataHub graph). When you
