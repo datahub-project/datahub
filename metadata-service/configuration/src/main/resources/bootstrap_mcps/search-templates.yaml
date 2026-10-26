@@ -90,7 +90,7 @@
             {{#synonyms}}
             ,{
               "simple_query_string": {
-                "query": "{{.}}",
+                "query": "{{synonym}}",
                 "default_operator": "AND",
                 "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
                 "boost": 1.5
@@ -100,7 +100,7 @@
             {{^spacelessDotted}}
             ,{
               "simple_query_string": {
-                "query": "{{.}}",
+                "query": "{{synonym}}",
                 "default_operator": "AND",
                 "fields": {{&qualifiedNameFieldsJson}},
                 "boost": 1.5
@@ -155,7 +155,7 @@
             ,{
               "term": {
                 "{{nameKeyword}}": {
-                  "value": "{{.}}",
+                  "value": "{{synonym}}",
                   "case_insensitive": true,
                   "boost": 100.0
                 }
@@ -507,7 +507,7 @@
             {{#synonyms}}
             ,{
               "multi_match": {
-                "query": "{{.}}",
+                "query": "{{synonym}}",
                 "type": "best_fields",
                 "fields": {{&lightFieldsJson}},
                 "operator": "AND"

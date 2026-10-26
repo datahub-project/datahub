@@ -716,7 +716,9 @@ public class SearchV3QueryBuilder {
     }
     if (!synonyms.isEmpty()) {
       context.put(SearchTemplateContextVariables.SYNONYM_QUERIES, synonyms);
-      context.put(SearchTemplateContextVariables.SYNONYMS, synonyms);
+      context.put(
+          SearchTemplateContextVariables.SYNONYMS,
+          SearchTemplateMustache.synonymElements(synonyms));
     }
     if (shape.wildcardTerm != null) {
       context.put(SearchTemplateContextVariables.WILDCARD_TERM, shape.wildcardTerm);

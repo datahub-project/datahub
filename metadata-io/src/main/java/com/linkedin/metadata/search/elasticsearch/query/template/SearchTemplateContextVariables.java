@@ -72,6 +72,10 @@ public final class SearchTemplateContextVariables {
   public static final String STRUCTURED_QUERY = "structuredQuery";
   public static final String FLAGS = "flags";
   public static final String SYNONYMS = "synonyms";
+
+  /** Text of one {@link #SYNONYMS} element. A nested section must not use {@code {{.}}}. */
+  public static final String SYNONYM = "synonym";
+
   public static final String MULTI_WORD = "multiWord";
   public static final String LONG_QUERY = "longQuery";
   public static final String DOTTED_QUERY = "dottedQuery";
@@ -215,9 +219,9 @@ public final class SearchTemplateContextVariables {
           URN_FIELD,
           SYNONYM_PRIORITY);
 
-  /** Fields of one {@code valueScoreFunctions} or {@code fieldScoreFunctions} element. */
+  /** Fields of one list element, not top-level keys. */
   public static final Set<String> NESTED =
-      names(FIELD, VALUE_JSON, WEIGHT, FACTOR, MISSING, MODIFIER, BOOST);
+      names(FIELD, VALUE_JSON, WEIGHT, FACTOR, MISSING, MODIFIER, BOOST, SYNONYM);
 
   /** Dotted paths a template may branch on. The parent object is a stable top-level name. */
   public static final Set<String> PATHS =

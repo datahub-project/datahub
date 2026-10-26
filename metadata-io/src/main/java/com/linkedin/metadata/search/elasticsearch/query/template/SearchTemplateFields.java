@@ -54,8 +54,8 @@ public final class SearchTemplateFields {
   }
 
   /**
-   * Analyzed subfields of one search label. {@code name} does not include a degree copy such as
-   * {@code name_1}; a label is already the single shared field.
+   * Analyzed subfields of one indexed label. The label is already one degree: {@code qualifiedName}
+   * does not include {@code qualifiedName_1}. A higher degree is its own list.
    */
   @Nonnull
   public static List<String> labelAnalyzedFields(
@@ -69,11 +69,17 @@ public final class SearchTemplateFields {
     return analyzedFields(matched);
   }
 
+  /**
+   * Drops one indexed label and its degree copies from a shared best_fields list. {@code
+   * qualifiedName_1} is not added to the degree-0 {@code qualifiedNameFields} list; that degree
+   * needs its own list. Leaving the copy here lets a related field outrank the bounded degree-0
+   * clause.
+   */
   @Nonnull
   public static List<String> withoutLabel(@Nonnull List<String> analyzed, @Nonnull String label) {
     List<String> kept = new ArrayList<>();
     for (String entry : analyzed) {
-      if (!label.equals(analyzedRoot(entry))) {
+      if (!label.equals(textBase(analyzedRoot(entry)))) {
         kept.add(entry);
       }
     }

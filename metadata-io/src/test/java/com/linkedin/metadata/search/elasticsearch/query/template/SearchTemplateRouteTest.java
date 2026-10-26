@@ -195,14 +195,15 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
         new SearchV3QueryBuilder(classpath, new SearchConfiguration(), null);
     String longQuery = "one two three four";
     String fulltext = render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, longQuery);
-    assertTrue(fulltext.contains("\"boost\" : 100.0"), fulltext);
     assertTrue(fulltext.contains("\"minimum_should_match\" : \"25%\""), fulltext);
     assertTrue(fulltext.contains("\"operator\" : \"OR\""), fulltext);
     assertTrue(fulltext.contains("\"boost\" : 10.0"), fulltext);
 
+    // The exact name term is boost 100 on every query. The partial description clause is the
+    // minimum_should_match and boost 10, and those stay off a short query.
     String shortQuery = render(builder, SEARCH_TEMPLATE_FULLTEXT_URN, "orders");
     assertFalse(shortQuery.contains("\"minimum_should_match\" : \"25%\""), shortQuery);
-    assertFalse(shortQuery.contains("\"boost\" : 100.0"), shortQuery);
+    assertFalse(shortQuery.contains("\"boost\" : 10.0"), shortQuery);
 
     String light = render(builder, SEARCH_TEMPLATE_LIGHT_URN, longQuery);
     assertTrue(light.contains("\"boost\" : 100.0"), light);

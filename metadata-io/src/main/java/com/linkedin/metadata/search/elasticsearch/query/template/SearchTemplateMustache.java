@@ -173,7 +173,7 @@ public final class SearchTemplateMustache {
     List<String> synonyms =
         Collections.nCopies(SearchTemplateNormalizationPolicy.MAX_SYNONYM_CAP, "production");
     context.put(SearchTemplateContextVariables.SYNONYM_QUERIES, synonyms);
-    context.put(SearchTemplateContextVariables.SYNONYMS, synonyms);
+    context.put(SearchTemplateContextVariables.SYNONYMS, synonymElements(synonyms));
     context.put(SearchTemplateContextVariables.SYNONYM_PRIORITY, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.MULTI_WORD, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LONG_QUERY, Boolean.TRUE);
@@ -250,6 +250,21 @@ public final class SearchTemplateMustache {
       }
     }
     return names;
+  }
+
+  /**
+   * One map per synonym. {@code {{#qualifiedNameFields}}} pushes its own context, so {@code {{.}}}
+   * inside that section is no longer the synonym text.
+   */
+  @Nonnull
+  public static List<Map<String, String>> synonymElements(@Nonnull List<String> synonyms) {
+    List<Map<String, String>> elements = new ArrayList<>(synonyms.size());
+    for (String synonym : synonyms) {
+      Map<String, String> element = new LinkedHashMap<>();
+      element.put(SearchTemplateContextVariables.SYNONYM, synonym);
+      elements.add(element);
+    }
+    return elements;
   }
 
   @Nonnull
