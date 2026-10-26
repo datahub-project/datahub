@@ -2593,6 +2593,8 @@ class TableauSiteSource:
             op = c.IDENTITY  # How to specify exact same
         elif field_type == c.CALCULATED_FIELD:
             op = field_type
+            # Cap only the formula so the CalculatedField marker survives. The result
+            # has no SQL:/COPY: label, so a second cut (e.g. a patch key) would eat it.
             formula = cap_transform_operation(field.get(c.FORMULA))
             if formula:
                 op += f"formula: {formula}"
