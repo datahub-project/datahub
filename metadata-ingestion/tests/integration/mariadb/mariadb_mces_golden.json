@@ -117,6 +117,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "customer_order_summary",
+                        "qualifiedName": "test_db.customer_order_summary",
                         "tags": []
                     }
                 },
@@ -305,6 +306,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "processed_customers",
+                        "qualifiedName": "test_db.processed_customers",
                         "tags": []
                     }
                 },
@@ -481,6 +483,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "raw_customer_data",
+                        "qualifiedName": "test_db.raw_customer_data",
                         "tags": []
                     }
                 },
@@ -633,6 +636,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "raw_order_data",
+                        "qualifiedName": "test_db.raw_order_data",
                         "tags": []
                     }
                 },

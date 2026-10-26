@@ -139,6 +139,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "_test_table_underscore",
+                        "qualifiedName": "db1._test_table_underscore",
                         "tags": []
                     }
                 },
@@ -291,6 +292,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "array_struct_test",
+                        "qualifiedName": "db1.array_struct_test",
                         "description": "This table has array of structs",
                         "tags": []
                     }
@@ -472,6 +474,7 @@
                             "View Rewrite Enabled": "No"
                         },
                         "name": "array_struct_test_view",
+                        "qualifiedName": "db1.array_struct_test_view",
                         "tags": []
                     }
                 },
@@ -651,6 +654,7 @@
                             "View Rewrite Enabled": "No"
                         },
                         "name": "array_struct_test_view_multiline",
+                        "qualifiedName": "db1.array_struct_test_view_multiline",
                         "tags": []
                     }
                 },
@@ -857,6 +861,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "map_test",
+                        "qualifiedName": "db1.map_test",
                         "tags": []
                     }
                 },
@@ -1011,6 +1016,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "nested_struct_test",
+                        "qualifiedName": "db1.nested_struct_test",
                         "tags": []
                     }
                 },
@@ -1209,6 +1215,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "pokes",
+                        "qualifiedName": "db1.pokes",
                         "tags": []
                     }
                 },
@@ -1372,6 +1379,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "struct_test",
+                        "qualifiedName": "db1.struct_test",
                         "tags": []
                     }
                 },
@@ -1549,6 +1557,7 @@
                             "View Rewrite Enabled": "No"
                         },
                         "name": "struct_test_view_materialized",
+                        "qualifiedName": "db1.struct_test_view_materialized",
                         "tags": []
                     }
                 },
@@ -1727,6 +1736,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "union_test",
+                        "qualifiedName": "db1.union_test",
                         "tags": []
                     }
                 },
@@ -2132,6 +2142,7 @@
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "pokes",
+                        "qualifiedName": "db2.pokes",
                         "tags": []
                     }
                 },

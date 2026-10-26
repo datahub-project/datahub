@@ -515,6 +515,7 @@ class HiveMetadataProcessor:
                     urn=dataset_snapshot.urn
                 )
                 patch_builder.set_display_name(key.table)
+                patch_builder.set_qualified_name(dataset_name)
 
                 if table_description:
                     patch_builder.set_description(description=table_description)

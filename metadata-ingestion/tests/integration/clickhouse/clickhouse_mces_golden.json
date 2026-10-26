@@ -161,6 +161,7 @@
                             "metadata_path": "/var/lib/clickhouse/store/0e9/0e9d2d73-fced-49b7-800b-6410e674e1ee/mv_target_table.sql"
                         },
                         "name": "mv_target_table",
+                        "qualifiedName": "db1.mv_target_table",
                         "description": "This is target table for materialized view",
                         "tags": []
                     }
@@ -364,6 +365,7 @@
                             "metadata_path": "/var/lib/clickhouse/store/0e9/0e9d2d73-fced-49b7-800b-6410e674e1ee/test_data_types.sql"
                         },
                         "name": "test_data_types",
+                        "qualifiedName": "db1.test_data_types",
                         "description": "This table has basic types",
                         "tags": []
                     }
@@ -1021,6 +1023,7 @@
                             "metadata_path": "/var/lib/clickhouse/store/0e9/0e9d2d73-fced-49b7-800b-6410e674e1ee/test_dict.sql"
                         },
                         "name": "test_dict",
+                        "qualifiedName": "db1.test_dict",
                         "description": "",
                         "tags": []
                     }
@@ -1185,6 +1188,7 @@
                             "metadata_path": "/var/lib/clickhouse/store/0e9/0e9d2d73-fced-49b7-800b-6410e674e1ee/test_nested_data_types.sql"
                         },
                         "name": "test_nested_data_types",
+                        "qualifiedName": "db1.test_nested_data_types",
                         "description": "This table has nested types",
                         "tags": []
                     }
@@ -1480,6 +1484,7 @@
                             "view_definition": "CREATE MATERIALIZED VIEW db1.mv_with_target_table TO db1.mv_target_table (`col_DateTime` DateTime, `col_Int64` Int64, `col_Float64` Float64, `col_Decimal64` Decimal(18, 5), `col_String` String) AS SELECT col_DateTime, col_Int64, col_Float64, col_Decimal64, col_String FROM db1.test_data_types"
                         },
                         "name": "mv_with_target_table",
+                        "qualifiedName": "db1.mv_with_target_table",
                         "description": "",
                         "tags": []
                     }
@@ -1728,6 +1733,7 @@
                             "view_definition": "CREATE MATERIALIZED VIEW db1.mv_without_target_table (`col_ArrayArrayInt` Array(Array(Int8)), `col_LowCardinality` LowCardinality(String), `col_Nullable` Nullable(Int8), `col_Array_Nullable_String` Array(Nullable(String)), `col_LowCardinality_Nullable_String` LowCardinality(Nullable(String))) ENGINE = MergeTree PRIMARY KEY tuple() ORDER BY tuple() SETTINGS index_granularity = 8192 AS SELECT col_ArrayArrayInt, col_LowCardinality, col_Nullable, col_Array_Nullable_String, col_LowCardinality_Nullable_String FROM db1.test_nested_data_types"
                         },
                         "name": "mv_without_target_table",
+                        "qualifiedName": "db1.mv_without_target_table",
                         "description": "",
                         "tags": []
                     }
@@ -1976,6 +1982,7 @@
                             "view_definition": "CREATE VIEW db1.test_view (`col_String` String) AS SELECT dictGetOrDefault('db1.test_dict', 'col_String', toUInt64(123), 'na') AS col_String"
                         },
                         "name": "test_view",
+                        "qualifiedName": "db1.test_view",
                         "description": "",
                         "tags": []
                     }

@@ -425,6 +425,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "metadata_aspect_v2",
+                        "qualifiedName": "postgrestest.public.metadata_aspect_v2",
                         "tags": []
                     }
                 },
@@ -641,6 +642,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "raw_orders",
+                        "qualifiedName": "postgrestest.public.raw_orders",
                         "tags": []
                     }
                 },
@@ -785,6 +787,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "processed_orders",
+                        "qualifiedName": "postgrestest.public.processed_orders",
                         "tags": []
                     }
                 },
@@ -929,6 +932,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "special_types",
+                        "qualifiedName": "postgrestest.public.special_types",
                         "tags": []
                     }
                 },
@@ -1268,6 +1272,7 @@
                             "view_definition": " SELECT metadata_aspect_v2.urn,\n    metadata_aspect_v2.aspect\n   FROM metadata_aspect_v2\n  WHERE (metadata_aspect_v2.version = 0);"
                         },
                         "name": "metadata_aspect_view",
+                        "qualifiedName": "postgrestest.public.metadata_aspect_view",
                         "tags": []
                     }
                 },
@@ -1421,6 +1426,7 @@
                             "view_definition": " SELECT metadata_aspect_v2.urn,\n    metadata_aspect_v2.aspect\n   FROM metadata_aspect_v2\n  WHERE (metadata_aspect_v2.version = 0);"
                         },
                         "name": "metadata_aspect_mview",
+                        "qualifiedName": "postgrestest.public.metadata_aspect_mview",
                         "tags": []
                     }
                 },

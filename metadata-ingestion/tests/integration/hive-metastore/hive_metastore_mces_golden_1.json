@@ -227,6 +227,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1.map_test"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -418,6 +423,11 @@
                 "op": "add",
                 "path": "/name",
                 "value": "union_test"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1.union_test"
             },
             {
                 "op": "add",
@@ -671,6 +681,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1.nested_struct_test"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -906,6 +921,11 @@
                 "op": "add",
                 "path": "/name",
                 "value": "array_struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1.array_struct_test"
             },
             {
                 "op": "add",
@@ -1148,6 +1168,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1.struct_test"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -1366,6 +1391,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1._test_table_underscore"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -1553,6 +1583,11 @@
                 "op": "add",
                 "path": "/name",
                 "value": "pokes"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "db1.pokes"
             },
             {
                 "op": "add",

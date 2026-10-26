@@ -135,6 +135,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "customers",
+                        "qualifiedName": "northwind.customers",
                         "tags": []
                     }
                 },
@@ -329,6 +330,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "orders",
+                        "qualifiedName": "northwind.orders",
                         "tags": []
                     }
                 },
