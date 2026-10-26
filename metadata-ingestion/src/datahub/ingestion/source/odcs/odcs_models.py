@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
@@ -145,7 +145,7 @@ def _bool_or_none(value: object) -> Optional[bool]:
     return value if isinstance(value, bool) else None
 
 
-def _synonym_entries(value: object) -> Optional[List[Union[str, dict]]]:
+def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object]]]]:
     """Keep usable synonym entries (strings, or objects with a string `synonym`).
 
     An explicit empty list is kept (it clears earlier synonyms); a list in which
@@ -155,7 +155,7 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, dict]]]:
         return None
     if not value:
         return []
-    kept: List[Union[str, dict]] = [
+    kept: List[Union[str, Dict[str, object]]] = [
         e
         for e in value
         if isinstance(e, str)
@@ -398,3 +398,12 @@ class ODCSContract(ODCSBaseModel):
 
 ODCSProperty.model_rebuild()
 ODCSSchemaObject.model_rebuild()
+
+
+# v3.2 keys whose off-spec values the validators above drop instead of
+# rejecting the contract. Kept next to the validators so the source's
+# "dropped as off-spec" report cannot drift from them.
+LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
+    ODCSSchemaObject: ("deprecated",),
+    ODCSProperty: ("deprecated", "synonyms", "semanticType"),
+}

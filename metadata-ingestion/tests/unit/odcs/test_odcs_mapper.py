@@ -11,6 +11,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
     SchemaAssertionCompatibility,
 )
 from datahub.ingestion.source.odcs.odcs_mapper import (
+    RefusalKind,
     _make_owners,
     _operator_and_params_from_threshold,
     build_schema_metadata,
@@ -1726,7 +1727,14 @@ def test_synonyms_with_no_valid_entry_leave_existing_ones_alone() -> None:
     # Like a non-list value, a list with no usable entry is treated as absent;
     # only an explicit empty list clears.
     mcps = _logical_mcps(
-        [{"name": "t", "properties": [{"name": "col_a", "synonyms": [42, None]}]}]
+        [
+            {
+                "name": "t",
+                "properties": [
+                    {"name": "col_a", "synonyms": [42, None, {"synonym": 5}]}
+                ],
+            }
+        ]
     )
     assert not _aspects_for(
         mcps, make_schema_field_urn(LOGICAL_URN, "col_a"), AiContextClass
@@ -1793,4 +1801,75 @@ def test_binding_iceberg_catalog_url_without_scheme() -> None:
     )
     assert binding.physical_urn == (
         "urn:li:dataset:(urn:li:dataPlatform:glue,sales.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "server,expected_platform",
+    [
+        # warehouse is a compute warehouse here, not part of the table name.
+        (
+            {
+                "type": "snowflake",
+                "database": "db",
+                "schema": "sch",
+                "warehouse": "${WH}",
+            },
+            "snowflake",
+        ),
+        # warehouse only decides the binding for a Glue Iceberg catalog.
+        (
+            {
+                "type": "iceberg",
+                "catalogUrl": "https://polaris.example.com/api/catalog",
+                "namespace": "sales",
+                "warehouse": "${WH}",
+            },
+            "iceberg",
+        ),
+    ],
+)
+def test_binding_warehouse_variable_ignored_where_it_does_not_bind(
+    server: Dict[str, Any], expected_platform: str
+) -> None:
+    binding = _iceberg_binding(server=server)
+    assert binding.physical_urn is not None
+    assert f"urn:li:dataPlatform:{expected_platform}," in binding.physical_urn
+
+
+def test_binding_missing_server_field_is_not_a_variable_refusal() -> None:
+    contract = _make_contract(
+        servers=[{"server": "pg", "type": "postgres", "database": "db"}],
+        schema=[{"name": "t"}],
+    )
+    (binding,) = odcs_to_physical_bindings(contract, _config())
+    assert binding.physical_urn is None
+    assert binding.refusal is not None
+    assert binding.refusal.kind is RefusalKind.UNMAPPABLE
+    assert not binding.unresolved_variable
+
+
+def test_binding_explicitly_unbound_is_its_own_kind() -> None:
+    contract = _make_contract(
+        servers=[{"server": "pg", "type": "postgres", "database": "db", "schema": "s"}],
+        schema=[{"name": "t"}],
+    )
+    (binding,) = odcs_to_physical_bindings(
+        contract, _config(physical_urn_overrides={"c1": {"t": ""}})
+    )
+    assert binding.physical_urn is None
+    assert binding.refusal is not None
+    assert binding.refusal.kind is RefusalKind.EXPLICITLY_UNBOUND
+
+
+def test_binding_malformed_catalog_url_does_not_raise() -> None:
+    binding = _iceberg_binding(
+        server={
+            "type": "iceberg",
+            "catalogUrl": "glue.us-east-1.amazonaws.com]",
+            "namespace": "sales",
+        }
+    )
+    assert binding.physical_urn == (
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,sales.orders,PROD)"
     )
