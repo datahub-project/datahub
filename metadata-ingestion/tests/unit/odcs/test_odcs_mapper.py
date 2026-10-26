@@ -23,6 +23,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
@@ -601,6 +602,46 @@ def test_institutional_memory_includes_root_authoritative_definitions() -> None:
     urls = [e.url for e in memory.elements]
     assert "https://root.example/contract" in urls
     assert "https://schema.example/def" in urls
+
+
+def test_institutional_memory_skips_urls_gms_rejects() -> None:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "authoritativeDefinitions": [
+                    {"url": "jdbc:postgresql://db.example/t", "type": "implementation"}
+                ],
+                "properties": [
+                    {
+                        "name": "col",
+                        "logicalType": "string",
+                        "authoritativeDefinitions": [
+                            {"url": "docs/col.md", "type": "businessDefinition"},
+                            {"url": "https://example.com/def", "type": "glossary"},
+                        ],
+                    }
+                ],
+            }
+        ],
+        authoritative_definitions=[
+            {"url": "../docs/orders.md", "type": "implementation"}
+        ],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    memory = next(
+        m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
+    )
+    assert [e.url for e in memory.elements] == ["https://example.com/def"]
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "../docs/orders.md",
+        "docs/col.md",
+        "jdbc:postgresql://db.example/t",
+    ]
 
 
 def test_replicate_false_skips_ownership() -> None:

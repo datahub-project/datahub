@@ -31,6 +31,7 @@ from datahub.metadata.schema_classes import (
     DataProductPropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
+    InstitutionalMemoryClass,
     LogicalParentClass,
     OwnershipClass,
     StatusClass,
@@ -545,6 +546,33 @@ def test_data_contract_logical_only_without_binding(tmp_path: pathlib.Path) -> N
     assert len(props) == 1
     assert "urn:li:dataPlatform:odcs" in props[0].entity
     assert src.report.data_contracts_emitted == 1
+
+
+def test_unstorable_authoritative_definition_urls_skipped_and_warned(
+    tmp_path: pathlib.Path,
+) -> None:
+    body = _VALID_CONTRACT_BODY + (
+        "authoritativeDefinitions:\n"
+        "  - url: ../docs/orders.md\n"
+        "    type: implementation\n"
+        "  - url: https://example.com/def\n"
+        "    type: businessDefinition\n"
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    memory = _aspects_of(workunits, InstitutionalMemoryClass)
+    assert [e.url for e in memory[0].elements] == ["https://example.com/def"]
+    assert _aspects_of(workunits, DataContractPropertiesClass)
+    warnings = [
+        w
+        for w in src.report.warnings
+        if "authoritativeDefinitions" in str(getattr(w, "title", ""))
+    ]
+    assert len(warnings) == 1
+    assert "../docs/orders.md" in str(warnings[0].context)
 
 
 def test_data_contract_skipped_when_no_assertions(tmp_path: pathlib.Path) -> None:

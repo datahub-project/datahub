@@ -75,6 +75,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     VARIABLE_MARKER,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSDescription,
     ODCSProperty,
@@ -726,6 +727,45 @@ def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
     return count
 
 
+# Mirrors GMS UrlValidator's institutionalMemory check: the URL must parse
+# as a java.net.URI and use one of these schemes (host not required).
+_LINK_URL_SCHEMES = {"http", "https", "ftp", "mailto"}
+# ponytail: approximates java.net.URI's rejections by the characters it never
+# allows unescaped; port the full RFC 2396 grammar if real URLs slip through.
+_URI_ILLEGAL_CHARS = re.compile(r'[\s"<>\\^`{|}]')
+
+
+def _is_storable_link_url(url: str) -> bool:
+    """Whether GMS accepts `url` as an institutionalMemory link."""
+    if _URI_ILLEGAL_CHARS.search(url):
+        return False
+    return urlparse(url).scheme.lower() in _LINK_URL_SCHEMES
+
+
+def _authoritative_definitions(
+    contract: ODCSContract, schema_entries: List[ODCSSchemaObject]
+) -> List[ODCSAuthoritativeDefinition]:
+    defs = list(contract.authoritativeDefinitions or [])
+    for schema_entry in schema_entries:
+        defs.extend(schema_entry.authoritativeDefinitions or [])
+        for _, prop in _walk_properties(schema_entry.properties):
+            defs.extend(prop.authoritativeDefinitions or [])
+    return defs
+
+
+def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str]:
+    """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
+    would reject as links (relative paths, other schemes), so the source can
+    report them; `_institutional_memory_mcp` skips them."""
+    return sorted(
+        {
+            d.url
+            for d in _authoritative_definitions(contract, contract.schema_ or [])
+            if d.url and not _is_storable_link_url(d.url)
+        }
+    )
+
+
 def _institutional_memory_mcp(
     logical_urn: str, schema_entry: ODCSSchemaObject, contract: ODCSContract
 ) -> Optional[MetadataChangeProposalWrapper]:
@@ -737,12 +777,8 @@ def _institutional_memory_mcp(
     """
     seen: set = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    defs = list(contract.authoritativeDefinitions or [])
-    defs.extend(schema_entry.authoritativeDefinitions or [])
-    for _, prop in _walk_properties(schema_entry.properties):
-        defs.extend(prop.authoritativeDefinitions or [])
-    for d in defs:
-        if not d.url or d.url in seen:
+    for d in _authoritative_definitions(contract, [schema_entry]):
+        if not d.url or d.url in seen or not _is_storable_link_url(d.url):
             continue
         seen.add(d.url)
         elements.append(

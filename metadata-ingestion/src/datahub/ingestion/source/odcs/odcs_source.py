@@ -54,6 +54,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
@@ -991,6 +992,16 @@ class ODCSSource(StatefulIngestionSourceBase):
                     "their members were added as Technical Owners."
                 ),
                 context=f"{source_uri}: {', '.join(defaulted_roles)}",
+            )
+        unstorable_urls = unstorable_authoritative_definition_urls(contract)
+        if unstorable_urls:
+            self.report.warning(
+                title="ODCS authoritativeDefinitions URLs skipped",
+                message=(
+                    "DataHub only stores absolute http, https, ftp or mailto links, "
+                    "so these authoritativeDefinitions URLs were not added as links."
+                ),
+                context=f"{source_uri}: {', '.join(unstorable_urls)}",
             )
         self._report_lossy_mappings(raw_dict, contract, source_uri)
 
