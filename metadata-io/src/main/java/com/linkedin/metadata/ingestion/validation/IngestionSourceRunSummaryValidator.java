@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAM
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
@@ -40,7 +41,8 @@ import lombok.extern.slf4j.Slf4j;
  * points at and moves the summary forward. The stored run is checked rather than the writer because
  * side-effect writes are validated with the triggering user's context. The checks run at commit
  * time because side-effect writes land asynchronously, and failures are filtered so a stale write
- * never fails its consumer.
+ * never fails its consumer. A summary that lands after its source was deleted also drops the key
+ * aspect the write generates, otherwise it would recreate the source as an empty entity.
  */
 @Setter
 @Getter
@@ -67,11 +69,17 @@ public class IngestionSourceRunSummaryValidator extends AspectPayloadValidator {
         .className(IngestionSourceRunSummaryValidator.class.getName())
         .supportedOperations(SUPPORTED_CHANGE_TYPES.stream().map(ChangeType::toString).toList())
         .supportedEntityAspectNames(
-            List.of(
-                AspectPluginConfig.EntityAspectName.builder()
-                    .entityName(INGESTION_SOURCE_ENTITY_NAME)
-                    .aspectName(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME)
-                    .build()))
+            Stream.of(
+                    INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME,
+                    INGESTION_SOURCE_KEY_ASPECT_NAME,
+                    INGESTION_INFO_ASPECT_NAME)
+                .map(
+                    aspectName ->
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(INGESTION_SOURCE_ENTITY_NAME)
+                            .aspectName(aspectName)
+                            .build())
+                .toList())
         .build();
   }
 
@@ -88,36 +96,67 @@ public class IngestionSourceRunSummaryValidator extends AspectPayloadValidator {
       @Nonnull OperationFingerprint operationContext,
       @Nonnull Collection<ChangeMCP> changeMCPs,
       @Nonnull RetrieverContext retrieverContext) {
-    if (changeMCPs.isEmpty()) {
+    Map<String, List<ChangeMCP>> itemsByAspect =
+        changeMCPs.stream().collect(Collectors.groupingBy(ChangeMCP::getAspectName));
+    List<ChangeMCP> summaries =
+        itemsByAspect.getOrDefault(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME, List.of());
+    if (summaries.isEmpty()) {
       return Stream.empty();
     }
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
-    Map<Urn, Map<String, Aspect>> sources =
-        aspectRetriever.getLatestAspectObjects(
-            operationContext,
-            changeMCPs.stream().map(ChangeMCP::getUrn).collect(Collectors.toSet()),
-            Set.of(INGESTION_INFO_ASPECT_NAME));
+    Set<Urn> missingSources = missingSources(operationContext, aspectRetriever, itemsByAspect);
     Map<Urn, Map<String, Aspect>> runs =
         aspectRetriever.getLatestAspectObjects(
             operationContext,
-            changeMCPs.stream()
+            summaries.stream()
                 .map(
                     item ->
                         item.getAspect(DataHubIngestionSourceRunSummary.class)
                             .getLastExecutionRequest())
                 .collect(Collectors.toSet()),
             EXECUTION_REQUEST_ASPECTS);
-    return changeMCPs.stream()
-        .map(item -> invalidWrite(item, sources, runs))
-        .filter(Objects::nonNull);
+    return Stream.concat(
+        itemsByAspect.getOrDefault(INGESTION_SOURCE_KEY_ASPECT_NAME, List.of()).stream()
+            .filter(item -> missingSources.contains(item.getUrn()))
+            .map(
+                item ->
+                    AspectValidationException.forFilter(
+                        item, "Ignoring key for missing ingestion source " + item.getUrn())),
+        summaries.stream()
+            .map(item -> invalidWrite(item, missingSources, runs))
+            .filter(Objects::nonNull));
+  }
+
+  @Nonnull
+  private static Set<Urn> missingSources(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever aspectRetriever,
+      @Nonnull Map<String, List<ChangeMCP>> itemsByAspect) {
+    Set<Urn> sourcesInBatch =
+        itemsByAspect.getOrDefault(INGESTION_INFO_ASPECT_NAME, List.of()).stream()
+            .map(ChangeMCP::getUrn)
+            .collect(Collectors.toSet());
+    Set<Urn> summaryUrns =
+        itemsByAspect.get(INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME).stream()
+            .map(ChangeMCP::getUrn)
+            .filter(urn -> !sourcesInBatch.contains(urn))
+            .collect(Collectors.toSet());
+    Map<Urn, Map<String, Aspect>> storedSources =
+        aspectRetriever.getLatestAspectObjects(
+            operationContext, summaryUrns, Set.of(INGESTION_INFO_ASPECT_NAME));
+    return summaryUrns.stream()
+        .filter(
+            urn ->
+                !storedSources.getOrDefault(urn, Map.of()).containsKey(INGESTION_INFO_ASPECT_NAME))
+        .collect(Collectors.toSet());
   }
 
   @Nullable
   private static AspectValidationException invalidWrite(
       @Nonnull ChangeMCP item,
-      @Nonnull Map<Urn, Map<String, Aspect>> sources,
+      @Nonnull Set<Urn> missingSources,
       @Nonnull Map<Urn, Map<String, Aspect>> runs) {
-    if (!sources.getOrDefault(item.getUrn(), Map.of()).containsKey(INGESTION_INFO_ASPECT_NAME)) {
+    if (missingSources.contains(item.getUrn())) {
       return AspectValidationException.forFilter(
           item, "Ignoring run summary for missing ingestion source " + item.getUrn());
     }
