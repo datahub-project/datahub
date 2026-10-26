@@ -187,12 +187,16 @@ export const ORACLE_INCLUDE_QUERY_USAGE: RecipeField = {
     fieldPath: includeQueryUsageFieldPath,
     rules: null,
     getValueFromRecipeOverride: (recipe) => {
-        // A recipe saved by the old form shows as checked so that saving it
-        // again rewrites the legacy key into the two valid flags.
-        const legacyValue = get(recipe, legacyExtractUsageHistoryFieldPath);
-        if (legacyValue !== undefined) return !!legacyValue;
-        // Usage needs both flags; a recipe with only one set produces none.
-        return !!get(recipe, includeQueryUsageFieldPath) && !!get(recipe, includeUsageStatsFieldPath);
+        const queryUsage = get(recipe, includeQueryUsageFieldPath);
+        const usageStats = get(recipe, includeUsageStatsFieldPath);
+        // The valid flags win when either is present. Usage needs both; a
+        // recipe with only one set produces none.
+        if (queryUsage !== undefined || usageStats !== undefined) {
+            return !!queryUsage && !!usageStats;
+        }
+        // A recipe saved by the old form shows as checked; toggling it rewrites
+        // the legacy key into the two valid flags.
+        return !!get(recipe, legacyExtractUsageHistoryFieldPath);
     },
     // Usage from V$SQL needs both flags: include_query_usage reads the query
     // history and include_usage_stats turns it into usage statistics.

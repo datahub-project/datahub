@@ -68,6 +68,13 @@ describe('ORACLE_INCLUDE_QUERY_USAGE', () => {
         expect(readValue({ extract_usage_history: false })).toBe(false);
     });
 
+    it('prefers the valid flags over the legacy key when both are present', () => {
+        expect(readValue({ extract_usage_history: false, include_query_usage: true, include_usage_stats: true })).toBe(
+            true,
+        );
+        expect(readValue({ extract_usage_history: true, include_query_usage: false })).toBe(false);
+    });
+
     it('is checked only when both flags are set', () => {
         expect(readValue({ include_query_usage: true, include_usage_stats: true })).toBe(true);
         expect(readValue({ include_query_usage: true })).toBe(false);
