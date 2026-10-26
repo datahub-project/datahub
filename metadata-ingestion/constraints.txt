@@ -959,7 +959,6 @@ ply==3.11 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via jsonpath-ng
 preshed==3.0.13 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
-    #   acryl-datahub
     #   spacy
     #   thinc
 presto-python-client==0.8.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
