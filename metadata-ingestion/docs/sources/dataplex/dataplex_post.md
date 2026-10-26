@@ -199,6 +199,41 @@ API keeps links for a limited time, so set `incremental_lineage: true` to send
 lineage as a patch instead: new edges are added and edges the API no longer
 reports are kept. Patches need a DataHub server that supports them.
 
+#### Lineage Operation Nodes
+
+Set `include_lineage_operations: true` to show, on a lineage edge, the GCP
+process that produced it. The connector looks up each link's process
+(`batchSearchLinkProcesses` and `getProcess`, through the same rate limiter and
+cached per process) and hands the lineage to `SqlParsingAggregator`, which
+emits a Query entity referenced from the edge.
+
+Only processes with real SQL text get a Query entity: a `sql` attribute on the
+process, or, with `include_lineage_operation_sql: true`, the statement of the
+BigQuery job behind it, fetched from the BigQuery Jobs API. Every other edge is
+emitted as plain lineage, without a placeholder query. Fetching job SQL needs
+`roles/bigquery.resourceViewer` on the projects where the jobs ran and the
+`google-cloud-bigquery` package, which the `dataplex` extra does not install
+(for example `pip install 'acryl-datahub[dataplex,bigquery]'`).
+
+Use `lineage_operation_origin_pattern` to skip process origins (`BIGQUERY`,
+`DATAFLOW`, `COMPOSER`, `DATAPROC`, ...) when another connector already emits
+query nodes for those tables. Their edges are kept without an operation node.
+
+`SqlParsingAggregator` keeps at most 300 upstream tables and 2000 column
+lineages per downstream. A table with more is emitted as plain lineage, without
+operation nodes, so no edge is dropped, and the run reports a warning.
+
+```yaml
+source:
+  type: dataplex
+  config:
+    project_ids:
+      - "my-gcp-project"
+    include_lineage: true
+    include_lineage_operations: true
+    include_lineage_operation_sql: true
+```
+
 #### Configuration Options
 
 **Metadata Extraction:**
@@ -206,6 +241,7 @@ reports are kept. Patches need a DataHub server that supports them.
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a complex type spelling such as `array<struct<...>>` or `ARRAY<INT64>` (matched case-insensitively) — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children. On BigQuery entries, nested field names are lowercased to match the BigQuery connector. Complex type spellings the Hive type parser cannot read, such as `ARRAY<STRING(MAX)>` or `STRUCT<a INT64>`, keep a single flat row.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 - **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
+- **`include_lineage_operations`** (default: `false`): Show the producing GCP process on each edge as a Query entity; see [Lineage Operation Nodes](#lineage-operation-nodes)
 - **`include_lineage_only_upstreams`** (default: `false`): Create minimal entities for upstreams that do not exist in DataHub; see [Lineage-only Upstream Nodes](#lineage-only-upstream-nodes)
 - **`incremental_lineage`** (default: `false`): Add new lineage edges without removing old ones; see [Incremental Lineage](#incremental-lineage)
 - **`include_storage_lineage`** (default: `false`): Derive a bucket → table edge from a Dataproc Metastore table's `storage` aspect

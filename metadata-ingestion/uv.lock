@@ -413,6 +413,8 @@ dataplex = [
     { name = "google-cloud-resource-manager" },
     { name = "google-cloud-storage" },
     { name = "protobuf" },
+    { name = "sqlglot", extra = ["c"] },
+    { name = "sqlparse" },
     { name = "tenacity" },
 ]
 db2 = [
@@ -2678,6 +2680,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'cube'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'databricks'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'datahub'", specifier = "==30.12.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dataplex'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'db2'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt'", specifier = "==30.12.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt-cloud'", specifier = "==30.12.0" },
@@ -2745,6 +2748,7 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'cockroachdb'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'databricks'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'datahub'", specifier = ">=0.6.0,<1.0.0" },
+    { name = "sqlparse", marker = "extra == 'dataplex'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'db2'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'dev'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'docs'", specifier = ">=0.6.0,<1.0.0" },

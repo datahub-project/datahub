@@ -54,6 +54,10 @@ source:
     # include_hive_metastore_nodes: true    # default: true
     # dpms_hive_metastore_service: "my-gcp-project.us-west1.my-service"
 
+    # Optional: show the producing GCP process on each lineage edge as a query.
+    # include_lineage_operations: true
+    # include_lineage_operation_sql: true  # needs roles/bigquery.resourceViewer
+
     # Optional: create minimal entities for upstreams that are not in DataHub,
     # so the nodes show in lineage views. Needs a DataHub graph connection.
     # include_lineage_only_upstreams: true

@@ -290,6 +290,17 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
 
+        if self.config._disabled_lineage_operation_settings:
+            self.report.warning(
+                title="Dataplex lineage operations disabled",
+                message="A lineage operation setting was turned off because a "
+                "setting it requires is disabled. Lineage is still emitted, without "
+                "operation nodes.",
+                context="disabled: "
+                + ", ".join(self.config._disabled_lineage_operation_settings),
+                log=False,
+            )
+
         if self.config.include_lineage:
             self.lineage_client: Optional[LineageClient] = LineageClient(
                 credentials=credentials

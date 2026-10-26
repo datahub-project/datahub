@@ -673,7 +673,8 @@ plugins: Dict[str, Set[str]] = {
     | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "dataplex": dataplex_common | cachetools_lib,
+    # usage_common (sqlparse) is required by SqlParsingAggregator.
+    "dataplex": dataplex_common | cachetools_lib | sqlglot_lib | usage_common,
     "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM

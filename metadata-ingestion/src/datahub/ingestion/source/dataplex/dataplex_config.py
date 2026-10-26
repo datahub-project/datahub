@@ -334,6 +334,7 @@ class DataplexConfig(
         "warning rather than failing the source.",
     )
     _column_lineage_unmet_dependencies: List[str] = PrivateAttr(default_factory=list)
+    _disabled_lineage_operation_settings: List[str] = PrivateAttr(default_factory=list)
 
     dpms_hive_metastore_service: Optional[str] = Field(
         default=None,
@@ -357,6 +358,55 @@ class DataplexConfig(
         "When false, those upstream edges are skipped and counted in the "
         "report. Only affects lineage FQNs that would otherwise be dropped as "
         "unparseable.",
+    )
+
+    include_lineage_operations: bool = Field(
+        default=False,
+        description="Whether to attach the GCP process that produced a lineage "
+        "edge as a Query entity, built with SqlParsingAggregator. Only processes "
+        "with real SQL text get one: a 'sql' process attribute, or the BigQuery "
+        "job's statement when 'include_lineage_operation_sql' is on. Other edges "
+        "are emitted as plain lineage, as is a table with more than 300 upstream "
+        "tables or 2000 column lineages. Adds batchSearchLinkProcesses and "
+        "getProcess Data Lineage API reads, through the same rate limiter and "
+        "cached per process. Requires 'include_lineage'.",
+    )
+
+    include_lineage_operation_sql: bool = Field(
+        default=False,
+        description="Whether to fetch the SQL of BigQuery-origin processes from "
+        "the BigQuery Jobs API; the Data Lineage API stores only the job id. "
+        "Needs roles/bigquery.resourceViewer on the projects where the jobs ran "
+        "and the google-cloud-bigquery package, which the dataplex extra does "
+        "not install. A failed fetch leaves the edge without an operation node. "
+        "Requires 'include_lineage_operations'.",
+    )
+
+    lineage_operation_origin_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Allow/deny patterns matched against a GCP process's origin "
+        "sourceType (BIGQUERY, DATAFLOW, COMPOSER, DATAPROC, DATA_FUSION, "
+        "VERTEX_AI, CUSTOM, ...). Denied origins keep their lineage edges but "
+        "get no operation node, for example when another connector already "
+        "emits query nodes for those tables.",
+    )
+
+    lineage_operation_attribute_allowlist: List[str] = Field(
+        default_factory=lambda: [
+            "bigquery_job_id",
+            "job_id",
+            "process_id",
+            "process_name",
+            "dag_id",
+            "task_id",
+            "airflow_dag_id",
+            "airflow_task_id",
+            "spark.app.name",
+            "spark.app.id",
+        ],
+        description="Process attribute keys copied into the query's custom "
+        "properties. Attributes are producer-controlled maps, so only "
+        "allowlisted keys are copied; values are truncated to 1000 characters.",
     )
 
     include_storage_lineage: bool = Field(
@@ -637,6 +687,31 @@ class DataplexConfig(
             )
             self.include_column_lineage = False
             self._column_lineage_unmet_dependencies = unmet
+        return self
+
+    @model_validator(mode="after")
+    def validate_lineage_operation_dependencies(self) -> "DataplexConfig":
+        """Same degrade-don't-raise contract as column lineage."""
+        if self.include_lineage_operations and not self.include_lineage:
+            logger.warning(
+                "Disabling 'include_lineage_operations': it requires "
+                "'include_lineage' to be enabled. Set "
+                "'include_lineage_operations: false' explicitly to silence this."
+            )
+            self.include_lineage_operations = False
+            self._disabled_lineage_operation_settings.append(
+                "include_lineage_operations"
+            )
+        if self.include_lineage_operation_sql and not self.include_lineage_operations:
+            logger.warning(
+                "Disabling 'include_lineage_operation_sql': it requires "
+                "'include_lineage_operations' to be enabled. Set "
+                "'include_lineage_operation_sql: false' explicitly to silence this."
+            )
+            self.include_lineage_operation_sql = False
+            self._disabled_lineage_operation_settings.append(
+                "include_lineage_operation_sql"
+            )
         return self
 
     @model_validator(mode="after")
