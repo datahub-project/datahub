@@ -30,9 +30,9 @@ public class TimeCanonicalizationConfiguration {
   private boolean enabled;
 
   /**
-   * Bucket size, in {@link #bucketSizeUnit} units; 1d maximum.
+   * Bucket size, in {@link #bucketSizeUnit} units; must be shorter than 1d.
    *
-   * <p>Zero, negative or over-1d disables canonicalization rather than failing startup. A
+   * <p>Zero, negative or 1d and longer disables canonicalization rather than failing startup. A
    * non-numeric value is different: Spring binding rejects it and GMS does not start. A duration is
    * split across two fields rather than written as one string, so a 5-minute bucket is {@code
    * bucketSize: 5} with {@code bucketSizeUnit: MINUTES} - neither field takes {@code 5m}.

@@ -284,7 +284,7 @@ public class QueryTimeCanonicalizerTest {
     assertEquals(canonicalizer(30, "SECONDS").getBucketMillis(), 30_000L);
     assertEquals(canonicalizer(5, "MINUTES").getBucketMillis(), 5 * MINUTE);
     assertEquals(canonicalizer(1, "HOURS").getBucketMillis(), HOUR);
-    assertEquals(canonicalizer(1, "DAYS").getBucketMillis(), 24 * HOUR);
+    assertEquals(canonicalizer(12, "HOURS").getBucketMillis(), 12 * HOUR);
     // Omitting the unit means SECONDS, per ParseUtils.
     assertEquals(canonicalizer(30, null).getBucketMillis(), 30_000L);
     // A sub-millisecond unit is fine as long as it lands on a whole millisecond: the restriction is
@@ -303,7 +303,8 @@ public class QueryTimeCanonicalizerTest {
           {5, "FORTNIGHTS", "UTC", "EXPAND"},
           {0, "MINUTES", "UTC", "EXPAND"},
           {-5, "MINUTES", "UTC", "EXPAND"},
-          {2, "DAYS", "UTC", "EXPAND"},
+          {1, "DAYS", "UTC", "EXPAND"},
+          {24, "HOURS", "UTC", "EXPAND"},
           {Integer.MAX_VALUE, "DAYS", "UTC", "EXPAND"},
           {5, "MINUTES", "Mars/Olympus", "EXPAND"},
           {5, "MINUTES", "UTC", "SIDEWAYS"},

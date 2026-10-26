@@ -49,7 +49,9 @@ public class QueryRangeCanonicalBoundsTest {
 
   @Test
   public void testUsageQueryRangeSendsCanonicalBounds() {
-    long[] bounds = timestampBoundsSentBy(true, QueryRangeCanonicalBoundsTest::usageQueryRange);
+    long[] bounds =
+        timestampBoundsSentBy(
+            contextWith(true, 5, "MINUTES"), QueryRangeCanonicalBoundsTest::usageQueryRange);
 
     assertEquals(bounds[0], startBefore(FLOORED), "start is measured back from the floor");
     assertEquals(bounds[1], CEILED);
@@ -57,7 +59,9 @@ public class QueryRangeCanonicalBoundsTest {
 
   @Test
   public void testUsageQueryRangeDisabledSendsExactBounds() {
-    long[] bounds = timestampBoundsSentBy(false, QueryRangeCanonicalBoundsTest::usageQueryRange);
+    long[] bounds =
+        timestampBoundsSentBy(
+            contextWith(false, 5, "MINUTES"), QueryRangeCanonicalBoundsTest::usageQueryRange);
 
     assertEquals(bounds[0], startBefore(NOW.toEpochMilli()));
     assertEquals(bounds[1], NOW.toEpochMilli());
@@ -66,7 +70,8 @@ public class QueryRangeCanonicalBoundsTest {
   @Test
   public void testOperationsQueryRangeSendsCanonicalBounds() {
     long[] bounds =
-        timestampBoundsSentBy(true, QueryRangeCanonicalBoundsTest::operationsQueryRange);
+        timestampBoundsSentBy(
+            contextWith(true, 5, "MINUTES"), QueryRangeCanonicalBoundsTest::operationsQueryRange);
 
     assertEquals(bounds[0], startBefore(FLOORED), "start is measured back from the floor");
     assertEquals(bounds[1], CEILED);
@@ -75,9 +80,29 @@ public class QueryRangeCanonicalBoundsTest {
   @Test
   public void testOperationsQueryRangeDisabledSendsExactBounds() {
     long[] bounds =
-        timestampBoundsSentBy(false, QueryRangeCanonicalBoundsTest::operationsQueryRange);
+        timestampBoundsSentBy(
+            contextWith(false, 5, "MINUTES"), QueryRangeCanonicalBoundsTest::operationsQueryRange);
 
     assertEquals(bounds[0], startBefore(NOW.toEpochMilli()));
+    assertEquals(bounds[1], NOW.toEpochMilli());
+  }
+
+  /**
+   * A bucket as long as a day would round an hour usage chart out to a day or more, so it is
+   * rejected and the hour range keeps its exact bounds.
+   */
+  @Test
+  public void testDayBucketDoesNotStretchHourRange() {
+    long[] bounds =
+        timestampBoundsSentBy(
+            contextWith(true, 1, "DAYS"),
+            (opContext, service) ->
+                UsageServiceUtil.queryRange(
+                    opContext, service, RESOURCE, WindowDuration.HOUR, UsageTimeRange.HOUR, null));
+
+    assertEquals(
+        bounds[0],
+        TimeseriesUtils.convertRangeToStartTime(UsageTimeRange.HOUR, NOW.toEpochMilli()));
     assertEquals(bounds[1], NOW.toEpochMilli());
   }
 
@@ -98,7 +123,7 @@ public class QueryRangeCanonicalBoundsTest {
 
   /** Runs the query and returns the [start, end] timestamp bounds of the filter it sent. */
   private static long[] timestampBoundsSentBy(
-      boolean canonicalize, BiConsumer<OperationContext, TimeseriesAspectService> query) {
+      OperationContext opContext, BiConsumer<OperationContext, TimeseriesAspectService> query) {
     TimeseriesAspectService service = mock(TimeseriesAspectService.class);
     when(service.getAggregatedStats(
             any(OperationContext.class), anyString(), anyString(), any(), any(), any()))
@@ -108,7 +133,7 @@ public class QueryRangeCanonicalBoundsTest {
                     invocation.<AggregationSpec[]>getArgument(3).length
                         + invocation.<GroupingBucket[]>getArgument(5).length));
 
-    query.accept(contextWith(canonicalize), service);
+    query.accept(opContext, service);
 
     ArgumentCaptor<Filter> filters = ArgumentCaptor.forClass(Filter.class);
     verify(service, atLeastOnce())
@@ -117,7 +142,8 @@ public class QueryRangeCanonicalBoundsTest {
     return timestampBounds(filters.getValue());
   }
 
-  private static OperationContext contextWith(boolean canonicalize) {
+  private static OperationContext contextWith(
+      boolean canonicalize, int bucketSize, String bucketSizeUnit) {
     QueryTimeCanonicalizer canonicalizer =
         QueryTimeCanonicalizer.fromConfig(
             QueryCanonicalizationConfiguration.builder()
@@ -125,8 +151,8 @@ public class QueryRangeCanonicalBoundsTest {
                 .time(
                     TimeCanonicalizationConfiguration.builder()
                         .enabled(true)
-                        .bucketSize(5)
-                        .bucketSizeUnit("MINUTES")
+                        .bucketSize(bucketSize)
+                        .bucketSizeUnit(bucketSizeUnit)
                         .timezone("UTC")
                         .rounding("EXPAND")
                         .build())

@@ -1249,7 +1249,7 @@ elasticsearch:
       enabled: ${SEARCH_QUERY_CANONICALIZATION_ENABLED:true} # master switch; set false to restore exact per-request timestamps
       time:
         enabled: ${SEARCH_QUERY_CANONICALIZATION_TIME_ENABLED:true} # only active when the master switch is on
-        bucketSize: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_SIZE:5} # max 1 day, in bucketSizeUnit units
+        bucketSize: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_SIZE:5} # shorter than 1 day, in bucketSizeUnit units
         bucketSizeUnit: ${SEARCH_QUERY_CANONICALIZATION_TIME_BUCKET_UNIT:MINUTES} # TimeUnit name
         timezone: ${SEARCH_QUERY_CANONICALIZATION_TIME_TIMEZONE:UTC} # anchors bucket boundaries; UTC anchors at the epoch
         rounding: ${SEARCH_QUERY_CANONICALIZATION_TIME_ROUNDING:EXPAND} # EXPAND floors lower bounds and ceils upper bounds (never hides data); SHRINK floors both

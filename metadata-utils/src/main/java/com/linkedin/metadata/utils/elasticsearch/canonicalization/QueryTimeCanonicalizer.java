@@ -177,8 +177,11 @@ public final class QueryTimeCanonicalizer {
       if (bucketMillis <= 0) {
         throw new IllegalArgumentException("bucketSize must be positive, got: " + bucketDuration);
       }
-      if (bucketMillis > ONE_DAY_MILLIS) {
-        throw new IllegalArgumentException("bucketSize must not exceed 1d, got: " + bucketDuration);
+      // A day-long bucket stretches short windows out of shape: rounding an hour usage chart to it
+      // asks for a day or more of data while the chart still says "last hour".
+      if (bucketMillis >= ONE_DAY_MILLIS) {
+        throw new IllegalArgumentException(
+            "bucketSize must be shorter than 1d, got: " + bucketDuration);
       }
 
       final ZoneId zone = parseZone(time.getTimezone());
