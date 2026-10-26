@@ -19,6 +19,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'column-lineage-controls' });
 
@@ -59,21 +60,25 @@ for (const hideDbtSourceInLineage of [true, false]) {
       await expect(page.getByTestId(`column-lineage-control-${LINEAGE_COLUMN}-DOWNSTREAM`)).toHaveCount(0);
     });
 
-    test('reports how much of a column lineage is on the graph once the node contracts', async ({ page }) => {
-      await lineagePage.contract(WAREHOUSE_URN);
-      // Contracting takes the downstream node off the graph and re-lays out what is left, which
-      // moves the column out from under the cursor
-      await lineagePage.checkNodeNotExists(DOWNSTREAM_URN);
+    test(
+      'reports how much of a column lineage is on the graph once the node contracts',
+      { tag: [TestTag.P0, DomainTag.Catalog] },
+      async ({ page }) => {
+        await lineagePage.contract(WAREHOUSE_URN);
+        // Contracting takes the downstream node off the graph and re-lays out what is left, which
+        // moves the column out from under the cursor
+        await lineagePage.checkNodeNotExists(DOWNSTREAM_URN);
 
-      // One downstream column exists, and contracting took it off the graph. The readout only
-      // lives as long as the hover, and any relayout can steal the hover by moving the column out
-      // from under the cursor, so re-hover and retry rather than asserting on a single hover.
-      const control = page.getByTestId(`column-lineage-control-${LINEAGE_COLUMN}-DOWNSTREAM`);
-      await expect(async () => {
-        await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
-        await expect(control).toHaveText(/0 \/ 1/, { timeout: TIMEOUTS.SHORT });
-      }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
-    });
+        // One downstream column exists, and contracting took it off the graph. The readout only
+        // lives as long as the hover, and any relayout can steal the hover by moving the column out
+        // from under the cursor, so re-hover and retry rather than asserting on a single hover.
+        const control = page.getByTestId(`column-lineage-control-${LINEAGE_COLUMN}-DOWNSTREAM`);
+        await expect(async () => {
+          await lineagePage.hoverColumn(WAREHOUSE_URN, LINEAGE_COLUMN);
+          await expect(control).toHaveText(/0 \/ 1/, { timeout: TIMEOUTS.SHORT });
+        }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
+      },
+    );
 
     test('leaves a column whose only lineage is to its sibling out of it', async ({ page }) => {
       // Nothing renders in response to hovering the column under test, so take the graph through a

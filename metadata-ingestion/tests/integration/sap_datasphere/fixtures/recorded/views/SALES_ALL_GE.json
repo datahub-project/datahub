@@ -1,9 +1,23 @@
 {
   "definitions": {
-    "FINANCE_DATASALES_A": {
+    "SALES_ALL_GE": {
       "kind": "entity",
-      "@EndUserText.label": "Sales (source object projected by Test_Analytic_Model)",
+      "@EndUserText.label": "Sales (synthetic source object for Test_Analytic_Model)",
       "elements": {
+        "BW_ORDERID": {
+          "type": "cds.String",
+          "length": 20,
+          "@EndUserText.label": "BW_ORDERID"
+        },
+        "IsWon": {
+          "type": "cds.Boolean",
+          "@EndUserText.label": "IsWon"
+        },
+        "Company Code": {
+          "type": "cds.String",
+          "length": 4,
+          "@EndUserText.label": "Company Code"
+        },
         "BW_ORDERVALUE": {
           "type": "cds.Decimal",
           "@EndUserText.label": "BW_ORDERVALUE"

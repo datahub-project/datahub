@@ -20,7 +20,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "lifecycleStageTypeInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record LifecycleStageTypeInfo {
   /**
@@ -31,6 +31,7 @@ record LifecycleStageTypeInfo {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -48,6 +49,7 @@ record LifecycleStageTypeInfo {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

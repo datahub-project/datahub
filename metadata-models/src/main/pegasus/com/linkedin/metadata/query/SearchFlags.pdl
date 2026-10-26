@@ -1,6 +1,7 @@
 namespace com.linkedin.metadata.query
 
 import com.linkedin.common.Urn
+import com.linkedin.search.template.HighlightFieldOverrides
 
 /**
  * Set of flags to control search behavior
@@ -63,6 +64,14 @@ record SearchFlags {
    * Include mentioned fields inside elastic highlighting query
    */
    customHighlightingFields:optional array[string]
+
+  /**
+   * Search V3 adjustment of the template highlight set for one request.
+   * {@code replace} cannot be combined with {@code add} or {@code remove}. An explicitly
+   * present empty value clears the template set. {@code customHighlightingFields} replaces
+   * the set instead of adjusting it. {@code skipHighlighting} clears the result.
+   */
+   highlightFields: optional HighlightFieldOverrides
 
   /**
    * Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li

@@ -27,7 +27,7 @@ record DataProducts {
       "addToFilters": true,
       "filterNameOverride": "Data Product",
       "v3": {
-        "queryByDefault": false,
+        "searchLabel": "dataProduct",
         "copyToOther": true
       }
     },

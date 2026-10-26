@@ -18,6 +18,7 @@ record MLFeatureTableProperties includes CustomProperties {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -42,7 +43,6 @@ record MLFeatureTableProperties includes CustomProperties {
       "fieldName": "features",
       "fieldType": "URN",
       "v3": {
-        "queryByDefault": false,
         "copyToOther": true
       }
     }
@@ -63,7 +63,6 @@ record MLFeatureTableProperties includes CustomProperties {
       "fieldName": "primaryKeys",
       "fieldType": "URN",
       "v3": {
-        "queryByDefault": false,
         "copyToOther": true
       }
     }

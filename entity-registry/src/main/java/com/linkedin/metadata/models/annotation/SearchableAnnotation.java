@@ -37,8 +37,8 @@ public class SearchableAnnotation {
   String fieldName;
   // Type of the field. Defines how the field is indexed and matched
   FieldType fieldType;
-  // Whether Search V2 matches the field in an unqualified query. Search V3 uses
-  // {@link #v3QueryByDefault} when that is set.
+  // Whether Search V2 matches the field in an unqualified query. Search V3 matches
+  // the field only when {@link #v3QueryByDefault} is true.
   boolean queryByDefault;
   // Whether we should use the field for default autocomplete
   boolean enableAutocomplete;
@@ -113,8 +113,8 @@ public class SearchableAnnotation {
   Optional<Double> v3BoostScore;
 
   /**
-   * Whether Search V3 matches the field in an unqualified query. Empty means V3 uses {@link
-   * #queryByDefault}. V2 always reads {@link #queryByDefault}.
+   * Whether Search V3 matches the field in an unqualified query. Empty means it does not. V2 always
+   * reads {@link #queryByDefault}.
    */
   Optional<Boolean> v3QueryByDefault;
 
@@ -147,8 +147,8 @@ public class SearchableAnnotation {
   Optional<String> v3HasValuesFieldName;
 
   /**
-   * Constructor for annotations with no V3 overlay. V3 searches the field with the top-level
-   * settings.
+   * Constructor for annotations with no V3 overlay. Search V2 uses these settings. Search V3 leaves
+   * the field out of an unqualified query until {@code v3.queryByDefault} is set.
    */
   public SearchableAnnotation(
       String fieldName,
@@ -217,14 +217,15 @@ public class SearchableAnnotation {
         && v3SearchLabel.isEmpty()
         && v3IncludeSystemModifiedAt.isEmpty()
         && v3BoostScore.isEmpty()
-        && v3QueryByDefault.isEmpty()) {
+        && v3QueryByDefault.isEmpty()
+        && !queryByDefault) {
       return this;
     }
     final boolean includeModified = v3IncludeSystemModifiedAt.orElse(includeSystemModifiedAt);
     return new SearchableAnnotation(
         fieldName,
         fieldType,
-        v3QueryByDefault.orElse(queryByDefault),
+        v3QueryByDefault.orElse(false),
         enableAutocomplete,
         addToFilters,
         addHasValuesToFilters,
@@ -238,7 +239,7 @@ public class SearchableAnnotation {
         includeQueryEmptyAggregation,
         includeModified,
         includeModified ? systemModifiedAtFieldName : Optional.empty(),
-        v3SearchLabel,
+        v3SearchLabel.or(() -> searchLabel),
         searchIndexed,
         entityFieldName,
         eagerGlobalOrdinals,
