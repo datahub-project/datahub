@@ -50,6 +50,8 @@ For ingesting jobs (extract_transforms: True), the following additional permissi
 
 The `glue:GetConnection` permission is required when Glue jobs reference named connections (e.g. JDBC connections configured in the Glue console). If your jobs only use inline connection parameters, this permission is not needed.
 
+When a Glue job reads or writes DynamoDB (`connection_type: dynamodb`) and the DAG node has no `dynamodb.tableArn` and no `dynamodb.sts.roleArn`, the connector calls `sts:GetCallerIdentity` to resolve the AWS account id used as the DynamoDB `platform_instance`. `sts:GetCallerIdentity` needs no IAM permission, but it does need network access to STS. Set `target_platform_configs.dynamodb.platform_instance` to resolve these nodes without an STS call. Nodes whose account cannot be resolved are skipped rather than emitting a URN with a guessed account.
+
 For profiling datasets, the following additional permissions are required:
 
 ```

@@ -4,7 +4,7 @@ from typing import Annotated, Optional, Sequence, Set
 
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern, Filters
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -26,6 +26,28 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 # also spells "Pipeline", but it names another connector's container.
 ADF_PIPELINE_KIND = "Pipeline"
 ADF_ACTIVITY_KIND = "Activity"
+
+
+class DatabricksCatalogMapping(ConfigModel):
+    """Unity Catalog identity for one Databricks linked service, since
+    ADF's own API exposes neither a metastore nor a catalog name for
+    Databricks datasets or linked services."""
+
+    catalog: str = Field(description="Unity Catalog catalog name for this workspace.")
+    metastore: Optional[str] = Field(
+        default=None,
+        description=(
+            "Unity Catalog metastore name for this workspace. Only set "
+            "this if the DataHub Unity Catalog source for this same "
+            "workspace was ingested with include_metastore enabled "
+            "(which folds the metastore name into the dataset name "
+            "ahead of catalog.schema.table) - otherwise leave unset to "
+            "emit catalog.schema.table. Setting it also uses the workspace "
+            "ID from the linked service's workspace URL (e.g. "
+            "'adb-1234567890123456') as the platform_instance, as that "
+            "source does; override it with platform_instance_map."
+        ),
+    )
 
 
 class AzureDataFactoryConfig(
@@ -115,6 +137,35 @@ class AzureDataFactoryConfig(
         ),
     )
 
+    databricks_default_catalog: Optional[str] = Field(
+        default=None,
+        description=(
+            "Default catalog to prepend when fully qualifying a Databricks "
+            "table reference that only resolves to schema.table. ADF's "
+            "Databricks datasets and linked services expose database/table "
+            "but never a catalog, and there is no reliable way to infer it "
+            "(a workspace may be on the legacy hive_metastore or a "
+            "Unity Catalog catalog with any name), so nothing is assumed "
+            "by default and such references are left as schema.table. Set "
+            "this if you know your workspace's catalog and want fully "
+            "qualified catalog.schema.table references instead. Superseded "
+            "for a given linked service by a more specific entry in "
+            "databricks_catalog_map, if present."
+        ),
+    )
+    databricks_catalog_map: dict[str, DatabricksCatalogMapping] = Field(
+        default_factory=dict,
+        description=(
+            "Map a Databricks linked service name to its Unity Catalog "
+            "catalog (and optionally metastore) name, for tenants with "
+            "multiple Databricks workspaces that don't all share the same "
+            "catalog. Example: {'MyDatabricksLS': {'catalog': "
+            "'prod_catalog', 'metastore': 'my_metastore'}}. Takes "
+            "precedence over databricks_default_catalog for linked "
+            "services present in this map."
+        ),
+    )
+
     execution_history_days: int = Field(
         default=7,
         description=(
@@ -132,7 +183,9 @@ class AzureDataFactoryConfig(
         description=(
             "Map linked service names to DataHub platform instances. "
             "Example: {'my-snowflake-connection': 'prod_snowflake'}. "
-            "Used for accurate lineage resolution to existing datasets."
+            "Used for accurate lineage resolution to existing datasets. "
+            "An empty value means no platform instance for that linked "
+            "service."
         ),
     )
 

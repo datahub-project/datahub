@@ -23,7 +23,7 @@ record Container {
     "hasValuesFieldName": "hasContainer",
     "filterNameOverride": "Container",
     "v3": {
-      "queryByDefault": false,
+      "searchLabel": "container",
       "copyToOther": true
     }
   }

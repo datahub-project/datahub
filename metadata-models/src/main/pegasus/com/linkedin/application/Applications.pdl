@@ -26,7 +26,6 @@ record Applications {
       "addToFilters": true,
       "filterNameOverride": "Application",
       "v3": {
-        "queryByDefault": false,
         "copyToOther": true
       }
     }

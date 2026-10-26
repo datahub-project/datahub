@@ -27,6 +27,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
@@ -85,6 +86,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
@@ -655,7 +657,20 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         surface,
         judgment.path("id").asText(),
         javaBuilder,
-        "field-probe".equals(judgment.path("group").asText()));
+        "field-probe".equals(judgment.path("group").asText()),
+        highlightFields(judgment));
+  }
+
+  /**
+   * Matched fields are opt-in, so a probe that asserts one opts that field in for its own query.
+   */
+  @Nonnull
+  private static List<String> highlightFields(JsonNode judgment) {
+    JsonNode matched = judgment.path("matchedFieldContains");
+    if (!matched.hasNonNull("value")) {
+      return List.of();
+    }
+    return List.of(matched.get("value").asText());
   }
 
   @Nullable
@@ -708,7 +723,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         SearchTemplateSurfaces.SEARCH_ENTITIES,
         entityType + ":" + query,
         false,
-        false);
+        false,
+        List.of());
   }
 
   private RankedSearchResult search(
@@ -720,7 +736,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
       String surface,
       String queryId,
       boolean javaBuilder,
-      boolean explain)
+      boolean explain,
+      List<String> highlightFields)
       throws Exception {
     OperationContext context =
         baseContext
@@ -731,6 +748,10 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                   flags.setFulltext(true).setSkipHighlighting(false);
                   if (explain) {
                     flags.setIncludeExplain(true);
+                  }
+                  if (!highlightFields.isEmpty()) {
+                    flags.setHighlightFields(
+                        new HighlightFieldOverrides().setAdd(new StringArray(highlightFields)));
                   }
                   return flags;
                 });

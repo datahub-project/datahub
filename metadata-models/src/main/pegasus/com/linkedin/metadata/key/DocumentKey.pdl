@@ -10,7 +10,11 @@ record DocumentKey {
   /**
    * Unique identifier for the document.
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   id: string
 }
 

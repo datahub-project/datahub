@@ -16,7 +16,7 @@ record DataPlatformInstance {
     "addToFilters": true,
     "filterNameOverride": "Platform",
     "v3": {
-      "queryByDefault": false,
+      "searchLabel": "platform",
       "copyToOther": true
     }
   }
@@ -31,7 +31,7 @@ record DataPlatformInstance {
     "filterNameOverride": "Platform Instance",
     "fieldName": "platformInstance",
     "v3": {
-      "queryByDefault": false,
+      "searchLabel": "platformInstance",
       "copyToOther": true
     }
   }

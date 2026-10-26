@@ -19,6 +19,7 @@ record DataHubAccessTokenInfo {
    "fieldType": "TEXT_PARTIAL",
    "boostScore": 10.0,
    "v3": {
+     "queryByDefault": true,
      "searchLabel": "name",
      "mappings": [
        { "type": "KEYWORD" },
@@ -36,7 +37,6 @@ record DataHubAccessTokenInfo {
     "fieldType": "URN",
     "v3": {
       "searchLabel": "owners",
-      "queryByDefault": false,
       "hasValuesFieldName": "hasOwners",
       "mappings": [
         { "type": "URN" }
@@ -52,7 +52,6 @@ record DataHubAccessTokenInfo {
     "fieldType": "URN",
     "v3": {
       "searchLabel": "owners",
-      "queryByDefault": false,
       "hasValuesFieldName": "hasOwners",
       "mappings": [
         { "type": "URN" }
@@ -97,6 +96,7 @@ record DataHubAccessTokenInfo {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

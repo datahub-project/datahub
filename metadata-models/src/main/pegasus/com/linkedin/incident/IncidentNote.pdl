@@ -12,6 +12,9 @@ record IncidentNote {
    * The content of the note. Rendered as markdown in the UI.
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT"
   }
   message: string

@@ -16,6 +16,9 @@ record GlossaryTermInfo includes CustomProperties {
    * Optional id for the term
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
   }
   id: optional string
@@ -29,6 +32,7 @@ record GlossaryTermInfo includes CustomProperties {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -46,6 +50,7 @@ record GlossaryTermInfo includes CustomProperties {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -69,7 +74,6 @@ record GlossaryTermInfo includes CustomProperties {
     "hasValuesFieldName": "hasParentNode",
     "v3": {
       "searchLabel": "parent",
-      "queryByDefault": false,
       "hasValuesFieldName": "hasParent",
     }
   }
