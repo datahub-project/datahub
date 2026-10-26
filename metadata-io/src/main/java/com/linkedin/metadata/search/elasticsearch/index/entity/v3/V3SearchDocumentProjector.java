@@ -109,10 +109,13 @@ public class V3SearchDocumentProjector {
     storeAspectJson(event, aspectSpec, projectedFields);
     final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
     final EntityRegistry entityRegistry = opContext.getEntityRegistry();
-    final List<EntitySpec> indexGroup =
-        V3SearchFields.indexGroupSpecs(entityRegistry, List.of(event.getEntitySpec()));
+    // The shared mapping and the query keep a source root when any searchable entity keeps it.
+    // Omitting from this entity's index group alone would null id or title on documents whose
+    // exact clause still reads that root.
+    final List<EntitySpec> searchableEntities =
+        V3SearchFields.searchableEntitySpecs(entityRegistry);
     final ParsedUrnNames parsedUrnNames =
-        parsedUrnNames(entityRegistry, aspectSpec, projectedFields, indexGroup);
+        parsedUrnNames(entityRegistry, aspectSpec, projectedFields, searchableEntities);
 
     final ProjectedAspect projected =
         buildProjectedAspect(
@@ -127,7 +130,7 @@ public class V3SearchDocumentProjector {
     if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
         final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
-        if (V3SearchFields.omitsSourceRoot(fieldName, indexGroup)) {
+        if (V3SearchFields.omitsSourceRoot(fieldName, searchableEntities)) {
           projected.rootFields().putNull(fieldName);
         }
       }
@@ -249,14 +252,16 @@ public class V3SearchDocumentProjector {
   /**
    * A shared-label hasValues boolean is written under the aspect, at the declared name, only when a
    * source in this aspect is populated. {@code copy_to} sends that true to the degree's root name
-   * ({@code hasDescription} or {@code hasDescription_1}). The declared name is cleared on the root
-   * so a column value is not indexed as the entity's own boolean.
+   * ({@code hasDescription} or {@code hasDescription_1}) and to {@code v3.hasValuesFieldName} when
+   * that additional boolean is set. Those names are cleared on the root so a column value is not
+   * indexed as the entity's own boolean. The additional name is not stored under the aspect.
    */
   @Nonnull
   private static Set<String> placeSharedHasValues(
       @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode projectedFields) {
     final Set<String> names = new LinkedHashSet<>();
     final Set<String> populated = new LinkedHashSet<>();
+    final Set<String> normalized = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
       final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
       final SearchableAnnotation resolved = annotation.resolvedForV3();
@@ -267,15 +272,22 @@ public class V3SearchDocumentProjector {
       if (label.isEmpty()) {
         continue;
       }
-      resolved
-          .getHasValuesFieldName()
-          .ifPresent(
-              booleanName -> {
-                names.add(booleanName);
-                if (sourcePopulated(annotation, projectedFields)) {
-                  populated.add(booleanName);
-                }
-              });
+      Optional<String> declared = resolved.getHasValuesFieldName();
+      Optional<String> shared = SearchableAnnotation.sharedHasValuesName(resolved);
+      if (declared != null && declared.isPresent()) {
+        names.add(declared.get());
+        if (sourcePopulated(annotation, projectedFields)) {
+          populated.add(declared.get());
+        }
+        shared
+            .filter(name -> !name.equals(declared.get()) && !names.contains(name))
+            .ifPresent(normalized::add);
+      } else if (shared.isPresent()) {
+        names.add(shared.get());
+        if (sourcePopulated(annotation, projectedFields)) {
+          populated.add(shared.get());
+        }
+      }
     }
     for (String name : names) {
       if (populated.contains(name)) {
@@ -284,6 +296,12 @@ public class V3SearchDocumentProjector {
         projectedFields.remove(name);
       }
     }
+    // The normalized boolean is a copy_to target. Clear a previous root true and do not store it
+    // under the aspect.
+    for (String name : normalized) {
+      projectedFields.remove(name);
+    }
+    names.addAll(normalized);
     return names;
   }
 
@@ -297,7 +315,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final AspectSpec aspectSpec,
       @Nonnull final ObjectNode projectedFields,
-      @Nonnull final List<EntitySpec> indexGroup) {
+      @Nonnull final List<EntitySpec> searchableEntities) {
     final Map<String, ArrayNode> names = new LinkedHashMap<>();
     final Set<String> rootFields = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
@@ -308,7 +326,7 @@ public class V3SearchDocumentProjector {
       final Set<String> found = new LinkedHashSet<>();
       collectUrnText(projectedFields.get(annotation.getFieldName()), entityRegistry, found);
       names.put(V3SearchFields.parsedUrnField(annotation.getFieldName()), arrayOf(found));
-      if (V3SearchFields.clearsRootForUrnLabel(fieldSpec, indexGroup)) {
+      if (V3SearchFields.clearsRootForUrnLabel(fieldSpec, searchableEntities)) {
         rootFields.add(annotation.getFieldName());
       }
     }

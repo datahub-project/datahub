@@ -19,6 +19,7 @@ record DataHubAccessTokenInfo {
    "fieldType": "TEXT_PARTIAL",
    "boostScore": 10.0,
    "v3": {
+     "queryByDefault": true,
      "searchLabel": "name",
      "mappings": [
        { "type": "KEYWORD" },
@@ -33,7 +34,14 @@ record DataHubAccessTokenInfo {
    * Urn of the actor to which this access token belongs to.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   actorUrn: Urn
 
@@ -41,7 +49,14 @@ record DataHubAccessTokenInfo {
    * Urn of the actor which created this access token.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   ownerUrn: Urn
 
@@ -81,6 +96,7 @@ record DataHubAccessTokenInfo {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

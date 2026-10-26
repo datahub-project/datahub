@@ -3,9 +3,12 @@ package com.linkedin.datahub.graphql.types.common.mappers;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.graphql.exception.ValidationException;
+import com.linkedin.datahub.graphql.generated.HighlightFieldOverrides;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
+import java.util.List;
 import org.testng.annotations.Test;
 
 public class SearchFlagsInputMapperTest {
@@ -39,6 +42,22 @@ public class SearchFlagsInputMapperTest {
         SearchFlagsInputMapper.map(null, new SearchFlags());
     assertFalse(defaults.hasIncludeExplain());
     assertFalse(defaults.hasSearchType());
+  }
+
+  @Test
+  public void testHighlightFieldsMappedThrough() {
+    HighlightFieldOverrides overrides = new HighlightFieldOverrides();
+    overrides.setAdd(List.of("name"));
+    overrides.setRemove(List.of("tags_1"));
+    SearchFlags input = new SearchFlags();
+    input.setHighlightFields(overrides);
+    com.linkedin.metadata.query.SearchFlags result = SearchFlagsInputMapper.map(null, input);
+    assertEquals(result.getHighlightFields().getAdd().get(0), "name");
+    assertEquals(result.getHighlightFields().getRemove().get(0), "tags_1");
+
+    SearchFlags empty = new SearchFlags();
+    empty.setHighlightFields(new HighlightFieldOverrides());
+    assertTrue(SearchFlagsInputMapper.map(null, empty).hasHighlightFields());
   }
 
   @Test

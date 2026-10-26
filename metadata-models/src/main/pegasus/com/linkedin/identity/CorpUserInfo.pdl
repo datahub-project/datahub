@@ -33,6 +33,7 @@ record CorpUserInfo includes CustomProperties {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -47,6 +48,9 @@ record CorpUserInfo includes CustomProperties {
    * email address of this user
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "KEYWORD",
     "queryByDefault": true
   }
@@ -56,6 +60,9 @@ record CorpUserInfo includes CustomProperties {
    * title of this user
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "KEYWORD",
     "queryByDefault": true
   }
@@ -99,6 +106,9 @@ record CorpUserInfo includes CustomProperties {
    * Common name of this user, format is firstName + lastName (split by a whitespace)
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,
     "enableAutocomplete": true,

@@ -113,6 +113,27 @@ public class SearchableAnnotationValidatorTest {
   }
 
   @Test
+  public void testSharedLabelAllowsDifferentHasValuesNamesWhenTheV3NameAgrees() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(parentField("parentNode", "hasParentNode", "hasParent", "glossaryTerm.parentNode"));
+    fields.add(parentField("parentDomain", "hasParentDomain", "hasParent", "domain.parentDomain"));
+
+    SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields);
+  }
+
+  @Test
+  public void testSharedLabelRejectsADifferentV3HasValuesFieldName() {
+    List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
+    fields.add(parentField("parentNode", "hasParentNode", "hasParent", "glossaryTerm.parentNode"));
+    fields.add(
+        parentField("parentDomain", "hasParentDomain", "hasParentDomain", "domain.parentDomain"));
+
+    assertThrows(
+        ModelValidationException.class,
+        () -> SearchableAnnotationValidator.validateCrossAnnotationCompatibility(fields));
+  }
+
+  @Test
   public void testIncompatiblePDLTypes() {
     // Create annotations with same searchLabel but different PDL types
     List<SearchableAnnotationValidator.AnnotatedField> fields = new ArrayList<>();
@@ -778,16 +799,37 @@ public class SearchableAnnotationValidatorTest {
     overlay.put("searchLabel", searchLabel);
     overlay.put("degree", degree);
     overlay.put("boostScore", v3BoostScore);
+    if (queryByDefault != null) {
+      overlay.put("queryByDefault", queryByDefault);
+    }
     DataMap annotationMap = new DataMap();
     annotationMap.put("fieldName", fieldName);
     annotationMap.put("fieldType", fieldType);
     annotationMap.put("boostScore", boostScore);
-    if (queryByDefault != null) {
-      annotationMap.put("queryByDefault", queryByDefault);
-    }
     annotationMap.put("v3", overlay);
     return SearchableAnnotation.fromPegasusAnnotationObject(
         annotationMap, fieldName, DataSchema.Type.STRING, "test");
+  }
+
+  private SearchableAnnotationValidator.AnnotatedField parentField(
+      String fieldName,
+      String hasValuesFieldName,
+      String sharedHasValuesFieldName,
+      String context) {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", "parent");
+    v3.put("queryByDefault", false);
+    v3.put("hasValuesFieldName", sharedHasValuesFieldName);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldName", fieldName);
+    annotation.put("fieldType", "URN");
+    annotation.put("hasValuesFieldName", hasValuesFieldName);
+    annotation.put("v3", v3);
+    return new SearchableAnnotationValidator.AnnotatedField(
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotation, fieldName, DataSchema.Type.STRING, context),
+        DataSchema.Type.STRING,
+        context);
   }
 
   private SearchableAnnotation createAnnotation(String fieldType, Optional<String> searchLabel) {

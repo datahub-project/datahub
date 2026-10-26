@@ -95,6 +95,26 @@ public class SearchFieldResolverTest {
   }
 
   @Test
+  public void testSourceRootSelectsOneSharedLabelAcrossEntities() {
+    SearchFieldResolver resolver =
+        resolver(
+            List.of(
+                List.of(
+                    field(
+                        "createdAt", null, List.of(FieldMapping.root(FieldMapping.Type.DATETIME)))),
+                List.of(
+                    field(
+                        "createdAt",
+                        "sourceCreatedAt",
+                        List.of(FieldMapping.root(FieldMapping.Type.DATETIME))))));
+
+    assertEquals(resolver.exactPath("createdAt", Intent.FILTER), "sourceCreatedAt");
+    assertEquals(resolver.exactPath("createdAt", Intent.RANGE), "sourceCreatedAt");
+    assertEquals(resolver.exactPath("createdAt", Intent.SORT), "sourceCreatedAt");
+    assertEquals(resolver.exactPath("createdAt", Intent.EXACT), "createdAt");
+  }
+
+  @Test
   public void testAliasesSharedLabelsNativeRootsAndAutocompleteAreDeterministic() {
     SearchableFieldSpec primaryName =
         field(

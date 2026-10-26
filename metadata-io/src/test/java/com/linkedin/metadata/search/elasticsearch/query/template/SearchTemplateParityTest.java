@@ -326,7 +326,7 @@ public class SearchTemplateParityTest {
             + "The structured template places that fragment in a bool should with the exact name and URN terms.";
     String light = "The light query drops fuzzy expansions on both paths.";
     String browse =
-        "Browse text uses the search router. An empty query resolves to list and keeps enrichment ranking. "
+        "Browse text uses the search router. An empty query resolves to listUrn without ranking. "
             + "Browse path, depth, and group aggregation stay in Java, so neither body names browsePathV2.";
     String lineage =
         "A lineage page uses the searchEntities seed. A short query starts on light. "
@@ -477,7 +477,7 @@ public class SearchTemplateParityTest {
             null,
             false,
             false,
-            "urn:li:searchTemplate:list",
+            "urn:li:searchTemplate:listUrn",
             List.of("match_all"),
             List.of(),
             List.of(),

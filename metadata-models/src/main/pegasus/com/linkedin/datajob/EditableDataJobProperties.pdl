@@ -19,6 +19,7 @@ record EditableDataJobProperties includes ChangeAuditStamps {
     "sanitizeRichText": true,
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

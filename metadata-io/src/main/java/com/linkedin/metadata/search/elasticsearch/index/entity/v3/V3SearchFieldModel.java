@@ -73,6 +73,16 @@ public final class V3SearchFieldModel {
     return of(V3SearchFields.indexGroupSpecs(entityRegistry, entitySpecs));
   }
 
+  /**
+   * The model of every registry entity that declares a searchable field. Search reads this model
+   * because every V3 index carries that shared mapping.
+   */
+  @Nonnull
+  public static V3SearchFieldModel forSearchableEntities(
+      @Nonnull final EntityRegistry entityRegistry) {
+    return of(V3SearchFields.searchableEntitySpecs(entityRegistry));
+  }
+
   /** {@link V3SearchFields#storedParsedNameFields}. */
   @Nonnull
   public Map<String, List<String>> storedParsedNameFields() {

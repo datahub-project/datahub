@@ -12,7 +12,11 @@ record DataHubConnectionDetails {
   /**
    * The type of the connection. This defines the schema / encoding of the connection details.
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   type: enum DataHubConnectionDetailsType {
     /**
      * A json-encoded set of connection details
@@ -28,6 +32,7 @@ record DataHubConnectionDetails {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
