@@ -1915,6 +1915,7 @@ class TestOracleQueryExtraction:
                 _vsql_row(
                     "broken_lob", "SELECT * FROM HR.BROKEN", sql_fulltext=broken_lob
                 ),
+                _vsql_row("empty", "", sql_fulltext=None),
             ]
         )
 
@@ -1932,6 +1933,8 @@ class TestOracleQueryExtraction:
         # A LOB that cannot be read falls back to sql_text and warns, instead of
         # aborting the extraction for every remaining row.
         assert queries["sql_id:broken_lob"] == "SELECT * FROM HR.BROKEN"
+        # A row with no text at all is skipped instead of being parsed.
+        assert "sql_id:empty" not in queries
         assert len(source.report.warnings) == 1
 
     def test_long_hinted_and_delete_queries_parse_cleanly(self, ctx):
