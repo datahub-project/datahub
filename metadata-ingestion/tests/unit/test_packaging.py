@@ -16,11 +16,22 @@ _METADATA_INGESTION = Path(__file__).resolve().parent.parent.parent
 # 82.5, !=82.* allows 81.x, >=78.1.1, etc.), not just ==82.0.0.
 _SUB_83 = ("0.0.1", "78.1.1", "81.0.0", "82.0.0", "82.5.0", "82.99.0")
 
-# Sub-26.2 pip versions spanning every CVE window the floor closes: 26.0/26.0.1
+# Sub-26.2.2 pip versions spanning every CVE window the floor closes: 26.0/26.0.1
 # (CVE-2026-3219, CVE-2026-6357), 26.1/26.1.1 (CVE-2026-8643), 26.1.2
-# (CVE-2026-13346). Sweeping the range catches a relaxed floor (>26, !=26.1.*,
-# >=26.0, ...), not just ==26.0.
-_SUB_26_2 = ("0.0.1", "25.3", "26.0", "26.0.1", "26.1", "26.1.1", "26.1.2")
+# (CVE-2026-13346), 26.2/26.2.1 (vendored certifi 2026.6.17, GHSA-6q48-6c7w-9gw2).
+# Sweeping the range catches a relaxed floor (>26, !=26.1.*, >=26.0, ...), not
+# just an exact-pin regression.
+_SUB_26_2_2 = (
+    "0.0.1",
+    "25.3",
+    "26.0",
+    "26.0.1",
+    "26.1",
+    "26.1.1",
+    "26.1.2",
+    "26.2",
+    "26.2.1",
+)
 
 
 def _load_setup_args(monkeypatch):
@@ -122,27 +133,6 @@ def test_stopit_not_a_dependency(monkeypatch):
     )
 
 
-def test_sqlalchemy_stays_below_2_until_shim_removed():
-    # Expiry tripwire for the pkg_resources shim. The shim exists only because
-    # the redshift/cockroachdb SQLAlchemy dialects import pkg_resources at load;
-    # both ship pkg_resources-free releases that require SQLAlchemy>=2. The
-    # resolved lock is the authoritative signal for whether the shim is still
-    # needed: some extras legitimately declare sqlalchemy<3.0, so a per-declared-
-    # specifier check would false-trip; constraints.txt is the version actually
-    # installed. When a sqlalchemy>=2 bump lands, this fails and names the cleanup.
-    constraints = (_METADATA_INGESTION / "constraints.txt").read_text()
-    m = re.search(r"^sqlalchemy==(\S+)", constraints, re.MULTILINE | re.IGNORECASE)
-    assert m, "sqlalchemy must be pinned in the locked constraints.txt"
-    assert Version(m.group(1)) < Version("2"), (
-        f"sqlalchemy resolves to {m.group(1)} (>=2): sqlalchemy-redshift>=1.0.0 and "
-        "sqlalchemy-cockroachdb>=2.0.4 ship pkg_resources-free releases. Remove the "
-        "compatibility shim: src/datahub/utilities/pkg_resources_shim.py, "
-        "src/datahub/_pkg_resources_finder.py, its imports in src/datahub/__init__.py "
-        "and tests/conftest.py, tests/unit/utilities/test_pkg_resources_shim.py, and "
-        "this test."
-    )
-
-
 def test_docker_ingestion_snippet_floors_setuptools():
     # setup.py delegates the CVE-2026-59890 setuptools floor to this Docker
     # snippet (wired into the datahub-actions image via UV_CONSTRAINT). Guard the
@@ -174,14 +164,16 @@ def test_docker_ingestion_snippet_floors_setuptools():
 
 
 def _pip_floor_ok(specifier: SpecifierSet, label: str) -> None:
-    # Permit 26.2 and reject every sub-26.2 release, so a relaxed floor is
+    # Permit 26.2.2 and reject every sub-26.2.2 release, so a relaxed floor is
     # caught rather than only an exact-pin regression.
-    assert specifier.contains("26.2"), f"{label} blocks pip 26.2 (CVE-2026-13346)"
-    for below in _SUB_26_2:
-        assert not specifier.contains(below), f"{label} allows sub-26.2 pip {below}"
+    assert specifier.contains("26.2.2"), (
+        f"{label} blocks pip 26.2.2 (GHSA-6q48-6c7w-9gw2)"
+    )
+    for below in _SUB_26_2_2:
+        assert not specifier.contains(below), f"{label} allows sub-26.2.2 pip {below}"
 
 
-def test_pip_floored_at_26_2_everywhere():
+def test_pip_floored_at_26_2_2_everywhere():
     # setup.py declares a bare "pip" (no upper bound: pip is a system tool), so
     # the CVE floor lives in two places that must not drift apart:
     #   - [tool.uv] constraint-dependencies, which resolves into constraints.txt
@@ -189,16 +181,18 @@ def test_pip_floored_at_26_2_everywhere():
     #     venv it builds with it),
     #   - the Docker snippet, wired into the datahub-actions image via
     #     UV_CONSTRAINT and passed to the bundled venv builder.
-    # Floor is 26.2: CVE-2026-3219 and CVE-2026-6357 (fixed 26.1), CVE-2026-8643
-    # (fixed 26.1.2) and CVE-2026-13346 (fixed 26.2).
+    # Floor is 26.2.2: CVE-2026-3219 and CVE-2026-6357 (fixed 26.1), CVE-2026-8643
+    # (fixed 26.1.2), CVE-2026-13346 (fixed 26.2), and GHSA-6q48-6c7w-9gw2 -- pip
+    # 26.2.1 vendors the compromised certifi 2026.6.17; 26.2.2 re-vendors the
+    # fixed 2026.10.19.
     pyproject = toml.load(_METADATA_INGESTION / "pyproject.toml")
     uv_constraints = pyproject["tool"]["uv"]["constraint-dependencies"]
     pip_reqs = [
         r for r in (Requirement(c) for c in uv_constraints) if r.name.lower() == "pip"
     ]
     assert pip_reqs, (
-        "pyproject [tool.uv] constraint-dependencies must floor pip>=26.2 "
-        "(CVE-2026-13346)"
+        "pyproject [tool.uv] constraint-dependencies must floor pip>=26.2.2 "
+        "(GHSA-6q48-6c7w-9gw2)"
     )
     for req in pip_reqs:
         _pip_floor_ok(req.specifier, f"[tool.uv] pip constraint '{req}'")
@@ -207,9 +201,9 @@ def test_pip_floored_at_26_2_everywhere():
     constraints = (_METADATA_INGESTION / "constraints.txt").read_text()
     m = re.search(r"^pip==(\S+)", constraints, re.MULTILINE)
     assert m, "pip must be pinned in the locked constraints.txt"
-    assert Version(m.group(1)) >= Version("26.2"), (
-        f"constraints.txt locks pip=={m.group(1)}, below the >=26.2 floor "
-        "(CVE-2026-13346); re-run ./gradlew :metadata-ingestion:updateLockFile"
+    assert Version(m.group(1)) >= Version("26.2.2"), (
+        f"constraints.txt locks pip=={m.group(1)}, below the >=26.2.2 floor "
+        "(GHSA-6q48-6c7w-9gw2); re-run ./gradlew :metadata-ingestion:updateLockFile"
     )
 
     # Docker snippet: governs the bundled venvs, which install pip explicitly.

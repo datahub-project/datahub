@@ -23,10 +23,6 @@ export enum PreviewType {
      * A tiny search preview for text-box search.
      */
     MINI_SEARCH,
-    /**
-     * Previews rendered when hovering over the entity in a compact list
-     */
-    HOVER_CARD,
 }
 
 export enum IconStyleType {
@@ -203,6 +199,12 @@ export interface Entity<T> {
      * TODO: Migrate to using getGenericEntityProperties for display name retrieval.
      */
     displayName: (data: T) => string;
+
+    /**
+     * Returns the created time for the entity
+     *
+     */
+    createdTime?: (data: T) => number | undefined | null;
 
     /**
      * Returns generic entity properties for the entity

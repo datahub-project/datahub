@@ -3,10 +3,8 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import GlossaryRelatedTermsResult, {
-    RelatedTermTypes,
-    getRelatedTermTypeLabel,
-} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import GlossaryRelatedTermsResult from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 
 const DetailWrapper = styled.div`
     display: inline-flex;

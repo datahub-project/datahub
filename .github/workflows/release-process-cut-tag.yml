@@ -93,6 +93,8 @@ jobs:
         with:
           client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-workflows: write
 
       - name: Check out release scripts
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

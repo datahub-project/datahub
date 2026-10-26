@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
+import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
 import { LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 import {
@@ -10,7 +10,7 @@ import {
 } from '@app/entityV2/shared/components/links/utils';
 
 // Mock the isFileUrl function from the fileDragDrop module
-vi.mock('@components/components/Editor/extensions/fileDragDrop', () => ({
+vi.mock('@components/components/Editor/extensions/fileDragDrop/fileUtils', () => ({
     isFileUrl: vi.fn(),
 }));
 

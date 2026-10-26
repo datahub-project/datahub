@@ -57,6 +57,37 @@ no matching manifest for linux/arm64/v8 in the manifest list entries
 On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
 
 </details>
+
+<details>
+<summary>
+Quickstart hangs at "Starting up DataHub..." with Colima, Rancher Desktop, or Podman
+</summary>
+
+If `datahub docker quickstart` prints `Starting up DataHub...` followed only by dots — no image
+pulls, no containers created, no error — while `docker ps` works fine in the same shell, the CLI
+is most likely talking to a different Docker endpoint than your `docker` CLI is.
+
+The quickstart uses the `docker` Python SDK (`docker.from_env()`), which reads the `DOCKER_HOST`
+environment variable but does **not** read Docker CLI _contexts_. Alternative runtimes such as
+Colima, Rancher Desktop, and Podman install a context instead of exporting `DOCKER_HOST`, so the
+SDK falls back to the default socket path and waits there.
+
+Point `DOCKER_HOST` at the endpoint of your active context, then run the quickstart:
+
+```sh
+docker context inspect --format '{{.Endpoints.docker.Host}}'   # see which socket is active
+export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
+datahub docker quickstart
+```
+
+Taking the endpoint from the active context works for every runtime, including custom Colima
+profiles, Rancher Desktop, and rootless Podman, whose socket paths differ between installations.
+Re-run the `export` after switching Docker contexts: the SDK keeps using whatever `DOCKER_HOST`
+held when it was set. To have it set automatically in new shells, add the `export` line above,
+rather than a fixed socket path, to your shell profile so that it follows the active context.
+
+</details>
+
 <details>
 <summary>
 Miscellaneous Docker issues

@@ -92,9 +92,9 @@ public class KafkaEventProducer extends EventProducer {
     GenericRecord record;
     try {
       log.debug(
-          String.format(
-              "Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeLog: %s",
-              urn, metadataChangeLog));
+          "Converting Pegasus snapshot to Avro snapshot urn {}\nMetadataChangeLog: {}",
+          urn,
+          metadataChangeLog);
       record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
     } catch (IOException e) {
       log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataChangeLog), e);
@@ -132,9 +132,9 @@ public class KafkaEventProducer extends EventProducer {
 
     try {
       log.debug(
-          String.format(
-              "Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataChangeProposal: %s",
-              urn, metadataChangeProposal));
+          "Converting Pegasus snapshot to Avro snapshot urn {}\nMetadataChangeProposal: {}",
+          urn,
+          metadataChangeProposal);
       record = EventUtils.pegasusToAvroMCP(metadataChangeProposal);
     } catch (IOException e) {
       log.error(
@@ -205,8 +205,7 @@ public class KafkaEventProducer extends EventProducer {
     }
     GenericRecord record;
     try {
-      log.debug(
-          String.format("Converting Pegasus Event to Avro Event urn %s\nEvent: %s", name, event));
+      log.debug("Converting Pegasus Event to Avro Event urn {}\nEvent: {}", name, event);
       record = EventUtils.pegasusToAvroPE(event);
     } catch (IOException e) {
       log.error(String.format("Failed to convert Pegasus Platform Event to Avro: %s", event), e);

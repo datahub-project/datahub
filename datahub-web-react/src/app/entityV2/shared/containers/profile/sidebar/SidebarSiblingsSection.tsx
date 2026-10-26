@@ -105,6 +105,7 @@ export const SidebarSiblingsSection = () => {
             />
             {showAllSiblings && (
                 <EmbeddedListSearchModal
+                    applyView
                     title={t('sidebar.siblings.viewAllTitle')}
                     fixedFilters={{
                         unionType: UnionType.OR,

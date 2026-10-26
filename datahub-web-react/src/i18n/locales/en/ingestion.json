@@ -47,6 +47,7 @@
     "executions.someHidden": "Some executions may be hidden",
     "executions.summaryAborted": "Ingestion job got aborted due to worker restart.",
     "executions.summaryCancelled": "Ingestion was cancelled.",
+    "executions.summaryDuplicate": "Ingestion job was cancelled because another instance(s) of this job already exists.",
     "executions.summaryFailure": "Ingestion failed to complete, or completed with errors.",
     "executions.summaryRollbackFailed": "Ingestion rollback failed.",
     "executions.summaryRolledBack": "Ingestion was rolled back.",

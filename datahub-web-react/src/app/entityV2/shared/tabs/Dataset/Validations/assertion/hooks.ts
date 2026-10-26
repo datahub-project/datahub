@@ -1,5 +1,5 @@
 import type { MutationHookOptions } from '@apollo/client';
-import { message } from 'antd';
+import { toast } from '@components';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -13,6 +13,10 @@ import {
     useDeleteAssertionMutation,
 } from '@graphql/assertion.generated';
 
+/**
+ * @description A custom hook for deleting an assertion with cache eviction.
+ * Use this instead of the default useDeleteAssertionMutation hook.
+ */
 export const useDeleteAssertionMutationWithCache = (
     baseOptions?: MutationHookOptions<DeleteAssertionMutation, DeleteAssertionMutationVariables>,
 ) => {
@@ -74,9 +78,9 @@ export const useAssertionURNCopyLink = (urn: string) => {
 
         try {
             await copyTextToClipboard(assertionUrl);
-            message.success(t('action.clipboardCopied'));
+            toast.success(t('action.clipboardCopied'));
         } catch {
-            message.error(t('action.clipboardFailed'));
+            toast.error(t('action.clipboardFailed'));
         }
     };
 
@@ -100,7 +104,7 @@ export const useOpenAssertionDetailModal = (setFocusAssertionUrn) => {
             const decodedAssertionUrn = decodeURIComponent(assertionUrnParam);
 
             if (!isValidAssertionUrnFormat(decodedAssertionUrn)) {
-                message.error(t('action.malformedAssertionLink', { urn: decodedAssertionUrn }));
+                toast.error(t('action.malformedAssertionLink', { urn: decodedAssertionUrn }));
                 return;
             }
 

@@ -2,18 +2,30 @@ package com.linkedin.metadata.config.hazelcast;
 
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
+import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
  * Creates a shared {@link com.hazelcast.core.HazelcastInstance} when any of these features need
- * cluster coordination: search Hazelcast cache, entity graph cache, GMS endpoint rate limiting, or
- * the post-commit retention buffer.
+ * cluster coordination: GMS access-token revocation, search Hazelcast cache, entity graph cache,
+ * GMS endpoint rate limiting, or the post-commit retention buffer.
  */
 public class HazelcastInstanceBootstrapCondition implements Condition {
 
   @Override
   public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-    var env = context.getEnvironment();
+    return needsInstance(context.getEnvironment(), gmsApplicationPresent());
+  }
+
+  /**
+   * GMS always needs the embedded node for access-token revocation state, including when the entity
+   * graph cache is off. MAE, MCE, and upgrade do not load {@code GMSApplication}, so they do not
+   * join a cluster just to host that map.
+   */
+  static boolean needsInstance(Environment env, boolean gmsApplicationPresent) {
+    if (gmsApplicationPresent) {
+      return true;
+    }
     if ("hazelcast"
         .equalsIgnoreCase(
             env.getProperty(
@@ -67,5 +79,14 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
     // would leave a scoped-only deployment without a Hazelcast instance, and the engine throws at
     // startup when scoped is active but Hazelcast is null.
     return HazelcastBootstrapProperties.rateLimitNeedsHazelcast(env);
+  }
+
+  static boolean gmsApplicationPresent() {
+    try {
+      Class.forName("com.linkedin.gms.GMSApplication");
+      return true;
+    } catch (ClassNotFoundException | LinkageError e) {
+      return false;
+    }
   }
 }

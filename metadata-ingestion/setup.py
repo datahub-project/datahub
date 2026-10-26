@@ -53,10 +53,10 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
-    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
-    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
-    # pyproject [tool.uv] constraint-dependencies.
-    "click>=7.1.2,!=8.2.0,<9.0.0",
+    # CVE-2026-7246 is fixed in 8.3.3. Airflow constraint files pin older click.
+    # Installs that pass those files must relax the pin first. See
+    # docs/lineage/airflow.md#installing-with-airflow-constraints.
+    "click>=8.3.3,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
     "toml>=0.10.0,<=0.10.2",
@@ -112,11 +112,10 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
-    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
-    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
-    # [tool.uv] constraint-dependencies.
-    "anyio>=4.10.0,<5.0.0",
+    # CVE-2026-64847 is fixed in 4.14.2. Airflow constraint files pin older anyio.
+    # Installs that pass those files must relax the pin first. See
+    # docs/lineage/airflow.md#installing-with-airflow-constraints.
+    "anyio>=4.14.2,<5.0.0",
 }
 
 rest_common = {
@@ -196,11 +195,7 @@ pyarrow_common = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # <2 held by databricks-sql-connector (sqlalchemy-redshift
-    # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
-    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
-    # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
-    "sqlalchemy>=1.4.39,<2",
+    "sqlalchemy>=2.0.0,<2.1",
     # greenlet is imported directly by
     # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
     # by the SQLAlchemy profiler (and surfaced in sql_report.py).
@@ -261,7 +256,7 @@ clickhouse_common = {
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
     # zstd needs to be pinned because the latest version causes issues on arm
     "zstd<1.5.6.8",
-    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
+    "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
 }
 
 datacatalog_lineage_common = {
@@ -293,7 +288,7 @@ dataplex_common = {
 
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
-    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "sqlalchemy-redshift>=1.0.0,<2.0.0",
     "GeoAlchemy2<0.19.0",
     "redshift-connector>=2.1.14,<3.0.0",
     *path_spec_common,
@@ -325,7 +320,11 @@ snowflake_common = {
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=1.11.0 for CVE-2026-15736: SQL injection via MERGE INTO column keys and via
+    # literal-rendered DDL bound params, plus a local file read from connection params
+    # forwarded out of the URL query string. 1.11.x still requires only sqlalchemy>=1.4.19,
+    # so this does not disturb the sqlalchemy<2 pin.
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
@@ -346,25 +345,19 @@ trino = {
     "trino[sqlalchemy]>=0.308,<=0.336.0",
 }
 
-pyhive_common = {
-    # DataHub maintains a fork of PyHive
-    # - 0.6.11 adds support for table comments and column comments,
-    #   and also releases HTTP and HTTPS transport schemes
-    # - 0.6.12 adds support for Spark Thrift Server
-    # - 0.6.13 adds a small fix for Databricks
-    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
-    # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
-    # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
-    #   (https://github.com/acryldata/PyHive/pull/11)
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
-    # As per https://github.com/datahub-project/datahub/issues/8405
-    # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
-    # of thrift broke PyHive's hive+http transport.
-    # Fixed by https://github.com/apache/thrift/pull/2491 in version 0.17.0
-    # which is unfortunately not on PyPi.
-    # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
+# Kerberos (GSSAPI) over Thrift SASL, for HiveServer2 and the Hive Metastore.
+thrift_sasl_common = {
+    "pure-sasl>=0.6.2,<1.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
+}
+
+# HiveServer2 / Spark Thrift Server driver for DataHub's Hive SQLAlchemy dialects.
+hive_common = thrift_sasl_common | {
+    "impyla>=0.24.0,<1.0.0",
+}
+
+presto_common = {
+    "presto-python-client>=0.8.4,<1.0.0",
 }
 
 microsoft_common = {
@@ -390,7 +383,7 @@ iceberg_common = {
 
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
-    "sqlalchemy-pytds>=0.3,<2.0.0",
+    "sqlalchemy-pytds>=1.0.0,<2.0.0",
     # >=26.4.0: pyOpenSSL 26.0-26.3 crash on import against cryptography>=49
     # (AttributeError: module 'lib' has no attribute 'GEN_EMAIL'), which the
     # cryptography>=49.0.0,<51.0.0 range above can resolve to.
@@ -439,6 +432,7 @@ abs_base = {
 azure_data_factory = {
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+    *sqlglot_lib,
 }
 
 file_profiling = {
@@ -478,26 +472,27 @@ databricks_common = {
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
-    # TODO: When upgrading to >=3.0.0, also drop the get_columns type-map patch in
-    # src/datahub/ingestion/source/sqlalchemy_profiler/adapters/databricks.py -- v2 of
-    # the dialect replaced the local _type_map with parse_column_info_from_tgetcolumnsresponse.
-    "databricks-sql-connector>=2.8.0,<3.0.0",
+    # 4.7.0 relaxes the oauthlib cap to <5.0.0, allowing oauthlib>=4.0.0
+    # (fixes CVE-2026-49264 / CVE-2026-49265)
+    "databricks-sql-connector>=4.7.0,<5.0.0",
+    # connector 4.x split the SQLAlchemy dialect into a separate package; required so
+    # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
+    "databricks-sqlalchemy>=2.0.0,<3.0.0",
 }
 
 databricks = {
     "requests<3.0.0",
-    # Due to https://github.com/databricks/databricks-sql-python/issues/326
-    # databricks-sql-connector<3.0.0 requires pandas<2.2.0
-    "pandas<2.2.0",
 }
 
-mysql = {"pymysql>=1.0.2,<2.0.0"}
+# [rsa] pulls cryptography, needed for MySQL 8 caching_sha2_password full auth.
+mysql = {"pymysql[rsa]>=1.0.2,<2.0.0"}
 mysql_common = sql_common | mysql | aws_common
 
 sac = {
     "requests<3.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
-    "Authlib>=1.6.11,<2.0.0",
+    # CVE-2026-96760: fixed in 1.9.0
+    "Authlib>=1.9.0,<2.0.0",
     # Safe XML parsing for Data Export Service $metadata (shared sap_common.edmx).
     "defusedxml>=0.7.1,<0.8.0",
 }
@@ -568,6 +563,16 @@ confluence_common = {
     "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
+google_drive_common = {
+    "google-api-python-client>=2.0.0,<3.0.0",
+    "google-auth>=2.0.0,<3.0.0",
+    # HTML-to-markdown fallback when a Google Doc's markdown export fails
+    "markdownify>=0.14.1,<2.0.0",
+    # Required for GraphQL query adaptation when fetching semantic search config
+    # from older DataHub servers (same reason as confluence).
+    "graphql-core>=3.0.0,<4.0.0",
+} | unstructured_lib
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -627,7 +632,7 @@ plugins: Dict[str, Set[str]] = {
     # this version has missing dependency asyncio
     # https://github.com/jd/tenacity/issues/471
     | {
-        "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
+        "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
         "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
@@ -662,14 +667,14 @@ plugins: Dict[str, Set[str]] = {
     "cockroachdb": sql_common
     | postgres_common
     | aws_common
-    | {"sqlalchemy-cockroachdb<2.0.0"},
+    | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
     "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
-        "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+        "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
         "pyodbc<6.0.0",
         *sql_common,
     },
@@ -702,8 +707,10 @@ plugins: Dict[str, Set[str]] = {
         *cachetools_lib,
     },
     "feast": {
-        # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
-        "feast>=0.34.0,<1",
+        # 0.47 declares fastapi>=0.68 with no upper bound, so starlette>=1.3.1
+        # can resolve. 0.34–0.46 pin a FastAPI that cannot take Starlette 1.3.
+        # feast>=0.48 requires numpy>=2, so numpy<2 below still caps feast at 0.47.
+        "feast>=0.47.0,<1",
         # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
         "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",
@@ -722,23 +729,19 @@ plugins: Dict[str, Set[str]] = {
     "hana": sql_common
     | {
         # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
-        "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "sqlalchemy-hana>=4.0.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "defusedxml>=0.7.1,<0.8.0",
     },
-    "hive": sql_common
-    | pyhive_common
-    | {
-        "databricks-dbapi<0.7.0",
-    },
+    "hive": sql_common | hive_common,
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
     # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
-    | pyhive_common
+    | thrift_sasl_common
     | {
         "psycopg2-binary<3.0.0",
-        "pymysql>=1.0.2,<2.0.0",
+        "pymysql[rsa]>=1.0.2,<2.0.0",
         "pymetastore>=0.4.2,<1.0.0",
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
@@ -796,13 +799,13 @@ plugins: Dict[str, Set[str]] = {
     "openapi": {"requests<3.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
-    "presto": sql_common | pyhive_common | trino,
+    "presto": sql_common | presto_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
-    | pyhive_common
+    | thrift_sasl_common
     | {
         "psycopg2-binary<3.0.0",
-        "pymysql>=1.0.2,<2.0.0",
+        "pymysql[rsa]>=1.0.2,<2.0.0",
         "pymetastore>=0.4.2,<1.0.0",
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
@@ -864,7 +867,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
         # in our CI, so we're pinning the version for now.
-        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+        "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     },
     # aws_common is needed for the inherited PostgresSource RDS IAM auth.
     "timescaledb": sql_common | postgres_common | aws_common,
@@ -878,12 +881,13 @@ plugins: Dict[str, Set[str]] = {
         | sqlglot_lib
     ),
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
+    "vertica": sql_common | {"sqlalchemy-vertica-python>=0.6.3,<0.7.0"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "google-drive": google_drive_common,
     "github-documents": set(),
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
@@ -966,12 +970,15 @@ all_exclude_plugins: Set[str] = {
     # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
     # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
     # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
-    # or [unstructured]. Managed ingestion still maps source type to those extras.
-    # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
+    # [google-drive], or [unstructured]. Managed ingestion still maps source type to
+    # those extras.
+    # The full ingestion image re-adds them:
+    # [all,datahub-documents,notion,confluence,google-drive].
     "datahub-documents",
     "unstructured",
     "notion",
     "confluence",
+    "google-drive",
 }
 
 mypy_stubs = {
@@ -1001,7 +1008,8 @@ mypy_stubs = {
     "types-ujson>=5.2.0,<6.0.0",
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
-    "sqlalchemy2-stubs<0.1.0",
+    # No sqlalchemy stubs: SQLAlchemy 2.0 ships inline (PEP 561) types, and its mypy
+    # plugin refuses to load when sqlalchemy2-stubs/sqlalchemy-stubs are installed.
 }
 
 
@@ -1065,6 +1073,7 @@ base_dev_requirements = {
             "cockroachdb",
             "confluence",
             "cube",
+            "google-drive",
             "datahub-documents",
             "dataplex",
             "delta-lake",
@@ -1204,6 +1213,7 @@ entry_points = {
         "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
         "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
         "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+        "oauth_session = datahub.ingestion.auth.oauth_session:OAuthSessionTokenProvider",
     ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
@@ -1228,6 +1238,7 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
@@ -1477,7 +1488,6 @@ setuptools.setup(
             )
         ),
         "sso": list(framework_common | {"playwright>=1.40.0,<2.0.0"}),
-        "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "docs": list(
             docs_requirements

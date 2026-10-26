@@ -37,7 +37,11 @@ public class SemanticEntitySearchServiceFactory {
       @Qualifier("mappingsBuilder") final MappingsBuilder mappingsBuilder) {
 
     String modelEmbeddingKey = deriveModelEmbeddingKey();
-    log.info("Creating SemanticEntitySearchService with modelEmbeddingKey={}", modelEmbeddingKey);
+    int expectedVectorDimension = expectedVectorDimension(modelEmbeddingKey);
+    log.info(
+        "Creating SemanticEntitySearchService with modelEmbeddingKey={}, expectedVectorDimension={}",
+        modelEmbeddingKey,
+        expectedVectorDimension);
 
     EntityIndexConfiguration entityIndex =
         configurationProvider.getElasticSearch().getEntityIndex();
@@ -48,7 +52,25 @@ public class SemanticEntitySearchServiceFactory {
         embeddingProvider,
         mappingsBuilder,
         modelEmbeddingKey,
+        expectedVectorDimension,
         entityIndex);
+  }
+
+  /**
+   * Resolves the configured vector dimension for the active model so query embeddings are validated
+   * before hitting the engine; 0 disables the check when no dimension is configured.
+   */
+  private int expectedVectorDimension(@Nonnull final String modelEmbeddingKey) {
+    SemanticSearchConfiguration semanticSearchConfig =
+        configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+    if (semanticSearchConfig == null
+        || !semanticSearchConfig.isEnabled()
+        || semanticSearchConfig.getModels() == null
+        || semanticSearchConfig.getModels().get(modelEmbeddingKey) == null) {
+      return 0;
+    }
+    return Math.max(
+        0, semanticSearchConfig.getModels().get(modelEmbeddingKey).getVectorDimension());
   }
 
   /**
@@ -108,9 +130,10 @@ public class SemanticEntitySearchServiceFactory {
    *   <li>embed-english-v3.0 → embed_english_v3_0
    * </ul>
    *
-   * <p>Package-visible so {@link EmbeddingProviderFactory} validates the same key at startup.
+   * <p>Public so {@link EmbeddingProviderFactory} and hybrid search validate the same key at
+   * startup.
    */
-  static String deriveModelEmbeddingKeyFromModelId(final String modelId) {
+  public static String deriveModelEmbeddingKeyFromModelId(final String modelId) {
     if (modelId == null || modelId.isBlank()) {
       return DEFAULT_MODEL_EMBEDDING_KEY;
     }

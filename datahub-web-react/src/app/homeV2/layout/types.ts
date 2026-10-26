@@ -1,5 +1,5 @@
 export interface NavMenuItem {
-    icon?: React.FunctionComponent<React.SVGProps<SVGSVGElement> & { title?: string }>;
+    icon?: React.ComponentType;
     title: string;
     showNewTag?: boolean;
     description: string;

@@ -75,8 +75,7 @@ import aliases are common culprits.
 - An alchemy component is generalized and reusable anywhere: it must not depend on DataHub
   aspects, data structures, or GraphQL types.
 - Reusable DataHub-specific components (which may take GraphQL types as props) go under
-  `src/app/sharedV2/` (or legacy `src/app/shared/` — follow the location of the code you
-  are extending).
+  `src/app/sharedV2/`.
 - Err on the side of more, smaller components: break out a new component when JSX gets
   large or complex, or for any logical/reusable chunk. Same rule for extracting hooks from
   component logic.
@@ -140,7 +139,10 @@ Do not import from:
 
 **Icons**: use the alchemy `<Icon>` component with phosphor icons only — ant and material
 UI icons are deprecated. Specify color and size via props; if size is unknown, use
-`size="inherit"` and set `font-size` in the parent element.
+`size="inherit"` and set `font-size` in the parent element. Import phosphor icons from
+their individual CSR paths for tree-shaking:
+`import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight'` — never from
+`@phosphor-icons/react` (ESLint will error). Find icon names at https://phosphoricons.com.
 
 **Images**: use the alchemy `<LoadedImage>` component (`src` and `alt` are required; it
 handles loading skeleton and error fallback). For SVGs, set `fill="currentColor"` in the

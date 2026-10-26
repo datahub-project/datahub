@@ -37,6 +37,27 @@ def test_run_quickstart_preflight_checks_success(mock_docker_client):
     run_quickstart_preflight_checks(mock_docker_client)
 
 
+def test_run_quickstart_preflight_checks_pins_json_file_log_driver(mock_docker_client):
+    # docker-py's containers.run() returns None, not the container output, for any
+    # logging driver other than json-file or journald (docker/docker-py#3455).
+    # Docker Desktop 4.94+ defaults new containers to the "local" driver, so the
+    # disk-space probe container must not rely on the daemon default. The client is
+    # mocked here, so assert the request rather than the result.
+    mock_docker_client.info.return_value = {
+        "MemTotal": int(MIN_MEMORY_NEEDED * 1024 * 1024 * 1000)
+    }
+    mock_output = MagicMock()
+    mock_output.decode.return_value = (
+        f"{MIN_DISK_SPACE_NEEDED * 1024**3} {MIN_DISK_SPACE_NEEDED * 1024**3}"
+    )
+    mock_docker_client.containers.run.return_value = mock_output
+
+    run_quickstart_preflight_checks(mock_docker_client)
+
+    log_config = mock_docker_client.containers.run.call_args.kwargs["log_config"]
+    assert log_config["Type"] == "json-file"
+
+
 def test_run_quickstart_preflight_checks_insufficient_memory(mock_docker_client):
     # Mock Docker info to return insufficient memory
     mock_docker_client.info.return_value = {

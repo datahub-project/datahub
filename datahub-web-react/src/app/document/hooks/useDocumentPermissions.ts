@@ -21,7 +21,9 @@ interface DocumentPermissions {
  * Permission Rules:
  * - Document Contents, Title, State, Type: Requires EDIT_ENTITY_DOCS privilege for asset
  * - Owners, Tags, Terms, Domain, Data Product: Requires the respective EDIT_X privilege
- * - Create/Delete/Move: Requires EDIT_ENTITY or MANAGE_DOCUMENTS privilege.
+ * - Create: Requires CREATE_ENTITY or EDIT_ENTITY for Documents, or platform MANAGE_DOCUMENTS.
+ * - Delete: Requires DELETE_ENTITY on the document or platform MANAGE_DOCUMENTS.
+ * - Move: Requires EDIT_ENTITY on the document or platform MANAGE_DOCUMENTS.
  *
  * External documents (ingested from Confluence, Notion, etc.) treat state and type as
  * read-only because ingestion owns those fields and would overwrite any UI edits.
@@ -35,13 +37,15 @@ export function useDocumentPermissions(_documentUrn?: string): DocumentPermissio
 
         // Platform-level privilege check
         const hasManageDocuments = platformPrivileges?.manageDocuments || false;
+        const canCreateDocuments = platformPrivileges?.createDocuments || false;
 
         // Entity-level privilege checks from document.privileges
         const canEditDescription = entityData?.privileges?.canEditDescription || false;
         const canManageEntity = entityData?.privileges?.canManageEntity || false;
+        const canDeleteEntity = entityData?.privileges?.canDeleteEntity || false;
 
         // Delete and move require either permissions for the entity or management at the platform level.
-        const canDelete = canManageEntity || hasManageDocuments;
+        const canDelete = canDeleteEntity || hasManageDocuments;
         const canMove = canManageEntity || hasManageDocuments;
 
         // Edit rights require entity data to be loaded. Once loaded, either the entity-level
@@ -52,7 +56,7 @@ export function useDocumentPermissions(_documentUrn?: string): DocumentPermissio
         const canEditState = isExternal ? false : !!entityData && (canEditDescription || hasManageDocuments);
 
         return {
-            canCreate: hasManageDocuments,
+            canCreate: canCreateDocuments,
             canEditContents,
             canEditTitle,
             canEditState,

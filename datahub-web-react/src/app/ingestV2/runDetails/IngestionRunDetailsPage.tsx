@@ -7,7 +7,6 @@ import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
-import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
@@ -79,12 +78,7 @@ export default function IngestionRunDetailsPage() {
     );
 
     return (
-        <PageLayout
-            title={t('runDetails.title')}
-            titlePill={titlePill}
-            rightPanelContent={<AIChat />}
-            topBreadcrumb={breadCrumb}
-        >
+        <PageLayout title={t('runDetails.title')} titlePill={titlePill} topBreadcrumb={breadCrumb}>
             <RunDetailsContent
                 urn={urn}
                 data={data}

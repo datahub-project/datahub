@@ -30,6 +30,7 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -196,7 +197,6 @@ public class AggregationQueryBuilderTest {
       boolean includeQueryEmptyAggregation,
       boolean includeSystemModifiedAt,
       Optional<String> systemModifiedAtFieldName,
-      Optional<Integer> searchTier,
       Optional<String> searchLabel,
       Optional<Boolean> searchIndexed,
       Optional<String> entityFieldName,
@@ -219,7 +219,6 @@ public class AggregationQueryBuilderTest {
         includeQueryEmptyAggregation,
         includeSystemModifiedAt,
         systemModifiedAtFieldName,
-        searchTier,
         searchLabel,
         searchIndexed,
         entityFieldName,
@@ -246,7 +245,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -292,7 +290,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
 
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
@@ -331,7 +328,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -352,7 +348,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -596,7 +591,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -617,7 +611,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -659,9 +652,9 @@ public class AggregationQueryBuilderTest {
             DEFAULT_FILTER));
   }
 
-  /** V3 entity indices keep keyword fields at the root, so facets skip the .keyword subfield. */
+  /** V3 root fields keep the V2 .keyword subfield, so facets aggregate on it as on V2. */
   @Test
-  public void testV3KeywordReadFacetsUseRootFields() {
+  public void testV3KeywordReadFacetsUseKeywordSubfields() {
     SearchableAnnotation annotation =
         new SearchableAnnotation(
             "test1",
@@ -684,7 +677,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             false);
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
@@ -692,8 +684,8 @@ public class AggregationQueryBuilderTest {
     EntitySpec entitySpec = mock(EntitySpec.class);
     when(entitySpec.getName()).thenReturn("dataset");
     AggregationQueryBuilder builder =
-        new AggregationQueryBuilder(
-            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)), true);
+        new V3AggregationQueryBuilder(
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)));
 
     List<TermsAggregationBuilder> aggs =
         builder
@@ -706,7 +698,11 @@ public class AggregationQueryBuilderTest {
     // V3 documents store their entity type, so the type facet does not read _index
     Assert.assertEquals(
         aggs.stream().map(TermsAggregationBuilder::field).collect(Collectors.toSet()),
-        ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", INDEX_VIRTUAL_FIELD));
+        ImmutableSet.of(
+            "test1.keyword",
+            "hasTest1",
+            "structuredProperties.hello.keyword",
+            INDEX_VIRTUAL_FIELD));
     // A V3 index can hold other entity types; only the requested ones are reported
     TermsAggregationBuilder entityTypeAgg =
         aggs.stream().filter(agg -> agg.field().equals(INDEX_VIRTUAL_FIELD)).findFirst().get();
@@ -737,7 +733,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -758,7 +753,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -823,7 +817,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             true,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1041,7 +1034,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1062,7 +1054,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1124,7 +1115,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1149,7 +1139,6 @@ public class AggregationQueryBuilderTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
-            Optional.empty(),
             Optional.empty(), // eagerGlobalOrdinals
             false);
 
@@ -1170,7 +1159,6 @@ public class AggregationQueryBuilderTest {
             Collections.<String>emptyList(),
             false,
             false,
-            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -1231,7 +1219,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1256,7 +1243,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1312,7 +1298,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1337,7 +1322,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1393,7 +1377,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1418,7 +1401,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1475,7 +1457,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1500,7 +1481,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1576,7 +1556,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1601,7 +1580,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),
@@ -1626,7 +1604,6 @@ public class AggregationQueryBuilderTest {
             false,
             false,
             Optional.<String>empty(),
-            Optional.<Integer>empty(),
             Optional.<String>empty(),
             Optional.<Boolean>empty(),
             Optional.<String>empty(),

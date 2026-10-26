@@ -16,6 +16,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,6 +47,10 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 public class SearchClientShimFactory {
 
   @Autowired private ConfigurationProvider configurationProvider;
+
+  @Autowired(required = false)
+  @Nullable
+  private MetricUtils metricUtils;
 
   @Autowired(required = false)
   @Qualifier("defaultAwsCredentialsProvider")
@@ -94,6 +99,8 @@ public class SearchClientShimFactory {
             "Search cluster '{}' resolves to an already-connected endpoint; reusing that client",
             clusterName);
         shims.put(clusterName, existing);
+        // Pool gauges stay registered under the first cluster's name only; the pool is shared, so
+        // registering it again would double-count its leased and waiting connections.
         continue;
       }
 
@@ -101,6 +108,9 @@ public class SearchClientShimFactory {
           buildSearchClientShim(objectMapper, esConfig, clusterName, cluster, socketMs, connMs);
       shims.put(clusterName, shim);
       byIdentity.put(identity, shim);
+      if (metricUtils != null && metricUtils.getRegistry() != null) {
+        shim.registerConnectionPoolMetrics(metricUtils.getRegistry(), clusterName);
+      }
     }
 
     return new SearchClientShims(shims);

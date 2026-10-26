@@ -62,6 +62,7 @@ export function ActionsColumn({ record, handleViewDetails, handleRollback, handl
                 record.showRollback ? (
                     <Icon
                         icon={ArrowUUpLeft}
+                        size="lg"
                         onClick={() => handleRollback(record.id)}
                         tooltipText={t('executions.rollback')}
                     />

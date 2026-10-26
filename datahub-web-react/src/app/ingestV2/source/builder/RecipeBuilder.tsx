@@ -1,4 +1,5 @@
-import { CodeOutlined, FormOutlined } from '@ant-design/icons';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 import { Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -131,7 +132,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
-                        <FormOutlined /> {t('recipeBuilder.formView')}
+                        <PencilLine /> {t('recipeBuilder.formView')}
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -140,7 +141,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
-                        <CodeOutlined /> {t('recipeBuilder.yamlView')}
+                        <Code /> {t('recipeBuilder.yamlView')}
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>

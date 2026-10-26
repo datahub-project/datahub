@@ -34,6 +34,9 @@ public class UpdateAspectResult {
   AuditStamp auditStamp;
   long maxVersion;
 
+  /** Stored body was kept by a configured semantic comparison. Retention is not enqueued. */
+  boolean semanticNoOp;
+
   /**
    * Primary-storage row version ({@code metadata_aspect.version}) for the aspect value in this
    * result; when set, {@link #toMCL()} stamps {@link Constants#MCL_HEADER_DATABASE_ASPECT_VERSION}.

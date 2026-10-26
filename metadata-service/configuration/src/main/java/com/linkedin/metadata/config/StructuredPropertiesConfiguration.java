@@ -29,6 +29,14 @@ public class StructuredPropertiesConfiguration {
   private boolean typeMismatchReindexEnabled;
 
   /**
+   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
+   * search indices whose structured-property {@code copy_to} targets differ from the
+   * definition-driven mapping. A put-mapping does not backfill already-indexed documents, so the
+   * difference requires a full reindex.
+   */
+  private boolean copyToMismatchReindexEnabled;
+
+  /**
    * When true, structured property writes drop assignments whose definition entity does not exist,
    * logging a warning per dropped value. The write fails if no valid assignments remain.
    */

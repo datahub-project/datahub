@@ -2,6 +2,7 @@
 
 import collections
 import concurrent.futures
+import contextlib
 import dataclasses
 import json
 import logging
@@ -34,7 +35,10 @@ from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
 )
-from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    ProfilingIsolationLevel,
+)
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
@@ -45,7 +49,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
-    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner_runner import (
@@ -91,10 +94,9 @@ def _get_columns_to_ignore_sampling(
     Uses the DataHub Graph API (which uses GraphQL under the hood) to fetch
     dataset and column-level tags.
 
-    Error handling: Any errors from datahub_graph.get_tags() or get_aspect()
-    will be caught by the upstream caller in generate_profile(). This allows
-    profiling to fail gracefully or continue based on the catch_exceptions
-    config setting.
+    Error handling: errors from datahub_graph.get_tags() or get_aspect() are
+    caught by _resolve_sampling_ignore_list, which answers them by treating
+    the whole table as tagged rather than losing the profile.
 
     Args:
         dataset_name: Name of the dataset (table) to check
@@ -170,6 +172,21 @@ BIGQUERY = "bigquery"
 ATHENA = "athena"
 TRINO = "trino"
 
+# How many tables the dialect allows in one join. The combined statement
+# cross-joins one subquery per query, so a batch above this cannot be parsed.
+# Platforms absent here either have no practical limit or it is not documented.
+MAX_JOINED_TABLES = {
+    "mysql": 61,
+    "mariadb": 61,
+    "sqlite": 64,
+}
+
+# A timed-out statement costs these platforms only the column it was for, not
+# the rest of the table, so the only isolation levels worth warning about are
+# the ones that hold a single read view across the whole table profile.
+MYSQL_FAMILY_PLATFORMS = {"mysql", "mariadb"}
+LEVELS_HOLDING_ONE_READ_VIEW = {"REPEATABLE READ", "SERIALIZABLE"}
+
 
 def format_profile_value(
     value: Any,
@@ -226,6 +243,16 @@ def _format_as_datetime(value: Any) -> str:
         return s
 
 
+@dataclasses.dataclass
+class _ColumnSetup:
+    """What the column queries need before they can be scheduled."""
+
+    field_profiles: List[DatasetFieldProfileClass]
+    column_types: Dict[str, ProfilerDataType]
+    ignore_table_sampling: bool
+    columns_list_to_ignore_sampling: List[str]
+
+
 @dataclasses.dataclass(init=False)
 class SQLAlchemyProfiler:
     """Custom SQLAlchemy-based profiler for DataHub metadata ingestion."""
@@ -272,19 +299,16 @@ class SQLAlchemyProfiler:
         # got an engine here.
         self.base_engine = conn.engine
 
-        if IS_SQLALCHEMY_1_4:
-            # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
-            # Changelog: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-4737.
-            # Code: https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/sql/compiler.py#L549
-            #
-            # The query combiner does indeed produce queries with cartesian products, but they are
-            # safe because each "FROM" clause only returns one row, so the cartesian product
-            # is also always a single row. As such, we disable the linter here.
-
-            # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
-            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
-                ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
-            )
+        # SQLAlchemy's statement "linter" issues warnings about cartesian products in
+        # SELECT statements. The query combiner intentionally produces cartesian
+        # products, but they are safe because each "FROM" clause returns a single row,
+        # so the product is also a single row. Disable the linter here.
+        # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
+        # SA 2.0 types compiler_linting as the Linting IntFlag; the in-place &= with
+        # the negated flag is an int to mypy, hence the extra assignment ignore.
+        self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined,assignment]
+            ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
+        )
 
         self.platform = platform.lower()
 
@@ -301,6 +325,9 @@ class SQLAlchemyProfiler:
         # the structured report already dedups, but the logger does not. A profiler
         # is built per database, so a multi-database run emits one line per database.
         self._isolation_level_warning_logged = False
+        self._query_timeout_warning_logged = False
+        self._timeout_isolation_warning_logged = False
+        self._warn_if_batch_exceeds_join_limit()
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -492,6 +519,7 @@ class SQLAlchemyProfiler:
         column_profile: DatasetFieldProfileClass,
         col_type: "ProfilerDataType",
         cardinality: Optional["Cardinality"],
+        non_null_count: Optional[int],
         numeric_stats_futures: Dict[str, Dict[str, "FutureResult"]],
         pretty_name: str,
     ) -> None:
@@ -556,6 +584,10 @@ class SQLAlchemyProfiler:
             if "stdev" in futures:
                 try:
                     stdev_val = futures["stdev"].result()
+                    if stdev_val is None:
+                        # NULL is ambiguous; the non-null count we already have
+                        # settles it without a second query.
+                        stdev_val = runner.adapter.resolve_stdev_null(non_null_count)
                     column_profile.stdev = format_profile_value(
                         stdev_val, col_type, as_stat=True
                     )
@@ -864,6 +896,10 @@ class SQLAlchemyProfiler:
                 serial_execution_fallback_enabled=True,
                 flatten_enabled=self.config.query_combiner_flatten_enabled,
                 max_distinct_per_statement=self.config.max_distinct_per_statement,
+                max_queries_to_combine=self.config.max_queries_to_combine,
+                # A pure predicate on the exception, so the calling thread's
+                # adapter answers for every worker's.
+                is_query_timeout=self._thread_adapter(self.platform).is_query_timeout,
             ).activate() as query_combiner,
         ):
             # Submit the profiling requests to the thread pool executor.
@@ -932,38 +968,248 @@ class SQLAlchemyProfiler:
             **request.batch_kwargs,
         )
 
-    def _profile_row_count(
+    def _uses_row_count_estimate(self, adapter: PlatformAdapter) -> bool:
+        return (
+            self.config.profile_table_row_count_estimate_only
+            and adapter.supports_row_count_estimation()
+        )
+
+    def _warn_if_batch_exceeds_join_limit(self) -> None:
+        """
+        Above the dialect's join limit every merged statement fails.
+
+        The combined statement cross-joins one subquery per query, so a batch
+        larger than the limit cannot be parsed and the whole batch is retried
+        one query at a time -- slower than not combining at all, and the only
+        visible sign is `query_exceptions`. Flattening does not join, so it is
+        bounded only through its re-route onto the joining path.
+        """
+        if not self.config.query_combiner_enabled:
+            return
+        limit = MAX_JOINED_TABLES.get(self.platform)
+        if limit is None or self.config.max_queries_to_combine <= limit:
+            return
+        self.report.warning(
+            title="Profiling: max_queries_to_combine above the join limit",
+            message=(
+                "A combined statement above the limit fails to parse and is "
+                "retried one query at a time, which is slower than leaving the "
+                "queries uncombined. With flattening on this hits the re-route "
+                "rather than the normal path, since a flat statement does not "
+                "join. Lower max_queries_to_combine to the limit or below."
+            ),
+            context=(
+                f"Platform: {self.platform}; "
+                f"max_queries_to_combine={self.config.max_queries_to_combine}; "
+                f"join limit={limit}"
+            ),
+        )
+
+    def _rollback_quietly(self, conn: Connection) -> None:
+        try:
+            conn.rollback()
+        except Exception:
+            logger.debug("Rollback failed", exc_info=True)
+
+    def _warn_if_timeout_needs_autocommit(
+        self, conn: Connection, pretty_name: str
+    ) -> None:
+        """
+        A per-statement limit does not do its job on every isolation level.
+
+        The reason differs by platform, so the warning does too. On Postgres a
+        timed-out statement leaves the transaction aborted and the per-column
+        queries that follow fail with it, which is true at every level below
+        AUTOCOMMIT. On MySQL nothing is lost that way, but REPEATABLE READ and
+        SERIALIZABLE hold one read view from the first statement until the
+        commit, so a per-statement limit does not bound it; READ COMMITTED
+        takes a fresh view per statement and is as sound as AUTOCOMMIT here.
+        """
+        if self._timeout_isolation_warning_logged:
+            return
+        requested = (
+            conn.get_execution_options().get("isolation_level")
+            or self._profiling_isolation_level
+        )
+        if requested == ProfilingIsolationLevel.AUTOCOMMIT.value:
+            return
+        try:
+            # The driver's own state, not get_isolation_level(), which reports
+            # the server's level and so never says AUTOCOMMIT. It is also the
+            # only thing that sees an engine built with
+            # isolation_level=AUTOCOMMIT, which is how the Postgres source
+            # connects by default.
+            #
+            # psycopg2 exposes it as a bool attribute; PyMySQL and mysqlclient
+            # expose get_autocommit() and leave `autocommit` a method, which is
+            # always truthy.
+            dbapi = conn.connection.dbapi_connection
+            getter = getattr(dbapi, "get_autocommit", None)
+            flag = getter() if callable(getter) else getattr(dbapi, "autocommit", None)
+            if not isinstance(flag, bool):
+                # An unknown driver shape. Say nothing rather than guess.
+                return
+            if flag:
+                return
+            level = requested or conn.get_isolation_level()
+        except Exception:
+            # Cannot tell, so say nothing rather than warn on a healthy setup.
+            logger.debug("Could not read the isolation level", exc_info=True)
+            return
+
+        if self.platform in MYSQL_FAMILY_PLATFORMS:
+            if str(level).upper().replace("_", " ") not in LEVELS_HOLDING_ONE_READ_VIEW:
+                return
+            reason = (
+                "the server holds one read view from the first statement until "
+                "the commit at this level, so a per-statement limit does not "
+                "bound the view this option exists to bound. Set "
+                "profiling_isolation_level: AUTOCOMMIT or READ COMMITTED."
+            )
+        else:
+            reason = (
+                "a statement that hits the limit leaves the transaction "
+                "aborted, so the table loses every per-column metric that runs "
+                "after it -- quantiles, histograms, value frequencies, sample "
+                "values. Set profiling_isolation_level: AUTOCOMMIT."
+            )
+
+        self._timeout_isolation_warning_logged = True
+        self.report.warning(
+            title="Profiling: query timeout set on a transactional connection",
+            message=f"query_timeout_seconds is set, but {reason}",
+            context=f"Asset: {pretty_name}; isolation_level={level}",
+        )
+
+    def _warn_query_timeout_unavailable(
+        self, pretty_name: str, seconds: int, e: Exception
+    ) -> None:
+        self.report.warning(
+            title="Profiling: query timeout unavailable",
+            message=(
+                "The database did not accept the requested statement timeout. "
+                "Profiling may run without one, so a single aggregate over a "
+                "large table can hold a read view for as long as it takes. On "
+                "MySQL the SET is not transactional, so a limit that applied "
+                "but failed to commit is still in effect."
+            ),
+            context=f"Asset: {pretty_name}; query_timeout_seconds={seconds}",
+            exc=e,
+            log=not self._query_timeout_warning_logged,
+        )
+        self._query_timeout_warning_logged = True
+        if not self.config.catch_exceptions:
+            raise e
+
+    def _install_query_timeout(
         self,
-        runner: QueryCombinerRunner,
+        stack: contextlib.ExitStack,
+        conn: Connection,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> None:
+        """
+        Put a per-statement time limit on the profiling connection, and arrange
+        for it to come back off before the connection returns to the pool.
+        """
+        seconds = self.config.query_timeout_seconds
+        if seconds is None:
+            return
+        timeout = adapter.get_query_timeout_statements(seconds)
+        if timeout is None:
+            if not self._query_timeout_warning_logged:
+                logger.info(
+                    f"query_timeout_seconds is set but {self.platform} has no "
+                    f"session statement timeout; profiling will run without one."
+                )
+                self._query_timeout_warning_logged = True
+            return
+        # After the support check: a platform that ignores the option has no
+        # timeout to warn about the consequences of.
+        self._warn_if_timeout_needs_autocommit(conn, pretty_name)
+
+        # Driver-level, so the combiner's patched Connection.execute does not
+        # count session bookkeeping as profiling queries, and so a restored
+        # value containing ':' is not read as a bind parameter.
+        try:
+            # Put back what was there, not the server default: the session may
+            # already carry a limit from init_command or a connect listener.
+            previous = conn.exec_driver_sql(timeout.read).scalar()
+            conn.exec_driver_sql(timeout.apply)
+        except Exception as e:
+            # A rejected SET leaves Postgres in an aborted transaction, which
+            # would cost the table every query that follows.
+            self._rollback_quietly(conn)
+            self._warn_query_timeout_unavailable(pretty_name, seconds, e)
+            return
+
+        # Registered before the commit, not after: SET SESSION is not
+        # transactional on MySQL, so a commit that fails still leaves the limit
+        # on a connection the pool shares with metadata extraction.
+        clear = timeout.restore.format(value=previous)
+        stack.callback(self._clear_query_timeout, conn, clear)
+
+        # Commit the SET itself. On Postgres a non-LOCAL SET belongs to the
+        # open transaction, and the serial fallback rolls back before every
+        # retry -- which would drop the limit exactly when a query has already
+        # proved slow enough to need it.
+        try:
+            conn.commit()
+        except Exception as e:
+            self._rollback_quietly(conn)
+            self._warn_query_timeout_unavailable(pretty_name, seconds, e)
+
+    def _clear_query_timeout(self, conn: Connection, clear: str) -> None:
+        """
+        Take the time limit back off the connection, whatever else went wrong.
+
+        Runs as the table's profile is finishing, when the transaction may be
+        aborted, so it rolls back first and never raises: the profile is already
+        built and must not be discarded over cleanup. If the limit cannot be
+        removed the connection is discarded instead of returned to the pool,
+        which metadata extraction shares.
+        """
+        try:
+            conn.rollback()
+            conn.exec_driver_sql(clear)
+            conn.commit()
+        except Exception as e:
+            logger.warning(
+                f"Could not clear the profiling query timeout ({type(e).__name__}); "
+                f"discarding the connection so the limit cannot leak to the pool."
+            )
+            logger.debug("Could not clear the profiling query timeout", exc_info=e)
+            try:
+                conn.invalidate()
+            except Exception:
+                logger.debug("Could not invalidate the connection", exc_info=True)
+
+    def _schedule_row_count(
+        self,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
+        adapter: PlatformAdapter,
+        pretty_name: str,
+    ) -> FutureResult[int]:
+        use_estimation = self._uses_row_count_estimate(adapter)
+        logger.debug(
+            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
+        )
+        return batch.get_row_count(sql_table, use_estimation=use_estimation)
+
+    def _extract_row_count(
+        self,
+        row_count_future: FutureResult[int],
         profile: DatasetProfileClass,
         context: ProfilingContext,
         pretty_name: str,
-        adapter: PlatformAdapter,
     ) -> Optional[int]:
         """
-        Stage 1: Profile row count.
-
-        Schedules, flushes, and extracts row count. Updates partition spec if sampling was applied.
+        Extract the row count and update the partition spec if sampling was applied.
 
         Returns:
             Row count (or None if unavailable)
         """
-        use_estimation = (
-            self.config.profile_table_row_count_estimate_only
-            and adapter.supports_row_count_estimation()
-        )
-        logger.debug(
-            f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
-        )
-
-        # Stage 1: row count. Executes on exit from the batch block.
-        logger.debug(f"profiling {pretty_name}: flushing stage 1 (row count)")
-        with runner.batch() as batch:
-            row_count_future = batch.get_row_count(
-                sql_table, use_estimation=use_estimation
-            )
-
         # Extract row count result with exception handling
         try:
             profile.rowCount = row_count_future.result()
@@ -985,7 +1231,9 @@ class SQLAlchemyProfiler:
             profile.rowCount = None
             row_count = None
 
-        # Update partition spec if sampling was applied by adapter
+        # Record that sampling happened, never the sample's size: a BERNOULLI
+        # sample lands on a different row count every run, and partitionSpec is
+        # emitted, so a size would change the profile for an unchanged table.
         if context.is_sampled:
             if (
                 profile.partitionSpec
@@ -1000,10 +1248,59 @@ class SQLAlchemyProfiler:
             ):
                 profile.partitionSpec.partition += " SAMPLE"
 
-            if profile.partitionSpec and row_count is not None:
-                profile.partitionSpec.partition += f" (sample rows {row_count})"
-
         return row_count
+
+    def _resolve_sampling_ignore_list(
+        self,
+        sql_table: sa.Table,
+        adapter: PlatformAdapter,
+        conn: Connection,
+        pretty_name: str,
+        platform: str,
+    ) -> Tuple[bool, List[str]]:
+        """Which columns opt out of sampling, per tags_to_ignore_sampling.
+
+        The tag lookup is non-fatal by design: it reaches the DataHub server,
+        and a failure there used to cost the whole profile -- including the
+        rowCount -- in exchange for a sampling hint.
+
+        It fails closed. The option names columns whose values must not reach
+        DataHub, so a lookup failure is answered with "treat the whole table as
+        tagged": counts and the row count still go out, sample values and
+        min/max do not. Answering "nothing is tagged" would publish values for
+        exactly the columns the option exists to protect, behind a warning.
+
+        Only the lookup is caught. Mapping the result onto stored column names
+        is local work against the schema, so a failure there is a real defect
+        and belongs with the caller's error handling, not under this title.
+        """
+        try:
+            ignore_table_sampling, ignore_list = _get_columns_to_ignore_sampling(
+                pretty_name,
+                self.config.tags_to_ignore_sampling,
+                platform,
+                self.env,
+            )
+        except Exception as e:
+            if not self.config.catch_exceptions:
+                raise
+            self.report.warning(
+                title="Profiling: sampling tags unavailable",
+                message=(
+                    "Could not resolve tags_to_ignore_sampling, so the whole "
+                    "table is treated as tagged: the row count and the null "
+                    "and unique counts are profiled; column values (sample "
+                    "values, min/max/mean, stddev, median, histograms, "
+                    "quantiles and distinct value frequencies) are not."
+                ),
+                context=pretty_name,
+                exc=e,
+            )
+            return True, []
+
+        return ignore_table_sampling, self._ignore_list_as_stored_names(
+            ignore_list, sql_table, adapter, conn
+        )
 
     def _ignore_list_as_stored_names(
         self,
@@ -1110,57 +1407,107 @@ class SQLAlchemyProfiler:
                 field_profiles.append(field_profile)
         return field_profiles
 
+    def _prepare_column_setup(
+        self,
+        sql_table: sa.Table,
+        adapter: PlatformAdapter,
+        conn: Connection,
+        pretty_name: str,
+        platform: str,
+    ) -> _ColumnSetup:
+        """Everything the column queries need, from the schema and the tags.
+
+        Issues no query against the table, but the tag lookup reaches the
+        DataHub server, so this runs where the column queries are scheduled
+        rather than at the top of the profile.
+
+        That still puts it ahead of the row count whenever the count is folded
+        in -- the default -- because scheduling a column query needs the column
+        list first. Only the unfolded path, with the combiner off, gets to skip
+        it on an empty or unreadable table.
+        """
+        columns_to_profile = self._get_columns_to_profile(sql_table, pretty_name)
+        ignore_table_sampling, columns_list_to_ignore_sampling = (
+            self._resolve_sampling_ignore_list(
+                sql_table, adapter, conn, pretty_name, platform
+            )
+        )
+
+        columns_to_profile_set = set(columns_to_profile)
+        return _ColumnSetup(
+            field_profiles=self._create_field_profiles(
+                [col.name for col in sql_table.columns], columns_to_profile_set
+            ),
+            column_types=self._resolve_column_types(
+                sql_table=sql_table,
+                columns_to_profile_set=columns_to_profile_set,
+                platform=platform,
+            ),
+            ignore_table_sampling=ignore_table_sampling,
+            columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
+        )
+
     def _schedule_cardinality_queries(
         self,
-        runner: QueryCombinerRunner,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
-        columns_to_profile_set: set,
+        column_types: Dict[str, ProfilerDataType],
         pretty_name: str,
     ) -> Dict[str, Dict[str, FutureResult[Any]]]:
         """
-        Stage 2a: Schedule cardinality queries.
-
-        Schedules non-null and unique count queries for all columns to profile.
-        Query combiner will batch them into ONE SQL statement on flush.
+        Schedule non-null and unique count queries for all columns to profile.
 
         Returns:
             Dict mapping column name to dict of FutureResults
         """
         cardinality_futures = {}
-        with runner.batch() as batch:
-            for column in sql_table.columns:
-                col_name = column.name
+        for col_name in column_types:
+            cardinality_futures[col_name] = {
+                "non_null": batch.get_column_non_null_count(sql_table, col_name)
+            }
 
-                if col_name not in columns_to_profile_set:
-                    continue
+            if self.config.include_field_distinct_count:
+                cardinality_futures[col_name]["unique"] = batch.get_column_unique_count(
+                    sql_table, col_name
+                )
 
-                # Schedule non-null count (returns FutureResult)
-                cardinality_futures[col_name] = {
-                    "non_null": batch.get_column_non_null_count(sql_table, col_name)
-                }
-
-                # Schedule unique count if needed (returns FutureResult)
-                if self.config.include_field_distinct_count:
-                    cardinality_futures[col_name]["unique"] = (
-                        batch.get_column_unique_count(sql_table, col_name)
-                    )
-
-        # Stage 2 executed every cardinality query in ONE batch on block exit.
         logger.debug(
-            f"profiling {pretty_name}: flushed stage 2 "
-            f"({len(cardinality_futures)} columns - cardinality)"
+            f"profiling {pretty_name}: scheduled cardinality "
+            f"({len(cardinality_futures)} columns)"
         )
 
         return cardinality_futures
 
-    def _extract_cardinality_results(
+    def _resolve_column_types(
         self,
         sql_table: sa.Table,
+        columns_to_profile_set: Set[str],
+        platform: str,
+    ) -> Dict[str, ProfilerDataType]:
+        """
+        Map each profiled column to its profiler type, from the schema alone.
+
+        Every column-query helper walks this mapping, so they all cover the
+        same columns in the same order.
+        """
+        column_types: Dict[str, ProfilerDataType] = {}
+        for column in sql_table.columns:
+            if column.name not in columns_to_profile_set:
+                continue
+            col_type = get_column_profiler_type(column.type, platform)
+            if col_type == ProfilerDataType.UNKNOWN:
+                col_type = resolve_profiler_type_with_fallback(
+                    column.type, platform, str(column.type)
+                )
+            column_types[column.name] = col_type
+        return column_types
+
+    def _extract_cardinality_results(
+        self,
         field_profiles: List[DatasetFieldProfileClass],
         cardinality_futures: Dict[str, Dict[str, FutureResult[Any]]],
-        columns_to_profile_set: set,
+        column_types: Dict[str, ProfilerDataType],
         row_count: Optional[int],
-        platform: str,
         pretty_name: str,
     ) -> Dict[
         str,
@@ -1172,35 +1519,23 @@ class SQLAlchemyProfiler:
         ],
     ]:
         """
-        Stage 2b: Extract cardinality results.
+        Extract cardinality results.
 
-        Extracts non-null and unique counts, calculates null counts and proportions,
-        and prepares column metadata for Stage 3.
+        Extracts non-null and unique counts, calculates null counts and
+        proportions, and prepares column metadata for the per-column queries.
 
         Returns:
             Dict mapping column name to (column_profile, col_type, cardinality, non_null_count)
         """
         columns_with_types = {}
 
-        for column in sql_table.columns:
-            col_name = column.name
-
-            if col_name not in columns_to_profile_set:
-                continue
-
+        for col_name, col_type in column_types.items():
             # Find the corresponding column_profile we created
             column_profile: Optional[DatasetFieldProfileClass] = next(
                 (p for p in field_profiles if p.fieldPath == col_name), None
             )
             if column_profile is None:
                 continue
-
-            # Get column type
-            col_type = get_column_profiler_type(column.type, platform)
-            if col_type == ProfilerDataType.UNKNOWN:
-                col_type = resolve_profiler_type_with_fallback(
-                    column.type, platform, str(column.type)
-                )
 
             # Extract non-null count from FutureResult with exception handling
             try:
@@ -1261,7 +1596,7 @@ class SQLAlchemyProfiler:
                     else None,
                 )
 
-            # Store metadata for Stage 3
+            # Store metadata for the per-column queries
             columns_with_types[col_name] = (
                 column_profile,
                 col_type,
@@ -1273,88 +1608,70 @@ class SQLAlchemyProfiler:
 
     def _schedule_numeric_queries(
         self,
-        runner: QueryCombinerRunner,
+        batch: QueryCombinerRunner,
         sql_table: sa.Table,
-        columns_with_types: Dict[
-            str,
-            Tuple[
-                DatasetFieldProfileClass,
-                ProfilerDataType,
-                Optional[Cardinality],
-                Optional[int],
-            ],
-        ],
+        column_types: Dict[str, ProfilerDataType],
         ignore_table_sampling: bool,
         columns_list_to_ignore_sampling: List[str],
         pretty_name: str,
     ) -> Dict[str, Dict[str, FutureResult[Any]]]:
         """
-        Stage 3a: Schedule numeric stats queries.
-
-        Schedules min/max/mean/stdev/median queries for numeric and datetime columns.
-        Query combiner will batch them into ONE SQL statement on flush.
+        Schedule min/max/mean/stdev/median queries for numeric and datetime columns.
 
         Returns:
             Dict mapping column name to dict of FutureResults
         """
         numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
-        with runner.batch() as batch:
-            for col_name, (
-                _column_profile,
-                col_type,
-                _cardinality,
-                _non_null_count,
-            ) in columns_with_types.items():
-                # Only calculate stats if not ignoring sampling for this column
-                if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
-                    continue
+        for col_name, col_type in column_types.items():
+            # Only calculate stats if not ignoring sampling for this column
+            if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
+                continue
 
-                # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
-                # All three numeric types get the same statistics
-                if col_type in (
-                    ProfilerDataType.INT,
-                    ProfilerDataType.FLOAT,
-                    ProfilerDataType.NUMERIC,
-                ):
-                    numeric_stats_futures[col_name] = {}
-                    if self.config.include_field_min_value:
-                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_max_value:
-                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_mean_value:
-                        numeric_stats_futures[col_name]["mean"] = batch.get_column_mean(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_stddev_value:
-                        numeric_stats_futures[col_name]["stdev"] = (
-                            batch.get_column_stdev(sql_table, col_name)
-                        )
-                    if self.config.include_field_median_value:
-                        numeric_stats_futures[col_name]["median"] = (
-                            batch.get_column_median(sql_table, col_name)
-                        )
+            # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
+            # All three numeric types get the same statistics
+            if col_type in (
+                ProfilerDataType.INT,
+                ProfilerDataType.FLOAT,
+                ProfilerDataType.NUMERIC,
+            ):
+                numeric_stats_futures[col_name] = {}
+                if self.config.include_field_min_value:
+                    numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_max_value:
+                    numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_mean_value:
+                    numeric_stats_futures[col_name]["mean"] = batch.get_column_mean(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_stddev_value:
+                    numeric_stats_futures[col_name]["stdev"] = batch.get_column_stdev(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_median_value:
+                    numeric_stats_futures[col_name]["median"] = batch.get_column_median(
+                        sql_table, col_name
+                    )
 
-                # Schedule min/max for datetime columns
-                elif col_type == ProfilerDataType.DATETIME:
-                    numeric_stats_futures[col_name] = {}
-                    if self.config.include_field_min_value:
-                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
-                            sql_table, col_name
-                        )
-                    if self.config.include_field_max_value:
-                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
-                            sql_table, col_name
-                        )
+            # Schedule min/max for datetime columns
+            elif col_type == ProfilerDataType.DATETIME:
+                numeric_stats_futures[col_name] = {}
+                if self.config.include_field_min_value:
+                    numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                        sql_table, col_name
+                    )
+                if self.config.include_field_max_value:
+                    numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                        sql_table, col_name
+                    )
 
-        # Stage 3 executed every numeric stats query in ONE batch on block exit.
         if numeric_stats_futures:
             logger.debug(
-                f"profiling {pretty_name}: flushed stage 3 "
-                f"({len(numeric_stats_futures)} columns - numeric stats)"
+                f"profiling {pretty_name}: scheduled numeric stats "
+                f"({len(numeric_stats_futures)} columns)"
             )
 
         return numeric_stats_futures
@@ -1379,7 +1696,7 @@ class SQLAlchemyProfiler:
         pretty_name: str,
     ) -> None:
         """
-        Stage 3b: Extract numeric stats and process column stats.
+        Extract numeric stats and process column stats.
 
         Extracts min/max/mean/stdev/median from FutureResults and runs
         non-batchable complex queries (sample values, histograms, frequencies).
@@ -1420,6 +1737,7 @@ class SQLAlchemyProfiler:
                     column_profile=column_profile,
                     col_type=col_type,
                     cardinality=cardinality,
+                    non_null_count=non_null_count,
                     numeric_stats_futures=numeric_stats_futures,
                     pretty_name=pretty_name,
                 )
@@ -1511,15 +1829,16 @@ class SQLAlchemyProfiler:
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
-                with self.base_engine.connect() as conn:
+                with contextlib.ExitStack() as stack:
+                    conn = stack.enter_context(self.base_engine.connect())
                     isolation_level = self._profiling_isolation_level
                     if isolation_level is not None:
                         # Must be the first operation on this connection — the
                         # isolation level cannot be changed once a transaction is in
                         # progress. Re-applied on every checkout because SQLAlchemy
-                        # reverts it on pool return. The rebind is required: on the
-                        # pinned SQLAlchemy 1.4 (<2), execution_options returns a
-                        # branched copy, not self.
+                        # reverts it on pool return. SA 2.0's
+                        # Connection.execution_options mutates and returns self;
+                        # the rebind is kept so the code does not depend on that.
                         try:
                             conn = conn.execution_options(
                                 isolation_level=isolation_level
@@ -1555,6 +1874,9 @@ class SQLAlchemyProfiler:
                             self._isolation_level_warning_logged = True
                             if not self.config.catch_exceptions:
                                 raise
+
+                    self._install_query_timeout(stack, conn, adapter, pretty_name)
+
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
                     # Takes the real Connection: setup does DDL and reflection
@@ -1614,66 +1936,109 @@ class SQLAlchemyProfiler:
                         )
 
                     # ================================================================
-                    # 3-STAGE QUERY BATCHING PATTERN
+                    # QUERY BATCHING PATTERN
                     # ================================================================
-                    # To maximize query batching efficiency, we use 3 strategic flush points:
+                    # Each flush is a round trip, and with flattening on it is
+                    # also a table scan, so there are as few as the data
+                    # dependencies allow:
                     #
-                    # STAGE 1: Row Count
-                    #   Helper: _profile_row_count()
-                    #   - Schedules row count query
-                    #   - Flushes and extracts result
-                    #   - Updates partition spec if sampling was applied
+                    # BATCH 1: row count, null and distinct counts, and the
+                    #   numeric stats. One batch, not three: which stats a column
+                    #   needs follows from its schema type, not from the counts,
+                    #   and over an empty table the column queries scan nothing.
+                    #   The setup they need rides along with them, which means
+                    #   a folded count cannot skip it -- scheduling a column
+                    #   query needs the column list first. Only the unfolded
+                    #   path, below, gets to skip it.
                     #
-                    # SETUP: Field Profiles
-                    #   Helper: _create_field_profiles()
-                    #   - Creates empty field profiles for all columns
-                    #   - These profiles are populated by Stages 2 and 3
-                    #
-                    # STAGE 2: Column Cardinality
-                    #   Helper: _schedule_cardinality_queries() + _extract_cardinality_results()
-                    #   - Schedules non-null + unique count for ALL columns
-                    #   - Flushes and batches all cardinality queries into ONE SQL statement
-                    #   - Extracts results and calculates null counts, proportions, cardinality
-                    #   - Prepares column metadata for Stage 3
-                    #
-                    # STAGE 3: Numeric Stats + Complex Queries
-                    #   Helper: _schedule_numeric_queries() + _extract_and_process_stats()
-                    #   - Schedules min/max/mean/stdev/median for numeric/datetime columns
-                    #   - Flushes and batches all numeric queries into ONE SQL statement
-                    #   - Extracts results and runs non-batchable complex queries
-                    #     (sample values, histograms, frequencies)
-                    #
-                    # Performance: Reduces 50-100+ queries down to 3-5 queries per table!
+                    # PER-COLUMN QUERIES: not batched -- value frequencies need
+                    #   cardinality, histograms need min/max, and sample values
+                    #   return many rows.
                     # ================================================================
 
                     # ----------------------------------------------------------------
-                    # STAGE 1: Row Count
+                    # BATCH 1: Row count + column counts + numeric stats
                     # ----------------------------------------------------------------
-                    row_count = self._profile_row_count(
-                        runner=runner,
-                        sql_table=sql_table,
+                    # Folding the row count in only pays when scheduling defers.
+                    # With the combiner off every call runs where it is written,
+                    # so the column queries would all execute before the count
+                    # could skip them -- 73 statements on an empty 12-column
+                    # table instead of 1, and 73 failures on an unreadable one.
+                    folded = runner.defers_queries
+
+                    setup: Optional[_ColumnSetup] = None
+
+                    def _schedule_columns(
+                        batch: QueryCombinerRunner,
+                    ) -> Tuple[
+                        _ColumnSetup,
+                        Dict[str, Dict[str, FutureResult[Any]]],
+                        Dict[str, Dict[str, FutureResult[Any]]],
+                    ]:
+                        # The setup is computed here rather than above, so that
+                        # the unfolded path pays for it only once the row count
+                        # has said there is something to profile. It costs no
+                        # query against the table, but the sampling tags are a
+                        # lookup against the DataHub server.
+                        prepared = self._prepare_column_setup(
+                            sql_table, adapter, conn, pretty_name, platform
+                        )
+                        return (
+                            prepared,
+                            self._schedule_cardinality_queries(
+                                batch=batch,
+                                sql_table=sql_table,
+                                column_types=prepared.column_types,
+                                pretty_name=pretty_name,
+                            ),
+                            self._schedule_numeric_queries(
+                                batch=batch,
+                                sql_table=sql_table,
+                                column_types=prepared.column_types,
+                                ignore_table_sampling=prepared.ignore_table_sampling,
+                                columns_list_to_ignore_sampling=prepared.columns_list_to_ignore_sampling,
+                                pretty_name=pretty_name,
+                            ),
+                        )
+
+                    cardinality_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
+                    numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
+                    with runner.batch() as batch:
+                        row_count_future = self._schedule_row_count(
+                            batch=batch,
+                            sql_table=sql_table,
+                            adapter=adapter,
+                            pretty_name=pretty_name,
+                        )
+                        if folded:
+                            (
+                                setup,
+                                cardinality_futures,
+                                numeric_stats_futures,
+                            ) = _schedule_columns(batch)
+
+                    row_count = self._extract_row_count(
+                        row_count_future=row_count_future,
                         profile=profile,
                         context=context,
                         pretty_name=pretty_name,
-                        adapter=adapter,
                     )
 
-                    # Skip column profiling when row_count tells us there's no data to profile:
-                    # - row_count is None: row count query failed (permission error etc.)
-                    # - row_count == 0 AND we used an EXACT count: genuinely empty table.
+                    # Emit no field profiles when the row count says there is no
+                    # data to profile:
+                    # - row_count is None: the query failed (permission error etc.)
+                    # - row_count == 0 AND the count was EXACT: genuinely empty.
                     #
-                    # When `profile_table_row_count_estimate_only=true`, row_count comes from
-                    # the adapter's fast-estimate query (information_schema.tables.table_rows on
-                    # MySQL, pg_class.reltuples on Postgres). Both can return 0 for small or
-                    # recently-modified tables that actually have data — never analyzed yet, or
-                    # stats not refreshed. Treating that 0 as "skip column profiling" would
-                    # silently drop fieldProfiles for non-empty tables, so we still
-                    # proceed to column-level queries when using estimation.
-                    use_estimation = (
-                        self.config.profile_table_row_count_estimate_only
-                        and adapter.supports_row_count_estimation()
-                    )
-                    if row_count is None or (row_count == 0 and not use_estimation):
+                    # The column queries already ran alongside the count, so their
+                    # results are dropped here rather than skipped.
+                    #
+                    # With profile_table_row_count_estimate_only the count comes from
+                    # the catalog, which can report 0 for a table that has rows --
+                    # never analyzed, or stale statistics -- so an estimate of 0 must
+                    # not drop the column profiles.
+                    if row_count is None or (
+                        row_count == 0 and not self._uses_row_count_estimate(adapter)
+                    ):
                         reason = (
                             "empty table (rowCount=0)"
                             if row_count == 0
@@ -1682,84 +2047,42 @@ class SQLAlchemyProfiler:
                         logger.info(
                             f"Skipping column profiling for {pretty_name}: {reason}"
                         )
-                        # Return profile with basic table-level metadata but no field profiles
                         return profile
 
-                    # ----------------------------------------------------------------
-                    # SETUP: Get columns to profile and sampling configuration
-                    # ----------------------------------------------------------------
-                    columns_to_profile = self._get_columns_to_profile(
-                        sql_table, pretty_name
-                    )
-                    (
-                        ignore_table_sampling,
-                        columns_list_to_ignore_sampling,
-                    ) = _get_columns_to_ignore_sampling(
-                        pretty_name,
-                        self.config.tags_to_ignore_sampling,
-                        platform,
-                        self.env,
-                    )
+                    if not folded:
+                        with runner.batch() as batch:
+                            (
+                                setup,
+                                cardinality_futures,
+                                numeric_stats_futures,
+                            ) = _schedule_columns(batch)
 
-                    columns_list_to_ignore_sampling = self._ignore_list_as_stored_names(
-                        columns_list_to_ignore_sampling, sql_table, adapter, conn
-                    )
-
-                    all_columns = [col.name for col in sql_table.columns]
-                    columns_to_profile_set = set(columns_to_profile)
-
-                    # ----------------------------------------------------------------
-                    # SETUP: Create field profiles
-                    # ----------------------------------------------------------------
-                    field_profiles = self._create_field_profiles(
-                        all_columns, columns_to_profile_set
-                    )
-
-                    # ----------------------------------------------------------------
-                    # STAGE 2: Column Cardinality
-                    # ----------------------------------------------------------------
-                    cardinality_futures = self._schedule_cardinality_queries(
-                        runner=runner,
-                        sql_table=sql_table,
-                        columns_to_profile_set=columns_to_profile_set,
-                        pretty_name=pretty_name,
-                    )
+                    assert setup is not None
 
                     columns_with_types = self._extract_cardinality_results(
-                        sql_table=sql_table,
-                        field_profiles=field_profiles,
+                        field_profiles=setup.field_profiles,
                         cardinality_futures=cardinality_futures,
-                        columns_to_profile_set=columns_to_profile_set,
+                        column_types=setup.column_types,
                         row_count=row_count,
-                        platform=platform,
                         pretty_name=pretty_name,
                     )
 
                     # ----------------------------------------------------------------
-                    # STAGE 3: Numeric Stats + Complex Queries
+                    # PER-COLUMN QUERIES (not batched; need batch 1's results)
                     # ----------------------------------------------------------------
-                    numeric_stats_futures = self._schedule_numeric_queries(
-                        runner=runner,
-                        sql_table=sql_table,
-                        columns_with_types=columns_with_types,
-                        ignore_table_sampling=ignore_table_sampling,
-                        columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
-                        pretty_name=pretty_name,
-                    )
-
                     self._extract_and_process_stats(
                         runner=runner,
                         sql_table=sql_table,
                         columns_with_types=columns_with_types,
                         numeric_stats_futures=numeric_stats_futures,
-                        ignore_table_sampling=ignore_table_sampling,
-                        columns_list_to_ignore_sampling=columns_list_to_ignore_sampling,
+                        ignore_table_sampling=setup.ignore_table_sampling,
+                        columns_list_to_ignore_sampling=setup.columns_list_to_ignore_sampling,
                         row_count=row_count,
                         pretty_name=pretty_name,
                     )
 
                     profile.fieldProfiles = self._to_emitted_field_paths(
-                        field_profiles, adapter, conn, pretty_name
+                        setup.field_profiles, adapter, conn, pretty_name
                     )
 
                     time_taken = timer.elapsed_seconds()

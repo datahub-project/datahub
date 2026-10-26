@@ -10,7 +10,7 @@ import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/typ
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
 import { FetchedEntity } from '@app/lineage/types';
 import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
@@ -149,7 +149,7 @@ export default class EntityRegistry {
         const previewData = entity.getGenericEntityProperties(searchResult.entity);
         return (
             <SearchResultProvider searchResult={searchResult}>
-                <PreviewContext.Provider value={{ previewData }}>
+                <PreviewContext.Provider value={{ previewData, previewType: PreviewType.SEARCH }}>
                     {entity.renderSearch(searchResult)}
                 </PreviewContext.Provider>
             </SearchResultProvider>
@@ -264,9 +264,12 @@ export default class EntityRegistry {
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
-                .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
-            // TODO: Clean up redundant values
-            exists: genericEntityProperties.exists,
+                .filter((r): r is FetchedEntityV2Relationship => !!r.urn), // TODO: Clean up redundant values
+            // Entity types that don't expose an `exists` field in GraphQL leave this undefined.
+            // Default those to true so they aren't treated as ghost entities and filtered out of
+            // the lineage graph. Types that do fetch `exists` keep their real boolean, so removed
+            // entities stay hidden.
+            exists: genericEntityProperties.exists ?? true,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,
             schemaMetadata: genericEntityProperties.schemaMetadata ?? undefined,
@@ -305,6 +308,11 @@ export default class EntityRegistry {
     getDisplayName<T>(type: EntityType, data: T): string {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.displayName(data);
+    }
+
+    getCreatedTime<T>(type: EntityType, data: T): number | undefined | null {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.createdTime?.(data);
     }
 
     getSidebarTabs(type: EntityType): EntitySidebarTab[] {

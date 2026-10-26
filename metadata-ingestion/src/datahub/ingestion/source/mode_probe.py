@@ -1,8 +1,9 @@
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import echoed, soft_listing
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
-from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
+from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeSoftError
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.mode import (
     ModeConfig,
@@ -13,32 +14,26 @@ from datahub.ingestion.source.mode import (
 
 
 class ModeProbeSource(RestApiPassthrough, ModeSource):
-    """Exists because ModeSource's inherited Closeable.__exit__ closes only the
-    report, deliberately not the session -- a real ingestion run's session lives
-    for the whole pipeline and must not close early. Pipeline.run() calls
-    __exit__ on every source, so putting this override on ModeSource itself
-    would change ingestion (it broke 4 integration tests when tried). The
-    probe's ad hoc session (for_probe) should close when this short-lived `with`
-    block exits."""
+    """Mode's probe provider: the probe methods, the `api` passthrough, and the
+    closing of the probe's own session.
 
-    # Read back by run_probe_method after each command. Declared here (rather
-    # than only assigned in for_probe) because for_probe builds via __new__,
-    # which no type checker can see priming an attribute.
-    warnings: List[str]
+    The probe opens its session for one short `with` block (for_config), so
+    this __exit__ closes it. That override cannot live on ModeSource: a
+    pipeline calls __exit__ on every source, and an ingestion run's session
+    must live for the whole pipeline, which is why ModeSource's inherited
+    Closeable.__exit__ closes only the report."""
 
     @property
     def probe_report(self) -> object:
         """The ingestion report these commands write into, so its failures reach
         the caller.
 
-        Several probe methods are @probe_method directly on ModeSource and reuse
-        its fetchers verbatim -- `data_sources` and `definitions` among them. On
-        a ModeRequestError those call self.report.failure() and return {}, which
-        is right for an ingestion run. Nothing read report.failures, so a 403 on
-        data_sources came back as an empty dict at exit 0, indistinguishable
-        from a workspace with no warehouse connections -- and that dict is the
-        "so no lineage" diagnosis, the most consequential answer this probe
-        gives.
+        `data_sources` and `definitions` call ModeSource's fetchers verbatim,
+        which on a ModeRequestError record self.report.failure() and return
+        {}: right for an ingestion run. Unless the report is read back, a 403
+        on data_sources is an empty dict at exit 0, indistinguishable from a
+        workspace with no warehouse connections -- the "so no lineage"
+        diagnosis, the most consequential answer this probe gives.
         """
         return self.report
 
@@ -82,6 +77,9 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
 
     def __exit__(self, *exc: object) -> None:
         self.session.close()
+        # Stops at ProbeProviderBase, which does not chain on: ModeSource's
+        # Closeable.__exit__ (closing an ingestion report) is never reached.
+        super().__exit__(*exc)
 
     @classmethod
     def for_config(cls, config: ModeConfig) -> "ModeProbeSource":
@@ -98,9 +96,6 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         cls, config: ModeConfig, session: Any, workspace_uri: str
     ) -> "ModeProbeSource":
         probe = super().for_probe(config, session, workspace_uri)
-        # run_probe_method reads this back after each command, so a listing that
-        # degraded reports why instead of looking like an empty workspace.
-        probe.warnings = []
         # Mode's base carries the workspace segment, so `api` appends a path to the
         # workspace URI rather than to the host. Primed here rather than as a
         # property because for_probe builds via __new__ and primes every attribute
@@ -121,16 +116,12 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         back as [] plus "Mode filtered personal spaces out server-side",
         offering a config reason for an outcome the config did not cause.
         """
-        try:
+        with soft_listing(self._warn):
             names = fetch()
-        except ProbeSoftError as exc:
-            message = str(exc)
-            if message not in self.warnings:
-                self.warnings.append(message)
-            return []
-        if note_on_success and note_on_success not in self.warnings:
-            self.warnings.append(note_on_success)
-        return names
+            if note_on_success:
+                self._warn(note_on_success)
+            return names
+        return []
 
     # Declared here, not on ModeSource: a declaration error raises at import, and
     # in mode.py that would break Mode ingestion rather than just the probe.
@@ -207,10 +198,14 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         )
 
     def _space_token_or_raise(self, space: str) -> str:
+        # A space the caller named that the listing does not hold is their
+        # argument (exit 2); a listing that could not be read stays a
+        # ProbeSoftError from _fetch_spaces, so "could not look" is a warning.
         token = _space_token(self, space)
         if token is None:
-            raise ProbeSoftError(
-                f"no space named '{space}' found among this workspace's spaces"
+            raise ProbeArgumentError(
+                f"no space named {echoed(space)} among this workspace's spaces "
+                f"(as the recipe sees them); run `spaces` for the names"
             )
         return token
 
@@ -228,11 +223,28 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         space_token = self._space_token_or_raise(space)
         report_token = _report_token(self, space_token, report)
         if report_token is None:
-            raise ProbeSoftError(f"no report named '{report}' found in space '{space}'")
+            raise ProbeArgumentError(
+                f"no report named {echoed(report)} in space {echoed(space)}; run "
+                f"`reports --space` for the names"
+            )
         url = f"{self.workspace_uri}/reports/{report_token}/queries"
         return _get_embedded(
             self, url, "queries", context=f"queries listing for report '{report}'"
         )
+
+
+_T = TypeVar("_T")
+
+
+def _soft_fetch(fetch: Callable[[], _T], context: str) -> _T:
+    """`fetch()`, with Mode's 403 and 404 ("nothing here") raised as a
+    ProbeSoftError naming `context`, for the command's _listing to report:
+    each step names what it could not read, and the command decides the
+    fallback, so a failed step is never mistaken for an empty one."""
+    reasons: List[str] = []
+    with soft_listing(reasons.append, 403, 404, context=context):
+        return fetch()
+    raise ProbeSoftError(reasons[0])
 
 
 def _get_embedded(
@@ -246,9 +258,8 @@ def _get_embedded(
     Deliberately NOT delegated to _get_queries/_get_charts: those always
     degrade HTTP/JSON errors to an empty result, which is correct for
     ingestion but hides the distinction a probe exists to report. This wraps
-    the fetch in soft_on_status instead."""
-    with soft_on_status(403, 404, context=context):
-        payload = source._get_request_json(url)
+    the fetch in _soft_fetch instead."""
+    payload = _soft_fetch(lambda: source._get_request_json(url), context)
     return list(payload.get("_embedded", {}).get(key, []))
 
 
@@ -265,13 +276,16 @@ def _get_embedded_paged(
     A soft error partway through (e.g. page 3 of 5 403s) raises rather than
     returning the pages collected so far: a truncated listing that looks
     complete is worse than an honest "couldn't finish this, here's why"."""
-    items: List[Dict[str, Any]] = []
-    with soft_on_status(403, 404, context=context):
+
+    def walk() -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
         for page in source._get_paged_request_json(
             url, key, source.config.items_per_page
         ):
             items.extend(page)
-    return items
+        return items
+
+    return _soft_fetch(walk, context)
 
 
 def _display_name(item: Dict[str, Any]) -> str:
@@ -297,12 +311,13 @@ def _fetch_spaces(source: ModeSource) -> List[Dict[str, Any]]:
     ingestion byte-for-byte; only the client-side exclude_restricted filter
     lives here, since mode.py's space_pattern filter is exactly what a probe
     must not apply (see test_spaces_apply_space_pattern)."""
-    with soft_on_status(403, 404, context="workspace spaces listing"):
-        # list() here on purpose: fetch_spaces yields per space so an
-        # ingestion run keeps what it read before a paging failure, but a
-        # probe has no streaming consumer and needs the failure to surface
-        # before it reports a count.
-        spaces = list(source.fetch_spaces())
+    # list() here on purpose: fetch_spaces yields per space so an ingestion
+    # run keeps what it read before a paging failure, but a probe has no
+    # streaming consumer and needs the failure to surface before it reports a
+    # count.
+    spaces = _soft_fetch(
+        lambda: list(source.fetch_spaces()), "workspace spaces listing"
+    )
     if source.config.exclude_restricted:
         spaces = [s for s in spaces if not is_restricted_space(s)]
     return spaces
@@ -315,10 +330,10 @@ def _fetch_reports(source: ModeSource, space_token: str) -> List[Dict[str, Any]]
     _fetch_spaces -- fetch_reports is itself a generator of pages (unlike
     fetch_spaces), so this flattens it: the probe has no streaming consumer
     to preserve, unlike ingestion's threaded per-report workers."""
-    with soft_on_status(
-        403, 404, context=f"reports listing for space token '{space_token}'"
-    ):
-        reports = [r for page in source.fetch_reports(space_token) for r in page]
+    reports = _soft_fetch(
+        lambda: [r for page in source.fetch_reports(space_token) for r in page],
+        f"reports listing for space token '{space_token}'",
+    )
     if source.config.exclude_archived:
         reports = [r for r in reports if not is_archived_report(r)]
     return reports

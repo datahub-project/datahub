@@ -1,4 +1,3 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import uniqBy from 'lodash/uniqBy';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,11 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeWithURN } from '@app/entityV2/shared/tabs/Incident/utils';
-import { Avatar, SimpleSelect } from '@src/alchemy-components';
+import { Avatar, Loader, SimpleSelect } from '@src/alchemy-components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { addUserFiltersToAutoCompleteInput } from '@src/app/shared/userSearchUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useGetRecommendations } from '@src/app/sharedV2/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@src/app/sharedV2/userSearchUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -43,7 +42,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
     const ownerSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
     const ownerResult = useSearch ? ownerSearchResults : recommendedData;
     const [getAssigneeEntities, { data: resolvedAssigneeEntities }] = useGetEntitiesLazyQuery();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     useEffect(() => {
         if (data?.assignees?.length) {
@@ -136,7 +135,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
 
     return recommendationsLoading ? (
         <LoadingWrapper>
-            <LoadingOutlined />
+            <Loader size="xs" />
         </LoadingWrapper>
     ) : (
         <SimpleSelect

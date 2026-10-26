@@ -132,6 +132,18 @@ When you ask a question in [Ask DataHub](../ask-datahub.md), the AI searches you
 
 _Note: Ask DataHub is available in DataHub Cloud only._
 
+## Who Can Create, Edit, and Delete Documents
+
+| Role   | Create | Edit and move | Delete                  |
+| ------ | ------ | ------------- | ----------------------- |
+| Admin  | Yes    | Yes           | Yes                     |
+| Editor | Yes    | Yes           | Only documents they own |
+| Reader | No     | No            | No                      |
+
+Owners of a document can also edit, move, and delete it, whatever their role.
+
+To change this, edit your [policies](../../../authorization/policies.md#documents).
+
 ## Programmatic Access
 
 Context Documents are accessible via:

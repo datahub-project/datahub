@@ -219,7 +219,10 @@ jobs:
 
       # Linear ref label: use the repo default branch when scanning image tags `quickstart` or `latest`
       # (nightly / default tip); otherwise use the provided docker tag as a tag ref (e.g. release).
-      # Container pulls always use RESOLVED_DOCKER_TAG.
+      # Container pulls always use RESOLVED_DOCKER_TAG. Semantic tags, including RCs, pick
+      # Saas Release vs OSS Release from the -cloud suffix. OSS labels are named
+      # "OSS <tag>" (for example "OSS v1.7.0.1"). Non-semantic refs use the
+      # Security Scan team group.
       - name: Resolve git ref (Linear)
         id: git-ref
         env:

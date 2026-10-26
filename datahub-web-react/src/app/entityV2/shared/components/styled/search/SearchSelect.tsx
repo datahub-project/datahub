@@ -1,7 +1,7 @@
-import { FilterOutlined } from '@ant-design/icons';
-import { Button, Typography, message } from 'antd';
+import { Button, Text, toast } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import debounce from 'lodash/debounce';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -14,7 +14,7 @@ import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 import useSortInput from '@src/app/searchV2/sorting/useSortInput';
@@ -118,6 +118,14 @@ export const SearchSelect = ({
         },
     });
 
+    useEffect(() => {
+        if (error) {
+            toast.error(t('embeddedSearch.searchError', { message: error?.message }), {
+                key: 'search-select-error',
+            });
+        }
+    }, [error, t]);
+
     const searchAcrossEntities = data?.searchAcrossEntities;
     const searchResultEntities =
         searchAcrossEntities?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) ||
@@ -167,11 +175,15 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
-                <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
-                    <FilterOutlined />
-                    <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
+                <Button
+                    variant="text"
+                    color="gray"
+                    onClick={onToggleFilters}
+                    data-testid="toggle-filters-button"
+                    icon={{ icon: Funnel }}
+                >
+                    <Text type="span">{t('embeddedSearch.filters')}</Text>
                 </Button>
                 <SearchBar
                     initialQuery=""

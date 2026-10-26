@@ -1,4 +1,4 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -25,7 +25,7 @@ export default function AdvancedFilterCloseButton({ onClose }: Props) {
             tabIndex={0}
             onKeyPress={onClose}
         >
-            <CloseOutlined />
+            <X />
         </CloseSpan>
     );
 }

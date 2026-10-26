@@ -1,5 +1,6 @@
-import { CopyOutlined, StopOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import { Button, Divider, Empty, Tag, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -64,7 +65,7 @@ export const TestResultsList = ({ title, results }: Props) => {
                 const resultColor = (record.resultType && getResultColor(record.resultType, theme)) || 'default';
                 const resultText =
                     (record.resultType && getResultText(record.resultType)) || t('testResults.noEvaluations');
-                const resultIcon = (record.resultType && getResultIcon(record.resultType, theme)) || <StopOutlined />;
+                const resultIcon = (record.resultType && getResultIcon(record.resultType, theme)) || <Prohibit />;
                 return (
                     <ResultContainer>
                         <div>
@@ -87,7 +88,7 @@ export const TestResultsList = ({ title, results }: Props) => {
                             {navigator.clipboard && (
                                 <Tooltip title={tc('shared.misc:copyUrn.tooltip')}>
                                     <Button
-                                        icon={<CopyOutlined />}
+                                        icon={<Copy />}
                                         onClick={() => {
                                             navigator.clipboard.writeText(record.urn);
                                         }}

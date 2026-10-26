@@ -16,7 +16,6 @@ export * from './components/Card';
 export * from './components/Carousel';
 export * from './components/CollapsiblePanel';
 export * from './components/Checkbox';
-export * from './components/CodeBlock';
 export * from './components/ColorPicker';
 export * from './components/Compatibility';
 export * from './components/DatePicker';
@@ -59,7 +58,9 @@ export * from './components/Tooltip';
 export * from './components/Utils';
 export * from './components/WhiskerChart';
 export * from './components/InfiniteScrollList';
-export * from './components/Editor';
+// Editor and CodeBlock are intentionally not re-exported. Each lazy-loads its
+// implementation, and that implementation reaches this barrel, so exporting them
+// closes a cycle across the import() boundary.
 export * from './components/EmptyState';
 export * from './components/Breadcrumb';
 export * from './components/Toast';

@@ -5,10 +5,13 @@ import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetS
 import { EntityType } from '@types';
 
 /**
- * Whether the entity's profile renders a Summary tab. Datasets gate theirs on `datasetSummaryPageV1`
- * (see DatasetEntity); the other summary-tab entities on `assetSummaryPageV1`. Anything that routes
- * to the Summary tab must agree with this: a route to a tab the profile doesn't render falls back to
- * the default tab and silently drops the route's params.
+ * Whether the entity's profile renders the new Summary tab, which opens the description
+ * editor from `editingDescription`. Datasets gate theirs on `datasetSummaryPageV1`
+ * (see DatasetEntity). Charts, dashboards, containers, applications, domains, glossary
+ * nodes, glossary terms, and data products gate theirs on `assetSummaryPageV1` and drop
+ * the Documentation tab while that flag is on. A route to a tab the profile does not
+ * render falls back to the default tab and drops the route's params, so the sidebar
+ * Documentation pencil must use this instead of assuming a Documentation tab exists.
  */
 export function useEntityHasSummaryTab(entityType: EntityType): boolean {
     const showAssetSummaryPage = useShowAssetSummaryPage();

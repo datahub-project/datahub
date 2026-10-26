@@ -8,6 +8,7 @@ import graphql.execution.DataFetcherExceptionHandlerParameters;
 import graphql.execution.DataFetcherExceptionHandlerResult;
 import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -23,10 +24,12 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
    * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
    * ValidationException} → {@link IllegalArgumentException} → {@link
    * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
-   * IllegalStateException} → {@link RuntimeException} → fallback. Conflict must stay above {@code
-   * RuntimeException} because {@code DatabaseTransactionConflictException} extends {@code
-   * RetryLimitReached} (a RuntimeException). {@code LineageTimeoutException} stays above {@code
-   * RuntimeException} so a graph-query deadline maps to DEADLINE_EXCEEDED, not SERVER_ERROR.
+   * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
+   * Conflict must stay above {@code RuntimeException} because {@code
+   * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
+   * {@code LineageTimeoutException} stays above {@code RuntimeException} so a graph-query deadline
+   * maps to DEADLINE_EXCEEDED, not SERVER_ERROR. {@code ActorAccessException} stays above {@code
+   * RuntimeException} so a privilege denial maps to UNAUTHORIZED, not SERVER_ERROR.
    */
   @Override
   public CompletableFuture<DataFetcherExceptionHandlerResult> handleException(
@@ -96,6 +99,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       return completedResult(
           extractErrorMessage(illegalStateException),
           DataHubGraphQLErrorCode.SERVER_ERROR,
+          path,
+          sourceLocation);
+    }
+
+    ActorAccessException actorAccessException =
+        findFirstThrowableCauseOfClass(exception, ActorAccessException.class);
+    if (actorAccessException != null) {
+      log.error("Failed to execute", actorAccessException);
+      return completedResult(
+          extractErrorMessage(actorAccessException),
+          DataHubGraphQLErrorCode.UNAUTHORIZED,
           path,
           sourceLocation);
     }

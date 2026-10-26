@@ -403,15 +403,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -690,15 +691,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.issue_history,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -931,15 +933,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.member,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -1198,15 +1201,16 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "siblings",
     "aspect": {
-        "json": {
-            "siblings": [
-                "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)"
-            ],
-            "primary": false
-        }
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:trino,postgresqldb.librarydb.book_in_circulation,PROD)"
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -1299,70 +1303,6 @@
                     "confidenceScore": 1.0
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.book_in_circulation,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.issue_history,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,local_server.postgres.librarydb.member,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {

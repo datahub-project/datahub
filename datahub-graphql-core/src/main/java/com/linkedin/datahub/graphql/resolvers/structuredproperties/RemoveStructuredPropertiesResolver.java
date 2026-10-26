@@ -19,6 +19,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -58,7 +59,9 @@ public class RemoveStructuredPropertiesResolver
                       "Not authorized to update properties on the given urn %s", assetUrn));
             }
 
-            if (!_entityClient.exists(context.getOperationContext(), assetUrn)) {
+            if (!_entityClient.exists(
+                context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                assetUrn)) {
               throw new RuntimeException(
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
