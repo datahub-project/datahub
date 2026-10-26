@@ -1381,6 +1381,24 @@ def test_no_prior_link_no_conflict(tmp_path: pathlib.Path) -> None:
     assert not _link_conflict_warnings(src)
 
 
+def test_link_conflict_check_failure_is_reported(tmp_path: pathlib.Path) -> None:
+    """A failed read of the existing link still emits the link, but says that
+    conflict detection was skipped instead of hiding it."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_link_check_failed == 1
+    assert any(
+        "existing logicalParent" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
 def test_verification_without_graph_links(tmp_path: pathlib.Path) -> None:
     """File-sink runs have no graph: verification degrades to emitting."""
     contract_file = tmp_path / "c.odcs.yaml"

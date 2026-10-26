@@ -209,6 +209,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
     physical_urns_link_conflicts: int = 0
+    physical_urns_link_check_failed: int = 0
     physical_urns_verify_failed: int = 0
     physical_names_passthrough: int = 0
     owners_unresolved: int = 0
@@ -804,7 +805,8 @@ class ODCSSource(StatefulIngestionSourceBase):
         Best-effort, cached graph read of the persisted `logicalParent` aspect.
         Returns None when no graph is attached, when there is no existing link,
         or when the lookup fails — conflict detection is advisory and must
-        never abort or alter emission.
+        never abort or alter emission. A failed lookup is reported, since it
+        means a conflicting link could be overwritten unnoticed.
         """
         graph = self.ctx.graph
         if graph is None:
@@ -814,9 +816,17 @@ class ODCSSource(StatefulIngestionSourceBase):
         target: Optional[str] = None
         try:
             existing = graph.get_aspect(physical_urn, LogicalParentClass)
-        except Exception:
-            # Advisory-only: a flaky read must not change behavior or spam the
-            # report (the existence check already surfaces graph errors).
+        except Exception as e:
+            # Advisory-only: the link is still emitted. Reported once per URN
+            # (the result is cached).
+            self.report.physical_urns_link_check_failed += 1
+            self.report.warning(
+                title="Could not read existing logicalParent link",
+                message="Graph lookup failed; emitted the link without checking "
+                "whether it overwrites one to a different ODCS contract.",
+                context=physical_urn,
+                exc=e,
+            )
             existing = None
         if isinstance(existing, LogicalParentClass) and existing.parent is not None:
             target = existing.parent.destinationUrn
