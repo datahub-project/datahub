@@ -35,7 +35,6 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
 KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
         "businessName",
-        "enum",
         "examples",
         "id",
         "items",
@@ -167,6 +166,24 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
     return kept or None
 
 
+def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
+    """Keep enum entries with a scalar `value`; bare scalars are read as values.
+
+    Values are kept as text: they are rendered, not compared.
+    """
+    if not isinstance(value, list):
+        return None
+    kept: List[Dict[str, object]] = []
+    for entry in value:
+        if isinstance(entry, dict):
+            raw = entry.get("value")
+            if isinstance(raw, (str, int, float, bool)):
+                kept.append({**entry, "value": str(raw)})
+        elif isinstance(entry, (str, int, float, bool)):
+            kept.append({"value": str(entry)})
+    return kept or None
+
+
 # The v3.2 keys below were ignored before this source parsed them, so an
 # off-spec value must not now reject a contract that used to ingest. Bad values
 # are dropped here; lenient mode already reports them as JSON Schema warnings.
@@ -179,6 +196,18 @@ class ODCSSynonym(ODCSBaseModel):
     status: Optional[str] = None
 
     _lenient_strings = field_validator("synonym", "status", mode="before")(_str_or_none)
+
+
+class ODCSEnumValue(ODCSBaseModel):
+    # v3.2 (RFC 0033). `id`, `tags`, `customProperties` and
+    # `authoritativeDefinitions` are not recorded.
+    value: str
+    label: Optional[str] = None
+    description: Optional[str] = None
+
+    _lenient_strings = field_validator("label", "description", mode="before")(
+        _str_or_none
+    )
 
 
 class ODCSProperty(ODCSBaseModel):
@@ -207,9 +236,11 @@ class ODCSProperty(ODCSBaseModel):
     semanticType: Optional[str] = None
     transformLogic: Optional[str] = None
     transformDescription: Optional[str] = None
+    enum: Optional[List[ODCSEnumValue]] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
+    _lenient_enum = field_validator("enum", mode="before")(_enum_entries)
     _lenient_strings = field_validator(
         "semanticType", "transformLogic", "transformDescription", mode="before"
     )(_str_or_none)
@@ -406,5 +437,6 @@ LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
         "semanticType",
         "transformLogic",
         "transformDescription",
+        "enum",
     ),
 }

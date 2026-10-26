@@ -78,6 +78,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
     ODCSDescription,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityArguments,
     ODCSQualityRule,
@@ -689,7 +690,23 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
         if transform_logic:
             derivation += f"\n\n```sql\n{transform_logic}\n```"
         parts.append(derivation)
+    if prop.enum:
+        parts.append(
+            "**Allowed values:**\n"
+            + "\n".join(_enum_value_line(entry) for entry in prop.enum)
+        )
     return "\n\n".join(p for p in parts if p) or None
+
+
+def _enum_value_line(entry: ODCSEnumValue) -> str:
+    line = f"- `{entry.value}`"
+    label = (entry.label or "").strip()
+    if label and label != entry.value:
+        line += f" — {label}"
+    description = (entry.description or "").strip()
+    if description:
+        line += f": {description}"
+    return line
 
 
 def build_schema_metadata(

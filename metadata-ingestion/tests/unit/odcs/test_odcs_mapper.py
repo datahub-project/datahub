@@ -2021,3 +2021,52 @@ def test_sql_rule_object_kept_when_unbound() -> None:
     sql_info, _ = _object_rule_infos(None)
     assert sql_info.sqlAssertion is not None
     assert sql_info.sqlAssertion.statement == "SELECT count(*) FROM {object}"
+
+
+def test_field_description_allowed_values_after_derivation() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "status",
+                "description": "Order status.",
+                "transformLogic": "upper(s)",
+                "enum": [
+                    {
+                        "value": "open",
+                        "label": "Open",
+                        "description": "Not shipped yet",
+                    },
+                    {"value": "shipped", "label": "shipped"},
+                    {"value": "void", "description": "Cancelled"},
+                    "legacy",
+                    {"label": "no value"},
+                ],
+            }
+        ]
+    )
+    assert (descriptions["status"] or "").endswith(
+        "```\n\n**Allowed values:**\n"
+        "- `open` — Open: Not shipped yet\n"
+        "- `shipped`\n"
+        "- `void`: Cancelled\n"
+        "- `legacy`"
+    )
+
+
+def test_field_description_allowed_values_on_nested_field() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "address",
+                "logicalType": "object",
+                "properties": [{"name": "country", "enum": [{"value": "DE"}]}],
+            }
+        ]
+    )
+    assert descriptions["address.country"] == "**Allowed values:**\n- `DE`"
+
+
+def test_enum_off_spec_dropped() -> None:
+    assert ODCSProperty.model_validate({"name": "s", "enum": "open"}).enum is None
+    prop = ODCSProperty.model_validate({"name": "s", "enum": [{"label": "x"}, None]})
+    assert prop.enum is None
