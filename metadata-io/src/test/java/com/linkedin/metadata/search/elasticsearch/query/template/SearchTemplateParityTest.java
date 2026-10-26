@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.opensearch.action.search.SearchRequest;
@@ -61,7 +62,13 @@ public class SearchTemplateParityTest {
     harness.installShippedTemplates();
     installShippedSelection();
     elastic = harness.elastic();
-    coordinator = new SearchTemplateCoordinator(elastic, null, harness.loader);
+    coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     javaBuilder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     dataset = harness.registry.getEntitySpec("dataset");
     SearchTemplates.install(coordinator);
@@ -324,13 +331,19 @@ public class SearchTemplateParityTest {
     String structured =
         "Java keeps the V2.5 dis_max root around the structured fragment. "
             + "The structured template places that fragment in a bool should with the exact name and URN terms.";
-    String light = "The light query drops fuzzy expansions on both paths.";
+    String light =
+        "The light query drops fuzzy expansions on both paths. "
+            + "Its exact name term is boost 100. Java keeps the constant 1000.";
     String browse =
         "Browse text uses the search router. An empty query resolves to listUrn without ranking. "
             + "Browse path, depth, and group aggregation stay in Java, so neither body names browsePathV2.";
     String lineage =
         "A lineage page uses the searchEntities seed. A short query starts on light. "
-            + "The graph walk's URN filter stays outside the template.";
+            + "The graph walk's URN filter stays outside the template. "
+            + "The template's exact name term is boost 100. Java keeps the constant 1000.";
+    String dotted =
+        "A spaceless dotted query scores qualifiedName through the bounded path clause. "
+            + "The template omits the analyzed qualifiedName boost of 50. Java still applies it.";
     String scroll = "Scroll renders fulltext. Interactive search starts on light.";
     return List.of(
         shared(
@@ -358,7 +371,7 @@ public class SearchTemplateParityTest {
             List.of("dis_max"),
             List.of(),
             quoted),
-        shared(
+        different(
             "dotted",
             "dotted",
             "my_db.analytics.orders",
@@ -366,8 +379,12 @@ public class SearchTemplateParityTest {
             true,
             false,
             SEARCH_TEMPLATE_FULLTEXT_URN,
-            "qualifiedName",
-            "50.0"),
+            List.of("qualifiedName"),
+            List.of(),
+            List.of("50.0"),
+            List.of("50.0"),
+            List.of(),
+            dotted),
         shared(
             "alphanumeric",
             "alphanumeric",
@@ -436,10 +453,10 @@ public class SearchTemplateParityTest {
             false,
             true,
             "urn:li:searchTemplate:light",
-            List.of("multi_match", "1000"),
+            List.of("multi_match"),
             List.of(),
-            List.of(),
-            List.of("~"),
+            List.of("1000"),
+            List.of("1000"),
             List.of("~"),
             lineage),
         different(
@@ -464,10 +481,10 @@ public class SearchTemplateParityTest {
             false,
             true,
             "urn:li:searchTemplate:light",
-            List.of("multi_match", "1000"),
+            List.of("multi_match"),
             List.of(),
-            List.of(),
-            List.of("~"),
+            List.of("1000"),
+            List.of("1000"),
             List.of("~"),
             light),
         different(

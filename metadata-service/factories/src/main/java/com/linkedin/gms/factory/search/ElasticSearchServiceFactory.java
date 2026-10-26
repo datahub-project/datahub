@@ -20,6 +20,9 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIn
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
@@ -198,18 +201,22 @@ public class ElasticSearchServiceFactory {
   protected SearchTemplateCoordinator searchTemplateCoordinator(
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
-      @Qualifier("searchTemplateLadderExecutor")
-          final ExecutorService searchTemplateLadderExecutor) {
+      @Qualifier("searchTemplateLadderExecutor") final ExecutorService searchTemplateLadderExecutor,
+      final ObjectProvider<List<SearchTemplateComponent>> searchTemplateComponents) {
     if (searchTemplateLoader == null) {
       return null;
     }
     searchTemplateLoader.installDocuments(
         new SearchTemplateDocumentSource(elasticSearchConfiguration.getEntityIndex()));
+    SearchTemplateComponentRegistry registry =
+        new SearchTemplateComponentRegistry(searchTemplateComponents.getIfAvailable(List::of));
+    SearchTemplateComponents.install(registry);
     return new SearchTemplateCoordinator(
         elasticSearchConfiguration,
         customSearchConfiguration,
         searchTemplateLoader,
-        searchTemplateLadderExecutor);
+        searchTemplateLadderExecutor,
+        registry);
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")

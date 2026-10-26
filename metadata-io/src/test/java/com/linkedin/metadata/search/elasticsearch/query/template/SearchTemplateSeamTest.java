@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
@@ -149,7 +150,12 @@ public class SearchTemplateSeamTest {
     try {
       shippedSurfaceSeeds(harness);
       SearchTemplateCoordinator coordinator =
-          new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+          new SearchTemplateCoordinator(
+              harness.elastic(),
+              null,
+              harness.loader,
+              ForkJoinPool.commonPool(),
+              SearchTemplateComponentRegistry.empty());
       ESSearchDAO dao = mock(ESSearchDAO.class);
       ElasticSearchService elastic = elasticSearch(harness, dao);
       OperationContext page = capturePageSearch(elastic, dao, harness.opContext);

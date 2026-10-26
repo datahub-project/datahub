@@ -50,12 +50,21 @@ public final class SearchTemplatePolicyChecks {
         && properties.getStructuredPropertyQuery() != null) {
       checkStructuredPropertyQuery(properties.getStructuredPropertyQuery());
     }
+    SearchTemplateScoreDefaults.checkFieldValueScores(
+        properties.hasFieldValueScores() ? properties.getFieldValueScores() : null);
+    SearchTemplateScoreDefaults.checkFieldFactors(
+        properties.hasFieldFactors() ? properties.getFieldFactors() : null);
+    SearchTemplateScoreDefaults.checkTermWeights(
+        properties.hasTermWeights() ? properties.getTermWeights() : null);
+    SearchTemplateScoreDefaults.checkEntityBoosts(
+        properties.hasEntityTypeBoosts() ? properties.getEntityTypeBoosts() : null);
     if (properties.hasNormalization() && properties.getNormalization() != null) {
       checkNormalization(properties.getNormalization());
     }
     if (properties.hasRanking() && properties.getRanking() != null) {
       checkRanking(properties.getRanking());
     }
+    SearchTemplateComponents.checkWrite(properties, SearchTemplateComponents.installed());
     if (properties.hasRetrieval() && properties.getRetrieval() != null) {
       checkRetrieval(properties.getRetrieval());
     }
@@ -283,6 +292,21 @@ public final class SearchTemplatePolicyChecks {
         || (properties.hasStructuredPropertyQuery()
             && !SearchTemplateLoader.emptyStructuredPropertyQuery(
                 properties.getStructuredPropertyQuery()))
+        || (properties.hasFieldValueScores()
+            && properties.getFieldValueScores() != null
+            && !properties.getFieldValueScores().isEmpty())
+        || (properties.hasFieldFactors()
+            && properties.getFieldFactors() != null
+            && !properties.getFieldFactors().isEmpty())
+        || (properties.hasTermWeights()
+            && properties.getTermWeights() != null
+            && !properties.getTermWeights().isEmpty())
+        || properties.hasScoreMode()
+        || properties.hasBoostMode()
+        || (properties.hasEntityTypeBoosts()
+            && properties.getEntityTypeBoosts() != null
+            && !properties.getEntityTypeBoosts().isEmpty())
+        || (properties.hasComponent() && !SearchTemplateComponents.empty(properties.getComponent()))
         || (properties.hasBoosts()
             && properties.getBoosts() != null
             && !properties.getBoosts().isEmpty())

@@ -11,6 +11,7 @@ import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -80,6 +81,9 @@ public final class SearchTemplateChecks {
     if (merged.getRanking() != null) {
       composed.setRanking(merged.getRanking());
     }
+    if (merged.getComponent() != null) {
+      composed.setComponent(merged.getComponent());
+    }
     if (merged.getRetrieval() != null) {
       composed.setRetrieval(merged.getRetrieval());
     }
@@ -100,6 +104,24 @@ public final class SearchTemplateChecks {
     }
     if (merged.getStructuredPropertyQuery() != null) {
       composed.setStructuredPropertyQuery(merged.getStructuredPropertyQuery());
+    }
+    if (merged.getFieldValueScores() != null) {
+      composed.setFieldValueScores(merged.getFieldValueScores());
+    }
+    if (merged.getScoreMode() != null) {
+      composed.setScoreMode(merged.getScoreMode());
+    }
+    if (merged.getBoostMode() != null) {
+      composed.setBoostMode(merged.getBoostMode());
+    }
+    if (merged.getFieldFactors() != null) {
+      composed.setFieldFactors(merged.getFieldFactors());
+    }
+    if (merged.getTermWeights() != null) {
+      composed.setTermWeights(merged.getTermWeights());
+    }
+    if (merged.getEntityTypeBoosts() != null) {
+      composed.setEntityTypeBoosts(merged.getEntityTypeBoosts());
     }
     if (merged.getNormalization() != null) {
       composed.setNormalization(merged.getNormalization());
@@ -291,7 +313,9 @@ public final class SearchTemplateChecks {
       built = SearchTemplateJson.mergeClauses(built, clauses);
     }
     if (functionScore != null) {
-      built = SearchTemplateJson.wrapFunctionScore(built, functionScore);
+      built =
+          SearchTemplateJson.wrapFunctionScore(
+              built, functionScore, List.of(), SearchTemplateJson.FunctionScoreTail.none());
     }
     return SearchTemplateJson.countLeaves(built.toString());
   }

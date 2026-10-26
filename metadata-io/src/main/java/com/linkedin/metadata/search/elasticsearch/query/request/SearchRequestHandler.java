@@ -457,7 +457,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
               size,
               facets,
               null,
-              true)
+              scrollRequest())
           .request();
     }
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -608,6 +608,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private static boolean templatesActive(@Nonnull OperationContext opContext) {
     SearchTemplateCoordinator coordinator = SearchTemplates.current();
     return coordinator != null && coordinator.executes(opContext);
+  }
+
+  /**
+   * The scroll-shaped search API, including the first page. Search-after, the PIT, and keep-alive
+   * are null until the caller continues. Template rescore stays off for every page of that scroll.
+   */
+  public static boolean scrollRequest() {
+    return true;
   }
 
   /**

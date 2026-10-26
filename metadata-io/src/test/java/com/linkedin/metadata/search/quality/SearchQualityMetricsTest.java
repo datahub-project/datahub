@@ -98,6 +98,30 @@ public class SearchQualityMetricsTest {
   }
 
   @Test
+  public void testScoreRatioProbeRejectsDoubleScore() {
+    ObjectNode judgment = new ObjectMapper().createObjectNode();
+    judgment.put("id", "probe");
+    ObjectNode ratio = judgment.putObject("scoreRatioAtMost");
+    ratio.put("numerator", "urn:li:dataset:name-and-qualified");
+    ratio.put("denominator", "urn:li:dataset:name-only");
+    ratio.put("max", 1.02);
+    try {
+      TopHitScorer.assertProbe(
+          judgment,
+          new RankedSearchResult(
+              "probe",
+              "keyword",
+              "q",
+              List.of(
+                  card("urn:li:dataset:name-and-qualified", 2.0),
+                  card("urn:li:dataset:name-only", 1.0))));
+      throw new AssertionError("expected the doubled score to fail");
+    } catch (AssertionError failure) {
+      assertTrue(failure.getMessage().contains("score ratio"));
+    }
+  }
+
+  @Test
   public void testReportWritesWorstQueryFirstWithMissesAndProbeFailure() throws Exception {
     Path dir = Files.createTempDirectory("search-quality-report");
     String previous = System.getProperty(SearchQualityReport.DIRECTORY_PROPERTY);
@@ -122,6 +146,7 @@ public class SearchQualityMetricsTest {
       Path written =
           SearchQualityReport.write(
               "elasticsearch",
+              "",
               "benchmarkNdcgAt10",
               0.9,
               List.of(perfect, miss),
@@ -153,6 +178,25 @@ public class SearchQualityMetricsTest {
               .path("message")
               .asText()
               .contains("urn:li:dataset:expected"));
+      assertEquals(
+          report.path("probes").get(0).path("hits").get(0).path("urn").asText(),
+          "urn:li:dataset:other");
+      assertEquals(report.path("probes").get(0).path("hits").get(0).path("score").asDouble(), 1.0);
+      ObjectNode passing = new ObjectMapper().createObjectNode();
+      passing.put("id", "passing");
+      passing.put("query", "q");
+      passing.put("exactTopHit", "urn:li:dataset:expected");
+      RankedSearchResult found =
+          new RankedSearchResult(
+              "passing", "keyword", "q", List.of(card("urn:li:dataset:expected")));
+      assertEquals(
+          SearchQualityReport.probe(passing, found).hits().get(0).urn(), "urn:li:dataset:expected");
+      Path profiled =
+          SearchQualityReport.write(
+              "opensearch", "cloud", "benchmarkNdcgAt10", 0.31, List.of(perfect), List.of());
+      assertEquals(profiled.getFileName().toString(), "opensearch-cloud-benchmarkNdcgAt10.json");
+      assertEquals(
+          new ObjectMapper().readTree(profiled.toFile()).path("profile").asText(), "cloud");
     } finally {
       if (previous == null) {
         System.clearProperty(SearchQualityReport.DIRECTORY_PROPERTY);
@@ -170,7 +214,11 @@ public class SearchQualityMetricsTest {
   }
 
   private static RankedSearchHit card(String urn) {
-    return new RankedSearchHit(urn, "dataset", "name", "description", 1.0, List.of());
+    return card(urn, 1.0);
+  }
+
+  private static RankedSearchHit card(String urn, double score) {
+    return new RankedSearchHit(urn, "dataset", "name", "description", score, List.of());
   }
 
   private static RankedSearchResult hits(String... urns) {

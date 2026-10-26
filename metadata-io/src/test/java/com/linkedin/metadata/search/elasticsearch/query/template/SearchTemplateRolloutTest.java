@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.opensearch.index.query.QueryBuilder;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -120,7 +121,12 @@ public class SearchTemplateRolloutTest {
     open();
     harness.templates.getRollout().setMode("active");
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext search =
         harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
     assertTrue(coordinator.executes(search));
@@ -133,7 +139,12 @@ public class SearchTemplateRolloutTest {
     harness.templates.getRollout().setMode("shadow");
     ElasticSearchConfiguration elastic = harness.elastic();
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(elastic, null, harness.loader);
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     V3SearchQueryBuilder builder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     OperationContext search =
         harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
@@ -176,7 +187,12 @@ public class SearchTemplateRolloutTest {
     harness.templates.getRollout().setSearchEntities("active");
     ElasticSearchConfiguration elastic = harness.elastic();
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(elastic, null, harness.loader);
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     SearchTemplates.install(coordinator);
     EntitySpec dataset = dataset();
     V3SearchQueryBuilder builder = new V3SearchQueryBuilder(elastic.getSearch(), null);
