@@ -197,6 +197,22 @@ def test_sdk_patch_builders_cap_key(monkeypatch: pytest.MonkeyPatch) -> None:
         assert "SUM(col_a) AS total" not in value
 
 
+def test_sdk_set_fine_grained_lineages_is_capped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_VAR, "8")
+    fine_grained = _long_fine_grained()
+    [mcp] = (
+        DatasetPatchBuilder(DOWNSTREAM)
+        .set_fine_grained_lineages([fine_grained])
+        .build()
+    )
+    assert mcp.aspect is not None
+    [op] = json.loads(mcp.aspect.value)
+    assert op["value"][0]["transformOperation"] == "SQL: SUM(col_..."
+    assert fine_grained.transformOperation == LOGIC
+
+
 def test_lineage_file_source_is_capped(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(ENV_VAR, "8")
     node = EntityNodeConfig(

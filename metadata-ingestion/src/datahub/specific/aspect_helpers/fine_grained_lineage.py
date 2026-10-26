@@ -70,10 +70,20 @@ class HasFineGrainedLineagePatch(MetadataPatchProposal):
         self, fine_grained_lineages: List[FineGrainedLineage]
     ) -> Self:
         aspect_name, path = self._fine_grained_lineage_location()
+        capped: List[FineGrainedLineage] = []
+        for fine_grained_lineage in fine_grained_lineages:
+            # Copy so the caller's objects keep their full text.
+            fine_grained_copy = FineGrainedLineage.from_obj(
+                fine_grained_lineage.to_obj()
+            )
+            fine_grained_copy.transformOperation = cap_transform_operation(
+                fine_grained_copy.transformOperation
+            )
+            capped.append(fine_grained_copy)
         self._add_patch(
             aspect_name,
             "add",
             path=path,
-            value=fine_grained_lineages,
+            value=capped,
         )
         return self
