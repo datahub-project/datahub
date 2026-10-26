@@ -1,7 +1,7 @@
 import logging
 from functools import lru_cache
 from importlib import resources
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -198,3 +198,47 @@ CUSTOM_METRIC_PREFIX = "custom_value_based_metric_"
 # tab. The customType prefix identifies the source connector in the UI.
 INCIDENT_CUSTOM_TYPE_PREFIX = "MONTE_CARLO"
 INGEST_ACTOR = "__montecarlo_ingest__"
+
+ALERT_TYPE_SCHEMA_CHANGES = "SCHEMA_CHANGES"
+
+ASSET_FILTER_JOINER_OR = "OR"
+
+# Monte Carlo AssetFilterInterface `type` values and the snake_case value
+# field(s) each variant requires (mirrors queries.ASSET_FILTER_INLINE_SELECTION).
+ASSET_FILTER_REQUIRED_VALUE_FIELDS: Dict[str, Tuple[str, ...]] = {
+    "TABLE_NAME": ("table_name",),
+    "FULL_TABLE_ID": ("full_table_id",),
+    "TABLE_TYPE": ("table_type",),
+    "TABLE_TAG": ("table_tags",),
+    "ACTIVITY_READ": ("read_days",),
+    "ACTIVITY_WRITE": ("write_days",),
+    "ACTIVITY_READ_WRITE": ("read_write_days",),
+    "ACTIVITY_READ_AND_WRITE": ("read_and_write_days",),
+    "ACTIVITY_VOLUME_CHANGE": ("volume_change_days",),
+    "ACTIVITY_READ_IS_NULL": ("read_activity_is_null",),
+    "ACTIVITY_WRITE_IS_NULL": ("write_activity_is_null",),
+    "ACTIVITY_READ_WRITE_IS_NULL": ("read_write_activity_is_null",),
+    "ACTIVITY_READ_AND_WRITE_IS_NULL": ("read_and_write_activity_is_null",),
+}
+
+ASSET_FILTER_INPUT_FIELDS: Dict[str, str] = {
+    "table_name": "tableName",
+    "table_name_operator": "tableNameOperator",
+    "full_table_id": "fullTableId",
+    "table_type": "tableType",
+    "table_tags": "tableTags",
+    "table_tags_operator": "tableTagsOperator",
+    "read_days": "readDays",
+    "write_days": "writeDays",
+    "read_write_days": "readWriteDays",
+    "read_and_write_days": "readAndWriteDays",
+    "volume_change_days": "volumeChangeDays",
+    "read_activity_is_null": "readActivityIsNull",
+    "write_activity_is_null": "writeActivityIsNull",
+    "read_write_activity_is_null": "readWriteActivityIsNull",
+    "read_and_write_activity_is_null": "readAndWriteActivityIsNull",
+}
+
+SCHEMA_CHANGE_PAGE_SIZE = 50
+# Catalog collection can lag the alert by well over a few minutes; 2h covers typical delay.
+SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS = 2 * 60 * 60
