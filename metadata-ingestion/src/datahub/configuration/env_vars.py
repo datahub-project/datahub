@@ -505,9 +505,9 @@ def get_max_transform_operation_length() -> Optional[int]:
     var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
     if not os.getenv(var, "").strip():
         return None
-    length = _get_int_env(var, 0)
-    if length < 0:
-        raise ValueError(f"Environment variable {var}={length} must not be negative.")
+    length = _get_int_env(var, 1)
+    if length < 1:
+        raise ValueError(f"Environment variable {var}={length} must be at least 1.")
     return length
 
 

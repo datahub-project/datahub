@@ -2584,7 +2584,7 @@ class TableauSiteSource:
 
         return fine_grained_lineages
 
-    def get_transform_operation(self, field: dict) -> str:
+    def get_transform_operation(self, field: dict) -> Optional[str]:
         field_type = field[c.TYPE_NAME]
         if field_type in (
             c.DATA_SOURCE_FIELD,
@@ -2593,15 +2593,12 @@ class TableauSiteSource:
             op = c.IDENTITY  # How to specify exact same
         elif field_type == c.CALCULATED_FIELD:
             op = field_type
-            # Cap only the formula so the CalculatedField marker survives. The result
-            # has no SQL:/COPY: label, so a second cut (e.g. a patch key) would eat it.
-            formula = cap_transform_operation(field.get(c.FORMULA))
-            if formula:
-                op += f"formula: {formula}"
+            if field.get(c.FORMULA):
+                op += f"formula: {field.get(c.FORMULA)}"
         else:
             op = field_type  # BinField, CombinedField, etc
 
-        return op
+        return cap_transform_operation(op)
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         custom_sql_filter = {c.ID_WITH_IN: self.custom_sql_ids_being_used}

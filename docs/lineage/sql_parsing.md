@@ -67,17 +67,3 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 ### Disabling the native sqlglot extensions
 
 By default DataHub ships sqlglot with its mypyc-compiled C extensions (`sqlglot[c]`) for faster parsing. If you hit memory or stability issues that you suspect are caused by these compiled extensions, set `DATAHUB_SQLGLOT_DISABLE_C=1` to force sqlglot to load its pure-Python implementation instead. This is applied per process and takes effect without changing any installed packages; DataHub logs a warning when the toggle is active so it's visible in your logs.
-
-### Limiting column transformation logic length
-
-Column-level lineage stores the SQL that computes each column (`transformOperation`), so long queries make the stored lineage large. Set `DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH` in the environment of `datahub ingest` or of any process using the Python SDK to cut it:
-
-```shell
-DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH=1000 datahub ingest -c recipe.yml
-```
-
-Logic is cut to this many characters followed by `...`, when that makes it shorter. The `SQL:` or `COPY:` label is not counted. `0` keeps only the label, and removes logic that has no label. Unset (the default) keeps the full logic.
-
-The cut applies to dataset `upstreamLineage` and data-job `dataJobInputOutput`, with or without `incremental_lineage`. It covers lineage from SQL parsing, Tableau calculated fields, the `datahub-lineage-file` source, and fine-grained lineage added through `DatasetPatchBuilder` or `DataJobPatchBuilder`. Fine-grained lineage you build yourself and emit as a full aspect is not changed.
-
-With `incremental_lineage`, the logic is part of each column-level lineage entry's key. After the value changes, entries stored under the old value stay alongside the new ones until a run with `incremental_lineage: false`.

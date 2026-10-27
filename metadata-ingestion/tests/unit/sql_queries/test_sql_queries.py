@@ -646,6 +646,33 @@ class TestSqlQueriesSource:
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
 
+    @pytest.mark.parametrize("incremental_lineage", [False, True])
+    def test_transform_operation_length_cuts_emitted_lineage(
+        self, pipeline_context, query_file_with, monkeypatch, incremental_lineage
+    ):
+        monkeypatch.setenv("DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH", "5")
+        path = query_file_with(
+            [
+                _query_line(
+                    query="INSERT INTO target_table SELECT col_a + col_b AS total FROM source_table"
+                )
+            ]
+        )
+        source = _make_source(
+            pipeline_context,
+            path,
+            use_schema_resolver=False,
+            incremental_lineage=incremental_lineage,
+        )
+
+        [lineage] = [
+            wu.metadata
+            for wu in source.get_workunits()
+            if wu.metadata.aspectName == "upstreamLineage"
+        ]
+        assert lineage.changeType == ("PATCH" if incremental_lineage else "UPSERT")
+        assert "SQL: ..." in json.dumps(lineage.to_obj())
+
 
 # ── Error handling tests ─────────────────────────────────────────────────
 

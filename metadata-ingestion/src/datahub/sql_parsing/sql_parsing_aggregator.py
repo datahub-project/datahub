@@ -1734,6 +1734,7 @@ class SqlParsingAggregator(Closeable):
                         ],
                         query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
+                        # Cut here too so EnsureAspectSizeProcessor measures the cut text.
                         transformOperation=cap_transform_operation(
                             (
                                 f"COPY: {column_logic.column_logic}"
