@@ -52,13 +52,15 @@ are replaced with the bound table's name, for example `my_catalog.my_schema.orde
 the platform instance. The name is not quoted. A name derived from `servers[]` is lowercased
 when `lowercase_physical_urns` lowercases the URN. A `physical_urn_overrides` URN's dataset
 name is used as written, minus the platform instance of the contract's server when that
-server's `server_overrides` entry sets one on the same platform. If the name starts with
-another `server_overrides` instance, the table name is unknown, so the placeholder is kept and
-reported. With `verify_physical_urns_exist`, a table that is
+server's `server_overrides` entry sets one on the same platform. If the name may instead start
+with a `server_overrides` instance that the contract's server doesn't account for (any case,
+on the same platform or one left unset), its SQL name is unknown, so the placeholder is kept
+and reported. With `verify_physical_urns_exist`, a table that is
 not found in DataHub is not substituted. A table that is not bound or not found keeps the
 placeholder and gets a warning, unless it was unbound on purpose with an empty
 `physical_urn_overrides` entry. An override value that is not a dataset URN with a known env (`PROD`, not
-`prod`), or that contains `${VAR}`, leaves the table unbound with a warning. Placeholders in `implementation` are not
+`prod`), or that contains `${VAR}`, leaves the table unbound with a warning (a `${VAR}` value is reported, and counted,
+as an unresolved variable). Placeholders in `implementation` are not
 replaced and are reported as unresolved variables. `{{object}}` is left as written.
 
 :::warning Routing is exact; nothing is approximated
