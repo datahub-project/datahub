@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
 from datahub.ingestion.source.odcs import odcs_source
@@ -2342,7 +2343,7 @@ def _sql_statements(workunits: List[MetadataWorkUnit]) -> List[str]:
     ]
 
 
-def _placeholder_warnings(src: ODCSSource) -> List[Any]:
+def _placeholder_warnings(src: ODCSSource) -> List[StructuredLogEntry]:
     return [w for w in src.report.warnings if w.title and "placeholder" in w.title]
 
 
@@ -2367,7 +2368,9 @@ def test_object_placeholder_explicit_unbind_is_not_warned(
     assert not _placeholder_warnings(src)
 
 
-@pytest.mark.parametrize("override", ["urn:li:datset:typo", "appdb.public.t"])
+@pytest.mark.parametrize(
+    "override", ["urn:li:datset:typo", "appdb.public.t", "urn:li:chart:(looker,x)"]
+)
 def test_invalid_override_is_reported_and_left_unbound(
     tmp_path: pathlib.Path, override: str
 ) -> None:
@@ -2379,7 +2382,25 @@ def test_invalid_override_is_reported_and_left_unbound(
     assert _sql_statements(workunits) == [
         "SELECT count(*) FROM ${object} WHERE id IS NULL"
     ]
-    assert override in _messages(src.report.warnings)
+    invalid = [
+        w
+        for w in src.report.warnings
+        if w.title == "ODCS physical_urn_overrides entry is not a dataset URN"
+    ]
+    assert len(invalid) == 1
+    assert override in str(invalid[0].context)
+
+
+def test_object_placeholder_uses_table_without_platform_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path,
+        server_overrides=[{"server": "prod-postgres", "platform_instance": "inst1"}],
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM appdb.public.t WHERE id IS NULL"
+    ]
 
 
 def test_object_placeholder_kept_when_bound_table_not_found(
@@ -2407,17 +2428,24 @@ def test_object_placeholder_beside_other_variables(tmp_path: pathlib.Path) -> No
     assert "unresolved variable" in _messages(src.report.warnings)
 
 
+@pytest.mark.parametrize("placeholder", ["${object}", "{object}"])
 def test_object_placeholder_in_implementation_still_warns(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, placeholder: str
 ) -> None:
-    rule = """\
+    rule = f"""\
     quality:
       - type: custom
         engine: soda
-        implementation: SELECT 1 FROM ${object}
+        implementation: SELECT 1 FROM {placeholder}
 """
-    src, _ = _object_rule_source(tmp_path, rule=rule)
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
     assert "unresolved variable" in _messages(src.report.warnings)
+    # Only queries are substituted; implementation is kept as written.
+    assert [
+        a.customAssertion.logic
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.customAssertion is not None
+    ] == [f"SELECT 1 FROM {placeholder}"]
 
 
 def test_off_spec_contract_context_is_reported(tmp_path: pathlib.Path) -> None:
@@ -2501,7 +2529,7 @@ def test_spec_valid_edge_values_are_not_reported_as_dropped(
 
 def test_map_form_child_list_is_not_walked_as_fields(tmp_path: pathlib.Path) -> None:
     body = _SPEC_VALID_EDGES_BODY.replace(
-        "enum: [{value: null, label: Unknown}, {value: \"\"}, {value: 2024-01-01}]",
+        'enum: [{value: null, label: Unknown}, {value: ""}, {value: 2024-01-01}]',
         "enum: {a: A}",
     )
     src = _synonym_source(tmp_path, body)

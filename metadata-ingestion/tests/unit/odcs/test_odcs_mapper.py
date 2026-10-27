@@ -2247,23 +2247,60 @@ def test_override_that_is_not_a_dataset_urn_is_refused() -> None:
         assert value in refused.refusal.message
 
 
-def test_override_table_name_strips_configured_platform_instance() -> None:
-    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+def test_override_table_name_strips_contract_server_instance() -> None:
+    contract = _make_contract(
+        servers=[{"server": "srv", "type": "postgres", "database": "db"}],
+        schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}],
+    )
     bindings = odcs_to_physical_bindings(
         contract,
         _config(
-            server_overrides=[{"server": "srv", "platform_instance": "inst1"}],
+            server_overrides=[
+                {"server": "srv", "platform_instance": "inst1"},
+                {"server": "other-srv", "platform_instance": "db"},
+            ],
             physical_urn_overrides={
                 "c1": {
                     "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
                     "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,other.db.sch.b,PROD)",
+                    "c": "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst1.db.sch.c,PROD)",
                 }
             },
         ),
     )
     assert bindings[0].table_name == "db.sch.a"
-    # An instance the recipe does not name cannot be told apart from the path.
+    # Another server's instance, or the right instance on another platform,
+    # cannot be told apart from the table path.
     assert bindings[1].table_name == "other.db.sch.b"
+    assert bindings[2].table_name == "inst1.db.sch.c"
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,${SCHEMA}.t,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,NOTANENV)",
+        "urn:li:chart:(looker,x)",
+    ],
+)
+def test_override_with_variable_or_bad_env_is_refused(override: str) -> None:
+    contract = _make_contract(schema=[{"name": "t"}])
+    (binding,) = odcs_to_physical_bindings(
+        contract, _config(physical_urn_overrides={"c1": {"t": override}})
+    )
+    assert binding.physical_urn is None
+    assert binding.table_name is None
+    assert binding.refusal_kind in (
+        RefusalKind.UNRESOLVED_VARIABLE,
+        RefusalKind.INVALID_OVERRIDE,
+    )
+
+
+def test_doubled_braces_are_not_the_object_placeholder() -> None:
+    assert (
+        substitute_object_placeholder("{{object}} {object} ${object}", "db.t")
+        == "{{object}} db.t db.t"
+    )
 
 
 @pytest.mark.parametrize(

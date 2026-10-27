@@ -15,6 +15,7 @@ from typing import (
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
+    ALL_ENV_TYPES,
     datahub_guid,
     make_assertion_source,
     make_assertion_urn,
@@ -194,12 +195,13 @@ class PhysicalBinding:
         return self.refusal.message if self.refusal else None
 
     @property
+    def refusal_kind(self) -> Optional[RefusalKind]:
+        return self.refusal.kind if self.refusal else None
+
+    @property
     def unresolved_variable(self) -> bool:
         # Reported as a warning, not as an unmappable server.
-        return (
-            self.refusal is not None
-            and self.refusal.kind is RefusalKind.UNRESOLVED_VARIABLE
-        )
+        return self.refusal_kind is RefusalKind.UNRESOLVED_VARIABLE
 
 
 @dataclass
@@ -463,17 +465,18 @@ def _compose_physical_name(
     return name.lower() if lowercase else name, None, False
 
 
-def _strip_platform_instance(urn: DatasetUrn, mappings: List[ServerMapping]) -> str:
+def _strip_platform_instance(
+    urn: DatasetUrn, resolved: Optional[ResolvedServer]
+) -> str:
     # An instance prefix cannot be told apart from the table path, so only the
-    # instances the recipe names are stripped.
+    # instance the contract's own server maps to is stripped.
+    if resolved is None or resolved.mapping is None:
+        return urn.name
+    instance = resolved.mapping.platform_instance
     platform = urn.get_data_platform_urn().platform_name
-    for mapping in mappings:
-        prefix = f"{mapping.platform_instance}."
-        if (
-            mapping.platform_instance
-            and mapping.platform in (None, platform)
-            and urn.name.startswith(prefix)
-        ):
+    if instance and resolved.platform == platform:
+        prefix = f"{instance}."
+        if urn.name.startswith(prefix):
             return urn.name[len(prefix) :]
     return urn.name
 
@@ -482,32 +485,42 @@ def _override_binding(
     index: int,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
-    override_urn: str,
-    config: ODCSSourceConfig,
+    override: Optional[str],
+    resolved: Optional[ResolvedServer],
 ) -> PhysicalBinding:
-    binding = PhysicalBinding(
+    override_urn = (override or "").strip()
+    if not override_urn:
+        refusal = BindingRefusal(
+            RefusalKind.EXPLICITLY_UNBOUND,
+            "explicitly unbound by physical_urn_overrides",
+        )
+    elif VARIABLE_MARKER in override_urn:
+        refusal = _unresolved_variable("physical_urn_overrides value", override_urn)
+    else:
+        try:
+            urn = DatasetUrn.from_string(override_urn)
+        except InvalidUrnError:
+            urn = None
+        if urn is None or urn.env.upper() not in ALL_ENV_TYPES:
+            refusal = BindingRefusal(
+                RefusalKind.INVALID_OVERRIDE,
+                f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
+            )
+        else:
+            return PhysicalBinding(
+                index=index,
+                schema_entry=schema_entry,
+                logical_urn=logical_urn,
+                physical_urn=urn.urn(),
+                table_name=_strip_platform_instance(urn, resolved),
+            )
+    return PhysicalBinding(
         index=index,
         schema_entry=schema_entry,
         logical_urn=logical_urn,
         physical_urn=None,
+        refusal=refusal,
     )
-    if not override_urn:
-        binding.refusal = BindingRefusal(
-            RefusalKind.EXPLICITLY_UNBOUND,
-            "explicitly unbound by physical_urn_overrides",
-        )
-        return binding
-    try:
-        urn = DatasetUrn.from_string(override_urn)
-    except InvalidUrnError:
-        binding.refusal = BindingRefusal(
-            RefusalKind.INVALID_OVERRIDE,
-            f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
-        )
-        return binding
-    binding.physical_urn = override_urn
-    binding.table_name = _strip_platform_instance(urn, config.server_overrides)
-    return binding
 
 
 def odcs_to_physical_bindings(
@@ -538,11 +551,11 @@ def odcs_to_physical_bindings(
         if overrides is not None and schema_entry.name in overrides:
             bindings.append(
                 _override_binding(
-                    index,
-                    schema_entry,
-                    logical_urn,
-                    (overrides[schema_entry.name] or "").strip(),
-                    config,
+                    index=index,
+                    schema_entry=schema_entry,
+                    logical_urn=logical_urn,
+                    override=overrides[schema_entry.name],
+                    resolved=resolved,
                 )
             )
             continue
@@ -1778,10 +1791,19 @@ def _route_and_build(
     return _route_library_rule(ctx, trace)
 
 
+# `{{object}}` is an escaped brace pair in some templating tools, not the
+# placeholder, so a doubled brace is left alone.
+_OBJECT_PLACEHOLDER_RE = re.compile(
+    "|".join(rf"(?<!\{{){re.escape(p)}(?!\}})" for p in OBJECT_PLACEHOLDERS)
+)
+
+
+def has_object_placeholder(query: str) -> bool:
+    return _OBJECT_PLACEHOLDER_RE.search(query) is not None
+
+
 def substitute_object_placeholder(query: str, table: str) -> str:
-    for placeholder in OBJECT_PLACEHOLDERS:
-        query = query.replace(placeholder, table)
-    return query
+    return _OBJECT_PLACEHOLDER_RE.sub(lambda _: table, query)
 
 
 def odcs_to_assertion_mcps(
