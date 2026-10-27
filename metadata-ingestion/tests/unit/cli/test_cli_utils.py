@@ -1,6 +1,8 @@
 import os
 from unittest import mock
 
+import pytest
+
 from datahub.cli import cli_utils
 from datahub.cli.config_utils import _get_config_from_env
 
@@ -94,3 +96,23 @@ def test_guess_frontend_url_from_gms_url():
         cli_utils.guess_frontend_url_from_gms_url("https://abc.acryl.io/gms")
         == "https://abc.acryl.io"
     )
+
+
+@pytest.mark.parametrize(
+    "configured, server, same",
+    [
+        ("http://gms:8080", "http://gms:8080", True),
+        ("http://gms:8080", "http://gms:8080/", True),
+        ("http://gms:8080", "http://GMS:8080/api/path", True),
+        ("http://gms", "http://gms:80", True),
+        ("http://gms", "https://gms", True),
+        ("http://gms:8080", "https://gms:8080", False),
+        ("http://gms:8080", "http://gms:9090", False),
+        ("http://gms:8080", "http://other:8080", False),
+        ("https://gms", "http://gms", False),
+        ("http://gms:8080", "http://gms:8080@other.example", False),
+        ("http://localhost:8080", "http://127.0.0.1:8080", False),
+    ],
+)
+def test_is_same_gms_origin(configured: str, server: str, same: bool) -> None:
+    assert cli_utils.is_same_gms_origin(configured, server) is same
