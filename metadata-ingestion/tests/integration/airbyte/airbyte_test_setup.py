@@ -84,6 +84,19 @@ ABCTL_VERSION = "v0.30.3"
 # 2.0.17 packages app 1.8.5, the last 1.8.x release the test targets.
 AIRBYTE_CHART_VERSION = "2.0.17"
 
+# `abctl local install` creates a kind cluster, pulls every Airbyte image
+# anonymously from Docker Hub, then waits for the Helm release. On CI the whole
+# fixture setup takes ~490-830s, so a 600s install limit failed on slow pull days.
+# A retry is cheaper than the first attempt: images it already pulled stay in the
+# host's Docker and are loaded into the new cluster instead of being pulled again.
+# The budget covers both attempts and the cleanup between them, and has to fit,
+# with the rest of the batch (up to ~900s), in the 2700s pytest wall clock that
+# build.gradle puts on each integration batch.
+ABCTL_INSTALL_BUDGET_SECONDS = 1200
+ABCTL_FIRST_INSTALL_TIMEOUT_SECONDS = 750
+ABCTL_MIN_RETRY_SECONDS = 300
+_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
 
 
@@ -198,26 +211,7 @@ def diagnose_airbyte_proxy_issue() -> None:
     except Exception:
         pass
 
-    try:
-        kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
-        result = subprocess.run(
-            [
-                "kubectl",
-                "--kubeconfig",
-                kubeconfig,
-                "get",
-                "pods",
-                "-n",
-                AIRBYTE_NAMESPACE,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
-            print(result.stdout)
-    except Exception:
-        pass
+    _print_kubectl(["get", "pods", "-n", AIRBYTE_NAMESPACE])
 
 
 def get_api_url_for_test() -> Tuple[str, bool]:
@@ -971,6 +965,92 @@ def install_abctl(test_resources_dir: Path) -> Path:
         if abctl_path.exists():
             abctl_path.unlink()
         raise RuntimeError(f"Failed to download abctl: {e}") from e
+
+
+def _output_tail(*outputs: object, max_lines: int = 40) -> str:
+    """Last distinct lines of abctl output, without its spinner redraws."""
+    # On a timeout subprocess hands back raw bytes even with text=True.
+    text = "\n".join(
+        o.decode(errors="replace") if isinstance(o, bytes) else o
+        for o in outputs
+        if isinstance(o, (bytes, str))
+    )
+    lines: List[str] = []
+    for line in re.split(r"[\r\n]+", _ANSI_ESCAPE.sub("", text)):
+        line = line.strip()
+        if line and (not lines or lines[-1] != line):
+            lines.append(line)
+    return "\n".join(lines[-max_lines:])
+
+
+def _print_kubectl(args: List[str]) -> None:
+    kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
+    try:
+        result = subprocess.run(
+            ["kubectl", "--kubeconfig", kubeconfig, *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        print(
+            f"kubectl {' '.join(args)}:\n"
+            f"{_output_tail(result.stdout, result.stderr, max_lines=60)}"
+        )
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        print(f"kubectl {' '.join(args)} failed: {e}")
+
+
+def _print_install_diagnostics(output: str) -> None:
+    print(f"abctl output (tail):\n{output}")
+    _print_kubectl(["get", "pods", "-A", "-o", "wide"])
+    _print_kubectl(
+        ["get", "events", "-n", AIRBYTE_NAMESPACE, "--sort-by=.lastTimestamp"]
+    )
+
+
+def install_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
+    install_cmd = [
+        str(abctl_path),
+        "local",
+        "install",
+        "--chart-version",
+        AIRBYTE_CHART_VERSION,
+        "--port",
+        str(AIRBYTE_API_PORT),
+        "--no-browser",
+        "--insecure-cookies",
+    ]
+    deadline = time.monotonic() + ABCTL_INSTALL_BUDGET_SECONDS
+    timeout = ABCTL_FIRST_INSTALL_TIMEOUT_SECONDS
+    for attempt in (1, 2):
+        print(f"Installing Airbyte with abctl (attempt {attempt})...")
+        started = time.monotonic()
+        try:
+            result = subprocess.run(
+                install_cmd,
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            print(f"abctl install timed out after {timeout}s")
+            _print_install_diagnostics(_output_tail(e.stdout, e.stderr))
+        else:
+            elapsed = time.monotonic() - started
+            if result.returncode == 0:
+                print(f"Airbyte installation completed in {elapsed:.0f}s")
+                return
+            print(f"abctl install failed after {elapsed:.0f}s")
+            _print_install_diagnostics(_output_tail(result.stdout, result.stderr))
+        if attempt == 2:
+            break
+        cleanup_airbyte(abctl_path, test_resources_dir)
+        timeout = int(deadline - time.monotonic())
+        if timeout < ABCTL_MIN_RETRY_SECONDS:
+            print(f"Only {timeout}s of the install budget left; not retrying")
+            break
+    raise RuntimeError("abctl install did not succeed")
 
 
 def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:

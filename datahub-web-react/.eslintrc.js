@@ -194,9 +194,9 @@ const COLOR_RULE_EXCLUDED_FILES = [
     // rendered by V2, so do not assume app/entity is fully dead.
     'src/app/entity/**',
     'src/app/search/**',
-    'src/app/lineage/**',
     'src/app/glossary/**',
-    'src/app/analyticsDashboard/**',
+    // Moved from the old analyticsDashboard folder; chart crosshair color not yet migrated.
+    'src/app/analyticsDashboardV2/components/TimeSeriesChart.tsx',
     'src/app/ingest/**',
     // Tests and Storybook demos — never production UI.
     '**/*.test.ts',

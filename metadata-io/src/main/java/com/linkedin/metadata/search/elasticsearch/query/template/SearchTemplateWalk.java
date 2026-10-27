@@ -31,7 +31,20 @@ public final class SearchTemplateWalk {
       @Nonnull String query,
       @Nullable Filter filter,
       @Nullable List<SortCriterion> sort,
-      @Nullable Integer size) {}
+      @Nullable Integer size,
+      @Nonnull AfterStop afterStop) {}
+
+  /** Runs after stop predicates have seen the raw keyword hits. */
+  @FunctionalInterface
+  public interface AfterStop {
+    @Nonnull
+    AttemptResult<?> apply(@Nonnull String urn, @Nonnull AttemptResult<?> raw);
+  }
+
+  @Nonnull
+  public static AfterStop identity() {
+    return (urn, raw) -> raw;
+  }
 
   public static final class AttemptResult<T> {
     @Nullable final T page;
@@ -41,6 +54,7 @@ public final class SearchTemplateWalk {
     final boolean shardFailed;
     @Nullable final RuntimeException error;
     final boolean skipped;
+    @Nullable final String renderedQuery;
 
     private AttemptResult(
         @Nullable T page,
@@ -49,7 +63,8 @@ public final class SearchTemplateWalk {
         @Nonnull List<String> highlights,
         boolean shardFailed,
         @Nullable RuntimeException error,
-        boolean skipped) {
+        boolean skipped,
+        @Nullable String renderedQuery) {
       this.page = page;
       this.total = total;
       this.entities = entities;
@@ -57,6 +72,7 @@ public final class SearchTemplateWalk {
       this.shardFailed = shardFailed;
       this.error = error;
       this.skipped = skipped;
+      this.renderedQuery = renderedQuery;
     }
 
     @Nonnull
@@ -65,18 +81,20 @@ public final class SearchTemplateWalk {
         long total,
         @Nonnull List<SearchEntity> entities,
         @Nonnull List<String> highlights,
-        boolean shardFailed) {
-      return new AttemptResult<>(page, total, entities, highlights, shardFailed, null, false);
+        boolean shardFailed,
+        @Nullable String renderedQuery) {
+      return new AttemptResult<>(
+          page, total, entities, highlights, shardFailed, null, false, renderedQuery);
     }
 
     @Nonnull
     public static <T> AttemptResult<T> failed(@Nonnull RuntimeException error) {
-      return new AttemptResult<>(null, 0, List.of(), List.of(), false, error, false);
+      return new AttemptResult<>(null, 0, List.of(), List.of(), false, error, false, null);
     }
 
     @Nonnull
     static <T> AttemptResult<T> skipped() {
-      return new AttemptResult<>(null, 0, List.of(), List.of(), false, null, true);
+      return new AttemptResult<>(null, 0, List.of(), List.of(), false, null, true, null);
     }
 
     @Nullable
@@ -87,6 +105,11 @@ public final class SearchTemplateWalk {
     @Nonnull
     public List<String> highlights() {
       return highlights;
+    }
+
+    @Nullable
+    public String renderedQuery() {
+      return renderedQuery;
     }
 
     @Nullable
@@ -212,7 +235,7 @@ public final class SearchTemplateWalk {
                   request.sort(),
                   request.size());
       if (keep) {
-        return served(opContext, urn, result, depth);
+        return served(opContext, request, urn, result, depth);
       }
       return follow(opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
     } finally {
@@ -289,7 +312,7 @@ public final class SearchTemplateWalk {
           Member<T> member = join(Objects.requireNonNull(completion).take());
           if (member.stopped && member.result.page != null) {
             cancel(futures);
-            return served(opContext, member.urn, member.result, depth + 1);
+            return served(opContext, request, member.urn, member.result, depth + 1);
           }
           finished.add(member);
           if (member.result.error != null) {
@@ -326,7 +349,7 @@ public final class SearchTemplateWalk {
           continue;
         }
         if (member.result.total > 0) {
-          return served(opContext, member.urn, member.result, depth + 1);
+          return served(opContext, request, member.urn, member.result, depth + 1);
         }
         if (emptyStopped == null) {
           emptyStopped = member;
@@ -335,14 +358,14 @@ public final class SearchTemplateWalk {
       // Hits return above. An empty stop follows next when one is set; otherwise the empty page is
       // the result.
       if ((ladder.getNext() == null || !ladder.hasNext()) && emptyStopped != null) {
-        return served(opContext, emptyStopped.urn, emptyStopped.result, depth + 1);
+        return served(opContext, request, emptyStopped.urn, emptyStopped.result, depth + 1);
       }
     }
     // A single last rung keeps its page when stop does not match. A parallel last rung does too.
     if ((ladder.getNext() == null || !ladder.hasNext()) && lastError == null && !shard) {
       Member<T> kept = firstPage(members, finished);
       if (kept != null) {
-        return served(opContext, kept.urn, kept.result, depth + 1);
+        return served(opContext, request, kept.urn, kept.result, depth + 1);
       }
     }
     if (ladder.hasNext() && ladder.getNext() != null) {
@@ -421,24 +444,34 @@ public final class SearchTemplateWalk {
   private static void requireSupported(
       @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    SearchTemplateComponentRegistry registry =
+        coordinator == null ? SearchTemplateComponentRegistry.empty() : coordinator.components();
     SearchTemplateCapabilities.requireSupported(
         template,
         resolved != null && resolved.isDocumentRerank(),
-        resolved != null && resolved.isCapabilityScroll());
+        resolved != null && resolved.isCapabilityScroll(),
+        registry);
   }
 
   @Nonnull
   private static <T> Served<T> served(
       @Nonnull OperationContext opContext,
+      @Nonnull Request request,
       @Nonnull String urn,
       @Nonnull AttemptResult<T> result,
       int depth) {
     if (result.page == null) {
       throw new SearchTemplateException("Search template produced no page");
     }
+    @SuppressWarnings("unchecked")
+    AttemptResult<T> processed = (AttemptResult<T>) request.afterStop().apply(urn, result);
+    if (processed.page == null) {
+      throw new SearchTemplateException("Search template produced no page");
+    }
     SearchTemplateMetrics.served(opContext, urn);
     SearchTemplateMetrics.ladderDepth(opContext, depth);
-    return new Served<>(result.page, urn, result.highlights);
+    return new Served<>(processed.page, urn, processed.highlights);
   }
 
   @Nullable
