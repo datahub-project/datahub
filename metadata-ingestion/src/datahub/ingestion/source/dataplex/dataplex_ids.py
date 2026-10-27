@@ -183,6 +183,15 @@ BIGTABLE_TABLE_FQN_REGEX = re.compile(
 VERTEX_AI_DATASET_FQN_REGEX = re.compile(
     r"^vertex_ai:dataset:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<dataset_id>[^.]+)$"
 )
+VERTEX_AI_FEATURE_GROUP_FQN_REGEX = re.compile(
+    r"^vertex_ai:featuregroup:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<feature_group_id>[^.]+)$"
+)
+VERTEX_AI_FEATURE_ONLINE_STORE_FQN_REGEX = re.compile(
+    r"^vertex_ai:featureonlinestore:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<store_id>[^.]+)$"
+)
+VERTEX_AI_MODEL_FQN_REGEX = re.compile(
+    r"^vertex_ai:model:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<model_id>[^.]+)\.(?P<version>[^.]+)$"
+)
 DATAPROC_METASTORE_SERVICE_FQN_REGEX = re.compile(
     r"^dataproc_metastore:(?P<project_id>[^.]+)\.(?P<location>[^.]+)\.(?P<service_id>[^.]+)$"
 )

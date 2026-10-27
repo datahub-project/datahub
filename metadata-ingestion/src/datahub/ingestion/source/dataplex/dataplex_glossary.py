@@ -257,7 +257,7 @@ class DataplexGlossaryProcessor:
     2. ``process_term_associations`` — for each emitted term, calls the Dataplex
        ``lookupEntryLinks`` REST API once at the term's own location to find linked
        assets, and emits a ``glossaryTerms`` aspect on each one. Linked assets may be
-       DataHub Dataset or Container entities.
+       DataHub Dataset, Container or MLModel entities.
     """
 
     def __init__(

@@ -14,6 +14,8 @@ Datasets discovered use the same URNs as native connectors (e.g., `bigquery`, `g
 - **Native Containers**: BigQuery tables appear in their native dataset containers
 - **Unified View**: Users see a single view of all datasets regardless of discovery method
 
+Vertex AI model versions use the same URNs as the `vertexai` source. A Dataplex run replaces the model's `mlModelProperties`, which drops the model group, training job and deployment links written by `vertexai` until `vertexai` runs again. When running both, run `vertexai` after Dataplex, or add `^vertex_ai:model:` to the `filter_config.entries.fqn_pattern` deny list. With stateful ingestion enabled, the first Dataplex run after adding the deny soft-deletes those models; run `vertexai` right after it. Like the `vertexai` source, model URNs leave out the location, so models with the same id and version in two locations of one project collapse into one MLModel, and the last one read overwrites the other's properties.
+
 #### Custom Properties
 
 The connector adds the following custom properties to datasets:
@@ -270,11 +272,11 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 #### Entity Type Support
 
-Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL for MySQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL for MySQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
+Dataplex entries map to DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL for MySQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, feature groups and feature online stores, Dataproc Metastore tables), DataHub **Container** entities (BigQuery datasets, Cloud SQL for MySQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases), or DataHub **MLModel** entities (Vertex AI model versions).
 
-**Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex, so no lineage is emitted for them.
+**Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex. Dataplex does track Vertex AI model lineage, but the connector does not emit it for ML models.
 
-**Glossary term associations** apply to both Dataset and Container entities, so a term attached to a BigQuery dataset in Dataplex appears on the corresponding DataHub container. Only assets already discovered by the entries stage can be linked — a term pointing at an entry outside the configured projects, `entries_locations`, or `entries` pattern is reported under `term_links_unmatched` and skipped.
+**Glossary term associations** apply to Dataset, Container and MLModel entities, so a term attached to a BigQuery dataset in Dataplex appears on the corresponding DataHub container. Only assets already discovered by the entries stage can be linked — a term pointing at an entry outside the configured projects, `entries_locations`, or `entries` pattern is reported under `term_links_unmatched` and skipped.
 
 ### Troubleshooting
 
