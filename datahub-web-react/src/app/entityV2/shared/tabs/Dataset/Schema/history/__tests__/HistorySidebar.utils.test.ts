@@ -2,6 +2,7 @@ import {
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
     CATEGORY_STRUCTURED_PROPERTY,
     CATEGORY_VERSIONING,
     CategoryOption,
@@ -21,6 +22,7 @@ const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: CATEGORY_APPLICATION, label: 'Applications' },
     { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
     { value: CATEGORY_VERSIONING, label: 'Versions' },
+    { value: CATEGORY_LIFECYCLE, label: 'Lifecycle stage' },
 ];
 
 describe('getCategoryOptions', () => {
@@ -54,6 +56,7 @@ describe('getCategoryOptions', () => {
             CATEGORY_STRUCTURED_PROPERTY,
             CATEGORY_APPLICATION,
             CATEGORY_VERSIONING,
+            CATEGORY_LIFECYCLE,
         ]);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
     });
