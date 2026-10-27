@@ -3364,6 +3364,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         stateful = self.config.stateful_ingestion
         if (
             self.config.ingest_contracts
+            and self.config.entities_enabled.can_emit_node_type("model")
             and not self.config.replace_existing_contracts_with_dbt
             and stateful is not None
             and stateful.remove_stale_metadata

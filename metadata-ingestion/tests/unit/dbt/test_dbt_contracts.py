@@ -1379,19 +1379,30 @@ def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
     assert not source.report.warnings
 
 
-def test_no_graph_with_stale_removal_fails_at_startup() -> None:
+@pytest.mark.parametrize("test_results, fails", [("YES", True), ("ONLY", False)])
+def test_no_graph_with_stale_removal_fails_at_startup(
+    test_results: str, fails: bool
+) -> None:
     # Unwritten contracts would drop out of the checkpoint and be soft-deleted.
+    # A test_results: Only recipe writes no contracts, so it is not affected.
     source = _make_source(
-        stateful_ingestion={"enabled": True}, write_semantics="OVERRIDE"
+        stateful_ingestion={"enabled": True},
+        write_semantics="OVERRIDE",
+        entities_enabled={"test_results": test_results},
     )
     source.ctx.graph = None
-    with (
-        mock.patch.object(
-            source.state_provider, "is_stateful_ingestion_configured", return_value=True
-        ),
-        pytest.raises(ConfigurationError, match="ingest_contracts"),
+    with mock.patch.object(
+        source.state_provider, "is_stateful_ingestion_configured", return_value=True
     ):
-        next(iter(source.get_workunits_internal()))
+        try:
+            next(iter(source.get_workunits_internal()))
+            needs_graph = False
+        except ConfigurationError as e:
+            needs_graph = "ingest_contracts" in str(e)
+        except Exception:
+            # The run goes on past the check (and fails on the missing files).
+            needs_graph = False
+    assert needs_graph is fails
 
 
 @pytest.mark.parametrize("replace", [False, True])
