@@ -1720,7 +1720,10 @@ public class GmsGraphQLEngine {
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
                   "createDataHubFile",
-                  new CreateDataHubFileResolver(this.dataHubFileService, this.objectStorageClient))
+                  new CreateDataHubFileResolver(
+                      this.dataHubFileService,
+                      this.objectStorageClient,
+                      this.datahubConfiguration.getObjectStorage()))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
