@@ -10,7 +10,7 @@ import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
 import {
     useBatchAddOwnersMutation,
     useBatchRemoveOwnersMutation,
-    useSetTagColorMutation
+    useSetTagColorMutation,
 } from '@src/graphql/mutations.generated';
 import { useGetTagQuery, useUpdateTagMutation } from '@src/graphql/tag.generated';
 
@@ -143,7 +143,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                 changesMade = true;
             }
             if (removedOwnerUrns.length > 0) {
-                console.log("removedOwnerUrns",removedOwnerUrns)
+                console.log('removedOwnerUrns', removedOwnerUrns);
                 await batchRemoveOwnersMutation({
                     variables: {
                         input: {
