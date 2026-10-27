@@ -2598,6 +2598,7 @@ class TableauSiteSource:
         else:
             op = field_type  # BinField, CombinedField, etc
 
+        # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
         return cap_transform_operation(op)
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:

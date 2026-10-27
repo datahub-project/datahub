@@ -255,6 +255,7 @@ def _get_lineage_mcp(
                 downstreams=fine_grained_lineage.downstreams,
                 downstreamType=fine_grained_lineage.downstreamType,
                 confidenceScore=fine_grained_lineage.confidenceScore,
+                # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
                 transformOperation=cap_transform_operation(
                     fine_grained_lineage.transformOperation
                 ),
