@@ -395,6 +395,14 @@ _COLUMN_FUNCS = {"col", "column", "upper", "lower", "trim", "ltrim", "rtrim"}
 _LITERAL_FUNCS = {"lit", "current_timestamp", "current_date", "now", "expr"}
 
 
+def _visible_columns(proj: _Projection) -> List[Tuple[str, Set["_ColRef"]]]:
+    return [
+        (column, refs)
+        for column, refs in proj.explicit.items()
+        if column not in proj.dropped
+    ]
+
+
 def _clone(proj: _Projection) -> _Projection:
     return _Projection(
         reads=set(proj.reads),
@@ -643,7 +651,7 @@ class _Extractor:
         self, base: _Projection, attr: str, call: ast.Call
     ) -> Optional[_Projection]:
         if attr in {"union", "unionAll", "unionByName"}:
-            return self._union(base, call)
+            return self._union(base, call, by_name=attr == "unionByName")
         handler = {
             "alias": self._alias,
             "select": self._select,
@@ -722,15 +730,32 @@ class _Extractor:
             return base
         return _joined(base, right)
 
-    def _union(self, base: _Projection, call: ast.Call) -> _Projection:
+    def _union(
+        self, base: _Projection, call: ast.Call, *, by_name: bool
+    ) -> _Projection:
+        """Stack two dataframes.
+
+        ``union`` and ``unionAll`` pair columns by position and keep the left
+        names. ``unionByName`` pairs columns that share a name.
+        """
         if not call.args:
             return base
         right = self._projection_of(call.args[0])
         if right is None or not base.projected or not right.projected:
             return _Projection(reads=base.reads | (right.reads if right else set()))
-        explicit = {column: set(refs) for column, refs in base.explicit.items()}
-        for column, refs in right.explicit.items():
-            explicit.setdefault(column, set()).update(refs)
+        left_columns = _visible_columns(base)
+        right_columns = _visible_columns(right)
+        if by_name:
+            explicit = {column: set(refs) for column, refs in left_columns}
+            for column, refs in right_columns:
+                explicit.setdefault(column, set()).update(refs)
+        else:
+            explicit = {}
+            for index, (column, refs) in enumerate(left_columns):
+                merged = set(refs)
+                if index < len(right_columns):
+                    merged.update(right_columns[index][1])
+                explicit[column] = merged
         return _Projection(
             reads=base.reads | right.reads, explicit=explicit, projected=True
         )

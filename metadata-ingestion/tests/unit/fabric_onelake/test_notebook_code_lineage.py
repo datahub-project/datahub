@@ -300,6 +300,50 @@ joined.write.format("delta").save(f"{destination}gold_orders")
     }
 
 
+def test_union_pairs_columns_by_position() -> None:
+    source = """
+source = f"{bronze}/Tables/dbo/"
+destination = f"{silver}/Tables/silver/"
+orders = spark.read.format("delta").load(f"{source}orders").select(
+    col("x").alias("id"),
+    col("n").alias("amount"),
+)
+payments = spark.read.format("delta").load(f"{source}payments").select(
+    col("y").alias("key"),
+    col("m").alias("total"),
+)
+out = orders.union(payments)
+out.write.format("delta").save(f"{destination}combined")
+"""
+    assert _columns(source)["combined"] == {
+        "id": {("orders", "x"), ("payments", "y")},
+        "amount": {("orders", "n"), ("payments", "m")},
+    }
+
+
+def test_union_by_name_keeps_distinct_column_names() -> None:
+    source = """
+source = f"{bronze}/Tables/dbo/"
+destination = f"{silver}/Tables/silver/"
+orders = spark.read.format("delta").load(f"{source}orders").select(
+    col("x").alias("id"),
+    col("n").alias("amount"),
+)
+payments = spark.read.format("delta").load(f"{source}payments").select(
+    col("y").alias("key"),
+    col("m").alias("total"),
+)
+out = orders.unionByName(payments)
+out.write.format("delta").save(f"{destination}combined")
+"""
+    assert _columns(source)["combined"] == {
+        "id": {("orders", "x")},
+        "amount": {("orders", "n")},
+        "key": {("payments", "y")},
+        "total": {("payments", "m")},
+    }
+
+
 def test_helper_mapping_and_dataframe_subscript() -> None:
     source = """
 source = f"{bronze}/Tables/dbo/"
