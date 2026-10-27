@@ -26,7 +26,6 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
         "context",
         "customProperties",
-        "dataGranularityDescription",
         "id",
         "relationships",
         "synonyms",
@@ -44,8 +43,6 @@ KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
         "map",
         "physicalName",
         "relationships",
-        "transformDescription",
-        "transformLogic",
         "transformSourceObjects",
     )
 )
@@ -170,7 +167,7 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
     return kept or None
 
 
-# The v3.2 keys below were ignored before this source parsed them, so an
+# The keys below were ignored before this source parsed them, so an
 # off-spec value must not now reject a contract that used to ingest. Bad values
 # are dropped here; lenient mode already reports them as JSON Schema warnings.
 
@@ -208,12 +205,14 @@ class ODCSProperty(ODCSBaseModel):
     synonyms: Optional[List[Union[str, ODCSSynonym]]] = None
     # v3.2 (RFC 0034): a `measure` is an aggregate, not a physical column.
     semanticType: Optional[str] = None
+    transformLogic: Optional[str] = None
+    transformDescription: Optional[str] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
-    _lenient_semantic_type = field_validator("semanticType", mode="before")(
-        _str_or_none
-    )
+    _lenient_strings = field_validator(
+        "semanticType", "transformLogic", "transformDescription", mode="before"
+    )(_str_or_none)
 
 
 class ODCSSchemaObject(ODCSBaseModel):
@@ -228,8 +227,12 @@ class ODCSSchemaObject(ODCSBaseModel):
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
+    dataGranularityDescription: Optional[str] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
+    _lenient_grain = field_validator("dataGranularityDescription", mode="before")(
+        _str_or_none
+    )
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -392,10 +395,16 @@ ODCSProperty.model_rebuild()
 ODCSSchemaObject.model_rebuild()
 
 
-# v3.2 keys whose off-spec values the validators above drop instead of
+# Keys whose off-spec values the validators above drop instead of
 # rejecting the contract. Kept next to the validators so the source's
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
-    ODCSSchemaObject: ("deprecated",),
-    ODCSProperty: ("deprecated", "synonyms", "semanticType"),
+    ODCSSchemaObject: ("deprecated", "dataGranularityDescription"),
+    ODCSProperty: (
+        "deprecated",
+        "synonyms",
+        "semanticType",
+        "transformLogic",
+        "transformDescription",
+    ),
 }

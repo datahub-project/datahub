@@ -164,8 +164,9 @@ def test_odcs_v32_contract_end_to_end(
         assert properties.customProperties["odcs.apiVersion"] == "v3.2.0"
         schema = graph_client.get_aspect(logical_urn, SchemaMetadataClass)
         assert schema is not None
-        # The measure stays in the logical schema.
-        assert "avg_amount" in {f.fieldPath for f in schema.fields}
+        # The measure stays in the logical schema, its derivation in the description.
+        avg_amount = next(f for f in schema.fields if f.fieldPath == "avg_amount")
+        assert "AVG(amount)" in (avg_amount.description or "")
 
         deprecation = graph_client.get_aspect(
             make_schema_field_urn(logical_urn, "legacy_channel"), DeprecationClass

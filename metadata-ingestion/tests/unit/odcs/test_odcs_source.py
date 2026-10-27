@@ -3,7 +3,7 @@
 import json
 import pathlib
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +11,8 @@ from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogEntry
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
 from datahub.ingestion.source.odcs import odcs_source
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
@@ -2166,6 +2168,8 @@ schema:
   - name: t
     description: Table description.
     deprecated: "true"
+    dataGranularityDescription:
+      x: 1
     quality:
       - type: sql
         query: SELECT COUNT(*) FROM t WHERE ts > ${CUTOFF}
@@ -2175,6 +2179,7 @@ schema:
         criticalDataElement: true
         classification: confidential
         semanticType: 5
+        transformLogic: [a, b]
 """
 
 
@@ -2193,9 +2198,9 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     # Off-spec values dropped by the model.
     assert "schema[0].deprecated" in warnings
     assert "properties[0].semanticType" in warnings
+    assert "schema[0].dataGranularityDescription" in warnings
+    assert "properties[0].transformLogic" in warnings
     infos = _messages(src.report.infos)
-    # Contract description not applied to a table with its own description.
-    assert "contract description not applied" in infos
     # Unresolved variable copied into a SQL assertion.
     assert "${CUTOFF}" in warnings
     # Owner role defaulted.
@@ -2288,3 +2293,213 @@ def test_explicitly_unbound_entry_is_not_an_unmappable_server(
     )
     list(src.get_workunits_internal())
     assert src.report.unmappable_servers == 0
+
+
+_OBJECT_RULE = """\
+    quality:
+      - type: sql
+        query: SELECT count(*) FROM ${object} WHERE id IS NULL
+        mustBe: 0
+"""
+
+
+def test_object_placeholder_bound_is_replaced_without_warnings(
+    tmp_path: pathlib.Path,
+) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path)
+    workunits = list(src.get_workunits_internal())
+    statements = [
+        a.sqlAssertion.statement
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.sqlAssertion is not None
+    ]
+    assert statements == ["SELECT count(*) FROM appdb.public.t WHERE id IS NULL"]
+    assert "unresolved variable" not in _messages(src.report.warnings)
+    assert "placeholder" not in _messages(src.report.warnings)
+
+
+def _object_rule_source(
+    tmp_path: pathlib.Path, rule: str = _OBJECT_RULE, **config: Any
+) -> Tuple[ODCSSource, List[MetadataWorkUnit]]:
+    body = _VALID_CONTRACT_BODY.replace(
+        "  - name: t\n    physicalName: t\n",
+        "  - name: orders_entry\n    physicalName: t\n" + rule,
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path, **config)
+    return src, list(src.get_workunits_internal())
+
+
+def _sql_statements(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [
+        a.sqlAssertion.statement
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.sqlAssertion is not None
+    ]
+
+
+def _placeholder_warnings(src: ODCSSource) -> List[StructuredLogEntry]:
+    return [w for w in src.report.warnings if w.title and "placeholder" in w.title]
+
+
+@pytest.mark.parametrize("placeholder", ["${object}", "{object}"])
+def test_object_placeholder_unbound_warns(
+    tmp_path: pathlib.Path, placeholder: str
+) -> None:
+    src, _ = _object_rule_source(
+        tmp_path,
+        rule=_OBJECT_RULE.replace("${object}", placeholder),
+        server_overrides=[{"server": "prod-postgres", "platform": "kafka"}],
+    )
+    warnings = _placeholder_warnings(src)
+    assert len(warnings) == 1
+    context = str(warnings[0].context)
+    assert "orders_entry" in context
+    assert "kafka" in context
+    assert "not found" not in context
+
+
+def test_invalid_overrides_group_under_one_warning(tmp_path: pathlib.Path) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "schema:\n", "schema:\n  - name: extra\n    physicalName: extra\n"
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(
+        tmp_path,
+        physical_urn_overrides={
+            "test-contract-1": {"t": "bad.one", "extra": "bad.two"}
+        },
+    )
+    list(src.get_workunits_internal())
+    (invalid,) = [
+        w
+        for w in src.report.warnings
+        if w.title == "ODCS physical_urn_overrides entry is not a usable dataset URN"
+    ]
+    assert any("bad.one" in c for c in invalid.context)
+    assert any("bad.two" in c for c in invalid.context)
+    assert src.report.invalid_physical_urn_overrides == 2
+
+
+def test_object_placeholder_explicit_unbind_is_not_warned(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path, physical_urn_overrides={"test-contract-1": {"orders_entry": ""}}
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert not _placeholder_warnings(src)
+
+
+@pytest.mark.parametrize(
+    "override", ["urn:li:datset:typo", "appdb.public.t", "urn:li:chart:(looker,x)"]
+)
+def test_invalid_override_is_reported_and_left_unbound(
+    tmp_path: pathlib.Path, override: str
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path, physical_urn_overrides={"test-contract-1": {"orders_entry": override}}
+    )
+    assert not src.report.failures
+    assert not _aspects_of(workunits, LogicalParentClass)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    invalid = [
+        w
+        for w in src.report.warnings
+        if w.title == "ODCS physical_urn_overrides entry is not a usable dataset URN"
+    ]
+    assert len(invalid) == 1
+    assert any(override in c for c in invalid[0].context)
+    assert src.report.invalid_physical_urn_overrides == 1
+
+
+def test_object_placeholder_uses_table_without_platform_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path,
+        server_overrides=[{"server": "prod-postgres", "platform_instance": "inst1"}],
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM appdb.public.t WHERE id IS NULL"
+    ]
+
+
+def test_object_placeholder_kept_when_override_may_carry_an_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path,
+        server_overrides=[{"server": "other", "platform_instance": "inst1"}],
+        physical_urn_overrides={
+            "test-contract-1": {
+                "orders_entry": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.appdb.public.t,PROD)"
+            }
+        },
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert "platform instance" in _messages(_placeholder_warnings(src))
+
+
+def test_mistyped_object_placeholder_is_reported(tmp_path: pathlib.Path) -> None:
+    rule = _OBJECT_RULE.replace("${object}", "{object}}")
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM {object}} WHERE id IS NULL"
+    ]
+    assert "unresolved variable" in _messages(src.report.warnings)
+
+
+def test_object_placeholder_kept_when_bound_table_not_found(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = False
+    src, workunits = _object_rule_source(tmp_path, graph=graph)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert "not found" in _messages(_placeholder_warnings(src))
+    # Checked once, for the assertions and the logicalParent link together.
+    assert src.report.physical_urns_unverified == 1
+
+
+def test_object_placeholder_beside_other_variables(tmp_path: pathlib.Path) -> None:
+    rule = _OBJECT_RULE.replace(
+        "WHERE id IS NULL", "WHERE ts > ${CUTOFF} AND k = ${object_id}"
+    )
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM appdb.public.t WHERE ts > ${CUTOFF} AND k = ${object_id}"
+    ]
+    assert "unresolved variable" in _messages(src.report.warnings)
+
+
+@pytest.mark.parametrize("placeholder", ["${object}", "{object}"])
+def test_object_placeholder_in_implementation_still_warns(
+    tmp_path: pathlib.Path, placeholder: str
+) -> None:
+    rule = f"""\
+    quality:
+      - type: custom
+        engine: soda
+        implementation: SELECT 1 FROM {placeholder}
+"""
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert "unresolved variable" in _messages(src.report.warnings)
+    # Only queries are substituted; implementation is kept as written.
+    assert [
+        a.customAssertion.logic
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.customAssertion is not None
+    ] == [f"SELECT 1 FROM {placeholder}"]
