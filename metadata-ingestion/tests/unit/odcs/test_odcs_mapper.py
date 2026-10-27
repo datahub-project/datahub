@@ -1,9 +1,10 @@
 """Unit tests for the ODCS mapper — spec-exact routing, logical-dataset targeting."""
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, cast
 
 import pytest
+from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.odcs.odcs_config import (
@@ -2308,6 +2309,32 @@ def test_override_table_name_unknown_without_a_resolved_server() -> None:
     assert bindings[1].table_name == "db.sch.b"
 
 
+def test_override_table_name_ignores_other_platform_and_case() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[
+                {
+                    "server": "sf",
+                    "platform": "snowflake",
+                    "platform_instance": "analytics",
+                },
+                {"server": "pg", "platform_instance": "pg1"},
+            ],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.t,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,PG1.db.public.t,PROD)",
+                }
+            },
+        ),
+    )
+    # A snowflake instance can't prefix a postgres URN.
+    assert bindings[0].table_name == "analytics.public.t"
+    assert bindings[1].table_name is None
+
+
 @pytest.mark.parametrize(
     "override, kind",
     [
@@ -2341,9 +2368,9 @@ def test_override_with_variable_or_bad_env_is_refused(
 def test_doubled_braces_are_not_the_object_placeholder() -> None:
     assert (
         substitute_object_placeholder(
-            "{{object}} {{object} {object}} {object} ${object}", "db.t"
+            "{{object}} {{object} {object}} {${object} {object} ${object}", "db.t"
         )
-        == "{{object}} {{object} {object}} db.t db.t"
+        == "{{object}} {{object} {object}} {${object} db.t db.t"
     )
 
 
@@ -2481,7 +2508,9 @@ def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
     lenient = {
         (model, field_name)
         for model in LENIENT_FIELDS_BY_MODEL
-        for name, decorator in model.__pydantic_decorators__.field_validators.items()
+        for name, decorator in cast(
+            Type[BaseModel], model
+        ).__pydantic_decorators__.field_validators.items()
         if name.startswith("_lenient")
         for field_name in decorator.info.fields
     } - {(ODCSSynonym, "synonym")}

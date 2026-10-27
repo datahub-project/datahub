@@ -471,17 +471,21 @@ def _override_table_name(
 ) -> Optional[str]:
     # An instance prefix cannot be told apart from the table path. Only the
     # instance of the contract's own server on the same platform is stripped;
-    # a name that starts with any other configured instance is not guessed at.
+    # a name that may start with any other configured instance is not guessed
+    # at. A mapping pinned to another platform can't prefix this URN.
     name = urn.name
+    platform = urn.get_data_platform_urn().platform_name
     if resolved is not None and resolved.mapping is not None:
         instance = resolved.mapping.platform_instance
-        platform = urn.get_data_platform_urn().platform_name
         if instance and resolved.platform == platform:
             prefix = f"{instance}."
             if name.startswith(prefix):
                 return name[len(prefix) :]
+    lowered = name.lower()
     if any(
-        m.platform_instance and name.startswith(f"{m.platform_instance}.")
+        m.platform_instance
+        and m.platform in (None, platform)
+        and lowered.startswith(f"{m.platform_instance.lower()}.")
         for m in server_overrides
     ):
         return None
@@ -1813,7 +1817,7 @@ def _route_and_build(
 
 # `{{object}}` is an escaped brace pair in some templating tools, not the
 # placeholder, so a doubled brace is left alone.
-_OBJECT_PLACEHOLDER_RE = re.compile(r"(?<!\{)\$?\{object\}(?!\})")
+_OBJECT_PLACEHOLDER_RE = re.compile(r"(?<![{$])\$?\{object\}(?!\})")
 
 
 def has_object_placeholder(query: str) -> bool:
