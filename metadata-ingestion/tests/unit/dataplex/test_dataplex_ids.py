@@ -5,11 +5,14 @@ Mapping-oriented behavior (entry type -> DataHub entities) is tested in
 building blocks that live in ``dataplex_ids.py``.
 """
 
+from typing import Optional
+
 import pytest
 
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     BIGQUERY_TABLE_FQN_REGEX,
     PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM,
+    PUBSUB_TOPIC_FQN_REGEX,
     DataplexBigQueryProject,
     DataplexCloudSqlMySqlDatabase,
     DataplexProjectId,
@@ -46,11 +49,18 @@ def test_extract_entry_type_short_name_invalid() -> None:
     assert extract_entry_type_short_name("bigquery-table") is None
 
 
-def test_parse_with_regex_named_groups() -> None:
-    assert parse_with_regex(BIGQUERY_TABLE_FQN_REGEX, "bigquery:proj.ds.tbl") == {
+@pytest.mark.parametrize(
+    "fqn,table_id",
+    [
+        ("bigquery:proj.ds.tbl", "tbl"),
+        ("bigquery:proj.ds.`my table`", "my table"),
+    ],
+)
+def test_parse_with_regex_named_groups(fqn: str, table_id: str) -> None:
+    assert parse_with_regex(BIGQUERY_TABLE_FQN_REGEX, fqn) == {
         "project_id": "proj",
         "dataset_id": "ds",
-        "table_id": "tbl",
+        "table_id": table_id,
     }
 
 
@@ -98,3 +108,34 @@ def test_project_schema_key_class_by_platform_covers_supported_platforms() -> No
     }
     for key_class in PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM.values():
         assert issubclass(key_class, DataplexProjectId)
+
+
+@pytest.mark.parametrize(
+    "fqn,expected",
+    [
+        (
+            "pubsub:topic:my-project.my-topic",
+            {"project_id": "my-project", "topic_id": "my-topic"},
+        ),
+        (
+            "pubsub:topic:my-project.`orders.v2`",
+            {"project_id": "my-project", "topic_id": "orders.v2"},
+        ),
+        (
+            "pubsub:topic:my-project.orders.v2",
+            {"project_id": "my-project", "topic_id": "orders.v2"},
+        ),
+        (
+            "pubsub:topic:my-project.`odd``name.v1`",
+            {"project_id": "my-project", "topic_id": "odd`name.v1"},
+        ),
+        (
+            "pubsub:topic:`example.com:my-project`.my-topic",
+            {"project_id": "example.com:my-project", "topic_id": "my-topic"},
+        ),
+        ("pubsub:topic:example.com:my-project.my-topic", None),
+        ("pubsub:topic:my-project", None),
+    ],
+)
+def test_parse_pubsub_topic_fqn(fqn: str, expected: Optional[dict]) -> None:
+    assert parse_with_regex(PUBSUB_TOPIC_FQN_REGEX, fqn) == expected

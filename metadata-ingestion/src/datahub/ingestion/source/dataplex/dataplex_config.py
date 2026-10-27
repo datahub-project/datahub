@@ -328,7 +328,7 @@ class DataplexConfig(
     lineage_max_retries: int = Field(
         default=3,
         ge=1,
-        le=10,
+        le=20,
         description="Maximum number of retry attempts for lineage API calls when encountering transient errors "
         "(timeouts, rate limits, service unavailable). Each attempt uses exponential backoff. "
         "Higher values increase resilience but may slow down ingestion. Default: 3.",
@@ -337,10 +337,22 @@ class DataplexConfig(
     lineage_retry_backoff_multiplier: float = Field(
         default=1.0,
         ge=0.1,
-        le=10.0,
+        le=30.0,
         description="Multiplier for exponential backoff between lineage API retry attempts (in seconds). "
-        "Wait time formula: multiplier * (2 ^ attempt_number), capped between 2-10 seconds. "
+        "Wait time formula: multiplier * 2^(attempt_number - 1), floored at 2 seconds and capped at "
+        "'lineage_retry_max_wait_seconds'. "
         "Higher values reduce API load but increase ingestion time. Default: 1.0.",
+    )
+
+    lineage_retry_max_wait_seconds: int = Field(
+        default=10,
+        ge=2,
+        le=600,
+        description="Upper cap (seconds) on the exponential backoff between lineage "
+        "API retries. Only reached with a raised 'lineage_max_retries' / "
+        "'lineage_retry_backoff_multiplier'. Set it to about 65, just past the "
+        "Data Lineage API's 60-second quota window, so a retry after a 429 can "
+        "land in a fresh window. Default: 10.",
     )
 
     max_workers_entries: int = Field(
@@ -362,6 +374,29 @@ class DataplexConfig(
         "(search_links API calls). Lineage lookup volume scales with entries × "
         "lineage_locations, so parallelism here has a large impact on total "
         "ingestion time. Increase for large entry × location matrices. Default: 10.",
+    )
+
+    lineage_max_calls_per_minute: int = Field(
+        default=1000,
+        ge=1,
+        description="Client-side rate limit for Data Lineage API search_links "
+        "requests per lineage location, shared by all lineage worker threads and "
+        "all project_ids, and charged once per attempt, so the connector paces "
+        "itself instead of relying on 429-and-retry. Result pages after the first "
+        "are not counted. Google's read quota is 1000 requests per minute per "
+        "project in a multi-region and 2000 in a single region; lower it when "
+        "several pipelines share a project. Default: 1000.",
+    )
+
+    glossary_lookup_max_calls_per_minute: int = Field(
+        default=600,
+        ge=1,
+        description="Client-side rate limit for Dataplex lookupEntryLinks read "
+        "calls, enforced across all glossary worker threads so the term-asset "
+        "association scan paces itself instead of provoking 429s. Only applies "
+        "when 'include_glossary_term_associations' is enabled. Default: 600, a "
+        "conservative choice because Dataplex publishes no separate quota for "
+        "lookupEntryLinks.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

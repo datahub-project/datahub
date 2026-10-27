@@ -261,7 +261,8 @@ clickhouse_common = {
 
 datacatalog_lineage_common = {
     # 0.3.0+ uses google.cloud.datacatalog_lineage import path.
-    "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
+    # 0.7.0+ adds MultipleEntityReference (multi-entity search_links targets).
+    "google-cloud-datacatalog-lineage>=0.7.0,<1.0.0",
     # Enforce non-vulnerable protobuf baseline (CVE-2026-0994).
     "protobuf>=5.0.0,<7.0.0",
 }

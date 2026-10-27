@@ -5,6 +5,7 @@ from typing import cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from google.api_core import exceptions as google_exceptions
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
@@ -1514,3 +1515,81 @@ class TestDataplexParallelLineage:
             )
         )
         assert workunits == []
+
+
+def _lineage_entry() -> EntryDataTuple:
+    return EntryDataTuple(
+        dataplex_entry_short_name="my_table",
+        dataplex_entry_name="projects/p/locations/us/entryGroups/g/entries/my_table",
+        dataplex_location="us",
+        dataplex_entry_fqn="bigquery:my-project.my_dataset.my_table",
+        dataplex_entry_type_short_name="bigquery-table",
+        datahub_platform="bigquery",
+        datahub_dataset_name="my-project.my_dataset.my_table",
+        datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my_dataset.my_table,PROD)",
+    )
+
+
+def test_lookup_is_failed_when_every_parent_fails(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    lineage_client = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client.search_links.side_effect = RuntimeError("permission denied")
+
+    result = lineage_extractor.get_lineage_for_entry(
+        _lineage_entry(), [("my-project", "us"), ("my-project", "eu")]
+    )
+
+    assert result is None
+    assert lineage_extractor.report.num_lineage_entries_failed == 1
+
+
+def test_search_links_requests_the_largest_page_size(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    lineage_client = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client.search_links.return_value = []
+
+    lineage_extractor._search_links_by_target(
+        "projects/my-project/locations/us", "bigquery:my-project.my_dataset.my_table"
+    )
+
+    request = lineage_client.search_links.call_args.kwargs["request"]
+    assert request.page_size == 100
+
+
+def test_rate_limiter_is_charged_once_per_attempt(
+    lineage_extractor: DataplexLineageExtractor,
+) -> None:
+    lineage_client = cast(Mock, lineage_extractor.lineage_client)
+    lineage_client.search_links.side_effect = [
+        google_exceptions.ServiceUnavailable("try again"),
+        [],
+    ]
+    limiter = Mock()
+    lineage_extractor._rate_limiter = limiter
+    parent = "projects/my-project/locations/us"
+
+    with patch("time.sleep"):
+        lineage_extractor._search_links_by_target(
+            parent, "bigquery:my-project.my_dataset.my_table"
+        )
+
+    assert [c.args for c in limiter.acquire.call_args_list] == [(parent,), (parent,)]
+
+
+def test_retry_backoff_is_capped_by_config(
+    dataplex_report: DataplexReport, source_report: Mock
+) -> None:
+    extractor = DataplexLineageExtractor(
+        config=DataplexConfig(
+            project_ids=["my-project"], lineage_retry_max_wait_seconds=30
+        ),
+        report=dataplex_report.lineage_report,
+        source_report=source_report,
+        lineage_client=Mock(),
+    )
+
+    retrying = extractor._get_retry_decorator()(lambda: None)
+
+    assert retrying.retry.wait.max == 30  # type: ignore[attr-defined]
