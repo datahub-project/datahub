@@ -678,6 +678,45 @@ public class CreateGlossaryTermVersionResolverTest {
   }
 
   @Test
+  public void testVersionSetOfAnotherEntityTypeIsRejectedBeforeAnyWrite() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityVersioningService mockVersioningService = Mockito.mock(EntityVersioningService.class);
+    FeatureFlags mockFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFlags.isEntityVersioning()).thenReturn(true);
+    Mockito.when(mockClient.exists(any(), any())).thenReturn(false);
+    CreateGlossaryTermVersionResolver resolver =
+        new CreateGlossaryTermVersionResolver(
+            mockClient, getMockEntityService(), mockVersioningService, mockFlags);
+    CreateGlossaryTermVersionInput input = new CreateGlossaryTermVersionInput();
+    input.setName("Revenue v3");
+    input.setVersion("v3");
+    input.setVersionSet("urn:li:versionSet:(kpi-revenue,dataset)");
+
+    ExecutionException e =
+        expectThrows(
+            ExecutionException.class,
+            () -> resolver.get(envFor(input, getMockAllowContext())).get());
+
+    assertTrue(e.getCause() instanceof IllegalArgumentException);
+    Mockito.verify(mockClient, Mockito.never()).ingestProposal(any(), any(), anyBoolean());
+    Mockito.verify(mockVersioningService, Mockito.never())
+        .linkLatestVersion(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testSkipsDraftWhenStageIsDisabled() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityVersioningService mockVersioningService = Mockito.mock(EntityVersioningService.class);
+    CreateGlossaryTermVersionResolver resolver =
+        resolverWithPreviousMetadata(mockClient, mockVersioningService, List.of());
+
+    resolver.get(envFor(newVersionInput())).get();
+
+    assertTrue(
+        ingested(mockClient).stream().noneMatch(m -> STATUS_ASPECT_NAME.equals(m.getAspectName())));
+  }
+
+  @Test
   public void testExistingIdIsRejectedBeforeLinkingPreviousTerm() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityVersioningService mockVersioningService = Mockito.mock(EntityVersioningService.class);

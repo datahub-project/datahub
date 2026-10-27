@@ -100,7 +100,9 @@ def _search_default(graph_client: DataHubGraph, name: str) -> List[str]:
     return [r["entity"]["urn"] for r in result["search"]["searchResults"]]
 
 
-def _search_by_stage(graph_client: DataHubGraph, stage_urn: str) -> List[str]:
+def _search_by_stage(
+    graph_client: DataHubGraph, name: str, stage_urn: str
+) -> List[str]:
     """Explicit stage filter — bypasses the default hidden-stage exclusion."""
     result = graph_client.execute_graphql(
         """
@@ -114,7 +116,7 @@ def _search_by_stage(graph_client: DataHubGraph, stage_urn: str) -> List[str]:
         variables={
             "input": {
                 "type": "GLOSSARY_TERM",
-                "query": "*",
+                "query": name,
                 "count": 50,
                 "orFilters": [
                     {"and": [{"field": "lifecycleStage", "values": [stage_urn]}]}
@@ -327,7 +329,7 @@ class TestGlossaryTermLifecycleStages:
         # Explicit filter: discoverable
         @with_test_retry(max_attempts=12)
         def _visible_with_filter():
-            assert urn in _search_by_stage(self.graph_client, DRAFT_URN), (
+            assert urn in _search_by_stage(self.graph_client, name, DRAFT_URN), (
                 "DRAFT term should be discoverable via explicit lifecycleStage filter"
             )
 

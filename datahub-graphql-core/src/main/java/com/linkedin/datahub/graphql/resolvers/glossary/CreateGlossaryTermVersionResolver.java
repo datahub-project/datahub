@@ -256,6 +256,17 @@ public class CreateGlossaryTermVersionResolver
             String.format(
                 "versionSet URN %s must be of entity type versionSet.", input.getVersionSet()));
       }
+      // Checked before any write: linkLatestVersion would reject the mismatch only after the new
+      // term exists, leaving it orphaned.
+      final VersionSetKey key =
+          (VersionSetKey)
+              EntityKeyUtils.convertUrnToEntityKeyInternal(urn, new VersionSetKey().schema());
+      if (!GLOSSARY_TERM_ENTITY_NAME.equals(key.getEntityType())) {
+        throw new IllegalArgumentException(
+            String.format(
+                "versionSet %s holds %s entities, not glossary terms.",
+                input.getVersionSet(), key.getEntityType()));
+      }
       return urn;
     }
     if (previous != null && previous.versionSet() != null) {
@@ -390,9 +401,7 @@ public class CreateGlossaryTermVersionResolver
     final LifecycleStageTypeInfo info =
         new LifecycleStageTypeInfo(
             stage.getAspects().get(LifecycleStages.STAGE_INFO_ASPECT_NAME).getValue().data());
-    if (info.hasEntityTypes()
-        && !info.getEntityTypes().isEmpty()
-        && !info.getEntityTypes().contains(GLOSSARY_TERM_ENTITY_NAME)) {
+    if (!LifecycleStages.appliesToEntityType(info, GLOSSARY_TERM_ENTITY_NAME)) {
       log.debug(
           "Not starting the new version in Draft: the stage does not apply to glossary terms.");
       return null;
