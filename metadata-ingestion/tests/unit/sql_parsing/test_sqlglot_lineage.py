@@ -417,6 +417,45 @@ FROM source_db.dbo.source_table
     )
 
 
+def test_snowflake_insert_column_name_mapping() -> None:
+    # The INSERT column list names the downstream columns, not the SELECT
+    # output names or aliases.
+    assert_sql_result(
+        """
+INSERT INTO my_db.my_schema.order_totals (order_id, total_amount)
+SELECT id, amount * 1.1 AS amount_with_tax
+FROM my_db.my_schema.orders
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)": {
+                "id": "NUMBER",
+                "amount": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.order_totals,PROD)": {
+                "order_id": "NUMBER",
+                "total_amount": "NUMBER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_insert_column_name_mapping.json",
+    )
+
+
+def test_postgres_insert_quoted_column_name_mapping() -> None:
+    # A quoted column in the INSERT column list keeps its case.
+    assert_sql_result(
+        """
+INSERT INTO my_schema.order_totals ("OrderId", total_amount)
+SELECT id, amount
+FROM my_schema.orders
+""",
+        dialect="postgres",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_insert_quoted_column_name_mapping.json",
+    )
+
+
 def test_select_with_full_col_name() -> None:
     # In this case, `widget` is a struct column.
     # This also tests the `default_db` functionality.
