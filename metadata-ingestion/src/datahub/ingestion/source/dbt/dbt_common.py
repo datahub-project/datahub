@@ -5848,7 +5848,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # declaring one does not make its columns NOT NULL.
         enforced_by = self._enforced_by_for_constraint(node, constraint.type)
         assertion_info = make_contract_assertion_info(
-            name=constraint.name,
+            # A named primary key titles only its unique half, so its not-null
+            # halves don't all show the same title.
+            name=(
+                None
+                if constraint.type == DBTConstraintType.PRIMARY_KEY
+                else constraint.name
+            ),
             custom_properties=self._constraint_custom_properties(
                 node, constraint, declared.scope, enforced_by
             ),
@@ -6285,11 +6291,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for contract in existing:
             # Re-emit the contract's own status as a non-primary workunit, so
             # stale entity removal neither tracks nor soft-deletes a contract
-            # this source wrote earlier but no longer owns.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=contract.urn,
-                aspect=contract.status or StatusClass(removed=False),
-            ).as_workunit(is_primary_source=False)
+            # this source wrote earlier but no longer owns. A contract this
+            # source wrote always has a status (auto status aspect), so one
+            # without is left alone rather than given a new aspect.
+            if contract.status is not None:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=contract.urn,
+                    aspect=contract.status,
+                ).as_workunit(is_primary_source=False)
 
     def _create_contract_assertions_for_node(
         self,

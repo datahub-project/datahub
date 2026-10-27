@@ -23,6 +23,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTModelPerformance,
     DBTNode,
     DBTSourceReport,
+    _ExistingContract,
     _RelationResolver,
     parse_dbt_constraint,
 )
@@ -354,6 +355,18 @@ def test_primary_key_expands_to_unique_and_per_column_not_null() -> None:
     assert unique.type == AssertionTypeClass.CUSTOM
     # Unnamed constraints leave the title to the UI, as for dbt tests.
     assert unique.description is None
+
+
+def test_named_primary_key_titles_only_its_unique_half() -> None:
+    source = _make_source()
+    node = _make_model(
+        model_constraints=[
+            DBTConstraint(type="primary_key", name="pk", columns=["a", "b"])
+        ]
+    )
+    assertions = source._create_constraint_assertions(node, _ENTITY_URN)
+    infos = _assertion_infos([m for a in assertions for m in a.mcps]).values()
+    assert sorted(str(info.description) for info in infos) == ["None", "None", "pk"]
 
 
 def test_named_constraint_becomes_assertion_name() -> None:
@@ -1105,6 +1118,17 @@ def test_yaml_contract_at_dbt_urn_without_dbt_schema_assertion_is_skipped() -> N
     assert source.report.num_contracts_skipped_existing == 1
 
 
+def test_skipped_contract_without_status_gets_no_new_status() -> None:
+    source = _make_source()
+    pending = source._create_contract_assertions_for_node(
+        _make_model(), [], {}, set(), _RelationResolver([])
+    )[1]
+    skipped = _ExistingContract(
+        urn=_UI_CONTRACT_URN, properties=_existing_contract(), status=None
+    )
+    assert list(source._skip_existing_contracts(pending, [skipped])) == []
+
+
 def test_new_contract_uses_the_fixed_urn() -> None:
     source = _make_source()
     node = _make_model()
@@ -1398,8 +1422,10 @@ def test_stateful_skipped_contract_is_not_soft_deleted(tmp_path: Path) -> None:
     # was removed from the contract in DataHub).
     graph = _WriteThroughGraph()
     authored = _existing_contract("urn:li:assertion:authored")
+    # The earlier run wrote it, so it has a status aspect.
     graph.aspects[_UI_CONTRACT_URN] = {
-        DataContractPropertiesClass.ASPECT_NAME: authored
+        DataContractPropertiesClass.ASPECT_NAME: authored,
+        StatusClass.ASPECT_NAME: StatusClass(removed=False),
     }
     workunits, state = _run_stateful(
         tmp_path, enforced=True, previous_urns=[_UI_CONTRACT_URN], graph=graph

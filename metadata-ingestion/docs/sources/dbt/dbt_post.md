@@ -803,13 +803,13 @@ If the Discovery API request for contract data fails, the whole ingestion run is
 When a dbt model has `contract.enforced: true`, DataHub creates:
 
 1. **Schema assertion (CUSTOM)** — declared columns and types, with pass/fail from the model build (dbt's preflight). Linked on the Data Contract **data quality** section (not the schema slot, which is reserved for DataHub-native schema assertions).
-2. **Constraint assertions (CUSTOM)** — one per constraint in the contract. A named constraint's `name` becomes the assertion's display name; otherwise DataHub builds the title from the assertion definition:
+2. **Constraint assertions (CUSTOM)** — one per constraint in the contract. A named constraint's `name` becomes the assertion's display name (for a `primary_key`, only on its unique assertion); otherwise DataHub builds the title from the assertion definition:
    - `not_null` → a null-count assertion on the column
    - `unique` → a unique-proportion assertion with parameter `1.0`
    - `primary_key` → **both** a unique assertion and a not-null assertion (PK = unique AND not null)
    - Composite primary keys produce a single multi-column unique assertion over the tuple, plus per-column not-null assertions
    - The same check declared more than once (for example `not_null` and `primary_key` on one column) produces one assertion, labelled with the strongest enforcement. Column names are compared case-insensitively, and a foreign key's target is identified by the relation it resolves to, so manifests from `dbt parse` and `dbt compile` produce the same assertions
-   - `foreign_key` carries `to` (referenced model) and `to_columns` on custom properties. dbt foreign keys do **not** use `expression`.
+   - `foreign_key` carries `to` (referenced model) and `to_columns` on custom properties. dbt 1.9+ declares foreign keys with `to` / `to_columns`; the older `expression: "other_table (id)"` form is also parsed.
    - `check` and `custom` carry the expression on custom properties
 3. **Matching dbt tests** — existing test assertions (already CUSTOM + run events) are attached when tagged or when the test type and column match a declared constraint.
 4. **Data Contract entity** — bundles the assertions above and links them to the dbt dataset.
@@ -820,7 +820,7 @@ If the dataset already has a contract that is not dbt's, dbt does not change its
 
 Finding existing contracts needs a DataHub graph connection. With a sink that has none (for example the file sink, or a Kafka sink without `datahub_api`), no Data Contract is written: contract assertions are still emitted and the report carries a warning. Configure `datahub_api`, or set `replace_existing_contracts_with_dbt: true`, to write contracts. Without a graph, `replace_existing_contracts_with_dbt` writes to the URN derived from the dataset, so a dataset that already has a contract at another URN (for example one created in the UI) ends up with two contracts. If existing contracts cannot be read, the whole ingestion run is marked as failed (so stateful ingestion does not soft-delete earlier contracts), contract assertions are still emitted, and no Data Contract is written or removed.
 
-With stateful ingestion, dbt's contracts are soft-deleted like other stale dbt entities when a model stops enforcing its contract or `ingest_contracts` is turned off. Contracts that are not dbt's are never soft-deleted.
+With stateful ingestion, dbt's contracts are soft-deleted like other stale dbt entities when a model stops enforcing its contract or `ingest_contracts` is turned off. Contracts that are not dbt's are never soft-deleted, unless `replace_existing_contracts_with_dbt` is set: dbt then owns the contract it writes, including stale removal.
 
 Unsupported or unknown constraint types are recorded on the ingestion report (`contract_constraints_skipped_unsupported`) and skipped rather than raised, so one unusual constraint in one model doesn't fail ingestion for the rest of the project.
 
