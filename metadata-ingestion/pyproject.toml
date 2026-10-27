@@ -9,7 +9,7 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=83.0.0", "wheel"]
+requires = ["setuptools>=84.1.0", "wheel"]
 
 [project]
 name = "acryl-datahub"
@@ -2110,9 +2110,11 @@ constraint-dependencies = [
     # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.8.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
     "urllib3>=2.8.0,<3.0.0",
-    # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
-    # constraint files pin setuptools, so a base floor breaks those installs).
-    "setuptools>=83.0.0",
+    # CVE-2026-59890 (fixed in 83.0.0) and GHSA-xmj3-9gf7-h52w (Windows path escape via
+    # namespace_packages.txt in legacy wheel installs, fixed in 84.1.0): floored at lock
+    # time, not in base_requirements (Airflow constraint files pin setuptools, so a base
+    # floor breaks those installs).
+    "setuptools>=84.1.0",
     # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
     # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
     # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
