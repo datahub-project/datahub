@@ -23,7 +23,7 @@ public class PropertiesDescriptionChangeEventGeneratorTest {
 
   private static PropertiesDescriptionChangeEventGenerator<DataFlowInfo> newGenerator() {
     return new PropertiesDescriptionChangeEventGenerator<>(
-        DATA_FLOW_INFO_ASPECT_NAME, DataFlowInfo.class);
+        DATA_FLOW_INFO_ASPECT_NAME, DataFlowInfo.class, "description");
   }
 
   private static AuditStamp testAuditStamp() throws Exception {

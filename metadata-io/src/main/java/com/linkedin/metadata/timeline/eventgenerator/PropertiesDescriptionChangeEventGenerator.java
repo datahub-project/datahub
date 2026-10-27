@@ -39,14 +39,9 @@ public class PropertiesDescriptionChangeEventGenerator<T extends RecordTemplate>
   private final Class<T> aspectClass;
   private final String descriptionFieldName;
 
-  public PropertiesDescriptionChangeEventGenerator(
-      @Nonnull final String aspectName, @Nonnull final Class<T> aspectClass) {
-    this(aspectName, aspectClass, DESCRIPTION_FIELD);
-  }
-
   /**
-   * @param descriptionFieldName the top-level string field holding the free-text description when
-   *     the aspect does not call it {@code description} (e.g. {@code glossaryNodeInfo.definition}).
+   * @param descriptionFieldName the top-level string field holding the free-text description;
+   *     usually {@code description}, but e.g. {@code definition} for {@code glossaryNodeInfo}.
    */
   public PropertiesDescriptionChangeEventGenerator(
       @Nonnull final String aspectName,
