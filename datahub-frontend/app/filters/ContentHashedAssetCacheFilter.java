@@ -49,8 +49,8 @@ public class ContentHashedAssetCacheFilter extends EssentialFilter {
 
   @Inject
   public ContentHashedAssetCacheFilter(Config config) {
-    this.httpContext = normalizeContext(configuredPath(config, "play.http.context"));
-    this.basePath = normalizeContext(configuredPath(config, "datahub.basePath"));
+    this.httpContext = StaticAssetPaths.configuredContext(config, "play.http.context");
+    this.basePath = StaticAssetPaths.configuredContext(config, "datahub.basePath");
   }
 
   @Override
@@ -93,75 +93,15 @@ public class ContentHashedAssetCacheFilter extends EssentialFilter {
   }
 
   private static String assetFileName(String path, String httpContext, String basePath) {
-    String normalized = stripQueryAndFragment(path);
-    if (normalized == null) {
+    String relative = StaticAssetPaths.relativePath(path, httpContext, basePath);
+    if (relative == null || !relative.startsWith(StaticAssetPaths.ASSETS_PREFIX)) {
       return null;
     }
-    normalized =
-        stripBase(stripBase(normalized, normalizeContext(httpContext)), normalizeContext(basePath));
-    final String prefix = "/assets/";
-    if (!normalized.startsWith(prefix)) {
-      return null;
-    }
-    String fileName = normalized.substring(prefix.length());
+    String fileName = relative.substring(StaticAssetPaths.ASSETS_PREFIX.length());
     if (fileName.isEmpty() || fileName.indexOf('/') >= 0 || fileName.indexOf('\\') >= 0) {
       return null;
     }
     return fileName;
-  }
-
-  private static String stripQueryAndFragment(String path) {
-    if (path == null || path.isEmpty()) {
-      return null;
-    }
-    int end = path.length();
-    int query = path.indexOf('?');
-    if (query >= 0) {
-      end = query;
-    }
-    int fragment = path.indexOf('#');
-    if (fragment >= 0 && fragment < end) {
-      end = fragment;
-    }
-    return path.substring(0, end);
-  }
-
-  private static String stripBase(String path, String normalizedBase) {
-    if (normalizedBase.isEmpty()) {
-      return path;
-    }
-    if (path.equals(normalizedBase)) {
-      return "/";
-    }
-    String prefix = normalizedBase + "/";
-    if (path.startsWith(prefix)) {
-      return path.substring(normalizedBase.length());
-    }
-    return path;
-  }
-
-  static String normalizeContext(String raw) {
-    if (raw == null) {
-      return "";
-    }
-    String trimmed = raw.trim();
-    if (trimmed.isEmpty() || "/".equals(trimmed)) {
-      return "";
-    }
-    if (!trimmed.startsWith("/")) {
-      trimmed = "/" + trimmed;
-    }
-    if (trimmed.endsWith("/")) {
-      trimmed = trimmed.substring(0, trimmed.length() - 1);
-    }
-    return trimmed;
-  }
-
-  private static String configuredPath(Config config, String key) {
-    if (config != null && config.hasPath(key)) {
-      return config.getString(key);
-    }
-    return "/";
   }
 
   private static boolean isCacheableSuccess(int status) {
