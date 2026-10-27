@@ -98,7 +98,7 @@ def find_credential_redirects(
       that has no token or auth of its own;
     - references to the credential environment variables in the recipe or pip settings,
       including indirect ${!NAME} references, and credential values in the resolved recipe
-      or pip requirements, except in the token/auth of a client for the configured server;
+      or pip requirements, except in the token of a client for the configured server;
     - extra_env_vars that redirect the configured server, replace its credentials or set a
       proxy.
 
@@ -122,16 +122,19 @@ def find_credential_redirects(
         if name.strip().upper() in _PROTECTED_ENV_VARS
         or name.strip().upper().startswith(_PROTECTED_ENV_VAR_PREFIX)
     ]
-    # A client config that talks to the configured server may carry the executor's own
-    # credentials (for example `token: ${DATAHUB_GMS_TOKEN}`); its token and auth fields are
-    # exempt from the reference and value checks.
-    own_server_credentials: list[str] = []
+    # A client config that talks to the configured server may carry the executor's own token
+    # (for example `token: ${DATAHUB_GMS_TOKEN}`), so its `token` field is exempt from the
+    # reference and value checks. Its `auth` block is not: a token provider there can send a
+    # secret to an endpoint of its own, such as an OIDC token endpoint.
+    # Paths come from the resolved recipe and are matched against checks of the raw recipe;
+    # placeholder resolution only changes values, never keys, so the paths line up.
+    own_server_tokens: list[str] = []
     for path, client_config in _datahub_client_configs(effective_recipe, ""):
         server = client_config.get("server")
         if not isinstance(server, str) or not server:
             continue
         if env_url is not None and is_same_gms_origin(env_url, server):
-            own_server_credentials += [f"recipe.{path}.token", f"recipe.{path}.auth"]
+            own_server_tokens.append(f"recipe.{path}.token")
         elif not (client_config.get("token") or client_config.get("auth")):
             problems.append(f"{path}.server")
 
@@ -155,9 +158,7 @@ def find_credential_redirects(
             )
         )
     problems.extend(
-        problem
-        for problem in credential_problems
-        if not any(_is_within(problem, exempt) for exempt in own_server_credentials)
+        problem for problem in credential_problems if problem not in own_server_tokens
     )
     # A reference that resolves to a credential is reported once, not per check.
     return list(dict.fromkeys(problems))
@@ -179,10 +180,6 @@ def _credential_values() -> list[str]:
             continue
         values.append(credential)
     return values
-
-
-def _is_within(path: str, prefix: str) -> bool:
-    return path == prefix or path.startswith((prefix + ".", prefix + "["))
 
 
 def check_credential_redirects(

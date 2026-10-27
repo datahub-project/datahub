@@ -680,6 +680,31 @@ class TestOwnServerCredentials:
         }
         assert self._find(recipe) == ["recipe.source.config.password"]
 
+    def test_auth_block_for_own_server_is_still_checked(self) -> None:
+        # The client targets the configured server, but its token provider posts the
+        # secret to an endpoint of its own.
+        recipe: dict = {
+            "sink": {
+                "type": "datahub-rest",
+                "config": {
+                    "server": self.GMS,
+                    "auth": {
+                        "type": "oidc_client_credentials",
+                        "config": {
+                            "token_endpoint": "https://other.example/token",
+                            "client_id": "x",
+                            "client_secret": "${DATAHUB_GMS_TOKEN}",
+                        },
+                    },
+                },
+            }
+        }
+        problem = "recipe.sink.config.auth.config.client_secret"
+        assert self._find(recipe) == [problem]
+        # The same value arriving through a stored secret is caught too.
+        recipe["sink"]["config"]["auth"]["config"]["client_secret"] = "${STORED}"
+        assert self._find(recipe, {"STORED": self.TOKEN}) == [problem]
+
     def test_short_credential_value_is_logged_not_compared(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
