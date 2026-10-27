@@ -15,7 +15,7 @@ We do NOT test:
 
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from azure.mgmt.datafactory.models import Activity
@@ -23,13 +23,13 @@ from azure.mgmt.datafactory.models import Activity
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
-    build_lowercase_column_map,
+    SinkColumnCasing,
     get_activity_translator_config,
-    match_sink_column_casing,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
     AzureDataFactoryConfig,
@@ -41,8 +41,11 @@ from datahub.ingestion.source.azure_data_factory.adf_report import (
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
     AzureDataFactorySource,
+    ColumnMapping,
+    LineagePair,
 )
 from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
     DataJobInputOutputClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -54,6 +57,16 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.dataflow import DataFlow
+
+
+def make_source() -> AzureDataFactorySource:
+    with patch(
+        "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactoryClient"
+    ):
+        return AzureDataFactorySource(
+            AzureDataFactoryConfig(subscription_id="test-sub"),
+            PipelineContext(run_id="test"),
+        )
 
 
 class TestLinkedServicePlatformMapping:
@@ -174,7 +187,7 @@ class TestNestedActivityTraversal:
     """
 
     def _make_source(self) -> AzureDataFactorySource:
-        return object.__new__(AzureDataFactorySource)
+        return make_source()
 
     @pytest.mark.timeout(5)
     def test_find_activity_by_name_terminates_on_self_referencing_container(
@@ -317,7 +330,7 @@ class TestExpressionParameterResolution:
 
     def _make_source(self) -> AzureDataFactorySource:
         config = AzureDataFactoryConfig(subscription_id="test-sub")
-        source = object.__new__(AzureDataFactorySource)
+        source = make_source()
         source.config = config
         source.report = AzureDataFactorySourceReport()
         source._datasets_cache = {}
@@ -2101,59 +2114,27 @@ class TestCopyActivityColumnLineageExtractor:
         assert lineages == []
 
 
-class TestMatchSinkColumnCasing:
-    """Tests for build_lowercase_column_map / match_sink_column_casing -
-    the shared case-insensitive column-name resolution used by every
-    "auto-map by name" column lineage path (translator-less Copy
-    activities, the SELECT * -> DataHub-schema fallback, and
-    query-parsed column lineage) so a same-name-guessed downstream field
-    actually matches a real field in the sink's own schema instead of
-    assuming identical casing. The lookup is built once per sink schema
-    (build_lowercase_column_map) rather than rescanned per column, since
-    a full auto-mapped table matches many source columns against the
-    same sink schema."""
-
+class TestSinkColumnCasing:
     def test_matches_case_insensitively(self) -> None:
-        sink_columns_by_lower = build_lowercase_column_map(
+        casing = SinkColumnCasing.from_schema(
             DatasetSchemaInfo(columns=["order_id", "ship_date", "region"])
         )
-        assert match_sink_column_casing("Ship_Date", sink_columns_by_lower) == (
-            "ship_date"
-        )
-        assert match_sink_column_casing("Region", sink_columns_by_lower) == "region"
+        assert casing.resolve("Ship_Date") == "ship_date"
+        assert casing.resolve("Region") == "region"
 
-    def test_falls_back_to_given_name_without_sink_schema(self) -> None:
-        sink_columns_by_lower = build_lowercase_column_map(None)
-        assert (
-            match_sink_column_casing("Ship_Date", sink_columns_by_lower) == "Ship_Date"
-        )
+    def test_keeps_given_name_without_sink_schema(self) -> None:
+        assert SinkColumnCasing.from_schema(None).resolve("Ship_Date") == "Ship_Date"
 
-    def test_falls_back_to_given_name_when_no_match(self) -> None:
-        sink_columns_by_lower = build_lowercase_column_map(
-            DatasetSchemaInfo(columns=["order_id"])
-        )
-        assert (
-            match_sink_column_casing("Ship_Date", sink_columns_by_lower) == "Ship_Date"
-        )
+    def test_no_match_in_known_schema_is_unresolved(self) -> None:
+        casing = SinkColumnCasing.from_schema(DatasetSchemaInfo(columns=["order_id"]))
+        assert casing.resolve("Ship_Date") is None
 
-    def test_ambiguous_casing_collision_is_left_unresolved(self) -> None:
-        """Regression test: a sink schema with two distinct columns
-        differing only by case is ambiguous - there's no way to know
-        which one a given source column should resolve to - so the
-        lookup must not guess by arbitrarily picking whichever column
-        happened to be seen last. Both the exact match and the
-        differently-cased one are left out of the map, so a lookup falls
-        back to the source's own casing, same as an unresolved column."""
-        sink_columns_by_lower = build_lowercase_column_map(
+    def test_columns_differing_only_by_case_are_unresolved(self) -> None:
+        casing = SinkColumnCasing.from_schema(
             DatasetSchemaInfo(columns=["Region", "region", "order_id"])
         )
-        assert "region" not in sink_columns_by_lower
-        assert match_sink_column_casing("Region", sink_columns_by_lower) == "Region"
-        assert match_sink_column_casing("REGION", sink_columns_by_lower) == "REGION"
-        # Unambiguous columns in the same schema are unaffected.
-        assert match_sink_column_casing("Order_ID", sink_columns_by_lower) == (
-            "order_id"
-        )
+        assert casing.resolve("Region") is None
+        assert casing.resolve("Order_ID") == "order_id"
 
 
 class TestSourceDatasetSchemaExtraction:
@@ -2348,7 +2329,7 @@ class TestSimpleSelectStarDetection:
     where falling back to a DataHub-graph schema lookup is safe."""
 
     def _make_source(self) -> AzureDataFactorySource:
-        source = object.__new__(AzureDataFactorySource)
+        source = make_source()
         source.report = AzureDataFactorySourceReport()
         return source
 
@@ -2389,7 +2370,7 @@ class TestGraphSchemaColumnLineageFallback:
     connector no column list of its own to work from."""
 
     def _make_source(self, graph: Optional[Any]) -> AzureDataFactorySource:
-        source = object.__new__(AzureDataFactorySource)
+        source = make_source()
         source.report = AzureDataFactorySourceReport()
         source.ctx = PipelineContext(run_id="test", graph=graph)
         source._graph_schema_cache = {}
@@ -2528,20 +2509,22 @@ class TestGraphSchemaColumnLineageFallback:
 
         assert mappings == []
 
-    def test_graph_lookup_failure_returns_empty_without_error(self) -> None:
-        """The table might genuinely not exist in DataHub yet, or GMS
-        might be transiently unavailable - either way, this is an
-        optional enrichment, not a hard dependency."""
+    def test_graph_lookup_failure_is_reported_and_not_retried(self) -> None:
         mock_graph = MagicMock()
         mock_graph.get_schema_metadata.side_effect = Exception("GMS unavailable")
         source = self._make_source(graph=mock_graph)
 
-        mappings = source._infer_column_lineage_from_graph_schema(
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
-        )
+        for _ in range(2):
+            mappings = source._infer_column_lineage_from_graph_schema(
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,t,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,t,PROD)",
+            )
+            assert mappings == []
 
-        assert mappings == []
+        assert mock_graph.get_schema_metadata.call_count == 1
+        assert {w.title for w in source.report.warnings} == {
+            "Failed to Fetch Schema from DataHub"
+        }
 
     def test_schema_with_no_fields_returns_empty(self) -> None:
         mock_graph = MagicMock()
@@ -2556,311 +2539,484 @@ class TestGraphSchemaColumnLineageFallback:
         assert mappings == []
 
 
-class TestPairSiblingDataJobEmission:
-    """Tests for _emit_pair_sibling_datajob, the mechanism that gives a
-    many-to-many activity fan-out (an activity observed feeding from
-    more than one distinct source AND into more than one distinct sink -
-    e.g. a ForEach-looped Copy activity) its own precise lineage entity
-    per real (source, sink) pair, instead of a shared DataJob whose
-    unioned inputs/outputs would otherwise imply every source feeds
-    every sink. See _emit_dynamic_lineage_augmentation."""
+def _table_urn(table: str) -> str:
+    return f"urn:li:dataset:(urn:li:dataPlatform:mssql,db.{table},PROD)"
 
-    def _make_source(self) -> AzureDataFactorySource:
-        source = object.__new__(AzureDataFactorySource)
-        source.config = AzureDataFactoryConfig(
-            subscription_id="test-sub", include_column_lineage=False
-        )
-        source.report = AzureDataFactorySourceReport()
-        dataflow = DataFlow(
-            platform="azure-data-factory", name="test-factory.TestPipeline", env="DEV"
-        )
-        source._dataflow_cache = {("test-factory", "TestPipeline"): dataflow}
-        source._execute_pipeline_input_datajobs = {}
-        return source
 
-    _PARENT_JOB_URN = DataJobUrn.create_from_ids(
-        data_flow_urn="urn:li:dataFlow:(azure-data-factory,test-factory.TestPipeline,DEV)",
-        job_id="CopyActivity",
+def _pair(source_table: str, sink_table: str) -> LineagePair:
+    return LineagePair.of([_table_urn(source_table)], [_table_urn(sink_table)])
+
+
+def _io_aspects(
+    workunits: list[MetadataWorkUnit],
+) -> dict[str, DataJobInputOutputClass]:
+    aspects: dict[str, DataJobInputOutputClass] = {}
+    for wu in workunits:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, DataJobInputOutputClass
+        ):
+            assert wu.metadata.entityUrn is not None
+            aspects[wu.metadata.entityUrn] = wu.metadata.aspect
+    return aspects
+
+
+def _warning_titles(source: AzureDataFactorySource) -> set[Optional[str]]:
+    return {w.title for w in source.report.warnings}
+
+
+class TestDynamicLineageFanOut:
+    """_emit_dynamic_lineage_augmentation for an activity whose execution
+    history has many distinct sources and many distinct sinks."""
+
+    FACTORY_KEY = "test-rg/test-factory"
+    PARENT_JOB_URN = (
+        "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,"
+        "test-factory.TestPipeline,PROD),CopyActivity)"
     )
 
-    def _pair_key(
-        self, source_table: str, sink_table: str
-    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        return (
-            (f"urn:li:dataset:(urn:li:dataPlatform:mssql,db.{source_table},PROD)",),
-            (f"urn:li:dataset:(urn:li:dataPlatform:mssql,db.{sink_table},PROD)",),
+    def _run(
+        self,
+        pairs: dict[LineagePair, set[ColumnMapping]],
+        static_pair: LineagePair = LineagePair(inputs=(), outputs=()),
+        cap: int = 50,
+        placeholders: Optional[set[str]] = None,
+        execute_pipeline_callers: Optional[list[str]] = None,
+        stateful: bool = False,
+        description: Optional[str] = None,
+    ) -> tuple[AzureDataFactorySource, list[MetadataWorkUnit]]:
+        source = make_source()
+        config: dict[str, Any] = {
+            "subscription_id": "test-sub",
+            "include_column_lineage": False,
+            "max_dynamic_lineage_pairs_per_activity": cap,
+        }
+        if stateful:
+            config["stateful_ingestion"] = {"enabled": True}
+        source.config = AzureDataFactoryConfig.model_validate(config)
+        activity = SimpleNamespace(
+            name="CopyActivity", type="Copy", description=description
         )
-
-    def _emit(self, source: AzureDataFactorySource, pair_key: Any) -> Any:
-        factory = SimpleNamespace(name="test-factory")
-        activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
-        workunits = list(
-            source._emit_pair_sibling_datajob(
-                factory,
-                "test-rg",
-                "test-factory",
-                "TestPipeline",
-                "CopyActivity",
-                activity,
-                self._PARENT_JOB_URN,
-                pair_key,
-                set(),
+        source._pipelines_cache = {
+            self.FACTORY_KEY: {"TestPipeline": SimpleNamespace(activities=[activity])}
+        }
+        source._dataflow_cache = {
+            (self.FACTORY_KEY, "TestPipeline"): DataFlow(
+                platform="azure-data-factory", name="test-factory.TestPipeline"
             )
-        )
-        assert len(workunits) >= 1
-        return workunits[0].get_urn()
+        }
+        source._dynamic_lineage_cache = {
+            (self.FACTORY_KEY, "TestPipeline", "CopyActivity"): pairs
+        }
+        source._placeholder_dataset_urns = placeholders or set()
+        if execute_pipeline_callers:
+            source._execute_pipeline_input_datajobs = {
+                self.PARENT_JOB_URN: execute_pipeline_callers
+            }
 
-    def test_same_pair_produces_stable_job_id(self) -> None:
-        """Sibling job_ids are deterministic hashes of the pair, not
-        random per-run identifiers - re-ingesting the same pair must
-        mint the same DataJob URN, not a duplicate."""
-        source = self._make_source()
-        pair_key = self._pair_key("orders_table", "staging_table")
-
-        first_urn = self._emit(source, pair_key)
-        second_urn = self._emit(source, pair_key)
-
-        assert first_urn == second_urn
-
-    def test_different_pairs_produce_different_job_ids(self) -> None:
-        source = self._make_source()
-
-        orders_urn = self._emit(source, self._pair_key("orders_table", "staging_table"))
-        customers_urn = self._emit(
-            source, self._pair_key("customers_table", "staging_table")
-        )
-
-        assert orders_urn != customers_urn
-
-    def test_sibling_carries_parent_execute_pipeline_edge(self) -> None:
-        """The pair's tables live on the sibling, not the parent job, so
-        the sibling must keep the parent's ExecutePipeline edge or a
-        calling pipeline's job no longer reaches those tables."""
-        source = self._make_source()
-        caller = "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,test-factory.ParentPipeline,DEV),CallChild)"
-        source._execute_pipeline_input_datajobs = {str(self._PARENT_JOB_URN): [caller]}
-        factory = SimpleNamespace(name="test-factory")
-        activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
-
-        workunits = list(
-            source._emit_pair_sibling_datajob(
-                factory,
-                "test-rg",
-                "test-factory",
-                "TestPipeline",
-                "CopyActivity",
-                activity,
-                self._PARENT_JOB_URN,
-                self._pair_key("orders_table", "staging_table"),
-                set(),
+        with (
+            patch.object(
+                source,
+                "_extract_activity_inputs",
+                return_value=list(static_pair.inputs),
+            ),
+            patch.object(
+                source,
+                "_extract_activity_outputs",
+                return_value=list(static_pair.outputs),
+            ),
+        ):
+            workunits = list(
+                source._emit_dynamic_lineage_augmentation(
+                    SimpleNamespace(name="test-factory"), "test-rg"
+                )
             )
+        return source, workunits
+
+    def _siblings(
+        self, workunits: list[MetadataWorkUnit]
+    ) -> dict[str, DataJobInputOutputClass]:
+        return {
+            urn: aspect
+            for urn, aspect in _io_aspects(workunits).items()
+            if urn != self.PARENT_JOB_URN
+        }
+
+    def test_one_sibling_per_pair_with_only_that_pairs_tables(self) -> None:
+        source, workunits = self._run(
+            {_pair("orders", "stg_orders"): set(), _pair("users", "stg_users"): set()}
         )
 
-        [io_aspect] = [
+        siblings = self._siblings(workunits)
+        assert {
+            (tuple(a.inputDatasets), tuple(a.outputDatasets)) for a in siblings.values()
+        } == {
+            ((_table_urn("orders"),), (_table_urn("stg_orders"),)),
+            ((_table_urn("users"),), (_table_urn("stg_users"),)),
+        }
+        # The parent's static lineage is real here, so it is left alone.
+        assert self.PARENT_JOB_URN not in _io_aspects(workunits)
+        assert source.report.dynamic_lineage_sibling_jobs_emitted == 2
+
+    def test_sibling_job_id_is_stable(self) -> None:
+        _, workunits = self._run(
+            {_pair("orders", "stg_orders"): set(), _pair("users", "stg_users"): set()}
+        )
+
+        assert (
+            "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,"
+            "test-factory.TestPipeline,PROD),CopyActivity__f11cb8338a88)"
+            in self._siblings(workunits)
+        )
+
+    def test_pairs_over_cap_are_dropped_by_urn_order(self) -> None:
+        # Inserted out of order: which pairs make the cap must not depend on
+        # the order runs came back from the API.
+        pairs: dict[LineagePair, set[ColumnMapping]] = {
+            _pair(name, f"stg_{name}"): set() for name in ["gamma", "alpha", "beta"]
+        }
+
+        source, workunits = self._run(pairs, cap=2)
+
+        siblings = self._siblings(workunits)
+        assert {a.inputDatasets[0] for a in siblings.values()} == {
+            _table_urn("alpha"),
+            _table_urn("beta"),
+        }
+        # Not unioned onto the parent either.
+        assert self.PARENT_JOB_URN not in _io_aspects(workunits)
+        assert source.report.dynamic_lineage_pairs_over_cap == 1
+        assert "Dynamic Lineage Pair Cap Exceeded" in _warning_titles(source)
+
+    def test_exactly_cap_pairs_is_not_over_cap(self) -> None:
+        source, workunits = self._run(
+            {_pair("a", "x"): set(), _pair("b", "y"): set()}, cap=2
+        )
+
+        assert len(self._siblings(workunits)) == 2
+        assert source.report.dynamic_lineage_pairs_over_cap == 0
+
+    def test_static_pair_does_not_use_a_cap_slot(self) -> None:
+        static = _pair("a", "x")
+        source, workunits = self._run(
+            {static: set(), _pair("b", "y"): set(), _pair("c", "z"): set()},
+            static_pair=static,
+            cap=2,
+        )
+
+        siblings = self._siblings(workunits)
+        assert {a.inputDatasets[0] for a in siblings.values()} == {
+            _table_urn("b"),
+            _table_urn("c"),
+        }
+        assert source.report.dynamic_lineage_pairs_over_cap == 0
+
+    def test_static_pair_column_lineage_goes_to_parent(self) -> None:
+        static = _pair("a", "x")
+        column: ColumnMapping = (
+            (f"urn:li:schemaField:({_table_urn('a')},id)",),
+            f"urn:li:schemaField:({_table_urn('x')},id)",
+        )
+
+        _, workunits = self._run(
+            {static: {column}, _pair("b", "y"): set()}, static_pair=static
+        )
+
+        parent = _io_aspects(workunits)[self.PARENT_JOB_URN]
+        assert parent.inputDatasets == [_table_urn("a")]
+        assert parent.fineGrainedLineages is not None
+        assert parent.fineGrainedLineages[0].downstreams == [column[1]]
+
+    def test_placeholder_removed_from_parent(self) -> None:
+        placeholder_in = "urn:li:dataset:(urn:li:dataPlatform:mssql,DS_Source,PROD)"
+        placeholder_out = "urn:li:dataset:(urn:li:dataPlatform:mssql,DS_Sink,PROD)"
+        caller = (
+            "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,f.Parent,PROD),Run)"
+        )
+
+        _, workunits = self._run(
+            {_pair("a", "x"): set(), _pair("b", "y"): set()},
+            static_pair=LineagePair.of([placeholder_in], [placeholder_out]),
+            placeholders={placeholder_in, placeholder_out},
+            execute_pipeline_callers=[caller],
+        )
+
+        parent = _io_aspects(workunits)[self.PARENT_JOB_URN]
+        assert parent.inputDatasets == []
+        assert parent.outputDatasets == []
+        assert parent.inputDatajobs == [caller]
+
+    def test_pair_with_placeholder_side_gets_no_sibling(self) -> None:
+        placeholder = "urn:li:dataset:(urn:li:dataPlatform:mssql,DS_Sink,PROD)"
+        source, workunits = self._run(
+            {
+                _pair("a", "x"): set(),
+                _pair("b", "y"): set(),
+                LineagePair.of([_table_urn("c")], [placeholder]): set(),
+            },
+            placeholders={placeholder},
+        )
+
+        siblings = self._siblings(workunits)
+        assert all(placeholder not in a.outputDatasets for a in siblings.values())
+        assert len(siblings) == 2
+        assert source.report.dynamic_lineage_pairs_unresolved == 1
+
+    def test_one_varying_side_is_unioned_onto_parent(self) -> None:
+        source, workunits = self._run({_pair("a", "x"): set(), _pair("b", "x"): set()})
+
+        assert self._siblings(workunits) == {}
+        parent = _io_aspects(workunits)[self.PARENT_JOB_URN]
+        assert parent.inputDatasets == [_table_urn("a"), _table_urn("b")]
+        assert source.report.dynamic_lineage_sibling_jobs_emitted == 0
+
+    def test_sibling_matches_parent_job_shape(self) -> None:
+        caller = (
+            "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,f.Parent,PROD),Run)"
+        )
+        _, workunits = self._run(
+            {_pair("orders", "stg_orders"): set(), _pair("users", "stg_users"): set()},
+            execute_pipeline_callers=[caller],
+            description="Copies one table",
+        )
+
+        sibling_urn = next(
+            urn for urn in self._siblings(workunits) if "f11cb8338a88" in urn
+        )
+        info = next(
             wu.metadata.aspect
             for wu in workunits
             if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
-        ]
-        assert io_aspect.inputDatajobs == [caller]
+            and wu.metadata.entityUrn == sibling_urn
+            and isinstance(wu.metadata.aspect, DataJobInfoClass)
+        )
+        assert info.name == "CopyActivity (orders -> stg_orders)"
+        assert info.customProperties == {
+            "activity_type": "Copy",
+            "activity_description": "Copies one table",
+            "parent_activity": "CopyActivity",
+        }
+        assert self._siblings(workunits)[sibling_urn].inputDatajobs == [caller]
 
-    def test_missing_dataflow_cache_entry_warns_and_yields_nothing(self) -> None:
-        """If the DataFlow for this pipeline was never cached (e.g. an
-        unexpected ordering bug), skip rather than crashing - the parent
-        job's own lineage is unaffected either way - but report a warning
-        rather than dropping the pair's lineage with no signal at all."""
-        source = self._make_source()
+    def test_warns_once_without_stale_metadata_removal(self) -> None:
+        pairs: dict[LineagePair, set[ColumnMapping]] = {
+            _pair("a", "x"): set(),
+            _pair("b", "y"): set(),
+        }
+
+        source, _ = self._run(pairs)
+        assert [w.title for w in source.report.warnings].count(
+            "Per-Pair DataJobs Without Stale Metadata Removal"
+        ) == 1
+
+        source, _ = self._run(pairs, stateful=True)
+        assert "Per-Pair DataJobs Without Stale Metadata Removal" not in (
+            _warning_titles(source)
+        )
+
+    def test_missing_dataflow_warns_and_emits_nothing(self) -> None:
+        source = make_source()
         source._dataflow_cache = {}
-        factory = SimpleNamespace(name="test-factory")
         activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
 
         workunits = list(
-            source._emit_pair_sibling_datajob(
-                factory,
-                "test-rg",
-                "test-factory",
-                "TestPipeline",
-                "CopyActivity",
-                activity,
-                self._PARENT_JOB_URN,
-                self._pair_key("orders_table", "staging_table"),
-                set(),
+            source._emit_fanout_dynamic_lineage(
+                factory=SimpleNamespace(name="test-factory"),
+                resource_group="test-rg",
+                factory_key=self.FACTORY_KEY,
+                pipeline_name="TestPipeline",
+                activity=activity,
+                job_urn=DataJobUrn.from_string(self.PARENT_JOB_URN),
+                pairs={_pair("a", "x"): set(), _pair("b", "y"): set()},
+                static_pair=LineagePair(inputs=(), outputs=()),
             )
         )
 
         assert workunits == []
-        assert len(source.report.warnings) == 1
+        assert "Missing Cached DataFlow for Sibling DataJob" in _warning_titles(source)
 
     def test_display_name_truncates_more_than_three_names(self) -> None:
-        """A pair with more than 3 inputs (or outputs) summarizes as
-        "name1, name2, name3 and N more" instead of listing every name,
-        so a sibling DataJob's display name for a wide fan-in/fan-out
-        pair stays readable."""
-        source = self._make_source()
-        inputs = (
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.a,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.b,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.c,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:mssql,db.d,PROD)",
-        )
-        outputs = ("urn:li:dataset:(urn:li:dataPlatform:mssql,db.sink,PROD)",)
+        pair = LineagePair.of([_table_urn(t) for t in "abcd"], [_table_urn("sink")])
 
-        name = source._pair_sibling_display_name("CopyActivity", inputs, outputs)
+        name = make_source()._pair_sibling_display_name("CopyActivity", pair)
 
         assert name == "CopyActivity (a, b, c and 1 more -> sink)"
 
-    def test_short_dataset_name_falls_back_to_raw_urn_on_parse_failure(self) -> None:
-        """A malformed URN (should never happen, but _short_dataset_name
-        is purely cosmetic) falls back to the raw string rather than
-        raising and breaking the whole display-name computation."""
-        source = self._make_source()
 
-        assert source._short_dataset_name("not a valid urn") == "not a valid urn"
+class TestDynamicLineageColumnRecompute:
+    """Column lineage recomputed from the translator for each observed pair,
+    since extractors only read inlets[0]/outlets[0]."""
 
-
-class TestUnionedDynamicLineageColumnRecompute:
-    """Tests for _emit_unioned_dynamic_lineage's column-lineage recompute
-    fallback: when none of the unioned pairs contributed cached dynamic
-    column mappings but column lineage is enabled, it must recompute
-    per actually-observed (source, sink) pair rather than against the
-    flattened union of every pair's inputs/outputs. Activity-specific
-    extractors like CopyActivityColumnLineageExtractor only look at
-    inlets[0]/outlets[0], so passing them the combined multi-source list
-    would silently attribute every pair's columns to whichever URN
-    happens to sort first."""
-
-    def _make_source(self) -> AzureDataFactorySource:
-        source = object.__new__(AzureDataFactorySource)
+    def _make_source(self, include_column_lineage: bool) -> AzureDataFactorySource:
+        source = make_source()
         source.config = AzureDataFactoryConfig(
-            subscription_id="test-sub", include_column_lineage=True
+            subscription_id="test-sub", include_column_lineage=include_column_lineage
         )
-        source.report = AzureDataFactorySourceReport()
-        source._datasets_cache = {}
-        source._column_lineage_extractors = [CopyActivityColumnLineageExtractor()]
-        source._execute_pipeline_input_datajobs = {}
         return source
 
-    def test_recomputes_column_lineage_per_pair_not_first_sorted_pair(self) -> None:
-        from datahub.metadata.urns import DataJobUrn
-
-        source = self._make_source()
-        activity = SimpleNamespace(
+    def _activity(self) -> SimpleNamespace:
+        return SimpleNamespace(
             name="CopyActivity",
             type="Copy",
-            translator={
-                "type": "TabularTranslator",
-                "columnMappings": {"id": "id"},
-            },
+            description=None,
+            translator={"type": "TabularTranslator", "columnMappings": {"id": "id"}},
         )
-        job_urn = DataJobUrn.create_from_ids(
-            data_flow_urn="urn:li:dataFlow:(azure-data-factory,factory.Pipeline,PROD)",
-            job_id="CopyActivity",
-        )
-        source_a = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.customers_table,PROD)"
-        source_b = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.vendors_table,PROD)"
-        sink = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.staging_table,PROD)"
-        pairs: dict[
-            tuple[tuple[str, ...], tuple[str, ...]],
-            set[tuple[tuple[str, ...], str]],
-        ] = {
-            ((source_a,), (sink,)): set(),
-            ((source_b,), (sink,)): set(),
-        }
+
+    def test_union_recomputes_per_pair(self) -> None:
+        source = self._make_source(include_column_lineage=True)
+        job_urn = DataJobUrn.from_string(TestDynamicLineageFanOut.PARENT_JOB_URN)
 
         workunits = list(
             source._emit_unioned_dynamic_lineage(
-                activity, job_urn, "test-rg/test-factory", pairs, (), ()
+                self._activity(),
+                job_urn,
+                "test-rg/test-factory",
+                {_pair("customers", "stg"): set(), _pair("vendors", "stg"): set()},
+                LineagePair(inputs=(), outputs=()),
             )
         )
 
-        assert len(workunits) == 1
-        aspect = workunits[0].metadata.aspect
-        fine_grained = aspect.fineGrainedLineages
-        assert fine_grained is not None
-        upstream_sources = {fgl.upstreams[0] for fgl in fine_grained}
-        assert upstream_sources == {
-            f"urn:li:schemaField:({source_a},id)",
-            f"urn:li:schemaField:({source_b},id)",
+        aspect = _io_aspects(workunits)[str(job_urn)]
+        assert aspect.fineGrainedLineages is not None
+        assert {
+            fgl.upstreams[0] for fgl in aspect.fineGrainedLineages if fgl.upstreams
+        } == {
+            f"urn:li:schemaField:({_table_urn('customers')},id)",
+            f"urn:li:schemaField:({_table_urn('vendors')},id)",
         }
 
-    def test_no_column_lineage_when_disabled(self) -> None:
-        """When include_column_lineage is off, the union still emits the
-        input/output URNs but never attempts any column-lineage
-        recompute."""
-        from datahub.metadata.urns import DataJobUrn
-
-        source = self._make_source()
-        source.config.include_column_lineage = False
-        activity = SimpleNamespace(name="CopyActivity", type="Copy", translator=None)
-        job_urn = DataJobUrn.create_from_ids(
-            data_flow_urn="urn:li:dataFlow:(azure-data-factory,factory.Pipeline,PROD)",
-            job_id="CopyActivity",
-        )
-        source_a = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.customers_table,PROD)"
-        source_b = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.vendors_table,PROD)"
-        sink = "urn:li:dataset:(urn:li:dataPlatform:mssql,db.staging_table,PROD)"
-        pairs: dict[
-            tuple[tuple[str, ...], tuple[str, ...]],
-            set[tuple[tuple[str, ...], str]],
-        ] = {
-            ((source_a,), (sink,)): set(),
-            ((source_b,), (sink,)): set(),
-        }
+    def test_union_skips_column_lineage_when_disabled(self) -> None:
+        source = self._make_source(include_column_lineage=False)
+        job_urn = DataJobUrn.from_string(TestDynamicLineageFanOut.PARENT_JOB_URN)
 
         workunits = list(
             source._emit_unioned_dynamic_lineage(
-                activity, job_urn, "test-rg/test-factory", pairs, (), ()
+                self._activity(),
+                job_urn,
+                "test-rg/test-factory",
+                {_pair("customers", "stg"): set(), _pair("vendors", "stg"): set()},
+                LineagePair(inputs=(), outputs=()),
             )
         )
 
-        assert len(workunits) == 1
-        aspect = workunits[0].metadata.aspect
+        aspect = _io_aspects(workunits)[str(job_urn)]
         assert aspect.fineGrainedLineages is None
-        assert set(aspect.inputDatasets) == {source_a, source_b}
+        assert set(aspect.inputDatasets) == {
+            _table_urn("customers"),
+            _table_urn("vendors"),
+        }
 
+    def test_pair_with_empty_side_is_not_reported_unsupported(self) -> None:
+        source = self._make_source(include_column_lineage=True)
 
-class TestExtractQueryColumnLineageSinkCasing:
-    """Tests for _extract_query_column_lineage's use of the sink's own
-    schema casing (see match_sink_column_casing) - the third of the
-    three "auto-map by name" paths, alongside CopyActivityColumnLineage
-    Extractor's translator-less path and _infer_column_lineage_from_
-    graph_schema's SELECT * fallback."""
-
-    def _make_source(self, sink_schema_columns: list[str]) -> AzureDataFactorySource:
-        source = object.__new__(AzureDataFactorySource)
-        source.config = AzureDataFactoryConfig(subscription_id="test-sub")
-        source.report = AzureDataFactorySourceReport()
-        mock_graph = MagicMock()
-        mock_graph.get_schema_metadata.return_value = SchemaMetadataClass(
-            schemaName="test",
-            platform="urn:li:dataPlatform:mssql",
-            version=0,
-            hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
-            fields=[
-                SchemaFieldClass(
-                    fieldPath=col,
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                    nativeDataType="varchar",
-                )
-                for col in sink_schema_columns
-            ],
+        lineages = source._pair_fine_grained_lineages(
+            self._activity(),
+            "test-rg/test-factory",
+            LineagePair.of([_table_urn("customers")], []),
+            set(),
         )
-        source.ctx = PipelineContext(run_id="test", graph=mock_graph)
-        source._graph_schema_cache = {}
-        # Bypass dataset-reference resolution (linked service/platform
-        # lookup) - not what this test is about - and go straight to a
-        # fixed (platform, platform_instance, default_db) context.
-        source._resolve_dataset_ref_context = MagicMock(
-            return_value=("mssql", None, None)
+
+        assert lineages is None
+        assert source.report.column_lineage_activities_unsupported == {}
+
+    def test_sibling_gets_only_its_pairs_columns(self) -> None:
+        source = self._make_source(include_column_lineage=True)
+
+        lineages = source._pair_fine_grained_lineages(
+            self._activity(),
+            "test-rg/test-factory",
+            _pair("customers", "stg"),
+            set(),
         )
+
+        assert lineages is not None
+        assert [(fgl.upstreams, fgl.downstreams) for fgl in lineages] == [
+            (
+                [f"urn:li:schemaField:({_table_urn('customers')},id)"],
+                [f"urn:li:schemaField:({_table_urn('stg')},id)"],
+            )
+        ]
+
+
+def _schema_metadata(columns: list[str]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="test",
+        platform="urn:li:dataPlatform:mssql",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=col,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="varchar",
+            )
+            for col in columns
+        ],
+    )
+
+
+class TestSinkSchemaFromDataHub:
+    """Auto-mapped column lineage uses the sink schema DataHub already has."""
+
+    def _make_source(self, schemas: dict[str, list[str]]) -> AzureDataFactorySource:
+        source = make_source()
+        graph = MagicMock()
+        graph.get_schema_metadata.side_effect = lambda urn: (
+            _schema_metadata(schemas[urn]) if urn in schemas else None
+        )
+        source.ctx = PipelineContext(run_id="test", graph=graph)
         return source
 
-    def test_query_parsed_column_uses_sink_schema_casing(self) -> None:
-        """A column parsed from the activity run's resolved query must
-        be matched against the sink's own schema casing, not left as
-        whatever casing the query text happened to use."""
-        source = self._make_source(sink_schema_columns=["customer_name"])
+    def test_static_copy_uses_datahub_sink_casing(self) -> None:
+        source = self._make_source(
+            {
+                _table_urn("orders"): ["Ship_Date", "Region"],
+                _table_urn("stg_orders"): ["ship_date", "region"],
+            }
+        )
+        activity = SimpleNamespace(name="CopyActivity", type="Copy", translator=None)
+
+        lineages = source._extract_column_lineage(
+            activity=activity,
+            activity_type="Copy",
+            inlets=[_table_urn("orders")],
+            outlets=[_table_urn("stg_orders")],
+            factory_key="test-rg/test-factory",
+        )
+
+        assert lineages is not None
+        assert sorted(d for fgl in lineages for d in fgl.downstreams or []) == [
+            f"urn:li:schemaField:({_table_urn('stg_orders')},region)",
+            f"urn:li:schemaField:({_table_urn('stg_orders')},ship_date)",
+        ]
+
+    def test_column_missing_from_sink_is_skipped_and_reported(self) -> None:
+        source = self._make_source(
+            {
+                _table_urn("orders"): ["id", "legacy_flag"],
+                _table_urn("stg_orders"): ["id"],
+            }
+        )
+        activity = SimpleNamespace(name="CopyActivity", type="Copy", translator=None)
+
+        lineages = source._extract_column_lineage(
+            activity=activity,
+            activity_type="Copy",
+            inlets=[_table_urn("orders")],
+            outlets=[_table_urn("stg_orders")],
+            factory_key="test-rg/test-factory",
+        )
+
+        assert lineages is not None
+        assert [fgl.downstreams for fgl in lineages] == [
+            [f"urn:li:schemaField:({_table_urn('stg_orders')},id)"]
+        ]
+        assert source.report.column_lineage_sink_columns_unmatched == 1
+        assert "Column Not Found in Sink Schema" in _warning_titles(source)
+
+    def test_query_parsed_column_uses_sink_casing(self) -> None:
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+        source = self._make_source({sink_urn: ["customer_name"]})
         activity = SimpleNamespace(
             type="Copy",
             inputs=[SimpleNamespace(reference_name="SrcDataset", parameters=None)],
@@ -2868,12 +3024,45 @@ class TestExtractQueryColumnLineageSinkCasing:
         activity_run = SimpleNamespace(
             input={"source": {"query": "SELECT Customer_Name FROM orders"}}
         )
-        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
 
-        column_mappings = source._extract_query_column_lineage(
-            activity, activity_run, "factory_key", sink_urn
+        with patch.object(
+            source, "_resolve_dataset_ref_context", return_value=("mssql", None, None)
+        ):
+            column_mappings = source._extract_query_column_lineage(
+                activity, activity_run, "test-rg/test-factory", sink_urn
+            )
+
+        assert [downstream for _, downstream in column_mappings] == [
+            f"urn:li:schemaField:({sink_urn},customer_name)"
+        ]
+
+
+class TestCopyExtractorSchemaLookups:
+    def test_sink_not_looked_up_without_source_columns(self) -> None:
+        resolver = MagicMock(return_value=None)
+
+        lineages = CopyActivityColumnLineageExtractor().extract_column_lineage(
+            activity=SimpleNamespace(name="CopyActivity", translator=None),
+            inlets=[_table_urn("orders")],
+            outlets=[_table_urn("stg_orders")],
+            schema_resolver=resolver,
         )
 
-        assert len(column_mappings) == 1
-        _, downstream_urn = column_mappings[0]
-        assert downstream_urn == f"urn:li:schemaField:({sink_urn},customer_name)"
+        assert lineages == []
+        resolver.assert_called_once_with(_table_urn("orders"))
+
+    def test_explicit_translator_skips_schema_lookups(self) -> None:
+        resolver = MagicMock(return_value=None)
+
+        lineages = CopyActivityColumnLineageExtractor().extract_column_lineage(
+            activity=SimpleNamespace(
+                name="CopyActivity",
+                translator={"type": "TabularTranslator", "columnMappings": {"a": "b"}},
+            ),
+            inlets=[_table_urn("orders")],
+            outlets=[_table_urn("stg_orders")],
+            schema_resolver=resolver,
+        )
+
+        assert len(lineages) == 1
+        resolver.assert_not_called()

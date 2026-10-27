@@ -1679,20 +1679,13 @@ def test_adf_source_query_parsing_fully_qualified_and_sink_ddl(tmp_path):
         and e.get("entityUrn", "").endswith(",MirrorManyTables)")
     ]
 
-    # Two distinct sources and two distinct sinks were observed for this
-    # one activity - the parent job's own lineage is left exactly as the
-    # static extraction produced it (a placeholder, since "@item()" can't
-    # be resolved statically), rather than being unioned with either real
-    # pair (which would wrongly imply either source feeds either sink).
-    # Each real pair gets its own sibling DataJob instead.
-    assert len(parent_lineage_aspects) == 1
-    parent_aspect = parent_lineage_aspects[0]["aspect"]["json"]
-    assert parent_aspect["inputDatasets"] == [
-        "urn:li:dataset:(urn:li:dataPlatform:databricks,DatabricksSourceDataset,DEV)"
-    ]
-    assert parent_aspect["outputDatasets"] == [
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,MssqlSinkDataset,DEV)"
-    ]
+    # Two distinct sources and two distinct sinks were observed, so each
+    # real pair gets its own sibling DataJob. The parent's static lineage
+    # was the "@item()" placeholder datasets; the last aspect written for it
+    # drops them rather than unioning in either real pair.
+    parent_aspect = parent_lineage_aspects[-1]["aspect"]["json"]
+    assert parent_aspect["inputDatasets"] == []
+    assert parent_aspect["outputDatasets"] == []
     assert len(sibling_lineage_aspects) == 2
 
     def _pair(aspect_json: Dict[str, Any]) -> tuple:
@@ -1735,13 +1728,11 @@ def test_adf_source_query_parsing_fully_qualified_and_sink_ddl(tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_adf_source_dynamic_lineage_pair_cap_overflow_falls_back_to_union(tmp_path):
-    """When an activity's many-to-many fan-out (see
-    test_adf_source_query_parsing_fully_qualified_and_sink_ddl) has more
-    distinct pairs than max_dynamic_lineage_pairs_per_activity, the
-    excess pairs fall back to being unioned onto the parent job's
-    lineage - the less precise, pre-fix behavior - rather than being
-    dropped outright.
+def test_adf_source_dynamic_lineage_pairs_over_cap_are_dropped(tmp_path):
+    """Pairs beyond max_dynamic_lineage_pairs_per_activity are not emitted,
+    and not unioned onto the parent job either, which would bring back the
+    every-source-feeds-every-sink lineage. Runs arrive out of URN order to
+    check that the cap keeps the first pairs by URN, not by run order.
     """
     output_file = tmp_path / "adf_pair_cap_overflow_events.json"
 
@@ -1811,7 +1802,7 @@ def test_adf_source_dynamic_lineage_pair_cap_overflow_falls_back_to_union(tmp_pa
             for i in range(3)
         ]
     }
-    pair_names = ["alpha_table", "beta_table", "gamma_table"]
+    pair_names = ["gamma_table", "alpha_table", "beta_table"]
     for i, name in enumerate(pair_names):
         activity_runs["run-cap"][i]["input"] = {
             "source": {"query": f"SELECT * FROM dbo.src_{name}"},
@@ -1876,7 +1867,9 @@ def test_adf_source_dynamic_lineage_pair_cap_overflow_falls_back_to_union(tmp_pa
     source_report = cast(AzureDataFactorySourceReport, pipeline.source.get_report())
     assert source_report.dynamic_lineage_sibling_jobs_emitted == 2
     assert source_report.dynamic_lineage_pairs_over_cap == 1
-    assert len(source_report.warnings) > 0
+    assert any(
+        w.title == "Dynamic Lineage Pair Cap Exceeded" for w in source_report.warnings
+    )
 
     events = json.loads(output_file.read_text())
     sibling_lineage_aspects = [
@@ -1892,28 +1885,23 @@ def test_adf_source_dynamic_lineage_pair_cap_overflow_falls_back_to_union(tmp_pa
         and e.get("entityUrn", "").endswith(",CopyManyPairs)")
     ]
 
-    assert len(sibling_lineage_aspects) == 2
-    # The static (creation-time) aspect, plus one augmentation MCP
-    # unioning the single pair that didn't fit under the cap.
-    assert len(parent_lineage_aspects) == 2
-    overflow_aspect = parent_lineage_aspects[-1]["aspect"]["json"]
-    assert len(overflow_aspect["inputDatasets"]) == 1
-    assert len(overflow_aspect["outputDatasets"]) == 1
-
-    sibling_sources = {
-        e["aspect"]["json"]["inputDatasets"][0] for e in sibling_lineage_aspects
+    sibling_pairs = {
+        (
+            e["aspect"]["json"]["inputDatasets"][0],
+            e["aspect"]["json"]["outputDatasets"][0],
+        )
+        for e in sibling_lineage_aspects
     }
-    sibling_sinks = {
-        e["aspect"]["json"]["outputDatasets"][0] for e in sibling_lineage_aspects
+    assert {(src.split(".")[-1], dst.split(".")[-1]) for src, dst in sibling_pairs} == {
+        ("src_alpha_table,DEV)", "dst_alpha_table,DEV)"),
+        ("src_beta_table,DEV)", "dst_beta_table,DEV)"),
     }
-    all_sources = sibling_sources | set(overflow_aspect["inputDatasets"])
-    all_sinks = sibling_sinks | set(overflow_aspect["outputDatasets"])
-
-    # All three real pairs ended up represented somewhere - two as
-    # siblings, one unioned onto the parent - none silently dropped.
-    for name in pair_names:
-        assert any(f"src_{name}" in urn for urn in all_sources)
-        assert any(f"dst_{name}" in urn for urn in all_sinks)
+    # The parent's static lineage was the "@item()" placeholder; its final
+    # aspect drops it and does not pick up the gamma pair over the cap.
+    final_parent = parent_lineage_aspects[-1]["aspect"]["json"]
+    assert final_parent["inputDatasets"] == []
+    assert final_parent["outputDatasets"] == []
+    assert not any("gamma" in json.dumps(e) for e in sibling_lineage_aspects)
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2254,18 +2242,10 @@ def test_adf_source_pair_matching_static_column_lineage_not_dropped(tmp_path):
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
-def test_adf_source_pair_matching_static_survives_cap_overflow(tmp_path):
-    """Regression test: a pair that matches the activity's own static
-    lineage is skipped as a sibling on the assumption the parent job's
-    own dataJobInputOutput aspect already covers it. But if that same
-    activity ALSO has cap overflow, the overflow fallback replaces the
-    parent's whole dataJobInputOutput aspect with the union of just the
-    overflow pairs - which would silently erase the skipped pair's
-    lineage entirely (it's neither a sibling nor still represented on
-    the parent) unless the skipped pair is folded into that overflow
-    union. Four distinct pairs, cap=2, sorted so the static-matching
-    pair falls within the capped (sibling) slice rather than directly
-    into the overflow slice - the scenario that previously lost it.
+def test_adf_source_pair_matching_static_keeps_parent_lineage_over_cap(tmp_path):
+    """A pair matching the activity's static lineage stays on the parent job
+    and does not use a cap slot. Four pairs and cap=2: "orders" matches
+    static, "customers" and "vendors" get siblings, "widgets" is over the cap.
     """
     output_file = tmp_path / "adf_static_match_survives_overflow_events.json"
 
@@ -2411,27 +2391,22 @@ def test_adf_source_pair_matching_static_survives_cap_overflow(tmp_path):
         )
     ]
 
-    # Exactly one sibling - the "customers_table" pair. "orders_table"
-    # matches static so it isn't a sibling; "vendors_table" and
-    # "widgets_table" overflowed past the cap.
-    assert len(sibling_lineage_aspects) == 1
-    assert (
-        "customers_table"
-        in sibling_lineage_aspects[0]["aspect"]["json"]["inputDatasets"][0]
-    )
+    sibling_sources = {
+        e["aspect"]["json"]["inputDatasets"][0] for e in sibling_lineage_aspects
+    }
+    assert len(sibling_sources) == 2
+    assert any("customers_table" in urn for urn in sibling_sources)
+    assert any("vendors_table" in urn for urn in sibling_sources)
 
-    # The parent's static (creation-time) aspect, plus one augmentation
-    # MCP unioning the overflow - which must include "orders_table" even
-    # though it was skipped as a sibling, or its lineage is lost entirely.
-    assert len(parent_lineage_aspects) == 2
-    overflow_aspect = parent_lineage_aspects[-1]["aspect"]["json"]
-    all_sources = overflow_aspect["inputDatasets"]
-    all_sinks = overflow_aspect["outputDatasets"]
-    assert any("orders_table" in urn for urn in all_sources)
-    assert any("staging_orders" in urn for urn in all_sinks)
-    assert any("vendors_table" in urn for urn in all_sources)
-    assert any("widgets_table" in urn for urn in all_sources)
-    assert not any("customers_table" in urn for urn in all_sources)
+    # Only the static aspect: the over-cap "widgets" pair is not unioned in,
+    # and the parent keeps its own "orders" lineage.
+    assert len(parent_lineage_aspects) == 1
+    parent_aspect = parent_lineage_aspects[0]["aspect"]["json"]
+    assert any("orders_table" in urn for urn in parent_aspect["inputDatasets"])
+    assert not any(
+        "widgets_table" in json.dumps(e)
+        for e in parent_lineage_aspects + sibling_lineage_aspects
+    )
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
