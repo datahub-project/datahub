@@ -24,7 +24,7 @@ import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/searchV2/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 

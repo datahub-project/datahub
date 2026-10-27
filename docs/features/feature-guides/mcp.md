@@ -4,12 +4,13 @@ description: "The DataHub MCP Server lets AI agents query DataHub metadata via t
 
 # DataHub MCP Server
 
-The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Cursor, Windsurf, Claude Desktop, and OpenAI.
+The DataHub MCP Server implements the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction), giving AI agents direct access to your DataHub metadata. Search for data assets, traverse lineage, inspect schemas, and generate SQL — all through natural language in tools like Claude, ChatGPT, Cursor, and Windsurf.
 
 Want to learn more about the motivation, architecture, and advanced use cases? Check out our [deep dive blog post](https://datahub.com/blog/datahub-mcp-server-block-ai-agents-use-case/).
 
 ## Deployment Options
 
+- [Plugins for Claude, ChatGPT, and Codex](../../dev-guides/agent-context/plugins.md) - One-click setup, available on DataHub Cloud v1.0.2+
 - [Managed MCP Server](#managed-mcp-server-usage) - Available on DataHub Cloud v0.3.12+
 - [Self-Hosted MCP Server](#self-hosted-mcp-server-usage) - Available for DataHub Core
 
@@ -28,7 +29,7 @@ Trace data flow at table and column level, upstream or downstream, across multip
 Surface real SQL queries that reference a dataset — see join patterns, common filters, and aggregation behavior — then generate new queries grounded in actual usage.
 
 **Works Where You Work** <br />
-Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
+Works with Claude, ChatGPT, Cursor, Windsurf, and any other MCP-compatible client. Claude and ChatGPT also have one-click plugins.
 
 **What You Can Ask** <br />
 Once connected, try questions like:
@@ -208,6 +209,8 @@ Substitute the scoped server's **Connection URL** wherever these steps use `http
 <details>
   <summary>Claude (web and desktop)</summary>
 
+The quickest option is the [DataHub Cloud plugin](../../dev-guides/agent-context/plugins.md#claude). To connect a scoped server instead, add a custom connector:
+
 1. Open **Customize → Connectors**. On Team/Enterprise, an owner adds it under **Organization settings → Connectors** and members connect individually.
 2. Click **+**, then **Add custom connector**.
 3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave **Advanced settings** empty — DataHub registers the client via DCR.
@@ -265,7 +268,7 @@ Cursor supports remote MCP servers via the `url` field and handles OAuth flows a
 <details>
   <summary>ChatGPT</summary>
 
-Custom MCP connectors require **Developer Mode** and are available on **Plus, Pro, Team, Enterprise, and Edu** plans (not Free).
+The quickest option is the [DataHub Cloud plugin](../../dev-guides/agent-context/plugins.md#chatgpt-and-codex). To connect a scoped server instead, add a custom connector. Custom connectors require **Developer Mode** and are available on **Plus, Pro, Team, Enterprise, and Edu** plans (not Free).
 
 1. Enable Developer Mode: profile picture → **Settings → Connectors → Advanced**, then toggle **Developer mode** on. (On Team/Enterprise, an admin must first allow it under **Workspace Settings → Permissions & Roles → Connected Data → Developer mode / Create custom MCP connectors**.)
 2. Still under **Settings → Connectors**, click **Add custom connector** (or **Create**).

@@ -3,10 +3,12 @@ import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, Nod
 import 'reactflow/dist/style.css';
 import styled, { useTheme } from 'styled-components';
 
-import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
     LINEAGE_ANNOTATION_NODE_NAME,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
+import DataFlowLineageControlNode, {
+    DATA_FLOW_LINEAGE_CONTROL_NODE_NAME,
+} from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
@@ -17,6 +19,7 @@ import {
 } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import { LINEAGE_TABLE_EDGE_NAME, LineageTableEdge } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV3/LineageEdge/TentativeEdge';
+import LineageEmptyGraphNudge from '@app/lineageV3/LineageEmptyGraphNudge';
 import LineageEntityNode, { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import LineageFilterNodeBasic, {
     LINEAGE_FILTER_NODE_NAME,
@@ -77,6 +80,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
+    [DATA_FLOW_LINEAGE_CONTROL_NODE_NAME]: DataFlowLineageControlNode,
     [LINEAGE_ANNOTATION_NODE_NAME]: LineageAnnotationNode,
 };
 

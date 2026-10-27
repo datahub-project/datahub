@@ -65,7 +65,29 @@ public class StructuredPropertyMappingBuilder {
                 })
             .collect(Collectors.toList());
 
-    return StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
+    Map<String, Object> resolved =
+        StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
+    // The identity field follows the value field that survived collision resolution.
+    structuredProperties.stream()
+        .filter(
+            pair -> {
+              StructuredPropertyDefinition definition = pair.getValue();
+              return definition.getEntityTypes() != null
+                  && definition.getEntityTypes().stream()
+                      .anyMatch(entityTypeUrn -> entityTypeMatches(entityTypeUrn, entityType))
+                  && StructuredPropertyUrnIdentity.applies(
+                      getLogicalValueType(definition.getValueType()));
+            })
+        .forEach(
+            pair -> {
+              String fieldName = toElasticsearchFieldName(pair.getKey(), pair.getValue());
+              if (resolved.containsKey(fieldName)) {
+                resolved.put(
+                    StructuredPropertyUrnIdentity.fieldName(fieldName),
+                    StructuredPropertyUrnIdentity.mapping(pair.getValue(), List.of(entitySpec)));
+              }
+            });
+    return resolved;
   }
 
   /**
@@ -102,13 +124,32 @@ public class StructuredPropertyMappingBuilder {
       fieldMapping.putAll(properties);
     }
 
-    // Presence of searchConfiguration opts a string, rich text, or urn property into full-text
-    // subfields on its root keyword. queryByDefault only decides whether a default query reads
-    // them, and excludeFromFullTextSearch is a V2 control V3 ignores. copyTo copies each value
-    // into the named shared fields; the property field itself stays. Two properties whose names
-    // collide and disagree on that presence, or on copyTo, get different mappings, so the
-    // collision resolver omits the field.
-    if (isFullTextEligible(logicalValueType) && definition.hasSearchConfiguration()) {
+    // Presence of searchConfiguration opts a string or rich text property into full-text subfields
+    // on its root keyword. A URN property keeps that keyword exact, adds .lowercase, and puts the
+    // parsed name on a sibling field. queryByDefault only decides whether a default query reads
+    // the analyzed fields, and excludeFromFullTextSearch is a V2 control V3 ignores. copyTo copies
+    // the parsed name. copyUrnTo copies the complete URN. Two properties whose names collide and
+    // disagree on that presence, or on either copy list, get different mappings, so the collision
+    // resolver omits the field.
+    if (logicalValueType == LogicalValueType.URN) {
+      Map<String, Object> fields = new HashMap<>();
+      Object existingFields = fieldMapping.get(FIELDS);
+      if (existingFields instanceof Map<?, ?> existing) {
+        existing.forEach((key, value) -> fields.put(String.valueOf(key), value));
+      }
+      fields.put(V3SearchFields.LOWERCASE, V3SearchFields.lowercaseKeywordField());
+      fieldMapping.put(FIELDS, fields);
+      List<String> copyUrnTo =
+          V3SearchFields.copyDestinations(entitySpecs, copyUrnToNames(definition)).stream()
+              .map(V3SearchFields::path)
+              .collect(Collectors.toList());
+      if (!copyUrnTo.isEmpty()) {
+        fieldMapping.put(COPY_TO, copyUrnTo);
+      }
+    }
+    if (isFullTextEligible(logicalValueType)
+        && definition.hasSearchConfiguration()
+        && logicalValueType != LogicalValueType.URN) {
       Map<String, Object> fields = new HashMap<>();
       Object existingFields = fieldMapping.get(FIELDS);
       if (existingFields instanceof Map<?, ?> existing) {
@@ -134,6 +175,17 @@ public class StructuredPropertyMappingBuilder {
       return List.of();
     }
     return definition.getSearchConfiguration().getCopyTo().stream()
+        .filter(name -> name != null && !name.isBlank())
+        .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  private static List<String> copyUrnToNames(@Nonnull StructuredPropertyDefinition definition) {
+    if (!definition.hasSearchConfiguration()
+        || !definition.getSearchConfiguration().hasCopyUrnTo()) {
+      return List.of();
+    }
+    return definition.getSearchConfiguration().getCopyUrnTo().stream()
         .filter(name -> name != null && !name.isBlank())
         .collect(Collectors.toList());
   }

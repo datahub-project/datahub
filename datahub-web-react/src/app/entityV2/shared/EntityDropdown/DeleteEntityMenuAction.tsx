@@ -13,7 +13,7 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from '@app/entityV2/shared/EntityDropdown/utils';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';

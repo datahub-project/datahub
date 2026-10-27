@@ -1,11 +1,15 @@
 # Claude
 
-Give [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) or [Claude Desktop](https://claude.ai/download) access to your enterprise data context in DataHub — find trustworthy data, trace lineage, look up ownership, and reference documentation while you work.
+Give Claude ([web, desktop](https://claude.ai/download), Cowork, and [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview)) access to your enterprise data context in DataHub — find trustworthy data, trace lineage, look up ownership, and reference documentation while you work.
 
 ## Prerequisites
 
-- Claude Code or Claude Desktop installed
+- A Claude account, or Claude Code installed
 - A DataHub instance: [Cloud](../../features/feature-guides/mcp.md#managed-mcp-server-usage) (OAuth on v1.0.2+, PAT on v0.3.12+) or [self-hosted](../../features/feature-guides/mcp.md#self-hosted-mcp-server-usage)
+
+:::tip Quickest start: the DataHub Cloud plugin
+On DataHub Cloud, install the [DataHub Cloud plugin](./plugins.md#claude). It includes the MCP server and skills, and you sign in with your DataHub account. Use the steps below if you need a scoped MCP server, an access token, or DataHub Core.
+:::
 
 ## Claude Code
 

@@ -1,6 +1,5 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     LineageEdge,
@@ -21,9 +20,10 @@ import {
 } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
-import usePrevious from '@app/shared/usePrevious';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetBulkEntityLineageV2Query } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
@@ -40,7 +40,7 @@ export default function useBulkEntityLineage(
     lineageFilters: Map<string, LineageFilter> = new Map(),
 ): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const {
         rootType,

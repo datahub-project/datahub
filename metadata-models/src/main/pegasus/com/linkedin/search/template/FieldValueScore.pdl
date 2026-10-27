@@ -1,0 +1,42 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * One numeric value that multiplies the rendered query. An entry names an index field or a
+ * structured property, never neither and never both. A field sets {@code inputMin},
+ * {@code inputMax}, and {@code maxMultiplier} here. A property may omit any of those three.
+ * Each omitted value is read from that property's {@code score} when the query is rendered.
+ * A value set here replaces the definition. Java resolves a property to its current index
+ * field. The template does not store that path.
+ */
+record FieldValueScore {
+  /**
+   * Index field whose stored number is the value. Unset when {@code propertyUrn} names the
+   * value.
+   */
+  field: optional string
+
+  /**
+   * Structured property definition. Unset when {@code field} names the value.
+   */
+  propertyUrn: optional Urn
+
+  /**
+   * Values at or below this keep a neutral multiplier. A property may omit this and use the
+   * definition. A field sets it here.
+   */
+  inputMin: optional double
+
+  /**
+   * Values at or above this receive {@code maxMultiplier}. A property may omit this and use
+   * the definition. A field sets it here.
+   */
+  inputMax: optional double
+
+  /**
+   * Multiplier at {@code inputMax}. Values between the bounds map linearly from 1. A
+   * property may omit this and use the definition. A field sets it here.
+   */
+  maxMultiplier: optional double
+}

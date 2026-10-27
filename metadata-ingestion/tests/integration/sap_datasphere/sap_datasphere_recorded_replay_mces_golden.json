@@ -325,10 +325,10 @@
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(20)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -591,10 +591,10 @@
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.BooleanType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "BOOLEAN",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -781,10 +781,10 @@
                     "nullable": true,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(4)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -802,10 +802,10 @@
                     "label": "BusinessPartnerCategory",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(1)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -823,10 +823,10 @@
                     "label": "BusinessPartnerName",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(81)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -844,10 +844,10 @@
                     "label": "CreationDate",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.DateType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "DATE",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -886,10 +886,10 @@
                     "label": "BusinessPartnerIsBlocked",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.BooleanType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "BOOLEAN",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1096,10 +1096,10 @@
                     "label": "Country",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(3)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1159,10 +1159,10 @@
                     "label": "City",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "VARCHAR(40)",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1180,10 +1180,10 @@
                     "label": "City_Population",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "UNKNOWN",
+                    "nativeDataType": "INTEGER",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -2343,7 +2343,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
                     "type": "VIEW"
                 },
                 {
@@ -2351,7 +2351,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tday,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
                     "type": "VIEW"
                 },
                 {
@@ -2359,7 +2359,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tmonth,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
                     "type": "VIEW"
                 },
                 {
@@ -2367,7 +2367,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tquarter,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -2375,7 +2375,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DATE_SQL)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DATE_SQL)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2387,7 +2387,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DATE_SAP)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DATE_SAP)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2399,7 +2399,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DAY_OF_WEEK)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DAY_OF_WEEK)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2411,7 +2411,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALWEEK)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALWEEK)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2423,7 +2423,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALMONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALMONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2435,7 +2435,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),MONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),MONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2447,7 +2447,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2459,7 +2459,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2471,7 +2471,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),QUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2483,7 +2483,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),DAY_INT)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),DAY_INT)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2808,7 +2808,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
                     "type": "VIEW"
                 },
                 {
@@ -2816,7 +2816,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tquarter,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -2824,7 +2824,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2836,7 +2836,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),QUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -2848,7 +2848,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3136,7 +3136,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
                     "type": "VIEW"
                 },
                 {
@@ -3144,7 +3144,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tmonth,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tmonth,PROD)",
                     "type": "VIEW"
                 },
                 {
@@ -3152,7 +3152,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension_tquarter,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tquarter,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -3160,7 +3160,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALMONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALMONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3172,7 +3172,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),MONTH)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),MONTH)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3184,7 +3184,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),CALQUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),CALQUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3196,7 +3196,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),QUARTER)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),QUARTER)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3208,7 +3208,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3430,7 +3430,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
                     "type": "VIEW"
                 }
             ],
@@ -3438,7 +3438,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.sap.time.m_time_dimension,PROD),YEAR)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD),YEAR)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
@@ -3581,23 +3581,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sap-datasphere",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -3605,170 +3588,6 @@
         "json": {
             "platform": "urn:li:dataPlatform:sap-datasphere",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "spaceName": "DEMO_SPACE",
-                "supportsAnalyticalQueries": "false",
-                "hasParameters": "false",
-                "exposed_for_consumption": "false",
-                "sap_datasphere_space": "DEMO_SPACE",
-                "sap_datasphere_asset": "FINANCE_DATASALES_A"
-            },
-            "name": "FINANCE_DATASALES_A",
-            "description": "Sales (source object projected by Test_Analytic_Model)",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "",
-            "platform": "urn:li:dataPlatform:sap-datasphere",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.Schemaless": {}
-            },
-            "fields": [
-                {
-                    "fieldPath": "BW_ORDERVALUE",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "DECIMAL",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "BW_UNITSSOLD",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "DECIMAL",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "BW_NOCUSTOMERMEETINGS",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "DECIMAL",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Athena_Planned_ORDERVALUE",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "DECIMAL",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Sales_Amount",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "DECIMAL",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Sales_ExpectedRevenue",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "DECIMAL",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "View"
-            ]
         }
     },
     "systemMetadata": {
@@ -4245,31 +4064,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:396acd4af7f74ac520f16710493133df"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sap-datasphere,recorded_tenant)"
-                },
-                {
-                    "id": "urn:li:container:396acd4af7f74ac520f16710493133df",
-                    "urn": "urn:li:container:396acd4af7f74ac520f16710493133df"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -4878,22 +4672,6 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.sap.time.m_time_dimension_tday,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1705320000000,
-        "runId": "sap-datasphere-recorded-replay",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,recorded_tenant.demo_space.finance_datasales_a,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
