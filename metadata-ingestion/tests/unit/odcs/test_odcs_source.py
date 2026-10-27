@@ -2506,6 +2506,19 @@ def test_object_placeholder_in_implementation_still_warns(
     ] == [f"SELECT 1 FROM {placeholder}"]
 
 
+def test_unquoted_timestamp_does_not_reject_the_contract(
+    tmp_path: pathlib.Path,
+) -> None:
+    # YAML would load it as a datetime, which the str-typed field rejects.
+    body = _SPEC_VALID_BODY.replace(
+        "status: active\n", "status: active\ncontractCreatedTs: 2024-01-01T10:00:00Z\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    workunits = list(src.get_workunits_internal())
+    assert not src.report.failures
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
 def test_off_spec_contract_context_is_reported(tmp_path: pathlib.Path) -> None:
     body = _SPEC_VALID_BODY.replace("status: active\n", "status: active\ncontext: 5\n")
     src = _synonym_source(tmp_path, body)

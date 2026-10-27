@@ -202,13 +202,11 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "schema": ODCSSchemaObject,
         "servers": ODCSServer,
         "team": ODCSTeamMember,
-        "context": ODCSContext,
     },
     ODCSTeam: {"members": ODCSTeamMember},
     ODCSSchemaObject: {
         "properties": ODCSProperty,
         "quality": ODCSQualityRule,
-        "context": ODCSContext,
     },
     ODCSProperty: {
         "properties": ODCSProperty,
@@ -837,8 +835,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                     for i, item in enumerate(value):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
                 elif key == "context" and isinstance(value, dict):
-                    # Only `context` is an object; other child keys given as a
-                    # map are already reported by schema validation.
+                    # `context` is the one child object; a child list given as
+                    # a map is already reported by schema validation.
                     walk(value, ODCSContext, f"{path_hint}.{key}")
 
         walk(raw_dict, ODCSContract, "<root>")

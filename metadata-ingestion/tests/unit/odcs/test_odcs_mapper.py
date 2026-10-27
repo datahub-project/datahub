@@ -1,6 +1,5 @@
 """Unit tests for the ODCS mapper — spec-exact routing, logical-dataset targeting."""
 
-import datetime
 import json
 from typing import Any, Dict, List, Optional
 
@@ -29,11 +28,14 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    LENIENT_FIELDS_BY_MODEL,
     ODCSContext,
     ODCSContract,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
+    ODCSSynonym,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -2151,7 +2153,7 @@ def test_field_description_allowed_values_on_nested_field() -> None:
     assert descriptions["address.country"] == "**Allowed values:**\n- `DE`"
 
 
-def test_enum_values_render_as_written_in_yaml() -> None:
+def test_enum_values_render_in_json_spelling() -> None:
     prop = ODCSProperty.model_validate(
         {
             "name": "s",
@@ -2159,7 +2161,6 @@ def test_enum_values_render_as_written_in_yaml() -> None:
                 True,
                 0,
                 1.5,
-                datetime.date(2024, 1, 1),
                 {"value": False},
                 {"value": None, "label": "Unknown"},
             ],
@@ -2169,18 +2170,31 @@ def test_enum_values_render_as_written_in_yaml() -> None:
         "true",
         "0",
         "1.5",
-        "2024-01-01",
         "false",
         "null",
     ]
     assert (prop.enum or [])[-1].label == "Unknown"
 
 
-def test_enum_blank_values_shown_quoted() -> None:
+def test_enum_values_whitespace_shown_exactly() -> None:
     prop = ODCSProperty.model_validate(
-        {"name": "s", "enum": [{"value": ""}, "  ", "open"]}
+        {
+            "name": "s",
+            "enum": [{"value": ""}, "  ", "open", "a  b", "x\ny", "a b"],
+        }
     )
-    assert [e.value for e in prop.enum or []] == ['""', '"  "', "open"]
+    assert [e.value for e in prop.enum or []] == [
+        '""',
+        '"  "',
+        "open",
+        '"a  b"',
+        '"x\\ny"',
+        "a b",
+    ]
+
+
+def test_enum_value_model_normalizes_its_own_value() -> None:
+    assert ODCSEnumValue.model_validate({"value": "a\n- b"}).value == '"a\\n- b"'
 
 
 def test_allowed_values_cannot_break_the_markdown() -> None:
@@ -2453,3 +2467,22 @@ def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
         }
     )
     assert _logical_description(contract) == "T."
+
+
+def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
+    # The source's "dropped as off-spec" report reads this map; a lenient
+    # validator missing from it would drop values without a report.
+    # `ODCSSynonym.synonym` is pre-filtered by the list validator instead.
+    reported = {
+        (model, field_name)
+        for model, fields in LENIENT_FIELDS_BY_MODEL.items()
+        for field_name in fields
+    }
+    lenient = {
+        (model, field_name)
+        for model in LENIENT_FIELDS_BY_MODEL
+        for name, decorator in model.__pydantic_decorators__.field_validators.items()
+        if name.startswith("_lenient")
+        for field_name in decorator.info.fields
+    } - {(ODCSSynonym, "synonym")}
+    assert lenient <= reported

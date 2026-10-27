@@ -1,4 +1,3 @@
-import datetime
 import json
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -171,13 +170,11 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
 
 
 def _enum_text(raw: object) -> Optional[str]:
-    # JSON spelling (`true`, `null`), not Python's; dates as ISO text. A blank
-    # string is a valid value, so it is shown quoted rather than dropped.
+    # Shown exactly, on one line: JSON spelling (`true`, `null`) rather than
+    # Python's, and a string with blanks or line breaks a single space can't
+    # show is quoted. Values are rendered, not compared.
     if isinstance(raw, str):
-        text = " ".join(raw.split())
-        return text or json.dumps(raw)
-    if isinstance(raw, datetime.date):
-        return raw.isoformat()
+        return raw if raw and " ".join(raw.split()) == raw else json.dumps(raw)
     if raw is None or isinstance(raw, (int, float, bool)):
         return json.dumps(raw)
     return None
@@ -187,8 +184,8 @@ def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
     """Keep enum entries whose `value` is a scalar, `null` included.
 
     Bare scalars are off-spec but read as values, since their intent is clear;
-    a bare `null` or an entry with no `value` key has nothing to show. Values
-    are kept as single-line text: they are rendered, not compared.
+    a bare `null` or an entry with no `value` key has nothing to show. An empty
+    list is dropped too: the spec requires at least one value.
     """
     if not isinstance(value, list):
         return None
@@ -202,9 +199,8 @@ def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
             continue
         else:
             fields = {"value": entry}
-        text = _enum_text(fields["value"])
-        if text is not None:
-            kept.append({**fields, "value": text})
+        if _enum_text(fields["value"]) is not None:
+            kept.append(fields)
     return kept or None
 
 
@@ -280,6 +276,8 @@ class ODCSEnumValue(ODCSBaseModel):
     value: str
     label: Optional[str] = None
     description: Optional[str] = None
+
+    _value_text = field_validator("value", mode="before")(_enum_text)
 
     _lenient_strings = field_validator("label", "description", mode="before")(
         _str_or_none
