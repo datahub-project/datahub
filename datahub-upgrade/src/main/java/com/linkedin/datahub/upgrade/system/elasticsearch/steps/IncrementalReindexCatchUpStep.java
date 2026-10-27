@@ -41,6 +41,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -158,6 +159,8 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
 
+        Map<String, Pair<ESIndexBuilder, ReindexConfig>> indexBuildersAndConfigs =
+            buildIndexBuildersAndConfigs();
         boolean anyIndexFailed = false;
         boolean fillLeftFailed = false;
         for (Map.Entry<String, Map<String, String>> entry : allIndexStates.entrySet()) {
@@ -203,9 +206,10 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           }
 
           try {
-            CatchUpStatus outcome = catchUpIndex(context, indexName, indexState);
+            CatchUpStatus outcome =
+                catchUpIndex(context, indexName, indexState, indexBuildersAndConfigs);
             if (outcome.isTerminal() && isFilledFromPrimaryStorage(indexState)) {
-              markMigrationComplete(indexName);
+              markMigrationComplete(indexName, indexBuildersAndConfigs);
             }
             catchUpState =
                 IncrementalReindexState.setCatchUpStatus(catchUpState, indexName, outcome);
@@ -264,7 +268,11 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
   }
 
   private CatchUpStatus catchUpIndex(
-      UpgradeContext context, String indexName, Map<String, String> indexState) throws Throwable {
+      UpgradeContext context,
+      String indexName,
+      Map<String, String> indexState,
+      Map<String, Pair<ESIndexBuilder, ReindexConfig>> indexBuildersAndConfigs)
+      throws Throwable {
     Optional<Long> windowStart = IncrementalReindexState.catchUpWindowStart(indexState);
     if (windowStart.isEmpty()) {
       log.warn(
@@ -327,7 +335,12 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
           fromEpochMs,
           toEpochMs);
       return reindexTimeseriesGap(
-          indexName, oldBackingIndexName, nextIndexName, fromEpochMs, toEpochMs);
+          indexName,
+          oldBackingIndexName,
+          nextIndexName,
+          fromEpochMs,
+          toEpochMs,
+          indexBuildersAndConfigs);
     }
 
     if (isGlobalIndex(indexName)) {
@@ -619,12 +632,19 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    * @param nextIndex the physical next index created by Phase 1
    */
   private CatchUpStatus reindexTimeseriesGap(
-      String aliasName, String oldBackingIndex, String nextIndex, long fromEpochMs, long toEpochMs)
+      String aliasName,
+      String oldBackingIndex,
+      String nextIndex,
+      long fromEpochMs,
+      long toEpochMs,
+      Map<String, Pair<ESIndexBuilder, ReindexConfig>> indexBuildersAndConfigs)
       throws Throwable {
-    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(aliasName);
+    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = indexBuildersAndConfigs.get(aliasName);
     if (builderAndConfig == null) {
-      log.warn("No index builder found for timeseries index {}, skipping catch-up", aliasName);
-      return CatchUpStatus.SKIPPED;
+      throw new IllegalStateException(
+          "No index builder found for timeseries index "
+              + aliasName
+              + "; its catch-up remains incomplete");
     }
 
     ESIndexBuilder indexBuilder = builderAndConfig.getFirst();
@@ -713,8 +733,10 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
    * not them: an index whose catch-up never finished is rebuilt there. A mark that cannot be
    * written fails the index, so a re-run replays what is left of the window and marks it again.
    */
-  private void markMigrationComplete(String indexName) throws IOException {
-    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = findIndexBuilderAndConfig(indexName);
+  private void markMigrationComplete(
+      String indexName, Map<String, Pair<ESIndexBuilder, ReindexConfig>> indexBuildersAndConfigs)
+      throws IOException {
+    Pair<ESIndexBuilder, ReindexConfig> builderAndConfig = indexBuildersAndConfigs.get(indexName);
     if (builderAndConfig == null) {
       throw new IllegalStateException(
           "No index builder found for " + indexName + "; its migration stays marked incomplete");
@@ -722,19 +744,31 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     builderAndConfig.getFirst().markMigrationComplete(opContext, indexName);
   }
 
-  @Nullable
-  private Pair<ESIndexBuilder, ReindexConfig> findIndexBuilderAndConfig(String indexName) {
+  /**
+   * Resolves every index once. A name one service cannot build stays unresolved; indexes already
+   * recorded, and the rest of that service, still run. An entity index fails when its migration
+   * mark is written. A timeseries index fails its catch-up when the builder is missing. Either
+   * failure stays non-terminal, so a re-run tries that index again.
+   */
+  private Map<String, Pair<ESIndexBuilder, ReindexConfig>> buildIndexBuildersAndConfigs() {
+    Map<String, Pair<ESIndexBuilder, ReindexConfig>> result = new LinkedHashMap<>();
     for (ElasticSearchIndexed service : indexedServices) {
+      final List<ReindexConfig> configs;
       try {
-        for (ReindexConfig config : service.buildReindexConfigs(opContext, structuredProperties)) {
-          if (config.name().equals(indexName)) {
-            return Pair.of(service.getIndexBuilder(indexName), config);
-          }
-        }
+        configs = service.buildReindexConfigs(opContext, structuredProperties);
       } catch (Exception e) {
-        log.warn("Error checking service for index {}: {}", indexName, e.getMessage());
+        log.warn("Error building reindex configurations", e);
+        continue;
+      }
+      for (ReindexConfig config : configs) {
+        try {
+          result.putIfAbsent(
+              config.name(), Pair.of(service.getIndexBuilder(config.name()), config));
+        } catch (Exception e) {
+          log.warn("Error resolving the index builder for {}", config.name(), e);
+        }
       }
     }
-    return null;
+    return result;
   }
 }

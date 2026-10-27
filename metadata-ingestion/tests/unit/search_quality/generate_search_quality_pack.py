@@ -1,13 +1,15 @@
 """Write search-quality judgments and the Cranfield shard into the datapack.
 
-The long-tail catalog is the committed MCP shards. This script does not read
-Elasticsearch index snapshots. Judgments stay in judgments.json and are not
-listed in index.json. Regeneration is deterministic: audit stamps use one
-fixed time.
+The longtail-ecommerce catalog is the committed business shard. Ecommerce
+entities in that shard came from showcase-ecommerce and are not rebuilt.
+This script does not read Elasticsearch index snapshots. Judgments stay in
+judgments.json and are not listed in index.json. Regeneration is
+deterministic: audit stamps use one fixed time.
 """
 
 from __future__ import annotations
 
+import gc
 import json
 from collections import Counter
 from pathlib import Path
@@ -31,7 +33,66 @@ STRING_OPT_OUT_PROPERTY = "urn:li:structuredProperty:packStringFilter"
 URN_OPT_IN_PROPERTY = "urn:li:structuredProperty:packUrnSearch"
 URN_OPT_OUT_PROPERTY = "urn:li:structuredProperty:packUrnFilter"
 BOOSTED_PROPERTY = "urn:li:structuredProperty:packBoostedLabel"
-LONG_TAIL_SHARDS = ("03-long-tail.json", "04-long-tail-timeseries.json")
+SORT_SET_PROPERTY = "urn:li:structuredProperty:sortProbeSet"
+SORT_COUNT_PROPERTY = "urn:li:structuredProperty:sortProbeCount"
+SORT_SET_VALUE = "sortprobe"
+# Nonce tokens. Each one is absent from the dataset name, qualified name, and
+# description, so a hit can come only from the isolated field.
+FIELD_PROBE_COLUMN = "brindlepath"
+FIELD_PROBE_DESCRIPTION = "brindledesc"
+FIELD_PROBE_TAG = "brindletag"
+FIELD_PROBE_TERM = "brindleterm"
+FIELD_PROBE_OTHER = "brindlebin"
+FIELD_PROBE_STEM = "thimble"
+FIELD_PROBE_STEM_QUERY = "thimbles"
+FIELD_PROBE_TOKENS = (
+    FIELD_PROBE_COLUMN,
+    FIELD_PROBE_DESCRIPTION,
+    FIELD_PROBE_TAG,
+    FIELD_PROBE_TERM,
+    FIELD_PROBE_OTHER,
+    FIELD_PROBE_STEM,
+    FIELD_PROBE_STEM_QUERY,
+)
+BUSINESS_SHARD = "03-longtail-ecommerce.json"
+TIMESERIES_SHARD = "04-longtail-ecommerce-timeseries.json"
+LONG_TAIL_SHARDS = (BUSINESS_SHARD, TIMESERIES_SHARD)
+SHOWCASE_PREFIX = "b2fd91."
+# Container ids from the imported catalog. They do not carry the b2fd91 prefix.
+IMPORTED_CONTAINER_URNS = frozenset(
+    {
+        "urn:li:container:0e66a4ce3f0b2777d96fa518517c02fb",
+        "urn:li:container:1a138c9fcb5dc4d763aed13939e022f2",
+        "urn:li:container:4aa1e0be707b5eb015fd4ae8a0cee4e6",
+        "urn:li:container:50c5d36097aca2fe8b0041805c21f13a",
+        "urn:li:container:64a5f47928e5c808819f1385be046bc0",
+        "urn:li:container:6c6be2267e33f5735445a49ee7a37573",
+        "urn:li:container:6f8674b1605468e8622e14df196d84d1",
+        "urn:li:container:7ca6ea867f3c1038d55fda4688e26dab",
+        "urn:li:container:7eeb369896b78a39b55f38238779bd8b",
+        "urn:li:container:82b021ed6470183a388677899ff77153",
+        "urn:li:container:a1b63f1e0516d47949181f804bc4ae9b",
+        "urn:li:container:d14215d4dacbab259f768b155825550e",
+        "urn:li:container:d6b6aada30bc0a4a5a891d06c9c1815a",
+        "urn:li:container:d6fc0dbb637e11fe788d53f86f587a96",
+    }
+)
+IMPORTED_PROPOSAL_COUNT = 2826
+IMPORTED_PROPERTY_URNS = (
+    "urn:li:structuredProperty:showcase.dataFreshnessSla",
+    "urn:li:structuredProperty:showcase.dataQualityScore",
+    "urn:li:structuredProperty:showcase.retentionPeriod",
+    "urn:li:structuredProperty:showcase.costCenter",
+    "urn:li:structuredProperty:showcase.escalationContact",
+)
+ENTITY_BOOST_NAME = "Order Entry Analytics entityboost"
+ENTITY_BOOST_TERM = "urn:li:glossaryTerm:entityboost.orderEntry"
+ENTITY_BOOST_NODE = "urn:li:glossaryNode:entityboost.orderEntry"
+ENTITY_BOOST_PRODUCT = "urn:li:dataProduct:entityboost.orderEntry"
+ENTITY_BOOST_DOMAIN = "urn:li:domain:entityboost.orderEntry"
+ENTITY_BOOST_DATASET = (
+    "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,entityboost.orderEntry,PROD)"
+)
 
 KEYWORD_ENTITY_TYPES = [
     "chart",
@@ -61,20 +122,32 @@ def change_stamps() -> dict[str, Any]:
     return {"created": stamp(), "lastModified": stamp()}
 
 
-def mcp(entity_urn: str, aspect_name: str, aspect: dict[str, Any]) -> dict[str, Any]:
+def mcp(
+    entity_urn: str,
+    aspect_name: str,
+    aspect: dict[str, Any],
+    change_type: str = "UPSERT",
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
     entity_type = entity_urn.split(":")[2]
-    return {
+    proposal: dict[str, Any] = {
         "entityType": entity_type,
         "entityUrn": entity_urn,
-        "changeType": "UPSERT",
+        "changeType": change_type,
         "aspectName": aspect_name,
         "aspect": {"json": aspect},
     }
+    if headers:
+        proposal["headers"] = headers
+    return proposal
 
 
 def dataset_urn(platform: str, name: str, origin: str = "PROD") -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},{origin})"
 
+
+AUTOCOMPLETE_NAME = "zzprefixprobe"
+AUTOCOMPLETE_DATASET = dataset_urn("catalogprobe", AUTOCOMPLETE_NAME)
 
 STRING_OPT_IN_DATASET = dataset_urn(
     "dbt", "long_tail_companions.analytics.dogs_in_movies"
@@ -85,6 +158,21 @@ URN_OPT_IN_DATASET = dataset_urn(
 BOOSTED_PROPERTY_DATASET = dataset_urn(
     "dbt", "long_tail_companions.adoption.pet_profiles"
 )
+
+# The three tables whose name is exactly pet_profiles.
+PET_PROFILE_TABLES = [
+    dataset_urn("dbt", "long_tail_companions.adoption.pet_profiles"),
+    dataset_urn("mongodb", "adoption.pet_profiles"),
+    dataset_urn("snowflake", "long_tail_companions.adoption.pet_profiles"),
+]
+PET_PROFILE_S3 = dataset_urn("s3", "longtail-core-data/mongo/adoption/pet_profiles")
+PET_PROFILE_DASHBOARD = "urn:li:dashboard:(looker,dashboards.14)"
+PET_PROFILE_DEEP_DIVE = "urn:li:dashboard:(looker,dashboards.30)"
+PET_PROFILE_GRADES = [
+    *[(urn, 4) for urn in PET_PROFILE_TABLES],
+    (PET_PROFILE_S3, 2),
+    (PET_PROFILE_DASHBOARD, 2),
+]
 
 
 def parse_cranfield_documents(path: Path) -> list[dict[str, str]]:
@@ -180,28 +268,89 @@ def cranfield_dataset(document: dict[str, str]) -> tuple[str, list[dict[str, Any
     return urn, [mcp(urn, "datasetProperties", properties)]
 
 
-def platform_mcp(platform_name: str) -> list[dict[str, Any]]:
+def _yaml_scalar(value: str) -> Any:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return value
+
+
+def bootstrap_platform_aspects(root: Path | None = None) -> dict[str, dict[str, Any]]:
+    """dataPlatformInfo aspects from the bootstrap platform registry."""
+    path = (
+        (root or repo_root())
+        / "metadata-service/configuration/src/main/resources/bootstrap_mcps/data-platforms.yaml"
+    )
+    platforms: dict[str, dict[str, Any]] = {}
+    platform_name: str | None = None
+    aspect: dict[str, Any] = {}
+    in_aspect = False
+    for raw in path.read_text().splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        if line.startswith("- entityUrn:"):
+            if platform_name and aspect:
+                platforms[platform_name] = aspect
+            platform_name = line.split("urn:li:dataPlatform:", 1)[1].strip()
+            aspect = {}
+            in_aspect = False
+            continue
+        if line.startswith("  aspect:"):
+            in_aspect = True
+            continue
+        if in_aspect and line.startswith("    "):
+            key, value = line.strip().split(":", 1)
+            aspect[key] = _yaml_scalar(value)
+            continue
+        in_aspect = False
+    if platform_name and aspect:
+        platforms[platform_name] = aspect
+    return platforms
+
+
+def platform_mcp(
+    platform_name: str, bootstrap: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
     urn = f"urn:li:dataPlatform:{platform_name}"
-    display = platform_name
-    short_name = platform_name if len(platform_name) <= 15 else platform_name[:15]
+    aspect = bootstrap.get(platform_name)
+    if aspect is None:
+        # Fixture platforms (cranfield, catalogprobe, ranking, longtail_schemas)
+        # are not in the bootstrap registry.
+        short_name = platform_name if len(platform_name) <= 15 else platform_name[:15]
+        aspect = {
+            "name": short_name,
+            "displayName": platform_name,
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+        }
+    else:
+        aspect = dict(aspect)
+        # DataPlatformInfo.name is limited to 15 characters.
+        if isinstance(aspect.get("name"), str) and len(aspect["name"]) > 15:
+            aspect["name"] = aspect["name"][:15]
+    # Create the aspect only when it is missing. If-None-Match drops the write
+    # when bootstrap already stored dataPlatformInfo, instead of failing the load.
     return [
         mcp(
             urn,
             "dataPlatformInfo",
-            {
-                "name": short_name,
-                "displayName": display,
-                "type": "OTHERS",
-                "datasetNameDelimiter": ".",
-            },
+            aspect,
+            change_type="CREATE",
+            headers={"If-None-Match": "*"},
         )
     ]
 
 
 def definitions(platforms: Iterable[str]) -> list[dict[str, Any]]:
     proposals: list[dict[str, Any]] = []
+    bootstrap = bootstrap_platform_aspects()
     for platform in sorted(set(platforms)):
-        proposals.extend(platform_mcp(platform))
+        proposals.extend(platform_mcp(platform, bootstrap))
     proposals.append(
         mcp(
             PROBE_PROPERTY,
@@ -262,6 +411,37 @@ def definitions(platforms: Iterable[str]) -> list[dict[str, Any]]:
                 },
             )
         )
+    proposals.append(
+        mcp(
+            SORT_SET_PROPERTY,
+            "propertyDefinition",
+            {
+                "qualifiedName": "sortProbeSet",
+                "displayName": "Sort probe set",
+                "valueType": "urn:li:dataType:datahub.string",
+                "entityTypes": [
+                    "urn:li:entityType:datahub.dataset",
+                    "urn:li:entityType:datahub.chart",
+                ],
+                "cardinality": "SINGLE",
+                "searchConfiguration": {"queryByDefault": False},
+            },
+        )
+    )
+    proposals.append(
+        mcp(
+            SORT_COUNT_PROPERTY,
+            "propertyDefinition",
+            {
+                "qualifiedName": "sortProbeCount",
+                "displayName": "Sort probe count",
+                "valueType": "urn:li:dataType:datahub.number",
+                "entityTypes": ["urn:li:entityType:datahub.dataset"],
+                "cardinality": "SINGLE",
+                "searchConfiguration": {"queryByDefault": False},
+            },
+        )
+    )
     return proposals
 
 
@@ -276,6 +456,13 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     urn_opt_out = dataset_urn("catalogprobe", "urn_filter_asset")
     description_competitor = dataset_urn("catalogprobe", "boosted_description_asset")
     fulltext = dataset_urn("catalogprobe", "analyzer_asset")
+    identity_name_only = dataset_urn("catalogprobe", "identity_name_only")
+    identity_name_and_qualified = dataset_urn(
+        "catalogprobe", "identity_name_and_qualified"
+    )
+    identity_path = dataset_urn("catalogprobe", "identity_path")
+    identity_path_partial = dataset_urn("catalogprobe", "identity_path_partial")
+    identity_earlier_segment = dataset_urn("catalogprobe", "identity_earlier_segment")
     entities = [
         (
             exact,
@@ -337,8 +524,24 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "catalogprobe.analyzer_asset",
             "Dataset carrying a mixed-case structured property for analyzer probes.",
         ),
+        (
+            dataset_urn("catalogprobe", AUTOCOMPLETE_NAME),
+            AUTOCOMPLETE_NAME,
+            AUTOCOMPLETE_NAME,
+            AUTOCOMPLETE_NAME,
+        ),
     ]
     proposals: list[dict[str, Any]] = []
+    proposals.append(
+        mcp(
+            identity_name_only,
+            "datasetProperties",
+            {
+                "name": "identityprobe parity",
+                "description": "Name-only identity comparison asset.",
+            },
+        )
+    )
     for urn, name, qualified, description in entities:
         proposals.append(
             mcp(
@@ -351,6 +554,46 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 },
             )
         )
+    proposals.extend(
+        [
+            mcp(
+                identity_name_and_qualified,
+                "datasetProperties",
+                {
+                    "name": "identityprobe parity",
+                    "qualifiedName": "catalogprobe.identityprobe.parity",
+                    "description": "Name and qualified-name identity comparison asset.",
+                },
+            ),
+            mcp(
+                identity_path,
+                "datasetProperties",
+                {
+                    "name": "identityprobe_ledger",
+                    "qualifiedName": "catalogprobe.analytics.identityprobe_ledger",
+                    "description": "Bounded qualified-name path asset.",
+                },
+            ),
+            mcp(
+                identity_path_partial,
+                "datasetProperties",
+                {
+                    "name": "identityprobe_ledger_archive",
+                    "qualifiedName": "catalogprobe.analytics.identityprobe_ledger_archive",
+                    "description": "Partial qualified-name path distractor.",
+                },
+            ),
+            mcp(
+                identity_earlier_segment,
+                "datasetProperties",
+                {
+                    "name": "identityprobe_customer_snapshot",
+                    "qualifiedName": "catalogprobe.identityprobe.ancestry.customer_snapshot",
+                    "description": "Earlier qualified-name segment asset.",
+                },
+            ),
+        ]
+    )
     proposals.append(
         mcp(
             prop,
@@ -456,6 +699,47 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         probe("catalog-synonym", "stg catalogprobeledger", synonym),
         probe("catalog-quoted", '"catalogprobe quoted phrase"', quoted),
         probe("catalog-property", "catalogprobegold", prop),
+        {
+            "id": "identity-name-qualified-parity",
+            "group": "keyword-probe",
+            "query": "identityprobe parity",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [
+                {"urn": identity_name_only, "relevance": 1},
+                {"urn": identity_name_and_qualified, "relevance": 1},
+            ],
+            "containsInTop": {
+                "n": 2,
+                "values": [identity_name_only, identity_name_and_qualified],
+            },
+            "scoreRatioAtMost": {
+                "numerator": identity_name_and_qualified,
+                "denominator": identity_name_only,
+                "max": 1.02,
+            },
+        },
+        {
+            "id": "identity-bounded-qualified-path",
+            "group": "keyword-probe",
+            "query": "analytics.identityprobe_ledger",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [{"urn": identity_path, "relevance": 1}],
+            "rankAbove": {
+                "urn": identity_path,
+                "above": [identity_path_partial],
+            },
+        },
+        {
+            "id": "identity-earlier-qualified-segment",
+            "group": "keyword-probe",
+            "query": "identityprobe.ancestry",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [{"urn": identity_earlier_segment, "relevance": 1}],
+            "exactTopHit": identity_earlier_segment,
+        },
         {
             "id": "structured-property-string-opt-in",
             "group": "structured-property",
@@ -567,6 +851,506 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             fulltext,
         ),
     ]
+    proposals.extend(sort_probe_entities())
+    judgments.extend(sort_judgments())
+    proposals.extend(field_probe_entities())
+    judgments.extend(field_probe_judgments())
+    judgments.extend(autocomplete_judgments())
+    return proposals, judgments
+
+
+def sort_probe_entities() -> list[dict[str, Any]]:
+    """Closed set for caller-sort checks. The marker keeps Cranfield out of the order."""
+    alpha = dataset_urn("catalogprobe", "sort_alpha")
+    bravo = dataset_urn("catalogprobe", "sort_bravo")
+    bravo_tie = dataset_urn("catalogprobe", "sort_bravo_tie")
+    charlie = dataset_urn("catalogprobe", "sort_charlie")
+    chart = "urn:li:chart:(catalogprobe,sort_unmapped)"
+    # Same name on bravo and bravo_tie. ESUtils appends urn ascending, so the tie breaks on the URN.
+    # Charlie's description repeats the query so a text match ranks it first; name order still starts at alpha.
+    rows = [
+        (alpha, "Sort Alpha", "Sort probe member."),
+        (bravo, "Sort Bravo", "Sort probe member."),
+        (bravo_tie, "Sort Bravo", "Sort probe member."),
+        (charlie, "Sort Charlie", "Sort probe member sort sort sort."),
+    ]
+    proposals = [
+        mcp(
+            urn,
+            "datasetProperties",
+            {
+                "name": name,
+                "qualifiedName": f"catalogprobe.{urn.split(',')[1]}",
+                "description": description,
+            },
+        )
+        for urn, name, description in rows
+    ]
+    counts = {alpha: 1.0, bravo: 2.0, bravo_tie: 2.0}
+    for urn in (alpha, bravo, bravo_tie, charlie):
+        properties = [sort_property(SORT_SET_PROPERTY, {"string": SORT_SET_VALUE})]
+        if urn in counts:
+            properties.append(
+                sort_property(SORT_COUNT_PROPERTY, {"double": counts[urn]})
+            )
+        proposals.append(mcp(urn, "structuredProperties", {"properties": properties}))
+    proposals.append(
+        mcp(
+            chart,
+            "chartInfo",
+            {
+                "title": "Sort Unmapped",
+                "description": "Chart in the sort probe set with no numeric property.",
+                "lastModified": change_stamps(),
+            },
+        )
+    )
+    proposals.append(
+        mcp(
+            chart,
+            "structuredProperties",
+            {
+                "properties": [
+                    sort_property(SORT_SET_PROPERTY, {"string": SORT_SET_VALUE})
+                ]
+            },
+        )
+    )
+    return proposals
+
+
+def sort_property(property_urn: str, value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "propertyUrn": property_urn,
+        "values": [value],
+        "created": stamp(),
+        "lastModified": stamp(),
+    }
+
+
+def sort_judgments() -> list[dict[str, Any]]:
+    alpha = dataset_urn("catalogprobe", "sort_alpha")
+    bravo = dataset_urn("catalogprobe", "sort_bravo")
+    bravo_tie = dataset_urn("catalogprobe", "sort_bravo_tie")
+    charlie = dataset_urn("catalogprobe", "sort_charlie")
+    chart = "urn:li:chart:(catalogprobe,sort_unmapped)"
+    # Comma sorts before underscore, so sort_bravo precedes sort_bravo_tie.
+    # Ascending name uses the least value. Both Bravo rows share "Sort Bravo", which
+    # sorts before the dataset key, so the tie breaks on the URN.
+    # Descending name uses the greatest value. The key is also labeled name, and
+    # sort_bravo_tie sorts after sort_bravo, so that row comes first.
+    name_ascending = [alpha, bravo, bravo_tie, charlie]
+    name_descending = [charlie, bravo_tie, bravo, alpha]
+    # The dataset with no number is last in both directions. Engine default is _last.
+    count_ascending = [alpha, bravo, bravo_tie, charlie]
+    count_descending = [bravo, bravo_tie, alpha, charlie]
+    # Chart index does not map the dataset-only number. It sorts with the missing row.
+    unmapped_ascending = [alpha, bravo, bravo_tie, chart, charlie]
+    marker = {
+        "field": "structuredProperties.sortProbeSet",
+        "condition": "EQUAL",
+        "value": SORT_SET_VALUE,
+    }
+    specs = [
+        (
+            "sort-name-ascending",
+            "sort",
+            ["dataset"],
+            "name",
+            "ASCENDING",
+            name_ascending,
+        ),
+        (
+            "sort-name-descending",
+            "*",
+            ["dataset"],
+            "name",
+            "DESCENDING",
+            name_descending,
+        ),
+        (
+            "sort-count-ascending",
+            "*",
+            ["dataset"],
+            "structuredProperties.sortProbeCount",
+            "ASCENDING",
+            count_ascending,
+        ),
+        (
+            "sort-count-descending",
+            "*",
+            ["dataset"],
+            "structuredProperties.sortProbeCount",
+            "DESCENDING",
+            count_descending,
+        ),
+        (
+            "sort-count-unmapped-chart",
+            "*",
+            ["dataset", "chart"],
+            "structuredProperties.sortProbeCount",
+            "ASCENDING",
+            unmapped_ascending,
+        ),
+    ]
+    judgments = []
+    for query_id, query, entity_types, field, order, expected in specs:
+        judgments.append(
+            {
+                "id": query_id,
+                "group": "sort",
+                "query": query,
+                "surfaces": ["keyword"],
+                "entityTypes": entity_types,
+                "grades": [],
+                "filter": marker,
+                "sort": {"field": field, "order": order},
+                "expectedOrder": expected,
+            }
+        )
+    return judgments
+
+
+def field_probe_entities() -> list[dict[str, Any]]:
+    """One dataset per field. The token is not the dataset name or description."""
+    column = dataset_urn("catalogprobe", "fieldprobe_column")
+    described = dataset_urn("catalogprobe", "fieldprobe_description")
+    tagged = dataset_urn("catalogprobe", "fieldprobe_tag")
+    termed = dataset_urn("catalogprobe", "fieldprobe_term")
+    contained = dataset_urn("catalogprobe", "fieldprobe_other")
+    stemmed = dataset_urn("catalogprobe", "fieldprobe_stem")
+    hosts = [
+        (column, "Fieldprobe Column Host"),
+        (described, "Fieldprobe Description Host"),
+        (tagged, "Fieldprobe Tag Host"),
+        (termed, "Fieldprobe Term Host"),
+        (contained, "Fieldprobe Other Host"),
+        (stemmed, "Fieldprobe Stem Host"),
+    ]
+    proposals = [
+        mcp(
+            urn,
+            "datasetProperties",
+            {
+                "name": name,
+                "qualifiedName": f"catalogprobe.{urn.split(',')[1]}",
+                "description": "Field probe host.",
+            },
+        )
+        for urn, name in hosts
+    ]
+    proposals.append(
+        mcp(
+            column,
+            "schemaMetadata",
+            schema_metadata([schema_field(FIELD_PROBE_COLUMN)]),
+        )
+    )
+    proposals.append(
+        mcp(
+            described,
+            "schemaMetadata",
+            schema_metadata(
+                [schema_field("col_a", description=FIELD_PROBE_DESCRIPTION)]
+            ),
+        )
+    )
+    proposals.append(
+        mcp(tagged, "globalTags", {"tags": [{"tag": f"urn:li:tag:{FIELD_PROBE_TAG}"}]})
+    )
+    proposals.append(
+        mcp(
+            termed,
+            "glossaryTerms",
+            {
+                "auditStamp": stamp(),
+                "terms": [{"urn": f"urn:li:glossaryTerm:{FIELD_PROBE_TERM}"}],
+            },
+        )
+    )
+    proposals.append(
+        mcp(
+            contained,
+            "container",
+            {"container": f"urn:li:container:{FIELD_PROBE_OTHER}"},
+        )
+    )
+    proposals.append(
+        mcp(stemmed, "container", {"container": f"urn:li:container:{FIELD_PROBE_STEM}"})
+    )
+    return proposals
+
+
+def schema_metadata(fields: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schemaName": "fieldprobe",
+        "platform": PROBE_PLATFORM,
+        "version": 0,
+        "hash": "fieldprobe",
+        "platformSchema": {"com.linkedin.schema.OtherSchema": {"rawSchema": ""}},
+        "fields": fields,
+        "created": stamp(),
+        "lastModified": stamp(),
+    }
+
+
+def schema_field(path: str, description: str | None = None) -> dict[str, Any]:
+    field: dict[str, Any] = {
+        "fieldPath": path,
+        "nativeDataType": "string",
+        "nullable": False,
+        "recursive": False,
+        "type": {"type": {"com.linkedin.schema.StringType": {}}},
+    }
+    if description is not None:
+        field["description"] = description
+    return field
+
+
+def field_probe_judgments() -> list[dict[str, Any]]:
+    """Pass or miss is locked to a measured run. Degree fields are not queried."""
+    column = dataset_urn("catalogprobe", "fieldprobe_column")
+    described = dataset_urn("catalogprobe", "fieldprobe_description")
+    tagged = dataset_urn("catalogprobe", "fieldprobe_tag")
+    termed = dataset_urn("catalogprobe", "fieldprobe_term")
+    contained = dataset_urn("catalogprobe", "fieldprobe_other")
+    stemmed = dataset_urn("catalogprobe", "fieldprobe_stem")
+    specs: list[tuple[str, str, str, str | None]] = [
+        ("field-probe-name-1", FIELD_PROBE_COLUMN, column, None),
+        ("field-probe-description-1", FIELD_PROBE_DESCRIPTION, described, None),
+        ("field-probe-tag", FIELD_PROBE_TAG, tagged, "tags"),
+        ("field-probe-glossary", FIELD_PROBE_TERM, termed, "glossaryTerms"),
+        ("field-probe-other", FIELD_PROBE_OTHER, contained, "other"),
+        ("field-probe-stemmed", FIELD_PROBE_STEM_QUERY, stemmed, "other.stemmed"),
+    ]
+    judgments = []
+    for query_id, query, urn, matched in specs:
+        row: dict[str, Any] = {
+            "id": query_id,
+            "group": "field-probe",
+            "query": query,
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+        }
+        if matched is None:
+            row["expectNoHits"] = True
+        else:
+            row["exactTopHit"] = urn
+            row["matchedFieldContains"] = {"value": matched, "hits": 1}
+        judgments.append(row)
+    return judgments
+
+
+def autocomplete_judgments() -> list[dict[str, Any]]:
+    """Pass/fail prefixes. These stay out of both nDCG floors."""
+    return [
+        {
+            "id": "autocomplete-dataset-two-char",
+            "group": "autocomplete",
+            "query": "zz",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [AUTOCOMPLETE_DATASET],
+            "expectedSuggestion": AUTOCOMPLETE_NAME,
+        },
+        {
+            "id": "autocomplete-corpuser-one-char",
+            "group": "autocomplete",
+            "query": "r",
+            "surfaces": ["keyword"],
+            "entityTypes": ["corpuser"],
+            "grades": [],
+            "expectedUrns": [
+                "urn:li:corpuser:rankOwner",
+                "urn:li:corpuser:rankOther",
+            ],
+        },
+        {
+            "id": "autocomplete-dataset-miss",
+            "group": "autocomplete",
+            "query": "qxnomatch",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [],
+            "expectedUrns": [],
+        },
+    ]
+
+
+def interactive_ranking_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    users = {
+        "rankOwner": "urn:li:corpuser:rankOwner",
+        "rankOther": "urn:li:corpuser:rankOther",
+    }
+    groups = {
+        "rankTeam": "urn:li:corpGroup:rankTeam",
+        "rankOtherTeam": "urn:li:corpGroup:rankOtherTeam",
+    }
+    datasets = {
+        name: dataset_urn("ranking", name)
+        for name in (
+            "owner_rank_owner",
+            "owner_rank_other",
+            "group_rank_team",
+            "group_rank_other_team",
+            "described",
+            "bare",
+            "usage_high",
+            "usage_low",
+        )
+    }
+    proposals: list[dict[str, Any]] = []
+
+    for username, urn in users.items():
+        proposals.append(
+            mcp(
+                urn,
+                "corpUserInfo",
+                {"active": True, "displayName": username},
+            )
+        )
+    for group_name, urn in groups.items():
+        proposals.append(
+            mcp(
+                urn,
+                "corpGroupInfo",
+                {
+                    "displayName": group_name,
+                    "admins": [],
+                    "members": [],
+                    "groups": [],
+                },
+            )
+        )
+    proposals.extend(
+        [
+            mcp(
+                users["rankOwner"],
+                "groupMembership",
+                {"groups": [groups["rankTeam"]]},
+            ),
+            mcp(
+                users["rankOther"],
+                "groupMembership",
+                {"groups": [groups["rankOtherTeam"]]},
+            ),
+        ]
+    )
+
+    for name, urn in datasets.items():
+        properties: dict[str, Any] = {"name": name}
+        if name == "described":
+            properties["description"] = "A documented asset"
+        proposals.append(mcp(urn, "datasetProperties", properties))
+
+    def ownership(owner: str) -> dict[str, Any]:
+        return {
+            "owners": [{"owner": owner, "type": "TECHNICAL_OWNER"}],
+            "lastModified": {"time": 0, "actor": users["rankOwner"]},
+        }
+
+    proposals.extend(
+        [
+            mcp(
+                datasets["owner_rank_owner"],
+                "ownership",
+                ownership(users["rankOwner"]),
+            ),
+            mcp(
+                datasets["owner_rank_other"],
+                "ownership",
+                ownership(users["rankOther"]),
+            ),
+            mcp(
+                datasets["group_rank_team"],
+                "ownership",
+                ownership(groups["rankTeam"]),
+            ),
+            mcp(
+                datasets["group_rank_other_team"],
+                "ownership",
+                ownership(groups["rankOtherTeam"]),
+            ),
+            mcp(
+                datasets["usage_high"],
+                "usageFeatures",
+                {"queryCountPercentileLast30Days": 100},
+            ),
+            mcp(
+                datasets["usage_low"],
+                "usageFeatures",
+                {"queryCountPercentileLast30Days": 0},
+            ),
+        ]
+    )
+
+    def judgment(
+        judgment_id: str,
+        viewer: str,
+        viewer_groups: list[str],
+        preferred: str,
+        other: str,
+    ) -> dict[str, Any]:
+        preferred_urn = datasets[preferred]
+        return {
+            "id": judgment_id,
+            "group": "keyword-probe",
+            "query": "*",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "viewerUrn": viewer,
+            "viewerGroups": viewer_groups,
+            "candidateUrns": [preferred_urn, datasets[other]],
+            "grades": [{"urn": preferred_urn, "relevance": 1}],
+            "exactTopHit": preferred_urn,
+        }
+
+    judgments = [
+        judgment(
+            "interactive-list-personal-owner",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "owner_rank_owner",
+            "owner_rank_other",
+        ),
+        judgment(
+            "interactive-list-personal-owner-other-viewer",
+            users["rankOther"],
+            [groups["rankOtherTeam"]],
+            "owner_rank_other",
+            "owner_rank_owner",
+        ),
+        judgment(
+            "interactive-list-group-owner",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "group_rank_team",
+            "group_rank_other_team",
+        ),
+        judgment(
+            "interactive-list-group-owner-other-viewer",
+            users["rankOther"],
+            [groups["rankOtherTeam"]],
+            "group_rank_other_team",
+            "group_rank_team",
+        ),
+        judgment(
+            "interactive-list-catalog-completeness",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "described",
+            "bare",
+        ),
+        judgment(
+            "interactive-list-usage-percentile",
+            users["rankOwner"],
+            [groups["rankTeam"]],
+            "usage_high",
+            "usage_low",
+        ),
+    ]
     return proposals, judgments
 
 
@@ -579,9 +1363,13 @@ def catalog_query(
     description is the query; 3 is that asset on another platform or a close
     variant; 2 is a related asset a user would still open; 1 is a neighbor.
     """
+    if query_id.startswith("longtail-") and not query_id.startswith(
+        "longtail-ecommerce-"
+    ):
+        query_id = "longtail-ecommerce-" + query_id[len("longtail-") :]
     return {
         "id": query_id,
-        "group": "longtail",
+        "group": "longtail-ecommerce",
         "query": query,
         "surfaces": ["keyword"],
         "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -605,7 +1393,7 @@ def fulltext_property_probe(query_id: str, query: str, urn: str) -> dict[str, An
 def probe(query_id: str, query: str, urn: str) -> dict[str, Any]:
     return {
         "id": query_id,
-        "group": "catalog-probe",
+        "group": "keyword-probe",
         "query": query,
         "surfaces": ["keyword"],
         "entityTypes": ["dataset"],
@@ -722,13 +1510,6 @@ Performance Metrics
 
 def longtail_judgments() -> list[dict[str, Any]]:
     """Catalog searches over the long-tail entities in this datapack."""
-    pet_dbt = dataset_urn("dbt", "long_tail_companions.adoption.pet_profiles")
-    pet_mongo = dataset_urn("mongodb", "adoption.pet_profiles")
-    pet_s3 = dataset_urn("s3", "longtail-core-data/mongo/adoption/pet_profiles")
-    pet_snowflake = dataset_urn(
-        "snowflake", "long_tail_companions.adoption.pet_profiles"
-    )
-    pet_dashboard = "urn:li:dashboard:(looker,dashboards.14)"
     orders = [
         dataset_urn("bigquery", "calm-pagoda-323403.jaffle_shop.orders"),
         dataset_urn("dbt", "calm-pagoda-323403.jaffle_shop.orders"),
@@ -774,15 +1555,12 @@ def longtail_judgments() -> list[dict[str, Any]]:
         dataset_urn("dbt", "long_tail_companions.analytics.dogs_in_movies"),
         dataset_urn("snowflake", "long_tail_companions.analytics.dogs_in_movies"),
     ]
-    pet_grades = [
-        (pet_dbt, 4),
-        (pet_mongo, 4),
-        (pet_snowflake, 4),
-        (pet_s3, 2),
-        (pet_dashboard, 2),
-    ]
+    pet_grades = PET_PROFILE_GRADES
+    # The column path is identical on all three platforms and has no field
+    # description. BigQuery's missing dataset description applies only to
+    # description_grades.
     column_grades = [
-        (customers[0], 3),
+        (customers[0], 4),
         (customers[1], 4),
         (customers[2], 4),
     ]
@@ -956,30 +1734,47 @@ def ranking_judgments() -> list[dict[str, Any]]:
         dataset_urn("dbt", "long_tail_companions.adoption.pet_profiles"),
         dataset_urn("snowflake", "long_tail_companions.adoption.pet_profiles"),
     ]
+    pet_profile_tables = [
+        "dbt,long_tail_companions.adoption.pet_profiles",
+        "mongodb,adoption.pet_profiles",
+        "snowflake,long_tail_companions.adoption.pet_profiles",
+    ]
     return [
         {
             "id": "ranking-pet-profiles",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet profiles",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
-            "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
-            "orderedContains": ["pet_profiles", "pet_profiles"],
+            "grades": [
+                {"urn": urn, "relevance": relevance}
+                for urn, relevance in [
+                    *PET_PROFILE_GRADES,
+                    (PET_PROFILE_DEEP_DIVE, 1),
+                ]
+            ],
+            # The plural query puts a table named pet_profiles first. The
+            # "Pet Profile" and "Pet Profile Deep Dive" dashboards match the
+            # phrase too and may sit between the tables, so the three
+            # exact-name tables only have to fill the top 5 with them.
+            "orderedContains": ["pet_profiles"],
+            "containsInTop": {"n": 5, "values": pet_profile_tables},
         },
         {
             "id": "ranking-pet-profile",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet profile",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
             "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
-            # Exact title "Pet Profile" may occupy one of these slots. The check is
-            # that both tables are still in the top 3, in either order.
-            "containsInTop": {"n": 3, "values": ["pet_profiles", "pet_profiles"]},
+            # Looker dashboards.14 ("Pet Profile") and dashboards.30 ("Pet Profile
+            # Deep Dive") can occupy slots ahead of the tables. Both pet_profiles
+            # tables still have to appear in the top 5, in either order.
+            "containsInTop": {"n": 5, "values": ["pet_profiles", "pet_profiles"]},
         },
         {
             "id": "ranking-return-rate",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "*",
             "surfaces": ["keyword"],
             "entityTypes": ["dataset"],
@@ -997,7 +1792,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-partial-pet-details",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "analytics.pet_details",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1015,19 +1810,22 @@ def ranking_judgments() -> list[dict[str, Any]]:
                     "relevance": 1,
                 },
             ],
-            "orderedContains": [
-                "snowflake,long_tail_companions.analytics.pet_details",
-            ],
-            # Elasticsearch 8 places the dbt copy third, behind a neighboring
-            # Snowflake table. Require it in the top 3 rather than a fixed slot.
+            # Snowflake qualifiedName is long_tail_companions.analytics.pet_details.
+            # The dbt copy's name is only pet_details and it has no qualified name,
+            # which is why Snowflake is graded 2 and dbt is graded 1. The dbt and
+            # Snowflake order_details siblings are the same table and can tie ahead
+            # of pet_details, so this probe does not pin a first hit. The dbt
+            # pet_details copy must remain in the top five. The Looker namesake
+            # long_tail_companions.view.pet_details has no analytics segment and
+            # is not promoted.
             "containsInTop": {
-                "n": 3,
+                "n": 5,
                 "values": ["dbt,long_tail_companions.analytics.pet_details"],
             },
         },
         {
             "id": "ranking-collaborative-actionitems",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "collaborative actionitems",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1039,7 +1837,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-customer-orders",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "customer orders",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1049,7 +1847,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-row-count",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "*",
             "surfaces": ["keyword"],
             "entityTypes": ["dataset"],
@@ -1068,7 +1866,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-lineage-pet-profiles",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet profiles",
             "surfaces": ["lineage"],
             "entityTypes": ["dataset"],
@@ -1078,7 +1876,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-pet-profiles-identifier",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pet_profiles",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1091,7 +1889,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-pet-profiles-case",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "PET PROFILES",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1100,16 +1898,23 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-pet-profiles-quoted",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": '"pet_profiles"',
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
-            "grades": [{"urn": urn, "relevance": 1} for urn in pet_profiles],
-            "orderedContains": ["pet_profiles"],
+            "grades": [
+                {"urn": urn, "relevance": relevance}
+                for urn, relevance in PET_PROFILE_GRADES
+                if urn != PET_PROFILE_DASHBOARD
+            ],
+            # Only the three tables are named exactly pet_profiles. The Pet
+            # Adoptions domain that owns them can still lead on entity weight,
+            # so the tables have to fill the top 4 behind at most one other hit.
+            "containsInTop": {"n": 4, "values": pet_profile_tables},
         },
         {
             "id": "ranking-pii",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "pii",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1118,7 +1923,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-campaign-adoptions",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": "campaign driven adoptions",
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1132,7 +1937,7 @@ def ranking_judgments() -> list[dict[str, Any]]:
         },
         {
             "id": "ranking-shipping-quoted",
-            "group": "ranking",
+            "group": "keyword-probe",
             "query": '"Shipping Logistics"',
             "surfaces": ["keyword"],
             "entityTypes": KEYWORD_ENTITY_TYPES,
@@ -1146,6 +1951,45 @@ def ranking_judgments() -> list[dict[str, Any]]:
 
 def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, separators=(",", ":"), sort_keys=True) + "\n")
+
+
+def write_catalog(path: Path, proposals: list[dict[str, Any]]) -> None:
+    # Leave record key order alone. Sorting would rewrite the committed catalog.
+    path.write_text(json.dumps(proposals, separators=(",", ":")) + "\n")
+
+
+def take_property_definitions(
+    directory: Path, proposals: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Definitions found in a catalog shard, or the ones already moved."""
+    found = [
+        proposal
+        for proposal in proposals
+        if proposal["aspectName"] == "propertyDefinition"
+    ]
+    if not found:
+        path = directory / "01-definitions.json"
+        if path.is_file():
+            found = [
+                proposal
+                for proposal in json.loads(path.read_text())
+                if proposal["aspectName"] == "propertyDefinition"
+                and proposal["entityUrn"] in IMPORTED_PROPERTY_URNS
+            ]
+    order = {urn: index for index, urn in enumerate(IMPORTED_PROPERTY_URNS)}
+    return sorted(
+        found, key=lambda proposal: order.get(proposal["entityUrn"], len(order))
+    )
+
+
+def without_property_definitions(
+    proposals: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    return [
+        proposal
+        for proposal in proposals
+        if proposal["aspectName"] != "propertyDefinition"
+    ]
 
 
 def platform_name(urn: str) -> str | None:
@@ -1205,11 +2049,15 @@ def assert_fulltext_probe_tokens_absent(
 def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
     allowed_groups = {
         "benchmark",
-        "ranking",
-        "catalog-probe",
+        "keyword-probe",
         "semantic-probe",
-        "longtail",
+        "longtail-ecommerce",
+        "entity-boost",
+        "entity-search",
         "structured-property",
+        "sort",
+        "field-probe",
+        "autocomplete",
     }
     allowed_surfaces = {"keyword", "semantic", "hybrid", "lineage"}
     for judgment in judgments["judgments"]:
@@ -1235,9 +2083,97 @@ def validate_judgments(judgments: dict[str, Any], seen: set[str]) -> None:
         exact = judgment.get("exactTopHit")
         if exact and exact not in seen:
             raise AssertionError(f"Top hit {exact} is not in the pack")
+        for urn in judgment.get("expectedOrder") or []:
+            if urn not in seen:
+                raise AssertionError(
+                    f"Judgment {judgment['id']} expects unloaded {urn}"
+                )
+        assert_probe_judgment(judgment, seen)
+
+
+def assert_probe_judgment(judgment: dict[str, Any], seen: set[str]) -> None:
+    """Pass/fail groups stay out of the nDCG floors and name every expected URN."""
+    if judgment["group"] == "sort":
+        if judgment.get("grades"):
+            raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+        order = (judgment.get("sort") or {}).get("order")
+        if order not in {"ASCENDING", "DESCENDING"}:
+            raise AssertionError(f"{judgment['id']} has no sort order")
+        if not judgment.get("expectedOrder"):
+            raise AssertionError(f"{judgment['id']} has no expected order")
+    if judgment["group"] == "autocomplete":
+        if judgment.get("grades"):
+            raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+        expected = judgment.get("expectedUrns")
+        if not isinstance(expected, list):
+            raise AssertionError(f"{judgment['id']} has no expected URN list")
+        for urn in expected:
+            if urn not in seen:
+                raise AssertionError(
+                    f"Judgment {judgment['id']} expects unloaded {urn}"
+                )
+    if judgment["group"] == "field-probe":
+        if judgment.get("grades"):
+            raise AssertionError(f"{judgment['id']} must not carry nDCG grades")
+        has_hit = bool(judgment.get("exactTopHit"))
+        no_hits = bool(judgment.get("expectNoHits"))
+        if has_hit == no_hits:
+            raise AssertionError(f"{judgment['id']} needs a top hit or an empty result")
+
+
+def assert_autocomplete_token_isolated(
+    loaded: dict[str, list[dict[str, Any]]],
+) -> None:
+    """The prefix token stays off every document except its own dataset."""
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            if proposal.get("entityUrn") == AUTOCOMPLETE_DATASET:
+                continue
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                if AUTOCOMPLETE_NAME.casefold() not in text.casefold():
+                    continue
+                raise AssertionError(
+                    f"{AUTOCOMPLETE_NAME} appears in {path} "
+                    f"{proposal.get('aspectName')} on {proposal.get('entityUrn')}"
+                )
+
+
+def assert_field_probe_tokens_absent(
+    loaded: dict[str, list[dict[str, Any]]],
+) -> None:
+    """The token stays off the dataset name and off every other shard."""
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            urn = proposal.get("entityUrn") or ""
+            aspect = proposal.get("aspectName")
+            if (
+                path == "05-catalog-probes.json"
+                and "fieldprobe_" in urn
+                and aspect
+                in {"schemaMetadata", "globalTags", "glossaryTerms", "container"}
+            ):
+                continue
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                folded = text.casefold()
+                for token in FIELD_PROBE_TOKENS:
+                    if token not in folded:
+                        continue
+                    raise AssertionError(f"{token} appears in {path} {aspect} on {urn}")
 
 
 def validate_pack(directory: Path) -> None:
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        _validate_pack(directory)
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
+def _validate_pack(directory: Path) -> None:
     loaded = load_mcps(directory)
     seen: set[str] = set()
     for path, proposals in loaded.items():
@@ -1275,10 +2211,253 @@ def validate_pack(directory: Path) -> None:
     ]
     if len(benchmark) != 225:
         raise AssertionError(f"Expected 225 benchmark queries, found {len(benchmark)}")
+    field_probes = [
+        item for item in judgments["judgments"] if item["group"] == "field-probe"
+    ]
+    if len(field_probes) != 6:
+        raise AssertionError(f"Expected 6 field probes, found {len(field_probes)}")
+    autocomplete = [
+        item for item in judgments["judgments"] if item["group"] == "autocomplete"
+    ]
+    if len(autocomplete) != 3:
+        raise AssertionError(
+            f"Expected 3 autocomplete probes, found {len(autocomplete)}"
+        )
     assert_fulltext_probe_tokens_absent(loaded)
+    assert_field_probe_tokens_absent(loaded)
+    assert_autocomplete_token_isolated(loaded)
+    assert_imported_catalog(loaded)
+    assert_entity_boost_isolated(loaded)
+    counts = Counter(item["group"] for item in judgments["judgments"])
+    if counts["entity-boost"] != 3 or counts["entity-search"] != 2:
+        raise AssertionError(
+            "Expected 3 entity-boost probes and 2 entity-search probes, "
+            f"found {counts['entity-boost']} and {counts['entity-search']}"
+        )
+
+
+def is_imported_catalog_urn(urn: str) -> bool:
+    return (
+        SHOWCASE_PREFIX in urn
+        or urn.startswith("urn:li:document:ecomm-")
+        or urn.startswith("urn:li:structuredProperty:showcase.")
+        or urn in IMPORTED_CONTAINER_URNS
+    )
+
+
+def imported_proposals(proposals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        proposal
+        for proposal in proposals
+        if is_imported_catalog_urn(proposal["entityUrn"])
+    ]
+
+
+def assert_imported_catalog(loaded: dict[str, list[dict[str, Any]]]) -> None:
+    """The ecommerce section stays in the committed catalog.
+
+    Every property definition is in the first shard, which waits for completion
+    before the business shard assigns those properties.
+    """
+    business = loaded[BUSINESS_SHARD]
+    imported = imported_proposals(business)
+    if len(imported) != IMPORTED_PROPOSAL_COUNT:
+        raise AssertionError(
+            f"Expected {IMPORTED_PROPOSAL_COUNT} imported catalog proposals, "
+            f"found {len(imported)}"
+        )
+    stray = [
+        (path, proposal["entityUrn"])
+        for path, proposals in loaded.items()
+        if path != "01-definitions.json"
+        for proposal in proposals
+        if proposal["aspectName"] == "propertyDefinition"
+    ]
+    if stray:
+        raise AssertionError(
+            f"Property definitions belong in 01-definitions.json, found {stray[:8]}"
+        )
+    leading = [
+        proposal["entityUrn"]
+        for proposal in loaded["01-definitions.json"]
+        if proposal["aspectName"] == "propertyDefinition"
+        and proposal["entityUrn"].startswith("urn:li:structuredProperty:showcase.")
+    ]
+    if leading != list(IMPORTED_PROPERTY_URNS):
+        raise AssertionError(
+            "Imported property definitions must be in 01-definitions.json, "
+            f"found {leading}"
+        )
+
+
+def assert_entity_boost_isolated(loaded: dict[str, list[dict[str, Any]]]) -> None:
+    for path, proposals in loaded.items():
+        for proposal in proposals:
+            if "entityboost" in proposal["entityUrn"]:
+                continue
+            payload = proposal.get("aspect", {}).get("json")
+            for text in iter_searchable_text(payload):
+                if "entityboost" in text.casefold():
+                    raise AssertionError(
+                        f"entityboost appears in {path} {proposal.get('aspectName')} "
+                        f"on {proposal.get('entityUrn')}"
+                    )
+
+
+def unique_display(
+    proposals: list[dict[str, Any]], entity_type: str, aspect: str, field: str
+) -> tuple[str, str]:
+    names: dict[str, set[str]] = {}
+    for proposal in proposals:
+        if proposal["entityType"] != entity_type or proposal["aspectName"] != aspect:
+            continue
+        name = proposal["aspect"]["json"].get(field)
+        if isinstance(name, str) and name.strip():
+            names.setdefault(name, set()).add(proposal["entityUrn"])
+    for name, urns in names.items():
+        if len(urns) == 1:
+            return name, next(iter(urns))
+    raise AssertionError(f"No unique {entity_type} {field}")
+
+
+def entity_weight_probes(
+    ecommerce: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    assets = [
+        proposal["entityUrn"]
+        for proposal in ecommerce
+        if proposal["entityType"] == "dataset"
+        and proposal["aspectName"] == "datasetProperties"
+    ]
+    if not assets:
+        raise AssertionError("Imported catalog has no dataset to place in the product")
+    mcps = [
+        mcp(
+            ENTITY_BOOST_NODE,
+            "glossaryNodeInfo",
+            {"name": ENTITY_BOOST_NAME, "definition": ENTITY_BOOST_NAME},
+        ),
+        mcp(
+            ENTITY_BOOST_TERM,
+            "glossaryTermInfo",
+            {
+                "name": ENTITY_BOOST_NAME,
+                "definition": ENTITY_BOOST_NAME,
+                "termSource": "INTERNAL",
+                "parentNode": ENTITY_BOOST_NODE,
+            },
+        ),
+        mcp(
+            ENTITY_BOOST_DOMAIN,
+            "domainProperties",
+            {"name": ENTITY_BOOST_NAME, "description": ENTITY_BOOST_NAME},
+        ),
+        mcp(
+            ENTITY_BOOST_PRODUCT,
+            "dataProductProperties",
+            {
+                "name": ENTITY_BOOST_NAME,
+                "description": ENTITY_BOOST_NAME,
+                "assets": [{"destinationUrn": assets[0], "outputPort": False}],
+            },
+        ),
+        mcp(ENTITY_BOOST_PRODUCT, "domains", {"domains": [ENTITY_BOOST_DOMAIN]}),
+        mcp(
+            ENTITY_BOOST_DATASET,
+            "datasetProperties",
+            {"name": ENTITY_BOOST_NAME, "description": ENTITY_BOOST_NAME},
+        ),
+    ]
+    judgments: list[dict[str, Any]] = [
+        {
+            "id": "entity-boost-glossary-term",
+            "group": "entity-boost",
+            "query": ENTITY_BOOST_NAME,
+            "entityTypes": ["glossaryTerm", "dataProduct", "dataset"],
+            "surfaces": ["keyword"],
+            "orderedContains": [
+                "dataProduct:entityboost",
+            ],
+            # Entity-type weights multiply each entity's lexical score. The data product
+            # weight is above the glossary term, so an equal name and description ranks
+            # the data product first. The dataset keeps the same name and stays in the
+            # top three.
+            "containsInTop": {
+                "n": 3,
+                "values": [
+                    "dataProduct:entityboost",
+                    "catalogprobe,entityboost",
+                ],
+            },
+            "grades": [
+                {"urn": ENTITY_BOOST_TERM, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 2},
+                {"urn": ENTITY_BOOST_DATASET, "relevance": 1},
+            ],
+        },
+        {
+            "id": "entity-boost-glossary-node",
+            "group": "entity-boost",
+            "query": ENTITY_BOOST_NAME,
+            "entityTypes": ["glossaryNode", "dataProduct"],
+            "surfaces": ["keyword"],
+            "orderedContains": [
+                "dataProduct:entityboost",
+                "glossaryNode:entityboost",
+            ],
+            # The data product weight is above the glossary node, so an equal name
+            # ranks the data product first.
+            "grades": [
+                {"urn": ENTITY_BOOST_NODE, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 2},
+            ],
+        },
+        {
+            "id": "entity-boost-domain",
+            "group": "entity-boost",
+            "query": ENTITY_BOOST_NAME,
+            "entityTypes": ["domain", "dataProduct"],
+            "surfaces": ["keyword"],
+            "present": ["domain:entityboost", "dataProduct:entityboost"],
+            "grades": [
+                {"urn": ENTITY_BOOST_DOMAIN, "relevance": 1},
+                {"urn": ENTITY_BOOST_PRODUCT, "relevance": 1},
+            ],
+        },
+    ]
+    user_name, user_urn = unique_display(
+        ecommerce, "corpuser", "corpUserInfo", "displayName"
+    )
+    group_name, group_urn = unique_display(
+        ecommerce, "corpGroup", "corpGroupInfo", "displayName"
+    )
+    judgments.extend(
+        [
+            {
+                "id": "entity-search-user",
+                "group": "entity-search",
+                "query": user_name,
+                "entityTypes": ["corpuser"],
+                "surfaces": ["keyword"],
+                "exactTopHit": user_urn,
+                "grades": [{"urn": user_urn, "relevance": 2}],
+            },
+            {
+                "id": "entity-search-group",
+                "group": "entity-search",
+                "query": group_name,
+                "entityTypes": ["corpGroup"],
+                "surfaces": ["keyword"],
+                "exactTopHit": group_urn,
+                "grades": [{"urn": group_urn, "relevance": 2}],
+            },
+        ]
+    )
+    return mcps, judgments
 
 
 def generate(root: Path | None = None) -> Path:
+    gc.disable()
     root = root or repo_root()
     directory = pack_dir(root)
     directory.mkdir(parents=True, exist_ok=True)
@@ -1296,20 +2475,38 @@ def generate(root: Path | None = None) -> Path:
         _urn, proposals = cranfield_dataset(document)
         cranfield_mcps.extend(proposals)
 
-    platforms = {"cranfield", "catalogprobe"}
-    for name in LONG_TAIL_SHARDS:
-        path = directory / name
-        if not path.is_file():
-            raise AssertionError(
-                f"{name} is the long-tail catalog in the datapack. "
-                "It is not rebuilt from an Elasticsearch snapshot."
-            )
-        for proposal in json.loads(path.read_text()):
-            platform = platform_name(proposal["entityUrn"])
-            if platform:
-                platforms.add(platform)
+    timeseries = directory / TIMESERIES_SHARD
+    if not timeseries.is_file():
+        raise AssertionError(
+            f"{TIMESERIES_SHARD} is the longtail-ecommerce profile shard. "
+            "It is not rebuilt from an Elasticsearch snapshot."
+        )
+    business_path = directory / BUSINESS_SHARD
+    if not business_path.is_file():
+        raise AssertionError(
+            f"{BUSINESS_SHARD} is the longtail-ecommerce catalog. "
+            "It is not rebuilt from the ecommerce snapshot."
+        )
+    business = json.loads(business_path.read_text())
+    profile = json.loads(timeseries.read_text())
+    property_definitions = take_property_definitions(directory, business + profile)
+    if any(proposal["aspectName"] == "propertyDefinition" for proposal in business):
+        business = without_property_definitions(business)
+        write_catalog(business_path, business)
+    if any(proposal["aspectName"] == "propertyDefinition" for proposal in profile):
+        write_catalog(timeseries, without_property_definitions(profile))
+        profile = without_property_definitions(profile)
+    imported = imported_proposals(business)
+
+    platforms = {"cranfield", "catalogprobe", "ranking"}
+    for proposal in business + profile:
+        platform = platform_name(proposal["entityUrn"])
+        if platform:
+            platforms.add(platform)
 
     probe_mcps, probe_judgments = catalog_probes()
+    ranking_mcps, interactive_ranking_judgments = interactive_ranking_probes()
+    boost_mcps, boost_judgments = entity_weight_probes(imported)
     semantic_mcps, semantic_judgment = semantic_documents()
     benchmark = []
     for query in queries:
@@ -1332,9 +2529,12 @@ def generate(root: Path | None = None) -> Path:
         )
 
     shards = {
-        "01-definitions.json": definitions(platforms),
+        # Assignments sit later in the business shard, which is ingested
+        # asynchronously. The definitions have to commit first or those writes
+        # are rejected as unknown properties.
+        "01-definitions.json": definitions(platforms) + property_definitions,
         "02-cranfield-datasets.json": cranfield_mcps,
-        "05-catalog-probes.json": probe_mcps,
+        "05-catalog-probes.json": probe_mcps + ranking_mcps + boost_mcps,
         "06-semantic-probes.json": semantic_mcps,
     }
     index = {
@@ -1342,8 +2542,8 @@ def generate(root: Path | None = None) -> Path:
         "files": [
             {"path": "01-definitions.json", "wait_for_completion": True},
             {"path": "02-cranfield-datasets.json"},
-            {"path": "03-long-tail.json"},
-            {"path": "04-long-tail-timeseries.json"},
+            {"path": BUSINESS_SHARD},
+            {"path": TIMESERIES_SHARD},
             {"path": "05-catalog-probes.json"},
             {"path": "06-semantic-probes.json"},
         ],
@@ -1360,22 +2560,24 @@ def generate(root: Path | None = None) -> Path:
             "elasticsearch": {
                 "benchmarkNdcgAt10": 0.31,
                 "javaBuilderBenchmarkNdcgAt10": 0.20,
-                # Catalog mean. The floors stay separate because the template
-                # and the Java builder run different queries.
-                "longtailNdcgAt10": 0.67,
-                "javaBuilderLongtailNdcgAt10": 0.66,
+                # 0.75 fails when one currently perfect catalog query drops out of
+                # the top 10. 0.76 is tight against queries already in the 0.61-0.82 band.
+                "longtailEcommerceNdcgAt10": 0.75,
+                "javaBuilderLongtailEcommerceNdcgAt10": 0.72,
             },
             "opensearch": {
                 "benchmarkNdcgAt10": 0.31,
                 "javaBuilderBenchmarkNdcgAt10": 0.20,
-                "longtailNdcgAt10": 0.67,
-                "javaBuilderLongtailNdcgAt10": 0.66,
+                "longtailEcommerceNdcgAt10": 0.75,
+                "javaBuilderLongtailEcommerceNdcgAt10": 0.72,
             },
         },
         "judgments": benchmark
         + longtail_judgments()
         + ranking_judgments()
+        + interactive_ranking_judgments
         + probe_judgments
+        + boost_judgments
         + [semantic_judgment],
     }
     write_json(directory / "judgments.json", judgments)

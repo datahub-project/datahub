@@ -19,6 +19,7 @@ record DataHubViewInfo {
     "fieldType": "TEXT_PARTIAL",
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -36,6 +37,7 @@ record DataHubViewInfo {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -49,7 +51,11 @@ record DataHubViewInfo {
   /**
    * The type of View
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   type: enum DataHubViewType {
     /**
      * A view private for a specific person.

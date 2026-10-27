@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
     endTimeMillis: undefined as number | undefined,
 }));
 
-vi.mock('@app/lineage/utils/useGetLineageTimeParams', () => ({
+vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
     useGetLineageTimeParams: () => ({
         startTimeMillis: mocks.startTimeMillis,
         endTimeMillis: mocks.endTimeMillis,

@@ -12,6 +12,9 @@ record MLFeatureKey {
    * Namespace for the feature
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
   }
   featureNamespace: string
@@ -25,6 +28,7 @@ record MLFeatureKey {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },

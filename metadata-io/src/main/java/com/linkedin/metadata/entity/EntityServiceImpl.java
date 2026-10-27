@@ -1143,7 +1143,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /**
    * Builds retention contexts from upsert results. Previous version existence is implied by
-   * oldValue != null.
+   * oldValue != null. Results whose body is unchanged are skipped: an unchanged body keeps its
+   * stored version, so no history row was added and there is nothing new to trim.
    *
    * @param updatedLatestAspects when non-null (legacy in-transaction path), restricts retention to
    *     urn/aspect pairs actually present in the post-upsert latest-aspect snapshot; when null
@@ -1162,11 +1163,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             .get(r.getUrn().toString())
                             .containsKey(r.getRequest().getAspectName())))
         .filter(r -> !r.isSemanticNoOp())
-        .filter(
-            r -> {
-              RecordTemplate oldAspect = r.getOldValue();
-              return oldAspect != r.getNewValue() && oldAspect != null;
-            })
+        // Compare by value: a re-sent aspect arrives as a separate but equal record.
+        .filter(r -> r.getOldValue() != null && !r.isNoOp())
         .map(
             r ->
                 RetentionService.RetentionContext.builder()
@@ -3553,8 +3551,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               result.getNewValue(),
                               result.getOldSystemMetadata(),
                               result.getNewSystemMetadata(),
-                              // TODO: use properly attributed audit stamp.
-                              createSystemAuditStamp(),
+                              // The caller's stamp, so the changelog names who removed it.
+                              opContext.getAuditStamp(),
                               result.getChangeType())
                           .getFirst();
                     } else {
@@ -3848,10 +3846,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean hardDelete,
       DeletePurpose deletePurpose,
       @Nullable DeleteCeiling ceiling) {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
+    // The caller's stamp, as on the delete changelog: the soft-delete status and the side-effect
+    // changelogs name who removed it, and the system only when the system runs it.
+    final AuditStamp auditStamp = opContext.getAuditStamp();
 
     // Validate pre-conditions before running queries
     Urn entityUrn = UrnUtils.getUrn(urn);

@@ -13,6 +13,7 @@
 import { test } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { BASE_FEATURE_FLAGS, SF_A_URN, SF_B_URN, SF_C_URN, schemaField } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-controls' });
 
@@ -28,7 +29,7 @@ test.describe('schema field lineage graph', () => {
     await apiMock.setFeatureFlags(BASE_FEATURE_FLAGS);
   });
 
-  test('draws the field graph and expands it a hop at a time', async () => {
+  test('draws the field graph and expands it a hop at a time', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToSchemaFieldLineage(A_BREED);
     await lineagePage.waitForGraphToRender();
 

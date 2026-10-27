@@ -8,6 +8,7 @@
 import { test } from '../../fixtures/base-test';
 import { HomePagePostsPage } from '../../pages/settings/home-page-posts.page';
 import { withRandomSuffix } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('create announcement and link post', () => {
   let postsPage: HomePagePostsPage;
@@ -19,7 +20,7 @@ test.describe('create announcement and link post', () => {
     await postsPage.skipIntroducePage();
   });
 
-  test('create, edit and delete announcement post', async () => {
+  test('create, edit and delete announcement post', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     const announcementTitle = withRandomSuffix('Test Announcement');
     const announcementUpdated = `${announcementTitle} Updated`;
 

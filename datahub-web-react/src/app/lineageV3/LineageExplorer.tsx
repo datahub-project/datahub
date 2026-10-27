@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     BOUNDING_BOX_ENTITY_TYPES,
     EdgeId,
@@ -17,6 +16,7 @@ import useShouldHideTransformations from '@app/lineageV3/settings/useShouldHideT
 import useShouldShowDataProcessInstances from '@app/lineageV3/settings/useShouldShowDataProcessInstances';
 import useShouldShowGhostEntities from '@app/lineageV3/settings/useShouldShowGhostEntities';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 
 import { EntityType, LineageDirection } from '@types';
 

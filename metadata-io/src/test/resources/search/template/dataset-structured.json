@@ -12,16 +12,6 @@
     }, {
       "filter" : {
         "term" : {
-          "materialized" : {
-            "boost" : 1.0,
-            "value" : "true"
-          }
-        }
-      },
-      "weight" : 0.5
-    }, {
-      "filter" : {
-        "term" : {
           "deprecated" : {
             "boost" : 1.0,
             "value" : "true"
@@ -53,7 +43,7 @@
                     "default_operator" : "and",
                     "enable_position_increments" : true,
                     "escape" : false,
-                    "fields" : [ "applications.stemmed^0.2", "applications.text^0.4", "container.stemmed^0.2", "container.text^0.4", "dataProduct.stemmed^0.2", "dataProduct.text^0.4", "description.stemmed^0.2", "description.text^0.4", "domains.stemmed^0.2", "domains.text^0.4", "glossaryTerms.stemmed^0.1", "glossaryTerms.text^0.2", "name.stemmed^2.0", "name.text^4.0", "other.stemmed^0.1", "other.text^0.2", "platform.stemmed^0.2", "platform.text^0.4", "platformInstance.stemmed^0.2", "platformInstance.text^0.4", "qualifiedName.stemmed^2.0", "qualifiedName.text^4.0", "tags.stemmed^0.1", "tags.text^0.2" ],
+                    "fields" : [ "description.stemmed^0.2", "description.text^0.4", "glossaryTerms.stemmed^0.1", "glossaryTerms.text^0.2", "name.stemmed^2.0", "name.text^4.0", "other.stemmed^0.1", "other.text^0.2", "qualifiedName.stemmed^2.0", "qualifiedName.text^4.0", "tags.stemmed^0.1", "tags.text^0.2" ],
                     "fuzziness" : "AUTO",
                     "fuzzy_max_expansions" : 50,
                     "fuzzy_prefix_length" : 0,
@@ -70,7 +60,7 @@
                     "default_operator" : "and",
                     "enable_position_increments" : true,
                     "escape" : false,
-                    "fields" : [ "structuredProperties._versioned.contract_id.00000000000001.string.stemmed^1.0", "structuredProperties._versioned.contract_id.00000000000001.string.text^2.0", "structuredProperties.certification_status.stemmed^0.6", "structuredProperties.certification_status.text^1.2", "structuredProperties.owner_ref__urn_name.stemmed^0.3", "structuredProperties.owner_ref__urn_name.text^0.6", "structuredProperties.summary_notes.stemmed^0.4", "structuredProperties.summary_notes.text^0.8" ],
+                    "fields" : [ "structuredProperties._versioned.contract_id.00000000000001.string.stemmed^1.0", "structuredProperties._versioned.contract_id.00000000000001.string.text^2.0", "structuredProperties.certification_status.stemmed^0.6", "structuredProperties.certification_status.text^1.2", "structuredProperties.chart_only.stemmed^1.2", "structuredProperties.chart_only.text^2.4", "structuredProperties.owner_ref__urn_name.stemmed^0.3", "structuredProperties.owner_ref__urn_name.text^0.6", "structuredProperties.summary_notes.stemmed^0.4", "structuredProperties.summary_notes.text^0.8" ],
                     "fuzziness" : "AUTO",
                     "fuzzy_max_expansions" : 50,
                     "fuzzy_prefix_length" : 0,
@@ -180,6 +170,6 @@
         } ]
       }
     },
-    "score_mode" : "avg"
+    "score_mode" : "multiply"
   }
 }

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_EXACT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_IDENTITY_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
@@ -92,13 +93,13 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 abstract class SearchTemplateFixture {
@@ -161,7 +162,6 @@ abstract class SearchTemplateFixture {
     stored.clear();
     writtenAt.clear();
     definitions.clear();
-    SearchTemplates.install(null);
     registry = TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
     retriever = mock(CachingAspectRetriever.class);
     when(retriever.getEntityRegistry()).thenReturn(registry);
@@ -252,11 +252,6 @@ abstract class SearchTemplateFixture {
     clock.addAndGet(600_000L + 1);
   }
 
-  @AfterMethod
-  public void clearTemplates() {
-    SearchTemplates.install(null);
-  }
-
   protected SearchTemplateWalk.Served<SearchResult> walk(
       String urn,
       String query,
@@ -278,12 +273,17 @@ abstract class SearchTemplateFixture {
         loader,
         executor,
         urn,
-        new SearchTemplateWalk.Request(query, null, sort, size),
+        new SearchTemplateWalk.Request(query, null, sort, size, SearchTemplateWalk.identity()),
         templateUrn -> {
           try {
             SearchResult page = pages.apply(templateUrn);
             return SearchTemplateWalk.AttemptResult.ok(
-                page, page.getNumEntities(), new ArrayList<>(page.getEntities()), List.of(), false);
+                page,
+                page.getNumEntities(),
+                new ArrayList<>(page.getEntities()),
+                List.of(),
+                false,
+                null);
           } catch (RuntimeException e) {
             return SearchTemplateWalk.AttemptResult.failed(e);
           }
@@ -343,8 +343,13 @@ abstract class SearchTemplateFixture {
     return ladder;
   }
 
+  protected SearchTemplateCoordinator useRuntime(@Nullable SearchTemplateCoordinator coordinator) {
+    opContext = opContext.withSearchTemplateRuntime(coordinator);
+    return coordinator;
+  }
+
   protected static List<String> routeChain(OperationContext context, String query) {
-    return SearchTemplates.current()
+    return SearchTemplateRuntimes.coordinator(context)
         .bind(context, query)
         .getSearchContext()
         .getResolvedSearchTemplate()
@@ -555,6 +560,7 @@ abstract class SearchTemplateFixture {
     store(SEARCH_TEMPLATE_SEARCH_URN, search);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, pinned("Fulltext", ROUTE_QUERY));
     store(SEARCH_TEMPLATE_LIST_URN, pinned("List", "{ \"match_all\": {} }"));
+    store(SEARCH_TEMPLATE_LIST_BY_URN_URN, pinned("List by URN", "{ \"match_all\": {} }"));
     store(SEARCH_TEMPLATE_EXACT_URN, pinned("Exact", "{ \"match_all\": {} }"));
     store(SEARCH_TEMPLATE_IDENTITY_URN, pinned("Identity", "{ \"match_all\": {} }"));
     SearchTemplateProperties structured =
@@ -578,7 +584,7 @@ abstract class SearchTemplateFixture {
         route(
             "(?i)^(?:urn:li:[a-z][a-z0-9]*[:()].*|(?:s3|gs|hdfs):\\\\?/\\\\?/.*)",
             SEARCH_TEMPLATE_IDENTITY_URN),
-        route("^\\*?$", SEARCH_TEMPLATE_LIST_URN),
+        route("^\\*?$", SEARCH_TEMPLATE_LIST_BY_URN_URN),
         route("^\\\\/q [\"'].+[\"']$", SEARCH_TEMPLATE_STRUCTURED_EXACT_URN),
         route("^\\\\/q .*", SEARCH_TEMPLATE_STRUCTURED_URN),
         route("^[\"'].+[\"']$", SEARCH_TEMPLATE_EXACT_URN),

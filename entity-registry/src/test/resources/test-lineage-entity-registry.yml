@@ -55,6 +55,12 @@ entities:
     keyAspect: dataHubPolicyKey
     aspects:
       - dataHubPolicyInfo
+  - name: repository
+    category: core
+    keyAspect: repositoryKey
+    aspects:
+      - repositoryProperties
+      - repositoryLineage
   - name: dataJob
     keyAspect: dataJobKey
     aspects:
@@ -65,6 +71,7 @@ entities:
       - versionInfo
       - dataJobInfo
       - dataJobInputOutput
+      - repositoryLineage
       - editableDataJobProperties
       - ownership
       - status
@@ -89,6 +96,7 @@ entities:
       - deprecation
       - versionInfo
       - dataFlowInfo
+      - repositoryLineage
       - editableDataFlowProperties
       - ownership
       - status

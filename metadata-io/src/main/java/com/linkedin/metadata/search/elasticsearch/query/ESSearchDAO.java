@@ -21,6 +21,7 @@ import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -37,8 +38,10 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3DocumentIdResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
@@ -47,16 +50,29 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.EntityFilter;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.HighlightCarry;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseBudget;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryIntent;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
+import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentPage;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRequest;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLight;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
+import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.search.utils.SearchOperation;
@@ -64,6 +80,8 @@ import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.search.template.SearchTemplateComponentMode;
+import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.context.Context;
@@ -85,7 +103,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -104,6 +121,8 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.document.DocumentField;
+import org.opensearch.common.lucene.search.function.CombineFunction;
+import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -111,6 +130,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
@@ -176,12 +196,6 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
-
-  /**
-   * Search V3 has no autocomplete query. Warn once per process so a search bar that stays empty is
-   * visible without a log line on every keystroke.
-   */
-  private final AtomicBoolean loggedAutocompleteUnsupported = new AtomicBoolean();
 
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
@@ -635,6 +649,27 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
+    HighlightCarry.begin();
+    try {
+      return applyHighlightCarry(
+          opContext,
+          searchRanked(
+              opContext, entityNames, input, postFilters, sortCriteria, from, size, facets));
+    } finally {
+      HighlightCarry.clear();
+    }
+  }
+
+  @Nonnull
+  private SearchResult searchRanked(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets) {
     if (templateReads(opContext)) {
       final int hybridFetchSize =
           hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
@@ -705,6 +740,17 @@ public class ESSearchDAO {
     return hybridFetchSize > 0
         ? rerankHybrid(opContext, entityNames, input, result, from, size)
         : result;
+  }
+
+  @Nonnull
+  private SearchResult applyHighlightCarry(
+      @Nonnull OperationContext opContext, @Nonnull SearchResult result) {
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    boolean explain = flags != null && Boolean.TRUE.equals(flags.isIncludeExplain());
+    if (result.getEntities() != null) {
+      HighlightCarry.apply(result.getEntities(), explain);
+    }
+    return result;
   }
 
   @VisibleForTesting
@@ -1273,18 +1319,24 @@ public class ESSearchDAO {
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
     if (EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
-      opContext
-          .getMetricUtils()
-          .ifPresent(
-              metricUtils ->
-                  metricUtils.increment(ESSearchDAO.class, "autocompleteUnsupported", 1));
-      if (loggedAutocompleteUnsupported.compareAndSet(false, true)) {
-        log.warn("Search V3 keyword reads do not support autocomplete; returning no suggestions.");
+      if (query.isBlank()) {
+        return emptyAutocomplete(query);
       }
-      return new AutoCompleteResult()
-          .setQuery(query)
-          .setSuggestions(new StringArray())
-          .setEntities(new AutoCompleteEntityArray());
+      try {
+        SearchRequest searchRequest =
+            buildV3AutocompleteRequest(opContext, entityName, query, field, requestParams, limit);
+        SearchResponse searchResponse =
+            SearchTookMetrics.time(
+                opContext,
+                SearchOperation.ENTITY_AUTOCOMPLETE,
+                () ->
+                    searchClient(opContext, searchRequest)
+                        .search(opContext, searchRequest, RequestOptions.DEFAULT));
+        return extractV3Autocomplete(opContext, searchResponse, query);
+      } catch (Exception e) {
+        log.error("Auto complete query failed:" + e.getMessage());
+        throw new ESQueryException("Auto complete query failed:", e);
+      }
     }
     try {
       Pair<SearchRequest, AutocompleteRequestHandler> searchRequestAndBuilder =
@@ -1332,6 +1384,150 @@ public class ESSearchDAO {
             limit);
     req.indices(entityIndexName(opContext, entityName));
     return Pair.of(req, builder);
+  }
+
+  /**
+   * Renders {@code urn:li:searchTemplate:autocomplete} for one entity. The template owns the prefix
+   * clause. This request sets the field, the limit, the caller and authorization filters, and skips
+   * aggregations and the total-hit count. It does not follow the search-surface rollout.
+   */
+  @VisibleForTesting
+  public SearchRequest buildV3AutocompleteRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String query,
+      @Nullable String field,
+      @Nullable Filter requestParams,
+      @Nullable Integer limit) {
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
+    Map<String, Object> context = new HashMap<>();
+    context.put(
+        SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
+    context.put(SearchTemplateContextVariables.UNQUOTED, query);
+    context.put(
+        SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS,
+        SearchClauseBudget.prefixExpansions(query));
+    QueryBuilder prefix =
+        SearchTemplateJson.parseQuery(
+            SearchTemplateMustache.render(autocompleteQuery(opContext), context));
+    BoolQueryBuilder filterQuery =
+        SearchRequestHandler.getBuilder(
+                opContext,
+                entitySpec,
+                searchConfiguration,
+                customSearchConfiguration,
+                queryFilterRewriteChain,
+                searchServiceConfig)
+            .getFilterQuery(opContext, requestParams);
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    source.size(ConfigUtils.applyLimit(searchServiceConfig, limit));
+    source.trackTotalHits(false);
+    source.fetchSource(new String[] {"urn", "name"}, null);
+    source.query(QueryBuilders.boolQuery().must(prefix).filter(filterQuery));
+    SearchRequest request = new SearchRequest();
+    request.source(source);
+    request.indices(entityIndexName(opContext, entityName));
+    return request;
+  }
+
+  @Nonnull
+  private String autocompleteQuery(@Nonnull OperationContext opContext) {
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    if (coordinator != null) {
+      MergedSearchTemplate template =
+          coordinator.load(opContext, Constants.SEARCH_TEMPLATE_AUTOCOMPLETE_URN);
+      if (template.getQuery() != null && !template.getQuery().isBlank()) {
+        return template.getQuery();
+      }
+    }
+    SearchTemplateProperties shipped =
+        SearchTemplateBootstrap.get(Constants.SEARCH_TEMPLATE_AUTOCOMPLETE_URN);
+    if (shipped == null || !shipped.hasQuery() || shipped.getQuery() == null) {
+      throw new SearchTemplateException(
+          "Search template not found: " + Constants.SEARCH_TEMPLATE_AUTOCOMPLETE_URN);
+    }
+    return shipped.getQuery();
+  }
+
+  @Nonnull
+  private static String autocompletePrefixField(
+      @Nonnull EntitySpec entitySpec, @Nullable String field) {
+    if (field == null || field.isBlank()) {
+      return "name" + V3SearchFields.TEXT_SUFFIX;
+    }
+    SearchFieldResolver resolver = new SearchFieldResolver(List.of(entitySpec));
+    if (!resolver.supports(field, SearchFieldResolver.Intent.FULL_TEXT)) {
+      return resolver.exactPath(field, SearchFieldResolver.Intent.EXACT);
+    }
+    SearchFieldResolver.Field resolved =
+        resolver.resolve(field, SearchFieldResolver.Intent.FULL_TEXT);
+    if (resolved.getSubfields().contains(V3SearchFields.TEXT)) {
+      return resolved.getPath() + V3SearchFields.TEXT_SUFFIX;
+    }
+    if (resolved.getSubfields().contains(V3SearchFields.STEMMED)) {
+      return resolved.getPath() + V3SearchFields.STEMMED_SUFFIX;
+    }
+    return resolved.getPath();
+  }
+
+  @Nonnull
+  private static AutoCompleteResult emptyAutocomplete(@Nonnull String query) {
+    return new AutoCompleteResult()
+        .setQuery(query)
+        .setSuggestions(new StringArray())
+        .setEntities(new AutoCompleteEntityArray());
+  }
+
+  @Nonnull
+  private static AutoCompleteResult extractV3Autocomplete(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchResponse searchResponse,
+      @Nonnull String query) {
+    List<String> suggestions = new ArrayList<>();
+    List<AutoCompleteEntity> entities = new ArrayList<>();
+    for (SearchHit hit : searchResponse.getHits()) {
+      Map<String, Object> source = hit.getSourceAsMap();
+      if (source == null) {
+        continue;
+      }
+      Object urnValue = source.get("urn");
+      if (!(urnValue instanceof String urnText) || urnText.isBlank()) {
+        continue;
+      }
+      Urn urn;
+      try {
+        urn = UrnUtils.getUrn(urnText);
+      } catch (Exception e) {
+        log.warn("Failed to create urn {}", urnText);
+        continue;
+      }
+      if (ESAccessControlUtil.restrictUrn(opContext, urn)) {
+        continue;
+      }
+      suggestions.add(autocompleteSuggestion(source, urn));
+      entities.add(new AutoCompleteEntity().setUrn(urn));
+    }
+    return new AutoCompleteResult()
+        .setQuery(query)
+        .setSuggestions(new StringArray(suggestions))
+        .setEntities(new AutoCompleteEntityArray(entities));
+  }
+
+  @Nonnull
+  private static String autocompleteSuggestion(
+      @Nonnull Map<String, Object> source, @Nonnull Urn urn) {
+    Object name = source.get("name");
+    if (name instanceof String text && !text.isBlank()) {
+      return text;
+    }
+    if (name instanceof List<?> values) {
+      for (Object value : values) {
+        if (value instanceof String text && !text.isBlank()) {
+          return text;
+        }
+      }
+    }
+    return urn.getEntityKey().size() == 1 ? urn.getEntityKey().get(0) : urn.getId();
   }
 
   /**
@@ -1842,14 +2038,15 @@ public class ESSearchDAO {
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
     String renderUrn = resolved == null ? null : resolved.getUrn();
     if (!scroll && renderUrn != null) {
-      SearchTemplateCoordinator coordinator = SearchTemplates.current();
+      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
       SearchTemplateWalk.Served<SearchResult> served =
           SearchTemplateWalk.walk(
               bound,
               coordinator.loader(),
               coordinator.ladderExecutor(),
               renderUrn,
-              new SearchTemplateWalk.Request(query, postFilters, sortCriteria, size),
+              new SearchTemplateWalk.Request(
+                  query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
               urn ->
                   searchAttempt(
                       bound, urn, entityNames, query, postFilters, sortCriteria, 0, size, facets),
@@ -1975,7 +2172,7 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null || !coordinator.executes(opContext)) {
       return new BoundSearch(
           opContext,
@@ -1994,7 +2191,14 @@ public class ESSearchDAO {
             coordinator.loader(),
             coordinator.ladderExecutor(),
             resolved.getUrn(),
-            new SearchTemplateWalk.Request(input, postFilters, sortCriteria, size),
+            new SearchTemplateWalk.Request(
+                input,
+                postFilters,
+                sortCriteria,
+                size,
+                (urn, raw) ->
+                    componentReorder(
+                        bound, urn, raw, input, postFilters, sortCriteria, from, size)),
             urn ->
                 searchAttempt(
                     bound, urn, entityNames, input, postFilters, sortCriteria, from, size, facets),
@@ -2028,7 +2232,7 @@ public class ESSearchDAO {
     if (opContext.getSearchContext().getResolvedSearchTemplate() != null) {
       return opContext;
     }
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null) {
       return opContext;
     }
@@ -2047,12 +2251,88 @@ public class ESSearchDAO {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     try {
+      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+      int fetchFrom = from;
+      Integer fetchSize = size;
+      if (coordinator != null) {
+        MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
+        com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+        if (!SearchTemplateComponents.empty(spec)
+            && spec.getMode() == SearchTemplateComponentMode.OWN_RUNG) {
+          Map<String, String> config = SearchTemplateComponents.config(spec);
+          SearchTemplateComponent implementation =
+              coordinator.components().require(spec.getName(), spec.getVersion());
+          SearchTemplateComponentPage ranked =
+              implementation.execute(
+                  SearchTemplateComponentRequest.builder()
+                      .opContext(opContext)
+                      .query(input)
+                      .filter(postFilters)
+                      .sort(sortCriteria)
+                      .from(from)
+                      .size(size)
+                      .config(config)
+                      .mode(spec.getMode())
+                      .build());
+          SearchResult owned = new SearchResult();
+          owned.setEntities(new SearchEntityArray(ranked.hits()));
+          owned.setNumEntities((int) Math.min(Integer.MAX_VALUE, Math.max(0, ranked.total())));
+          owned.setFrom(from);
+          owned.setPageSize(size == null ? ranked.hits().size() : size);
+          if (ranked.metadata() != null) {
+            owned.setMetadata(ranked.metadata());
+          }
+          return SearchTemplateWalk.AttemptResult.ok(
+              owned,
+              owned.getNumEntities(),
+              new ArrayList<>(owned.getEntities()),
+              List.of(),
+              ranked.shardFailed(),
+              null);
+        }
+        if (!SearchTemplateComponents.empty(spec)
+            && spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
+          Map<String, String> config = SearchTemplateComponents.config(spec);
+          SearchTemplateComponentRequest planned =
+              SearchTemplateComponentRequest.builder()
+                  .opContext(opContext)
+                  .query(input)
+                  .filter(postFilters)
+                  .sort(sortCriteria)
+                  .from(from)
+                  .size(size)
+                  .config(config)
+                  .mode(spec.getMode())
+                  .build();
+          int window =
+              coordinator
+                  .components()
+                  .require(spec.getName(), spec.getVersion())
+                  .plan(planned, config);
+          if (!SearchTemplateComponents.skip(false, size, sortCriteria, from, window)) {
+            fetchFrom = 0;
+            fetchSize = window;
+          }
+        }
+      }
       SearchExecution<SearchResult> execution =
           searchOnceExecution(
-              opContext, entityNames, input, postFilters, sortCriteria, from, size, facets, urn);
+              opContext,
+              entityNames,
+              input,
+              postFilters,
+              sortCriteria,
+              fetchFrom,
+              fetchSize,
+              facets,
+              urn);
       SearchResult page = execution.page();
       List<SearchEntity> entities =
           page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
+      String rendered =
+          execution.renderedTemplate() == null
+              ? null
+              : execution.renderedTemplate().query().toString();
       return SearchTemplateWalk.AttemptResult.ok(
           page,
           page.getNumEntities(),
@@ -2060,10 +2340,58 @@ public class ESSearchDAO {
           execution.renderedTemplate() == null
               ? List.of()
               : execution.renderedTemplate().highlights(),
-          execution.shardFailed());
+          execution.shardFailed(),
+          rendered);
     } catch (RuntimeException e) {
       return SearchTemplateWalk.AttemptResult.failed(e);
     }
+  }
+
+  @Nonnull
+  private SearchTemplateWalk.AttemptResult<?> componentReorder(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nonnull SearchTemplateWalk.AttemptResult<?> raw,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    if (!(raw.page() instanceof SearchResult page)) {
+      return raw;
+    }
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    if (coordinator == null) {
+      return raw;
+    }
+    MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
+    com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+    if (SearchTemplateComponents.empty(spec) || spec.getMode() == null) {
+      return raw;
+    }
+    @SuppressWarnings("unchecked")
+    SearchTemplateWalk.AttemptResult<SearchResult> typed =
+        (SearchTemplateWalk.AttemptResult<SearchResult>) raw;
+    List<SearchEntity> hits =
+        page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
+    return SearchTemplateComponents.reorder(
+        coordinator.components(),
+        template,
+        SearchTemplateComponentRequest.builder()
+            .opContext(opContext)
+            .query(input)
+            .renderedQuery(typed.renderedQuery())
+            .filter(postFilters)
+            .sort(sortCriteria)
+            .from(from)
+            .size(size)
+            .hits(hits)
+            .total(page.getNumEntities())
+            .metadata(page.getMetadata())
+            .config(SearchTemplateComponents.config(spec))
+            .mode(spec.getMode())
+            .build(),
+        typed);
   }
 
   @Nonnull
@@ -2183,7 +2511,7 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       @Nullable Integer size) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     if (coordinator != null && resolved != null) {
       SearchExecution<ScrollResult> execution =
@@ -2390,7 +2718,7 @@ public class ESSearchDAO {
   }
 
   private boolean templateReads(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     return coordinator != null && coordinator.executes(opContext);
   }
 
@@ -2403,7 +2731,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       boolean scroll) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null
         || entityNames.isEmpty()
         || coordinator.effect(opContext) != SearchTemplateRollout.Effect.SHADOW) {
@@ -2429,6 +2757,74 @@ public class ESSearchDAO {
         .request()
         .source()
         .query();
+  }
+
+  /**
+   * Painless body of the field-value multiplier. {@code field_value_factor} cannot subtract {@code
+   * inputMin}, and a constant weight of {@code -slope * inputMin} is negative whenever {@code
+   * inputMin * maxMultiplier > inputMax}. A script returns the whole multiplier, which stays at
+   * least 1, so a negative stored value cannot fail the shard.
+   */
+  static final String FIELD_VALUE_MULTIPLIER_SCRIPT =
+      "if (doc[params.field].size() == 0) { return 1.0; }"
+          + " double v = ((Number) doc[params.field].get(0)).doubleValue();"
+          + " for (int i = 1; i < doc[params.field].size(); i++) {"
+          + "   double next = ((Number) doc[params.field].get(i)).doubleValue();"
+          + "   if (next < v) { v = next; }"
+          + " }"
+          + " double min = ((Number) params.min).doubleValue();"
+          + " double max = ((Number) params.max).doubleValue();"
+          + " if (v <= min) { return 1.0; }"
+          + " if (v >= max) { return ((Number) params.cap).doubleValue(); }"
+          + " double slope = ((Number) params.slope).doubleValue();"
+          + " return 1.0 + slope * (v - min);";
+
+  /**
+   * Wraps {@code originalQuery} so each document's score is multiplied by 1 at or below {@code
+   * inputMin}, by {@code maxMultiplier} at or above {@code inputMax}, and by {@code 1 + slope *
+   * (value - inputMin)} between them. A missing field stays at 1. A multi-valued field uses its
+   * smallest value. Empty when the range cannot boost anything.
+   */
+  @VisibleForTesting
+  public static Optional<QueryBuilder> structuredPropertyScoreBrowseQuery(
+      @Nonnull QueryBuilder originalQuery,
+      @Nonnull String field,
+      double inputMin,
+      double inputMax,
+      double maxMultiplier) {
+    if (!Double.isFinite(inputMin)
+        || !Double.isFinite(inputMax)
+        || !Double.isFinite(maxMultiplier)
+        || !(inputMax > inputMin)
+        || !(maxMultiplier > 1.0)) {
+      return Optional.empty();
+    }
+    double slope = (maxMultiplier - 1.0) / (inputMax - inputMin);
+    return Optional.of(
+        QueryBuilders.functionScoreQuery(
+                originalQuery,
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder[] {
+                  new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                      QueryBuilders.existsQuery(field),
+                      ScoreFunctionBuilders.scriptFunction(
+                          new Script(
+                              ScriptType.INLINE,
+                              "painless",
+                              FIELD_VALUE_MULTIPLIER_SCRIPT,
+                              Map.of(
+                                  "field",
+                                  field,
+                                  "min",
+                                  inputMin,
+                                  "max",
+                                  inputMax,
+                                  "slope",
+                                  slope,
+                                  "cap",
+                                  maxMultiplier))))
+                })
+            .scoreMode(FunctionScoreQuery.ScoreMode.SUM)
+            .boostMode(CombineFunction.MULTIPLY));
   }
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {

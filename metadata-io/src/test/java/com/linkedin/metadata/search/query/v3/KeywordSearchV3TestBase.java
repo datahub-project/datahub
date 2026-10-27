@@ -101,11 +101,12 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -121,6 +122,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
@@ -144,7 +146,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.BiFunction;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -185,7 +189,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
   private static final String BROWSE_DELIMITER = "␟";
   private static final String SEARCH_TEMPLATE = "urn:li:searchTemplate:search";
-  private static final String LIST_TEMPLATE = "urn:li:searchTemplate:list";
+  private static final String LIST_BY_URN_TEMPLATE = "urn:li:searchTemplate:listUrn";
   private static final String FULLTEXT_TEMPLATE = "urn:li:searchTemplate:fulltext";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
@@ -312,9 +316,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .v3(new SearchV3Configuration().setTemplates(shippedTemplateConfiguration()))
                     .build())
             .build();
-    SearchTemplates.install(
+    SearchTemplateCoordinator coordinator =
         new SearchTemplateCoordinator(
-            config, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH)));
+            config,
+            null,
+            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -388,6 +396,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             SearchContext.builder()
                 .indexConvention(indexConvention)
                 .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                .searchTemplateRuntime(coordinator)
                 .searchableFieldTypes(
                     ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
@@ -725,7 +734,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @AfterClass(alwaysRun = true)
   public void deleteV3Indices() throws IOException {
-    SearchTemplates.install(null);
     for (String index : createdIndices) {
       getSearchClient()
           .deleteIndex(
@@ -1037,9 +1045,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(raw.get(ORDERS).get("name"), "orders");
     Map<String, Object> aspects = (Map<String, Object>) raw.get(ORDERS).get("_aspects");
     assertEquals(((Map<String, Object>) aspects.get("datasetProperties")).get("name"), "orders");
-    // Chart title is labeled name, so the source root is omitted. The stored value stays on the
-    // aspect; copy_to fills the indexed name, which is not part of _source.
-    assertNull(raw.get(ORDERS_CHART).get("title"));
+    // corpUserInfo.title keeps the source name, so the chart title stays on the root. copy_to
+    // still fills the indexed name.
+    assertEquals(raw.get(ORDERS_CHART).get("title"), "Orders by region");
     Map<String, Object> chartAspects = (Map<String, Object>) raw.get(ORDERS_CHART).get("_aspects");
     assertEquals(
         ((Map<String, Object>) chartAspects.get("chartInfo")).get("title"), "Orders by region");
@@ -1124,12 +1132,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // _entityName sorts ignoring case, as on V2, so "orders" comes before "Orders by region"
-    // ascending. The urn tie-break alone would put the chart first
+    // _entityName sorts ignoring case. The dataset name holds both "orders" and the key
+    // "sales.orders", so the dataset comes first in both directions: ascending uses "orders",
+    // and descending uses "sales.orders", which sorts above "Orders by region".
     for (Map.Entry<SortOrder, List<Urn>> sort :
         Map.of(
                 SortOrder.ASCENDING, List.of(ORDERS, ORDERS_CHART),
-                SortOrder.DESCENDING, List.of(ORDERS_CHART, ORDERS))
+                SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
             .entrySet()) {
       assertEquals(
           searchService
@@ -1150,26 +1159,134 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     }
   }
 
-  /** Full-text hits report the source field they matched on ("Matched on" in the UI). */
+  /**
+   * Matched fields ("Matched on" in the UI) are opt-in. A shipped template names no highlight
+   * field, so a hit of the default query reports none.
+   */
   @Test
-  public void testSearchReportsMatchedFields() {
+  public void testSearchReportsNoMatchedFieldsWithoutOptIn() {
+    SearchEntity hit = onlyHit("customers", flags -> flags);
+    assertEquals(hit.getEntity(), CUSTOMERS);
+    assertEquals(matchedFieldNames(hit), List.of());
+  }
+
+  /**
+   * A request opts fields in for that call. Both the name and the description of this hit hold the
+   * query, and only the opted-in field is reported, with the value the document stores. Opting the
+   * name in reads every source of that label, which for a dataset includes the key id.
+   */
+  @Test
+  public void testSearchReportsOptedInMatchedFields() {
+    SearchEntity byName = onlyHit("customers", optIn("name"));
+    assertEqualsNoOrder(
+        matchedFieldNames(byName).toArray(),
+        new String[] {"name", "id"},
+        byName.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(byName, "name"), "customers");
+    assertEquals(matchedFieldValue(byName, "id"), "sales.customers");
+
+    SearchEntity byDescription = onlyHit("customers", optIn("description"));
+    assertEquals(
+        matchedFieldNames(byDescription),
+        List.of("description"),
+        byDescription.getMatchedFields().toString());
+    assertEquals(matchedFieldValue(byDescription, "description"), CUSTOMERS_DESCRIPTION);
+
+    SearchEntity both = onlyHit("customers", optIn("name", "description"));
+    assertEqualsNoOrder(
+        matchedFieldNames(both).toArray(),
+        new String[] {"name", "id", "description"},
+        both.getMatchedFields().toString());
+  }
+
+  /**
+   * A structured property is read where it is stored: {@code copy_to} fills the shared field the
+   * query reads, which {@code _source} does not hold.
+   */
+  @Test
+  public void testSearchReportsOptedInStructuredPropertyMatchedFields() {
+    String field = "structuredProperties." + LEGACY_EXCLUDED.getId();
+    SearchEntity withProperty = onlyHit("nightjar", optIn(field));
+    assertEquals(withProperty.getEntity(), ORDERS);
+    assertEquals(matchedFieldNames(withProperty), List.of(field));
+    assertEquals(matchedFieldValue(withProperty, field), "nightjar");
+
+    // The query matched the property, not the name, so opting the name in reports nothing
+    assertEquals(matchedFieldNames(onlyHit("nightjar", optIn("name"))), List.of());
+  }
+
+  /** A field the query does not read is dropped, as are an aspect path and a wildcard. */
+  @Test
+  public void testSearchDropsMatchedFieldsTheQueryDoesNotRead() {
+    for (String field :
+        List.of(
+            "owners",
+            "_aspects.datasetProperties.name",
+            "*",
+            "structuredProperties." + HIDDEN_LABEL.getId())) {
+      assertEquals(matchedFieldNames(onlyHit("customers", optIn(field))), List.of(), field);
+    }
+  }
+
+  /** {@code skipHighlighting} clears the set a request opted in. */
+  @Test
+  public void testSkipHighlightingClearsOptedInMatchedFields() {
+    SearchEntity hit =
+        onlyHit("customers", flags -> optIn("name").apply(flags).setSkipHighlighting(true));
+    assertEquals(matchedFieldNames(hit), List.of());
+  }
+
+  /** {@code customHighlightingFields} replaces the set instead of adjusting it. */
+  @Test
+  public void testCustomHighlightingFieldsReplaceMatchedFields() {
+    SearchEntity hit =
+        onlyHit(
+            "customers",
+            flags -> optIn("name").apply(flags).setCustomHighlightingFields(names("description")));
+    assertEquals(matchedFieldNames(hit), List.of("description"));
+  }
+
+  @Nonnull
+  private static UnaryOperator<SearchFlags> optIn(@Nonnull String... fields) {
+    return flags -> flags.setHighlightFields(new HighlightFieldOverrides().setAdd(names(fields)));
+  }
+
+  /** The one hit of a full-text dataset search. */
+  @Nonnull
+  private SearchEntity onlyHit(
+      @Nonnull String query, @Nonnull UnaryOperator<SearchFlags> searchFlags) {
     SearchEntityArray hits =
         searchService
             .search(
-                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                opContext.withSearchFlags(flags -> searchFlags.apply(flags.setFulltext(true))),
                 List.of(DATASET_ENTITY_NAME),
-                "orders",
+                query,
                 null,
                 null,
                 0,
                 10)
             .getEntities();
-    assertUrns(hits, ORDERS);
-    List<String> matchedFields =
-        hits.get(0).getMatchedFields().stream()
-            .map(MatchedField::getName)
-            .collect(Collectors.toList());
-    assertTrue(matchedFields.contains("name"), matchedFields.toString());
+    assertEquals(hits.size(), 1, hits.toString());
+    return hits.get(0);
+  }
+
+  @Nonnull
+  private static StringArray names(@Nonnull String... fields) {
+    return new StringArray(List.of(fields));
+  }
+
+  @Nonnull
+  private static List<String> matchedFieldNames(@Nonnull SearchEntity hit) {
+    return hit.getMatchedFields().stream().map(MatchedField::getName).collect(Collectors.toList());
+  }
+
+  @Nonnull
+  private static String matchedFieldValue(@Nonnull SearchEntity hit, @Nonnull String field) {
+    return hit.getMatchedFields().stream()
+        .filter(matched -> field.equals(matched.getName()))
+        .map(MatchedField::getValue)
+        .findFirst()
+        .orElseThrow(() -> new AssertionError(field + " not in " + hit.getMatchedFields()));
   }
 
   /**
@@ -1436,9 +1553,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Dataset full text uses the dataset name. The platform field contributes the platform name. The
-   * fabric token does not match. {@code dataPlatform} expands to the synonym {@code data platform},
-   * and every word is required, so {@code data} in the customers description does not match.
+   * Dataset full text uses the dataset name, including the key name. {@code sales.orders} therefore
+   * also matches {@code sales.customers} on the shared token. The platform name is copied into
+   * {@code other}. The fabric token does not match. {@code dataPlatform} expands to the synonym
+   * {@code data platform}, and every word is required, so {@code data} in the customers description
+   * does not match.
    */
   @Test
   public void testDatasetNameMatchesWithoutPlatformOrFabric() {
@@ -1453,7 +1572,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 0,
                 10)
             .getEntities(),
-        ORDERS);
+        ORDERS,
+        CUSTOMERS);
     assertUrns(
         searchService
             .search(
@@ -2063,7 +2183,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   public void testScroll() {
     OperationContext scrolling =
         scrollOperation().withSearchFlags(flags -> flags.setFulltext(true));
-    assertShippedClasspathTemplate(scrolling, "*", true, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(scrolling, "*", true, SEARCH_TEMPLATE, LIST_BY_URN_TEMPLATE);
     assertShippedClasspathTemplate(scrolling, "orders", true, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
     assertUrns(
         searchService
@@ -2126,7 +2246,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         aggregateOperation().withSearchFlags(flags -> flags.setFulltext(true));
     OperationContext paged = pagedSearch().withSearchFlags(flags -> flags.setFulltext(true));
     List<String> dashboards = List.of(DASHBOARD_ENTITY_NAME);
-    assertShippedClasspathTemplate(aggregate, "*", false, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(aggregate, "*", false, SEARCH_TEMPLATE, LIST_BY_URN_TEMPLATE);
     assertShippedClasspathTemplate(aggregate, "archive", false, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
 
     SearchResult light =
@@ -2154,23 +2274,24 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testAutoComplete() {
-    assertEquals(
-        urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)),
-        List.of());
-    assertEquals(
-        searchService
-            .autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)
-            .getSuggestions(),
-        List.of());
-    assertEquals(
-        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10)),
-        List.of());
+    // The prefix template keeps tokens the default text analyzer drops.
+    AutoCompleteResult orders =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10);
+    assertEquals(urns(orders), List.of(ORDERS));
+    assertEquals(orders.getSuggestions(), List.of("orders"));
+
+    // title is copied into the indexed name and kept on the root. The suggestion reads the stored
+    // name, which this chart does not have, so it falls back to the first URN key part.
+    AutoCompleteResult region =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", "title", null, 10);
+    assertEquals(urns(region), List.of(ORDERS_CHART));
+    assertEquals(region.getSuggestions(), List.of("looker"));
   }
 
   @Test
   public void testBrowseV2() {
     OperationContext browsing = browseOperation().withSearchFlags(flags -> flags.setFulltext(true));
-    assertShippedClasspathTemplate(browsing, "*", false, SEARCH_TEMPLATE, LIST_TEMPLATE);
+    assertShippedClasspathTemplate(browsing, "*", false, SEARCH_TEMPLATE, LIST_BY_URN_TEMPLATE);
     assertShippedClasspathTemplate(browsing, "orders", false, SEARCH_TEMPLATE, FULLTEXT_TEMPLATE);
     BrowseResultV2 datasets =
         searchService.browseV2(opContext, DATASET_ENTITY_NAME, "", null, "*", 0, 10);
@@ -2211,6 +2332,158 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, CUSTOMERS), List.of());
     assertEquals(
         searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
+  }
+
+  /**
+   * A complete qualified-name path outranks an exact terminal name whose identity contains the
+   * earlier segments as one run. A namesake that shares only one of those segments, a namesake
+   * without them, and a longer final segment stay off those tiers.
+   */
+  protected void assertSpacelessDottedPathOutranksPartialOverlap() throws Exception {
+    Urn path =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)");
+    Urn contextual =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.pet_details,PROD)");
+    Urn history =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)");
+    Urn orderDetails =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sales.order_details,PROD)");
+    Urn namesake =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,other_db.mart.pet_details,PROD)");
+    Urn oneSegment =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:hive,other.analytics.pet_details,PROD)");
+    Urn archive =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.pet_details_archive,PROD)");
+    List<Urn> seeded =
+        List.of(path, contextual, history, orderDetails, namesake, oneSegment, archive);
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    try {
+      indexer.processBatch(
+          opContext,
+          seedEvents(
+              path,
+              events(
+                  path,
+                  new DatasetProperties()
+                      .setName("pet_details")
+                      .setQualifiedName("long_tail_companions.analytics.pet_details")),
+              contextual,
+              events(contextual, new DatasetProperties().setName("pet_details")),
+              history,
+              events(
+                  history,
+                  new DatasetProperties()
+                      .setName("pet_status_history")
+                      .setQualifiedName("long_tail_companions.analytics.pet_status_history")),
+              orderDetails,
+              events(
+                  orderDetails,
+                  new DatasetProperties()
+                      .setName("order_details")
+                      .setQualifiedName("sales.order_details")),
+              namesake,
+              events(namesake, new DatasetProperties().setName("pet_details")),
+              oneSegment,
+              events(oneSegment, new DatasetProperties().setName("pet_details")),
+              archive,
+              events(
+                  archive,
+                  new DatasetProperties()
+                      .setName("pet_details_archive")
+                      .setQualifiedName("analytics.pet_details_archive"))),
+          false);
+      syncAfterWrite(getBulkProcessor());
+      OperationContext light =
+          pagedSearch().withSearchFlags(flags -> flags.setFulltext(true).setIncludeExplain(true));
+      assertShippedClasspathTemplate(
+          light,
+          "analytics.pet_details",
+          "urn:li:searchTemplate:searchLight",
+          "urn:li:searchTemplate:light");
+      SearchEntityArray hits =
+          searchService
+              .search(
+                  light, List.of(DATASET_ENTITY_NAME), "analytics.pet_details", null, null, 0, 20)
+              .getEntities();
+      List<Urn> ranked = hits.stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+      assertTrue(ranked.containsAll(seeded), hits.toString());
+      assertTrue(ranked.indexOf(path) < ranked.indexOf(contextual), hits.toString());
+      assertTrue(ranked.indexOf(contextual) < ranked.indexOf(history), hits.toString());
+      assertTrue(ranked.indexOf(contextual) < ranked.indexOf(orderDetails), hits.toString());
+      Map<Urn, SearchEntity> byUrn =
+          hits.stream().collect(Collectors.toMap(SearchEntity::getEntity, hit -> hit));
+      assertRelativeTextScore(byUrn.get(path), "qualifiedName.text");
+      assertRelativeTextScore(byUrn.get(contextual), "name.text");
+      assertNoConstantScore(byUrn.get(namesake));
+      assertNoConstantScore(byUrn.get(archive));
+      assertTrue(byUrn.get(path).getScore() > byUrn.get(archive).getScore(), hits.toString());
+      assertTrue(
+          byUrn.get(contextual).getScore() > byUrn.get(namesake).getScore(), hits.toString());
+      SearchEntityArray deep =
+          searchService
+              .search(
+                  light,
+                  List.of(DATASET_ENTITY_NAME),
+                  "long_tail_companions.analytics.pet_details",
+                  null,
+                  null,
+                  0,
+                  20)
+              .getEntities();
+      Map<Urn, SearchEntity> deepHits =
+          deep.stream().collect(Collectors.toMap(SearchEntity::getEntity, hit -> hit));
+      assertRelativeTextScore(deepHits.get(contextual), "name.text");
+      SearchEntity sharedSegment = deepHits.get(oneSegment);
+      if (sharedSegment != null) {
+        assertNoConstantScore(sharedSegment);
+      }
+    } finally {
+      Map<Urn, List<MCLItem>> deletions = new java.util.LinkedHashMap<>();
+      for (Urn urn : seeded) {
+        deletions.put(urn, keyDeletion(urn));
+      }
+      indexer.processBatch(opContext, deletions, false);
+      syncAfterWrite(getBulkProcessor());
+    }
+  }
+
+  private static void assertRelativeTextScore(SearchEntity hit, String field) throws Exception {
+    String explain = explainOf(hit);
+    assertFalse(explain.contains("ConstantScore"), explain);
+    assertTrue(explain.contains(field), explain);
+  }
+
+  private static void assertNoConstantScore(SearchEntity hit) throws Exception {
+    assertFalse(explainOf(hit).contains("ConstantScore"), explainOf(hit));
+  }
+
+  private static String explainOf(SearchEntity hit) throws Exception {
+    return String.join("\n", explainLines(hit));
+  }
+
+  private static List<String> explainLines(SearchEntity hit) throws Exception {
+    JsonNode explanation = new ObjectMapper().readTree(hit.getExtraFields().get("_explain"));
+    List<String> lines = new ArrayList<>();
+    collectExplain(explanation, lines);
+    return lines;
+  }
+
+  private static void collectExplain(JsonNode node, List<String> lines) {
+    if (node == null) {
+      return;
+    }
+    if (node.isObject() && node.has("description") && node.has("value")) {
+      lines.add(node.get("description").asText() + " " + node.get("value").asDouble());
+    }
+    JsonNode details = node.get("details");
+    if (details != null && details.isArray()) {
+      details.forEach(child -> collectExplain(child, lines));
+    }
   }
 
   /** Map.of takes at most 10 entries; the fixture seeds more. */
@@ -2349,7 +2622,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   private static void assertShippedClasspathTemplate(
       OperationContext context, String query, boolean scroll, String... expectedChain) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(context);
     assertNotNull(coordinator);
     OperationContext bound = coordinator.bind(context, query, scroll);
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
