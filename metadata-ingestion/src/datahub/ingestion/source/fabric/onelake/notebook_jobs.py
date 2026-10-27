@@ -42,6 +42,8 @@ from datahub.ingestion.source.fabric.common.utils import (
 )
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
+    NotebookCodeAnalysis,
+    NotebookCodeExtractionError,
     analyze_notebook_code,
     reconcile_column_lineage,
     reconcile_spark_lineage,
@@ -344,10 +346,24 @@ class NotebookProcessEmitter:
             SparkTableRef, Dict[str, Set[Tuple[SparkTableRef, str]]]
         ] = {}
         if self._reconcile_code and nb.content and nb.language in (None, "python"):
-            code = analyze_notebook_code(
-                nb.content,
-                case_sensitive_columns=self._case_sensitive_columns,
-            )
+            code: Optional[NotebookCodeAnalysis] = None
+            try:
+                code = analyze_notebook_code(
+                    nb.content,
+                    case_sensitive_columns=self._case_sensitive_columns,
+                )
+            except NotebookCodeExtractionError as exc:
+                self._report.report_notebook_code_lineage_failed()
+                self._report.warning(
+                    title="Failed to Extract Notebook Code Lineage",
+                    message=(
+                        "Could not read the notebook source for lineage. "
+                        "Keeping Spark-plan table lineage."
+                    ),
+                    context=f"notebook={nb.display_name}",
+                    exc=exc,
+                    log=False,
+                )
             if code is not None and code.tables:
                 reconciled = reconcile_spark_lineage(
                     code.tables, raw, self._normalize_name

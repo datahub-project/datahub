@@ -49,6 +49,13 @@ class NotebookCodeAnalysis:
     columns: Dict[CodeTable, ColumnLineage]
 
 
+class NotebookCodeExtractionError(Exception):
+    """Notebook source could not be analyzed.
+
+    Callers keep the Spark-plan table lineage.
+    """
+
+
 def analyze_notebook_code(
     source: str, *, case_sensitive_columns: bool = False
 ) -> Optional[NotebookCodeAnalysis]:
@@ -58,25 +65,36 @@ def analyze_notebook_code(
     keep the Spark-plan lineage unchanged. Empty mappings mean the code parsed
     and contains no writes. Column names match without regard to case unless
     ``case_sensitive_columns`` is set, and the dataframe's own spelling is kept.
+    Raises ``NotebookCodeExtractionError`` when analysis fails for any other
+    reason.
     """
     try:
         tree = ast.parse(_strip_magics(source))
     except SyntaxError:
         logger.debug("Notebook source is not parseable Python; skipping code lineage")
         return None
+    except Exception as exc:
+        raise NotebookCodeExtractionError(
+            "Failed to parse notebook source for code lineage"
+        ) from exc
 
-    extractor = _Extractor(case_sensitive_columns=case_sensitive_columns)
-    extractor.walk(tree.body)
-    columns: Dict[CodeTable, ColumnLineage] = {}
-    for target, mapping in extractor.column_lineage.items():
-        kept = {
-            column: {(ref.table, ref.column) for ref in refs}
-            for column, refs in mapping.items()
-            if refs
-        }
-        if kept:
-            columns[target] = kept
-    return NotebookCodeAnalysis(tables=extractor.lineage, columns=columns)
+    try:
+        extractor = _Extractor(case_sensitive_columns=case_sensitive_columns)
+        extractor.walk(tree.body)
+        columns: Dict[CodeTable, ColumnLineage] = {}
+        for target, mapping in extractor.column_lineage.items():
+            kept = {
+                column: {(ref.table, ref.column) for ref in refs}
+                for column, refs in mapping.items()
+                if refs
+            }
+            if kept:
+                columns[target] = kept
+        return NotebookCodeAnalysis(tables=extractor.lineage, columns=columns)
+    except Exception as exc:
+        raise NotebookCodeExtractionError(
+            "Failed to extract notebook code lineage"
+        ) from exc
 
 
 def extract_notebook_code_lineage(
@@ -84,11 +102,15 @@ def extract_notebook_code_lineage(
 ) -> Optional[Dict[CodeTable, Set[CodeTable]]]:
     """Map each table the notebook writes to the tables that write uses.
 
-    Returns None when ``source`` is not parseable Python, so the caller can
-    keep the Spark-plan lineage unchanged. An empty dict means the code parsed
-    and contains no writes.
+    Returns None when ``source`` is not parseable Python or analysis fails, so
+    the caller can keep the Spark-plan lineage unchanged. An empty dict means
+    the code parsed and contains no writes.
     """
-    analysis = analyze_notebook_code(source)
+    try:
+        analysis = analyze_notebook_code(source)
+    except NotebookCodeExtractionError:
+        logger.debug("Notebook code lineage extraction failed", exc_info=True)
+        return None
     if analysis is None:
         return None
     return analysis.tables

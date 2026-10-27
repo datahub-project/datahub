@@ -1,11 +1,14 @@
 """Notebook source lineage, reconciled with the tables a Spark run actually touched."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.fabric.common.models import FabricSparkSession
 from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
     CodeTable,
+    NotebookCodeExtractionError,
     analyze_notebook_code,
     extract_notebook_code_lineage,
     reconcile_spark_lineage,
@@ -161,7 +164,11 @@ def test_reconcile_drops_plan_sources_the_code_does_not_use() -> None:
     assert all(ref.table != "dim_products" for ref in reconciled)
 
 
-def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:
+def _emit_dim_user(
+    *, reconcile_code: bool, report: FabricOneLakeSourceReport | None = None
+) -> DataJobInputOutputClass:
+    if report is None:
+        report = FabricOneLakeSourceReport()
     orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
     customers = SparkTableRef(
         workspace_id=WS, item_id=LH, table="customers", schema="silver"
@@ -194,7 +201,7 @@ def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:
         platform_instance=None,
         env="PROD",
         execution_history_days=30,
-        report=FabricOneLakeSourceReport(),
+        report=report,
         client=client,
         known_table_urns=known,
         normalize_name=lambda name: name,
@@ -237,6 +244,32 @@ def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
         [orders.to_urn("PROD", None), customers.to_urn("PROD", None)]
     )
     assert products.to_urn("PROD", None) not in (io.inputDatasets or [])
+
+
+def test_code_extraction_failure_keeps_plan_table_lineage() -> None:
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    report = FabricOneLakeSourceReport()
+    with patch(
+        "datahub.ingestion.source.fabric.onelake.notebook_jobs.analyze_notebook_code",
+        side_effect=NotebookCodeExtractionError("walk failed"),
+    ):
+        io = _emit_dim_user(reconcile_code=True, report=report)
+    assert report.notebook_code_lineage_extraction_failures == 1
+    assert products.to_urn("PROD", None) in (io.inputDatasets or [])
+    assert not io.fineGrainedLineages
+
+
+def test_walk_failure_is_an_extraction_error() -> None:
+    with (
+        patch(
+            "datahub.ingestion.source.fabric.onelake.notebook_code_lineage._Extractor.walk",
+            side_effect=KeyError("column"),
+        ),
+        pytest.raises(NotebookCodeExtractionError),
+    ):
+        analyze_notebook_code("value = 1\n")
 
 
 def _columns(source: str) -> dict[str, dict[str, set[tuple[str, str]]]]:
