@@ -44,6 +44,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     RefusalKind,
     has_object_placeholder,
+    has_object_reference,
     iter_schema_rules,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
@@ -177,9 +178,7 @@ class _ContractYamlLoader(yaml.SafeLoader):
 _DROPPED_IMPLICIT_TAGS = ("tag:yaml.org,2002:int", "tag:yaml.org,2002:timestamp")
 _ContractYamlLoader.yaml_implicit_resolvers = {
     first: [
-        (tag, regexp)
-        for tag, regexp in resolvers
-        if tag not in _DROPPED_IMPLICIT_TAGS
+        (tag, regexp) for tag, regexp in resolvers if tag not in _DROPPED_IMPLICIT_TAGS
     ]
     for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
 }
@@ -289,6 +288,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     validation_errors: int = 0
     unmappable_servers: int = 0
     unresolved_variable_bindings: int = 0
+    invalid_physical_urn_overrides: int = 0
     ai_context_merge_skipped: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
@@ -1093,10 +1093,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             schema_assertion_urn: Optional[str] = None
             if self.config.emit_assertions:
                 assertion_urns = yield from self._emit_assertions(
-                    contract,
-                    binding,
-                    source_uri,
-                    bound_table=binding.table_name if physical_usable else None,
+                    contract, binding, source_uri, physical_usable
                 )
             if self.config.emit_schema_assertion:
                 schema_assertion_urn = yield from self._emit_schema_assertion(
@@ -1270,13 +1267,10 @@ class ODCSSource(StatefulIngestionSourceBase):
                 # `${object}` in a query is the table placeholder, replaced
                 # once bound (or reported as unbound), not a variable to
                 # resolve. Only queries are substituted, so either placeholder
-                # in `implementation` stays as written and is reported here.
-                if rule.query:
-                    unresolved = VARIABLE_MARKER in substitute_object_placeholder(
-                        text, ""
-                    )
-                else:
-                    unresolved = VARIABLE_MARKER in text or has_object_placeholder(text)
+                # in `implementation` stays as written and is reported here, as
+                # is a mistyped one such as `{object}}` that is never replaced.
+                left = substitute_object_placeholder(text, "") if rule.query else text
+                unresolved = VARIABLE_MARKER in left or has_object_reference(left)
                 if body is not None and unresolved:
                     location = f"{entry.name}.{column}" if column else entry.name
                     found.append(f"{location}: {text}")
@@ -1340,20 +1334,25 @@ class ODCSSource(StatefulIngestionSourceBase):
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
-        bound_table: Optional[str],
+        physical_usable: bool,
     ) -> Generator[MetadataWorkUnit, None, List[str]]:
         # Assertions target the LOGICAL dataset and are emitted whether or not a
         # physical binding resolved. Propagation onto bound physical datasets is
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
         # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
+        bound_table = binding.table_name if physical_usable else None
         if bound_table is None:
-            self._report_unreplaced_object_placeholder(
-                binding,
-                source_uri,
-                binding.unmapped_reason
-                or "the bound physical table was not found in DataHub",
-            )
+            if binding.physical_urn is None:
+                reason = binding.unmapped_reason or "the entry is not bound"
+            elif not physical_usable:
+                reason = "the bound physical table was not found in DataHub"
+            else:
+                reason = (
+                    "the override URN's name may start with a platform instance, "
+                    "so the table's SQL name is unknown"
+                )
+            self._report_unreplaced_object_placeholder(binding, source_uri, reason)
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
             contract=contract,
             schema_entry=schema_entry,
@@ -1437,8 +1436,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                     context=context,
                 )
             elif kind is RefusalKind.INVALID_OVERRIDE:
+                self.report.invalid_physical_urn_overrides += 1
                 self.report.warning(
-                    title="ODCS physical_urn_overrides entry is not a dataset URN",
+                    title="ODCS physical_urn_overrides entry is not a usable dataset URN",
                     message=message,
                     context=context,
                 )

@@ -2385,10 +2385,11 @@ def test_invalid_override_is_reported_and_left_unbound(
     invalid = [
         w
         for w in src.report.warnings
-        if w.title == "ODCS physical_urn_overrides entry is not a dataset URN"
+        if w.title == "ODCS physical_urn_overrides entry is not a usable dataset URN"
     ]
     assert len(invalid) == 1
-    assert override in str(invalid[0].context)
+    assert any(override in c for c in invalid[0].context)
+    assert src.report.invalid_physical_urn_overrides == 1
 
 
 def test_object_placeholder_uses_table_without_platform_instance(
@@ -2401,6 +2402,33 @@ def test_object_placeholder_uses_table_without_platform_instance(
     assert _sql_statements(workunits) == [
         "SELECT count(*) FROM appdb.public.t WHERE id IS NULL"
     ]
+
+
+def test_object_placeholder_kept_when_override_may_carry_an_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path,
+        server_overrides=[{"server": "other", "platform_instance": "inst1"}],
+        physical_urn_overrides={
+            "test-contract-1": {
+                "orders_entry": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.appdb.public.t,PROD)"
+            }
+        },
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert "platform instance" in _messages(_placeholder_warnings(src))
+
+
+def test_mistyped_object_placeholder_is_reported(tmp_path: pathlib.Path) -> None:
+    rule = _OBJECT_RULE.replace("${object}", "{object}}")
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM {object}} WHERE id IS NULL"
+    ]
+    assert "unresolved variable" in _messages(src.report.warnings)
 
 
 def test_object_placeholder_kept_when_bound_table_not_found(

@@ -45,7 +45,6 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     METRIC_NULL_VALUES,
     METRIC_ROW_COUNT,
     METRIC_VALID_VALUES,
-    OBJECT_PLACEHOLDERS,
     ODCS_ACTOR,
     OWNER_ROLE_MAP,
     PLATFORM_GLUE,
@@ -186,8 +185,8 @@ class PhysicalBinding:
     refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
     # The table as SQL names it: the URN's dataset name without a platform
-    # instance prefix. An override keeps an instance prefix that no
-    # `server_overrides` entry names. None when unbound.
+    # instance prefix. None when unbound, or when an override's name may start
+    # with an instance that the contract's server does not confirm.
     table_name: Optional[str] = None
 
     @property
@@ -465,20 +464,28 @@ def _compose_physical_name(
     return name.lower() if lowercase else name, None, False
 
 
-def _strip_platform_instance(
-    urn: DatasetUrn, resolved: Optional[ResolvedServer]
-) -> str:
-    # An instance prefix cannot be told apart from the table path, so only the
-    # instance the contract's own server maps to is stripped.
-    if resolved is None or resolved.mapping is None:
-        return urn.name
-    instance = resolved.mapping.platform_instance
-    platform = urn.get_data_platform_urn().platform_name
-    if instance and resolved.platform == platform:
-        prefix = f"{instance}."
-        if urn.name.startswith(prefix):
-            return urn.name[len(prefix) :]
-    return urn.name
+def _override_table_name(
+    urn: DatasetUrn,
+    resolved: Optional[ResolvedServer],
+    server_overrides: List[ServerMapping],
+) -> Optional[str]:
+    # An instance prefix cannot be told apart from the table path. Only the
+    # instance of the contract's own server on the same platform is stripped;
+    # a name that starts with any other configured instance is not guessed at.
+    name = urn.name
+    if resolved is not None and resolved.mapping is not None:
+        instance = resolved.mapping.platform_instance
+        platform = urn.get_data_platform_urn().platform_name
+        if instance and resolved.platform == platform:
+            prefix = f"{instance}."
+            if name.startswith(prefix):
+                return name[len(prefix) :]
+    if any(
+        m.platform_instance and name.startswith(f"{m.platform_instance}.")
+        for m in server_overrides
+    ):
+        return None
+    return name
 
 
 def _override_binding(
@@ -487,6 +494,7 @@ def _override_binding(
     logical_urn: str,
     override: Optional[str],
     resolved: Optional[ResolvedServer],
+    server_overrides: List[ServerMapping],
 ) -> PhysicalBinding:
     override_urn = (override or "").strip()
     if not override_urn:
@@ -495,16 +503,27 @@ def _override_binding(
             "explicitly unbound by physical_urn_overrides",
         )
     elif VARIABLE_MARKER in override_urn:
-        refusal = _unresolved_variable("physical_urn_overrides value", override_urn)
+        refusal = BindingRefusal(
+            RefusalKind.UNRESOLVED_VARIABLE,
+            f"physical_urn_overrides value '{override_urn}' contains an unresolved "
+            "ODCS variable",
+        )
     else:
         try:
-            urn = DatasetUrn.from_string(override_urn)
+            urn: Optional[DatasetUrn] = DatasetUrn.from_string(override_urn)
         except InvalidUrnError:
             urn = None
-        if urn is None or urn.env.upper() not in ALL_ENV_TYPES:
+        if urn is None:
             refusal = BindingRefusal(
                 RefusalKind.INVALID_OVERRIDE,
                 f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
+            )
+        # GMS only stores the FabricType spelling, so `prod` names no dataset.
+        elif urn.env not in ALL_ENV_TYPES:
+            refusal = BindingRefusal(
+                RefusalKind.INVALID_OVERRIDE,
+                f"physical_urn_overrides value '{override_urn}' has env '{urn.env}', "
+                f"not one of {', '.join(sorted(ALL_ENV_TYPES))}",
             )
         else:
             return PhysicalBinding(
@@ -512,7 +531,7 @@ def _override_binding(
                 schema_entry=schema_entry,
                 logical_urn=logical_urn,
                 physical_urn=urn.urn(),
-                table_name=_strip_platform_instance(urn, resolved),
+                table_name=_override_table_name(urn, resolved, server_overrides),
             )
     return PhysicalBinding(
         index=index,
@@ -556,6 +575,7 @@ def odcs_to_physical_bindings(
                     logical_urn=logical_urn,
                     override=overrides[schema_entry.name],
                     resolved=resolved,
+                    server_overrides=config.server_overrides,
                 )
             )
             continue
@@ -1793,13 +1813,19 @@ def _route_and_build(
 
 # `{{object}}` is an escaped brace pair in some templating tools, not the
 # placeholder, so a doubled brace is left alone.
-_OBJECT_PLACEHOLDER_RE = re.compile(
-    "|".join(rf"(?<!\{{){re.escape(p)}(?!\}})" for p in OBJECT_PLACEHOLDERS)
-)
+_OBJECT_PLACEHOLDER_RE = re.compile(r"(?<!\{)\$?\{object\}(?!\})")
 
 
 def has_object_placeholder(query: str) -> bool:
     return _OBJECT_PLACEHOLDER_RE.search(query) is not None
+
+
+def has_object_reference(text: str) -> bool:
+    """Whether `{object}` is left in the text other than as an escaped `{{object}}`.
+
+    Catches a mistyped placeholder such as `{object}}` that is not substituted.
+    """
+    return "{object}" in text.replace("{{object}}", "")
 
 
 def substitute_object_placeholder(query: str, table: str) -> str:

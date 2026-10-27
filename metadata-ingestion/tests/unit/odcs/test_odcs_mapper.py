@@ -2269,31 +2269,59 @@ def test_override_table_name_strips_contract_server_instance() -> None:
         ),
     )
     assert bindings[0].table_name == "db.sch.a"
-    # Another server's instance, or the right instance on another platform,
-    # cannot be told apart from the table path.
+    # A prefix no server_overrides entry names is part of the table path.
     assert bindings[1].table_name == "other.db.sch.b"
-    assert bindings[2].table_name == "inst1.db.sch.c"
+    # A configured instance the contract's server doesn't confirm is not guessed.
+    assert bindings[2].physical_urn is not None
+    assert bindings[2].table_name is None
+
+
+def test_override_table_name_unknown_without_a_resolved_server() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[{"server": "srv", "platform_instance": "inst1"}],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.b,PROD)",
+                }
+            },
+        ),
+    )
+    assert bindings[0].table_name is None
+    assert bindings[1].table_name == "db.sch.b"
 
 
 @pytest.mark.parametrize(
-    "override",
+    "override, kind",
     [
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,${SCHEMA}.t,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,NOTANENV)",
-        "urn:li:chart:(looker,x)",
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,${SCHEMA}.t,PROD)",
+            RefusalKind.UNRESOLVED_VARIABLE,
+        ),
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,NOTANENV)",
+            RefusalKind.INVALID_OVERRIDE,
+        ),
+        (
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,db.sch.t,prod)",
+            RefusalKind.INVALID_OVERRIDE,
+        ),
+        ("urn:li:chart:(looker,x)", RefusalKind.INVALID_OVERRIDE),
     ],
 )
-def test_override_with_variable_or_bad_env_is_refused(override: str) -> None:
+def test_override_with_variable_or_bad_env_is_refused(
+    override: str, kind: RefusalKind
+) -> None:
     contract = _make_contract(schema=[{"name": "t"}])
     (binding,) = odcs_to_physical_bindings(
         contract, _config(physical_urn_overrides={"c1": {"t": override}})
     )
     assert binding.physical_urn is None
     assert binding.table_name is None
-    assert binding.refusal_kind in (
-        RefusalKind.UNRESOLVED_VARIABLE,
-        RefusalKind.INVALID_OVERRIDE,
-    )
+    assert binding.refusal_kind is kind
 
 
 def test_doubled_braces_are_not_the_object_placeholder() -> None:
