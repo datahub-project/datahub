@@ -419,6 +419,32 @@ named.write.format("delta").save(f"{destination}silver_customers")
     }
 
 
+def test_unevaluated_argument_does_not_reuse_the_outer_name() -> None:
+    source = """
+source = f"{bronze}/Tables/dbo/"
+destination = f"{silver}/Tables/silver/"
+table_name = "customers"
+
+def load(table_name):
+    return spark.read.format("delta").load(f"{source}{table_name}")
+
+unknown = load(get_name())
+unknown.write.format("delta").save(f"{destination}from_call")
+known = load(table_name)
+known.write.format("delta").save(f"{destination}from_name")
+"""
+    analysis = analyze_notebook_code(source)
+    assert analysis is not None
+    assert (
+        CodeTable("customers", "dbo")
+        not in analysis.tables[CodeTable("from_call", "silver")]
+    )
+    assert (
+        CodeTable("customers", "dbo")
+        in analysis.tables[CodeTable("from_name", "silver")]
+    )
+
+
 def test_saved_select_list_prefixes_columns_from_each_source() -> None:
     # dim-style notebooks build the select list first, then apply it, then
     # carry those prefixed columns through alias.* to the write.

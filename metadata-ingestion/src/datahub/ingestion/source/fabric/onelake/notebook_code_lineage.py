@@ -808,6 +808,11 @@ class _Extractor:
         saved = self._snapshot()
         self._executing.add(call.func.id)
         try:
+            # A parameter hides the outer name even when its argument cannot
+            # be evaluated. Otherwise ``load(get_name())`` still sees a global
+            # ``table_name``.
+            for name in _parameter_names(fn):
+                self._hide_binding(name)
             for name, captured in bindings:
                 self._install(name, captured)
             self._return_projection = None
@@ -898,6 +903,17 @@ class _Extractor:
         elif kind == "proj" and isinstance(value, _Projection):
             self._projections[name] = value
             self._frames[name] = set(value.reads)
+
+    def _hide_binding(self, name: str) -> None:
+        self._frames.pop(name, None)
+        self._produced.pop(name, None)
+        self._strings.pop(name, None)
+        self._dicts.pop(name, None)
+        self._lists.pop(name, None)
+        self._col_lists.pop(name, None)
+        self._bools.pop(name, None)
+        self._projections.pop(name, None)
+        self._exprs.pop(name, None)
 
     def _eval_bool(self, expr: ast.AST) -> Optional[bool]:
         if isinstance(expr, ast.Constant) and isinstance(expr.value, bool):
@@ -1168,6 +1184,19 @@ def _joined(left: _Projection, right: _Projection) -> _Projection:
     if right.alias:
         aliases[right.alias] = right
     return _Projection(reads=left.reads | right.reads, aliases=aliases)
+
+
+def _parameter_names(
+    fn: Union[ast.FunctionDef, ast.AsyncFunctionDef],
+) -> List[str]:
+    names = [
+        arg.arg for arg in [*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs]
+    ]
+    if fn.args.vararg is not None:
+        names.append(fn.args.vararg.arg)
+    if fn.args.kwarg is not None:
+        names.append(fn.args.kwarg.arg)
+    return names
 
 
 def _returns_value(fn: Union[ast.FunctionDef, ast.AsyncFunctionDef]) -> bool:
