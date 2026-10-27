@@ -2615,3 +2615,76 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     ]
     assert len(query_properties) == 1
     assert query_properties[0].customProperties == _DAG_A_LABELS
+
+
+def test_lineage_queries_per_downstream_are_capped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_QUERIES_PER_DOWNSTREAM", 3)
+
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    copy_source = DatasetUrn("snowflake", "dev.public.copy_source").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(10)]
+
+    # Known lineage outranks parsed queries and must survive the cap even though it
+    # was registered first.
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=copy_source, downstream_urn=downstream
+    )
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(lineage) == 1
+    assert {u.dataset for u in lineage[0].upstreams} == {copy_source, *sources[-3:]}
+    assert aggregator.report.num_downstreams_with_capped_lineage_queries == 1
+    assert aggregator.report.capped_lineage_downstreams[downstream] == 11
+
+
+def test_lineage_queries_under_cap_are_all_used() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(5)]
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert {u.dataset for u in lineage[0].upstreams} == set(sources)
+    assert aggregator.report.num_downstreams_with_capped_lineage_queries == 0

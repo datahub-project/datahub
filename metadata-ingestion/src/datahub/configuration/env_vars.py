@@ -485,6 +485,15 @@ def get_sql_agg_skip_joins() -> bool:
     return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
 
 
+def get_sql_agg_max_queries_per_downstream() -> int:
+    """Upper bound on the queries resolved for one downstream table's lineage.
+
+    A table written by a very large number of distinct queries would otherwise have
+    every one of them loaded and resolved through its temp-table chain at once.
+    """
+    return _get_int_env("DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM", 5000)
+
+
 def get_sql_parse_cache_size() -> int:
     """SQL parse result cache size (number of entries)."""
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))

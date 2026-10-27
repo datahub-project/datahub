@@ -15,6 +15,7 @@ import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 from datahub.configuration.env_vars import (
     get_report_info_sample_size,
+    get_sql_agg_max_queries_per_downstream,
     get_sql_agg_query_log,
     get_sql_agg_skip_joins,
 )
@@ -105,6 +106,11 @@ _DEFAULT_QUERY_LOG_SETTING = QueryLogSetting[
 ]
 MAX_UPSTREAM_TABLES_COUNT = 300
 MAX_FINEGRAINEDLINEAGE_COUNT = 2000
+# Bounds the work done for a single downstream in _gen_lineage_for_downstream. Without
+# it, a table written by millions of distinct queries has every query loaded and
+# resolved before any lineage is emitted: observed at 4+ hours and >50 GB for one table.
+MAX_QUERIES_PER_DOWNSTREAM = get_sql_agg_max_queries_per_downstream()
+SLOW_LINEAGE_DOWNSTREAM_SECONDS = 60.0
 
 
 @dataclasses.dataclass
@@ -428,6 +434,16 @@ class SqlAggregatorReport(Report):
     num_lineage_skipped_due_to_filters: int = 0
     num_table_lineage_trimmed_due_to_large_size: int = 0
     num_column_lineage_trimmed_due_to_large_size: int = 0
+    # Downstreams whose query set exceeded MAX_QUERIES_PER_DOWNSTREAM, with the
+    # original query count, and downstreams whose lineage took longer than
+    # SLOW_LINEAGE_DOWNSTREAM_SECONDS to resolve, with the seconds taken.
+    num_downstreams_with_capped_lineage_queries: int = 0
+    capped_lineage_downstreams: LossyDict[str, int] = dataclasses.field(
+        default_factory=LossyDict
+    )
+    slow_lineage_downstreams: LossyDict[str, float] = dataclasses.field(
+        default_factory=LossyDict
+    )
 
     # Lineage consistency tracking
     num_tables_added_from_column_lineage: int = 0
@@ -1637,9 +1653,13 @@ class SqlParsingAggregator(Closeable):
             self.report.num_lineage_skipped_due_to_filters += 1
             return
 
+        selected_query_ids = self._select_lineage_query_ids(downstream_urn, query_ids)
+        timer = PerfTimer()
+        timer.start()
+
         queries: List[QueryMetadata] = [
             self._resolve_query_with_temp_tables(self._query_map[query_id])
-            for query_id in query_ids
+            for query_id in selected_query_ids
         ]
 
         # Sort the queries by highest precedence first, then by latest timestamp.
@@ -1770,6 +1790,14 @@ class SqlParsingAggregator(Closeable):
             upstream_aspect.fineGrainedLineages or None
         )
 
+        elapsed = timer.elapsed_seconds()
+        if elapsed > SLOW_LINEAGE_DOWNSTREAM_SECONDS:
+            self.report.slow_lineage_downstreams[downstream_urn] = elapsed
+            logger.warning(
+                f"Resolving lineage for {downstream_urn} from "
+                f"{len(selected_query_ids)} queries took {elapsed:.0f} seconds"
+            )
+
         if not upstream_aspect.upstreams and not upstream_aspect.fineGrainedLineages:
             return
 
@@ -1791,6 +1819,36 @@ class SqlParsingAggregator(Closeable):
             if query.composed_of:
                 queries_generated.update(query.composed_of.all_queries)
             yield from self._gen_query(query, downstream_urn)
+
+    def _select_lineage_query_ids(
+        self, downstream_urn: UrnStr, query_ids: OrderedSet[QueryId]
+    ) -> List[QueryId]:
+        """Pick the queries worth resolving for one downstream's lineage.
+
+        Query ids are registered in the order the query log was read, which is time
+        order, so the tail of the set is the most recent queries; those are the ones
+        _gen_lineage_for_downstream prefers anyway. Known-lineage and view query ids
+        outrank every parsed query, so they are always kept.
+        """
+        if len(query_ids) <= MAX_QUERIES_PER_DOWNSTREAM:
+            return list(query_ids)
+
+        all_ids = list(query_ids)
+        selected = OrderedSet[QueryId](
+            query_id
+            for query_id in all_ids
+            if self._is_known_lineage_query_id(query_id) or query_id.startswith("view_")
+        )
+        selected.update(all_ids[-MAX_QUERIES_PER_DOWNSTREAM:])
+
+        self.report.num_downstreams_with_capped_lineage_queries += 1
+        self.report.capped_lineage_downstreams[downstream_urn] = len(all_ids)
+        logger.warning(
+            f"{len(all_ids)} queries write to {downstream_urn}; resolving lineage "
+            f"from the {len(selected)} most recent plus known/view lineage. "
+            "Set DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM to change the limit."
+        )
+        return list(selected)
 
     @classmethod
     def _query_urn(cls, query_id: QueryId) -> str:
