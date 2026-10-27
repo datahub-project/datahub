@@ -809,6 +809,41 @@ def test_platform_resource_repository_none_without_graph() -> None:
     assert source.platform_resource_repository is None
 
 
+def test_auto_disabled_column_lineage_is_a_report_warning() -> None:
+    config = DataplexConfig(
+        project_ids=["project-1"],
+        include_lineage=False,
+        include_column_lineage=True,
+        include_glossaries=False,
+        enable_stateful_lineage_ingestion=False,
+    )
+    ctx = Mock()
+    ctx.graph = None
+
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
+    ):
+        source = DataplexSource(ctx, config)
+
+    (warning,) = source.report.warnings
+    assert warning.title == "Dataplex column lineage disabled"
+    assert "include_lineage" in warning.context[0]
+
+
 def test_create_uses_model_validate_and_constructs_source() -> None:
     ctx = Mock()
     config = DataplexConfig(project_ids=["project-1"])

@@ -1,0 +1,708 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "project_id": "test-project",
+                "dataplex_ingested": "true",
+                "dataplex_project_id": "test-project",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/bigquery-table",
+                "dataplex_source_platform": "bigquery"
+            },
+            "name": "test-project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "projects/test-project/locations/us/entryGroups/@bigquery/entries/orders",
+            "platform": "urn:li:dataPlatform:bigquery",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].customer",
+                    "nullable": true,
+                    "description": "Who placed the order",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "RECORD",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].customer.[type=string].customer_id",
+                    "nullable": true,
+                    "description": "Customer key",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].customer.[type=int].signed_up_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "TIMESTAMP",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"logicalType\": \"timestamp-millis\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].customer.[type=boolean].is_member",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "BOOLEAN",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].customer.[type=struct].address",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "RECORD",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=struct].customer.[type=struct].address.[type=string].city",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].items",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "ARRAY<RECORD>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].items.[type=string].sku",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].items.[type=long].quantity",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INTEGER",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].items.[type=bytes].unit_price",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "NUMERIC",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"logicalType\": \"decimal\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].items.[type=double].discount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FLOAT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].labels",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "string"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "ARRAY<STRING>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-831jyh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us/entryGroups/@bigquery/entries/orders",
+                "dataplex_entry_group": "@bigquery",
+                "dataplex_fully_qualified_name": "bigquery:test-project.sales.orders",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/bigquery-table",
+                "dataplex_aspect_schema": "schema",
+                "dataplex_schema_fields": "[{\"mode\": \"REQUIRED\", \"metadataType\": \"NUMBER\", \"dataType\": \"INTEGER\", \"name\": \"order_id\"}, {\"fields\": [{\"description\": \"Customer key\", \"metadataType\": \"STRING\", \"dataType\": \"STRING\", \"name\": \"customer_id\"}, {\"metadataType\": \"TIMESTAMP\", \"dataType\": \"TIMESTAMP\", \"name\": \"signed_up_at\"}, {\"metadataType\": \"BOOLEAN\", \"dataType\": \"BOOLEAN\", \"name\": \"is_member\"}, {\"fields\": [{\"metadataType\": \"STRING\", \"dataType\": \"STRING\", \"name\": \"city\"}], \"metadataType\": \"STRUCT\", \"dataType\": \"RECORD\", \"name\": \"address\"}], \"description\": \"Who placed the order\", \"mode\": \"NULLABLE\", \"metadataType\": \"STRUCT\", \"dataType\": \"RECORD\", \"name\": \"customer\"}, {\"fields\": [{\"mode\": \"REQUIRED\", \"metadataType\": \"STRING\", \"dataType\": \"STRING\", \"name\": \"sku\"}, {\"metadataType\": \"NUMBER\", \"dataType\": \"INTEGER\", \"name\": \"quantity\"}, {\"metadataType\": \"NUMBER\", \"dataType\": \"NUMERIC\", \"name\": \"unit_price\"}, {\"metadataType\": \"NUMBER\", \"dataType\": \"FLOAT\", \"name\": \"discount\"}], \"mode\": \"REPEATED\", \"metadataType\": \"STRUCT\", \"dataType\": \"RECORD\", \"name\": \"items\"}, {\"mode\": \"REPEATED\", \"metadataType\": \"STRING\", \"dataType\": \"STRING\", \"name\": \"labels\"}]"
+            },
+            "name": "orders",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-831jyh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f5f81a7b0334507312eef2147a6af9d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "dataproc-metastore",
+                "project_id": "test-project",
+                "dataplex_ingested": "true",
+                "dataplex_project_id": "test-project",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/dataproc-metastore-table",
+                "dataplex_source_platform": "dataproc-metastore"
+            },
+            "name": "test-project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f5f81a7b0334507312eef2147a6af9d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dataproc-metastore"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f5f81a7b0334507312eef2147a6af9d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f5f81a7b0334507312eef2147a6af9d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dataproc-metastore,test-project.us.my-service.my_db.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dataproc-metastore"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dataproc-metastore,test-project.us.my-service.my_db.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us/entryGroups/@dataproc_metastore/entries/events",
+                "dataplex_entry_group": "@dataproc_metastore",
+                "dataplex_fully_qualified_name": "dataproc_metastore:test-project.us.my-service.my_db.events",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/dataproc-metastore-table",
+                "dataplex_aspect_schema": "schema",
+                "dataplex_schema_fields": "[{\"metadataType\": \"STRING\", \"dataType\": \"string\", \"name\": \"event_id\"}, {\"dataType\": \"map<string,string>\", \"name\": \"attributes\"}, {\"fields\": [{\"mode\": \"REQUIRED\", \"metadataType\": \"STRING\", \"dataType\": \"string\", \"name\": \"key\"}, {\"mode\": \"NULLABLE\", \"metadataType\": \"OTHER\", \"dataType\": \"struct<label:string,weight:double>\", \"name\": \"value\"}], \"mode\": \"REPEATED\", \"metadataType\": \"STRUCT\", \"dataType\": \"map\", \"name\": \"properties\"}, {\"mode\": \"REPEATED\", \"metadataType\": \"OTHER\", \"dataType\": \"array<string>\", \"name\": \"aliases\"}, {\"mode\": \"REPEATED\", \"metadataType\": \"OTHER\", \"dataType\": \"array<struct<key:string,value:string>>\", \"name\": \"tags\"}]"
+            },
+            "name": "events",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-831jyh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dataproc-metastore,test-project.us.my-service.my_db.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "projects/test-project/locations/us/entryGroups/@dataproc_metastore/entries/events",
+            "platform": "urn:li:dataPlatform:dataproc-metastore",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "event_id",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=string].attributes",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "string"
+                            }
+                        }
+                    },
+                    "nativeDataType": "map<string,string>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"string\", \"_nullable\": true}, \"key_native_data_type\": \"string\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].properties",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.MapType": {
+                                "keyType": "string",
+                                "valueType": "record"
+                            }
+                        }
+                    },
+                    "nativeDataType": "map",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"string\", \"_nullable\": false}, \"key_native_data_type\": \"string\"}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].properties.[type=string].label",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].properties.[type=double].weight",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].aliases",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "string"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<string>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].tags",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {
+                                "nestedType": [
+                                    "record"
+                                ]
+                            }
+                        }
+                    },
+                    "nativeDataType": "array<struct<key:string,value:string>>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].tags.[type=string].key",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].tags.[type=string].value",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-831jyh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dataproc-metastore,test-project.us.my-service.my_db.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f5f81a7b0334507312eef2147a6af9d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.sales.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dataproc-metastore,test-project.us.my-service.my_db.events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-11cqb2",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

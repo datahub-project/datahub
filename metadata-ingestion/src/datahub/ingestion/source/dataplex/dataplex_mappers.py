@@ -28,7 +28,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional, Pattern, Union
+from typing import Dict, Optional, Pattern, Set, Tuple, Union
 
 from google.cloud import dataplex_v1
 from typing_extensions import TypeAlias, assert_never
@@ -86,6 +86,7 @@ from datahub.ingestion.source.dataplex.dataplex_properties import (
     extract_entry_custom_properties,
 )
 from datahub.ingestion.source.dataplex.dataplex_schema import (
+    extract_gcs_storage_bucket_from_entry_aspects,
     extract_graph_schema_from_entry_aspects,
     extract_schema_from_entry_aspects,
 )
@@ -93,6 +94,9 @@ from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+
+DATAPROC_METASTORE_TABLE_ENTRY_TYPE = "dataproc-metastore-table"
+PUBSUB_TOPIC_ENTRY_TYPE = "pubsub-topic"
 
 # ----------------------------------------------------------------------------
 # Context + result
@@ -104,7 +108,8 @@ class EntryMappingContext:
     """Everything a mapper legitimately needs beyond the entry payload itself.
 
     ``config`` (rather than individual fields) keeps this stable as new config
-    knobs appear; the mapper reads ``config.env`` and ``config.include_schema``.
+    knobs appear; the mapper reads ``config.env``, ``config.include_schema``
+    and ``config.include_column_lineage``.
     ``location`` is the Dataplex scan location — not reliably present in the
     payload, so it is threaded in from the scan loop and used only to build the
     lineage record. ``report`` lets mappers emit warnings for malformed payloads.
@@ -290,6 +295,11 @@ class EntryMapper(ABC):
         """
 
     @property
+    def datahub_subtype(self) -> Optional[str]:
+        """Main entity subtype, or None for entity types that have none."""
+        return None
+
+    @property
     def datahub_main_entity_type(self) -> type[Entity]:
         """The DataHub entity this entry maps to directly — derived from the identity."""
         identity = self.datahub_identity
@@ -461,6 +471,22 @@ def dataset_urn_from_fqn(
     )
 
 
+# Spanner graph pseudo-columns, which the Data Lineage API does not know.
+_GRAPH_FIELD_PATH_PREFIXES = ("[nodes].", "[edges].")
+
+
+def _lineage_field_paths(
+    schema_metadata: Optional[SchemaMetadataClass],
+) -> Tuple[str, ...]:
+    if schema_metadata is None:
+        return ()
+    return tuple(
+        schema_field.fieldPath
+        for schema_field in schema_metadata.fields
+        if not schema_field.fieldPath.startswith(_GRAPH_FIELD_PATH_PREFIXES)
+    )
+
+
 def _project_schema_key(
     fqn_regex: Pattern[str], platform: str, fully_qualified_name: str
 ) -> Optional[DataplexProjectId]:
@@ -556,7 +582,9 @@ def build_dataset(
 
     schema_metadata: Optional[SchemaMetadataClass] = None
     if ctx.config.include_schema:
-        schema_metadata = extract_schema_from_entry_aspects(entry, entry.name, platform)
+        schema_metadata = extract_schema_from_entry_aspects(
+            entry, entry.name, platform, ctx.report
+        )
         if schema_metadata is None and include_graph_schema_fallback:
             # cloud-spanner-graph entries store schema in a graph-schema aspect
             # rather than the standard schema aspect.
@@ -647,6 +675,14 @@ def build_dataset(
             name=dataset_name,
             platform_instance=None,
             env=ctx.config.env,
+        ),
+        schema_field_paths=(
+            _lineage_field_paths(schema_metadata)
+            if ctx.config.include_column_lineage
+            else ()
+        ),
+        storage_gcs_bucket=extract_gcs_storage_bucket_from_entry_aspects(
+            entry, entry.name
         ),
     )
 
@@ -751,6 +787,7 @@ class BigQueryDatasetMapper(EntryMapper):
     datahub_platform = "bigquery"
     dataplex_fqn_regex = BIGQUERY_DATASET_FQN_REGEX
     datahub_identity = ContainerIdentity(DataplexBigQueryDataset)
+    datahub_subtype = DatasetContainerSubTypes.BIGQUERY_DATASET
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -759,7 +796,7 @@ class BigQueryDatasetMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.BIGQUERY_DATASET,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -775,6 +812,7 @@ class BigQueryTableMapper(EntryMapper):
         dataplex_parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexBigQueryDataset,
     )
+    datahub_subtype = DatasetSubTypes.TABLE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -784,7 +822,7 @@ class BigQueryTableMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TABLE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -801,6 +839,7 @@ class BigQueryViewMapper(EntryMapper):
         dataplex_parent_entry_regex=BIGQUERY_DATASET_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexBigQueryDataset,
     )
+    datahub_subtype = DatasetSubTypes.VIEW
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -810,7 +849,7 @@ class BigQueryViewMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.VIEW,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -822,6 +861,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
     datahub_platform = "cloudsql"
     dataplex_fqn_regex = MYSQL_INSTANCE_FQN_REGEX
     datahub_identity = ContainerIdentity(DataplexCloudSqlMySqlInstance)
+    datahub_subtype = DatasetContainerSubTypes.INSTANCE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -830,7 +870,7 @@ class CloudSqlMySqlInstanceMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.INSTANCE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -846,6 +886,7 @@ class CloudSqlMySqlDatabaseMapper(EntryMapper):
         dataplex_parent_entry_regex=MYSQL_INSTANCE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexCloudSqlMySqlInstance,
     )
+    datahub_subtype = DatasetContainerSubTypes.DATABASE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -854,7 +895,7 @@ class CloudSqlMySqlDatabaseMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.DATABASE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -872,6 +913,7 @@ class CloudSqlMySqlTableMapper(EntryMapper):
         dataplex_parent_entry_regex=MYSQL_DATABASE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexCloudSqlMySqlDatabase,
     )
+    datahub_subtype = DatasetSubTypes.TABLE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -881,7 +923,7 @@ class CloudSqlMySqlTableMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TABLE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -893,6 +935,7 @@ class CloudSpannerInstanceMapper(EntryMapper):
     datahub_platform = "spanner"
     dataplex_fqn_regex = SPANNER_INSTANCE_FQN_REGEX
     datahub_identity = ContainerIdentity(DataplexCloudSpannerInstance)
+    datahub_subtype = DatasetContainerSubTypes.INSTANCE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -901,7 +944,7 @@ class CloudSpannerInstanceMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.INSTANCE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -917,6 +960,7 @@ class CloudSpannerDatabaseMapper(EntryMapper):
         dataplex_parent_entry_regex=SPANNER_INSTANCE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexCloudSpannerInstance,
     )
+    datahub_subtype = DatasetContainerSubTypes.DATABASE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -925,7 +969,7 @@ class CloudSpannerDatabaseMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.DATABASE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -943,6 +987,7 @@ class CloudSpannerTableMapper(EntryMapper):
         dataplex_parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexCloudSpannerDatabase,
     )
+    datahub_subtype = DatasetSubTypes.TABLE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -952,7 +997,7 @@ class CloudSpannerTableMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TABLE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -971,6 +1016,7 @@ class CloudSpannerGraphMapper(EntryMapper):
         dataplex_parent_entry_regex=SPANNER_DATABASE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexCloudSpannerDatabase,
     )
+    datahub_subtype = DatasetSubTypes.GRAPH
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -980,7 +1026,7 @@ class CloudSpannerGraphMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.GRAPH,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -993,6 +1039,7 @@ class CloudBigtableInstanceMapper(EntryMapper):
     datahub_platform = "bigtable"
     dataplex_fqn_regex = BIGTABLE_INSTANCE_FQN_REGEX
     datahub_identity = ContainerIdentity(DataplexBigtableInstance)
+    datahub_subtype = DatasetContainerSubTypes.INSTANCE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -1001,7 +1048,7 @@ class CloudBigtableInstanceMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.INSTANCE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1017,6 +1064,7 @@ class CloudBigtableTableMapper(EntryMapper):
         dataplex_parent_entry_regex=BIGTABLE_INSTANCE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexBigtableInstance,
     )
+    datahub_subtype = DatasetSubTypes.TABLE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -1026,7 +1074,7 @@ class CloudBigtableTableMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TABLE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1034,10 +1082,11 @@ class CloudBigtableTableMapper(EntryMapper):
 
 
 class PubSubTopicMapper(EntryMapper):
-    dataplex_entry_type_short_name = "pubsub-topic"
+    dataplex_entry_type_short_name = PUBSUB_TOPIC_ENTRY_TYPE
     datahub_platform = "pubsub"
     dataplex_fqn_regex = PUBSUB_TOPIC_FQN_REGEX
     datahub_identity = DatasetIdentity("{project_id}.{topic_id}")
+    datahub_subtype = DatasetSubTypes.TOPIC
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -1048,7 +1097,7 @@ class PubSubTopicMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TOPIC,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1060,6 +1109,7 @@ class VertexAiDatasetMapper(EntryMapper):
     datahub_platform = "vertexai"
     dataplex_fqn_regex = VERTEX_AI_DATASET_FQN_REGEX
     datahub_identity = DatasetIdentity("{project_id}.{location}.{dataset_id}")
+    datahub_subtype = DatasetSubTypes.TABLE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -1069,7 +1119,7 @@ class VertexAiDatasetMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TABLE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1081,6 +1131,7 @@ class DataprocMetastoreServiceMapper(EntryMapper):
     datahub_platform = "dataproc-metastore"
     dataplex_fqn_regex = DATAPROC_METASTORE_SERVICE_FQN_REGEX
     datahub_identity = ContainerIdentity(DataplexDataprocMetastoreService)
+    datahub_subtype = DatasetContainerSubTypes.SERVICE
     # No parent_entry - services are top-level under project
 
     def map(
@@ -1090,7 +1141,7 @@ class DataprocMetastoreServiceMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.SERVICE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1106,6 +1157,7 @@ class DataprocMetastoreDatabaseMapper(EntryMapper):
         dataplex_parent_entry_regex=DATAPROC_METASTORE_SERVICE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexDataprocMetastoreService,
     )
+    datahub_subtype = DatasetContainerSubTypes.DATABASE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -1114,7 +1166,7 @@ class DataprocMetastoreDatabaseMapper(EntryMapper):
             entry,
             ctx,
             platform=self.datahub_platform,
-            subtype=DatasetContainerSubTypes.DATABASE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1122,7 +1174,7 @@ class DataprocMetastoreDatabaseMapper(EntryMapper):
 
 
 class DataprocMetastoreTableMapper(EntryMapper):
-    dataplex_entry_type_short_name = "dataproc-metastore-table"
+    dataplex_entry_type_short_name = DATAPROC_METASTORE_TABLE_ENTRY_TYPE
     datahub_platform = "dataproc-metastore"
     dataplex_fqn_regex = DATAPROC_METASTORE_TABLE_FQN_REGEX
     datahub_identity = DatasetIdentity(
@@ -1132,6 +1184,7 @@ class DataprocMetastoreTableMapper(EntryMapper):
         dataplex_parent_entry_regex=DATAPROC_METASTORE_DATABASE_PARENT_ENTRY_REGEX,
         datahub_schemakey_class=DataplexDataprocMetastoreDatabase,
     )
+    datahub_subtype = DatasetSubTypes.TABLE
 
     def map(
         self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
@@ -1141,7 +1194,7 @@ class DataprocMetastoreTableMapper(EntryMapper):
             ctx,
             short_name=self.dataplex_entry_type_short_name,
             platform=self.datahub_platform,
-            subtype=DatasetSubTypes.TABLE,
+            subtype=self.datahub_subtype,
             fqn_regex=self.dataplex_fqn_regex,
             identity=self.datahub_identity,
             parent=self.dataplex_parent_entry,
@@ -1239,3 +1292,93 @@ def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[s
         if urn:
             return urn
     return None
+
+
+def _mapper_dataset_urn(
+    entry_type: str, identity_fields: Dict[str, str], env: str
+) -> Optional[str]:
+    """URN the ``entry_type`` mapper would mint for these FQN fields."""
+    mapper = ENTRY_MAPPERS[entry_type]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, DatasetIdentity)
+    dataset_name = identity.dataset_name(identity_fields)
+    if dataset_name is None:
+        return None
+    return make_dataset_urn_with_platform_instance(
+        platform=mapper.datahub_platform,
+        name=dataset_name,
+        platform_instance=None,
+        env=env,
+    )
+
+
+@dataclass(frozen=True)
+class LineageStubSpec:
+    """How to label a lineage-only upstream dataset."""
+
+    display_name: str
+    subtype: Optional[str]
+
+
+def lineage_stub_spec(platform: str, dataset_name: str) -> LineageStubSpec:
+    """Label a dataset named by the Dataset mappers for ``platform``.
+
+    The subtype stays unset when those mappers disagree, as BigQuery table and view do.
+    """
+    subtypes: Set[Optional[str]] = set()
+    segment_counts: Set[int] = set()
+    for mapper in ENTRY_MAPPERS.values():
+        if (
+            mapper.datahub_main_entity_type is not Dataset
+            or mapper.datahub_platform != platform
+        ):
+            continue
+        identity = mapper.datahub_identity
+        assert isinstance(identity, DatasetIdentity)
+        subtypes.add(mapper.datahub_subtype)
+        segment_counts.add(identity.name_format.count(".") + 1)
+
+    display_name = dataset_name
+    if len(segment_counts) == 1:
+        segment_count = next(iter(segment_counts))
+        # Names start with the project id, the only field that may hold ':'
+        # (example.com:proj). Dots appear only in that domain or the last field.
+        segments = dataset_name.split(":", 1)[-1].split(".", segment_count - 1)
+        if len(segments) == segment_count:
+            display_name = segments[-1]
+    return LineageStubSpec(
+        display_name=display_name,
+        subtype=next(iter(subtypes)) if len(subtypes) == 1 else None,
+    )
+
+
+def dataproc_metastore_table_urn(
+    *,
+    project_id: str,
+    location: str,
+    service_id: str,
+    database_id: str,
+    table_id: str,
+    env: str,
+) -> Optional[str]:
+    """URN the ``dataproc-metastore-table`` mapper would mint for these fields."""
+    return _mapper_dataset_urn(
+        DATAPROC_METASTORE_TABLE_ENTRY_TYPE,
+        {
+            "project_id": project_id,
+            "location": location,
+            "service_id": service_id,
+            "database_id": database_id,
+            "table_id": table_id,
+        },
+        env,
+    )
+
+
+def pubsub_topic_urn(*, project_id: str, topic_id: str, env: str) -> Optional[str]:
+    """URN the ``pubsub-topic`` mapper would mint for these fields."""
+    return _mapper_dataset_urn(
+        PUBSUB_TOPIC_ENTRY_TYPE,
+        {"project_id": project_id, "topic_id": topic_id},
+        env,
+    )

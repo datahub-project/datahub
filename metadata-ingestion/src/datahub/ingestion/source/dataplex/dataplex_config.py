@@ -3,7 +3,7 @@
 import logging
 from typing import Annotated, Dict, List, Literal, Optional, Sequence
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PrivateAttr, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
@@ -11,6 +11,9 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+)
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
@@ -28,6 +31,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Dotted parts in dpms_hive_metastore_service.
+DPMS_SERVICE_PARTS = 3
 
 # Probe kinds. Only Project is a DataHub subtype (the one Dataplex emits for
 # project containers); the others are Dataplex's own levels, because DataHub
@@ -229,6 +235,7 @@ class DataplexConfig(
     PlatformInstanceConfigMixin,
     StatefulIngestionConfigBase,
     StatefulLineageConfigMixin,
+    IncrementalLineageConfigMixin,
 ):
     """Configuration for Google Dataplex source.
 
@@ -313,6 +320,81 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
+    include_column_lineage: bool = Field(
+        default=False,
+        description="Whether to extract column-level lineage via column-scoped "
+        "Data Lineage API lookups. For each entry that has table-level lineage, "
+        "one extra search_links call is issued per batch of 20 columns per "
+        "parent that returned links, so this multiplies Data Lineage API read "
+        "volume. Lower 'max_workers_lineage' to slow that volume down: the pool "
+        "size is the binding constraint on sustained call rate, while "
+        "'lineage_max_calls_per_minute' is a ceiling that only engages once the "
+        "pool can outrun it. Requires both 'include_lineage' and "
+        "'include_schema'; if either is off, column lineage is disabled with a "
+        "warning rather than failing the source.",
+    )
+    _column_lineage_unmet_dependencies: List[str] = PrivateAttr(default_factory=list)
+
+    dpms_hive_metastore_service: Optional[str] = Field(
+        default=None,
+        description="Fallback '{project}.{location}.{service}' used to resolve "
+        "'hive_metastore:...' lineage FQNs (which is how Spark and Dataproc "
+        "jobs report lineage) to Dataproc Metastore table URNs when the "
+        "(database, table) pair is not found, or is found under more than one "
+        "service, among the tables ingested in this run. Leave unset to fall "
+        "through to 'include_hive_metastore_nodes' handling.",
+    )
+
+    include_hive_metastore_nodes: bool = Field(
+        default=True,
+        description="Whether 'hive_metastore:...' upstreams that resolve to no "
+        "single Dataproc Metastore table in this run and to no "
+        "'dpms_hive_metastore_service' fallback — usually a table that lives "
+        "only in a Dataproc cluster's own metastore, with no catalog entry — "
+        "get an edge to a dataset URN on the 'hive' platform named "
+        "'{database}.{table}', as GCS bucket upstreams do. Only the edge is "
+        "written; 'include_lineage_only_upstreams' also creates the node. "
+        "When false, those upstream edges are skipped and counted in the "
+        "report. Only affects lineage FQNs that would otherwise be dropped as "
+        "unparseable.",
+    )
+
+    include_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to derive a bucket -> table lineage edge from a "
+        "Dataproc Metastore table's own 'storage' aspect. Dataplex never "
+        "reports that hop through the Data Lineage API, so it is the only way "
+        "to see where such a table's files actually live. Off by default "
+        "because the edge is derived from catalog metadata, not reported by "
+        "the Data Lineage API.",
+    )
+
+    include_lineage_only_upstreams: bool = Field(
+        default=False,
+        description="Whether to create a minimal entity (status, name and "
+        "subtype) for a lineage upstream that does not exist in DataHub yet, "
+        "such as a GCS bucket, an uncatalogued hive table, or a table in a "
+        "project outside the configured scope. Without it the edge exists but "
+        "the node does not appear in lineage views. Needs a DataHub graph "
+        "connection to check which upstreams exist; nothing is written for an "
+        "upstream that already exists, and these entities are never tracked "
+        "for stale-metadata removal.",
+    )
+
+    resolve_pubsub_subscriptions: bool = Field(
+        default=False,
+        description="Whether 'pubsub:subscription:...' upstream lineage FQNs "
+        "(how Dataflow reports Pub/Sub sources) are resolved to their backing "
+        "topic via the Pub/Sub Admin API, using one cached get_subscription "
+        "call per distinct subscription per run. The resulting edge points at "
+        "the topic's dataset URN — identical to the URN of an ingested Pub/Sub "
+        "topic — so the edge joins the catalogued topic entity. Off by "
+        "default: enabling it needs pubsub.subscriptions.get "
+        "(roles/pubsub.viewer) on each subscription's project. Any failure "
+        "(missing dependency, missing permission, deleted topic) skips the "
+        "edge with a warning, which is exactly the behavior when this is off.",
+    )
+
     lineage_locations: List[str] = Field(
         default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
         description="List of GCP regions to scan for Dataplex lineage data. "
@@ -328,7 +410,7 @@ class DataplexConfig(
     lineage_max_retries: int = Field(
         default=3,
         ge=1,
-        le=10,
+        le=20,
         description="Maximum number of retry attempts for lineage API calls when encountering transient errors "
         "(timeouts, rate limits, service unavailable). Each attempt uses exponential backoff. "
         "Higher values increase resilience but may slow down ingestion. Default: 3.",
@@ -337,10 +419,22 @@ class DataplexConfig(
     lineage_retry_backoff_multiplier: float = Field(
         default=1.0,
         ge=0.1,
-        le=10.0,
+        le=30.0,
         description="Multiplier for exponential backoff between lineage API retry attempts (in seconds). "
-        "Wait time formula: multiplier * (2 ^ attempt_number), capped between 2-10 seconds. "
+        "Wait time formula: multiplier * 2^(attempt_number - 1), floored at 2 seconds and capped at "
+        "'lineage_retry_max_wait_seconds'. "
         "Higher values reduce API load but increase ingestion time. Default: 1.0.",
+    )
+
+    lineage_retry_max_wait_seconds: int = Field(
+        default=10,
+        ge=2,
+        le=600,
+        description="Upper cap (seconds) on the exponential backoff between lineage "
+        "API retries. Only reached with a raised 'lineage_max_retries' / "
+        "'lineage_retry_backoff_multiplier'. Set it to about 65, just past the "
+        "Data Lineage API's 60-second quota window, so a retry after a 429 can "
+        "land in a fresh window. Default: 10.",
     )
 
     max_workers_entries: int = Field(
@@ -362,6 +456,29 @@ class DataplexConfig(
         "(search_links API calls). Lineage lookup volume scales with entries × "
         "lineage_locations, so parallelism here has a large impact on total "
         "ingestion time. Increase for large entry × location matrices. Default: 10.",
+    )
+
+    lineage_max_calls_per_minute: int = Field(
+        default=1000,
+        ge=1,
+        description="Client-side rate limit for Data Lineage API search_links "
+        "requests per lineage location, shared by all lineage worker threads and "
+        "all project_ids, and charged once per attempt, so the connector paces "
+        "itself instead of relying on 429-and-retry. Result pages after the first "
+        "are not counted. Google's read quota is 1000 requests per minute per "
+        "project in a multi-region and 2000 in a single region; lower it when "
+        "several pipelines share a project. Default: 1000.",
+    )
+
+    glossary_lookup_max_calls_per_minute: int = Field(
+        default=600,
+        ge=1,
+        description="Client-side rate limit for Dataplex lookupEntryLinks read "
+        "calls, enforced across all glossary worker threads so the term-asset "
+        "association scan paces itself instead of provoking 429s. Only applies "
+        "when 'include_glossary_term_associations' is enabled. Default: 600, a "
+        "conservative choice because Dataplex publishes no separate quota for "
+        "lookupEntryLinks.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -483,6 +600,43 @@ class DataplexConfig(
                 "when include_glossaries is enabled."
             )
 
+        return self
+
+    @field_validator("dpms_hive_metastore_service")
+    @classmethod
+    def validate_dpms_hive_metastore_service(
+        cls, value: Optional[str]
+    ) -> Optional[str]:
+        if value is not None:
+            parts = value.split(".")
+            if len(parts) != DPMS_SERVICE_PARTS or not all(parts):
+                raise ValueError(
+                    "dpms_hive_metastore_service must look like "
+                    "'{project}.{location}.{service}'"
+                )
+        return value
+
+    @model_validator(mode="after")
+    def validate_column_lineage_dependencies(self) -> "DataplexConfig":
+        """Column lineage needs table lineage and schemas; degrade rather than fail."""
+        unmet = [
+            name
+            for name, enabled in (
+                ("include_lineage", self.include_lineage),
+                ("include_schema", self.include_schema),
+            )
+            if not enabled
+        ]
+        if self.include_column_lineage and unmet:
+            logger.warning(
+                "Disabling 'include_column_lineage': it requires %s to be enabled. "
+                "Column-level lineage will be skipped; table-level lineage and the "
+                "rest of Dataplex ingestion are unaffected. Set "
+                "'include_column_lineage: false' explicitly to silence this.",
+                " and ".join(f"'{name}'" for name in unmet),
+            )
+            self.include_column_lineage = False
+            self._column_lineage_unmet_dependencies = unmet
         return self
 
     @model_validator(mode="after")
