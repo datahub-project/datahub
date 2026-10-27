@@ -160,3 +160,24 @@ def test_s3_zip_member_is_read_over_range_requests(s3_client: S3Client) -> None:
 
     assert {f.fieldPath for f in fields} == {"id", "total"}
     assert not source.report.warnings
+
+
+def test_s3_zip_read_failure_is_reported(s3_client: S3Client) -> None:
+    full_path = f"s3://{BUCKET}/orders/missing.csv.zip"
+
+    source = _make_s3_source()
+    fields = source.get_fields(
+        TableData(
+            display_name="orders",
+            is_s3=True,
+            full_path=full_path,
+            timestamp=datetime.now(),
+            table_path=full_path,
+            size_in_bytes=1024,
+            number_of_files=1,
+        ),
+        PathSpec(include=f"s3://{BUCKET}/{{table}}/*.zip"),
+    )
+
+    assert fields == []
+    assert "Failed to read zip archive" in {w.title for w in source.report.warnings}

@@ -11,10 +11,8 @@ from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
+from botocore.exceptions import ClientError
 from smart_open import open as smart_open
-
-if TYPE_CHECKING:
-    from mypy_boto3_s3 import S3Client
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -89,13 +87,15 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
 
 # config flags to emit telemetry for
 config_options_to_report = [
@@ -333,14 +333,25 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> Optional[ZipEntry]:
         # smart_open's S3 reader is seekable, so zipfile fetches only the central
         # directory and the chosen member with range requests.
-        with self._smart_open(full_path, s3_client) as zip_file:
-            return read_first_supported_zip_entry(
-                zip_file,
+        try:
+            with self._smart_open(full_path, s3_client) as zip_file:
+                return read_first_supported_zip_entry(
+                    zip_file,
+                    context=full_path,
+                    report=self.report,
+                    file_types=path_spec.file_types,
+                    max_entry_size=path_spec.max_zip_entry_size,
+                )
+        except (ClientError, OSError) as e:
+            # smart_open wraps most S3 errors in OSError; a ranged read can
+            # still raise ClientError directly.
+            self.report.warning(
+                title="Failed to read zip archive",
+                message="Could not read zip archive",
                 context=full_path,
-                report=self.report,
-                file_types=path_spec.file_types,
-                max_entry_size=path_spec.max_zip_entry_size,
+                exc=e,
             )
+            return None
 
     def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
         if s3_client is not None:
