@@ -515,15 +515,28 @@ def test_unknown_constraint_type_is_reported_not_raised() -> None:
     assert len(source.report.contract_constraints_skipped_unsupported) == 1
 
 
-def test_schema_assertion_urn_includes_env() -> None:
-    node = _make_model()
-    prod = _make_source(env="PROD")._create_schema_assertion_for_contract(
-        node, _ENTITY_URN
-    )
-    dev = _make_source(env="DEV")._create_schema_assertion_for_contract(
-        node, _ENTITY_URN
-    )
-    assert prod.urn != dev.urn
+@pytest.mark.parametrize("name", [None, "fk_customer"])
+def test_foreign_key_urn_ignores_how_to_is_rendered(name: Optional[str]) -> None:
+    source = _make_source()
+    customers = _make_model(name="customers")
+
+    def urn(to: str) -> str:
+        node = _make_model(
+            columns=[
+                _column(
+                    "customer_id",
+                    DBTConstraint(
+                        type="foreign_key", name=name, to=to, to_columns=["id"]
+                    ),
+                )
+            ]
+        )
+        (assertion,) = source._create_constraint_assertions(
+            node, _ENTITY_URN, _RelationResolver([node, customers])
+        )
+        return assertion.urn
+
+    assert urn("ref('customers')") == urn('"test_db"."test_schema"."customers"')
 
 
 def test_contract_urn_matches_canonical_entity_guid() -> None:
@@ -746,7 +759,8 @@ def test_test_urns_omitted_when_test_definitions_disabled() -> None:
     model = _make_model()
     test_node = _make_test("orders_check", [model.dbt_name], tagged=True)
     urns = _dq_urns(_contract_mcps(source, [model], [test_node]))
-    assert urns == [source._create_schema_assertion_for_contract(model, "x").urn]
+    entity_urn = model.get_urn("dbt", source.config.env, None)
+    assert urns == [source._create_schema_assertion_for_contract(model, entity_urn).urn]
 
 
 def test_contract_skipped_when_node_type_emission_disabled() -> None:
@@ -1015,6 +1029,25 @@ def test_multiple_existing_contracts_are_left_untouched() -> None:
     )
     assert _written_contracts(_contract_mcps(source, [node])) == []
     assert source.report.warnings
+
+
+def test_renamed_model_with_same_relation_keeps_its_contract() -> None:
+    source = _make_source()
+    orders = _make_model(name="orders")
+    first = _contract_mcps(source, [orders])
+    (properties,) = [
+        mcp.aspect
+        for mcp in first
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    ]
+
+    source = _make_source()
+    renamed = _make_model(name="orders_v2", alias="orders")
+    source.ctx.graph = _graph_with_contracts({_contract_urn(orders): properties})
+    assert _written_contracts(_contract_mcps(source, [renamed])) == [
+        _contract_urn(orders)
+    ]
+    assert source.report.num_contracts_skipped_existing == 0
 
 
 def test_soft_deleted_contract_does_not_count_as_multiple() -> None:

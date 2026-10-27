@@ -5567,7 +5567,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         entity_urn: str,
     ) -> _ContractAssertion:
         assert node.contract is not None
-        assertion_urn = self._make_contract_assertion_urn(node, {"contract": "schema"})
+        # Keyed on the dataset, not the dbt unique id, so renaming a model
+        # whose relation is unchanged keeps dbt's contract recognised as dbt's.
+        assertion_urn = mce_builder.make_assertion_urn(
+            mce_builder.datahub_guid(
+                {"platform": DBT_PLATFORM, "contract": "schema", "entity": entity_urn}
+            )
+        )
 
         custom_properties = {
             "source": _CONTRACT_SCHEMA_SOURCE,
@@ -5611,6 +5617,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         entity_urn: str,
+        resolver: Optional[_RelationResolver] = None,
     ) -> List[_ContractAssertion]:
         """Expand column- and model-level dbt constraints into DataHub assertions.
 
@@ -5620,6 +5627,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         The same check declared twice (e.g. ``not_null`` and ``primary_key``
         on one column) is emitted once, with the strongest enforcement.
         """
+        resolver = resolver or _RelationResolver([])
         results: List[_ContractAssertion] = []
         for col in self._contract_columns(node):
             for constraint in col.constraints:
@@ -5630,6 +5638,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         constraint=constraint,
                         columns=[col.name],
                         scope=ConstraintScope.COLUMN,
+                        resolver=resolver,
                     )
                 )
         for constraint in node.model_constraints:
@@ -5640,6 +5649,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     constraint=constraint,
                     columns=constraint.columns or [],
                     scope=ConstraintScope.MODEL,
+                    resolver=resolver,
                 )
             )
         deduped: Dict[str, _ContractAssertion] = {}
@@ -5657,6 +5667,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         constraint: DBTConstraint,
         columns: List[str],
         scope: ConstraintScope,
+        resolver: _RelationResolver,
     ) -> List[_ContractAssertion]:
         """Dispatch a single ``DBTConstraint`` to the builder for its type."""
         ctype = constraint.type
@@ -5717,6 +5728,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     constraint=constraint,
                     columns=columns,
                     scope=scope,
+                    resolver=resolver,
                 )
             ]
 
@@ -5890,20 +5902,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         constraint: DBTConstraint,
         columns: List[str],
         scope: ConstraintScope,
+        resolver: _RelationResolver,
     ) -> _ContractAssertion:
         sorted_columns = sorted(columns)
-        assertion_urn = self._make_contract_assertion_urn(
-            node,
-            {
-                "constraint": constraint.type,
-                # A named constraint keeps its URN when its expression changes.
-                "name": constraint.name,
-                "expression": None if constraint.name else constraint.expression,
-                "columns": sorted_columns,
-                "to": constraint.to,
-                "to_columns": constraint.to_columns,
-            },
-        )
+        # A named constraint is identified by its name, so its URN survives
+        # changes to its expression or to how dbt renders ``to`` (raw ref vs
+        # compiled relation, depending on what the run compiled).
+        identity: Dict[str, Any] = {
+            "constraint": constraint.type,
+            "name": constraint.name,
+            "columns": sorted_columns,
+        }
+        if not constraint.name:
+            resolved_to = resolver.resolve(constraint.to)
+            identity.update(
+                expression=constraint.expression,
+                to=list(resolved_to) if resolved_to else constraint.to,
+                to_columns=constraint.to_columns,
+            )
+        assertion_urn = self._make_contract_assertion_urn(node, identity)
         enforced_by = self._enforced_by_for_constraint(node, constraint.type)
         custom_props = self._constraint_custom_properties(
             node, constraint, scope, enforced_by
@@ -6284,7 +6301,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if self.config.ingest_column_constraints_as_assertions:
             seen_constraint_urns: Set[str] = set()
             for assertion in self._create_constraint_assertions(
-                node=node, entity_urn=entity_urn
+                node=node, entity_urn=entity_urn, resolver=resolver
             ):
                 # The same constraint declared at both column and model
                 # level yields the same URN; emit it once.
