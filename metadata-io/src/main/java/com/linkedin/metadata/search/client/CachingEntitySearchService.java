@@ -23,7 +23,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHybrid;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -182,7 +182,7 @@ public class CachingEntitySearchService {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
-    OperationContext bound = SearchTemplates.bind(opContext, query, false, entityNames);
+    OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, false, entityNames);
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
@@ -323,7 +323,7 @@ public class CachingEntitySearchService {
     return opContext.withSpan(
         "getScrollResults",
         () -> {
-          OperationContext bound = SearchTemplates.bind(opContext, query, true, entities);
+          OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, true, entities);
           boolean isFullText =
               Boolean.TRUE.equals(
                   Optional.ofNullable(bound.getSearchContext().getSearchFlags())
@@ -438,7 +438,7 @@ public class CachingEntitySearchService {
     if (flags != null && flags.hasMinScore() && flags.getMinScore() != null) {
       minScore = flags.getMinScore();
     }
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     int rerankTimeoutSeconds = coordinator == null ? 2 : coordinator.documentRerankTimeoutSeconds();
     CompletableFuture<SearchResult> rerank =
         CompletableFuture.supplyAsync(

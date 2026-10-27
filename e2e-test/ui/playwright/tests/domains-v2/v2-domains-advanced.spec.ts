@@ -23,6 +23,7 @@ import { DomainEntityPage } from '../../pages/domains/domain-entity.page';
 import { withRandomSuffix } from '../../utils/random';
 import type { ScopedCleanup } from '../../utils/cleanup';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Ensure test parent domain is seeded before tests run
 test.use({ featureName: 'domains-v2' });
@@ -65,7 +66,7 @@ async function runDomainTest(
 }
 
 test.describe('Domains V2 Advanced Functionality', () => {
-  test('Verify Move domain to parent', async ({ page, logger, cleanup }) => {
+  test('Verify Move domain to parent', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page, logger, cleanup }) => {
     await runDomainTest(page, logger, cleanup, 'MoveTest', async (domainsPage) => {
       await domainsPage.moveDomainToParent(PARENT_DOMAIN_NAME);
     });

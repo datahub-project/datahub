@@ -70,6 +70,7 @@ import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateStampHook;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -93,6 +94,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -1190,14 +1192,18 @@ public class SpringStandardPluginConfiguration {
   public AspectPayloadValidator searchTemplateValidator(
       SearchTemplateLoader searchTemplateLoader,
       ConfigurationProvider configProvider,
-      @Qualifier("entityRegistry") EntityRegistry entityRegistry) {
+      @Qualifier("entityRegistry") EntityRegistry entityRegistry,
+      ObjectProvider<SearchTemplateComponentRegistry> searchTemplateComponentRegistry) {
     SearchConfiguration searchConfiguration =
         configProvider.getElasticSearch() == null
                 || configProvider.getElasticSearch().getSearch() == null
             ? new SearchConfiguration()
             : configProvider.getElasticSearch().getSearch();
     return new SearchTemplateValidator(
-            searchTemplateLoader, searchConfiguration, entityRegistry.getEntitySpecs().values())
+            searchTemplateLoader,
+            searchConfiguration,
+            entityRegistry.getEntitySpecs().values(),
+            searchTemplateComponentRegistry.getIfAvailable(SearchTemplateComponentRegistry::empty))
         .setConfig(
             AspectPluginConfig.builder()
                 .className(SearchTemplateValidator.class.getName())
