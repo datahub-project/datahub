@@ -634,3 +634,57 @@ class TestCredentialReferenceBypasses:
     def test_reference_found_twice_is_reported_once(self) -> None:
         recipe = {"source": {"config": {"password": "${DATAHUB_SYSTEM_CLIENT_SECRET}"}}}
         assert self._find(recipe) == ["recipe.source.config.password"]
+
+
+class TestOwnServerCredentials:
+    """A client for the configured server may carry the executor's own credentials."""
+
+    GMS = "http://datahub-gms:8080"
+    TOKEN = "shared-personal-access-token"
+
+    @pytest.fixture(autouse=True)
+    def _env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DATAHUB_GMS_URL", self.GMS)
+        monkeypatch.setenv("DATAHUB_GMS_TOKEN", self.TOKEN)
+
+    @staticmethod
+    def _find(recipe: dict, secret_values: dict | None = None) -> list:
+        task_args = SubProcessRecipeTaskArgs(recipe="{}")
+        return find_credential_redirects(recipe, task_args, secret_values or {})
+
+    def test_reused_token_value_for_own_server_is_allowed(self) -> None:
+        recipe = {"sink": {"config": {"server": self.GMS, "token": "${SINK_TOKEN}"}}}
+        assert self._find(recipe, {"SINK_TOKEN": self.TOKEN}) == []
+
+    def test_token_reference_for_own_server_is_allowed(self) -> None:
+        recipe = {
+            "sink": {"config": {"server": self.GMS, "token": "${DATAHUB_GMS_TOKEN}"}}
+        }
+        assert self._find(recipe) == []
+
+    def test_token_for_other_server_is_still_rejected(self) -> None:
+        recipe = {
+            "sink": {
+                "config": {
+                    "server": "http://other:8080",
+                    "token": "${DATAHUB_GMS_TOKEN}",
+                }
+            }
+        }
+        assert self._find(recipe) == ["recipe.sink.config.token"]
+
+    def test_credential_elsewhere_in_recipe_is_still_rejected(self) -> None:
+        recipe = {
+            "sink": {"config": {"server": self.GMS}},
+            "source": {"config": {"password": "${DATAHUB_GMS_TOKEN}"}},
+        }
+        assert self._find(recipe) == ["recipe.source.config.password"]
+
+    def test_short_credential_value_is_logged_not_compared(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setenv("DATAHUB_GMS_TOKEN", "short")
+        monkeypatch.setenv("COPY", "short")
+        with caplog.at_level("DEBUG"):
+            assert self._find({"source": {"config": {"password": "${COPY}"}}}) == []
+        assert "DATAHUB_GMS_TOKEN is shorter than" in caplog.text

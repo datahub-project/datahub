@@ -128,7 +128,8 @@ _DATAHUB_EMITTER_TRACE = get_emitter_trace()
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
 # Servers already warned about not receiving system credentials. The rest sink builds one
-# emitter per worker thread, so without this the same warning repeats per thread.
+# emitter per worker thread, so without this the same warning repeats per thread. It is
+# process-wide and never cleared; a test asserting the warning must clear it first.
 _SYSTEM_AUTH_SKIPPED_SERVERS: set[str] = set()
 
 TRACE_PENDING_STATUS = "PENDING"

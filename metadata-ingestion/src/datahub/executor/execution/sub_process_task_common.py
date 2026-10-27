@@ -98,7 +98,7 @@ def find_credential_redirects(
       that has no token or auth of its own;
     - references to the credential environment variables in the recipe or pip settings,
       including indirect ${!NAME} references, and credential values in the resolved recipe
-      or pip requirements;
+      or pip requirements, except in the token/auth of a client for the configured server;
     - extra_env_vars that redirect the configured server, replace its credentials or set a
       proxy.
 
@@ -106,56 +106,83 @@ def find_credential_redirects(
     inherits the executor's environment, so a run that installs its own code (pip
     requirements, plugins, or a CLI version without the client-side check) can read it.
     """
-    problems = [
-        f"extra_env_vars.{name}"
-        for name in args.extra_env_vars
-        if name.strip().upper() in _PROTECTED_ENV_VARS
-        or name.strip().upper().startswith(_PROTECTED_ENV_VAR_PREFIX)
-    ]
-    for label, value in (
-        ("recipe", recipe),
-        ("extra_pip_requirements", args.extra_pip_requirements),
-        ("extra_pip_plugins", args.extra_pip_plugins),
-    ):
-        problems.extend(_credential_references(value, label))
-
     # Check the servers, tokens and values the subprocess will actually see, placeholders
-    # filled in. If resolution fails here, the reference checks above still apply.
+    # filled in. If resolution fails here, the reference checks below still apply.
     try:
         effective_recipe = resolve_env_variables(
             recipe, environ={**args.get_combined_env_vars(), **secret_values}
         )
     except Exception:
         effective_recipe = recipe
-    credential_values = [
-        credential
-        for name in _CREDENTIAL_ENV_VARS
-        if (credential := os.environ.get(name))
-        and len(credential) >= _MIN_COMPARED_CREDENTIAL_LENGTH
+    env_url = config_utils.get_url_from_env()
+
+    problems = [
+        f"extra_env_vars.{name}"
+        for name in args.extra_env_vars
+        if name.strip().upper() in _PROTECTED_ENV_VARS
+        or name.strip().upper().startswith(_PROTECTED_ENV_VAR_PREFIX)
     ]
+    # A client config that talks to the configured server may carry the executor's own
+    # credentials (for example `token: ${DATAHUB_GMS_TOKEN}`); its token and auth fields are
+    # exempt from the reference and value checks.
+    own_server_credentials: list[str] = []
+    for path, client_config in _datahub_client_configs(effective_recipe, ""):
+        server = client_config.get("server")
+        if not isinstance(server, str) or not server:
+            continue
+        if env_url is not None and is_same_gms_origin(env_url, server):
+            own_server_credentials += [f"recipe.{path}.token", f"recipe.{path}.auth"]
+        elif not (client_config.get("token") or client_config.get("auth")):
+            problems.append(f"{path}.server")
+
+    credential_problems: list[str] = []
+    for label, value in (
+        ("recipe", recipe),
+        ("extra_pip_requirements", args.extra_pip_requirements),
+        ("extra_pip_plugins", args.extra_pip_plugins),
+    ):
+        credential_problems.extend(_credential_references(value, label))
+    credential_values = _credential_values()
     if credential_values:
-        problems.extend(
+        credential_problems.extend(
             _paths_containing(effective_recipe, "recipe", credential_values)
         )
-        problems.extend(
+        credential_problems.extend(
             _paths_containing(
                 [_expand_pip_req_or_raw(req) for req in args.extra_pip_requirements],
                 "extra_pip_requirements",
                 credential_values,
             )
         )
-    env_url = config_utils.get_url_from_env()
-    for path, client_config in _datahub_client_configs(effective_recipe, ""):
-        server = client_config.get("server")
-        if not isinstance(server, str) or not server:
-            continue
-        if client_config.get("token") or client_config.get("auth"):
-            continue
-        if env_url is not None and is_same_gms_origin(env_url, server):
-            continue
-        problems.append(f"{path}.server")
+    problems.extend(
+        problem
+        for problem in credential_problems
+        if not any(_is_within(problem, exempt) for exempt in own_server_credentials)
+    )
     # A reference that resolves to a credential is reported once, not per check.
     return list(dict.fromkeys(problems))
+
+
+def _credential_values() -> list[str]:
+    values = []
+    for name in _CREDENTIAL_ENV_VARS:
+        credential = os.environ.get(name)
+        if not credential:
+            continue
+        if len(credential) < _MIN_COMPARED_CREDENTIAL_LENGTH:
+            logger.debug(
+                "%s is shorter than %d characters; not comparing its value against "
+                "the recipe. References to it by name are still checked.",
+                name,
+                _MIN_COMPARED_CREDENTIAL_LENGTH,
+            )
+            continue
+        values.append(credential)
+    return values
+
+
+def _is_within(path: str, prefix: str) -> bool:
+    return path == prefix or path.startswith((prefix + ".", prefix + "["))
 
 
 def check_credential_redirects(
