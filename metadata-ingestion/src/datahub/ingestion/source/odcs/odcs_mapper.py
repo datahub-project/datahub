@@ -155,6 +155,7 @@ class RefusalKind(StrEnum):
     UNRESOLVED_VARIABLE = "unresolved_variable"
     EXPLICITLY_UNBOUND = "explicitly_unbound"
     NO_TABLE_NAME = "no_table_name"
+    INVALID_OVERRIDE = "invalid_override"
 
 
 @dataclass(frozen=True)
@@ -182,7 +183,8 @@ class PhysicalBinding:
     refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
     # The table as SQL names it: the URN's dataset name without a platform
-    # instance prefix. None when unbound or when an override URN is malformed.
+    # instance prefix. An override keeps an instance prefix that no
+    # `server_overrides` entry names. None when unbound.
     table_name: Optional[str] = None
 
     @property
@@ -459,15 +461,51 @@ def _compose_physical_name(
     return name.lower() if lowercase else name, None, False
 
 
-def _override_table_name(override_urn: str) -> Optional[str]:
-    # An override URN may carry a platform instance in its name; it cannot be
-    # told apart from the table path, so the name is used as written.
+def _strip_platform_instance(urn: DatasetUrn, mappings: List[ServerMapping]) -> str:
+    # An instance prefix cannot be told apart from the table path, so only the
+    # instances the recipe names are stripped.
+    platform = urn.get_data_platform_urn().platform_name
+    for mapping in mappings:
+        prefix = f"{mapping.platform_instance}."
+        if (
+            mapping.platform_instance
+            and mapping.platform in (None, platform)
+            and urn.name.startswith(prefix)
+        ):
+            return urn.name[len(prefix) :]
+    return urn.name
+
+
+def _override_binding(
+    index: int,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+    override_urn: str,
+    config: ODCSSourceConfig,
+) -> PhysicalBinding:
+    binding = PhysicalBinding(
+        index=index,
+        schema_entry=schema_entry,
+        logical_urn=logical_urn,
+        physical_urn=None,
+    )
     if not override_urn:
-        return None
+        binding.refusal = BindingRefusal(
+            RefusalKind.EXPLICITLY_UNBOUND,
+            "explicitly unbound by physical_urn_overrides",
+        )
+        return binding
     try:
-        return DatasetUrn.from_string(override_urn).name
+        urn = DatasetUrn.from_string(override_urn)
     except InvalidUrnError:
-        return None
+        binding.refusal = BindingRefusal(
+            RefusalKind.INVALID_OVERRIDE,
+            f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
+        )
+        return binding
+    binding.physical_urn = override_urn
+    binding.table_name = _strip_platform_instance(urn, config.server_overrides)
+    return binding
 
 
 def odcs_to_physical_bindings(
@@ -496,22 +534,13 @@ def odcs_to_physical_bindings(
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
 
         if overrides is not None and schema_entry.name in overrides:
-            override_urn = (overrides[schema_entry.name] or "").strip()
             bindings.append(
-                PhysicalBinding(
-                    index=index,
-                    schema_entry=schema_entry,
-                    logical_urn=logical_urn,
-                    physical_urn=override_urn or None,
-                    table_name=_override_table_name(override_urn),
-                    refusal=(
-                        None
-                        if override_urn
-                        else BindingRefusal(
-                            RefusalKind.EXPLICITLY_UNBOUND,
-                            "explicitly unbound by physical_urn_overrides",
-                        )
-                    ),
+                _override_binding(
+                    index,
+                    schema_entry,
+                    logical_urn,
+                    (overrides[schema_entry.name] or "").strip(),
+                    config,
                 )
             )
             continue
@@ -701,6 +730,12 @@ def _native_data_type(prop: ODCSProperty) -> str:
     return prop.physicalType or prop.logicalType or "unknown"
 
 
+def _backtick_fence(text: str, minimum: int) -> str:
+    # Longer than any backtick run in the text, so the text cannot close it.
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    return "`" * max(minimum, longest + 1)
+
+
 def _field_description(prop: ODCSProperty) -> Optional[str]:
     """The property description followed by how the column is derived.
 
@@ -708,14 +743,15 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
     never accumulate and disappear when the contract drops them.
     """
     parts = [_description_to_str(prop.description)]
-    transform_description = (prop.transformDescription or "").strip()
-    transform_logic = (prop.transformLogic or "").strip()
+    transform_description = _description_to_str(prop.transformDescription)
+    transform_logic = _description_to_str(prop.transformLogic)
     if transform_description or transform_logic:
         derivation = "**Derivation:**"
         if transform_description:
             derivation += f" {transform_description}"
         if transform_logic:
-            derivation += f"\n\n```sql\n{transform_logic}\n```"
+            fence = _backtick_fence(transform_logic, minimum=3)
+            derivation += f"\n\n{fence}sql\n{transform_logic}\n{fence}"
         parts.append(derivation)
     return "\n\n".join(p for p in parts if p) or None
 
@@ -909,7 +945,7 @@ def _dataset_description(
     A multi-table contract repeats the contract description on every table:
     each logical dataset is read on its own, by people and by Ask DataHub.
     """
-    grain = (schema_entry.dataGranularityDescription or "").strip()
+    grain = _description_to_str(schema_entry.dataGranularityDescription)
     parts = [
         _description_to_str(schema_entry.description),
         f"**Grain:** {grain}" if grain else None,

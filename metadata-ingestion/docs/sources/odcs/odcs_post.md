@@ -49,8 +49,13 @@ and reordering do not churn identities.
 
 When a table binds to a physical dataset, `{object}` and `${object}` in a rule's `query`
 are replaced with the bound table's name, for example `my_catalog.my_schema.orders`, without
-the platform instance. A `physical_urn_overrides` URN's dataset name is used as written. An
-unbound table keeps the placeholder and gets a warning.
+the platform instance. A `physical_urn_overrides` URN's dataset name is used as written,
+minus a platform instance that a `server_overrides` entry names. The name is not quoted, and
+it is lowercased when `lowercase_physical_urns` lowercases the URN. With
+`verify_physical_urns_exist`, a table that is not found in DataHub is not substituted. A
+table that is not bound or not found keeps the placeholder and gets a warning, unless it was
+unbound on purpose with an empty `physical_urn_overrides` entry. Placeholders in
+`implementation` are not replaced and are reported as unresolved variables.
 
 :::warning Routing is exact; nothing is approximated
 
@@ -86,7 +91,8 @@ on it. Resolution per `schema[]` entry, in priority order:
 
 1. `physical_urn_overrides[<contract id>][<schema entry name>]` — an explicit URN, or an
    empty string to deliberately leave the entry unbound. Entries absent from the map fall
-   back to derivation; keys that match no schema entry warn.
+   back to derivation; keys that match no schema entry warn. A value that is not a dataset
+   URN leaves the entry unbound and is reported as a warning.
 2. The contract's first mappable `servers[]` entry. The platform comes from the
    spec-required `servers[].type` (or a matching `server_overrides` entry), and the table
    name (`physicalName`, falling back to `name`) is qualified with the server's own fields
@@ -207,7 +213,7 @@ in place.
   objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
   team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
   `region`. These may land in a follow-up.
-- **Lossy mappings are reported.** Besides the info above: off-spec v3.2 values that were
+- **Lossy mappings are reported.** Besides the info above: off-spec values that were
   dropped, `${VAR}` references in quality `query` text, and `{object}` placeholders on a
   table that is not bound, are warnings; team roles defaulted to Technical Owner are infos.
 - **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the

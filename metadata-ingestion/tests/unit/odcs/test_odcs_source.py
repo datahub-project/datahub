@@ -3,7 +3,7 @@
 import json
 import pathlib
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
 from datahub.ingestion.source.odcs import odcs_source
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
@@ -2166,6 +2167,8 @@ schema:
   - name: t
     description: Table description.
     deprecated: "true"
+    dataGranularityDescription:
+      x: 1
     quality:
       - type: sql
         query: SELECT COUNT(*) FROM t WHERE ts > ${CUTOFF}
@@ -2175,6 +2178,7 @@ schema:
         criticalDataElement: true
         classification: confidential
         semanticType: 5
+        transformLogic: [a, b]
 """
 
 
@@ -2193,6 +2197,8 @@ def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
     # Off-spec values dropped by the model.
     assert "schema[0].deprecated" in warnings
     assert "properties[0].semanticType" in warnings
+    assert "schema[0].dataGranularityDescription" in warnings
+    assert "properties[0].transformLogic" in warnings
     infos = _messages(src.report.infos)
     # Unresolved variable copied into a SQL assertion.
     assert "${CUTOFF}" in warnings
@@ -2315,32 +2321,99 @@ def test_object_placeholder_bound_is_replaced_without_warnings(
     assert "placeholder" not in _messages(src.report.warnings)
 
 
-def test_object_placeholder_unbound_warns(tmp_path: pathlib.Path) -> None:
-    body = _VALID_CONTRACT_BODY.replace("type: postgres", "type: kafka").replace(
-        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
-    )
-    _write(tmp_path / "c.odcs.yaml", body)
-    src = _make_source(tmp_path)
-    list(src.get_workunits_internal())
-    warnings = [w for w in src.report.warnings if w.title and "placeholder" in w.title]
-    assert len(warnings) == 1
-    assert "t" in str(warnings[0].context)
-
-
-def test_malformed_override_does_not_stop_the_file(tmp_path: pathlib.Path) -> None:
+def _object_rule_source(
+    tmp_path: pathlib.Path, rule: str = _OBJECT_RULE, **config: Any
+) -> Tuple[ODCSSource, List[MetadataWorkUnit]]:
     body = _VALID_CONTRACT_BODY.replace(
-        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
+        "  - name: t\n    physicalName: t\n",
+        "  - name: orders_entry\n    physicalName: t\n" + rule,
     )
     _write(tmp_path / "c.odcs.yaml", body)
-    src = _make_source(
-        tmp_path,
-        physical_urn_overrides={"test-contract-1": {"t": "urn:li:datset:typo"}},
-    )
-    workunits = list(src.get_workunits_internal())
-    statements = [
+    src = _make_source(tmp_path, **config)
+    return src, list(src.get_workunits_internal())
+
+
+def _sql_statements(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [
         a.sqlAssertion.statement
         for a in _aspects_of(workunits, AssertionInfoClass)
         if a.sqlAssertion is not None
     ]
-    assert statements == ["SELECT count(*) FROM ${object} WHERE id IS NULL"]
+
+
+def _placeholder_warnings(src: ODCSSource) -> List[Any]:
+    return [w for w in src.report.warnings if w.title and "placeholder" in w.title]
+
+
+def test_object_placeholder_unbound_warns(tmp_path: pathlib.Path) -> None:
+    src, _ = _object_rule_source(
+        tmp_path, server_overrides=[{"server": "prod-postgres", "platform": "kafka"}]
+    )
+    warnings = _placeholder_warnings(src)
+    assert len(warnings) == 1
+    assert "orders_entry" in str(warnings[0].context)
+
+
+def test_object_placeholder_explicit_unbind_is_not_warned(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path, physical_urn_overrides={"test-contract-1": {"orders_entry": ""}}
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert not _placeholder_warnings(src)
+
+
+@pytest.mark.parametrize("override", ["urn:li:datset:typo", "appdb.public.t"])
+def test_invalid_override_is_reported_and_left_unbound(
+    tmp_path: pathlib.Path, override: str
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path, physical_urn_overrides={"test-contract-1": {"orders_entry": override}}
+    )
     assert not src.report.failures
+    assert not _aspects_of(workunits, LogicalParentClass)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert override in _messages(src.report.warnings)
+
+
+def test_object_placeholder_kept_when_bound_table_not_found(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = False
+    src, workunits = _object_rule_source(tmp_path, graph=graph)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert "not found" in _messages(_placeholder_warnings(src))
+    # Checked once, for the assertions and the logicalParent link together.
+    assert src.report.physical_urns_unverified == 1
+
+
+def test_object_placeholder_beside_other_variables(tmp_path: pathlib.Path) -> None:
+    rule = _OBJECT_RULE.replace(
+        "WHERE id IS NULL", "WHERE ts > ${CUTOFF} AND k = ${object_id}"
+    )
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM appdb.public.t WHERE ts > ${CUTOFF} AND k = ${object_id}"
+    ]
+    assert "unresolved variable" in _messages(src.report.warnings)
+
+
+def test_object_placeholder_in_implementation_still_warns(
+    tmp_path: pathlib.Path,
+) -> None:
+    rule = """\
+    quality:
+      - type: custom
+        engine: soda
+        implementation: SELECT 1 FROM ${object}
+"""
+    src, _ = _object_rule_source(tmp_path, rule=rule)
+    assert "unresolved variable" in _messages(src.report.warnings)

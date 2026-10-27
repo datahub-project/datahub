@@ -536,7 +536,7 @@ def test_logical_dataset_mcps_carry_provenance_and_schema() -> None:
     assert props.description is not None and "**purpose**: P" in props.description
 
 
-def _dataset_description(contract: ODCSContract) -> Optional[str]:
+def _logical_description(contract: ODCSContract) -> Optional[str]:
     mcps, _ = odcs_to_logical_dataset_mcps(
         contract=contract,
         schema_entry=_first_schema(contract),
@@ -557,7 +557,7 @@ def test_dataset_description_combines_table_grain_and_contract() -> None:
         ],
         description={"purpose": "Revenue analysis.", "usage": "Join on order_id."},
     )
-    assert _dataset_description(contract) == (
+    assert _logical_description(contract) == (
         "One row per order.\n\n**Grain:** One row per order_id.\n\n"
         "**purpose**: Revenue analysis.\n\n**usage**: Join on order_id."
     )
@@ -567,7 +567,7 @@ def test_dataset_description_blank_grain_ignored() -> None:
     contract = _make_contract(
         schema=[{"name": "t", "description": "T.", "dataGranularityDescription": "   "}]
     )
-    assert _dataset_description(contract) == "T."
+    assert _logical_description(contract) == "T."
 
 
 def test_grain_off_spec_value_dropped() -> None:
@@ -577,17 +577,11 @@ def test_grain_off_spec_value_dropped() -> None:
     assert entry.dataGranularityDescription is None
 
 
-def test_contract_description_is_fallback() -> None:
+def test_contract_description_alone_when_table_has_none() -> None:
     contract = _make_contract(
         schema=[{"name": "t"}], description="Contract-level description."
     )
-    mcps, _ = odcs_to_logical_dataset_mcps(
-        contract=contract,
-        schema_entry=_first_schema(contract),
-        logical_urn=LOGICAL_URN,
-    )
-    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
-    assert props.description == "Contract-level description."
+    assert _logical_description(contract) == "Contract-level description."
 
 
 def test_description_object_renders_non_spec_extra_prose_keys() -> None:
@@ -2016,6 +2010,11 @@ def _field_descriptions(properties: List[Dict[str, Any]]) -> Dict[str, Optional[
             {"transformDescription": "Sum of line items."},
             "Order total.\n\n**Derivation:** Sum of line items.",
         ),
+        (
+            # A fence in the logic must not close the block early.
+            {"transformLogic": "SELECT '```' AS x"},
+            "Order total.\n\n**Derivation:**\n\n````sql\nSELECT '```' AS x\n````",
+        ),
         ({"transformDescription": "  ", "transformLogic": ""}, "Order total."),
         ({}, "Order total."),
     ],
@@ -2122,8 +2121,8 @@ def test_binding_table_name_excludes_platform_instance() -> None:
     assert bindings[0].table_name == "db.sch.tbl"
 
 
-def test_binding_table_name_from_override_and_malformed_override() -> None:
-    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+def test_override_that_is_not_a_dataset_urn_is_refused() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}])
     bindings = odcs_to_physical_bindings(
         contract,
         _config(
@@ -2131,9 +2130,60 @@ def test_binding_table_name_from_override_and_malformed_override() -> None:
                 "c1": {
                     "a": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.a,PROD)",
                     "b": "urn:li:datset:typo",
+                    "c": "appdb.public.c",
                 }
             }
         ),
     )
     assert bindings[0].table_name == "db.sch.a"
-    assert bindings[1].table_name is None
+    for refused, value in (
+        (bindings[1], "urn:li:datset:typo"),
+        (bindings[2], "appdb.public.c"),
+    ):
+        assert refused.physical_urn is None
+        assert refused.table_name is None
+        assert refused.refusal is not None
+        assert refused.refusal.kind is RefusalKind.INVALID_OVERRIDE
+        assert value in refused.refusal.message
+
+
+def test_override_table_name_strips_configured_platform_instance() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[{"server": "srv", "platform_instance": "inst1"}],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,other.db.sch.b,PROD)",
+                }
+            },
+        ),
+    )
+    assert bindings[0].table_name == "db.sch.a"
+    # An instance the recipe does not name cannot be told apart from the path.
+    assert bindings[1].table_name == "other.db.sch.b"
+
+
+@pytest.mark.parametrize(
+    "lowercase, expected", [(True, "db.sch.mytable"), (False, "DB.Sch.MyTable")]
+)
+def test_binding_table_name_follows_lowercase_setting(
+    lowercase: bool, expected: str
+) -> None:
+    contract = _make_contract(
+        servers=[
+            {"server": "srv", "type": "snowflake", "database": "DB", "schema": "Sch"}
+        ],
+        schema=[{"name": "t1", "physicalName": "MyTable"}],
+    )
+    bindings = odcs_to_physical_bindings(
+        contract, _config(lowercase_physical_urns=lowercase)
+    )
+    assert bindings[0].table_name == expected
+
+
+def test_substitute_object_placeholder_leaves_longer_tokens() -> None:
+    query = "SELECT ${object_id}, ${object:-x} FROM {objects}"
+    assert substitute_object_placeholder(query, "db.sch.orders") == query
