@@ -43,7 +43,7 @@ describe('getCategoryOptions', () => {
         ]);
     });
 
-    it('returns Documentation, Terms, Owners, Domains, Properties, Applications, Versions, Lifecycle for glossary terms', () => {
+    it('returns Documentation, Terms, Owners, Domains, Properties, Applications, Versions for glossary terms', () => {
         const options = getCategoryOptions(EntityType.GlossaryTerm);
         const values = options.map((o) => o.value);
 
