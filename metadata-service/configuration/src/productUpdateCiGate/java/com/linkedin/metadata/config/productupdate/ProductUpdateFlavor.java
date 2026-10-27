@@ -16,9 +16,9 @@ import javax.annotation.Nonnull;
  * tracks.
  *
  * <p>Core and cloud version independently, so each flavor resolves its own latest release. Both
- * release histories keep unreleased notes under a draft heading ({@code ## Next} / {@code next.md})
- * that is promoted to a versioned one at release cut, so drafting notes on master does not make a
- * flavor look out of date — only actually cutting a release does.
+ * release histories keep unreleased notes under a draft heading ({@code ## Unreleased} / {@code
+ * next.md}) that is promoted to a versioned one at release cut, so drafting notes on master does
+ * not make a flavor look out of date — only actually cutting a release does.
  */
 public enum ProductUpdateFlavor {
   CORE(
