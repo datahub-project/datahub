@@ -34,7 +34,7 @@ import { useSearchContext } from '@app/search/context/SearchContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
+import DataProcessInstanceInfo from '@src/app/previewV2/DataProcessInstanceInfo';
 
 import {
     BrowsePathV2,

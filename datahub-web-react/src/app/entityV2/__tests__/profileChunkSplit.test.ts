@@ -30,6 +30,7 @@ const PROFILE_IMPORT_ALLOWLIST = [
     'lineageV3/types',
     'lineageV3/utils/lineageUtils',
     'lineageV3/utils/downgradeV2FieldPath',
+    'lineageV3/utils/columnLineageUtils',
 ];
 
 const PROFILE_IMPORT_MARKERS = [
