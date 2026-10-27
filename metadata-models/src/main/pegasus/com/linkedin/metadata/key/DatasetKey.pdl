@@ -19,7 +19,6 @@ record DatasetKey {
     "enableAutocomplete": true,
     "v3": {
       "searchLabel": "platform",
-      "queryByDefault": false,
       "copyToOther": true
     }
   }
@@ -35,6 +34,7 @@ record DatasetKey {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },

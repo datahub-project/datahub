@@ -209,14 +209,26 @@ public class ResolverUtils {
   /**
    * Simply resolves the end time filter for the search across lineage query. If the start time is
    * provided, but end time is not provided, we will default to the current time.
+   *
+   * <p>An end time the caller actually supplied is returned untouched. Only the defaulted value is
+   * canonicalized, since that one is derived from the wall clock and would otherwise make every
+   * lineage query with a start-time filter unique.
+   *
+   * <p>{@code opContext} is nullable only to satisfy {@code ModelMapper}, whose {@code apply} takes
+   * a nullable {@code QueryContext}. Every production caller supplies one, so the uncanonicalized
+   * branch is unreachable in practice - it exists so this stays a pure function rather than
+   * throwing. Because that branch never runs, it also never records a canonicalization skip; if it
+   * ever becomes reachable, route it through the operation context so the skip is counted.
    */
   public static Long getLineageEndTimeMillis(
-      @Nullable Long startTimeMillis, @Nullable Long endTimeMillis) {
+      @Nullable OperationContext opContext,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis) {
     if (endTimeMillis != null) {
       return endTimeMillis;
     }
     if (startTimeMillis != null) {
-      return System.currentTimeMillis();
+      return opContext != null ? opContext.canonicalNow().upperBound() : System.currentTimeMillis();
     }
     return null;
   }

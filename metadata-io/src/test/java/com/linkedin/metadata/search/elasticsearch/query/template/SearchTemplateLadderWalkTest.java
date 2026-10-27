@@ -490,7 +490,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                 loader,
                 ForkJoinPool.commonPool(),
                 "urn:li:searchTemplate:shardGroup",
-                new SearchTemplateWalk.Request("orders", null, null, 10),
+                new SearchTemplateWalk.Request(
+                    "orders", null, null, 10, SearchTemplateWalk.identity()),
                 urn -> {
                   SearchResult result = page(0);
                   return SearchTemplateWalk.AttemptResult.ok(
@@ -498,7 +499,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                       result.getNumEntities(),
                       new ArrayList<>(result.getEntities()),
                       List.of(),
-                      urn.equals(shard));
+                      urn.equals(shard),
+                      null);
                 },
                 (first, entities, total) -> {
                   SearchResult copy = new SearchResult();
@@ -626,7 +628,13 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
         "{ \"window_size\": 10, \"query\": { \"rescore_query\": { \"match_all\": {} }, \"query_weight\": 1.0, \"rescore_query_weight\": 1.0 } }");
     store(SEARCH_TEMPLATE_FULLTEXT_URN, rescored);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     OperationContext searching =
         opContext
             .withSearchFlags(flags -> flags.setFulltext(true))

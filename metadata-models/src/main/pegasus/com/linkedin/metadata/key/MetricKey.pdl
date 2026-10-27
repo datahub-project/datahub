@@ -25,7 +25,7 @@ record MetricKey {
     "addToFilters": true,
     "filterNameOverride": "Platform",
     "v3": {
-      "queryByDefault": false,
+      "searchLabel": "platform",
       "copyToOther": true
     }
   }
@@ -37,6 +37,9 @@ record MetricKey {
    * same `id` on the same platform without colliding.
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
     "filterNameOverride": "Path"

@@ -19,6 +19,9 @@ record DataHubFileInfo {
    * The original filename as uploaded by the user
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   originalFileName: string
@@ -64,7 +67,6 @@ record DataHubFileInfo {
   @Searchable = {
     "fieldType": "URN",
     "v3": {
-      "queryByDefault": false,
       "copyToOther": true
     }
   }
@@ -80,7 +82,6 @@ record DataHubFileInfo {
   @Searchable = {
     "fieldType": "URN",
     "v3": {
-      "queryByDefault": false,
       "copyToOther": true
     }
   }

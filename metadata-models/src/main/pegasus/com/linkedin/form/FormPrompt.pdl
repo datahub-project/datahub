@@ -50,10 +50,7 @@ record FormPrompt {
      */
     @Searchable = {
       "fieldType": "URN",
-      "fieldName": "structuredPropertyPromptUrns",
-      "v3": {
-        "queryByDefault": false
-      }
+      "fieldName": "structuredPropertyPromptUrns"
     }
     urn: Urn
   }

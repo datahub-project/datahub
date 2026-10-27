@@ -7,7 +7,6 @@ from pydantic import Field
 
 if TYPE_CHECKING:
     from mypy_boto3_quicksight import QuickSightClient
-    from mypy_boto3_sts import STSClient
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -216,9 +215,6 @@ class QuickSightSourceConfig(
         # Retries (adaptive by default, see aws_retry_mode) are applied via
         # _aws_config() to absorb QuickSight's per-API TPS throttling.
         return self.get_session().client("quicksight", config=self._aws_config())
-
-    def get_sts_client(self) -> "STSClient":
-        return self.get_session().client("sts", config=self._aws_config())
 
     @pydantic.field_validator("aws_account_id")
     @classmethod
