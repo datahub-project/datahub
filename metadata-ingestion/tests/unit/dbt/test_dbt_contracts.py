@@ -34,7 +34,6 @@ from datahub.ingestion.source.dbt.dbt_core import (
     _parse_model_run,
     extract_contract_columns,
     extract_dbt_entities,
-    get_columns,
     load_run_results,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest
@@ -306,8 +305,8 @@ def test_contract_extraction_from_manifest() -> None:
     )
     assert node.contract is not None and node.contract.checksum == "abc123"
     assert node.model_constraints[0].type == "primary_key"
-    assert node.columns[0].constraints[0].to == "ref('customers')"
     assert node.contract_columns is not None
+    assert node.contract_columns[0].constraints[0].to == "ref('customers')"
     # Declared type, not the catalog's BIGINT.
     assert node.contract_columns[0].data_type == "bigint"
 
@@ -329,29 +328,6 @@ def test_extract_contract_columns_preserves_declared_types() -> None:
     )
     assert [c.data_type for c in cols] == ["bigint", "string", ""]
     assert [c.type for c in cols[0].constraints] == ["primary_key"]
-
-
-def test_get_columns_tolerates_null_constraints() -> None:
-    columns = get_columns(
-        "model.test.orders",
-        {"columns": {"id": {"name": "id", "type": "bigint", "index": 0}}},
-        {"columns": {"id": {"name": "id", "data_type": "bigint", "constraints": None}}},
-        "dbt:",
-    )
-    assert columns[0].constraints == []
-
-
-def test_parse_dbt_constraint_reads_snake_and_camel_case() -> None:
-    snake = parse_dbt_constraint(
-        {"type": "foreign_key", "to": "ref('customers')", "to_columns": ["id"]}
-    )
-    assert snake.to == "ref('customers')"
-    assert snake.to_columns == ["id"]
-    camel = parse_dbt_constraint(
-        {"type": "foreign_key", "toColumns": ["id"], "warnUnenforced": True}
-    )
-    assert camel.to_columns == ["id"]
-    assert camel.warn_unenforced is True
 
 
 def test_primary_key_expands_to_unique_and_per_column_not_null() -> None:
@@ -833,13 +809,13 @@ def test_unresolvable_foreign_key_target_is_not_matched_by_name() -> None:
     # A ref to a model outside this manifest (or another package's model of
     # the same name) could be any schema's relation.
     resolver = _RelationResolver([_make_model(name="customers")])
-    assert resolver.resolve("ref('customers')") == (
+    assert resolver.resolve("ref('customers')")[0] == (
         "test_db",
         "test_schema",
         "customers",
     )
-    assert resolver.resolve("ref('other_project', 'customers')") is None
-    assert resolver.resolve("ref('missing')") is None
+    assert resolver.resolve("ref('other_project', 'customers')")[0] is None
+    assert resolver.resolve("ref('missing')")[0] is None
 
 
 def test_versioned_ref_resolves_to_its_version() -> None:
@@ -849,18 +825,18 @@ def test_versioned_ref_resolves_to_its_version() -> None:
         node.dbt_name = f"model.test_pkg.orders.v{version}"
         versions.append(node)
     resolver = _RelationResolver(versions)
-    assert resolver.resolve("ref('orders', v=2)") == (
+    assert resolver.resolve("ref('orders', v=2)")[0] == (
         "test_db",
         "test_schema",
         "orders_v2",
     )
-    assert resolver.resolve("ref('test_pkg', 'orders', version='1')") == (
+    assert resolver.resolve("ref('test_pkg', 'orders', version='1')")[0] == (
         "test_db",
         "test_schema",
         "orders_v1",
     )
     # Without a version, dbt picks the latest, which the nodes do not record.
-    assert resolver.resolve("ref('orders')") is None
+    assert resolver.resolve("ref('orders')")[0] is None
 
 
 def test_test_urns_omitted_when_test_definitions_disabled() -> None:

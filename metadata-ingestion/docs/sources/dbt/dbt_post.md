@@ -759,7 +759,7 @@ Will create a Dashboard entity in DataHub with:
 
 #### Ingesting dbt Contracts as DataHub Data Contracts
 
-[dbt model contracts](https://docs.getdbt.com/docs/collaborate/govern/model-contracts) (introduced in dbt 1.5) let you declare schema guarantees on your models — column names, data types, and constraints like `not_null`, `unique`, `primary_key`, `foreign_key`, and `check`. DataHub can ingest these contracts and represent them as [Data Contracts](/docs/managed-datahub/observe/data-contract.md), so the same guarantees are visible in your catalog alongside your datasets.
+[dbt model contracts](https://docs.getdbt.com/docs/collaborate/govern/model-contracts) (introduced in dbt 1.5) let you declare schema guarantees on your models — column names, data types, and constraints like `not_null`, `unique`, `primary_key`, `foreign_key`, and `check`. DataHub can ingest these contracts and represent them as [Data Contracts](docs/generated/metamodel/entities/dataContract.md), so the same guarantees are visible in your catalog alongside your datasets.
 
 ##### Enabling Contract Ingestion
 

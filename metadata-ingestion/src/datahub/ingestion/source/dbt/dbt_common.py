@@ -11,7 +11,6 @@ from enum import Enum, auto
 from functools import cached_property
 from typing import (
     Any,
-    Callable,
     Dict,
     FrozenSet,
     Iterable,
@@ -1131,14 +1130,6 @@ def _normalize_constraint_type(value: str) -> str:
 def parse_dbt_constraint(constraint_dict: Dict[str, Any]) -> DBTConstraint:
     """Parse a manifest or Discovery API constraint object."""
     to_columns = constraint_dict.get("to_columns")
-    if to_columns is None:
-        to_columns = constraint_dict.get("toColumns")
-    warn_unenforced = constraint_dict.get("warn_unenforced")
-    if warn_unenforced is None:
-        warn_unenforced = constraint_dict.get("warnUnenforced")
-    warn_unsupported = constraint_dict.get("warn_unsupported")
-    if warn_unsupported is None:
-        warn_unsupported = constraint_dict.get("warnUnsupported")
     columns = constraint_dict.get("columns")
     return DBTConstraint(
         type=_normalize_constraint_type(constraint_dict.get("type") or "unknown"),
@@ -1147,8 +1138,8 @@ def parse_dbt_constraint(constraint_dict: Dict[str, Any]) -> DBTConstraint:
         columns=list(columns) if columns else None,
         to=constraint_dict.get("to"),
         to_columns=list(to_columns) if to_columns else None,
-        warn_unenforced=warn_unenforced,
-        warn_unsupported=warn_unsupported,
+        warn_unenforced=constraint_dict.get("warn_unenforced"),
+        warn_unsupported=constraint_dict.get("warn_unsupported"),
     )
 
 
@@ -1304,9 +1295,17 @@ class _RelationResolver:
         # a name shared across packages, as unresolved.
         return candidates[0] if len(candidates) == 1 else None
 
-    def resolve(self, value: Optional[str]) -> Optional[_RelationKey]:
+    def resolve(
+        self, value: Optional[str]
+    ) -> Tuple[Optional[_RelationKey], Optional[str]]:
+        """The relation a target resolves to (None if it cannot be resolved),
+        and the target's lowercased relation name.
+
+        The name identifies an unresolved target the same way whether dbt
+        rendered it raw (``ref('pkg', 'x')``) or compiled (``"db"."s"."x"``).
+        """
         if not value:
-            return None
+            return None, None
         ref_match = _REF_OR_SOURCE_RE.search(value)
         if ref_match:
             version_match = _REF_VERSION_RE.search(value)
@@ -1314,21 +1313,25 @@ class _RelationResolver:
             # ``ref('model')``, ``ref('package', 'model')``, ``source('src', 'tbl')``.
             args = [arg.lower() for arg in _QUOTED_ARG_RE.findall(positional)]
             if not args:
-                return None
+                return None, None
+            name = args[-1]
             if ref_match.group(1).lower() == "source":
                 if len(args) < 2:
-                    return None
-                return self._by_source.get((args[-2], args[-1]))
+                    return None, name
+                return self._by_source.get((args[-2], name)), name
             # An unresolvable ref (e.g. to another project) could name a
             # relation in any schema, so it is not matched by name alone.
-            return self._resolve_ref(
-                package=args[-2] if len(args) >= 2 else None,
-                name=args[-1],
-                version=(
-                    _normalize_ref_version(version_match.group(2))
-                    if version_match
-                    else None
+            return (
+                self._resolve_ref(
+                    package=args[-2] if len(args) >= 2 else None,
+                    name=name,
+                    version=(
+                        _normalize_ref_version(version_match.group(2))
+                        if version_match
+                        else None
+                    ),
                 ),
+                name,
             )
         # A compiled or bare relation name resolves to the one known relation
         # it names, so it matches the raw ref()/source() form.
@@ -1336,22 +1339,10 @@ class _RelationResolver:
         matches = [
             key for key in self._relations if _relation_keys_match(key, relation)
         ]
-        return matches[0] if len(matches) == 1 else None
-
-    @staticmethod
-    def relation_name(value: Optional[str]) -> Optional[str]:
-        """Last relation part of a raw or compiled target, lowercased.
-
-        Identifies a target that cannot be resolved the same way whether dbt
-        rendered it raw (``ref('pkg', 'x')``) or compiled (``"db"."s"."x"``).
-        """
-        if not value:
-            return None
-        if _REF_OR_SOURCE_RE.search(value):
-            args = _QUOTED_ARG_RE.findall(_REF_VERSION_RE.sub("", value))
-            return args[-1].lower() if args else None
-        parts = _split_relation_name(value)
-        return parts[-1] if parts else None
+        return (
+            matches[0] if len(matches) == 1 else None,
+            relation[-1] if relation else None,
+        )
 
 
 _ALL_STANDARD_CONSTRAINTS = frozenset(
@@ -1464,13 +1455,14 @@ def _normalize_constraint(
         if match:
             to = match.group(1)
             to_columns = [c.strip() for c in match.group(2).split(",") if c.strip()]
+    to_key, to_name = resolver.resolve(to)
     return _NormalizedConstraint(
         constraint=constraint,
         scope=scope,
         columns=tuple(columns),
         to_columns=tuple(to_columns),
-        to=resolver.resolve(to),
-        to_name=_RelationResolver.relation_name(to),
+        to=to_key,
+        to_name=to_name,
     )
 
 
@@ -1527,7 +1519,8 @@ def _foreign_key_matches_test(
     if test_info is None or constraint.to is None:
         return False
     kw_args = test_info.kw_args or {}
-    if resolver.resolve(kw_args.get("to")) != constraint.to:
+    test_to, _ = resolver.resolve(kw_args.get("to"))
+    if test_to != constraint.to:
         return False
     # A relationships test checks one column, so it proves a single-column
     # foreign key only, and only for the paired referenced column.
@@ -6025,23 +6018,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             log=False,
         )
 
+    @staticmethod
     def _index_contract_tests_by_upstream(
-        self,
         test_nodes: List[DBTNode],
+        tagged_tests: Set[str],
     ) -> Dict[str, List[DBTNode]]:
         """Index attachable tests by upstream ``dbt_name``.
 
         Includes tests tagged with ``contract_test_tag`` and tests whose type
         can match a declared constraint. Other tests are ignored here.
         """
-        contract_tag = self.config.tag_prefix + self.config.contract_test_tag
         tests_by_upstream: Dict[str, List[DBTNode]] = {}
         for test_node in test_nodes:
-            tagged = contract_tag in test_node.tags
             qname = (
                 test_node.test_info.qualified_test_name if test_node.test_info else None
             )
-            if not tagged and qname not in _AUTO_LINKABLE_TEST_NAMES:
+            if (
+                test_node.dbt_name not in tagged_tests
+                and qname not in _AUTO_LINKABLE_TEST_NAMES
+            ):
                 continue
             for upstream in test_node.upstream_nodes:
                 tests_by_upstream.setdefault(upstream, []).append(test_node)
@@ -6078,9 +6073,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         declared: Sequence[_NormalizedConstraint],
         resolver: _RelationResolver,
         num_upstreams: int,
+        tagged: bool,
     ) -> bool:
-        contract_tag = self.config.tag_prefix + self.config.contract_test_tag
-        if contract_tag in test_node.tags:
+        if tagged:
             # A tagged multi-model test (e.g. relationships) belongs to the
             # model it is declared on, not to every model it reads.
             attached_node = (
@@ -6099,35 +6094,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         declared: Sequence[_NormalizedConstraint],
         resolver: _RelationResolver,
     ) -> bool:
-        if not test_node.test_info:
-            return False
-        qname = test_node.test_info.qualified_test_name
-        test_columns = _test_column_set(test_node.test_info)
+        test_info = test_node.test_info
         # A filtered test checks only some rows, so it does not prove an
         # unfiltered constraint.
-        if test_node.test_info.where:
+        if not test_info or test_info.where:
             return False
-
+        qname = test_info.qualified_test_name
+        if qname == _RELATIONSHIPS_TEST_NAME:
+            return any(
+                constraint.type == DBTConstraintType.FOREIGN_KEY
+                and _foreign_key_matches_test(test_node, constraint, resolver)
+                for constraint in declared
+            )
+        test_columns = _test_column_set(test_info)
+        if not test_columns:
+            return False
         if qname in _NOT_NULL_TEST_NAMES:
-            if not test_columns:
-                return False
             return any(
                 constraint.type in _NOT_NULL_IMPLYING_CONSTRAINTS
                 and test_columns <= constraint.column_keys
                 for constraint in declared
             )
         if qname in _UNIQUE_TEST_NAMES:
-            if not test_columns:
-                return False
             return any(
                 constraint.type in _UNIQUE_IMPLYING_CONSTRAINTS
                 and constraint.column_keys == test_columns
-                for constraint in declared
-            )
-        if qname == _RELATIONSHIPS_TEST_NAME:
-            return any(
-                constraint.type == DBTConstraintType.FOREIGN_KEY
-                and _foreign_key_matches_test(test_node, constraint, resolver)
                 for constraint in declared
             )
         return False
@@ -6304,7 +6295,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         contract_tests: List[DBTNode],
-        filtered_upstreams_for: Callable[[DBTNode], Dict[str, str]],
+        test_upstreams: Dict[str, Dict[str, str]],
+        tagged_tests: Set[str],
         resolver: _RelationResolver,
     ) -> Tuple[List[MetadataChangeProposalWrapper], _PendingContract]:
         entity_urn = node.get_urn(
@@ -6317,14 +6309,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # The test URN must match the one create_test_entity_mcps emits, which
         # depends on the *filtered* upstream set, not the raw manifest list.
         test_urns: List[str] = []
-        if self.config.entities_enabled.can_emit_test_definitions:
+        if contract_tests:
             declared = self._declared_constraints(node, resolver)
             for test_node in contract_tests:
-                filtered_upstreams = filtered_upstreams_for(test_node)
+                filtered_upstreams = test_upstreams[test_node.dbt_name]
                 if node.dbt_name not in filtered_upstreams:
                     continue
                 if not self._should_attach_test_to_contract(
-                    test_node, node, declared, resolver, len(filtered_upstreams)
+                    test_node,
+                    node,
+                    declared,
+                    resolver,
+                    len(filtered_upstreams),
+                    test_node.dbt_name in tagged_tests,
                 ):
                     continue
                 test_urns.append(
@@ -6387,23 +6384,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not self.config.ingest_contracts:
             return
 
-        contract_tests_by_upstream = self._index_contract_tests_by_upstream(test_nodes)
+        contract_tag = self.config.tag_prefix + self.config.contract_test_tag
+        tagged_tests = {t.dbt_name for t in test_nodes if contract_tag in t.tags}
+        contract_tests_by_upstream = (
+            self._index_contract_tests_by_upstream(test_nodes, tagged_tests)
+            if self.config.entities_enabled.can_emit_test_definitions
+            else {}
+        )
         resolver = _RelationResolver(all_nodes_map.values())
-
-        # One test can be referenced by every contracted model it reads.
-        test_upstreams_cache: Dict[str, Dict[str, str]] = {}
-
-        def _filtered_upstreams_for(test_node: DBTNode) -> Dict[str, str]:
-            cached = test_upstreams_cache.get(test_node.dbt_name)
-            if cached is None:
-                cached = get_upstreams_for_test(
-                    test_node=test_node,
-                    all_nodes_map=all_nodes_map,
-                    platform_instance=self._dbt_platform_instance,
-                    environment=self.config.env,
-                )
-                test_upstreams_cache[test_node.dbt_name] = cached
-            return cached
+        # One test can be read by several contracted models; the test URN
+        # depends on its filtered upstreams, so compute them once per test.
+        test_upstreams: Dict[str, Dict[str, str]] = {}
 
         pending_contracts: List[_PendingContract] = []
         for node in non_test_nodes:
@@ -6411,11 +6402,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
             if not self.config.entities_enabled.can_emit_node_type(node.node_type):
                 continue
+            contract_tests = contract_tests_by_upstream.get(node.dbt_name, [])
             try:
+                for test_node in contract_tests:
+                    if test_node.dbt_name not in test_upstreams:
+                        test_upstreams[test_node.dbt_name] = get_upstreams_for_test(
+                            test_node=test_node,
+                            all_nodes_map=all_nodes_map,
+                            platform_instance=self._dbt_platform_instance,
+                            environment=self.config.env,
+                        )
                 mcps, pending = self._create_contract_assertions_for_node(
                     node=node,
-                    contract_tests=contract_tests_by_upstream.get(node.dbt_name, []),
-                    filtered_upstreams_for=_filtered_upstreams_for,
+                    contract_tests=contract_tests,
+                    test_upstreams=test_upstreams,
+                    tagged_tests=tagged_tests,
                     resolver=resolver,
                 )
             except Exception as e:

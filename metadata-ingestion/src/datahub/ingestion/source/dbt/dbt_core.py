@@ -52,6 +52,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
+    DBTConstraint,
     DBTContract,
     DBTExposure,
     DBTMetric,
@@ -314,11 +315,6 @@ def get_columns(
         tags = manifest_column.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
-        column_constraints = [
-            parse_dbt_constraint(constraint_dict)
-            for constraint_dict in manifest_column.get("constraints") or []
-        ]
-
         dbtCol = DBTColumn(
             name=catalog_column["name"],
             comment=catalog_column.get("comment", ""),
@@ -327,7 +323,6 @@ def get_columns(
             index=catalog_column["index"],
             meta=meta,
             tags=tags,
-            constraints=column_constraints,
         )
         columns.append(dbtCol)
     return columns
@@ -519,19 +514,19 @@ def extract_dbt_entities(
 
             contract = None
             contract_columns: Optional[List[DBTColumn]] = None
-            contract_config = manifest_node.get("config", {}).get("contract", {})
+            model_constraints: List[DBTConstraint] = []
+            contract_config = (manifest_node.get("config") or {}).get("contract") or {}
             if contract_config.get("enforced"):
-                top_level_contract = manifest_node.get("contract", {})
+                top_level_contract = manifest_node.get("contract") or {}
                 contract = DBTContract(
                     enforced=True,
                     checksum=top_level_contract.get("checksum"),
                 )
                 contract_columns = extract_contract_columns(manifest_node, tag_prefix)
-
-            model_constraints = [
-                parse_dbt_constraint(constraint_dict)
-                for constraint_dict in manifest_node.get("constraints") or []
-            ]
+                model_constraints = [
+                    parse_dbt_constraint(constraint_dict)
+                    for constraint_dict in manifest_node.get("constraints") or []
+                ]
 
             dbtNode = DBTNode(
                 dbt_name=key,
