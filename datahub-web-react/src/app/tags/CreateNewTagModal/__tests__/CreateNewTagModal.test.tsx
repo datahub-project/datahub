@@ -4,7 +4,7 @@ import { ThemeProvider } from 'styled-components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
-import theme from '@src/alchemy-components/theme';
+import themeV2 from '@conf/theme/themeV2';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 const { createTag, setTagColor, addOwners, addTags } = vi.hoisted(() => ({
@@ -21,7 +21,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@app/domainV2/OwnersSection', () => ({ default: () => null }));
 vi.mock('@utils/test-utils/TestPageContainer', () => ({
-    default: ({ children }: { children: React.ReactNode }) => <ThemeProvider theme={theme}>{children}</ThemeProvider>,
+    default: ({ children }: { children: React.ReactNode }) => <ThemeProvider theme={themeV2}>{children}</ThemeProvider>,
 }));
 vi.mock('@components', async () => ({
     toast: {
