@@ -2465,6 +2465,21 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 {static_pair: static_columns},
                 static_pair,
             )
+        elif str(job_urn) in self._execute_pipeline_input_datajobs:
+            # _emit_pipeline_lineage and the job's own aspect each replace the
+            # other's half, and the union MCP that used to restore both doesn't
+            # run for a fan-out, so rewrite the parent with both.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(job_urn),
+                aspect=DataJobInputOutputClass(
+                    inputDatasets=list(static_pair.inputs),
+                    outputDatasets=list(static_pair.outputs),
+                    inputDatajobs=self._execute_pipeline_input_datajobs[str(job_urn)],
+                    fineGrainedLineages=self._pair_fine_grained_lineages(
+                        activity, factory_key, static_pair, set()
+                    ),
+                ),
+            ).as_workunit()
 
     def _column_mappings_to_fine_grained_lineages(
         self, column_mappings: set[ColumnMapping]

@@ -2775,6 +2775,23 @@ class TestDynamicLineageFanOut:
         assert parent.outputDatasets == []
         assert parent.inputDatajobs == [caller]
 
+    def test_parent_keeps_execute_pipeline_edge_and_static_lineage(self) -> None:
+        caller = (
+            "urn:li:dataJob:(urn:li:dataFlow:(azure-data-factory,f.Parent,PROD),Run)"
+        )
+        static = _pair("a", "x")
+
+        _, workunits = self._run(
+            {static: set(), _pair("b", "y"): set(), _pair("c", "z"): set()},
+            static_pair=static,
+            execute_pipeline_callers=[caller],
+        )
+
+        parent = _io_aspects(workunits)[self.PARENT_JOB_URN]
+        assert parent.inputDatasets == [_table_urn("a")]
+        assert parent.outputDatasets == [_table_urn("x")]
+        assert parent.inputDatajobs == [caller]
+
     def test_unresolved_run_gets_no_sibling(self) -> None:
         placeholder = "urn:li:dataset:(urn:li:dataPlatform:mssql,DS_Sink,PROD)"
         unresolved = LineagePair.of([_table_urn("c")], [placeholder])
