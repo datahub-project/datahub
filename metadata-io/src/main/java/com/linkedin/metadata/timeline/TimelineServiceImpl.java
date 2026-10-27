@@ -38,6 +38,7 @@ import com.linkedin.metadata.timeline.eventgenerator.DataProductPropertiesChange
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DomainPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
@@ -171,6 +172,12 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 new InstitutionalMemoryChangeEventGenerator());
+            aspects.add(DOCUMENTATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                DOCUMENTATION_ASPECT_NAME,
+                new DocumentationChangeEventGenerator());
             aspects.add(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
                 entityType,
@@ -622,6 +629,14 @@ public class TimelineServiceImpl implements TimelineService {
         default:
           break;
       }
+      if (elementName == ChangeCategory.DOCUMENTATION) {
+        aspects.add(DOCUMENTATION_ASPECT_NAME);
+        _entityChangeEventGeneratorFactory.addGenerator(
+            entityTypeDocument,
+            elementName,
+            DOCUMENTATION_ASPECT_NAME,
+            new DocumentationChangeEventGenerator());
+      }
       documentElementAspectRegistry.put(elementName, aspects);
     }
 
@@ -853,6 +868,12 @@ public class TimelineServiceImpl implements TimelineService {
               category,
               INSTITUTIONAL_MEMORY_ASPECT_NAME,
               new InstitutionalMemoryChangeEventGenerator());
+          aspects.add(DOCUMENTATION_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              category,
+              DOCUMENTATION_ASPECT_NAME,
+              new DocumentationChangeEventGenerator());
           break;
         case TAG:
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);

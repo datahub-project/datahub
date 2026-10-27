@@ -74,4 +74,19 @@ public class TimelineServiceGlossaryRegistrationTest {
             .getAspectsFromElements(entityType, Set.of(ChangeCategory.DEPRECATION))
             .contains(DEPRECATION_ASPECT_NAME));
   }
+
+  @DataProvider(name = "documentationAspectEntities")
+  public Object[][] documentationAspectEntities() {
+    return new Object[][] {
+      {DATASET_ENTITY_NAME}, {DOCUMENT_ENTITY_NAME}, {CONTAINER_ENTITY_NAME}, {CHART_ENTITY_NAME}
+    };
+  }
+
+  @Test(dataProvider = "documentationAspectEntities")
+  public void testDocumentationAspectRegistered(String entityType) {
+    assertTrue(
+        newService()
+            .getAspectsFromElements(entityType, Set.of(ChangeCategory.DOCUMENTATION))
+            .contains(DOCUMENTATION_ASPECT_NAME));
+  }
 }
