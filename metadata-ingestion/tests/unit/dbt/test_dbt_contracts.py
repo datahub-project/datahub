@@ -383,6 +383,23 @@ def test_duplicate_check_keeps_the_named_primary_key_declaration() -> None:
     assert unique.description == "pk_orders"
 
 
+def test_duplicate_check_keeps_the_named_not_null_title() -> None:
+    # On Postgres both are DDL-enforced, so they tie; the primary key's
+    # not-null half is untitled, so the named not_null wins.
+    source = _make_source()
+    node = _make_model(
+        adapter="postgres",
+        columns=[_column("id", DBTConstraint(type="not_null", name="nn_id"))],
+        model_constraints=[
+            DBTConstraint(type="primary_key", name="pk_orders", columns=["id"])
+        ],
+    )
+    not_null = _constraint_info(
+        source, node, "not_null", AssertionStdOperatorClass.NOT_NULL
+    )
+    assert not_null.description == "nn_id"
+
+
 def test_named_constraint_becomes_assertion_name() -> None:
     source = _make_source()
     node = _make_model(

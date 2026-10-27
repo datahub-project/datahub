@@ -1472,6 +1472,8 @@ class _ContractAssertion:
     mcps: List[MetadataChangeProposalWrapper]
     # None for the schema assertion, which is not a constraint.
     enforced_by: Optional[ConstraintEnforcement] = None
+    # Whether the assertion carries a user-authored title.
+    titled: bool = False
 
 
 @dataclass(frozen=True)
@@ -5702,8 +5704,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ``report.contract_constraints_skipped_unsupported`` and skipped.
         The same check declared twice (e.g. ``not_null`` and ``primary_key``
         on one column) is emitted once, with the strongest enforcement; on a
-        tie, a named and then a ``primary_key`` declaration supplies its
-        name and properties.
+        tie, a titled assertion and then a ``primary_key`` declaration
+        supplies its name and properties.
         """
         deduped: Dict[str, _ContractAssertion] = {}
         ranks: Dict[str, Tuple[int, bool, bool]] = {}
@@ -5715,7 +5717,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 rank = (
                     _ENFORCEMENT_STRENGTH[assertion.enforced_by],
-                    declared.constraint.name is not None,
+                    assertion.titled,
                     declared.type == DBTConstraintType.PRIMARY_KEY,
                 )
                 if assertion.urn not in ranks or rank > ranks[assertion.urn]:
@@ -5876,6 +5878,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             urn=assertion_urn,
             mcps=self._wrap_assertion_mcps(assertion_urn, assertion_info),
             enforced_by=enforced_by,
+            titled=assertion_info.description is not None,
         )
 
     def _build_unique_assertion(
@@ -5929,6 +5932,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             urn=assertion_urn,
             mcps=self._wrap_assertion_mcps(assertion_urn, assertion_info),
             enforced_by=enforced_by,
+            titled=assertion_info.description is not None,
         )
 
     def _build_native_constraint_assertion(
@@ -5993,6 +5997,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             urn=assertion_urn,
             mcps=self._wrap_assertion_mcps(assertion_urn, assertion_info),
             enforced_by=enforced_by,
+            titled=assertion_info.description is not None,
         )
 
     def _wrap_assertion_mcps(
