@@ -477,6 +477,20 @@ Once you have successfully deployed the Remote Executor in your environment, Dat
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/pool-list-after.png?raw=true"/>
 </p>
 
+Each executor also sends two reports with its status, which you can open with **See more** next to the executor:
+
+- **What it is working on**, sent with every status check-in: whether it is taking new work, how many ingestion, assertion and monitor slots are in use, which runs are waiting or running, and when it last checked for new work.
+- **What it runs on**, sent about every 10 minutes: its memory and CPU limits and use, the space its working folders take up, the values of a fixed list of executor settings, how it is deployed, its Python version and the ingestion sources that come pre-installed.
+
+Both reports are on by default. To turn one off, set its variable to `false` and restart the executor:
+
+| Variable                                  | Default | Report                |
+| ----------------------------------------- | ------- | --------------------- |
+| `DATAHUB_EXECUTOR_STATUS_DETAILS_ENABLED` | `true`  | What it is working on |
+| `DATAHUB_EXECUTOR_REPORT_RUNTIME`         | `true`  | What it runs on       |
+
+Both reports need DataHub 2.4.0 or later. On an older version, the executor sends its status without them. If the executor was started before DataHub was upgraded, restart it to start sending them.
+
 ## Assigning Ingestion Sources to an Executor Pool
 
 After you have created an Executor Pool and deployed the Remote Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.

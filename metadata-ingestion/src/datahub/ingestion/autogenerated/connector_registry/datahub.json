@@ -237,6 +237,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Extracts lineage from Copy and Data Flow activities",
           "subtype_modifier": [
@@ -1384,6 +1390,12 @@
     "dynamodb": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally enabled via `include_s3_export_lineage` with `include_s3_export_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -1398,6 +1410,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `include_s3_export_lineage` for DynamoDB Export to S3 destinations",
           "subtype_modifier": null,
           "supported": true
         }
@@ -1618,6 +1636,12 @@
           "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.fivetran.fivetran.FivetranSource",
@@ -1724,7 +1748,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Support via the `emit_storage_lineage` config field",
+          "description": "Enabled by default via `include_column_lineage` for Lake Formation resource links; storage column lineage also needs `emit_storage_lineage` in the upstream direction",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2468,6 +2492,12 @@
           "supported": true
         },
         {
+          "capability": "PROBE",
+          "description": "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3048,6 +3078,12 @@
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_query_lineage` with `include_query_usage_statistics` (per-query) and `include_usage_statistics` (per-table); users are attributed with `query_history_source: audit_log` or `extended_events`",
           "subtype_modifier": null,
           "supported": true
         },

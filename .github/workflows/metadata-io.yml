@@ -162,6 +162,15 @@ jobs:
             !**/binary/**
           junit-file-globs: |
             **/build/test-results/${{ matrix.suite.task }}/**/*.xml
+      - name: Upload search quality reports
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: Search Quality (metadata-io ${{ matrix.suite.name }})
+          retention-days: 1
+          if-no-files-found: warn
+          path: |
+            **/build/reports/search-quality/**
       - name: Send failed test metrics to PostHog
         if: failure()
         continue-on-error: true

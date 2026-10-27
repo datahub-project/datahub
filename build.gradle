@@ -141,7 +141,9 @@ buildscript {
   // Align with Spring Boot 4.0.7 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
   ext.reactorNettyVersion = '1.3.6'
 
-  ext.nodeVersion = '22.16.0'
+  // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
+  // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  ext.nodeVersion = '22.23.4'
   ext.yarnVersion = '1.22.22'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
@@ -480,6 +482,7 @@ project.ext.externalDependency = [
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
+    're2j': 'com.google.re2j:re2j:1.7',
     'javaxMail': 'com.sun.mail:jakarta.mail:2.0.2',
     // Standard compatibility artifact to satisfy legacy javax.mail references while keeping jakarta.mail upgraded.
     'javaxMailCompat': 'com.sun.mail:javax.mail:1.6.2',

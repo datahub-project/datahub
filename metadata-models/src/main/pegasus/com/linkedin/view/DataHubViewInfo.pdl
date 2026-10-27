@@ -9,7 +9,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "dataHubViewInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record DataHubViewInfo {
   /**
@@ -19,6 +19,7 @@ record DataHubViewInfo {
     "fieldType": "TEXT_PARTIAL",
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -32,12 +33,29 @@ record DataHubViewInfo {
   /**
    * Description of the view
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**
    * The type of View
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   type: enum DataHubViewType {
     /**
      * A view private for a specific person.

@@ -20,6 +20,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -38,6 +39,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -69,7 +71,10 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldName": "parentDataProduct",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentDataProduct"
+    "hasValuesFieldName": "hasParentDataProduct",
+    "v3": {
+      "copyToOther": true
+    }
   }
   parentDataProduct: optional Urn
 }
