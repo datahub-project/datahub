@@ -2,7 +2,18 @@ import base64
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -434,7 +445,7 @@ def test_catalog_to_platform_instance_is_region_specific():
     )
 
 
-def test_resource_link_emits_upstream_edge_to_owner():
+def test_resource_link_upstream_urn_uses_owner_instance():
     # A Lake Formation resource link (shared-transactions) points at transactions in the owner
     # account 432143214321. The consumer-instance table should get an upstream edge to the owner's
     # table URN, stamped with the owner account's instance.
@@ -452,14 +463,14 @@ def test_resource_link_emits_upstream_edge_to_owner():
             },
         ),
     )
-    owner_urn = source._resource_link_lineage_owner_urn(
+    owner_urn = source._resource_link_upstream_urn(
         resource_link_table_in_mixed_database, "urn:li:dataset:(consumer)"
     )
 
     assert owner_urn == OWNER_TABLE_URN
 
 
-def test_resource_link_owner_urn_handles_malformed_target():
+def test_resource_link_upstream_urn_handles_malformed_target():
     # A TargetTable missing its Name must not crash the whole run; it should be skipped with a
     # reported warning and no upstream produced.
     source = GlueSource(
@@ -472,7 +483,7 @@ def test_resource_link_owner_urn_handles_malformed_target():
         "TargetTable": {"CatalogId": "432143214321", "DatabaseName": "test-database"},
     }
 
-    owner_urn = source._resource_link_lineage_owner_urn(
+    owner_urn = source._resource_link_upstream_urn(
         malformed, "urn:li:dataset:(consumer)"
     )
 
@@ -514,9 +525,10 @@ def test_resource_link_upstream_merged_with_storage_lineage(
     include_column_lineage: bool,
 ) -> None:
     # Glue's GetTables returns a table-level resource link with its target's StorageDescriptor, so
-    # storage lineage also fires. The link must not lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
-    # UpstreamLineage aspect on the dataset, not two aspects that clobber each other. With column
-    # lineage on, that aspect must carry both the storage and the owner column edges.
+    # storage lineage also fires. The link must not lose either edge: the owner upstream and the
+    # S3 storage upstream must land in a single UpstreamLineage aspect on the dataset, not two
+    # aspects that clobber each other. With column lineage on, that aspect must carry both the
+    # storage and the owner column edges.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -562,13 +574,9 @@ def test_resource_link_upstream_merged_with_storage_lineage(
         storage_urn,
     }
 
-    expected_column_edges = {
-        (
-            (make_schema_field_urn(upstream, "txn_id"),),
-            (make_schema_field_urn(CONSUMER_LINK_URN, "txn_id"),),
-        )
-        for upstream in (OWNER_TABLE_URN, storage_urn)
-    }
+    expected_column_edges = _same_name_column_edges(
+        OWNER_TABLE_URN, CONSUMER_LINK_URN, ["txn_id"]
+    ) | _same_name_column_edges(storage_urn, CONSUMER_LINK_URN, ["txn_id"])
     assert _column_edges(upstream_aspects[0]) == (
         expected_column_edges if include_column_lineage else set()
     )
@@ -594,7 +602,7 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
     }
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,acct.db.shared,PROD)"
 
-    owner_urn = source._resource_link_lineage_owner_urn(table, dataset_urn)
+    owner_urn = source._resource_link_upstream_urn(table, dataset_urn)
 
     assert owner_urn is None
     assert source.report.num_resource_link_self_referential == 1
@@ -603,6 +611,10 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
     ]
 
 
+OWNER_CATALOG_MAPPING = {
+    "arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}
+}
+ColumnEdge = Tuple[Tuple[str, ...], Tuple[str, ...]]
 CONSUMER_LINK_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:glue,"
     "consumer_inst.mixed-database.shared-transactions,PROD)"
@@ -913,12 +925,9 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect(
     assert [u.dataset for u in by_entity[CONSUMER_LINK_URN].upstreams] == [
         OWNER_TABLE_URN
     ]
-    expected_column_edges = {
-        (
-            (make_schema_field_urn(OWNER_TABLE_URN, "txn_id"),),
-            (make_schema_field_urn(CONSUMER_LINK_URN, "txn_id"),),
-        )
-    }
+    expected_column_edges = _same_name_column_edges(
+        OWNER_TABLE_URN, CONSUMER_LINK_URN, ["txn_id"]
+    )
     assert _column_edges(by_entity[CONSUMER_LINK_URN]) == (
         expected_column_edges if include_column_lineage else set()
     )
@@ -1518,12 +1527,22 @@ def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
     ]
 
 
-def _column_edges(
-    lineage: models.UpstreamLineageClass,
-) -> Set[Tuple[Tuple[str, ...], Tuple[str, ...]]]:
+def _column_edges(lineage: models.UpstreamLineageClass) -> Set[ColumnEdge]:
     return {
         (tuple(fgl.upstreams or []), tuple(fgl.downstreams or []))
         for fgl in lineage.fineGrainedLineages or []
+    }
+
+
+def _same_name_column_edges(
+    upstream_urn: str, downstream_urn: str, columns: Iterable[str]
+) -> Set[ColumnEdge]:
+    return {
+        (
+            (make_schema_field_urn(upstream_urn, column),),
+            (make_schema_field_urn(downstream_urn, column),),
+        )
+        for column in columns
     }
 
 
@@ -1542,9 +1561,7 @@ def test_database_resource_link_tables_rekeyed_to_link() -> None:
 
 
 def test_database_resource_link_emits_owner_lineage_with_catalog_mapping() -> None:
-    source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}}
-    )
+    source, _, wus = _ingest_database_resource_link(OWNER_CATALOG_MAPPING)
 
     link_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
@@ -1626,7 +1643,7 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
     databases_response["DatabaseList"][0]["Name"] = "test-database"
 
     source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         databases_response=databases_response,
     )
 
@@ -1654,7 +1671,7 @@ def test_database_resource_link_target_falls_back_to_owner_table_identity(
     del databases_response["DatabaseList"][0]["TargetDatabase"][missing_key]
 
     source, tables, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         databases_response=databases_response,
     )
 
@@ -1675,18 +1692,6 @@ DB_LINK_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:glue,"
     "consumer_inst.resource-link-test-database.transactions,PROD)"
 )
-
-
-def _same_name_column_edges(
-    link_urn: str, columns: Tuple[str, ...]
-) -> Set[Tuple[Tuple[str, ...], Tuple[str, ...]]]:
-    return {
-        (
-            (make_schema_field_urn(OWNER_TABLE_URN, column),),
-            (make_schema_field_urn(link_urn, column),),
-        )
-        for column in columns
-    }
 
 
 def _schemaless_database_link_tables() -> Dict[str, Any]:
@@ -1721,7 +1726,7 @@ def test_database_resource_link_schema_resolved_from_owner(
     graph.get_schema_metadata.return_value = _owner_schema()
 
     source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         tables_response=_schemaless_database_link_tables(),
         graph=graph if owner_in_datahub else None,
         owner_get_table_response=None
@@ -1744,18 +1749,18 @@ def test_database_resource_link_schema_resolved_from_owner(
     assert schema is not None
     assert schema.schemaName == "resource-link-test-database.transactions"
     fields = {f.fieldPath.split(".")[-1] for f in schema.fields}
+    expected_columns = ["txn_id"] if owner_in_datahub else ["txn_id", "amount"]
+    assert fields == set(expected_columns)
     if owner_in_datahub:
-        assert fields == {"txn_id"}
         graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
         assert source.report.num_resource_link_schema_from_datahub == 1
     else:
-        assert fields == {"txn_id", "amount"}
         assert source.report.num_resource_link_schema_from_glue == 1
 
     lineage = _upstream_lineage(wus, DB_LINK_URN)
     assert len(lineage) == 1
     assert _column_edges(lineage[0]) == _same_name_column_edges(
-        DB_LINK_URN, tuple(fields)
+        OWNER_TABLE_URN, DB_LINK_URN, expected_columns
     )
 
 
@@ -1809,21 +1814,22 @@ def test_database_resource_link_emits_column_lineage_to_owner(
     # A resource link is a 1:1 copy of the owner's table, so each link column maps to the
     # same-named owner column, on the same aspect as the table-level edge.
     _, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         include_column_lineage=include_column_lineage,
     )
 
     lineage = _upstream_lineage(wus, DB_LINK_URN)
     assert len(lineage) == 1
     assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
-    expected = _same_name_column_edges(DB_LINK_URN, ("id", "name"))
+    assert lineage[0].upstreams[0].type == models.DatasetLineageTypeClass.COPY
+    expected = _same_name_column_edges(OWNER_TABLE_URN, DB_LINK_URN, ["id", "name"])
     assert _column_edges(lineage[0]) == (expected if include_column_lineage else set())
 
 
 def test_schemaless_resource_link_gets_table_lineage_only() -> None:
     # Without a schema there are no columns to map, so the link keeps only its table-level edge.
     _, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         tables_response=_schemaless_database_link_tables(),
         resolve_resource_link_schema=False,
     )

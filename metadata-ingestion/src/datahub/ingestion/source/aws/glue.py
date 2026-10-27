@@ -783,7 +783,7 @@ class GlueViewDefinition:
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default via `include_column_lineage` for Lake Formation resource links; "
-    "storage column lineage also needs `emit_storage_lineage`",
+    "storage column lineage also needs `emit_storage_lineage` in the upstream direction",
 )
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -1054,16 +1054,14 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=owner.platform_instance,
         )
 
-    def _resource_link_lineage_owner_urn(
+    def _resource_link_upstream_urn(
         self, table: Dict, dataset_urn: str
     ) -> Optional[str]:
-        """URN of the owning table a Lake Formation resource link should get lineage to.
+        """Owner URN a Lake Formation resource link gets lineage to, if it can have any.
 
-        A resource-link table carries a ``TargetTable`` pointing at the shared table in the owning
-        account. The owner's URN is stamped with the owner account's instance so the shared dataset
-        stitches back to its source instead of appearing as an unrelated duplicate. Returns None for
-        non-resource-link tables, or when the target is missing identifiers or resolves to the
-        dataset's own URN (no catalog mapping).
+        Returns None for non-resource-link tables, and reports (with a counter and a warning) a
+        target that is missing identifiers or resolves to the dataset's own URN (no catalog
+        mapping).
         """
         target = table.get("TargetTable")
         if not target:
@@ -2212,15 +2210,15 @@ class GlueSource(StatefulIngestionSourceBase):
 
         link_upstreams: List[UpstreamClass] = []
         link_fine_grained: List[FineGrainedLineageClass] = []
-        if resource_link_owner_urn:
+        if resource_link_owner_urn is not None:
             link_upstreams = [
                 UpstreamClass(
                     dataset=resource_link_owner_urn, type=DatasetLineageTypeClass.COPY
                 )
             ]
             # Glue returns the owner's live table for both kinds of resource link, and a
-            # schemaless link gets the owner's schema copied in, so the link's columns are the
-            # owner's columns.
+            # schemaless link either gets the owner's schema copied in or has none, so any
+            # columns the link has are the owner's columns.
             if self.source_config.include_column_lineage and schema_metadata:
                 link_fine_grained = self.get_fine_grained_lineages(
                     dataset_urn,
@@ -2880,11 +2878,11 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_parameters:
             yield from self._get_column_param_workunits(table, dataset_urn)
 
-        # Pass the resource-link owner to get_lineage_if_enabled so its edge merges with any
-        # storage lineage into one aspect rather than being emitted as a competing one.
         yield from self.get_lineage_if_enabled(
             metadata_record,
-            self._resource_link_lineage_owner_urn(table, dataset_urn),
+            resource_link_owner_urn=self._resource_link_upstream_urn(
+                table, dataset_urn
+            ),
         )
 
         # Add profile if enabled
