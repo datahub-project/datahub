@@ -2270,7 +2270,7 @@ def test_override_that_is_not_a_dataset_urn_is_refused() -> None:
 def test_override_table_name_strips_contract_server_instance() -> None:
     contract = _make_contract(
         servers=[{"server": "srv", "type": "postgres", "database": "db"}],
-        schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}],
+        schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}, {"name": "d"}],
     )
     bindings = odcs_to_physical_bindings(
         contract,
@@ -2284,6 +2284,7 @@ def test_override_table_name_strips_contract_server_instance() -> None:
                     "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
                     "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,other.db.sch.b,PROD)",
                     "c": "urn:li:dataset:(urn:li:dataPlatform:snowflake,inst1.db.sch.c,PROD)",
+                    "d": "urn:li:dataset:(urn:li:dataPlatform:postgres,INST1.db.sch.d,PROD)",
                 }
             },
         ),
@@ -2294,6 +2295,8 @@ def test_override_table_name_strips_contract_server_instance() -> None:
     # A configured instance the contract's server doesn't confirm is not guessed.
     assert bindings[2].physical_urn is not None
     assert bindings[2].table_name is None
+    # The contract's own instance is stripped in any case.
+    assert bindings[3].table_name == "db.sch.d"
 
 
 def test_override_table_name_unknown_without_a_resolved_server() -> None:

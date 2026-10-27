@@ -474,14 +474,14 @@ def _override_table_name(
     # a name that may start with any other configured instance is not guessed
     # at. A mapping pinned to another platform can't prefix this URN.
     name = urn.name
+    lowered = name.lower()
     platform = urn.get_data_platform_urn().platform_name
     if resolved is not None and resolved.mapping is not None:
         instance = resolved.mapping.platform_instance
         if instance and resolved.platform == platform:
-            prefix = f"{instance}."
-            if name.startswith(prefix):
+            prefix = f"{instance.lower()}."
+            if lowered.startswith(prefix):
                 return name[len(prefix) :]
-    lowered = name.lower()
     if any(
         m.platform_instance
         and m.platform in (None, platform)
