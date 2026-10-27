@@ -109,7 +109,7 @@ class NotebookExecutionConfig(ConfigModel):
             "keeps only the tables its dataframe actually uses, and a write that "
             "exists only in a commented-out cell is dropped. Column renames in "
             "that dataframe (`col(src).alias(dst)`, a `{source: target}` mapping, "
-            "`alias.*`, and `df[\"column\"]`) are emitted as column-level lineage "
+            '`alias.*`, and `df["column"]`) are emitted as column-level lineage '
             "on the job. The plans still supply the resolved OneLake path. Off "
             "by default, so plan lineage is emitted unchanged. Requires "
             "`enabled=True`."
