@@ -94,6 +94,12 @@ services:
       GMS_LIFECYCLE_TIMEOUT: 65s
       GRAPH_SERVICE_DIFF_MODE_ENABLED: 'true'
       GRAPH_SERVICE_IMPL: elasticsearch
+      # In-memory lineage graph server (runs on the host; see PLAN.md "Backends"). Off unless
+      # LINEAGE_GRAPH_SERVER_ENABLED=true is exported when starting the stack.
+      LINEAGE_GRAPH_SERVER_ENABLED: ${LINEAGE_GRAPH_SERVER_ENABLED:-false}
+      LINEAGE_GRAPH_SERVER_URL: ${LINEAGE_GRAPH_SERVER_URL:-http://host.docker.internal:8090}
+      # Experiment 2: the server answers lightning searches (page + facets). false = experiment 1.
+      LINEAGE_GRAPH_SERVER_SEARCH_PUSHDOWN: ${LINEAGE_GRAPH_SERVER_SEARCH_PUSHDOWN:-true}
       GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS: '3000'
       GRAPHQL_SHAPE_LOGGING_ENABLED: 'false'
       GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD: '1'
@@ -101,7 +107,8 @@ services:
       GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES: '1048576'
       JAVA_OPTS: -Xms6g -Xmx6g -Dlineage.bench.log=true
       # Run 5: 8 OpenSearch connections (maxPerRoute) and IO threads, instead of the default 2.
-      ELASTICSEARCH_THREAD_COUNT: '8'
+      # Set BENCH_ES_THREAD_COUNT=2 for the prod default.
+      ELASTICSEARCH_THREAD_COUNT: ${BENCH_ES_THREAD_COUNT:-8}
       # Run 3: helm chart logging (root INFO, no com.linkedin DEBUG), passed the way the chart does.
       JAVA_TOOL_OPTIONS: -Dlogback.configurationFile=/config/logback.xml -Dlogging.config=/config/logback.xml
       LOGGING_CONFIG: /config/logback.xml
@@ -147,7 +154,7 @@ services:
       interval: 1s
       retries: 3
       start_period: 1m30s
-    image: datahub-gms:lineage-bench
+    image: ${BENCH_GMS_IMAGE:-datahub-gms:lineage-bench}
     # Run 3: prod "large" sizing gives GMS 2 CPUs.
     cpus: 2
     labels:
@@ -495,7 +502,7 @@ services:
       ZDU_STAGE_10: 'true'
       ZDU_STAGE_20: 'true'
     hostname: datahub-system-update
-    image: datahub-upgrade:lineage-bench
+    image: ${BENCH_UPGRADE_IMAGE:-datahub-upgrade:lineage-bench}
     labels:
       datahub_setup_job: 'true'
     networks:

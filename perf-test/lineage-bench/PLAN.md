@@ -222,3 +222,65 @@ Sanity checks the script prints at the end:
 3. `load_mysql.py` + LoadIndices at `--scale 0.01`, then run `run_walks.py` end to end. Regenerate once through the quick cleanup path, to check that the counts still match.
 4. The full dataset, the checks, and a snapshot.
 5. The real run.
+
+
+---
+
+## Backends: OpenSearch vs the in-memory lineage graph server
+
+The in-memory server is `metadata-jobs:lineage-graph-server` (see `research.md` §6–8). It runs on the host.
+
+```bash
+# Images from this branch, under their own tag so acryldata/* images are untouched
+./gradlew :metadata-service:war:docker :datahub-upgrade:docker -PdockerRegistry=lineagegraph
+./gradlew :metadata-jobs:lineage-graph-server:installDist
+
+# Stack (flag off = OpenSearch walks; on = in-memory walks with OpenSearch fallback)
+export BENCH_GMS_IMAGE=lineagegraph/datahub-gms:debug BENCH_UPGRADE_IMAGE=lineagegraph/datahub-upgrade:debug \
+  DATAHUB_VERSION=head DATAHUB_TOKEN_SERVICE_SIGNING_KEY=<any> DATAHUB_TOKEN_SERVICE_SALT=<any> \
+  LINEAGE_GRAPH_SERVER_ENABLED=false   # or true
+docker compose -p datahub -f docker-compose.bench.yml --profile quickstart up -d datahub-gms-quickstart
+
+# Server (first start scans graph_service_v1 and writes a snapshot; later starts mmap it)
+LINEAGE_GRAPH_SNAPSHOT_DIR=$PWD/snapshots/lineage-graph/v1 LINEAGE_GRAPH_SERVER_OPTS="-Xmx2g -XX:+UseG1GC" \
+  ../../metadata-jobs/lineage-graph-server/build/install/lineage-graph-server/bin/lineage-graph-server
+
+python3 measure_load.py --out results/<run>/load              # cold + warm load time, memory
+python3 run_walks.py --backend direct --start-nodes dataset/v1/start_nodes.csv --out results/<run>/direct
+python3 run_walks.py --backend gms --query-shape ui --start-nodes dataset/v1/start_nodes.csv --out results/<run>/gms
+python3 parity_check.py --out results/<run>/parity             # GMS (current backend) vs server
+python3 freshness_test.py --out results/<run>/freshness        # write -> visible, server vs OpenSearch
+python3 compare_report.py results/<os_run> results/<inmem_run> --names opensearch inmemory --out compare.html
+```
+
+**Experiment 2 (lightning search on the server).** GMS sends lightning searches to
+`POST /v1/impact/search` unless `LINEAGE_GRAPH_SERVER_SEARCH_PUSHDOWN=false` (experiment 1).
+Export it before `docker compose ... up -d datahub-gms-quickstart`, which recreates GMS when it
+changes. Runs and results: `results/exp2/README.md`.
+
+```bash
+# Full GraphQL responses, byte for byte, between two GMS configurations
+python3 -I response_parity.py capture --label pushdown_on  --out results/<run>/pushdown_on.jsonl
+python3 -I response_parity.py capture --label pushdown_off --out results/<run>/pushdown_off.jsonl   # after recreating GMS
+python3 -I response_parity.py compare --mode exact results/<run>/pushdown_off.jsonl results/<run>/pushdown_on.jsonl
+python3 -I response_parity.py compare --mode sets  results/<run>/opensearch.jsonl  results/<run>/pushdown_on.jsonl
+# The server alone: walk + lightning search for a query shape
+python3 run_walks.py --backend direct-search --query-shape filtered50 --start-nodes dataset/v1/start_nodes.csv --out results/<run>/direct_search
+python3 summarize_exp2.py   # results/exp2/summary.{md,json}
+```
+
+If `./gradlew ...:docker` fails with "Cannot run program docker", the Gradle daemon's PATH lacks
+`~/.docker/bin`. Add `--no-daemon`.
+
+## ES terms scaling (searching within a lineage result set)
+
+Sets the thresholds in the design's section 9: T (largest result set searched in one ES request),
+D (page depth for the batched tier) and batch concurrency. Needs the bench OpenSearch (v1 data) on
+:9200 and the lineage graph server on :8090 (it supplies the prod_like root's walk, in walk order).
+
+```bash
+caffeinate -i python3 -I es_terms_scaling.py --out results/terms_scaling/<run> \
+  --repeats 10 --warmup 2                      # sweep: N = 1k..500k, page 10/1000, sort, exact totals
+python3 -I es_terms_scaling.py --out results/terms_scaling/<run>_gms \
+  --template captured_gms_request.json        # same, with a request body captured from GMS
+```

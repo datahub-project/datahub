@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Run serial Impact lineage walks against GMS and turn LINEAGE_BENCH log lines into CSVs.
+"""Run serial Impact lineage walks and write CSVs.
 
-See PLAN.md §3. Writes walks.csv (with the post-walk search/resolver timers), hops.csv,
-slices.csv, esquery.csv and os_stats_{before,after}.json to --out. Stdlib only.
+--backend gms (default): searchAcrossLineage through GMS GraphQL; LINEAGE_BENCH log lines become
+walks.csv (with the post-walk search/resolver timers), hops.csv, slices.csv, esquery.csv, plus
+os_stats_{before,after}.json. See PLAN.md §3.
+
+--backend direct: POST /v1/impact on the in-memory lineage graph server, reading the full binary
+response; walks.csv gets the same columns (gms_walk_ms is the server's walk time) so
+compare_report.py can put the two side by side. Stdlib only.
 """
 
 from __future__ import annotations
@@ -43,24 +48,83 @@ query benchWalk($input: SearchAcrossLineageInput!) {
 }
 """,
 }
+# "filtered50" is the vendor-style workload: the same walk, but a page of 50 with a platform filter.
+QUERIES["filtered50"] = QUERIES["ui"]
 MARKER = "LINEAGE_BENCH "
+WALK_BASE_FIELDS = {"t", "walk_id", "start_urn", "hops", "total_rels", "truncated", "status", "total_ms"}
+# Impact (downstream) rules for datasets, as LineageGraphFilters gives them for the bench graph.
+DIRECT_RULES = [
+    {"entityType": "dataset", "relationshipType": "DownstreamOf", "direction": "INCOMING", "opposingType": "dataset"}
+]
 
 
-def walk_input(urn: str) -> Dict[str, Any]:
+def walk_input(urn: str, shape: str = "ui") -> Dict[str, Any]:
+    filters = [{"field": "degree", "values": ["1", "2", "3+"]}]
+    if shape == "filtered50":
+        filters.append({"field": "platform", "values": ["urn:li:dataPlatform:snowflake"]})
     return {
         "urn": urn,
         "direction": "DOWNSTREAM",
         "types": ["DATASET"],
         "query": "*",
         "start": 0,
-        "count": 10,
-        "orFilters": [{"and": [{"field": "degree", "values": ["1", "2", "3+"]}]}],
+        "count": 50 if shape == "filtered50" else 10,
+        "orFilters": [{"and": filters}],
         "searchFlags": {"skipCache": True},
     }
 
 
+def search_spec(shape: str) -> Dict[str, Any]:
+    """The lightning search GMS sends for a query shape (experiment 2, /v1/impact/search)."""
+    filters = None
+    if shape == "filtered50":
+        filters = json.dumps({"or": [{"and": [{"field": "platform", "values": ["urn:li:dataPlatform:snowflake"],
+                                               "condition": "EQUAL", "negated": False}]}]})
+    return {"entityTypes": ["dataset"], "degreeValues": ["1", "2", "3+"], "filters": filters,
+            "convertSchemaFields": True, "forceLightning": False, "lightningThreshold": 300,
+            "from": 0, "size": 50 if shape == "filtered50" else 10}
+
+
+def direct(server: str, urn: str, timeout_s: int, shape: Optional[str] = None) -> Dict[str, Any]:
+    """One walk on the graph server, reading the whole binary response as GMS would. With a query
+    shape, the walk plus the lightning search for that shape (/v1/impact/search)."""
+    body_obj: Dict[str, Any] = {"urn": urn, "rules": DIRECT_RULES, "maxHops": 1000, "maxRelations": 0,
+                                "partialResults": True}
+    path = "/v1/impact"
+    if shape is not None:
+        body_obj["search"] = search_spec(shape)
+        path = "/v1/impact/search"
+    body = json.dumps(body_obj).encode()
+    req = urllib.request.Request(f"{server}{path}", data=body, headers={"Content-Type": "application/json"})
+    start = time.perf_counter()
+    out: Dict[str, Any] = {"http_status": 0, "total": None, "error": "", "server_walk_ms": None,
+                           "hops": None, "server_status": "", "partial": "", "bytes": 0}
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+            out["http_status"] = resp.status
+            out["bytes"] = len(resp.read())
+            h = resp.headers
+            out["total"] = int(h["X-Total"])
+            out["hops"] = int(h["X-Hops"])
+            out["server_status"] = h["X-Status"]
+            out["partial"] = h["X-Partial"] == "true"
+            out["server_walk_ms"] = round(int(h["X-Walk-Micros"]) / 1000, 2)
+            if shape is not None:
+                out["walked"] = int(h["X-Walked"])
+                out["mode"] = h["X-Mode"]
+                out["server_search_ms"] = round(int(h["X-Search-Micros"]) / 1000, 2)
+                if out["mode"] == "FULL":  # below the lightning threshold: no matching done on the server
+                    out["total"] = int(h["X-Prefiltered"])
+    except urllib.error.HTTPError as e:
+        out["http_status"], out["error"] = e.code, e.read().decode(errors="replace")[:500]
+    except Exception as e:  # timeouts, connection resets: record and keep going
+        out["error"] = repr(e)[:500]
+    out["wall_ms"] = round((time.perf_counter() - start) * 1000)
+    return out
+
+
 def graphql(gms: str, auth: str, urn: str, timeout_s: int, shape: str) -> Dict[str, Any]:
-    body = json.dumps({"query": QUERIES[shape], "variables": {"input": walk_input(urn)}}).encode()
+    body = json.dumps({"query": QUERIES[shape], "variables": {"input": walk_input(urn, shape)}}).encode()
     req = urllib.request.Request(
         f"{gms}/api/graphql",
         data=body,
@@ -124,6 +188,42 @@ def write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
         w.writerows(rows)
 
 
+def run_meta(args: argparse.Namespace) -> Dict[str, Any]:
+    """What this run ran against, so results can be traced back later: the code, the GMS image and
+    its lineage settings, and the graph server's state."""
+
+    def sh(*cmd: str) -> str:
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=30).stdout.strip()
+        except Exception as e:  # missing docker/git: record why
+            return f"<{e!r}>"
+
+    meta: Dict[str, Any] = {
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "argv": sys.argv,
+        "args": vars(args),
+        "git_head": sh("git", "rev-parse", "HEAD"),
+        "git_branch": sh("git", "rev-parse", "--abbrev-ref", "HEAD"),
+        "git_dirty": sh("git", "status", "--short").splitlines(),
+    }
+    inspect = sh("docker", "inspect", args.gms_container)
+    try:
+        c = json.loads(inspect)[0]
+        env = [e for e in c["Config"]["Env"]
+               if e.split("=", 1)[0].startswith(("LINEAGE_", "ELASTICSEARCH_SEARCH_GRAPH", "ELASTICSEARCH_THREAD",
+                                                 "CACHE_SEARCH_LINEAGE", "SEARCH_SERVICE", "JAVA_OPTS"))]
+        meta["gms"] = {"container": args.gms_container, "image": c["Config"]["Image"], "image_id": c["Image"],
+                       "started_at": c["State"]["StartedAt"], "env": env}
+    except Exception:
+        meta["gms"] = {"container": args.gms_container, "inspect": inspect[:500]}
+    try:
+        with urllib.request.urlopen(f"{args.graph_server}/stats", timeout=5) as r:
+            meta["graph_server_stats"] = json.loads(r.read())
+    except Exception as e:
+        meta["graph_server_stats"] = f"<unreachable: {e!r}>"
+    return meta
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--gms", default="http://localhost:8080")
@@ -139,8 +239,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--timeout", type=int, default=180)
     ap.add_argument("--query-shape", choices=sorted(QUERIES), default="ui",
                     help="'total' asks only for the count (run 1); 'ui' also hydrates the page of 10")
+    ap.add_argument("--backend", choices=["gms", "direct", "direct-search"], default="gms",
+                    help="direct-search: the server's walk plus lightning search for --query-shape")
+    ap.add_argument("--graph-server", default="http://localhost:8090", help="for --backend direct")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out / "run_meta.json").write_text(json.dumps(run_meta(args), indent=1, default=str))
+    if args.backend in ("direct", "direct-search"):
+        return run_direct(args)
 
     auth = f"Basic {args.client_id}:{args.client_secret}"
     with args.start_nodes.open() as f:
@@ -215,13 +322,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "truncated": g["truncated"],
                 "status": g["status"],
                 "query_shape": args.query_shape,
+                # In-memory walk lines carry their own timings (backend, server_walk_ms, http_ms, ...).
+                **{f"walk_{k2}": v for k2, v in g.items() if k2 not in WALK_BASE_FIELDS},
                 **{f"search_{k2}": v for k2, v in searches.get(g["walk_id"], {}).items() if k2 not in ("t", "walk_id")},
                 **{f"resolver_{k2}": v for k2, v in resolvers.get(g["walk_id"], {}).items() if k2 not in ("t", "walk_id")},
                 "error": h["error"],
             }
         )
-    missing = [w["walk_id"] for w in walks_out if "search_total_ms" not in w or "resolver_total_ms" not in w]
-    if missing:
+    if not gms_walks:
+        # GMS without the bench hooks (e.g. a plain branch build): keep the harness-side columns only.
+        print("WARNING: no LINEAGE_BENCH lines; writing harness-only walks.csv", file=sys.stderr)
+        for h in harness:
+            if h["phase"] != "measure":
+                continue
+            walks_out.append(
+                {
+                    **{k2: h[k2] for k2 in ("family", "note", "repeat", "urn", "expected_total", "expected_hops")},
+                    "wall_ms": h["wall_ms"],
+                    "http_status": h["http_status"],
+                    "total": h["total"],
+                    "truncated": "",
+                    "status": "ok" if h["http_status"] == 200 and not h["error"] else "error",
+                    "query_shape": args.query_shape,
+                    "error": h["error"],
+                }
+            )
+    missing = [w.get("walk_id") for w in walks_out if "search_total_ms" not in w or "resolver_total_ms" not in w]
+    if missing and gms_walks:
         print(f"WARNING: {len(missing)} walks have no search/resolver line (older GMS image?)", file=sys.stderr)
 
     def tag(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -237,8 +364,69 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"\n{len(walks_out)} walks, {len(bad)} count mismatches, {len(trunc)} truncated/failed -> {args.out}")
     for w in bad + [t for t in trunc if t not in bad]:
         print(f"  {w['family']}:{w['note']} rep{w['repeat']} total={w['total']} expected={w['expected_total']} "
-              f"hops={w['gms_hops']}/{w['expected_hops']} truncated={w['truncated']} status={w['status']}")
+              f"hops={w.get('gms_hops', '')}/{w['expected_hops']} truncated={w['truncated']} status={w['status']}")
     return 0 if not bad and not trunc else 1
+
+
+def run_direct(args: argparse.Namespace) -> int:
+    with args.start_nodes.open() as f:
+        nodes = list(csv.DictReader(f))
+    if args.families:
+        keep = set(args.families.split(","))
+        nodes = [n for n in nodes if n["family"] in keep]
+    args.out.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(f"{args.graph_server}/stats", timeout=30) as r:
+        (args.out / "server_stats_before.json").write_text(r.read().decode())
+
+    shape = args.query_shape if args.backend == "direct-search" else None
+    for _ in range(args.warmup):  # JIT warm-up on every start node, not recorded
+        for n in nodes:
+            direct(args.graph_server, n["urn"], args.timeout, shape)
+
+    walks_out: List[Dict[str, Any]] = []
+    n_total = len(nodes) * args.repeats
+    k = 0
+    for rep in range(1, args.repeats + 1):
+        for n in nodes:
+            k += 1
+            res = direct(args.graph_server, n["urn"], args.timeout, shape)
+            row = {
+                **{k2: n[k2] for k2 in ("family", "note", "urn")},
+                "repeat": rep,
+                "expected_total": int(n["expected_total"]),
+                "expected_hops": int(n["expected_hops"]),
+                "wall_ms": res["wall_ms"],
+                "http_status": res["http_status"],
+                "total": res["total"],
+                "gms_total_rels": res["total"],
+                "gms_hops": res["hops"],
+                "gms_walk_ms": res["server_walk_ms"],
+                "truncated": "true" if res["partial"] else "",
+                "status": "ok" if res["http_status"] == 200 and res["server_status"] == "COMPLETE" else "error",
+                "query_shape": shape or "direct",
+                "backend": args.backend,
+                "response_bytes": res["bytes"],
+                **({"server_search_ms": res.get("server_search_ms"), "mode": res.get("mode"),
+                    "walked": res.get("walked")} if shape else {}),
+                "error": res["error"],
+            }
+            walks_out.append(row)
+            ok = "ok" if res["total"] == row["expected_total"] else "MISMATCH"
+            print(f"[{k}/{n_total}] {n['family']}:{n['note']} rep{rep} {res['wall_ms']} ms "
+                  f"(walk {res['server_walk_ms']} ms, {res['bytes']} B) total={res['total']} {ok} {res['error'][:80]}",
+                  flush=True)
+
+    with urllib.request.urlopen(f"{args.graph_server}/stats", timeout=30) as r:
+        (args.out / "server_stats_after.json").write_text(r.read().decode())
+    write_csv(args.out / "walks.csv", walks_out)
+    for name in ("hops.csv", "slices.csv", "esquery.csv"):
+        (args.out / name).write_text("")
+    bad = [w for w in walks_out if w["total"] != w["expected_total"]]
+    failed = [w for w in walks_out if w["status"] != "ok"]
+    print(f"\n{len(walks_out)} walks, {len(bad)} count mismatches, {len(failed)} failed -> {args.out}")
+    for w in bad + [t for t in failed if t not in bad]:
+        print(f"  {w['family']}:{w['note']} rep{w['repeat']} total={w['total']} expected={w['expected_total']} {w['error']}")
+    return 0 if not bad and not failed else 1
 
 
 if __name__ == "__main__":

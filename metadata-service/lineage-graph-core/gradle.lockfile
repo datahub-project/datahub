@@ -1,0 +1,16 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
+jakarta.annotation:jakarta.annotation-api:3.0.0=benchCompileClasspath,benchRuntimeClasspath,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.jacoco:org.jacoco.agent:0.8.14=jacocoAgent,jacocoAnt
+org.jacoco:org.jacoco.ant:0.8.14=jacocoAnt
+org.jacoco:org.jacoco.core:0.8.14=jacocoAnt
+org.jacoco:org.jacoco.report:0.8.14=jacocoAnt
+org.ow2.asm:asm-commons:9.9=jacocoAnt
+org.ow2.asm:asm-tree:9.9=jacocoAnt
+org.ow2.asm:asm:9.9=jacocoAnt
+org.slf4j:slf4j-api:1.7.36=benchCompileClasspath,benchRuntimeClasspath,compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.testng:testng:7.8.0=testCompileClasspath,testRuntimeClasspath
+org.webjars:jquery:3.6.1=testRuntimeClasspath
+empty=annotationProcessor,benchAnnotationProcessor,testAnnotationProcessor

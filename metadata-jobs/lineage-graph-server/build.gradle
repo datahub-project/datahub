@@ -1,0 +1,50 @@
+plugins {
+  id 'java'
+  id 'application'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+// The Lineage Graph Service, which serves walks over the latest snapshot and reloads newer ones,
+// and its snapshot builder (bin/lineage-snapshot-builder), which scans graph_service in OpenSearch
+// and publishes snapshots. Only the builder needs the entity registry.
+dependencies {
+  implementation project(':metadata-service:lineage-graph-core')
+  implementation project(':metadata-io')
+  implementation project(':metadata-operation-context')
+  implementation project(':entity-registry')
+  implementation project(':metadata-models')
+
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.slf4jApi
+  runtimeOnly externalDependency.logbackClassic
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  testImplementation externalDependency.testng
+}
+
+application {
+  mainClass = 'com.linkedin.metadata.graph.lineage.server.LineageGraphServer'
+  applicationDefaultJvmArgs = ['-XX:+UseG1GC', '-Xmx1g']
+}
+
+// bin/lineage-snapshot-builder [--once], next to the service in the same install.
+// JVM options: LINEAGE_SNAPSHOT_BUILDER_OPTS.
+def builderStartScripts = tasks.register('builderStartScripts', CreateStartScripts) {
+  mainClass = 'com.linkedin.metadata.graph.lineage.server.LineageSnapshotBuilder'
+  applicationName = 'lineage-snapshot-builder'
+  outputDir = layout.buildDirectory.dir('builderScripts').get().asFile
+  classpath = tasks.named('startScripts').get().classpath
+  defaultJvmOpts = ['-XX:+UseG1GC', '-Xmx4g']
+}
+
+distributions {
+  main {
+    contents {
+      from(builderStartScripts) {
+        into 'bin'
+      }
+    }
+  }
+}

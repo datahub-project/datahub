@@ -15,7 +15,7 @@ sourceSets {
 idea {
   module {
     testSources.from(file('src/integTest/java'))
-    scopes.TEST.plus += [ configurations.integTestCompileOnly ]
+    scopes.TEST.plus += [ configurations.integTestCompileClasspath ]
   }
 }
 

@@ -3,11 +3,13 @@ package com.linkedin.gms.factory.common;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.graph.InMemoryGraphConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.graph.inmemory.InMemoryLineageGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -57,16 +59,25 @@ public class ElasticSearchGraphServiceFactory {
       final EntityRegistry entityRegistry,
       @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") final String idHashAlgo,
       MetricUtils metricUtils,
-      @Qualifier("esGraphQueryDAO") final ESGraphQueryDAO esGraphQueryDAO) {
+      @Qualifier("esGraphQueryDAO") final ESGraphQueryDAO esGraphQueryDAO,
+      final ConfigurationProvider configurationProvider) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
-    return new ElasticSearchGraphService(
-        lineageRegistry,
-        graphBulkProcessor(),
-        components.getIndexConvention(),
-        esGraphWriteDAO,
-        esGraphQueryDAO,
-        searchClusterRegistry.indexBuilderFor(SearchComponent.GRAPH),
-        idHashAlgo);
+    GraphService graphService =
+        new ElasticSearchGraphService(
+            lineageRegistry,
+            graphBulkProcessor(),
+            components.getIndexConvention(),
+            esGraphWriteDAO,
+            esGraphQueryDAO,
+            searchClusterRegistry.indexBuilderFor(SearchComponent.GRAPH),
+            idHashAlgo);
+    InMemoryGraphConfiguration inMemory = configurationProvider.getGraphService().getInMemory();
+    if (inMemory != null && inMemory.isEnabled()) {
+      // Impact lineage from the in-memory server, falling back to this OpenSearch service.
+      return new InMemoryLineageGraphService(
+          graphService, inMemory, configurationProvider.getElasticSearch().getSearch().getGraph());
+    }
+    return graphService;
   }
 
   @Bean(name = "esGraphQueryDAO")

@@ -1,0 +1,39 @@
+plugins {
+  id 'java-library'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+// Pure-Java core of the in-memory lineage graph: URN dictionary, packed adjacency and the impact
+// walker. Kept free of DataHub models so both the graph server and the GMS client can depend on it.
+dependencies {
+  implementation externalDependency.slf4jApi
+
+  testImplementation externalDependency.testng
+}
+
+sourceSets {
+  bench {
+    java.srcDir 'src/bench/java'
+    compileClasspath += sourceSets.main.output
+    runtimeClasspath += sourceSets.main.output
+  }
+}
+
+configurations {
+  benchImplementation.extendsFrom implementation
+  benchRuntimeOnly.extendsFrom runtimeOnly
+}
+
+// ./gradlew :metadata-service:lineage-graph-core:bench --args="<dataset dir> [--repeats N] [--out f.json] [--publish snapshotRoot]"
+// -PbenchGc=G1 (or Z, Parallel) picks the collector; -PbenchHeap=8g the max heap.
+tasks.register('bench', JavaExec) {
+  group = 'verification'
+  description = 'Loads a lineage-bench dataset into the in-memory graph and reports load time, memory and walk latency.'
+  classpath = sourceSets.bench.runtimeClasspath
+  mainClass = 'com.linkedin.metadata.graph.lineage.core.CoreBench'
+  jvmArgs = [
+    "-Xmx${project.findProperty('benchHeap') ?: '8g'}",
+    "-XX:+Use${project.findProperty('benchGc') ?: 'Parallel'}GC",
+  ]
+}

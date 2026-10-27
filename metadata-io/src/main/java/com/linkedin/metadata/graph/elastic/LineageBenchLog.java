@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.common.urn.Urn;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.Nullable;
@@ -208,6 +209,56 @@ public final class LineageBenchLog {
         truncated,
         status,
         msSince(walk.startNanos));
+  }
+
+  /**
+   * A walk served by the in-memory lineage graph server. Logged as a {@code walk} line (with the
+   * extra fields) so the harness pairs it with its request like an OpenSearch walk, and recorded as
+   * the thread's last walk so the search line that follows is tagged with it.
+   */
+  public static void inMemoryWalk(
+      Urn startUrn,
+      int hops,
+      int totalRels,
+      boolean truncated,
+      String status,
+      long totalMs,
+      Map<String, Object> extra) {
+    if (!ENABLED) {
+      return;
+    }
+    String id = UUID.randomUUID().toString();
+    LAST_WALK_ID.set(id);
+    StringBuilder fields = new StringBuilder();
+    extra.forEach(
+        (k, v) ->
+            fields
+                .append(",\"")
+                .append(k)
+                .append("\":")
+                .append(v instanceof String ? "\"" + v + "\"" : String.valueOf(v)));
+    log.info(
+        "LINEAGE_BENCH {\"t\":\"walk\",\"walk_id\":\"{}\",\"start_urn\":\"{}\",\"hops\":{},"
+            + "\"total_rels\":{},\"truncated\":{},\"status\":\"{}\",\"total_ms\":{}{}}",
+        id,
+        startUrn.toString().replace("\"", "\\\""),
+        hops,
+        totalRels,
+        truncated,
+        status,
+        totalMs,
+        fields);
+  }
+
+  /** The in-memory server was skipped for this walk; the OpenSearch walk line follows. */
+  public static void inMemoryFallback(Urn startUrn, String reason) {
+    if (!ENABLED) {
+      return;
+    }
+    log.info(
+        "LINEAGE_BENCH {\"t\":\"inmem_fallback\",\"start_urn\":\"{}\",\"reason\":\"{}\"}",
+        startUrn.toString().replace("\"", "\\\""),
+        reason.replace("\"", "'"));
   }
 
   /** Post-walk work inside LineageSearchService.searchAcrossLineage. */

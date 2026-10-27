@@ -13,4 +13,5 @@ import lombok.NoArgsConstructor;
 public class GraphServiceConfiguration {
   private String type;
   private LimitConfig limit;
+  private InMemoryGraphConfiguration inMemory;
 }

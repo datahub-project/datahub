@@ -460,6 +460,16 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  inMemory: # In-memory lineage graph server for impact lineage walks, with OpenSearch fallback
+    enabled: ${LINEAGE_GRAPH_SERVER_ENABLED:false}
+    url: ${LINEAGE_GRAPH_SERVER_URL:http://localhost:8090}
+    connectTimeoutMs: ${LINEAGE_GRAPH_SERVER_CONNECT_TIMEOUT_MS:500}
+    requestTimeoutMs: ${LINEAGE_GRAPH_SERVER_REQUEST_TIMEOUT_MS:10000}
+    maxLagMs: ${LINEAGE_GRAPH_SERVER_MAX_LAG_MS:5000}
+    healthPollMs: ${LINEAGE_GRAPH_SERVER_HEALTH_POLL_MS:1000}
+    failureThreshold: ${LINEAGE_GRAPH_SERVER_FAILURE_THRESHOLD:3}
+    openCircuitMs: ${LINEAGE_GRAPH_SERVER_OPEN_CIRCUIT_MS:30000}
+    searchPushdown: ${LINEAGE_GRAPH_SERVER_SEARCH_PUSHDOWN:true} # answer lightning lineage searches on the server, returning only the page
   limit:
     results:
       max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries

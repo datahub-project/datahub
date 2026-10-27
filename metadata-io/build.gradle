@@ -115,6 +115,7 @@ dependencies {
   api project(':metadata-service:restli-client-api')
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
+  implementation project(':metadata-service:lineage-graph-core')
   api project(':metadata-operation-context')
 
   implementation spec.product.pegasus.restliServer
