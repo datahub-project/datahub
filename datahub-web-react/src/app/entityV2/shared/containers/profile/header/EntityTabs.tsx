@@ -22,7 +22,7 @@ const TabContent = styled.div`
 `;
 
 export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
-    const { entityData, loading } = useEntityData();
+    const { urn, entityData, loading } = useEntityData();
     const routeToTab = useRouteToTab();
     const baseEntity = useBaseEntity<T>();
     const { isTabFullsize } = useContext(TabFullsizedContext);
@@ -48,6 +48,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
             </TabContent>
         ),
         disabled: !t.display?.enabled(entityData, baseEntity),
+        errorResetKey: urn,
         dataTestId: `${t.path}-entity-tab-header`,
         count: t.getCount?.(entityData, baseEntity, loading),
     }));
