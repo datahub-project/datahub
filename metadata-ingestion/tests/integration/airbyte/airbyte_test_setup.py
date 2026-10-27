@@ -89,7 +89,12 @@ AIRBYTE_CHART_VERSION = "2.0.17"
 # fixture setup takes ~490-830s, so a 600s install limit failed on slow pull days.
 # A retry is cheaper than the first attempt: images it already pulled stay in the
 # host's Docker and are loaded into the new cluster instead of being pulled again.
-ABCTL_INSTALL_TIMEOUTS_SECONDS = (900, 600)
+# The budget covers both attempts and the cleanup between them, and has to fit,
+# with the rest of the batch (up to ~900s), in the 2700s pytest wall clock that
+# build.gradle puts on each integration batch.
+ABCTL_INSTALL_BUDGET_SECONDS = 1200
+ABCTL_FIRST_INSTALL_TIMEOUT_SECONDS = 750
+ABCTL_MIN_RETRY_SECONDS = 300
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
@@ -1026,9 +1031,10 @@ def install_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
         "--no-browser",
         "--insecure-cookies",
     ]
-    attempts = len(ABCTL_INSTALL_TIMEOUTS_SECONDS)
-    for attempt, timeout in enumerate(ABCTL_INSTALL_TIMEOUTS_SECONDS, start=1):
-        print(f"Installing Airbyte with abctl (attempt {attempt}/{attempts})...")
+    deadline = time.monotonic() + ABCTL_INSTALL_BUDGET_SECONDS
+    timeout = ABCTL_FIRST_INSTALL_TIMEOUT_SECONDS
+    for attempt in (1, 2):
+        print(f"Installing Airbyte with abctl (attempt {attempt})...")
         started = time.monotonic()
         try:
             result = subprocess.run(
@@ -1049,9 +1055,14 @@ def install_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
                 return
             print(f"abctl install failed after {elapsed:.0f}s")
             _print_install_diagnostics(_output_tail(result.stderr + result.stdout))
-        if attempt < attempts:
-            cleanup_airbyte(abctl_path, test_resources_dir)
-    raise RuntimeError(f"abctl install did not succeed in {attempts} attempts")
+        if attempt == 2:
+            break
+        cleanup_airbyte(abctl_path, test_resources_dir)
+        timeout = int(deadline - time.monotonic())
+        if timeout < ABCTL_MIN_RETRY_SECONDS:
+            print(f"Only {timeout}s of the install budget left; not retrying")
+            break
+    raise RuntimeError("abctl install did not succeed")
 
 
 def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
