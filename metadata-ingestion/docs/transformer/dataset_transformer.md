@@ -1226,7 +1226,7 @@ Rewrites upstream dataset URNs on the `upstreamLineage` aspect. Each entry in `p
 
 Top-level `id_rules` apply to every upstream and keep its platform. They cannot be combined with `platform_rules`; put name rules under the platform rule they belong to.
 
-Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run. When a rewrite produces an upstream that is already listed, the duplicate is dropped.
+Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run. When a rewrite produces an upstream that is already listed, the existing entry is kept (with its own audit stamp, query and properties) and the rewritten duplicate is dropped. If two upstreams rewrite to the same dataset, the first is kept. Incremental lineage patches follow the same rule.
 
 ### Config Details
 

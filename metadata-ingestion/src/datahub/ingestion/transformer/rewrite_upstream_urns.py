@@ -1,7 +1,8 @@
 import copy
 import json
+import logging
 from enum import auto
-from typing import Any, Iterable, List, Optional, Set, cast
+from typing import Any, Iterable, List, Optional, Set, Tuple, cast
 
 from pydantic import Field, field_validator, model_validator
 
@@ -24,7 +25,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
+logger = logging.getLogger(__name__)
+
 _PLATFORM_URN_PREFIX = "urn:li:dataPlatform:"
+# These are encoded inside a URN, so a platform name containing one would not
+# match any real platform.
+_INVALID_PLATFORM_CHARACTERS = frozenset(",() \t\n")
 
 
 class RewriteUpstreamMode(ConfigEnum):
@@ -76,6 +82,11 @@ class RewriteUpstreamPlatformRule(ConfigModel):
         platform = _short_platform(value)
         if not platform:
             raise ValueError("platform find and replace must not be empty")
+        if any(char in _INVALID_PLATFORM_CHARACTERS for char in platform):
+            raise ValueError(
+                f"{platform!r} is not a valid platform name: it cannot contain "
+                "commas, parentheses or whitespace"
+            )
         return platform
 
 
@@ -111,6 +122,18 @@ class RewriteUpstreamUrnsConfig(ConfigModel):
             raise ValueError(
                 "id_rules cannot be combined with platform_rules. "
                 "Move the name rules under the platform rule they apply to."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def reject_duplicate_platform_finds(self) -> "RewriteUpstreamUrnsConfig":
+        # Only the first rule for a platform ever applies, so a repeat is dead config.
+        finds = [rule.find for rule in self.platform_rules]
+        duplicates = sorted({find for find in finds if finds.count(find) > 1})
+        if duplicates:
+            raise ValueError(
+                f"platform_rules has more than one rule for {', '.join(duplicates)}. "
+                "Only the first would apply; merge their id_rules into one rule."
             )
         return self
 
@@ -156,7 +179,9 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
                     and isinstance(record.aspect, GenericAspectClass)
                     and record.entityUrn
                 ):
-                    rewritten = self._rewrite_lineage_patch(record.aspect)
+                    rewritten = self._rewrite_lineage_patch(
+                        record.entityUrn, record.aspect
+                    )
                     if rewritten is not None:
                         record.aspect = rewritten
                         self._mark_processed(record.entityUrn)
@@ -178,8 +203,22 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         return cast(Aspect, lineage)
 
     def _rewrite_upstreams(self, upstreams: List[UpstreamClass]) -> List[UpstreamClass]:
-        # A rewrite can land on a URN that is already an upstream, or two upstreams
-        # can rewrite to the same URN. Keep the first entry for each dataset.
+        # A rewrite can land on a dataset that is already an upstream in its own
+        # right. That entry is kept, so its auditStamp, query and properties are
+        # not replaced by the rewritten one. Two rewrites that land on the same
+        # new dataset keep the first.
+        pairs = [
+            (upstream, self._rewrite_urn(upstream.dataset)) for upstream in upstreams
+        ]
+        if self.config.mode == RewriteUpstreamMode.ADD:
+            already_listed = {upstream.dataset for upstream in upstreams}
+        else:
+            already_listed = {
+                upstream.dataset
+                for upstream, new_urn in pairs
+                if new_urn == upstream.dataset
+            }
+
         rewritten: List[UpstreamClass] = []
         seen: Set[str] = set()
 
@@ -188,19 +227,18 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
                 seen.add(upstream.dataset)
                 rewritten.append(upstream)
 
-        for upstream in upstreams:
-            new_urn = self._rewrite_urn(upstream.dataset)
-            if (
-                self.config.mode == RewriteUpstreamMode.ADD
-                and new_urn != upstream.dataset
-            ):
+        for upstream, new_urn in pairs:
+            if new_urn == upstream.dataset:
                 _keep(upstream)
-                added = copy.deepcopy(upstream)
-                added.dataset = new_urn
-                _keep(added)
-            else:
-                upstream.dataset = new_urn
+                continue
+            if self.config.mode == RewriteUpstreamMode.ADD:
                 _keep(upstream)
+            if new_urn in already_listed:
+                continue
+            if self.config.mode == RewriteUpstreamMode.ADD:
+                upstream = copy.deepcopy(upstream)
+            upstream.dataset = new_urn
+            _keep(upstream)
         return rewritten
 
     def _rewrite_urn_list(self, urns: List[str]) -> List[str]:
@@ -227,6 +265,7 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         try:
             dataset_urn = DatasetUrn.from_string(urn)
         except InvalidUrnError:
+            logger.debug(f"Not rewriting {urn}: it is not a dataset or field URN")
             return urn
 
         platform_name = dataset_urn.get_data_platform_urn().platform_name
@@ -256,13 +295,17 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         return str(DatasetUrn(platform=platform_name, name=name, env=dataset_urn.env))
 
     def _rewrite_lineage_patch(
-        self, aspect: GenericAspectClass
+        self, entity_urn: str, aspect: GenericAspectClass
     ) -> Optional[GenericAspectClass]:
         if aspect.contentType != JSON_PATCH_CONTENT_TYPE:
             return None
         try:
             payload = json.loads(aspect.value)
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (UnicodeDecodeError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"Not rewriting upstream URNs for {entity_urn}: "
+                f"the upstreamLineage patch could not be decoded ({e})"
+            )
             return None
 
         if isinstance(payload, dict) and isinstance(payload.get("patch"), list):
@@ -274,12 +317,17 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         else:
             return None
 
-        rewritten_operations = []
-        for operation in operations:
-            if isinstance(operation, dict):
-                rewritten_operations.extend(self._rewrite_patch_operation(operation))
-            else:
-                rewritten_operations.append(operation)
+        rewritten_operations = _drop_colliding_operations(
+            [
+                (rewritten, rewritten is operation)
+                for operation in operations
+                for rewritten in (
+                    self._rewrite_patch_operation(operation)
+                    if isinstance(operation, dict)
+                    else [operation]
+                )
+            ]
+        )
         if rewritten_operations == operations:
             return None
 
@@ -318,6 +366,23 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
             return [rewritten]
 
         if components == ["upstreams"] and isinstance(value, list):
+            # Same rule as _rewrite_upstreams: an upstream that is already listed
+            # keeps its own entry, and the first of two colliding rewrites wins.
+            pairs = [
+                (item, _rewrite_upstream_value(self, item))
+                for item in value
+                if isinstance(item, dict) and isinstance(item.get("dataset"), str)
+            ]
+            if self.config.mode == RewriteUpstreamMode.ADD:
+                already_listed = {item["dataset"] for item, _ in pairs}
+            else:
+                already_listed = {
+                    item["dataset"]
+                    for item, new_item in pairs
+                    if new_item["dataset"] == item["dataset"]
+                }
+            new_items = {id(item): new_item for item, new_item in pairs}
+
             rewritten_value = []
             seen_datasets: Set[str] = set()
 
@@ -327,17 +392,17 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
                     rewritten_value.append(item)
 
             for item in value:
-                if not isinstance(item, dict) or not isinstance(
-                    item.get("dataset"), str
-                ):
+                if id(item) not in new_items:
                     rewritten_value.append(item)
                     continue
-                new_item = _rewrite_upstream_value(self, item)
-                if self.config.mode == RewriteUpstreamMode.ADD and new_item.get(
-                    "dataset"
-                ) != item.get("dataset"):
+                new_item = new_items[id(item)]
+                if new_item["dataset"] == item["dataset"]:
                     _keep(item)
-                _keep(new_item)
+                    continue
+                if self.config.mode == RewriteUpstreamMode.ADD:
+                    _keep(item)
+                if new_item["dataset"] not in already_listed:
+                    _keep(new_item)
             if rewritten_value == value:
                 return [operation]
             return [_replace_operation(operation, components, rewritten_value)]
@@ -357,6 +422,31 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
             return [rewritten]
 
         return [operation]
+
+
+def _drop_colliding_operations(operations: List[Tuple[Any, bool]]) -> List[Any]:
+    """Drop rewritten patch operations that land on a path already written.
+
+    Each item is an operation and whether it is the original, unchanged
+    operation. As on the aspect path, an operation the patch already had for a
+    path is kept, and of two rewrites that land on the same path the first wins.
+    Original operations are never dropped.
+    """
+    original_paths = {
+        operation.get("path")
+        for operation, is_original in operations
+        if is_original and isinstance(operation, dict)
+    }
+    kept: List[Any] = []
+    rewritten_paths: Set[str] = set()
+    for operation, is_original in operations:
+        if not is_original and isinstance(operation, dict):
+            path = operation.get("path")
+            if path in original_paths or path in rewritten_paths:
+                continue
+            rewritten_paths.add(path)
+        kept.append(operation)
+    return kept
 
 
 def _pointer_components(path: str) -> List[str]:

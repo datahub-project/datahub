@@ -449,3 +449,73 @@ def test_id_rules_cannot_be_combined_with_platform_rules():
                 "id_rules": [{"find": "src_lakehouse", "replace": "workspace"}],
             }
         )
+
+
+_REWRITTEN_UPSTREAM = make_dataset_urn(
+    "fabric", "workspace-id.item-id.gold.bridge_table"
+)
+
+
+def _rewrite_onto_existing_rule() -> list:
+    return [_mssql_rule([{"find": "src_lakehouse", "replace": "workspace-id.item-id"}])]
+
+
+@pytest.mark.parametrize("existing_first", [True, False])
+def test_rewrite_onto_an_existing_upstream_keeps_the_existing_entry(
+    existing_first: bool,
+) -> None:
+    rewritten_from = UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")
+    existing = UpstreamClass(dataset=_REWRITTEN_UPSTREAM, type="COPY")
+    upstreams = (
+        [existing, rewritten_from] if existing_first else [rewritten_from, existing]
+    )
+    transformer = _transformer(platform_rules=_rewrite_onto_existing_rule())
+
+    rewritten = transformer.transform_aspect(
+        DOWNSTREAM, "upstreamLineage", UpstreamLineageClass(upstreams=upstreams)
+    )
+
+    assert isinstance(rewritten, UpstreamLineageClass)
+    assert [(u.dataset, u.type) for u in rewritten.upstreams] == [
+        (_REWRITTEN_UPSTREAM, "COPY")
+    ]
+
+
+def test_patch_rewrite_onto_an_existing_upstream_keeps_the_existing_operation() -> None:
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED"),
+            UpstreamClass(dataset=_REWRITTEN_UPSTREAM, type="COPY"),
+        ]
+    )
+    proposal = convert_upstream_lineage_to_patch(DOWNSTREAM, lineage, None).metadata
+    transformer = _transformer(platform_rules=_rewrite_onto_existing_rule())
+
+    rewritten = list(
+        transformer.transform([RecordEnvelope(record=proposal, metadata={})])
+    )
+
+    upstream_operations = [
+        operation
+        for operation in _patch_operations(rewritten[0].record)
+        if _path_components(operation["path"])[0] == "upstreams"
+    ]
+    assert [
+        (_path_components(operation["path"])[1], operation["value"]["type"])
+        for operation in upstream_operations
+    ] == [(_REWRITTEN_UPSTREAM, "COPY")]
+
+
+def test_duplicate_platform_rule_find_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        RewriteUpstreamUrnsConfig.model_validate(
+            {"platform_rules": [_mssql_rule(), _mssql_rule(replace="snowflake")]}
+        )
+
+
+@pytest.mark.parametrize("platform", ["a,b", "fabric onelake", "fabric(1)"])
+def test_platform_names_that_would_be_encoded_are_rejected(platform: str) -> None:
+    with pytest.raises(ValidationError):
+        RewriteUpstreamUrnsConfig.model_validate(
+            {"platform_rules": [_mssql_rule(replace=platform)]}
+        )
