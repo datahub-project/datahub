@@ -1218,6 +1218,14 @@ def _split_relation_name(value: str) -> _RelationKey:
     return tuple(parts)
 
 
+def _unquote_identifier(value: str) -> str:
+    """``"id"``, `` `id` `` or ``[id]`` -> ``id``, as for relation parts."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] + value[-1] in ('""', "``", "[]"):
+        return value[1:-1]
+    return value
+
+
 def _relation_keys_match(a: _RelationKey, b: _RelationKey) -> bool:
     """True when the shorter key is a suffix of the longer one.
 
@@ -1454,7 +1462,9 @@ def _normalize_constraint(
         match = _FK_EXPRESSION_RE.match(constraint.expression)
         if match:
             to = match.group(1)
-            to_columns = [c.strip() for c in match.group(2).split(",") if c.strip()]
+            to_columns = [
+                _unquote_identifier(c) for c in match.group(2).split(",") if c.strip()
+            ]
     to_key, to_name = resolver.resolve(to)
     return _NormalizedConstraint(
         constraint=constraint,
@@ -5778,6 +5788,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         "spark": _ALL_STANDARD_CONSTRAINTS,
         "athena": frozenset(),
     }
+    # Adapters whose primary key makes its columns NOT NULL in the warehouse.
+    _PK_ENFORCES_NOT_NULL = frozenset({"postgres", "snowflake"})
     _CONSTRAINT_DDL_ENFORCED: Dict[str, FrozenSet[str]] = {
         "postgres": _ALL_STANDARD_CONSTRAINTS,
         "snowflake": _NOT_NULL_ONLY,
@@ -5852,8 +5864,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         # The not-null half of a primary key is labelled with the primary
         # key's enforcement: on adapters that only define PKs (e.g. BigQuery),
-        # declaring one does not make its columns NOT NULL.
-        enforced_by = self._enforced_by_for_constraint(node, constraint.type)
+        # declaring one does not make its columns NOT NULL. Where a primary
+        # key does enforce NOT NULL, it gets the not_null enforcement.
+        enforcement_type = constraint.type
+        if (
+            enforcement_type == DBTConstraintType.PRIMARY_KEY
+            and (node.dbt_adapter or "").lower() in self._PK_ENFORCES_NOT_NULL
+        ):
+            enforcement_type = DBTConstraintType.NOT_NULL.value
+        enforced_by = self._enforced_by_for_constraint(node, enforcement_type)
         assertion_info = make_contract_assertion_info(
             # A named primary key titles only its unique half, so its not-null
             # halves don't all show the same title.

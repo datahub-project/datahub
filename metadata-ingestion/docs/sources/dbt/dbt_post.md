@@ -837,7 +837,7 @@ Contract assertions are **externally reported**: DataHub does not re-run them. `
 
 Only `run_results.json` from `dbt run`, `dbt build`, and `dbt retry` produce contract run events; `dbt compile` reports models as successful without building them.
 
-Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no synthetic success**. They stay `notRunning` until a matching test reports, and they do not flip the contract red by themselves. The not-null half of a `primary_key` carries the primary key's enforcement, since on most warehouses declaring a primary key does not enforce it.
+Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no synthetic success**. They stay `notRunning` until a matching test reports, and they do not flip the contract red by themselves. The not-null half of a `primary_key` carries the primary key's enforcement, since on most warehouses declaring a primary key does not enforce it. On PostgreSQL and Snowflake, which enforce a primary key's NOT NULL, it carries the `not_null` enforcement instead.
 
 On dbt Cloud, contract run events are stamped with the model's `executeCompletedAt` (or `executeStartedAt`) from the job API, so ingesting the same run again does not add new run events. Only when dbt Cloud reports no timings is the ingestion time used.
 

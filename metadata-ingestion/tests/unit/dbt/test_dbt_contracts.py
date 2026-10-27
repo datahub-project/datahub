@@ -441,19 +441,27 @@ def test_enforced_by_follows_dbt_adapter_matrix(
     assert source._enforced_by_for_constraint(node, constraint_type).value == expected
 
 
-def test_primary_key_not_null_half_uses_primary_key_enforcement() -> None:
-    # BigQuery enforces NOT NULL but only defines primary keys, and declaring
-    # a primary key does not make its columns NOT NULL there.
+@pytest.mark.parametrize(
+    "adapter, expected",
+    [
+        # BigQuery enforces NOT NULL but only defines primary keys, and
+        # declaring one does not make its columns NOT NULL there.
+        ("bigquery", "dbt_contract"),
+        # Snowflake enforces the NOT NULL property of a primary key.
+        ("snowflake", "database"),
+    ],
+)
+def test_primary_key_not_null_half_enforcement(adapter: str, expected: str) -> None:
     source = _make_source()
     node = _make_model(
-        adapter="bigquery",
+        adapter=adapter,
         columns=[_column("id", DBTConstraint(type="primary_key"))],
     )
     info = _constraint_info(
         source, node, "primary_key", AssertionStdOperatorClass.NOT_NULL
     )
     assert info.customProperties is not None
-    assert info.customProperties["enforced_by"] == "dbt_contract"
+    assert info.customProperties["enforced_by"] == expected
 
 
 def test_constraint_urns_are_distinct_for_ambiguous_column_names() -> None:
@@ -828,6 +836,7 @@ def test_relationships_test_matches_foreign_key_target(constraint_to: str) -> No
     "expression, matches",
     [
         ("dim_customers (id)", True),
+        ('references "test_schema"."dim_customers" ("id")', True),
         ("dim_stores (id)", False),
         ("not parseable", False),
     ],
