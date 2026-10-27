@@ -93,6 +93,12 @@ def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
     return url or host, token
 
 
+def get_url_from_env() -> Optional[str]:
+    """The env-configured GMS URL, or None when the environment does not set one."""
+    url, _ = _get_config_from_env()
+    return url
+
+
 def require_config_from_env() -> Tuple[str, Optional[str]]:
     host, token = _get_config_from_env()
     if host is None:
