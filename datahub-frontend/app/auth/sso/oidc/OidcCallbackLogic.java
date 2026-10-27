@@ -573,9 +573,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
         systemEntityClient.update(opContext, newEntity);
         log.debug("Successfully provisioned user {}", corpUserSnapshot.getUrn());
+      } else {
+        // Otherwise, the user exists. Skip provisioning.
+        log.debug("User {} already exists. Skipping provisioning", corpUserSnapshot.getUrn());
       }
-      log.debug("User {} already exists. Skipping provisioning", corpUserSnapshot.getUrn());
-      // Otherwise, the user exists. Skip provisioning.
     } catch (RemoteInvocationException e) {
       // Failing provisioning is something worth throwing about.
       throw new RuntimeException(
@@ -613,8 +614,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
                 "Extracted group that does not yet exist {}. Provisioning...",
                 corpGroupSnapshot.getUrn());
             groupsToCreate.add(extractedGroup);
+          } else {
+            log.debug(
+                "Group {} already exists. Skipping provisioning", corpGroupSnapshot.getUrn());
           }
-          log.debug("Group {} already exists. Skipping provisioning", corpGroupSnapshot.getUrn());
         } else {
           // Should not occur until we stop returning default Key aspects for unrecognized entities.
           log.debug(
