@@ -2331,11 +2331,20 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 data_flow_urn=str(flow_urn), job_id=activity_name
             )
 
-            distinct_inputs = {pair.inputs for pair in pairs}
-            distinct_outputs = {pair.outputs for pair in pairs}
+            # Decide on fully resolved runs only: one unresolved run would
+            # otherwise add a placeholder as a second distinct sink (or
+            # source) and turn a one-side-varies activity into a fan-out.
+            resolved_pairs = {
+                pair: column_mappings
+                for pair, column_mappings in pairs.items()
+                if (cache_key, pair) in self._resolved_dynamic_pairs
+            }
+            considered_pairs = resolved_pairs or pairs
+            distinct_inputs = {pair.inputs for pair in considered_pairs}
+            distinct_outputs = {pair.outputs for pair in considered_pairs}
             if len(distinct_inputs) <= 1 or len(distinct_outputs) <= 1:
                 yield from self._emit_unioned_dynamic_lineage(
-                    activity, job_urn, factory_key, pairs, static_pair
+                    activity, job_urn, factory_key, considered_pairs, static_pair
                 )
             else:
                 yield from self._emit_fanout_dynamic_lineage(
@@ -2345,15 +2354,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     pipeline_name=pipeline_name,
                     activity=activity,
                     job_urn=job_urn,
-                    pairs={
-                        pair: column_mappings
-                        for pair, column_mappings in pairs.items()
-                        if (cache_key, pair) in self._resolved_dynamic_pairs
-                    },
-                    unresolved_pair_count=sum(
-                        (cache_key, pair) not in self._resolved_dynamic_pairs
-                        for pair in pairs
-                    ),
+                    pairs=resolved_pairs,
+                    unresolved_pair_count=len(pairs) - len(resolved_pairs),
                     static_pair=static_pair,
                     static_placeholders=static_placeholders,
                 )
@@ -3103,7 +3105,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 if f.fieldPath
             ]
             if columns:
-                schema_info = DatasetSchemaInfo(columns=columns)
+                schema_info = DatasetSchemaInfo(columns=columns, from_datahub=True)
 
         self._graph_schema_cache[dataset_urn] = schema_info
         return schema_info

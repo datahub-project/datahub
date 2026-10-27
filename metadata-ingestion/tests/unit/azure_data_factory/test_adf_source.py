@@ -2117,7 +2117,9 @@ class TestCopyActivityColumnLineageExtractor:
 class TestSinkColumnCasing:
     def test_matches_case_insensitively(self) -> None:
         casing = SinkColumnCasing.from_schema(
-            DatasetSchemaInfo(columns=["order_id", "ship_date", "region"])
+            DatasetSchemaInfo(
+                columns=["order_id", "ship_date", "region"], from_datahub=True
+            )
         )
         assert casing.resolve("Ship_Date") == "ship_date"
         assert casing.resolve("Region") == "region"
@@ -2125,13 +2127,25 @@ class TestSinkColumnCasing:
     def test_keeps_given_name_without_sink_schema(self) -> None:
         assert SinkColumnCasing.from_schema(None).resolve("Ship_Date") == "Ship_Date"
 
-    def test_no_match_in_known_schema_is_unresolved(self) -> None:
-        casing = SinkColumnCasing.from_schema(DatasetSchemaInfo(columns=["order_id"]))
+    def test_no_match_in_datahub_schema_is_unresolved(self) -> None:
+        casing = SinkColumnCasing.from_schema(
+            DatasetSchemaInfo(columns=["order_id"], from_datahub=True)
+        )
         assert casing.resolve("Ship_Date") is None
+
+    def test_no_match_in_adf_declared_schema_keeps_given_name(self) -> None:
+        # An ADF dataset's structure may list only some of the sink's columns.
+        casing = SinkColumnCasing.from_schema(
+            DatasetSchemaInfo(columns=["Order_ID"], from_datahub=False)
+        )
+        assert casing.resolve("order_id") == "Order_ID"
+        assert casing.resolve("Ship_Date") == "Ship_Date"
 
     def test_columns_differing_only_by_case_are_unresolved(self) -> None:
         casing = SinkColumnCasing.from_schema(
-            DatasetSchemaInfo(columns=["Region", "region", "order_id"])
+            DatasetSchemaInfo(
+                columns=["Region", "region", "order_id"], from_datahub=True
+            )
         )
         assert casing.resolve("Region") is None
         assert casing.resolve("Order_ID") == "order_id"
@@ -2793,6 +2807,20 @@ class TestDynamicLineageFanOut:
             a.inputDatasets[0] for a in self._siblings(workunits).values()
         }
         assert sibling_inputs == {_table_urn("orders"), _table_urn("users")}
+
+    def test_unresolved_run_does_not_turn_union_into_fan_out(self) -> None:
+        # Only the source varies; one run left the sink as a placeholder.
+        placeholder = "urn:li:dataset:(urn:li:dataPlatform:mssql,DS_Sink,PROD)"
+        unresolved = LineagePair.of([_table_urn("c")], [placeholder])
+        source, workunits = self._run(
+            {_pair("a", "x"): set(), _pair("b", "x"): set(), unresolved: set()},
+            unresolved_pairs={unresolved},
+        )
+
+        assert self._siblings(workunits) == {}
+        parent = _io_aspects(workunits)[self.PARENT_JOB_URN]
+        assert parent.inputDatasets == [_table_urn("a"), _table_urn("b")]
+        assert parent.outputDatasets == [_table_urn("x")]
 
     def test_one_varying_side_is_unioned_onto_parent(self) -> None:
         source, workunits = self._run({_pair("a", "x"): set(), _pair("b", "x"): set()})

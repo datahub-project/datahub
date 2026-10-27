@@ -48,6 +48,10 @@ class DatasetSchemaInfo:
     """
 
     columns: list[str]
+    # True for a schema ingested into DataHub by the dataset's own source,
+    # which lists every column. An ADF dataset's structure/schema may list
+    # only some of them.
+    from_datahub: bool = False
 
 
 # Type alias for schema resolver callback
@@ -272,12 +276,14 @@ class SinkColumnCasing:
     """
 
     columns_by_lower: dict[str, str]
-    schema_known: bool
+    # Only a complete schema (from DataHub) proves an unmatched column is
+    # not in the sink.
+    drop_unmatched: bool
 
     @classmethod
     def from_schema(cls, schema: Optional[DatasetSchemaInfo]) -> "SinkColumnCasing":
         if not schema or not schema.columns:
-            return cls(columns_by_lower={}, schema_known=False)
+            return cls(columns_by_lower={}, drop_unmatched=False)
         columns_by_lower: dict[str, str] = {}
         ambiguous: set[str] = set()
         for col in schema.columns:
@@ -289,15 +295,18 @@ class SinkColumnCasing:
             columns_by_lower.setdefault(key, col)
         for key in ambiguous:
             del columns_by_lower[key]
-        return cls(columns_by_lower=columns_by_lower, schema_known=True)
+        return cls(
+            columns_by_lower=columns_by_lower, drop_unmatched=schema.from_datahub
+        )
 
     def resolve(self, column: str) -> Optional[str]:
-        """The sink's casing for `column`; the column unchanged when the sink
-        schema is unknown; None when the schema is known but has no unique
-        match, since a URN for that field would point at nothing."""
-        if not self.schema_known:
-            return column
-        return self.columns_by_lower.get(column.lower())
+        """The sink's casing for `column`. With no unique match: None when the
+        sink schema came from DataHub, since a URN for that field would point
+        at nothing; otherwise the column unchanged."""
+        match = self.columns_by_lower.get(column.lower())
+        if match is not None or self.drop_unmatched:
+            return match
+        return column
 
 
 def infer_auto_mappings_by_name(
