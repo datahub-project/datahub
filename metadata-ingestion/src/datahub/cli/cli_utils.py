@@ -13,6 +13,14 @@ from requests.sessions import Session
 
 import datahub._version as datahub_version
 from datahub.cli import config_utils
+
+# Re-exported: the helper moved to datahub.configuration.gms_url so that
+# DatahubClientConfig can apply it without an import cycle; callers that
+# import it from here keep working.
+from datahub.configuration.gms_url import (
+    _ensure_valid_gms_url_acryl_cloud as _ensure_valid_gms_url_acryl_cloud,
+    fixup_gms_url as fixup_gms_url,
+)
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
@@ -366,32 +374,6 @@ def get_frontend_session_login_as(
     response = session.post(f"{frontend_url}/logIn", headers=headers, data=data)
     response.raise_for_status()
     return session
-
-
-def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
-    if "acryl.io" not in url:
-        return url
-    if url.endswith(":8080"):
-        url = url.replace(":8080", "")
-    if url.startswith("http://"):
-        url = url.replace("http://", "https://")
-    if url.endswith("acryl.io"):
-        url = f"{url}/gms"
-    elif url.endswith("acryl.io/"):
-        url = f"{url}gms"
-    if url.endswith("acryl.io/api/gms"):
-        url = url.replace("acryl.io/api/gms", "acryl.io/gms")
-
-    return url
-
-
-def fixup_gms_url(url: str) -> str:
-    if url is None:
-        return ""
-    if url.endswith("/"):
-        url = url.rstrip("/")
-    url = _ensure_valid_gms_url_acryl_cloud(url)
-    return url
 
 
 def guess_frontend_url_from_gms_url(gms_url: str) -> str:
