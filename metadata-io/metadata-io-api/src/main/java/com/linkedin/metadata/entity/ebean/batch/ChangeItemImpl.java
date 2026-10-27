@@ -176,6 +176,7 @@ public class ChangeItemImpl implements ChangeMCP {
             ValidationApiUtils.validateEntity(
                 aspectRetriever.getEntityRegistry(), this.urn.getEntityType()));
         log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateKeyEntityTypes(aspectRetriever.getEntityRegistry(), this.urn);
 
         ValidationApiUtils.validateUrn(aspectRetriever.getEntityRegistry(), this.urn);
         log.debug("entity type = {}", this.urn.getEntityType());

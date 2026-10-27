@@ -194,6 +194,19 @@ public class ValidationApiUtils {
     }
   }
 
+  /**
+   * While unknown data is tolerated, rejects a urn whose key nests an entity type this registry
+   * doesn't know (e.g. a schema field of a newer version's entity type) as a ValidationException,
+   * like an unknown entity type, not as the IllegalArgumentException batch building skips.
+   */
+  public static void validateKeyEntityTypes(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    if (handling().referencesUnknownEntityType(entityRegistry, urn)) {
+      throw new ValidationException(
+          String.format("Urn %s nests an entity type this version doesn't know", urn));
+    }
+  }
+
   @Nonnull
   public static AspectSpec validateAspect(@Nonnull EntitySpec entitySpec, String aspectName) {
     if (aspectName == null || aspectName.isEmpty()) {
@@ -343,6 +356,7 @@ public class ValidationApiUtils {
               urn.getEntityType(), mcp.getEntityType()));
     }
 
+    validateKeyEntityTypes(entityRegistry, urn);
     validateUrn(entityRegistry, urn);
     validateAspect(entitySpec, mcp.getAspectName());
 

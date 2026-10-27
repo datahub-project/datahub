@@ -449,6 +449,68 @@ public class AspectsBatchImplTest {
   }
 
   @Test
+  public void nestedUnknownEntityTypeRejectsBatchLikeUnknownEntityType() {
+    // A known entity type whose key nests one this registry doesn't know (e.g. a schema field of a
+    // newer version's entity type) is rejected like an unknown entity type, upsert or patch, rather
+    // than dropped silently while the call reports success.
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)");
+
+    for (MetadataChangeProposal unknown :
+        List.of(upsert(nested, STATUS_ASPECT_NAME), statusPatch(nested))) {
+      assertThrows(
+          ValidationException.class,
+          () ->
+              AspectsBatchImpl.builder()
+                  .mcps(
+                      ImmutableList.of(known, unknown),
+                      AuditStampUtils.createDefaultAuditStamp(),
+                      retrieverContext));
+    }
+  }
+
+  @Test
+  public void strictHandlingSkipsNestedUnknownEntityTypeAsBefore() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    MetadataChangeProposal nested =
+        upsert(
+            UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)"),
+            STATUS_ASPECT_NAME);
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                ImmutableList.of(known, nested),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .build(null);
+
+    assertEquals(batch.getItems().size(), 1);
+  }
+
+  private static MetadataChangeProposal statusPatch(Urn urn) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(urn)
+        .setEntityType(urn.getEntityType())
+        .setAspectName(STATUS_ASPECT_NAME)
+        .setChangeType(ChangeType.PATCH)
+        .setAspect(
+            new GenericAspect()
+                .setContentType("application/json-patch+json")
+                .setValue(
+                    ByteString.copyString(
+                        "[{\"op\":\"add\",\"path\":\"/removed\",\"value\":true}]",
+                        StandardCharsets.UTF_8)));
+  }
+
+  @Test
   public void strictHandlingValidatesUrnBeforeEntityType() {
     // Strict handling keeps the original order: urn validation fails first, with the
     // IllegalArgumentException batch building skips, instead of a ValidationException.

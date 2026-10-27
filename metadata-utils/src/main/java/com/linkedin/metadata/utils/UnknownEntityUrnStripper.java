@@ -112,6 +112,18 @@ public final class UnknownEntityUrnStripper {
     return walk.unknownUrns;
   }
 
+  /** Every urn in {@code value}. */
+  @Nonnull
+  static Set<String> urns(
+      @Nullable final Object value,
+      @Nonnull final DataSchema schema,
+      @Nonnull final EntityRegistry entityRegistry) {
+    final Walk walk = new Walk(entityRegistry, false);
+    walk.urns = new HashSet<>();
+    walk.prune(value, schema);
+    return walk.urns;
+  }
+
   /**
    * Whether stripping would remove {@code value} as a whole from its container, so a reader never
    * sees it. Does not modify {@code value}.
@@ -152,6 +164,7 @@ public final class UnknownEntityUrnStripper {
     private int removed;
     private boolean found;
     @Nullable private Set<String> unknownUrns;
+    @Nullable private Set<String> urns;
 
     private Walk(@Nonnull final EntityRegistry entityRegistry, final boolean mutate) {
       this.entityRegistry = entityRegistry;
@@ -170,6 +183,9 @@ public final class UnknownEntityUrnStripper {
       if (schema instanceof TyperefDataSchema typeref) {
         if (!isUrnTyperef(typeref)) {
           return prune(value, typeref.getRef());
+        }
+        if (urns != null && value instanceof String) {
+          urns.add((String) value);
         }
         final boolean unknown = value instanceof String urn && isUnknownEntityType(urn);
         found |= unknown;
