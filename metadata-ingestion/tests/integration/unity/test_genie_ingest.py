@@ -164,14 +164,24 @@ def test_http_pipeline_preserves_checkpoint_on_partial_scan(
         else:
             http.get(f"{SPACES_URL}/b", json={**summaries[1], "serialized_space": "{"})
         partial = run_pipeline(tmp_path, "partial")
-        assert partial.source.get_report().failures
+        report = partial.source.get_report()
         assert not any(
             isinstance(p.aspect, StatusClass) and p.aspect.removed
             for p in emitted_proposals(tmp_path, "partial")
         )
+        if failure_mode == "later_page":
+            assert report.failures
+        else:
+            partial.raise_from_status()
+            messages = [warning.message for warning in report.warnings]
+            if failure_mode == "permission":
+                assert "Genie agent export requires CAN EDIT" in messages
+            else:
+                assert "Invalid Genie agent export" in messages
 
-        # Successful recovery must compare against the complete first run, not
-        # the partial second run, and detect that b has genuinely disappeared.
+        # b stays checkpointed across the partial run: a warning carries its URN
+        # forward, and a listing failure copies the previous state. Dropping b
+        # from the next listing soft-deletes it.
         http.get(SPACES_URL, json={"spaces": [summaries[0]]})
         recovered = run_pipeline(tmp_path, "recovered")
         recovered.raise_from_status()

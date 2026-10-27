@@ -6,10 +6,6 @@ from datahub.utilities.str_enum import StrEnum
 logger = logging.getLogger(__name__)
 
 
-class AIAgentSubTypes(StrEnum):
-    GENIE_AGENT = "Genie Agent"
-
-
 class DatasetSubTypes(StrEnum):
     # Generic SubTypes
     TABLE = "Table"

@@ -1,8 +1,9 @@
 import json
 from datetime import datetime, timezone
 from itertools import islice
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar
 from unittest.mock import Mock, patch
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 from databricks.sdk.core import ApiClient
@@ -21,9 +22,17 @@ from datahub.metadata.schema_classes import (
     AIAgentInfoClass,
     DataPlatformInstanceClass,
     MetadataChangeProposalClass,
-    SubTypesClass,
     UpstreamLineageClass,
 )
+
+_AspectT = TypeVar("_AspectT")
+
+AGENT_ASPECTS = {
+    "aiAgentInfo",
+    "status",
+    "dataPlatformInstance",
+    "upstreamLineage",
+}
 
 
 @pytest.fixture
@@ -35,6 +44,7 @@ def source() -> Iterable[UnityCatalogSource]:
                 workspace_url="https://workspace.example.com",
                 token="test-token",
                 include_hive_metastore=False,
+                include_tags=False,
                 include_genie_spaces=True,
                 platform_instance="workspace",
                 env="DEV",
@@ -67,8 +77,40 @@ def space_with_sources(
     )
 
 
+def aspect_of(
+    workunits: List[MetadataWorkUnit], aspect_type: Type[_AspectT]
+) -> _AspectT:
+    found = [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(aspect_type)) is not None
+    ]
+    assert len(found) == 1
+    return found[0]
+
+
+def aspect_names(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    names: Set[str] = set()
+    for wu in workunits:
+        metadata = wu.metadata
+        if isinstance(
+            metadata, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)
+        ):
+            assert metadata.aspectName
+            names.add(metadata.aspectName)
+    return names
+
+
+def expected_agent_urn(space_id: str = "space-1") -> str:
+    identity = f"https://workspace.example.com/genie/{space_id}#DEV"
+    return f"urn:li:aiAgent:databricks-genie-{uuid5(NAMESPACE_URL, identity)}"
+
+
 def extract(
-    source: UnityCatalogSource, space: GenieSpace, metastore: Optional[str] = None
+    source: UnityCatalogSource,
+    space: GenieSpace,
+    metastore: Optional[str] = None,
+    preserve_urn: Optional[Callable[[str], None]] = None,
 ) -> List[MetadataWorkUnit]:
     client = Mock(spec=GenieSpaceClient)
     client.list_spaces.return_value = [space]
@@ -81,6 +123,7 @@ def extract(
             table_urn_builder=source.gen_dataset_urn,
             platform_instance=source.platform_instance_name,
             metastore=metastore,
+            preserve_urn=preserve_urn or (lambda urn: None),
         ).get_workunits()
     )
 
@@ -99,11 +142,10 @@ def test_empty_instruction_entries_preserve_space_and_lineage(
     space.serialized_space = json.dumps(definition)
 
     workunits = extract(source, space)
-    info = workunits[0].get_aspect_of_type(AIAgentInfoClass)
-    assert info is not None
+    info = aspect_of(workunits, AIAgentInfoClass)
     assert info.instructions == ("Use net revenue." if has_content else None)
-    lineage = workunits[3].get_aspect_of_type(UpstreamLineageClass)
-    assert lineage is not None and len(lineage.upstreams) == 1
+    lineage = aspect_of(workunits, UpstreamLineageClass)
+    assert len(lineage.upstreams) == 1
 
 
 @pytest.mark.parametrize("metric_views", [False, True])
@@ -115,24 +157,23 @@ def test_declared_lineage_and_agent_metadata(
         ["catalog.`schema.with.dots`.orders"] * 2, metric_views=metric_views
     )
     workunits = extract(source, space, metastore)
-    info = workunits[0].get_aspect_of_type(AIAgentInfoClass)
-    assert info is not None
+    assert aspect_names(workunits) == AGENT_ASPECTS
+    info = aspect_of(workunits, AIAgentInfoClass)
     assert info.source and info.source.type == "EXTERNAL"
     assert info.name == space.title
-    subtype = workunits[-1].get_aspect_of_type(SubTypesClass)
-    assert subtype is not None and subtype.typeNames == ["Genie Agent"]
+    assert info.created.time == 0
+    assert info.lastModified.time == 0
     assert info.instructions == "Use net revenue."
-    platform = workunits[2].get_aspect_of_type(DataPlatformInstanceClass)
-    assert platform is not None
+    platform = aspect_of(workunits, DataPlatformInstanceClass)
     assert platform.platform == "urn:li:dataPlatform:databricks"
     assert (
         platform.instance
         == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:databricks,workspace)"
     )
-    lineage = workunits[3].get_aspect_of_type(UpstreamLineageClass)
-    assert lineage is not None
+    lineage = aspect_of(workunits, UpstreamLineageClass)
     assert len(lineage.upstreams) == 1
     upstream = lineage.upstreams[0]
+    assert upstream.auditStamp and upstream.auditStamp.time == 0
     prefix = "metastore." if metastore else ""
     assert (
         upstream.dataset
@@ -173,12 +214,14 @@ def test_invalid_export_does_not_erase_previous_lineage(
     space = space_with_sources([])
     space.serialized_space = serialized
     assert extract(source, space) == []
-    assert source.report.failures
+    assert not source.report.failures
+    assert source.report.warnings
 
 
 def test_identity_is_stable_and_workspace_scoped(source: UnityCatalogSource) -> None:
     space = space_with_sources([])
     first = extract(source, space)[0].get_urn()
+    assert first == expected_agent_urn()
     space.title = "Renamed Assistant"
     source.ctx.run_id = "another-run"
     assert extract(source, space)[0].get_urn() == first
@@ -218,8 +261,11 @@ def test_permission_failure_continues_and_filtered_spaces_are_not_fetched(
     ]
     with patch.object(source, "process_catalogs", return_value=iter([])):
         workunits = list(source.process_metastores())
-    assert len(workunits) == 5
-    assert source.report.failures
+    assert aspect_names(workunits) == AGENT_ASPECTS
+    assert not source.report.failures
+    assert [warning.message for warning in source.report.warnings] == [
+        "Genie agent export requires CAN EDIT"
+    ]
     assert api.do.call_count == 3
 
 
@@ -271,10 +317,7 @@ def test_repeated_page_token_fails_instead_of_looping() -> None:
         list(GenieSpaceClient(api).list_spaces())
 
 
-def test_genie_disabled_by_default(source: UnityCatalogSource) -> None:
-    assert (
-        UnityCatalogSourceConfig.model_fields["include_genie_spaces"].default is False
-    )
+def test_genie_disabled_skips_listing(source: UnityCatalogSource) -> None:
     source.config.include_genie_spaces = False
     source.unity_catalog_api_proxy.genie = Mock(spec=GenieSpaceClient)
     with patch.object(source, "process_catalogs", return_value=iter([])):
@@ -326,8 +369,8 @@ def test_large_export_ignores_unused_content_and_preserves_instructions(
     space.serialized_space = json.dumps(definition)
     assert len(space.serialized_space) > 3_000_000
     workunits = extract(source, space)
-    info = workunits[0].get_aspect_of_type(AIAgentInfoClass)
-    assert info and info.instructions == instructions
+    info = aspect_of(workunits, AIAgentInfoClass)
+    assert info.instructions == instructions
     lineage = next(
         aspect
         for wu in workunits
@@ -343,7 +386,13 @@ def test_oversized_agent_is_reported_before_emitting_partial_metadata(
     space = space_with_sources([])
     space.description = "x" * INGEST_MAX_PAYLOAD_BYTES
     assert extract(source, space) == []
-    assert source.report.failures
+    assert not source.report.failures
+    warning = source.report.warnings[0]
+    assert warning.message == "Genie agent metadata exceeds the ingestion payload limit"
+    assert any(
+        context.startswith("space_id=space-1") and "aspect=aiAgentInfo" in context
+        for context in warning.context
+    )
 
 
 def test_payload_limit_accounts_for_json_escaping(source: UnityCatalogSource) -> None:
@@ -351,7 +400,10 @@ def test_payload_limit_accounts_for_json_escaping(source: UnityCatalogSource) ->
     space.description = "\x00" * 1000
     with patch("datahub.ingestion.source.unity.genie.GENIE_MAX_MCP_BYTES", 4096):
         assert extract(source, space) == []
-    assert source.report.failures
+    assert not source.report.failures
+    assert source.report.warnings[0].message == (
+        "Genie agent metadata exceeds the ingestion payload limit"
+    )
 
 
 def test_legacy_export_version_is_supported(source: UnityCatalogSource) -> None:
@@ -361,7 +413,7 @@ def test_legacy_export_version_is_supported(source: UnityCatalogSource) -> None:
     definition["version"] = 1
     space.serialized_space = json.dumps(definition)
     workunits = extract(source, space)
-    assert len(workunits) == 5
+    assert aspect_names(workunits) == AGENT_ASPECTS
     assert not source.report.failures
 
 
@@ -371,7 +423,8 @@ def test_unknown_export_version_does_not_clear_lineage(
     space = space_with_sources([])
     space.serialized_space = '{"version": 999, "data_sources": {"new_source_type": []}}'
     assert extract(source, space) == []
-    assert source.report.failures
+    assert not source.report.failures
+    assert source.report.warnings[0].message == "Unsupported Genie export version"
 
 
 def test_source_timestamps_are_preserved(
@@ -381,9 +434,12 @@ def test_source_timestamps_are_preserved(
     space.create_time = datetime(2020, 1, 1, tzinfo=timezone.utc)
     space.update_time = datetime(2021, 1, 1, tzinfo=timezone.utc)
     workunits = extract(source, space)
-    info = workunits[0].get_aspect_of_type(AIAgentInfoClass)
-    assert info and info.created.time == 1577836800000
+    info = aspect_of(workunits, AIAgentInfoClass)
+    assert info.created.time == 1577836800000
     assert info.lastModified.time == 1609459200000
+    lineage = aspect_of(workunits, UpstreamLineageClass)
+    assert lineage.upstreams[0].auditStamp
+    assert lineage.upstreams[0].auditStamp.time == 1609459200000
 
 
 def test_partial_listing_failure_retains_completed_space_and_reports_failure(
@@ -402,7 +458,7 @@ def test_partial_listing_failure_retains_completed_space_and_reports_failure(
     source.unity_catalog_api_proxy.genie = GenieSpaceClient(api)
     with patch.object(source, "process_catalogs", return_value=iter([])):
         workunits = list(source.process_metastores())
-    assert len(workunits) == 5
+    assert aspect_names(workunits) == AGENT_ASPECTS
     assert source.report.failures
 
 
@@ -413,4 +469,86 @@ def test_mismatched_space_id_is_not_ingested(source: UnityCatalogSource) -> None
     source.unity_catalog_api_proxy.genie = client
     with patch.object(source, "process_catalogs", return_value=iter([])):
         assert list(source.process_metastores()) == []
+    assert not source.report.failures
+    assert source.report.warnings[0].message == "Invalid Genie agent export"
+    assert "space_id=expected" in source.report.warnings[0].context[0]
+
+
+def _warned_workunits(
+    source: UnityCatalogSource,
+    client: GenieSpaceClient,
+    preserve_urn: Callable[[str], None],
+) -> List[MetadataWorkUnit]:
+    return list(
+        GenieSpaceExtractor(
+            config=source.config,
+            client=client,
+            report=source.report,
+            table_urn_builder=source.gen_dataset_urn,
+            platform_instance=source.platform_instance_name,
+            metastore=None,
+            preserve_urn=preserve_urn,
+        ).get_workunits()
+    )
+
+
+@pytest.mark.parametrize(
+    ("cause", "message", "context_part"),
+    [
+        ("missing", "Genie agent export requires CAN EDIT", "space_id=space-1"),
+        ("permission", "Genie agent export requires CAN EDIT", "space_id=space-1"),
+        ("bad_json", "Invalid Genie agent export", "space_id=space-1"),
+        ("bad_identifier", "Invalid Genie agent export", "identifier='unqualified'"),
+        ("mismatch", "Invalid Genie agent export", "space_id=space-1"),
+        ("unsupported", "Unsupported Genie export version", "space_id=space-1"),
+        (
+            "oversized",
+            "Genie agent metadata exceeds the ingestion payload limit",
+            "aspect=aiAgentInfo",
+        ),
+        ("fetch_error", "Failed to fetch Genie agent", "space_id=space-1"),
+    ],
+)
+def test_per_space_problem_warns_and_preserves_urn(
+    source: UnityCatalogSource, cause: str, message: str, context_part: str
+) -> None:
+    space = space_with_sources(
+        ["unqualified"] if cause == "bad_identifier" else [],
+    )
+    if cause == "missing":
+        space.serialized_space = None
+    elif cause == "bad_json":
+        space.serialized_space = "{"
+    elif cause == "unsupported":
+        space.serialized_space = '{"version": 999}'
+    elif cause == "oversized":
+        space.description = "x" * INGEST_MAX_PAYLOAD_BYTES
+    client = Mock(spec=GenieSpaceClient)
+    client.list_spaces.return_value = [space]
+    if cause == "permission":
+        client.get_space.side_effect = PermissionDenied("No access")
+    elif cause == "mismatch":
+        client.get_space.return_value = space_with_sources([], space_id="other")
+    elif cause == "fetch_error":
+        client.get_space.side_effect = RuntimeError("boom")
+    else:
+        client.get_space.return_value = space
+    preserve_urn = Mock()
+    assert _warned_workunits(source, client, preserve_urn) == []
+    assert not source.report.failures
+    warning = source.report.warnings[0]
+    assert warning.message == message
+    assert context_part in warning.context[0]
+    if cause == "oversized":
+        assert "size=" in warning.context[0]
+    preserve_urn.assert_called_once_with(expected_agent_urn())
+
+
+def test_listing_failure_does_not_preserve_spaces(source: UnityCatalogSource) -> None:
+    client = Mock(spec=GenieSpaceClient)
+    client.list_spaces.side_effect = PermissionDenied("No access")
+    preserve_urn = Mock()
+    assert _warned_workunits(source, client, preserve_urn) == []
     assert source.report.failures
+    assert not source.report.warnings
+    preserve_urn.assert_not_called()

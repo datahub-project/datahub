@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Dict, Iterable, List, Literal, Optional, Set
 from urllib.parse import quote
@@ -40,10 +41,31 @@ class GenieInstructions(BaseModel):
     text_instructions: List[GenieTextInstruction] = Field(default_factory=list)
 
 
+class UnsupportedGenieExportVersion(ValueError):
+    pass
+
+
+class InvalidGenieExport(ValueError):
+    pass
+
+
 class GenieSpaceDefinition(BaseModel):
     version: Literal[1, 2]
     data_sources: GenieDataSources
     instructions: GenieInstructions = Field(default_factory=GenieInstructions)
+
+    @classmethod
+    def from_serialized(cls, serialized: str) -> "GenieSpaceDefinition":
+        # Reject an unsupported version before model_validate so it is not
+        # reported as a malformed export.
+        payload = json.loads(serialized)
+        if not isinstance(payload, dict):
+            raise InvalidGenieExport("Genie agent export is not a JSON object")
+        if payload.get("version") not in (1, 2):
+            raise UnsupportedGenieExportVersion(
+                f"Unsupported Genie export version: {payload.get('version')}"
+            )
+        return cls.model_validate(payload)
 
 
 class GenieSpaceClient:

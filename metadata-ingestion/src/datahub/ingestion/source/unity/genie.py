@@ -1,7 +1,11 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Callable, Iterable, List, Optional, Set
 from uuid import NAMESPACE_URL, uuid5
+
+from databricks.sdk.errors import PermissionDenied
+from pydantic import ValidationError
+from typing_extensions import LiteralString
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -11,12 +15,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import AIAgentSubTypes
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.genie_client import (
     GenieSpace,
     GenieSpaceClient,
     GenieSpaceDefinition,
+    InvalidGenieExport,
+    UnsupportedGenieExportVersion,
 )
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_types import TableReference
@@ -29,7 +34,6 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     StatusClass,
-    SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -41,6 +45,30 @@ GENIE_ACTOR = "urn:li:corpuser:datahub"
 GENIE_MAX_MCP_BYTES = int(INGEST_MAX_PAYLOAD_BYTES * 0.985)
 
 
+def _millis_or_zero(dt: Optional[datetime]) -> int:
+    # The Get Genie Space response may omit timestamps. Zero stays stable across
+    # runs, so aiAgentInfo and upstreamLineage are not rewritten every schedule.
+    if dt is None:
+        return 0
+    return make_ts_millis(dt)
+
+
+class _GenieSpaceWarning(Exception):
+    def __init__(
+        self,
+        message: LiteralString,
+        *,
+        identifier: Optional[str] = None,
+        aspect_name: Optional[str] = None,
+        size: Optional[int] = None,
+    ) -> None:
+        super().__init__(message)
+        self.report_message: LiteralString = message
+        self.identifier = identifier
+        self.aspect_name = aspect_name
+        self.size = size
+
+
 class GenieSpaceExtractor:
     def __init__(
         self,
@@ -50,6 +78,7 @@ class GenieSpaceExtractor:
         table_urn_builder: Callable[[TableReference], str],
         platform_instance: Optional[str],
         metastore: Optional[str],
+        preserve_urn: Callable[[str], None],
     ) -> None:
         self.config = config
         self.client = client
@@ -57,6 +86,7 @@ class GenieSpaceExtractor:
         self.table_urn_builder = table_urn_builder
         self.platform_instance = platform_instance
         self.metastore = metastore
+        self.preserve_urn = preserve_urn
         self.workspace_url = config.workspace_url.rstrip("/").lower()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -68,36 +98,68 @@ class GenieSpaceExtractor:
                 try:
                     space = self.client.get_space(summary.space_id)
                     if space.space_id != summary.space_id:
-                        raise ValueError("Genie agent response has a different ID")
+                        raise _GenieSpaceWarning("Invalid Genie agent export")
                     # Construct everything before emitting so invalid definitions do
                     # not replace previously ingested lineage with an empty set.
                     workunits = self._space_workunits(space)
                 except Exception as exc:
-                    self.report.failure(
-                        message="Failed to ingest Genie agent",
-                        context=summary.space_id,
-                        exc=exc,
-                    )
+                    self._warn_space(summary.space_id, exc)
                     continue
                 yield from workunits
                 self.report.genie_spaces.processed(space.space_id)
         except Exception as exc:
+            # The set of spaces is unknown, so stale removal must stay off.
             self.report.failure(message="Failed to list Genie agents", exc=exc)
+
+    def _warn_space(self, space_id: str, exc: Exception) -> None:
+        self.preserve_urn(self._agent_urn(space_id))
+        self.report.warning(
+            message=self._warning_message(exc),
+            context=self._warning_context(space_id, exc),
+            exc=exc,
+        )
+
+    @staticmethod
+    def _warning_message(exc: Exception) -> LiteralString:
+        if isinstance(exc, _GenieSpaceWarning):
+            return exc.report_message
+        if isinstance(exc, PermissionDenied):
+            return "Genie agent export requires CAN EDIT"
+        if isinstance(exc, UnsupportedGenieExportVersion):
+            return "Unsupported Genie export version"
+        if isinstance(exc, (json.JSONDecodeError, ValidationError, InvalidGenieExport)):
+            return "Invalid Genie agent export"
+        return "Failed to fetch Genie agent"
+
+    @staticmethod
+    def _warning_context(space_id: str, exc: Exception) -> str:
+        parts = [f"space_id={space_id}"]
+        if isinstance(exc, _GenieSpaceWarning):
+            if exc.identifier is not None:
+                parts.append(f"identifier={exc.identifier!r}")
+            if exc.aspect_name is not None:
+                parts.append(f"aspect={exc.aspect_name}")
+            if exc.size is not None:
+                parts.append(f"size={exc.size}")
+        return " ".join(parts)
+
+    def _agent_urn(self, space_id: str) -> str:
+        identity = f"{self.workspace_url}/genie/{space_id}#{self.config.env}"
+        return str(AiAgentUrn(f"databricks-genie-{uuid5(NAMESPACE_URL, identity)}"))
 
     def _space_workunits(self, space: GenieSpace) -> List[MetadataWorkUnit]:
         if space.serialized_space is None:
-            raise ValueError(
-                "Genie agent export is missing; CAN EDIT permission is required"
-            )
-        definition = GenieSpaceDefinition.model_validate_json(space.serialized_space)
+            raise _GenieSpaceWarning("Genie agent export requires CAN EDIT")
+        definition = GenieSpaceDefinition.from_serialized(space.serialized_space)
         upstream_urns: Set[str] = set()
         for source in (
             definition.data_sources.tables + definition.data_sources.metric_views
         ):
             parts = split_databricks_identifier(source.identifier)
             if parts is None or len(parts) != 3 or not all(parts):
-                raise ValueError(
-                    "Genie data source must be a three-part table identifier"
+                raise _GenieSpaceWarning(
+                    "Invalid Genie agent export",
+                    identifier=source.identifier,
                 )
             upstream_urns.add(
                 self.table_urn_builder(
@@ -110,12 +172,10 @@ class GenieSpaceExtractor:
                 )
             )
 
-        identity = f"{self.workspace_url}/genie/{space.space_id}#{self.config.env}"
-        agent_urn = str(
-            AiAgentUrn(f"databricks-genie-{uuid5(NAMESPACE_URL, identity)}")
-        )
-        now = make_ts_millis(datetime.now(timezone.utc))
-        audit = AuditStampClass(time=now, actor=GENIE_ACTOR)
+        agent_urn = self._agent_urn(space.space_id)
+        created_ms = _millis_or_zero(space.create_time)
+        modified_ms = _millis_or_zero(space.update_time)
+        audit = AuditStampClass(time=modified_ms, actor=GENIE_ACTOR)
         instructions = "\n\n".join(
             "".join(instruction.content)
             for instruction in definition.instructions.text_instructions
@@ -129,18 +189,8 @@ class GenieSpaceExtractor:
                     description=space.description,
                     instructions=instructions or None,
                     source=AIAgentSourceClass(type=AIAgentSourceTypeClass.EXTERNAL),
-                    created=AuditStampClass(
-                        time=int(space.create_time.timestamp() * 1000)
-                        if space.create_time
-                        else now,
-                        actor=GENIE_ACTOR,
-                    ),
-                    lastModified=AuditStampClass(
-                        time=int(space.update_time.timestamp() * 1000)
-                        if space.update_time
-                        else now,
-                        actor=GENIE_ACTOR,
-                    ),
+                    created=AuditStampClass(time=created_ms, actor=GENIE_ACTOR),
+                    lastModified=AuditStampClass(time=modified_ms, actor=GENIE_ACTOR),
                 ),
             ).as_workunit(),
             MetadataChangeProposalWrapper(
@@ -176,20 +226,17 @@ class GenieSpaceExtractor:
                     ),
                 ).as_workunit()
             )
-        workunits.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=agent_urn,
-                aspect=SubTypesClass(typeNames=[AIAgentSubTypes.GENIE_AGENT]),
-            ).as_workunit()
-        )
         for workunit in workunits:
             proposal = workunit.metadata
             assert isinstance(proposal, MetadataChangeProposalWrapper)
             # Check the serialized proposal, including JSON escaping. The shared
             # size processor does not truncate aiAgentInfo, and truncating either
             # instructions or declared dependencies would misrepresent the space.
-            if len(json.dumps(proposal.to_obj()).encode("utf-8")) > GENIE_MAX_MCP_BYTES:
-                raise ValueError(
-                    "Genie agent metadata exceeds the ingestion payload limit"
+            size = len(json.dumps(proposal.to_obj()).encode("utf-8"))
+            if size > GENIE_MAX_MCP_BYTES:
+                raise _GenieSpaceWarning(
+                    "Genie agent metadata exceeds the ingestion payload limit",
+                    aspect_name=proposal.aspectName,
+                    size=size,
                 )
         return workunits

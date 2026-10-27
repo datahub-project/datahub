@@ -74,6 +74,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.state.entity_removal_state import (
+    GenericCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -394,6 +400,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - schemas
     - tables and column lineage
     - model and model versions
+    - Genie agents (opt-in)
     """
 
     config: UnityCatalogSourceConfig
@@ -774,6 +781,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
+    def _preserve_genie_agent_urn(self, urn: str) -> None:
+        # A warned space is not emitted, so stale removal would soft-delete it.
+        # Copy the URN forward only when a previous run ingested it. A space
+        # that has never been ingested is not tracked.
+        if not self.state_provider.is_stateful_ingestion_configured():
+            return
+        job_id = StaleEntityRemovalHandler.compute_job_id(self.platform)
+        last_checkpoint = self.state_provider.get_last_checkpoint(
+            job_id, GenericCheckpointState
+        )
+        if last_checkpoint is None or urn not in last_checkpoint.state.urns:
+            return
+        current_checkpoint = self.state_provider.get_current_checkpoint(job_id)
+        if current_checkpoint is None:
+            return
+        current_state = current_checkpoint.state
+        if not isinstance(current_state, GenericCheckpointState):
+            return
+        current_state.add_checkpoint_urn(type="aiAgent", urn=urn)
+
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
@@ -795,6 +822,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     table_urn_builder=self.gen_dataset_urn,
                     platform_instance=self.platform_instance_name,
                     metastore=metastore.id if metastore else None,
+                    preserve_urn=self._preserve_genie_agent_urn,
                 ).get_workunits()
         if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)

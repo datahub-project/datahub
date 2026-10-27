@@ -315,7 +315,7 @@ class UnityCatalogSourceConfig(
 
     include_genie_spaces: bool = Field(
         default=False,
-        description="Ingest Genie Agents as external AI agents, including text instructions and declared dataset lineage. Requires CAN EDIT permission on each space.",
+        description="Ingest Genie spaces as external AI agents, including text instructions and declared dataset lineage. Requires CAN EDIT permission on each space. Requires a DataHub server with the aiAgent entity (v1.7.0 or later).",
     )
 
     genie_space_pattern: AllowDenyPattern = Field(
