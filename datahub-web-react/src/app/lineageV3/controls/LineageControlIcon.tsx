@@ -4,7 +4,7 @@ import styled from 'styled-components';
 
 import type { IconProps } from '@components/components/Icon/types';
 
-import { LINEAGE_CONTROL_ICON_SIZE, LINEAGE_CONTROL_ICON_WEIGHT } from '@app/lineage/controls/constants';
+import { LINEAGE_CONTROL_ICON_SIZE, LINEAGE_CONTROL_ICON_WEIGHT } from '@app/lineageV3/controls/constants';
 
 const IconSlot = styled.span`
     display: inline-flex;
