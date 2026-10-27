@@ -1357,7 +1357,7 @@ semver==3.0.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via dlt
 sentry-sdk==2.54.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-setuptools==84.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+setuptools==84.2.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   dlt
     #   grpcio-tools

@@ -256,9 +256,9 @@ def generate_pyproject_toml() -> str:
     # Build system
     output_lines.append("[build-system]")
     output_lines.append('build-backend = "setuptools.build_meta"')
-    # setuptools>=83.0.0 (CVE-2026-59890) also on the isolated PEP 517 build path,
-    # not just the runtime floor in constraints.txt / [tool.uv].
-    output_lines.append('requires = ["setuptools>=83.0.0", "wheel"]')
+    # setuptools>=84.1.0 (CVE-2026-59890, GHSA-xmj3-9gf7-h52w) also on the isolated
+    # PEP 517 build path, not just the runtime floor in constraints.txt / [tool.uv].
+    output_lines.append('requires = ["setuptools>=84.1.0", "wheel"]')
     output_lines.append("")
 
     # Project metadata
