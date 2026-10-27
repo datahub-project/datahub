@@ -924,8 +924,8 @@ class DBTCommonConfig(
             "emitted as CUSTOM assertions on the contract's data-quality "
             "section. Schema pass/fail comes from model ``run_results`` "
             "(dbt's preflight). Constraint failures come from matching dbt "
-            "tests; DDL-enforced constraints also get a weak pass when the "
-            "model build succeeds."
+            "tests; DDL-enforced constraints also get a weak pass when a "
+            "table model build succeeds."
         ),
     )
 
@@ -963,7 +963,7 @@ class DBTCommonConfig(
             "Whether a constraint is DDL-enforced is adapter-dependent and "
             "surfaced on each assertion's ``enforced_by`` custom property. "
             "Run events are emitted from model builds (schema + "
-            "DDL-enforced constraints on success; schema on contract "
+            "DDL-enforced constraints on a table build's success; schema on contract "
             "preflight failure) and from matching dbt tests."
         ),
     )
@@ -5701,21 +5701,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         not-null assertion per column. Unsupported types are recorded on
         ``report.contract_constraints_skipped_unsupported`` and skipped.
         The same check declared twice (e.g. ``not_null`` and ``primary_key``
-        on one column) is emitted once, with the strongest enforcement.
+        on one column) is emitted once, with the strongest enforcement; on a
+        tie, a named and then a ``primary_key`` declaration supplies its
+        name and properties.
         """
-        results: List[_ContractAssertion] = []
+        deduped: Dict[str, _ContractAssertion] = {}
+        ranks: Dict[str, Tuple[int, bool, bool]] = {}
         for declared in self._declared_constraints(
             node, resolver or _RelationResolver([])
         ):
-            results.extend(
-                self._build_constraint_assertions(node, entity_urn, declared)
-            )
-        deduped: Dict[str, _ContractAssertion] = {}
-        for assertion in results:
-            kept = deduped.get(assertion.urn)
-            strength = _ENFORCEMENT_STRENGTH[assertion.enforced_by]
-            if kept is None or strength > _ENFORCEMENT_STRENGTH[kept.enforced_by]:
-                deduped[assertion.urn] = assertion
+            for assertion in self._build_constraint_assertions(
+                node, entity_urn, declared
+            ):
+                rank = (
+                    _ENFORCEMENT_STRENGTH[assertion.enforced_by],
+                    declared.constraint.name is not None,
+                    declared.type == DBTConstraintType.PRIMARY_KEY,
+                )
+                if assertion.urn not in ranks or rank > ranks[assertion.urn]:
+                    deduped[assertion.urn] = assertion
+                    ranks[assertion.urn] = rank
         return list(deduped.values())
 
     def _build_constraint_assertions(
@@ -6101,9 +6106,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         resolver: _RelationResolver,
     ) -> bool:
         test_info = test_node.test_info
-        # A filtered test checks only some rows, so it does not prove an
-        # unfiltered constraint.
-        if not test_info or test_info.where:
+        # A filtered test (``where:``, or dbt_expectations' ``row_condition``)
+        # checks only some rows, so it does not prove an unfiltered constraint.
+        if (
+            not test_info
+            or test_info.where
+            or (test_info.kw_args or {}).get("row_condition")
+        ):
             return False
         qname = test_info.qualified_test_name
         if qname == _RELATIONSHIPS_TEST_NAME:
@@ -6137,13 +6146,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         constraint_assertions: Sequence[_ContractAssertion],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         external_url = self.get_external_url(node)
-        # Only table and incremental constraints are DATABASE-enforced, so a
-        # view build succeeding says nothing about its declared constraints.
-        ddl_constraint_urns = [
-            assertion.urn
-            for assertion in constraint_assertions
-            if assertion.enforced_by == ConstraintEnforcement.DATABASE
-        ]
+        # A table build re-creates the table with the constraint DDL, so its
+        # success proves DATABASE-enforced constraints. An incremental build
+        # gets that DDL only when the table is (re)created, so it may not.
+        ddl_constraint_urns = (
+            [
+                assertion.urn
+                for assertion in constraint_assertions
+                if assertion.enforced_by == ConstraintEnforcement.DATABASE
+            ]
+            if node.materialization == "table"
+            else []
+        )
         for perf in node.model_performances:
             if not perf.built_relation:
                 continue
@@ -6249,15 +6263,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _is_dbt_contract(
         pending: _PendingContract, existing: _ExistingContract
     ) -> bool:
-        """Whether an existing contract is dbt's: it is at dbt's dataset-derived
-        URN and was soft-deleted or still references the schema assertion.
+        """Whether a live contract is dbt's: it is at dbt's dataset-derived URN
+        and still references the schema assertion.
 
         Content alone is not enough (a UI contract can list dbt's assertion),
         nor is the URN (YAML-authored contracts share it)."""
         if existing.urn != pending.contract_urn:
             return False
-        if existing.status is not None and existing.status.removed:
-            return True
         assertion_urns = {
             *(entry.assertion for entry in existing.properties.schema or []),
             *(entry.assertion for entry in existing.properties.dataQuality or []),
@@ -6453,14 +6465,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 return
             existing_contracts = found
         elif not self.config.replace_existing_contracts_with_dbt:
-            self.report.warning(
-                title="dbt Data Contracts not written",
-                message="No DataHub graph is available (e.g. file sink), so "
+            title = "dbt Data Contracts not written"
+            message = (
+                "No DataHub graph is available (e.g. file sink), so "
                 "existing Data Contracts cannot be checked and no Data Contract "
                 "was written; contract assertions are still emitted. Configure "
                 "datahub_api, or set replace_existing_contracts_with_dbt, to "
-                "write Data Contracts.",
+                "write Data Contracts."
             )
+            # Contracts not written this run would drop out of the stateful
+            # checkpoint and be soft-deleted; a failure skips that removal.
+            stateful = self.config.stateful_ingestion
+            if (
+                stateful is not None
+                and stateful.remove_stale_metadata
+                and self.state_provider.is_stateful_ingestion_configured()
+            ):
+                self.report.failure(title=title, message=message)
+            else:
+                self.report.warning(title=title, message=message)
             return
 
         for pending in pending_contracts:

@@ -369,6 +369,20 @@ def test_named_primary_key_titles_only_its_unique_half() -> None:
     assert sorted(str(info.description) for info in infos) == ["None", "None", "pk"]
 
 
+def test_duplicate_check_keeps_the_named_primary_key_declaration() -> None:
+    source = _make_source()
+    node = _make_model(
+        columns=[_column("id", DBTConstraint(type="unique"))],
+        model_constraints=[
+            DBTConstraint(type="primary_key", name="pk_orders", columns=["id"])
+        ],
+    )
+    unique = _constraint_info(
+        source, node, "primary_key", AssertionStdOperatorClass.EQUAL_TO
+    )
+    assert unique.description == "pk_orders"
+
+
 def test_named_constraint_becomes_assertion_name() -> None:
     source = _make_source()
     node = _make_model(
@@ -729,11 +743,21 @@ def test_constraint_matching_tests_are_auto_linked() -> None:
     )
     assert filtered.test_info is not None
     filtered.test_info.where = "status = 'shipped'"
+    row_filtered = _make_test(
+        "expect_orders_email_not_null",
+        [model.dbt_name],
+        qualified_test_name="dbt_expectations.expect_column_values_to_not_be_null",
+        column_name="email",
+        kw_args={"row_condition": "status = 'shipped'"},
+    )
     urns = _dq_urns(
-        _contract_mcps(source, [model], [not_null, unique_id, unrelated, filtered])
+        _contract_mcps(
+            source, [model], [not_null, unique_id, unrelated, filtered, row_filtered]
+        )
     )
     assert source._make_test_assertion_urn(not_null, model.dbt_name, 1) in urns
     assert source._make_test_assertion_urn(filtered, model.dbt_name, 1) not in urns
+    assert source._make_test_assertion_urn(row_filtered, model.dbt_name, 1) not in urns
     assert source._make_test_assertion_urn(unique_id, model.dbt_name, 1) not in urns
     assert source._make_test_assertion_urn(unrelated, model.dbt_name, 1) not in urns
 
@@ -882,12 +906,14 @@ def test_model_success_reports_schema_and_ddl_enforced_constraints() -> None:
     assert len(_dq_urns(mcps)) == 2
 
 
-def test_view_success_reports_schema_only() -> None:
-    # dbt never applies constraints to views.
+@pytest.mark.parametrize("materialization", ["view", "incremental"])
+def test_non_table_success_reports_schema_only(materialization: str) -> None:
+    # dbt never applies constraints to views, and applies them to an
+    # incremental model only when its table is (re)created.
     source = _make_source()
     node = _make_model(
         adapter="postgres",
-        materialization="view",
+        materialization=materialization,
         columns=[_column("id", DBTConstraint(type="not_null"))],
     )
     node.model_performances = [_perf()]
@@ -1231,6 +1257,19 @@ def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
     }
     assert written == expected[other]
     assert not source.report.warnings
+
+
+def test_no_graph_with_stateful_ingestion_is_a_failure() -> None:
+    # Unwritten contracts would drop out of the checkpoint and be soft-deleted.
+    source = _make_source(stateful_ingestion={"enabled": True})
+    source.ctx.graph = None
+    with mock.patch.object(
+        source.state_provider, "is_stateful_ingestion_configured", return_value=True
+    ):
+        assert _written_contracts(_contract_mcps(source, [_make_model()])) == []
+    assert [f.title for f in source.report.failures] == [
+        "dbt Data Contracts not written"
+    ]
 
 
 @pytest.mark.parametrize("replace", [False, True])
