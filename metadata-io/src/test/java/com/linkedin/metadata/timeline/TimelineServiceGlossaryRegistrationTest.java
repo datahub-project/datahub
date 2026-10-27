@@ -11,6 +11,7 @@ import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.PropertiesDescriptionChangeEventGenerator;
 import java.util.Set;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class TimelineServiceGlossaryRegistrationTest {
@@ -52,5 +53,25 @@ public class TimelineServiceGlossaryRegistrationTest {
     assertEquals(
         ((PropertiesDescriptionChangeEventGenerator<?>) generator).getTrackedFieldNames(),
         Set.of("name", "definition", "customProperties", "termSource", "sourceRef", "sourceUrl"));
+  }
+
+  @DataProvider(name = "deprecationEntities")
+  public Object[][] deprecationEntities() {
+    return new Object[][] {
+      {DATASET_ENTITY_NAME},
+      {GLOSSARY_TERM_ENTITY_NAME},
+      {DOMAIN_ENTITY_NAME},
+      {DATA_PRODUCT_ENTITY_NAME},
+      {CONTAINER_ENTITY_NAME},
+      {CHART_ENTITY_NAME}
+    };
+  }
+
+  @Test(dataProvider = "deprecationEntities")
+  public void testDeprecationRegistered(String entityType) {
+    assertTrue(
+        newService()
+            .getAspectsFromElements(entityType, Set.of(ChangeCategory.DEPRECATION))
+            .contains(DEPRECATION_ASPECT_NAME));
   }
 }

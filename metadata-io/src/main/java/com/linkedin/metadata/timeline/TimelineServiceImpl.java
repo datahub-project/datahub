@@ -36,6 +36,7 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.eventgenerator.ApplicationsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProductPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DomainPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
@@ -262,6 +263,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new VersionPropertiesChangeEventGenerator());
           }
           break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -390,6 +401,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new LifecycleStageChangeEventGenerator());
           }
           break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -436,6 +457,16 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 STRUCTURED_PROPERTIES_ASPECT_NAME,
                 new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
           }
           break;
         default:
@@ -534,6 +565,16 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
                 new DataProductPropertiesChangeEventGenerator());
+          }
+          break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
           }
           break;
         default:
@@ -825,6 +866,11 @@ public class TimelineServiceImpl implements TimelineService {
               category,
               GLOSSARY_TERMS_ASPECT_NAME,
               new GlossaryTermsChangeEventGenerator());
+          break;
+        case DEPRECATION:
+          aspects.add(DEPRECATION_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType, category, DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
           break;
         default:
           break;
