@@ -30,7 +30,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
     r"""
     DataHub Assertion Circuit Breaker
 
-    The circuit breaker checks if there are passing assertion on the Dataset.
+    The circuit breaker requires a recent success for every returned assertion.
     """
 
     config: AssertionCircuitBreakerConfig
@@ -61,7 +61,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
         @dataclass
         class AssertionResult:
             time: int
-            state: str
+            state: Optional[str]
             run_event: Any
 
         # If last_updated is set we expect to have at least one successfull assertion
@@ -71,26 +71,35 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
         result: bool = True
         assertion_last_states: Dict[str, AssertionResult] = {}
         for assertion in assertions:
-            if "runEvents" in assertion and "runEvents" in assertion["runEvents"]:
-                for run_event in assertion["runEvents"]["runEvents"]:
-                    assertion_time = run_event["timestampMillis"]
-                    assertion_state = run_event["result"]["type"]
-                    assertion_urn = run_event["assertionUrn"]
-                    if (
-                        assertion_urn not in assertion_last_states
-                        or assertion_last_states[assertion_urn].time < assertion_time
-                    ):
-                        assertion_last_states[assertion_urn] = AssertionResult(
-                            time=assertion_time,
-                            state=assertion_state,
-                            run_event=run_event,
-                        )
+            run_events = (assertion.get("runEvents") or {}).get("runEvents") or []
+            if not run_events:
+                logger.info("Assertion has no run results. Breaking the circuit")
+                return True
+            for run_event in run_events:
+                assertion_time = run_event["timestampMillis"]
+                assertion_state = (run_event.get("result") or {}).get("type")
+                assertion_urn = run_event["assertionUrn"]
+                if (
+                    assertion_urn not in assertion_last_states
+                    or assertion_last_states[assertion_urn].time < assertion_time
+                    or (
+                        assertion_last_states[assertion_urn].time == assertion_time
+                        and assertion_state != "SUCCESS"
+                    )
+                ):
+                    assertion_last_states[assertion_urn] = AssertionResult(
+                        time=assertion_time,
+                        state=assertion_state,
+                        run_event=run_event,
+                    )
 
         for assertion_urn, last_assertion in assertion_last_states.items():
-            if last_assertion.state == "FAILURE":
+            if last_assertion.state != "SUCCESS":
                 logger.debug(f"Runevent: {last_assertion.run_event}")
                 logger.info(
-                    f"Assertion {assertion_urn} is failed on dataset. Breaking the circuit"
+                    "Assertion %s has no successful result (state=%s). Breaking the circuit",
+                    assertion_urn,
+                    last_assertion.state,
                 )
                 return True
             elif last_assertion.state == "SUCCESS":
