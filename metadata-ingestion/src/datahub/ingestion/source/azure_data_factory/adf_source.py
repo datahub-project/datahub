@@ -193,6 +193,14 @@ class LineagePair(NamedTuple):
         return any(u in urns for u in self.inputs + self.outputs)
 
 
+class RunLineage(NamedTuple):
+    inlets: list[DatasetUrn]
+    outlets: list[DatasetUrn]
+    column_mappings: list[ColumnMapping]
+    # False when a side is still a placeholder for an unresolved table name
+    fully_resolved: bool
+
+
 def _qualified_part_count(platform: str) -> int:
     """Number of dot segments in a fully qualified table name for a platform."""
     return 2 if platform in TWO_TIER_PLATFORMS else 3
@@ -327,9 +335,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         # paths match the parent job's.
         self._dataflow_cache: dict[tuple[str, str], DataFlow] = {}
 
-        # URNs built from the ADF dataset name because the table name could
-        # not be resolved (e.g. an unresolved "@item()" expression).
-        self._placeholder_dataset_urns: set[str] = set()
+        # Cached pairs from at least one run where every URN was resolved,
+        # rather than left as a placeholder for an unresolved table name.
+        self._resolved_dynamic_pairs: set[tuple[tuple[str, str, str], LineagePair]] = (
+            set()
+        )
 
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
             CopyActivityColumnLineageExtractor(
@@ -868,7 +878,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         return nested
 
     def _extract_activity_inputs(
-        self, activity: Activity, factory_key: str
+        self,
+        activity: Activity,
+        factory_key: str,
+        placeholders: Optional[set[str]] = None,
     ) -> list[DatasetUrnOrStr]:
         """Extract input dataset URNs from an activity."""
         inputs: list[DatasetUrnOrStr] = []
@@ -880,6 +893,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 input_ref.reference_name,
                 factory_key,
                 activity_dataset_parameters=getattr(input_ref, "parameters", None),
+                placeholders=placeholders,
             )
             if dataset_urn:
                 inputs.append(str(dataset_urn))
@@ -924,7 +938,10 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         return inputs
 
     def _extract_activity_outputs(
-        self, activity: Activity, factory_key: str
+        self,
+        activity: Activity,
+        factory_key: str,
+        placeholders: Optional[set[str]] = None,
     ) -> list[DatasetUrnOrStr]:
         """Extract output dataset URNs from an activity."""
         outputs: list[DatasetUrnOrStr] = []
@@ -936,6 +953,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 output_ref.reference_name,
                 factory_key,
                 activity_dataset_parameters=getattr(output_ref, "parameters", None),
+                placeholders=placeholders,
             )
             if dataset_urn:
                 outputs.append(str(dataset_urn))
@@ -1481,8 +1499,11 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         dataset_name: str,
         factory_key: str,
         activity_dataset_parameters: Optional[dict[str, Any]] = None,
+        placeholders: Optional[set[str]] = None,
     ) -> Optional[DatasetUrn]:
-        """Resolve an ADF dataset reference to a DataHub DatasetUrn."""
+        """Resolve an ADF dataset reference to a DataHub DatasetUrn. When the
+        table name can't be resolved the URN is built from the ADF dataset
+        name, and is also added to `placeholders` if given."""
         context = self._resolve_dataset_platform_context(
             dataset_name,
             factory_key,
@@ -1528,8 +1549,8 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=platform_instance,
         )
-        if is_placeholder:
-            self._placeholder_dataset_urns.add(str(urn))
+        if is_placeholder and placeholders is not None:
+            placeholders.add(str(urn))
         return urn
 
     def _qualify_table_name(
@@ -2181,6 +2202,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         dataset_refs: list[Any],
         factory_key: str,
         pipeline_run_parameters: dict[str, str],
+        placeholders: Optional[set[str]] = None,
     ) -> set[str]:
         """Resolve every DatasetReference in dataset_refs against a
         specific run's actual resolved pipeline parameters, substituting
@@ -2213,6 +2235,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 reference_name,
                 factory_key,
                 activity_dataset_parameters=effective_params or static_params,
+                placeholders=placeholders,
             )
             if urn:
                 resolved.add(str(urn))
@@ -2287,9 +2310,14 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             if activity is None:
                 continue
 
+            static_placeholders: set[str] = set()
             static_pair = LineagePair.of(
-                self._extract_activity_inputs(activity, factory_key),
-                self._extract_activity_outputs(activity, factory_key),
+                self._extract_activity_inputs(
+                    activity, factory_key, static_placeholders
+                ),
+                self._extract_activity_outputs(
+                    activity, factory_key, static_placeholders
+                ),
             )
 
             flow_name = f"{factory_name}.{pipeline_name}"
@@ -2317,8 +2345,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     pipeline_name=pipeline_name,
                     activity=activity,
                     job_urn=job_urn,
-                    pairs=pairs,
+                    pairs={
+                        pair: column_mappings
+                        for pair, column_mappings in pairs.items()
+                        if (cache_key, pair) in self._resolved_dynamic_pairs
+                    },
+                    unresolved_pair_count=sum(
+                        (cache_key, pair) not in self._resolved_dynamic_pairs
+                        for pair in pairs
+                    ),
                     static_pair=static_pair,
+                    static_placeholders=static_placeholders,
                 )
 
     def _emit_fanout_dynamic_lineage(
@@ -2331,8 +2368,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         activity: Activity,
         job_urn: DataJobUrn,
         pairs: dict[LineagePair, set[ColumnMapping]],
+        unresolved_pair_count: int,
         static_pair: LineagePair,
+        static_placeholders: set[str],
     ) -> Iterable[MetadataWorkUnit]:
+        """`pairs` holds only pairs some run fully resolved; runs that left a
+        placeholder on either side would link a real table to a dataset that
+        doesn't exist, and are only counted."""
         activity_name = activity.name or "Unknown"
         warning_context = (
             f"factory={factory_key}, pipeline={pipeline_name}, activity={activity_name}"
@@ -2350,24 +2392,22 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
             return
 
-        # A pair with a placeholder URN on either side comes from a run whose
-        # table name could not be resolved. A sibling for it would link a
-        # real table to a dataset that doesn't exist.
-        resolved_pairs = {
-            pair: column_mappings
-            for pair, column_mappings in pairs.items()
-            if not pair.references_any(self._placeholder_dataset_urns)
-        }
-        if len(resolved_pairs) < len(pairs):
-            self.report.report_dynamic_lineage_pairs_unresolved(
-                len(pairs) - len(resolved_pairs)
-            )
+        if unresolved_pair_count:
+            self.report.report_dynamic_lineage_pairs_unresolved(unresolved_pair_count)
 
         # The parent job's own lineage already covers the static pair, so it
-        # gets neither a sibling nor a cap slot.
-        static_columns = resolved_pairs.pop(static_pair, None)
+        # gets neither a sibling nor a cap slot. A static pair built from
+        # placeholders covers nothing, so a run that resolved to the same
+        # URNs still gets a sibling.
+        static_is_placeholder = static_pair.references_any(static_placeholders)
+        static_columns = None if static_is_placeholder else pairs.get(static_pair)
+        sibling_pairs = {
+            pair: column_mappings
+            for pair, column_mappings in pairs.items()
+            if static_is_placeholder or pair != static_pair
+        }
 
-        sorted_pairs = sorted(resolved_pairs.items())
+        sorted_pairs = sorted(sibling_pairs.items())
         cap = self.config.max_dynamic_lineage_pairs_per_activity
         external_url = self._get_pipeline_url(factory, resource_group, pipeline_name)
         for pair, column_mappings in sorted_pairs[:cap]:
@@ -2396,21 +2436,17 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 log=False,
             )
 
-        if static_pair.references_any(self._placeholder_dataset_urns):
+        if static_is_placeholder:
             # The parent's static lineage points at the placeholder dataset
             # that the per-pair siblings now replace.
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(job_urn),
                 aspect=DataJobInputOutputClass(
                     inputDatasets=[
-                        u
-                        for u in static_pair.inputs
-                        if u not in self._placeholder_dataset_urns
+                        u for u in static_pair.inputs if u not in static_placeholders
                     ],
                     outputDatasets=[
-                        u
-                        for u in static_pair.outputs
-                        if u not in self._placeholder_dataset_urns
+                        u for u in static_pair.outputs if u not in static_placeholders
                     ],
                     inputDatajobs=self._execute_pipeline_input_datajobs.get(
                         str(job_urn)
@@ -2609,7 +2645,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         factory_key: str,
         pipeline_run: PipelineRun,
         activity_run: ActivityRun,
-    ) -> tuple[list[DatasetUrn], list[DatasetUrn], list[ColumnMapping]]:
+    ) -> RunLineage:
         """Resolve the best-available inlets/outlets (and, where possible,
         column-level lineage) for one activity run: static lineage, plus
         anything additionally resolvable from this specific run's actual
@@ -2620,11 +2656,16 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         per-iteration resolved value for ForEach-looped Copy activities
         (e.g. "@item().X") - the ForEach activity's own run only ever
         reports an item count."""
+        # URNs built from an ADF dataset name because the table name could
+        # not be resolved for this run.
+        placeholders: set[str] = set()
         input_urns = {
-            str(u) for u in self._extract_activity_inputs(activity, factory_key)
+            str(u)
+            for u in self._extract_activity_inputs(activity, factory_key, placeholders)
         }
         output_urns = {
-            str(u) for u in self._extract_activity_outputs(activity, factory_key)
+            str(u)
+            for u in self._extract_activity_outputs(activity, factory_key, placeholders)
         }
 
         if pipeline_run.parameters:
@@ -2635,11 +2676,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                 getattr(activity, "inputs", None) or [],
                 factory_key,
                 pipeline_run.parameters,
+                placeholders,
             )
             resolved_outputs = self._resolve_dynamic_dataset_refs(
                 getattr(activity, "outputs", None) or [],
                 factory_key,
                 pipeline_run.parameters,
+                placeholders,
             )
             if resolved_inputs:
                 input_urns = resolved_inputs
@@ -2710,9 +2753,18 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                     activity, activity_run, factory_key, next(iter(query_output_urns))
                 )
 
-        inlets = [DatasetUrn.from_string(u) for u in input_urns]
-        outlets = [DatasetUrn.from_string(u) for u in output_urns]
-        return inlets, outlets, column_mappings
+        # Query-derived URNs are real tables even if one happens to equal a
+        # placeholder URN, so only sides not taken from the query count.
+        fully_resolved = not (
+            (not query_input_urns and input_urns & placeholders)
+            or (not query_output_urns and output_urns & placeholders)
+        )
+        return RunLineage(
+            inlets=[DatasetUrn.from_string(u) for u in input_urns],
+            outlets=[DatasetUrn.from_string(u) for u in output_urns],
+            column_mappings=column_mappings,
+            fully_resolved=fully_resolved,
+        )
 
     def _resolve_run_translator(self, activity_run: ActivityRun) -> Any:
         """Read the translator value ADF actually resolved for this
@@ -3256,20 +3308,20 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         else None
                     )
                     if activity_obj is not None:
-                        inlets, outlets, column_mappings = (
-                            self._resolve_activity_run_lineage(
-                                activity_obj,
-                                factory_key,
-                                pipeline_run,
-                                activity_run,
-                            )
+                        run_lineage = self._resolve_activity_run_lineage(
+                            activity_obj, factory_key, pipeline_run, activity_run
                         )
+                        inlets, outlets = run_lineage.inlets, run_lineage.outlets
                         if inlets or outlets:
                             cache_key = (factory_key, activity_pipeline, activity_name)
-                            cached_columns = self._dynamic_lineage_cache.setdefault(
+                            pair = LineagePair.of(inlets, outlets)
+                            self._dynamic_lineage_cache.setdefault(
                                 cache_key, {}
-                            ).setdefault(LineagePair.of(inlets, outlets), set())
-                            cached_columns.update(column_mappings)
+                            ).setdefault(pair, set()).update(
+                                run_lineage.column_mappings
+                            )
+                            if run_lineage.fully_resolved:
+                                self._resolved_dynamic_pairs.add((cache_key, pair))
 
                 # Create DataProcessInstance linked to DataJob
                 dpi = DataProcessInstance(

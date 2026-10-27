@@ -84,7 +84,6 @@ def source_for_probe(
     source.client = client
     source._datasets_cache = {}
     source._linked_services_cache = {}
-    source._placeholder_dataset_urns = set()
     return source
 
 

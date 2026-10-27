@@ -2579,7 +2579,8 @@ class TestDynamicLineageFanOut:
         pairs: dict[LineagePair, set[ColumnMapping]],
         static_pair: LineagePair = LineagePair(inputs=(), outputs=()),
         cap: int = 50,
-        placeholders: Optional[set[str]] = None,
+        static_placeholders: Optional[set[str]] = None,
+        unresolved_pairs: Optional[set[LineagePair]] = None,
         execute_pipeline_callers: Optional[list[str]] = None,
         stateful: bool = False,
         description: Optional[str] = None,
@@ -2607,22 +2608,37 @@ class TestDynamicLineageFanOut:
         source._dynamic_lineage_cache = {
             (self.FACTORY_KEY, "TestPipeline", "CopyActivity"): pairs
         }
-        source._placeholder_dataset_urns = placeholders or set()
+        cache_key = (self.FACTORY_KEY, "TestPipeline", "CopyActivity")
+        source._resolved_dynamic_pairs = {
+            (cache_key, pair)
+            for pair in pairs
+            if pair not in (unresolved_pairs or set())
+        }
         if execute_pipeline_callers:
             source._execute_pipeline_input_datajobs = {
                 self.PARENT_JOB_URN: execute_pipeline_callers
             }
 
+        def static_side(urns: tuple[str, ...]) -> Callable[..., list[str]]:
+            def extract(
+                activity: Any, factory_key: str, placeholders: Optional[set[str]] = None
+            ) -> list[str]:
+                if placeholders is not None:
+                    placeholders.update(set(urns) & (static_placeholders or set()))
+                return list(urns)
+
+            return extract
+
         with (
             patch.object(
                 source,
                 "_extract_activity_inputs",
-                return_value=list(static_pair.inputs),
+                side_effect=static_side(static_pair.inputs),
             ),
             patch.object(
                 source,
                 "_extract_activity_outputs",
-                return_value=list(static_pair.outputs),
+                side_effect=static_side(static_pair.outputs),
             ),
         ):
             workunits = list(
@@ -2736,7 +2752,7 @@ class TestDynamicLineageFanOut:
         _, workunits = self._run(
             {_pair("a", "x"): set(), _pair("b", "y"): set()},
             static_pair=LineagePair.of([placeholder_in], [placeholder_out]),
-            placeholders={placeholder_in, placeholder_out},
+            static_placeholders={placeholder_in, placeholder_out},
             execute_pipeline_callers=[caller],
         )
 
@@ -2745,21 +2761,38 @@ class TestDynamicLineageFanOut:
         assert parent.outputDatasets == []
         assert parent.inputDatajobs == [caller]
 
-    def test_pair_with_placeholder_side_gets_no_sibling(self) -> None:
+    def test_unresolved_run_gets_no_sibling(self) -> None:
         placeholder = "urn:li:dataset:(urn:li:dataPlatform:mssql,DS_Sink,PROD)"
+        unresolved = LineagePair.of([_table_urn("c")], [placeholder])
         source, workunits = self._run(
-            {
-                _pair("a", "x"): set(),
-                _pair("b", "y"): set(),
-                LineagePair.of([_table_urn("c")], [placeholder]): set(),
-            },
-            placeholders={placeholder},
+            {_pair("a", "x"): set(), _pair("b", "y"): set(), unresolved: set()},
+            unresolved_pairs={unresolved},
         )
 
         siblings = self._siblings(workunits)
         assert all(placeholder not in a.outputDatasets for a in siblings.values())
         assert len(siblings) == 2
         assert source.report.dynamic_lineage_pairs_unresolved == 1
+
+    def test_resolved_table_matching_a_placeholder_urn_keeps_its_sibling(
+        self,
+    ) -> None:
+        # A run that parsed table "orders" from its query yields the same URN
+        # as the activity's unresolved "orders" ADF dataset. It is a real
+        # table for that run, so its pair still gets a sibling.
+        placeholder = _table_urn("orders")
+        static = LineagePair.of([placeholder], [_table_urn("DS_Sink")])
+
+        _, workunits = self._run(
+            {_pair("orders", "stg_orders"): set(), _pair("users", "stg_users"): set()},
+            static_pair=static,
+            static_placeholders={placeholder, _table_urn("DS_Sink")},
+        )
+
+        sibling_inputs = {
+            a.inputDatasets[0] for a in self._siblings(workunits).values()
+        }
+        assert sibling_inputs == {_table_urn("orders"), _table_urn("users")}
 
     def test_one_varying_side_is_unioned_onto_parent(self) -> None:
         source, workunits = self._run({_pair("a", "x"): set(), _pair("b", "x"): set()})
@@ -2827,7 +2860,9 @@ class TestDynamicLineageFanOut:
                 activity=activity,
                 job_urn=DataJobUrn.from_string(self.PARENT_JOB_URN),
                 pairs={_pair("a", "x"): set(), _pair("b", "y"): set()},
+                unresolved_pair_count=0,
                 static_pair=LineagePair(inputs=(), outputs=()),
+                static_placeholders=set(),
             )
         )
 
