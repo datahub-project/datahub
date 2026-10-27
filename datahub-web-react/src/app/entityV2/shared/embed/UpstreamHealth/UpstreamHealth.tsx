@@ -7,7 +7,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import { CTAWrapper, StyledArrow } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
 import UpstreamEntitiesList from '@app/entityV2/shared/embed/UpstreamHealth/UpstreamEntitiesList';
 import { DATASET_COUNT } from '@app/entityV2/shared/embed/UpstreamHealth/utils';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { HAS_ACTIVE_INCIDENTS_FILTER_NAME, IS_DEPRECATED_FILTER_NAME } from '@app/search/utils/constants';
 import { useAppConfig } from '@app/useAppConfig';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
