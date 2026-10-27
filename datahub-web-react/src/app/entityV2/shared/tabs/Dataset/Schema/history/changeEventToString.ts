@@ -5,6 +5,7 @@ import {
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
     CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
     ChangeCategoryType,
@@ -16,8 +17,10 @@ import {
     PARAM_DOMAIN_URN,
     PARAM_FIELD_PATH,
     PARAM_NEW_PARENT,
+    PARAM_NEW_STATE,
     PARAM_NOTE,
     PARAM_OLD_PARENT,
+    PARAM_OLD_STATE,
     PARAM_OWNER_TYPE,
     PARAM_OWNER_TYPE_URN,
     PARAM_OWNER_URN,
@@ -66,6 +69,13 @@ function getParameter(
 ): string | undefined {
     const parameter = (parameters || []).find((param) => param.key === key);
     return parameter?.value || defaultValue;
+}
+
+// ponytail: the backend sends the lowercased stage id ("in_review"), so this shows a humanized id, not a custom
+// stage's display name; resolve via listLifecycleStages if custom stage names need to show here.
+function formatLifecycleStage(stage: string): string {
+    const words = stage.replace(/_/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function extractNameFromUrn(urn: string, nameMap?: Map<string, string>): string {
@@ -314,6 +324,23 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
             });
         } else if (oldParent) {
             displayString = i18next.t('entity.profile.schema:changeEventString.movedToTopLevel');
+        }
+    } else if (category === CATEGORY_LIFECYCLE) {
+        const oldStage = getParameter(changeEvent.parameters, PARAM_OLD_STATE);
+        const newStage = getParameter(changeEvent.parameters, PARAM_NEW_STATE);
+        if (oldStage && newStage) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.lifecycleChanged', {
+                fromStage: formatLifecycleStage(oldStage),
+                toStage: formatLifecycleStage(newStage),
+            });
+        } else if (newStage) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.lifecycleSet', {
+                stage: formatLifecycleStage(newStage),
+            });
+        } else if (oldStage) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.lifecycleCleared', {
+                stage: formatLifecycleStage(oldStage),
+            });
         }
     } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
         const assetUrn = changeEvent.modifier || '';

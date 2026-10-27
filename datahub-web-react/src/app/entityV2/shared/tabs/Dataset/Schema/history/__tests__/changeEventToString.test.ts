@@ -2,6 +2,7 @@ import {
     CATEGORY_APPLICATION,
     CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
     CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
@@ -769,6 +770,30 @@ describe('getChangeEventString for deprecation, hierarchy and info-aspect change
     it('renders move to top level', () => {
         const changeEvent = event(CATEGORY_PARENT, [{ key: 'oldParent', value: 'urn:li:glossaryNode:a' }]);
         expect(getChangeEventString(changeEvent)).toBe('Moved to the top level.');
+    });
+
+    it('renders a lifecycle stage being set', () => {
+        const changeEvent = event(CATEGORY_LIFECYCLE, [
+            { key: 'oldState', value: '' },
+            { key: 'newState', value: 'in_review' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Lifecycle stage set to "In review".');
+    });
+
+    it('renders a lifecycle stage change', () => {
+        const changeEvent = event(CATEGORY_LIFECYCLE, [
+            { key: 'oldState', value: 'draft' },
+            { key: 'newState', value: 'in_review' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Lifecycle stage changed from "Draft" to "In review".');
+    });
+
+    it('renders a lifecycle stage being cleared', () => {
+        const changeEvent = event(CATEGORY_LIFECYCLE, [
+            { key: 'oldState', value: 'draft' },
+            { key: 'newState', value: '' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Lifecycle stage "Draft" cleared.');
     });
 
     it('renders glossary term definition change', () => {

@@ -3,6 +3,7 @@ import {
     CATEGORY_ASSET_MEMBERSHIP,
     CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
     CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
     CATEGORY_VERSIONING,
@@ -27,6 +28,7 @@ const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: CATEGORY_VERSIONING, label: 'Versions' },
     { value: CATEGORY_DEPRECATION, label: 'Deprecation' },
     { value: CATEGORY_PARENT, label: 'Hierarchy' },
+    { value: CATEGORY_LIFECYCLE, label: 'Lifecycle' },
 ];
 
 describe('getCategoryOptions', () => {
@@ -35,6 +37,10 @@ describe('getCategoryOptions', () => {
         expect(values).toContain(CATEGORY_DEPRECATION);
         expect(values).toContain(CATEGORY_PARENT);
         expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
+    });
+
+    it('offers Lifecycle for glossary terms', () => {
+        expect(getCategoryOptions(EntityType.GlossaryTerm).map((o) => o.value)).toContain(CATEGORY_LIFECYCLE);
     });
 
     it('omits Deprecation for glossary nodes', () => {
@@ -77,7 +83,6 @@ describe('timelineSupportedCategories.json', () => {
     // Categories the backend serves that this sidebar deliberately has no filter for.
     const NO_SIDEBAR_OPTION: Record<string, string> = {
         RELATED_ENTITIES: 'document-only; documents show their history in DocumentChangeHistoryDrawer',
-        LIFECYCLE: 'lifecycle-stage changes are not rendered in this sidebar yet',
     };
 
     it('has a sidebar filter option for every category it lists', () => {

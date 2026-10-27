@@ -246,6 +246,11 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 - Driven by the `deprecation` aspect. Only the deprecated flag flipping produces an event; editing the note or decommission time of an already deprecated entity does not.
 - The event's `status` parameter is `DEPRECATED` (with the `note` and decommission `timestamp` when set) or `ACTIVE`.
 
+## Lifecycle
+
+- Changes to an entity's lifecycle stage (e.g. Draft to Published), for documents and glossary terms.
+- Driven by the `lifecycleStage` field of the `status` aspect. The event's `oldState` and `newState` parameters hold the lowercased stage ids.
+
 ## Glossary terms and term groups
 
 - `DOCUMENTATION` covers the name, definition and custom properties of glossary terms and term groups, plus the source, source reference and source URL of glossary terms (`glossaryTermInfo` / `glossaryNodeInfo`).

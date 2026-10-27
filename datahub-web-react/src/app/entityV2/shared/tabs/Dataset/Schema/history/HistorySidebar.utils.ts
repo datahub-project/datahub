@@ -25,6 +25,8 @@ export const PARAM_STATUS = 'status';
 export const PARAM_NOTE = 'note';
 export const PARAM_OLD_PARENT = 'oldParent';
 export const PARAM_NEW_PARENT = 'newParent';
+export const PARAM_OLD_STATE = 'oldState';
+export const PARAM_NEW_STATE = 'newState';
 export const DEPRECATION_STATUS_ACTIVE = 'ACTIVE';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -66,6 +68,7 @@ export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
 export const CATEGORY_VERSIONING = 'VERSIONING';
 export const CATEGORY_DEPRECATION = 'DEPRECATION';
 export const CATEGORY_PARENT = 'PARENT';
+export const CATEGORY_LIFECYCLE = 'LIFECYCLE';
 
 // Re-export generated enums for convenience within the history feature
 export { ChangeCategoryType, ChangeOperationType };
@@ -119,6 +122,10 @@ function getAllCategoryOptions(): CategoryOption[] {
         {
             value: CATEGORY_PARENT,
             label: i18next.t('entity.profile.schema:historySidebar.categoryParent'),
+        },
+        {
+            value: CATEGORY_LIFECYCLE,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryLifecycle'),
         },
     ];
 }
