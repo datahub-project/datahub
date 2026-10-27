@@ -17,7 +17,7 @@
                 "odcs.sourceFile": "odcs_v32.odcs.yaml"
             },
             "name": "sensor_readings \u2014 readings",
-            "description": "## Guidance for AI and analysts\n\nReadings are hourly; never sum col_reading across sensors.\n\nFilter on ${REGION} before aggregating.\n\n**Do not:**\n- Do not compare readings across firmware versions.\n\n**Verified Q&A:**\n- Q: How many sensors report hourly? A: Every sensor with status ok.",
+            "description": "**Guidance for AI and analysts:**\n\nReadings are hourly; never sum col_reading across sensors.\n\nFilter on ${REGION} before aggregating.\n\n**Constraints:**\n- Do not compare readings across firmware versions.\n\n**Verified Q&A:**\n- Q: How many sensors report hourly? A: Every sensor with status ok.",
             "tags": []
         }
     },
@@ -91,7 +91,7 @@
                 {
                     "fieldPath": "col_status",
                     "nullable": true,
-                    "description": "**Allowed values:**\n- `ok` \u2014 OK: Reporting normally\n- `faulty`",
+                    "description": "**Allowed values:**\n- `ok` (OK): Reporting normally\n- `faulty`",
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
@@ -274,7 +274,7 @@
                         {
                             "fieldPath": "col_status",
                             "nullable": true,
-                            "description": "**Allowed values:**\n- `ok` \u2014 OK: Reporting normally\n- `faulty`",
+                            "description": "**Allowed values:**\n- `ok` (OK): Reporting normally\n- `faulty`",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.StringType": {}
@@ -446,7 +446,7 @@
                 "odcs.sourceFile": "odcs_v32.odcs.yaml"
             },
             "name": "sensor_readings \u2014 readings_archive",
-            "description": "## Guidance for AI and analysts\n\nReadings are hourly; never sum col_reading across sensors.\n\n**Do not:**\n- Do not compare readings across firmware versions.\n\n**Verified Q&A:**\n- Q: How many sensors report hourly? A: Every sensor with status ok.",
+            "description": "**Guidance for AI and analysts:**\n\nReadings are hourly; never sum col_reading across sensors.\n\n**Constraints:**\n- Do not compare readings across firmware versions.\n\n**Verified Q&A:**\n- Q: How many sensors report hourly? A: Every sensor with status ok.",
             "tags": []
         }
     },

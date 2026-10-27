@@ -763,12 +763,27 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
     return "\n\n".join(p for p in parts if p) or None
 
 
+def _one_line(text: Optional[str]) -> Optional[str]:
+    # A newline would end a list item and let the rest render as new items.
+    if not text:
+        return None
+    return " ".join(text.split()) or None
+
+
+def _code_span(text: str) -> str:
+    fence = _backtick_fence(text, minimum=1)
+    # A span that starts or ends with a backtick needs a space inside the fence.
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
 def _enum_value_line(entry: ODCSEnumValue) -> str:
-    line = f"- `{entry.value}`"
-    label = (entry.label or "").strip()
-    if label and label != entry.value:
-        line += f" — {label}"
-    description = (entry.description or "").strip()
+    value = _one_line(entry.value) or entry.value
+    line = f"- {_code_span(value)}"
+    label = _one_line(entry.label)
+    if label and label != value:
+        line += f" ({label})"
+    description = _one_line(entry.description)
     if description:
         line += f": {description}"
     return line
@@ -973,9 +988,7 @@ def _dataset_description(
     return "\n\n".join(p for p in parts if p) or None
 
 
-def _context_section(
-    contexts: List[Optional[Union[str, ODCSContext]]],
-) -> Optional[str]:
+def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
     """v3.2 `context`, contract level first, as one description section.
 
     Datasets have no aiContext aspect, so the guidance goes where people and
@@ -985,30 +998,29 @@ def _context_section(
     constraints: List[str] = []
     statements: List[str] = []
     for context in contexts:
-        if isinstance(context, str):
-            context = ODCSContext(instructions=context)
         if context is None:
             continue
-        if (context.instructions or "").strip():
-            instructions.append((context.instructions or "").strip())
+        text = _description_to_str(context.instructions)
+        if text:
+            instructions.append(text)
         for c in context.constraints or []:
-            if c.constraint.strip():
-                constraints.append(f"- {c.constraint.strip()}")
+            constraint = _one_line(c.constraint)
+            if constraint:
+                constraints.append(f"- {constraint}")
         for v in context.verifiedStatements or []:
-            if not v.question.strip():
+            question = _one_line(v.question)
+            if not question:
                 continue
-            line = f"- Q: {v.question.strip()}"
-            if (v.answer or "").strip():
-                line += f" A: {(v.answer or '').strip()}"
-            statements.append(line)
+            answer = _one_line(v.answer)
+            statements.append(f"- Q: {question}" + (f" A: {answer}" if answer else ""))
     parts = list(instructions)
     if constraints:
-        parts.append("**Do not:**\n" + "\n".join(constraints))
+        parts.append("**Constraints:**\n" + "\n".join(constraints))
     if statements:
         parts.append("**Verified Q&A:**\n" + "\n".join(statements))
     if not parts:
         return None
-    return "\n\n".join(["## Guidance for AI and analysts", *parts])
+    return "\n\n".join(["**Guidance for AI and analysts:**", *parts])
 
 
 def odcs_to_logical_dataset_mcps(

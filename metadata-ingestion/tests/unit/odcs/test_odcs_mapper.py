@@ -1,5 +1,6 @@
 """Unit tests for the ODCS mapper — spec-exact routing, logical-dataset targeting."""
 
+import datetime
 import json
 from typing import Any, Dict, List, Optional
 
@@ -28,6 +29,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSContext,
     ODCSContract,
     ODCSProperty,
     ODCSQualityRule,
@@ -2129,7 +2131,7 @@ def test_field_description_allowed_values_after_derivation() -> None:
     )
     assert (descriptions["status"] or "").endswith(
         "```\n\n**Allowed values:**\n"
-        "- `open` — Open: Not shipped yet\n"
+        "- `open` (Open): Not shipped yet\n"
         "- `shipped`\n"
         "- `void`: Cancelled\n"
         "- `legacy`"
@@ -2147,6 +2149,46 @@ def test_field_description_allowed_values_on_nested_field() -> None:
         ]
     )
     assert descriptions["address.country"] == "**Allowed values:**\n- `DE`"
+
+
+def test_enum_values_render_as_written_in_yaml() -> None:
+    prop = ODCSProperty.model_validate(
+        {
+            "name": "s",
+            "enum": [True, 0, 1.5, datetime.date(2024, 1, 1), {"value": False}],
+        }
+    )
+    assert [e.value for e in prop.enum or []] == [
+        "true",
+        "0",
+        "1.5",
+        "2024-01-01",
+        "false",
+    ]
+
+
+def test_enum_empty_values_skipped() -> None:
+    prop = ODCSProperty.model_validate(
+        {"name": "s", "enum": [{"value": ""}, "  ", "open"]}
+    )
+    assert [e.value for e in prop.enum or []] == ["open"]
+
+
+def test_allowed_values_cannot_break_the_markdown() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "s",
+                "enum": [
+                    {"value": "a`b", "label": "A\nB"},
+                    {"value": "`x", "description": "d1\n\n- injected"},
+                ],
+            }
+        ]
+    )
+    assert descriptions["s"] == (
+        "**Allowed values:**\n- ``a`b`` (A B)\n- `` `x ``: d1 - injected"
+    )
 
 
 def test_enum_off_spec_dropped() -> None:
@@ -2265,12 +2307,35 @@ def test_dataset_description_context_section() -> None:
         }
     )
     assert _logical_description(contract) == (
-        "T.\n\n## Guidance for AI and analysts\n\n"
+        "T.\n\n**Guidance for AI and analysts:**\n\n"
         "Use for revenue analysis.\n\nPrefer the daily view.\n\n"
-        "**Do not:**\n- Do not join without tenant_id.\n\n"
+        "**Constraints:**\n- Do not join without tenant_id.\n\n"
         "**Verified Q&A:**\n"
         "- Q: How is revenue defined? A: SUM(amount) of shipped orders.\n"
         "- Q: Which orders are late?"
+    )
+
+
+def test_context_string_form_is_instructions() -> None:
+    contract = ODCSContract.model_validate({"id": "c1", "context": "Use daily."})
+    assert contract.context == ODCSContext(instructions="Use daily.")
+
+
+def test_context_list_items_are_single_lines_and_blanks_skipped() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "context": {
+                "constraints": [{"constraint": "  "}, {"constraint": "No\njoins."}],
+                "verifiedStatements": [{"question": "Q\n1?", "answer": "A\n\n- 1"}],
+            },
+            "schema": [{"name": "t"}],
+        }
+    )
+    assert _logical_description(contract) == (
+        "**Guidance for AI and analysts:**\n\n"
+        "**Constraints:**\n- No joins.\n\n"
+        "**Verified Q&A:**\n- Q: Q 1? A: A - 1"
     )
 
 

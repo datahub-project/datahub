@@ -203,7 +203,7 @@ Requirements:
 
 ### Other Notable Changes
 
-- [#20699](https://github.com/datahub-project/datahub/pull/20699) **(Ingestion / ODCS)** ODCS v3.2 `context` (instructions, constraints, verified Q&A) is added to the logical dataset description as a "Guidance for AI and analysts" section, and v3.2 `enum` values are listed in field descriptions as "Allowed values". **Action:** none. Descriptions change on the next ingestion run.
+- [#20699](https://github.com/datahub-project/datahub/pull/20699) **(Ingestion / ODCS)** ODCS datasets now show the contract's guidance for AI and analysts (instructions, constraints, verified questions and answers), and columns list their allowed values. **Action:** none. Descriptions update on the next ingestion run; descriptions edited in DataHub are not affected.
 
 - [#20697](https://github.com/datahub-project/datahub/pull/20697) **(Ingestion / ODCS)** ODCS datasets and columns in DataHub now show more of the contract's text: a table's grain and the contract's purpose, usage and limitations on the dataset, and how each column is derived on the column. SQL quality checks that refer to the table as `{object}` now name the real table. **Action:** none. Descriptions update on the next ingestion run; descriptions edited in DataHub are not affected.
 

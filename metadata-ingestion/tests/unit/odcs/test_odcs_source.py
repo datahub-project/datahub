@@ -2424,3 +2424,74 @@ def test_off_spec_contract_context_is_reported(tmp_path: pathlib.Path) -> None:
     src = _synonym_source(tmp_path, body)
     list(src.get_workunits_internal())
     assert "<root>.context" in _messages(src.report.warnings)
+
+
+_OFF_SPEC_NESTED_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: nested
+version: 1.0.0
+status: active
+context:
+  instructions: 5
+  constraints: ["bare", {constraint: 5}, {constraint: Keep it.}]
+  verifiedStatements: [{question: q, answer: 7}, "bad"]
+schema:
+  - name: t
+    context: 5
+    properties:
+      - name: s
+        enum: [{value: a, label: 5, description: [x]}, {value: b}, {label: only}]
+"""
+
+
+def test_off_spec_values_inside_context_and_enum_are_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _synonym_source(tmp_path, _OFF_SPEC_NESTED_BODY)
+    workunits = list(src.get_workunits_internal())
+    assert not src.report.failures
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+    warnings = _messages(src.report.warnings)
+    for dropped in (
+        "<root>.context.instructions",
+        "<root>.context.constraints (2 of 3 entries)",
+        "<root>.context.verifiedStatements (1 of 2 entries)",
+        "<root>.context.verifiedStatements[0].answer",
+        "<root>.schema[0].context",
+        "<root>.schema[0].properties[0].enum (1 of 3 entries)",
+        "<root>.schema[0].properties[0].enum[0].label",
+        "<root>.schema[0].properties[0].enum[0].description",
+    ):
+        assert dropped in warnings
+
+
+_NESTED_KEYS_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: nested-keys
+version: 1.0.0
+status: active
+context:
+  instruction: typo
+  constraints: [{constraint: Keep it., id: c1, tags: [a]}]
+schema:
+  - name: t
+    properties:
+      - name: s
+        enum: [{value: a, lable: typo, id: e1}]
+"""
+
+
+def test_unknown_keys_inside_context_and_enum_warn(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _NESTED_KEYS_BODY)
+    list(src.get_workunits_internal())
+    unknown = _messages(
+        w for w in src.report.warnings if w.title == "Unknown ODCS field"
+    )
+    assert "<root>.context.instruction " in unknown
+    assert "<root>.schema[0].properties[0].enum[0].lable " in unknown
+    # Spec keys the source does not map are infos, not unknown fields.
+    ignored = " ".join(src.report.spec_fields_ignored)
+    assert "<root>.context.constraints[*].id" in ignored
+    assert "<root>.schema[*].properties[*].enum[*].id" in ignored

@@ -60,6 +60,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    KNOWN_UNMAPPED_ENTRY_FIELDS,
     KNOWN_UNMAPPED_PROPERTY_FIELDS,
     KNOWN_UNMAPPED_QUALITY_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
@@ -74,13 +75,17 @@ from datahub.ingestion.source.odcs.odcs_models import (
     READ_BUT_UNMAPPED_SERVER_FIELDS,
     READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
+    ODCSContext,
+    ODCSContextConstraint,
     ODCSContract,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
     ODCSTeam,
     ODCSTeamMember,
+    ODCSVerifiedStatement,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -141,6 +146,9 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+    ODCSContextConstraint: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSVerifiedStatement: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSEnumValue: KNOWN_UNMAPPED_ENTRY_FIELDS,
 }
 
 _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
@@ -189,10 +197,23 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "schema": ODCSSchemaObject,
         "servers": ODCSServer,
         "team": ODCSTeamMember,
+        "context": ODCSContext,
     },
     ODCSTeam: {"members": ODCSTeamMember},
-    ODCSSchemaObject: {"properties": ODCSProperty, "quality": ODCSQualityRule},
-    ODCSProperty: {"properties": ODCSProperty, "quality": ODCSQualityRule},
+    ODCSSchemaObject: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+        "context": ODCSContext,
+    },
+    ODCSProperty: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+        "enum": ODCSEnumValue,
+    },
+    ODCSContext: {
+        "constraints": ODCSContextConstraint,
+        "verifiedStatements": ODCSVerifiedStatement,
+    },
 }
 
 
@@ -809,6 +830,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if child_cls is not None and isinstance(value, list):
                     for i, item in enumerate(value):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
+                elif child_cls is not None and isinstance(value, dict):
+                    walk(value, child_cls, f"{path_hint}.{key}")
 
         walk(raw_dict, ODCSContract, "<root>")
         # One entry per field, not per column: `properties[3].unique` and
@@ -1158,12 +1181,27 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if raw_value is None:
                     continue
                 value = getattr(parsed, key)
-                if value is None or (
-                    isinstance(raw_value, list)
-                    and isinstance(value, list)
-                    and len(value) < len(raw_value)
-                ):
+                if value is None:
                     dropped.append(f"{path}.{key}")
+                elif isinstance(value, BaseModel):
+                    check(raw_value, value, f"{path}.{key}")
+                elif isinstance(raw_value, list) and isinstance(value, list):
+                    if len(value) < len(raw_value):
+                        dropped.append(
+                            f"{path}.{key} ({len(raw_value) - len(value)} of "
+                            f"{len(raw_value)} entries)"
+                        )
+                    for i, item in enumerate(raw_value):
+                        # Each entry is re-validated alone so it lines up with
+                        # what the list validator kept from it.
+                        single = getattr(
+                            type(parsed).__pydantic_validator__.validate_assignment(
+                                parsed.model_copy(), key, [item]
+                            ),
+                            key,
+                        )
+                        if single and isinstance(single[0], BaseModel):
+                            check(item, single[0], f"{path}.{key}[{i}]")
             raw_props = raw.get("properties")
             props = getattr(parsed, "properties", None) or []
             if isinstance(raw_props, list):

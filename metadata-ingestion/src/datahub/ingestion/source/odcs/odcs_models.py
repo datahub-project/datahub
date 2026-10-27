@@ -1,3 +1,5 @@
+import datetime
+import json
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
@@ -103,6 +105,10 @@ READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(("dateIn", "replacedByUsername"
 
 # v3.1 adds `id` and `description` to authoritative-definition entries.
 KNOWN_UNMAPPED_AUTHDEF_FIELDS = frozenset(("description", "id"))
+# v3.2 context entries and enum values share these unmapped keys.
+KNOWN_UNMAPPED_ENTRY_FIELDS = frozenset(
+    ("id", "tags", "customProperties", "authoritativeDefinitions")
+)
 
 
 class ODCSBaseModel(BaseModel):
@@ -164,21 +170,35 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
     return kept or None
 
 
-def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
-    """Keep enum entries with a scalar `value`; bare scalars are read as values.
+def _enum_text(raw: object) -> Optional[str]:
+    # As written in the YAML: `true`, not Python's `True`; dates as ISO text.
+    if isinstance(raw, str):
+        text = raw
+    elif isinstance(raw, datetime.date):
+        text = raw.isoformat()
+    elif isinstance(raw, (int, float, bool)):
+        text = json.dumps(raw)
+    else:
+        return None
+    return text.strip() or None
 
+
+def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
+    """Keep enum entries with a non-empty scalar `value`.
+
+    Bare scalars are off-spec but read as values, since their intent is clear.
     Values are kept as text: they are rendered, not compared.
     """
     if not isinstance(value, list):
         return None
     kept: List[Dict[str, object]] = []
     for entry in value:
-        if isinstance(entry, dict):
-            raw = entry.get("value")
-            if isinstance(raw, (str, int, float, bool)):
-                kept.append({**entry, "value": str(raw)})
-        elif isinstance(entry, (str, int, float, bool)):
-            kept.append({"value": str(entry)})
+        raw = entry.get("value") if isinstance(entry, dict) else entry
+        text = _enum_text(raw)
+        if text is not None:
+            kept.append(
+                {**entry, "value": text} if isinstance(entry, dict) else {"value": text}
+            )
     return kept or None
 
 
@@ -196,10 +216,12 @@ class ODCSSynonym(ODCSBaseModel):
     _lenient_strings = field_validator("synonym", "status", mode="before")(_str_or_none)
 
 
-def _context_or_none(value: object) -> object:
-    # String shorthand (= instructions) or the object form; anything else is
-    # off-spec and dropped.
-    return value if isinstance(value, (str, dict)) else None
+def _context_or_none(value: object) -> Optional[Dict[str, object]]:
+    # The string shorthand is the instructions; anything but it or the object
+    # form is off-spec and dropped.
+    if isinstance(value, str):
+        return {"instructions": value}
+    return value if isinstance(value, dict) else None
 
 
 def _entries_with(key: str) -> Callable[[object], Optional[List[object]]]:
@@ -307,7 +329,7 @@ class ODCSSchemaObject(ODCSBaseModel):
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
     dataGranularityDescription: Optional[str] = None
-    context: Optional[Union[str, ODCSContext]] = None
+    context: Optional[ODCSContext] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_grain = field_validator("dataGranularityDescription", mode="before")(
@@ -462,7 +484,7 @@ class ODCSContract(ODCSBaseModel):
     customProperties: Optional[List[ODCSCustomProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     contractCreatedTs: Optional[str] = None
-    context: Optional[Union[str, ODCSContext]] = None
+    context: Optional[ODCSContext] = None
 
     _lenient_context = field_validator("context", mode="before")(_context_or_none)
 
@@ -484,6 +506,9 @@ ODCSSchemaObject.model_rebuild()
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
     ODCSContract: ("context",),
+    ODCSContext: ("instructions", "constraints", "verifiedStatements"),
+    ODCSVerifiedStatement: ("answer",),
+    ODCSEnumValue: ("label", "description"),
     ODCSSchemaObject: ("deprecated", "dataGranularityDescription", "context"),
     ODCSProperty: (
         "deprecated",
