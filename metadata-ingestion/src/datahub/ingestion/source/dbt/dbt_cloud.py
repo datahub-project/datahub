@@ -579,11 +579,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 and not is_auto_discovery
             ):
                 # Contracts default to the run's environment; read it from the
-                # job's models so the contract query is probed too.
+                # job's models so the contract query is probed too. The timing
+                # fields are requested as in the run, so a rejected field fails
+                # here rather than during ingestion.
                 job_data = DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token.get_secret_value(),
-                    _DBT_GRAPHQL_QUERY.format(type="models", fields="environmentId"),
+                    _DBT_GRAPHQL_QUERY.format(
+                        type="models",
+                        fields="environmentId" + _DBT_GRAPHQL_MODEL_TIMING_FIELDS,
+                    ),
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
                 environment_id = next(

@@ -2047,6 +2047,7 @@ def test_cloud_test_connection_probes_contracts_in_run_environment() -> None:
                 "ingest_contracts": True,
             }
         )
+    assert "runGeneratedAt" in mock_send.call_args_list[1].args[2]
     assert mock_send.call_args_list[2].args[3]["environmentId"] == 42
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is False
