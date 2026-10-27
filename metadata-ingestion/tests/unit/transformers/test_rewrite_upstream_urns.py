@@ -4,8 +4,9 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import _Patch
-from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
+from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
 from datahub.ingestion.api.incremental_lineage_helper import (
     convert_upstream_lineage_to_patch,
 )
@@ -519,3 +520,86 @@ def test_platform_names_that_would_be_encoded_are_rejected(platform: str) -> Non
         RewriteUpstreamUrnsConfig.model_validate(
             {"platform_rules": [_mssql_rule(replace=platform)]}
         )
+
+
+def test_proposal_wrapper_is_rewritten_through_transform() -> None:
+    proposal = MetadataChangeProposalWrapper(
+        entityUrn=DOWNSTREAM,
+        aspect=UpstreamLineageClass(
+            upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")]
+        ),
+    )
+    transformer = _transformer(platform_rules=_rewrite_onto_existing_rule())
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(record=proposal, metadata={}),
+                RecordEnvelope(record=EndOfStream(), metadata={}),
+            ]
+        )
+    )
+
+    record = outputs[0].record
+    assert isinstance(record, MetadataChangeProposalWrapper)
+    assert isinstance(record.aspect, UpstreamLineageClass)
+    assert [u.dataset for u in record.aspect.upstreams] == [_REWRITTEN_UPSTREAM]
+
+
+def test_dataset_level_fine_grained_upstreams_are_rewritten() -> None:
+    aspect = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[UPSTREAM, OTHER_PLATFORM],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(DOWNSTREAM, "fund_id")],
+            )
+        ],
+    )
+    transformer = _transformer(platform_rules=_rewrite_onto_existing_rule())
+
+    rewritten = transformer.transform_aspect(DOWNSTREAM, "upstreamLineage", aspect)
+
+    assert isinstance(rewritten, UpstreamLineageClass)
+    assert rewritten.fineGrainedLineages is not None
+    assert rewritten.fineGrainedLineages[0].upstreams == [
+        _REWRITTEN_UPSTREAM,
+        OTHER_PLATFORM,
+    ]
+
+
+def test_fine_grained_patch_in_add_mode_keeps_the_original_field() -> None:
+    upstream_field = make_schema_field_urn(UPSTREAM, "fund_id")
+    downstream_field = make_schema_field_urn(DOWNSTREAM, "fund_id")
+    lineage = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=UPSTREAM, type="TRANSFORMED")],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[upstream_field],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[downstream_field],
+            )
+        ],
+    )
+    proposal = convert_upstream_lineage_to_patch(DOWNSTREAM, lineage, None).metadata
+    transformer = _transformer(mode="add", platform_rules=_rewrite_onto_existing_rule())
+
+    rewritten = list(
+        transformer.transform([RecordEnvelope(record=proposal, metadata={})])
+    )
+
+    fine_grained_upstreams = [
+        path[-1]
+        for path in (
+            _path_components(operation["path"])
+            for operation in _patch_operations(rewritten[0].record)
+        )
+        if path[0] == "fineGrainedLineages"
+    ]
+    assert fine_grained_upstreams == [
+        upstream_field,
+        make_schema_field_urn(_REWRITTEN_UPSTREAM, "fund_id"),
+    ]

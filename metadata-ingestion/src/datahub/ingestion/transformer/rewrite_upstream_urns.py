@@ -52,7 +52,10 @@ def _short_platform(value: str) -> str:
 class RewriteUpstreamNameRule(ConfigModel):
     """Literal find-and-replace applied to an upstream dataset's name."""
 
-    find: str = Field(description="Substring to find in the dataset name.")
+    find: str = Field(
+        description="Substring to find in the dataset name. The name is matched as "
+        "stored in the URN, where ',', '(' and ')' are encoded as '%2C', '%28' and '%29'."
+    )
     replace: str = Field(description="Text that replaces each match of find.")
 
     @field_validator("find")

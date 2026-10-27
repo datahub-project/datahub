@@ -1228,6 +1228,10 @@ Top-level `id_rules` apply to every upstream and keep its platform. They cannot 
 
 Fine-grained upstream column URNs are rewritten the same way. Fine-grained downstream URNs are left unchanged, because those refer to the dataset being ingested. The same rules apply when `incremental_lineage` is enabled, which turns this aspect into a patch before transformers run. When a rewrite produces an upstream that is already listed, the existing entry is kept (with its own audit stamp, query and properties) and the rewritten duplicate is dropped. If two upstreams rewrite to the same dataset, the first is kept. Incremental lineage patches follow the same rule.
 
+`id_rules` match the dataset name as it is stored in the URN, where `,`, `(` and `)` are encoded as `%2C`, `%28` and `%29`. To match a comma in a table name, use `find: "%2C"`.
+
+Only `upstreamLineage` is rewritten. These are not: `dataJobInputOutput` (input and output datasets, edges and fine-grained lineage), `chartInfo.inputs`, `dashboardInfo.datasets`, `inputFields`, `schemaMetadata.foreignKeys`, `siblings`, and the upstream dataset entities themselves. If the same recipe also ingests jobs, charts or dashboards that reference the old datasets, for example from Airflow or Tableau, those references stay on the original URNs.
+
 ### Config Details
 
 | Field            | Required | Type         | Default   | Description                                                                                                                                                                                                                                          |
