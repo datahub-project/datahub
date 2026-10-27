@@ -42,8 +42,8 @@
             <!-- Container-free (mocked AspectDao / EventProducer / search services) unit tests for
                  entity reads, MCL production, index updates, tracing, rollback and consistency
                  checks, including the unknown entity/aspect tolerance used after a version
-                 rollback. Their packages are otherwise only covered by the
-                 unwired testOther suite. -->
+                 rollback. They switch the process-wide UnknownDataHandlings, so testng-other.xml
+                 (parallel classes) leaves them out and they run here, one class at a time. -->
             <class name="com.linkedin.metadata.entity.EntityServiceImplTest"/>
             <class name="com.linkedin.metadata.entity.EntityUtilsTest"/>
             <class name="com.linkedin.metadata.trace.TraceServiceImplTest"/>
@@ -53,7 +53,8 @@
             <class name="com.linkedin.metadata.search.SearchServiceUnknownEntityTypeTest"/>
             <!-- Container-free tests of the unknown entity/aspect tolerance (rollback) in consistency
                  checks, side effects, deletes, Cassandra, versioning, index mappings and timeseries.
-                 Their packages are otherwise only covered by unwired suites. -->
+                 They switch the process-wide UnknownDataHandlings, so they run here, one class at a
+                 time. -->
             <class name="com.linkedin.metadata.aspect.consistency.check.InvalidEnumCheckTest"/>
             <class name="com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffectTest"/>
             <class name="com.linkedin.metadata.entity.DeleteEntityServiceTest"/>
@@ -61,9 +62,8 @@
             <class name="com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidatorTest"/>
             <class name="com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffectTest"/>
             <class name="com.linkedin.metadata.timeseries.search.TimeseriesAspectServiceUnitTest"/>
-            <!-- Tolerance tests in classes that switch the process-wide UnknownDataHandlings, which
-                 otherwise sit only in unwired suites (testOther runs classes in parallel, which
-                 would leak the switch). This suite runs them one at a time. -->
+            <!-- Tolerance tests in classes that switch the process-wide UnknownDataHandlings; this
+                 suite runs them one class at a time, so the switch can't leak into other classes. -->
             <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest"/>
             <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
             <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest"/>
