@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     LogicalParentClass,
     OwnershipClass,
+    SchemaMetadataClass,
     StatusClass,
 )
 
@@ -2442,6 +2443,7 @@ schema:
     properties:
       - name: s
         enum: [{value: a, label: 5, description: [x]}, {value: b}, {label: only}]
+        synonyms: [{synonym: alias, status: 5}]
 """
 
 
@@ -2462,8 +2464,51 @@ def test_off_spec_values_inside_context_and_enum_are_reported(
         "<root>.schema[0].properties[0].enum (1 of 3 entries)",
         "<root>.schema[0].properties[0].enum[0].label",
         "<root>.schema[0].properties[0].enum[0].description",
+        "<root>.schema[0].properties[0].synonyms[0].status",
     ):
         assert dropped in warnings
+
+
+_SPEC_VALID_EDGES_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: edges
+version: 1.0.0
+status: active
+context:
+  constraints: []
+  verifiedStatements: []
+schema:
+  - name: t
+    properties:
+      - name: s
+        enum: [{value: null, label: Unknown}, {value: ""}, {value: 2024-01-01}]
+"""
+
+
+def test_spec_valid_edge_values_are_not_reported_as_dropped(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _synonym_source(tmp_path, _SPEC_VALID_EDGES_BODY)
+    workunits = list(src.get_workunits_internal())
+    titles = [w.title for w in src.report.warnings]
+    assert "ODCS values dropped as off-spec" not in titles
+    (schema,) = _aspects_of(workunits, SchemaMetadataClass)
+    assert schema.fields[0].description == (
+        '**Allowed values:**\n- `null` (Unknown)\n- `""`\n- `2024-01-01`'
+    )
+
+
+def test_map_form_child_list_is_not_walked_as_fields(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_EDGES_BODY.replace(
+        "enum: [{value: null, label: Unknown}, {value: \"\"}, {value: 2024-01-01}]",
+        "enum: {a: A}",
+    )
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    titles = [w.title for w in src.report.warnings]
+    assert "ODCS values dropped as off-spec" in titles
+    assert "Unknown ODCS field" not in titles
 
 
 _NESTED_KEYS_BODY = """\

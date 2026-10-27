@@ -765,9 +765,7 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
 
 def _one_line(text: Optional[str]) -> Optional[str]:
     # A newline would end a list item and let the rest render as new items.
-    if not text:
-        return None
-    return " ".join(text.split()) or None
+    return " ".join((text or "").split()) or None
 
 
 def _code_span(text: str) -> str:
@@ -778,10 +776,9 @@ def _code_span(text: str) -> str:
 
 
 def _enum_value_line(entry: ODCSEnumValue) -> str:
-    value = _one_line(entry.value) or entry.value
-    line = f"- {_code_span(value)}"
+    line = f"- {_code_span(entry.value)}"
     label = _one_line(entry.label)
-    if label and label != value:
+    if label and label != entry.value:
         line += f" ({label})"
     description = _one_line(entry.description)
     if description:
@@ -1011,8 +1008,11 @@ def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
             question = _one_line(v.question)
             if not question:
                 continue
+            statement = f"- Q: {question}"
             answer = _one_line(v.answer)
-            statements.append(f"- Q: {question}" + (f" A: {answer}" if answer else ""))
+            if answer:
+                statement += f" A: {answer}"
+            statements.append(statement)
     parts = list(instructions)
     if constraints:
         parts.append("**Constraints:**\n" + "\n".join(constraints))

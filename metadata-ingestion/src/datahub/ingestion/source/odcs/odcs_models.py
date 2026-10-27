@@ -105,7 +105,7 @@ READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(("dateIn", "replacedByUsername"
 
 # v3.1 adds `id` and `description` to authoritative-definition entries.
 KNOWN_UNMAPPED_AUTHDEF_FIELDS = frozenset(("description", "id"))
-# v3.2 context entries and enum values share these unmapped keys.
+# v3.2 context entries and enum values share these keys, which are not recorded.
 KNOWN_UNMAPPED_ENTRY_FIELDS = frozenset(
     ("id", "tags", "customProperties", "authoritativeDefinitions")
 )
@@ -171,34 +171,40 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
 
 
 def _enum_text(raw: object) -> Optional[str]:
-    # As written in the YAML: `true`, not Python's `True`; dates as ISO text.
+    # JSON spelling (`true`, `null`), not Python's; dates as ISO text. A blank
+    # string is a valid value, so it is shown quoted rather than dropped.
     if isinstance(raw, str):
-        text = raw
-    elif isinstance(raw, datetime.date):
-        text = raw.isoformat()
-    elif isinstance(raw, (int, float, bool)):
-        text = json.dumps(raw)
-    else:
-        return None
-    return text.strip() or None
+        text = " ".join(raw.split())
+        return text or json.dumps(raw)
+    if isinstance(raw, datetime.date):
+        return raw.isoformat()
+    if raw is None or isinstance(raw, (int, float, bool)):
+        return json.dumps(raw)
+    return None
 
 
 def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
-    """Keep enum entries with a non-empty scalar `value`.
+    """Keep enum entries whose `value` is a scalar, `null` included.
 
-    Bare scalars are off-spec but read as values, since their intent is clear.
-    Values are kept as text: they are rendered, not compared.
+    Bare scalars are off-spec but read as values, since their intent is clear;
+    a bare `null` or an entry with no `value` key has nothing to show. Values
+    are kept as single-line text: they are rendered, not compared.
     """
     if not isinstance(value, list):
         return None
     kept: List[Dict[str, object]] = []
     for entry in value:
-        raw = entry.get("value") if isinstance(entry, dict) else entry
-        text = _enum_text(raw)
+        if isinstance(entry, dict):
+            if "value" not in entry:
+                continue
+            fields = entry
+        elif entry is None:
+            continue
+        else:
+            fields = {"value": entry}
+        text = _enum_text(fields["value"])
         if text is not None:
-            kept.append(
-                {**entry, "value": text} if isinstance(entry, dict) else {"value": text}
-            )
+            kept.append({**fields, "value": text})
     return kept or None
 
 
@@ -209,7 +215,7 @@ def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
 
 class ODCSSynonym(ODCSBaseModel):
     # v3.2 (RFC 0041). `synonym` is mapped and `status: deprecated` entries are
-    # dropped; `locale`, `source` etc. are not recorded.
+    # dropped.
     synonym: Optional[str] = None
     status: Optional[str] = None
 
@@ -224,12 +230,17 @@ def _context_or_none(value: object) -> Optional[Dict[str, object]]:
     return value if isinstance(value, dict) else None
 
 
-def _entries_with(key: str) -> Callable[[object], Optional[List[object]]]:
+def _entries_with(
+    key: str,
+) -> Callable[[object], Optional[List[Dict[str, object]]]]:
     """Validator keeping list entries that are objects with a string `key`."""
 
-    def keep(value: object) -> Optional[List[object]]:
+    def keep(value: object) -> Optional[List[Dict[str, object]]]:
         if not isinstance(value, list):
             return None
+        # An empty list is valid and stays empty, so it isn't reported as dropped.
+        if not value:
+            return []
         return [
             e for e in value if isinstance(e, dict) and isinstance(e.get(key), str)
         ] or None
@@ -249,11 +260,7 @@ class ODCSVerifiedStatement(ODCSBaseModel):
 
 
 class ODCSContext(ODCSBaseModel):
-    """v3.2 (RFC 0038) guidance for AI agents and tools.
-
-    Entry `id`, `tags`, `customProperties` and `authoritativeDefinitions` are
-    not recorded.
-    """
+    """v3.2 (RFC 0038) guidance for AI agents and tools."""
 
     instructions: Optional[str] = None
     constraints: Optional[List[ODCSContextConstraint]] = None
@@ -269,8 +276,7 @@ class ODCSContext(ODCSBaseModel):
 
 
 class ODCSEnumValue(ODCSBaseModel):
-    # v3.2 (RFC 0033). `id`, `tags`, `customProperties` and
-    # `authoritativeDefinitions` are not recorded.
+    # v3.2 (RFC 0033).
     value: str
     label: Optional[str] = None
     description: Optional[str] = None
@@ -509,6 +515,7 @@ LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
     ODCSContext: ("instructions", "constraints", "verifiedStatements"),
     ODCSVerifiedStatement: ("answer",),
     ODCSEnumValue: ("label", "description"),
+    ODCSSynonym: ("status",),
     ODCSSchemaObject: ("deprecated", "dataGranularityDescription", "context"),
     ODCSProperty: (
         "deprecated",

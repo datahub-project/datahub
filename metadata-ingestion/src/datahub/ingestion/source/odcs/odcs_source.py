@@ -830,8 +830,10 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if child_cls is not None and isinstance(value, list):
                     for i, item in enumerate(value):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
-                elif child_cls is not None and isinstance(value, dict):
-                    walk(value, child_cls, f"{path_hint}.{key}")
+                elif key == "context" and isinstance(value, dict):
+                    # Only `context` is an object; other child keys given as a
+                    # map are already reported by schema validation.
+                    walk(value, ODCSContext, f"{path_hint}.{key}")
 
         walk(raw_dict, ODCSContract, "<root>")
         # One entry per field, not per column: `properties[3].unique` and
@@ -1193,7 +1195,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                         )
                     for i, item in enumerate(raw_value):
                         # Each entry is re-validated alone so it lines up with
-                        # what the list validator kept from it.
+                        # what the list validator kept from it. That holds while
+                        # the lenient list validators judge each entry on its own.
                         single = getattr(
                             type(parsed).__pydantic_validator__.validate_assignment(
                                 parsed.model_copy(), key, [item]

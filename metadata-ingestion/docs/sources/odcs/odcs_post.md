@@ -17,13 +17,15 @@ instead.
 - **Field:** the property's `description`, then a `**Derivation:**` section with its
   `transformDescription` and its `transformLogic` as a SQL block, then `**Allowed values:**`
   from the v3.2 `enum` (each value with its `label` and `description`). Values are shown as
-  written in the contract (`true`, `2024-01-01`); empty values are skipped.
+  text in JSON spelling (`true`, `null`, `1.5`), dates as `2024-01-01`, and an empty string as
+  `""`. An entry with no `value` is dropped and reported.
 - **v3.2 `context`:** contract-level and then table-level `context` is appended to the dataset
   description as a `**Guidance for AI and analysts:**` section: the instructions (or the string
   form), a `**Constraints:**` list from `constraints` and a `**Verified Q&A:**` list from
   `verifiedStatements`. Datasets have no AI context aspect, so the description is where people
   and Ask DataHub read it. `${VAR}` references in it are kept as written. Entry `id`, `tags`,
-  `customProperties` and `authoritativeDefinitions` are not recorded.
+  `customProperties` and `authoritativeDefinitions` on context entries and enum values are not
+  recorded.
 
 #### Quality rule mapping
 

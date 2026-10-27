@@ -2155,7 +2155,14 @@ def test_enum_values_render_as_written_in_yaml() -> None:
     prop = ODCSProperty.model_validate(
         {
             "name": "s",
-            "enum": [True, 0, 1.5, datetime.date(2024, 1, 1), {"value": False}],
+            "enum": [
+                True,
+                0,
+                1.5,
+                datetime.date(2024, 1, 1),
+                {"value": False},
+                {"value": None, "label": "Unknown"},
+            ],
         }
     )
     assert [e.value for e in prop.enum or []] == [
@@ -2164,14 +2171,16 @@ def test_enum_values_render_as_written_in_yaml() -> None:
         "1.5",
         "2024-01-01",
         "false",
+        "null",
     ]
+    assert (prop.enum or [])[-1].label == "Unknown"
 
 
-def test_enum_empty_values_skipped() -> None:
+def test_enum_blank_values_shown_quoted() -> None:
     prop = ODCSProperty.model_validate(
         {"name": "s", "enum": [{"value": ""}, "  ", "open"]}
     )
-    assert [e.value for e in prop.enum or []] == ["open"]
+    assert [e.value for e in prop.enum or []] == ['""', '"  "', "open"]
 
 
 def test_allowed_values_cannot_break_the_markdown() -> None:
@@ -2327,7 +2336,10 @@ def test_context_list_items_are_single_lines_and_blanks_skipped() -> None:
             "id": "c1",
             "context": {
                 "constraints": [{"constraint": "  "}, {"constraint": "No\njoins."}],
-                "verifiedStatements": [{"question": "Q\n1?", "answer": "A\n\n- 1"}],
+                "verifiedStatements": [
+                    {"question": "  ", "answer": "x"},
+                    {"question": "Q\n1?", "answer": "A\n\n- 1"},
+                ],
             },
             "schema": [{"name": "t"}],
         }
