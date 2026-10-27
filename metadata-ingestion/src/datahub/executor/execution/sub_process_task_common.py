@@ -95,7 +95,7 @@ def find_credential_redirects(
     use an older CLI version, so the executor checks before starting it:
 
     - a DataHub client config in the recipe whose server is not the env-configured one and
-      that has no token or auth of its own;
+      that has no token of its own;
     - references to the credential environment variables in the recipe or pip settings,
       including indirect ${!NAME} references, and credential values in the resolved recipe
       or pip requirements, except in the token of a client for the configured server;
@@ -135,7 +135,10 @@ def find_credential_redirects(
             continue
         if env_url is not None and is_same_gms_origin(env_url, server):
             own_server_tokens.append(f"recipe.{path}.token")
-        elif not (client_config.get("token") or client_config.get("auth")):
+        elif not client_config.get("token"):
+            # Only a token counts as the client's own credential. An `auth` block does not:
+            # CLI versions that predate it ignore the unknown key and fall back to the
+            # executor's credentials.
             problems.append(f"{path}.server")
 
     credential_problems: list[str] = []

@@ -544,6 +544,14 @@ class TestFindCredentialRedirects:
     ) -> None:
         assert self._find(recipe) == [problem]
 
+    @pytest.mark.parametrize(
+        "auth", [{}, {"type": "static", "config": {"token": "tok"}}]
+    )
+    def test_auth_block_does_not_count_as_own_credential(self, auth: dict) -> None:
+        # Older CLI versions ignore `auth` and fall back to the executor's credentials.
+        recipe = {"sink": {"config": {"server": "http://x", "auth": auth}}}
+        assert self._find(recipe) == ["sink.config.server"]
+
     def test_placeholders_are_resolved_before_checking(self) -> None:
         recipe = {
             "sink": {"config": {"server": "${SINK_SERVER}", "token": "${SINK_TOKEN}"}}
