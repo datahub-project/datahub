@@ -50,6 +50,17 @@ def make_profiler(**profiling_kwargs):
 
 
 class TestBuildProfileSql:
+    def test_limit_and_offset_are_not_applied(self):
+        # The query is a single-row aggregate: a LIMIT would bound that row
+        # rather than the scan, and an OFFSET would skip the only row there is
+        # and empty the profile. Neither is appended, and profiling.limit /
+        # profiling.offset do not list Dremio.
+        profiler = make_profiler(limit=100, offset=25)
+        sql = profiler._build_profile_sql('"test"."table"', [("col1", "integer")])
+
+        assert "LIMIT" not in sql.upper()
+        assert "OFFSET" not in sql.upper()
+
     def test_always_includes_row_and_column_count(self):
         profiler = make_profiler(profile_table_level_only=True)
         sql = profiler._build_profile_sql('"test"."table"', [("col1", "integer")])
@@ -82,18 +93,6 @@ class TestBuildProfileSql:
         )
         assert "AVG" not in sql
         assert "STDDEV" not in sql
-
-    def test_limit_appended_when_set(self):
-        profiler = make_profiler(profile_table_level_only=True, limit=1000, offset=500)
-        sql = profiler._build_profile_sql('"test"."table"', [])
-        assert "LIMIT 1000" in sql
-        assert "OFFSET 500" in sql
-
-    def test_no_limit_offset_when_not_configured(self):
-        profiler = make_profiler(profile_table_level_only=True, limit=None, offset=None)
-        sql = profiler._build_profile_sql('"test"."table"', [])
-        assert "LIMIT" not in sql
-        assert "OFFSET" not in sql
 
     def test_column_name_with_special_chars_is_quoted(self):
         profiler = make_profiler(

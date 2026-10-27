@@ -183,11 +183,23 @@ Behind a connection pooler in transaction mode (PgBouncer and similar) the limit
 
 For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowflake) profiles a sample rather than the full table. This reduces the cost of each scan, where the four options above reduce how many queries and scans are issued, or how long one may run — so sampling composes with them, and on a supported platform you can enable several together.
 
+Only BigQuery and Snowflake implement sampling on the SQL profiler path, and it is **on by default there**. Everywhere else the option defaults to off and has no effect, so turning it on does not start sampling.
+
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
+
+#### `limit` is not a sample
+
+`profiling.limit` and `profiling.sample_size` answer the same question — how to profile a big table cheaply — with opposite trade-offs. A `limit` takes the first N rows the platform hands back: cheap, but biased by storage order, and without an `ORDER BY` not even stable between runs. A sample draws randomly: it costs more, and the statistics are valid for the whole table.
+
+The two do not compose: sampling an already-limited table draws randomly from an arbitrary slice, which pays sampling's cost and loses the only thing it buys. A source that implements both therefore has to choose, and **BigQuery and Snowflake both prefer the sample** — where `use_sampling` is on and the table is large enough to be sampled, the table is sampled and the `limit` is not applied. Turn `use_sampling` off to bound the profile by row count instead.
+
+Only BigQuery and Snowflake apply `limit`/`offset` at all, and the SQL profiler declines an `offset` with no `limit`: skipping rows without bounding them scans more than leaving it unset, not less. `limit` must be a positive whole number and `offset` a non-negative one; both are checked when the recipe is read.
+
+Each asset is labelled from the bound that was actually applied to it, so a profile never claims one that was not: it stays `FULL_TABLE`, and the run warns once per option — **Profiling: limit was not applied** or **Profiling: offset was not applied** — naming each asset it affected.
 
 #### `rowCount` and the column statistics are measured over different things
 
-A profile whose `partitionSpec.type` is not `FULL_TABLE` — which covers both a sampled profile and a partitioned one — carries two kinds of number that do **not** come from the same set of rows:
+A profile whose `partitionSpec.type` is not `FULL_TABLE` — a sampled, limited or partitioned profile — carries two kinds of number that do **not** come from the same set of rows:
 
 | field                                                                              | measured over                                   |
 | ---------------------------------------------------------------------------------- | ----------------------------------------------- |

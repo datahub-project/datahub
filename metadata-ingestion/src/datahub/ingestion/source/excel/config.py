@@ -77,7 +77,7 @@ class ExcelSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     )
 
     profiling: ProfilingConfig = Field(
-        default=ProfilingConfig(),
+        default_factory=ProfilingConfig,
         description="Configuration for profiling",
     )
 

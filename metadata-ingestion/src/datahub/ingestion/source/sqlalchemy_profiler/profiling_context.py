@@ -7,6 +7,48 @@ import sqlalchemy as sa
 
 
 @dataclass
+class AppliedProfile:
+    """What the adapter actually profiled. Presence is the signal.
+
+    The division of labour this exists to serve:
+      - the config layer is NOT opinionated. It records what the recipe asked
+        for and reconciles nothing, so no option is silently rewritten.
+      - the adapter layer IS necessarily opinionated. Only it knows what the
+        platform can do, and some requests cannot be honoured together, so it
+        decides -- and reports the decision here rather than leaving the
+        profiler to infer one.
+
+    `limit`/`offset` mean the profiled rows respect that bound -- not that SQL
+    was emitted for it. An adapter that skips a limit it knows to be redundant
+    still reports it, because the result honours it either way.
+
+    Every field here is the adapter's to decide. The partition is not: the
+    source picks it and it stays on the context, so that this type can be
+    trusted to mean "what the adapter chose" and nothing else.
+
+    Adapters set the fields they applied; they never replace the object.
+    """
+
+    sample_percentage: Optional[float] = None
+    sample_rows: Optional[int] = None
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+
+    def __post_init__(self) -> None:
+        if self.sample_percentage is not None and not (
+            0 <= self.sample_percentage <= 100
+        ):
+            raise ValueError(
+                f"sample_percentage must be in [0, 100], got {self.sample_percentage}"
+            )
+
+    @property
+    def sampled(self) -> bool:
+        """Whether a sample was drawn, by fraction or by fixed row count."""
+        return self.sample_percentage is not None or self.sample_rows is not None
+
+
+@dataclass
 class ProfilingContext:
     """
     Encapsulates all state for profiling a single table.
@@ -46,11 +88,9 @@ class ProfilingContext:
     temp_view: Optional[str] = None
     temp_schema: Optional[str] = None
 
-    # Sampling information. sample_percentage is diagnostic only -- adapters
-    # set it, nothing reads it back; extrapolating sampled statistics to
-    # full-table scale is not done today.
-    is_sampled: bool = False
-    sample_percentage: Optional[float] = None
+    # What the adapter reports it profiled -- the sample or bound it applied.
+    # The partition it covers is `partition` above, chosen by the source.
+    applied: AppliedProfile = field(default_factory=AppliedProfile)
 
     # Resource tracking for cleanup
     resources_to_cleanup: List[str] = field(default_factory=list)
@@ -61,12 +101,8 @@ class ProfilingContext:
         if not self.table:
             raise ValueError(f"table must be a non-empty string, got: {self.table!r}")
 
-        # Sample percentage must be in range [0, 100] (ge=0, le=100 equivalent)
-        if self.sample_percentage is not None:
-            if not (0 <= self.sample_percentage <= 100):
-                raise ValueError(
-                    f"sample_percentage must be in [0, 100], got {self.sample_percentage}"
-                )
+        # A partition request arrives already honoured: the source narrows to it
+        # (via custom_sql, or a shard's own table name) before any adapter runs.
 
     def add_temp_resource(self, resource_type: str, resource_name: str) -> None:
         """Track a temporary resource that needs cleanup."""
