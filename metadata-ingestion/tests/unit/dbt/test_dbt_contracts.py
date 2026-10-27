@@ -829,6 +829,7 @@ def _related_contracts(
 def _graph_with_contracts(
     contracts: Dict[str, DataContractPropertiesClass],
     removed: bool = False,
+    ghost_urns: Sequence[str] = (),
 ) -> mock.Mock:
     def get_entities(
         entity_name: str, urns: List[str], aspects: List[str], **kwargs: Any
@@ -844,9 +845,14 @@ def _graph_with_contracts(
 
     graph = mock.Mock()
     graph.get_entities.side_effect = get_entities
-    graph.get_related_entities.side_effect = lambda entity_urn, **_: _related_contracts(
-        contracts, entity_urn
-    )
+    # Ghosts are still linked to the dataset but have no aspects left.
+    graph.get_related_entities.side_effect = lambda entity_urn, **_: [
+        *_related_contracts(contracts, entity_urn),
+        *(
+            RelatedEntity(urn=urn, relationship_type="ContractFor")
+            for urn in ghost_urns
+        ),
+    ]
     return graph
 
 
@@ -941,6 +947,29 @@ def test_multiple_existing_contracts_are_left_untouched() -> None:
     )
     assert _written_contracts(_contract_mcps(source, [node])) == []
     assert source.report.warnings
+
+
+@pytest.mark.parametrize("other", [None, "authored", "dbt"])
+def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
+    source = _make_source()
+    node = _make_model()
+    schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
+    contracts = {}
+    if other == "authored":
+        contracts[_UI_CONTRACT_URN] = _existing_contract("urn:li:assertion:authored")
+    elif other == "dbt":
+        contracts[_UI_CONTRACT_URN] = _existing_contract(schema_urn)
+    source.ctx.graph = _graph_with_contracts(
+        contracts, ghost_urns=["urn:li:dataContract:ghost"]
+    )
+    written = _written_contracts(_contract_mcps(source, [node]))
+    expected = {
+        None: [_contract_urn(node)],
+        "authored": [],
+        "dbt": [_UI_CONTRACT_URN],
+    }
+    assert written == expected[other]
+    assert not source.report.warnings
 
 
 @pytest.mark.parametrize("replace", [False, True])

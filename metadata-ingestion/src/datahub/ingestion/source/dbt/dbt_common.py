@@ -1400,7 +1400,7 @@ class _PendingContract:
 @dataclass(frozen=True)
 class _ExistingContract:
     urn: str
-    properties: Optional[DataContractPropertiesClass]
+    properties: DataContractPropertiesClass
     status: Optional[StatusClass]
 
 
@@ -6165,21 +6165,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 exc=e,
             )
             return None
-        return {
-            entity_urn: [
-                _ExistingContract(
-                    urn=urn,
-                    properties=_get_prefetched_aspect(
-                        aspects_by_urn.get(urn, {}), DataContractPropertiesClass
-                    ),
-                    status=_get_prefetched_aspect(
-                        aspects_by_urn.get(urn, {}), StatusClass
-                    ),
+        result: Dict[str, List[_ExistingContract]] = {}
+        for entity_urn, urns in contract_urns.items():
+            result[entity_urn] = []
+            for urn in urns:
+                aspects = aspects_by_urn.get(urn, {})
+                properties = _get_prefetched_aspect(
+                    aspects, DataContractPropertiesClass
                 )
-                for urn in urns
-            ]
-            for entity_urn, urns in contract_urns.items()
-        }
+                # A contract without properties (e.g. hard-deleted while the
+                # relationship index still links it) is ignored.
+                if properties is not None:
+                    result[entity_urn].append(
+                        _ExistingContract(
+                            urn=urn,
+                            properties=properties,
+                            status=_get_prefetched_aspect(aspects, StatusClass),
+                        )
+                    )
+        return result
 
     @staticmethod
     def _is_dbt_contract(
@@ -6187,8 +6191,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> bool:
         """Whether an existing contract is dbt's: it was soft-deleted, or it
         still references this model's schema assertion."""
-        if existing.properties is None:
-            return True
         if existing.status is not None and existing.status.removed:
             return True
         assertion_urns = {
