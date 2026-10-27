@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import click
 import requests
-from requests.sessions import Session
+from requests.sessions import Session, SessionRedirectMixin
 
 import datahub._version as datahub_version
 from datahub.cli import config_utils
@@ -17,6 +17,8 @@ from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.request_helper import make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
+from datahub.ingestion.auth.env import build_auth_config_from_env
+from datahub.ingestion.auth.registry import AuthConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -392,6 +394,54 @@ def fixup_gms_url(url: str) -> str:
         url = url.rstrip("/")
     url = _ensure_valid_gms_url_acryl_cloud(url)
     return url
+
+
+def resolve_env_auth_config(server: str, *, origin_guard: bool) -> Optional[AuthConfig]:
+    """Resolve env-based OAuth (``DATAHUB_AUTH_TYPE``) for a client whose caller
+    supplied no explicit credentials. Returns None when ``DATAHUB_AUTH_TYPE`` is
+    unset. This is the single place emitter- and sink-side clients read OAuth
+    credentials from the environment, so the rule is not reimplemented per layer.
+    It lives here rather than in ``auth.env`` because the origin guard needs the
+    URL helpers (``get_url_from_env``/``fixup_gms_url``) that sit above the
+    lower-level env parser, which would otherwise require importing up the stack.
+
+    ``origin_guard`` decides whether the credential is restricted to the
+    ``DATAHUB_GMS_URL`` origin:
+
+    - ``False`` — trust ``server``. Its callers (the REST emitter, and through it
+      the Airflow hook and lineage listener, GX, Prefect, ``DataHubGraph``) pass a
+      server from code, and the minted token is audience-scoped to DataHub. They
+      routinely run where ``DATAHUB_GMS_URL`` is unset or spelled differently,
+      where a guard would wrongly decline.
+    - ``True`` — attach the credential only when ``server`` matches
+      ``DATAHUB_GMS_URL`` (via requests' ``should_strip_auth``, which permits the
+      benign http->https upgrade). A recipe-configured ``datahub-rest`` sink can
+      point at an arbitrary host, so env OAuth must not mint tokens for a server
+      the operator never set in the environment.
+    """
+    env_auth = build_auth_config_from_env()
+    if env_auth is None or not origin_guard:
+        return env_auth
+
+    env_url = config_utils.get_url_from_env()
+    if env_url is None:
+        log.warning(
+            "DATAHUB_AUTH_TYPE is set but DATAHUB_GMS_URL is not; not applying "
+            "env OAuth to %s. Set DATAHUB_GMS_URL to inherit env auth.",
+            server,
+        )
+        return None
+    if SessionRedirectMixin().should_strip_auth(
+        fixup_gms_url(env_url), fixup_gms_url(server)
+    ):
+        log.warning(
+            "Not applying env OAuth (DATAHUB_AUTH_TYPE) to %s — it does not match "
+            "the env-configured server %s.",
+            server,
+            env_url,
+        )
+        return None
+    return env_auth
 
 
 def guess_frontend_url_from_gms_url(gms_url: str) -> str:
