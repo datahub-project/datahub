@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 from typing_extensions import Self
 
-from datahub.configuration.env_vars import get_max_transform_operation_length
+from datahub.emitter import transform_operation
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.metadata.schema_classes import (
@@ -71,7 +71,7 @@ class HasFineGrainedLineagePatch(MetadataPatchProposal):
         self, fine_grained_lineages: List[FineGrainedLineage]
     ) -> Self:
         aspect_name, path = self._fine_grained_lineage_location()
-        if get_max_transform_operation_length() is not None:
+        if transform_operation.TRANSFORM_OPERATION_CHAR_LIMIT is not None:
             # Copy so the caller's objects keep their full text.
             fine_grained_lineages = [
                 FineGrainedLineage.from_obj(fine_grained_lineage.to_obj())

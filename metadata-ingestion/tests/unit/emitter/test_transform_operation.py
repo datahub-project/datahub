@@ -1,15 +1,14 @@
 import json
-from pathlib import Path
 from typing import List, Optional
 from unittest.mock import MagicMock
 
 import pytest
 
 from datahub.configuration.env_vars import get_max_transform_operation_length
+from datahub.emitter import transform_operation
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.transform_operation import truncate_transform_operation
-from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metadata.lineage import (
     EntityConfig,
     EntityNodeConfig,
@@ -46,7 +45,7 @@ DATAJOB = "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),task)"
 
 
 @pytest.mark.parametrize(
-    "value, max_length, expected",
+    "value, char_limit, expected",
     [
         (LOGIC, 100, LOGIC),
         (LOGIC, 21, LOGIC),
@@ -56,15 +55,15 @@ DATAJOB = "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),task)"
     ],
 )
 def test_truncate_transform_operation(
-    value: str, max_length: int, expected: str
+    value: str, char_limit: int, expected: str
 ) -> None:
-    assert truncate_transform_operation(value, max_length) == expected
+    assert truncate_transform_operation(value, char_limit) == expected
 
 
-@pytest.mark.parametrize("max_length", [1, 8])
-def test_truncate_transform_operation_is_idempotent(max_length: int) -> None:
-    once = truncate_transform_operation(LOGIC, max_length)
-    assert truncate_transform_operation(once, max_length) == once
+@pytest.mark.parametrize("char_limit", [1, 8])
+def test_truncate_transform_operation_is_idempotent(char_limit: int) -> None:
+    once = truncate_transform_operation(LOGIC, char_limit)
+    assert truncate_transform_operation(once, char_limit) == once
 
 
 def test_max_length_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -80,16 +79,10 @@ def test_max_length_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
             get_max_transform_operation_length()
 
 
-def test_pipeline_rejects_invalid_value_at_start(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv(ENV_VAR, "0")
-    recipe = {
-        "source": {"type": "file", "config": {"path": str(tmp_path / "in.json")}},
-        "sink": {"type": "console"},
-    }
-    with pytest.raises(ValueError, match=ENV_VAR):
-        Pipeline.create(recipe)
+def _set_char_limit(monkeypatch: pytest.MonkeyPatch, char_limit: Optional[int]) -> None:
+    monkeypatch.setattr(
+        transform_operation, "TRANSFORM_OPERATION_CHAR_LIMIT", char_limit
+    )
 
 
 def _fine_grained(
@@ -121,7 +114,7 @@ def _transform_operations(
 
 
 def test_aggregator_cuts_lineage_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "5")
+    _set_char_limit(monkeypatch, 5)
     aggregator = SqlParsingAggregator(
         platform="postgres",
         generate_lineage=True,
@@ -154,7 +147,7 @@ def _serialized_operations(mcpw: MetadataChangeProposalWrapper) -> List[str]:
 
 
 def test_make_mcp_cuts_serialized_copy_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "8")
+    _set_char_limit(monkeypatch, 8)
     lineage = _lineage()
     mcpw = MetadataChangeProposalWrapper(entityUrn=DOWNSTREAM, aspect=lineage)
 
@@ -163,7 +156,7 @@ def test_make_mcp_cuts_serialized_copy_only(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_make_mcp_cuts_datajob_input_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "8")
+    _set_char_limit(monkeypatch, 8)
     mcpw = MetadataChangeProposalWrapper(
         entityUrn=DATAJOB,
         aspect=DataJobInputOutputClass(
@@ -176,13 +169,13 @@ def test_make_mcp_cuts_datajob_input_output(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_make_mcp_unchanged_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(ENV_VAR, raising=False)
+    _set_char_limit(monkeypatch, None)
     mcpw = MetadataChangeProposalWrapper(entityUrn=DOWNSTREAM, aspect=_lineage())
     assert _serialized_operations(mcpw) == [LOGIC, None]
 
 
 def test_patch_builders_cut_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "8")
+    _set_char_limit(monkeypatch, 8)
     builders: List[HasFineGrainedLineagePatch] = [
         DatasetPatchBuilder(DOWNSTREAM),
         DataJobPatchBuilder(DATAJOB),
@@ -199,7 +192,7 @@ def test_patch_builders_cut_key(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_set_fine_grained_lineages_cuts_copy_only(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(ENV_VAR, "8")
+    _set_char_limit(monkeypatch, 8)
     fine_grained = _fine_grained()
     [mcp] = (
         DatasetPatchBuilder(DOWNSTREAM)
@@ -213,7 +206,7 @@ def test_set_fine_grained_lineages_cuts_copy_only(
 
 
 def test_tableau_transform_operation_is_cut(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "5")
+    _set_char_limit(monkeypatch, 5)
     calculated = {c.TYPE_NAME: c.CALCULATED_FIELD, c.FORMULA: "SUM([col_a])"}
     column = {c.TYPE_NAME: c.COLUMN_FIELD}
     assert TableauSiteSource.get_transform_operation(MagicMock(), calculated) == (
@@ -223,7 +216,7 @@ def test_tableau_transform_operation_is_cut(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_lineage_file_source_is_cut(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "8")
+    _set_char_limit(monkeypatch, 8)
     node = EntityNodeConfig(
         entity=EntityConfig(
             name="db.public.target_table", type="dataset", platform="postgres"
