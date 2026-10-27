@@ -2326,9 +2326,29 @@ def test_override_with_variable_or_bad_env_is_refused(
 
 def test_doubled_braces_are_not_the_object_placeholder() -> None:
     assert (
-        substitute_object_placeholder("{{object}} {object} ${object}", "db.t")
-        == "{{object}} db.t db.t"
+        substitute_object_placeholder(
+            "{{object}} {{object} {object}} {object} ${object}", "db.t"
+        )
+        == "{{object}} {{object} {object}} db.t db.t"
     )
+
+
+def test_override_table_name_kept_when_server_has_no_mapping() -> None:
+    contract = _make_contract(
+        servers=[{"server": "srv", "type": "postgres", "database": "db"}],
+        schema=[{"name": "a"}],
+    )
+    (binding,) = odcs_to_physical_bindings(
+        contract,
+        _config(
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)"
+                }
+            },
+        ),
+    )
+    assert binding.table_name == "inst1.db.sch.a"
 
 
 @pytest.mark.parametrize(

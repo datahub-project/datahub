@@ -2347,13 +2347,43 @@ def _placeholder_warnings(src: ODCSSource) -> List[StructuredLogEntry]:
     return [w for w in src.report.warnings if w.title and "placeholder" in w.title]
 
 
-def test_object_placeholder_unbound_warns(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize("placeholder", ["${object}", "{object}"])
+def test_object_placeholder_unbound_warns(
+    tmp_path: pathlib.Path, placeholder: str
+) -> None:
     src, _ = _object_rule_source(
-        tmp_path, server_overrides=[{"server": "prod-postgres", "platform": "kafka"}]
+        tmp_path,
+        rule=_OBJECT_RULE.replace("${object}", placeholder),
+        server_overrides=[{"server": "prod-postgres", "platform": "kafka"}],
     )
     warnings = _placeholder_warnings(src)
     assert len(warnings) == 1
-    assert "orders_entry" in str(warnings[0].context)
+    context = str(warnings[0].context)
+    assert "orders_entry" in context
+    assert "kafka" in context
+    assert "not found" not in context
+
+
+def test_invalid_overrides_group_under_one_warning(tmp_path: pathlib.Path) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "schema:\n", "schema:\n  - name: extra\n    physicalName: extra\n"
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(
+        tmp_path,
+        physical_urn_overrides={
+            "test-contract-1": {"t": "bad.one", "extra": "bad.two"}
+        },
+    )
+    list(src.get_workunits_internal())
+    (invalid,) = [
+        w
+        for w in src.report.warnings
+        if w.title == "ODCS physical_urn_overrides entry is not a usable dataset URN"
+    ]
+    assert any("bad.one" in c for c in invalid.context)
+    assert any("bad.two" in c for c in invalid.context)
+    assert src.report.invalid_physical_urn_overrides == 2
 
 
 def test_object_placeholder_explicit_unbind_is_not_warned(
