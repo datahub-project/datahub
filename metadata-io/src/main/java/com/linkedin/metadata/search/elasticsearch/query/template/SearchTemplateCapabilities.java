@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
@@ -11,7 +12,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Sections this process can run. OSS advertises keyword retrieval and engine rescore. A stored
+ * Sections this process can run. Keyword retrieval and engine rescore are supported. A stored
  * section outside that set fails the search after parent merge. {@link #API_VERSION} is the
  * template and Mustache-context contract. {@link #SUPPORTED} is the capability names a template may
  * declare.
@@ -34,12 +35,17 @@ public final class SearchTemplateCapabilities {
               "ladder",
               "aggregations",
               "structuredPropertyQuery",
+              "fieldValueScores",
+              "fieldFactors",
+              "termWeights",
+              "entityTypeBoosts",
               "normalization",
               "fieldOverrides",
               "highlights",
               "sort",
               "boosts",
-              "queryFragments"));
+              "queryFragments",
+              "component"));
 
   public static final Set<String> PRESETS = Set.of("none", "usage", "usageAndMatchTier");
   public static final Set<String> SIZERS = Set.of("fixed", "tokenCurve");
@@ -92,8 +98,10 @@ public final class SearchTemplateCapabilities {
   }
 
   public static void requireSupported(
-      @Nonnull MergedSearchTemplate template, boolean documentRerank) {
-    requireSupported(template, documentRerank, false);
+      @Nonnull MergedSearchTemplate template,
+      boolean documentRerank,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    requireSupported(template, documentRerank, false, registry);
   }
 
   /**
@@ -101,11 +109,20 @@ public final class SearchTemplateCapabilities {
    * is advertised only when the request includes the Document entity.
    */
   public static void requireSupported(
-      @Nonnull MergedSearchTemplate template, boolean documentRerank, boolean scroll) {
+      @Nonnull MergedSearchTemplate template,
+      boolean documentRerank,
+      boolean scroll,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     requireContract(template);
-    String code = rejectionCode(template, documentRerank, scroll);
+    String code = rejectionCode(template, documentRerank, scroll, registry);
     if (code != null) {
       throw unsupported(rejectionDetail(template, code));
+    }
+    com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
+    if (!SearchTemplateComponents.empty(component)) {
+      registry
+          .require(component.getName(), component.getVersion())
+          .validate(component.getMode(), SearchTemplateComponents.config(component));
     }
   }
 
@@ -116,7 +133,26 @@ public final class SearchTemplateCapabilities {
    */
   @Nullable
   public static String rejectionCode(
-      @Nonnull MergedSearchTemplate template, boolean documentRerank, boolean scroll) {
+      @Nonnull MergedSearchTemplate template,
+      boolean documentRerank,
+      boolean scroll,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
+    if (!SearchTemplateComponents.empty(component)) {
+      String name = component.hasName() ? component.getName() : null;
+      Integer version = component.hasVersion() ? component.getVersion() : null;
+      if (name == null
+          || name.isBlank()
+          || version == null
+          || !component.hasMode()
+          || component.getMode() == null
+          || registry.find(name, version).isEmpty()) {
+        return "component";
+      }
+      if (component.getMode() == SearchTemplateComponentMode.OWN_RUNG && scroll) {
+        return "componentScroll";
+      }
+    }
     SearchTemplateRanking ranking = template.getRanking();
     if (ranking != null) {
       String preset = ranking.hasPreset() ? ranking.getPreset() : null;
@@ -158,6 +194,8 @@ public final class SearchTemplateCapabilities {
     SearchTemplateRanking ranking = template.getRanking();
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     return switch (code) {
+      case "component" -> "component";
+      case "componentScroll" -> "component scroll";
       case "rankingPreset" -> "ranking preset " + ranking.getPreset();
       case "rankingWindow" -> "ranking windowSizer " + ranking.getWindowSizer();
       case "knn" -> "knn";

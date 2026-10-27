@@ -1,7 +1,17 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeGuard,
+    Union,
+)
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
@@ -76,6 +86,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     VARIABLE_MARKER,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSDescription,
     ODCSProperty,
@@ -763,6 +774,50 @@ def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
     return count
 
 
+# Schemes GMS UrlValidator accepts for institutionalMemory links; keep in sync
+# with InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES. ODCS allows relative paths
+# and non-web URLs (e.g. jdbc:), which GMS rejects.
+_LINK_URL_SCHEMES: FrozenSet[str] = frozenset({"http", "https", "ftp", "mailto"})
+# Characters java.net.URI never accepts unescaped, as found in hand-written
+# links (spaces in Confluence titles, Grafana {}, Kibana |). Not full URI
+# validation: other syntax errors are still rejected by GMS.
+_URI_ILLEGAL_CHARS = re.compile(r'[\s\x00-\x1f\x7f-\x9f"<>\\^`{|}]')
+
+
+def _is_storable_link_url(url: str) -> bool:
+    """Whether GMS accepts `url` as an institutionalMemory link."""
+    if _URI_ILLEGAL_CHARS.search(url):
+        return False
+    try:
+        return urlparse(url).scheme in _LINK_URL_SCHEMES
+    except ValueError:
+        return False
+
+
+def _authoritative_definitions(
+    contract: ODCSContract, schema_entries: List[ODCSSchemaObject]
+) -> List[ODCSAuthoritativeDefinition]:
+    defs = list(contract.authoritativeDefinitions or [])
+    for schema_entry in schema_entries:
+        defs.extend(schema_entry.authoritativeDefinitions or [])
+        for _, prop in _walk_properties(schema_entry.properties):
+            defs.extend(prop.authoritativeDefinitions or [])
+    return defs
+
+
+def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str]:
+    """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
+    would reject as links (relative paths, other schemes), so the source can
+    report them; `_institutional_memory_mcp` skips them."""
+    return sorted(
+        {
+            d.url
+            for d in _authoritative_definitions(contract, contract.schema_ or [])
+            if d.url and not _is_storable_link_url(d.url)
+        }
+    )
+
+
 def _institutional_memory_mcp(
     logical_urn: str, schema_entry: ODCSSchemaObject, contract: ODCSContract
 ) -> Optional[MetadataChangeProposalWrapper]:
@@ -772,14 +827,10 @@ def _institutional_memory_mcp(
     ingesting host's filesystem). The source-file basename is carried in
     DatasetProperties.customProperties instead.
     """
-    seen: set = set()
+    seen: Set[str] = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    defs = list(contract.authoritativeDefinitions or [])
-    defs.extend(schema_entry.authoritativeDefinitions or [])
-    for _, prop in _walk_properties(schema_entry.properties):
-        defs.extend(prop.authoritativeDefinitions or [])
-    for d in defs:
-        if not d.url or d.url in seen:
+    for d in _authoritative_definitions(contract, [schema_entry]):
+        if not d.url or d.url in seen or not _is_storable_link_url(d.url):
             continue
         seen.add(d.url)
         elements.append(

@@ -24,6 +24,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.testng.annotations.Test;
 
 public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
@@ -38,7 +39,13 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
             null);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     OperationContext bound =
-        new SearchTemplateCoordinator(v3Config(), null, loader).bind(opContext, "customer orders");
+        new SearchTemplateCoordinator(
+                v3Config(),
+                null,
+                loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty())
+            .bind(opContext, "customer orders");
     String rendered =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null)
             .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true)
@@ -58,7 +65,13 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
             null);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     OperationContext bound =
-        new SearchTemplateCoordinator(v3Config(), null, loader).bind(opContext, "customer orders");
+        new SearchTemplateCoordinator(
+                v3Config(),
+                null,
+                loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty())
+            .bind(opContext, "customer orders");
     String rendered =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null)
             .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true)

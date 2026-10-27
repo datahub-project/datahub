@@ -12,6 +12,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_mapper import (
     RefusalKind,
+    _is_storable_link_url,
     _make_owners,
     _operator_and_params_from_threshold,
     build_schema_metadata,
@@ -24,6 +25,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_schema_assertion_mcps,
     substitute_object_placeholder,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
@@ -630,6 +632,88 @@ def test_institutional_memory_includes_root_authoritative_definitions() -> None:
     urls = [e.url for e in memory.elements]
     assert "https://root.example/contract" in urls
     assert "https://schema.example/def" in urls
+
+
+def test_institutional_memory_skips_urls_gms_rejects() -> None:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "authoritativeDefinitions": [
+                    {"url": "jdbc:postgresql://db.example/t", "type": "implementation"}
+                ],
+                "properties": [
+                    {
+                        "name": "col",
+                        "logicalType": "string",
+                        "authoritativeDefinitions": [
+                            {"url": "docs/col.md", "type": "businessDefinition"},
+                            {"url": "https://example.com/def", "type": "glossary"},
+                        ],
+                    }
+                ],
+            }
+        ],
+        authoritative_definitions=[
+            {"url": "../docs/orders.md", "type": "implementation"}
+        ],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    memory = next(
+        m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
+    )
+    assert [e.url for e in memory.elements] == ["https://example.com/def"]
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "../docs/orders.md",
+        "docs/col.md",
+        "jdbc:postgresql://db.example/t",
+    ]
+
+
+@pytest.mark.parametrize(
+    "url, storable",
+    [
+        ("HTTPS://Example.com/x", True),
+        ("mailto:data-team@example.com", True),
+        ("ftp://files.example.com/spec.pdf", True),
+        ("jdbc:postgresql://db.example/t", False),
+        ("../docs/x.md", False),
+        ("javascript:alert(1)", False),
+        ("https://[2001:db8::1/x", False),
+        ("https://wiki.example/My Page", False),
+        ("https://grafana.example/d?var={a}", False),
+        ("https://wiki.example/My\u00a0Page", False),
+    ],
+)
+def test_is_storable_link_url(url: str, storable: bool) -> None:
+    assert _is_storable_link_url(url) == storable
+
+
+def test_institutional_memory_omitted_when_every_url_skipped() -> None:
+    # An empty institutionalMemory UPSERT would wipe links added in the UI.
+    # `https://[2001:db8::1/x` makes urlparse raise; it must be skipped, not
+    # abort the contract.
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        authoritative_definitions=[
+            {"url": "../docs/orders.md", "type": "implementation"},
+            {"url": "https://[2001:db8::1/x", "type": "implementation"},
+        ],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    assert not any(isinstance(m.aspect, InstitutionalMemoryClass) for m in mcps)
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "../docs/orders.md",
+        "https://[2001:db8::1/x",
+    ]
 
 
 def test_replicate_false_skips_ownership() -> None:
