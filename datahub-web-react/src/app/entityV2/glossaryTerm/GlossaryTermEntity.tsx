@@ -9,8 +9,8 @@ import * as React from 'react';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
-import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
+import useGlossaryRelatedTermsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedTermsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
@@ -193,12 +193,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             {
                 name: i18next.t('entity.types:glossaryTerm.relatedTermsTab'),
                 path: EntityTabPath.RELATED_TERMS,
-                getCount: (entityData, _, loading) => {
-                    const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
-                        return acc + (entityData?.[curr]?.total || 0);
-                    }, 0);
-                    return !loading ? totalRelatedTerms : undefined;
-                },
+                getCount: useGlossaryRelatedTermsTabCount,
                 component: GlossayRelatedTerms,
                 icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
             },

@@ -131,12 +131,16 @@ public final class SearchTemplateFixtures {
     public EntityRegistry registry;
     public SearchRetriever searchRetriever;
 
+    public SearchTemplateCoordinator useRuntime(@Nullable SearchTemplateCoordinator coordinator) {
+      opContext = opContext.withSearchTemplateRuntime(coordinator);
+      return coordinator;
+    }
+
     public void setup() {
       definitions.clear();
       stored.clear();
       writtenAt.clear();
       properties.clear();
-      SearchTemplates.install(null);
       registry = TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
       retriever = Mockito.mock(CachingAspectRetriever.class);
       searchRetriever = Mockito.mock(SearchRetriever.class);

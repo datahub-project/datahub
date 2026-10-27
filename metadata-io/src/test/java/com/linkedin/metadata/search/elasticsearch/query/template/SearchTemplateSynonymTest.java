@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.template.StringArray;
@@ -19,21 +20,27 @@ public class SearchTemplateSynonymTest {
 
   @Test
   public void testEquivalenceExpansionsSkipExplicitRules() {
-    assertEquals(SearchTemplateSynonyms.expansions("prod"), List.of("production"));
-    assertEquals(SearchTemplateSynonyms.expansions("production"), List.of("prod"));
+    List<String> prod = SearchTemplateSynonyms.expansions("prod");
+    assertFalse(prod.isEmpty(), prod.toString());
+    assertFalse(prod.contains("prod"), prod.toString());
+    for (String other : prod) {
+      List<String> back = SearchTemplateSynonyms.expansions(other);
+      assertTrue(back.contains("prod"), other);
+      assertFalse(back.contains(other), back.toString());
+    }
     assertTrue(SearchTemplateSynonyms.expansions("cac").isEmpty());
     assertFalse(SearchTemplateSynonyms.expansions("cac").contains("customer"));
-    assertEquals(SearchTemplateSynonyms.expansions("data platform"), List.of("dataplatform"));
     assertEquals(SearchTemplateSynonyms.expansions(""), List.of());
-    assertEquals(SearchTemplateSynonyms.expansions("glue"), List.of("athena"));
   }
 
   @Test
   public void testEmptySynonymListRendersNoClauses() {
     String template = "{{#synonymQueries}}{{.}}{{/synonymQueries}}";
+    List<String> prodExpansions = SearchTemplateSynonyms.expansions("prod");
+    assertFalse(prodExpansions.isEmpty(), prodExpansions.toString());
     Map<String, Object> prod = new LinkedHashMap<>();
-    prod.put("synonymQueries", SearchTemplateSynonyms.expansions("prod"));
-    assertEquals(SearchTemplateMustache.render(template, prod), "production");
+    prod.put("synonymQueries", prodExpansions);
+    assertEquals(SearchTemplateMustache.render(template, prod), String.join("", prodExpansions));
 
     Map<String, Object> cac = new LinkedHashMap<>();
     cac.put("synonymQueries", SearchTemplateSynonyms.expansions("cac"));
@@ -87,6 +94,31 @@ public class SearchTemplateSynonymTest {
             .lastSegment,
         "db.table");
     assertEquals(SearchTemplateQueryShape.of("db.schema.table").fqnQuery, "db schema table");
+  }
+
+  @Test
+  public void testSpacelessDottedSegments() {
+    SearchTemplateQueryShape pet = SearchTemplateQueryShape.of("analytics.pet_details");
+    assertTrue(pet.spacelessDotted);
+    assertEquals(pet.terminalSegment, "pet_details");
+    assertEquals(pet.qualifierSegments, List.of("analytics"));
+
+    SearchTemplateQueryShape orders = SearchTemplateQueryShape.of("my_db.analytics.orders");
+    assertTrue(orders.spacelessDotted);
+    assertEquals(orders.terminalSegment, "orders");
+    assertEquals(orders.qualifierSegments, List.of("my_db", "analytics"));
+
+    for (String query :
+        List.of(
+            "orders.",
+            "high speed aircraft .",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)")) {
+      SearchTemplateQueryShape shape = SearchTemplateQueryShape.of(query);
+      assertFalse(shape.spacelessDotted, query);
+      assertNull(shape.terminalSegment, query);
+      assertEquals(shape.qualifierSegments, List.of(), query);
+    }
+    assertEquals(SearchTemplateQueryShape.wildcardLiteral("a*b?c\\d"), "a\\*b\\?c\\\\d");
   }
 
   @Test

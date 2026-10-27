@@ -2,7 +2,7 @@ import base64
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union, cast
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -29,6 +29,7 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    TargetPlatformConfig,
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
@@ -2751,8 +2752,12 @@ def test_propagated_table_tag_is_marked_as_propagated() -> None:
     assert global_tags is not None
     by_urn = {a.tag: a for a in global_tags.tags}
 
-    # Directly-assigned table tag is not marked as propagated.
-    assert by_urn[make_tag_urn("DataClassification:Sensitive")].attribution is None
+    # Directly-assigned table tag carries Lake Formation attribution (not propagated),
+    # so it can be told apart from a tag added in the DataHub UI.
+    direct = by_urn[make_tag_urn("DataClassification:Sensitive")]
+    assert direct.attribution is not None
+    assert direct.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in direct.attribution.sourceDetail
     # Inherited database tag is marked as propagated, with origin + legacy context.
     propagated = by_urn[make_tag_urn("Owner:DataTeam")]
     assert propagated.attribution is not None
@@ -2795,8 +2800,12 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         for f in schema.fields
         if f.globalTags
     }
-    # Inherited tag on customer_id is marked propagated; its own pii tag is not.
-    assert by_field["customer_id"][make_tag_urn("pii:true")].attribution is None
+    # customer_id's own pii tag is directly assigned: Lake Formation attribution,
+    # not propagated. The inherited DataClassification tag is marked propagated.
+    own = by_field["customer_id"][make_tag_urn("pii:true")]
+    assert own.attribution is not None
+    assert own.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in own.attribution.sourceDetail
     inherited = by_field["customer_id"][make_tag_urn("DataClassification:Sensitive")]
     assert inherited.attribution is not None
     assert inherited.attribution.sourceDetail["propagated"] == "true"
@@ -2805,6 +2814,66 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         by_field["id"][make_tag_urn("DataClassification:Sensitive")].attribution
         is not None
     )
+
+
+def test_direct_table_tag_carries_lake_formation_attribution() -> None:
+    # A directly-assigned Lake Formation tag is stamped with attribution so it
+    # can be distinguished from a tag added in the DataHub UI (which has none).
+    source = glue_source(extract_lakeformation_tags=True)
+    direct = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+        LakeFormationTag(key="Owner", value="DataTeam", catalog="c"),
+    ]
+    global_tags = source._build_lf_global_tags(direct)
+    assert global_tags is not None
+    for assoc in global_tags.tags:
+        assert assoc.attribution is not None
+        assert assoc.attribution.source == "urn:li:dataPlatform:glue"
+        assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+        assert assoc.attribution.sourceDetail["external"] == "true"
+        assert "propagated" not in assoc.attribution.sourceDetail
+        # Legacy context mirrors sourceDetail for older readers.
+        assert assoc.context is not None
+        assert json.loads(assoc.context)["origin"] == "lake-formation"
+
+
+def test_direct_column_tag_carries_lake_formation_attribution() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {"Columns": [{"Name": "customer_id", "Type": "string"}]},
+    }
+    column_tags = {
+        "customer_id": [LakeFormationTag(key="pii", value="true", catalog="c")]
+    }
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags)
+    assert schema is not None
+    field = next(f for f in schema.fields if f.fieldPath.endswith("customer_id"))
+    assert field.globalTags is not None
+    assoc = field.globalTags.tags[0]
+    assert assoc.tag == make_tag_urn("pii:true")
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
+
+
+def test_direct_tag_precedence_keeps_direct_attribution_over_propagated() -> None:
+    # The same tag URN assigned directly and inherited: the direct assignment
+    # wins, so the association keeps Lake Formation (not propagated) attribution.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    same = LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c")
+    global_tags = source._build_lf_global_tags(
+        [same], [same], propagated_origin="urn:li:container:db"
+    )
+    assert global_tags is not None
+    assert len(global_tags.tags) == 1
+    assoc = global_tags.tags[0]
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -3322,6 +3391,280 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         result["urn"]
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
     )
+
+
+def _make_dynamodb_node(
+    node_id: str,
+    node_type: str,
+    connection_options: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {"Name": "connection_type", "Value": '"dynamodb"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": json.dumps(connection_options),
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "connection_options, expected_name",
+    [
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-account-wins",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-east-1",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "444455556666.us-east-1.orders",
+            id="role-arn-account",
+        ),
+        pytest.param(
+            {"dynamodb.input.tableName": "orders", "dynamodb.region": "us-west-2"},
+            "999888777666.us-west-2.orders",
+            id="caller-account-not-catalog-id",
+        ),
+        pytest.param(
+            {"dynamodb.output.tableName": "orders"},
+            "999888777666.us-west-2.orders",
+            id="output-table-falls-back-to-source-region",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-wins-over-malformed-role-arn",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-gov-west-1",
+                "dynamodb.sts.roleArn": " arn:aws-us-gov:iam::444455556666:role/GlueRole\n",
+            },
+            "444455556666.us-gov-west-1.orders",
+            id="govcloud-role-arn-with-whitespace",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": " arn:aws:dynamodb:us-east-1:123456789012:table/customers\n",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-with-whitespace",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_account_precedence(
+    connection_options: Dict[str, Any], expected_name: str
+) -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-account"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2", extract_transforms=True, catalog_id="111122223333"
+        ),
+    )
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is not None
+    assert result["urn"] == (
+        f"urn:li:dataset:(urn:li:dataPlatform:dynamodb,{expected_name},PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-target"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=True,
+            target_platform_configs={
+                "dynamodb": TargetPlatformConfig(platform_instance="ddb-prod"),
+            },
+        ),
+    )
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id") as mock_account_id:
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    mock_account_id.assert_not_called()
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,ddb-prod.us-west-2.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "connection_options, warning_title",
+    [
+        pytest.param(
+            {"dynamodb.region": "us-west-2"},
+            "Missing DynamoDB table name or region for node",
+            id="missing-table",
+        ),
+        pytest.param(
+            # An unparseable ARN must not fall through to tableName and the caller's account.
+            {
+                "dynamodb.tableArn": (
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+                ),
+                "dynamodb.input.tableName": "customers",
+                "dynamodb.region": "us-east-1",
+            },
+            "Failed to parse DynamoDB table ARN for node",
+            id="malformed-table-arn",
+        ),
+        pytest.param(
+            # A role ARN means a cross-account read, so the caller's account would be wrong.
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.region": "us-east-1",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "Failed to parse DynamoDB cross-account role ARN for node",
+            id="malformed-role-arn",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_is_skipped(
+    connection_options: Dict[str, Any], warning_title: str
+) -> None:
+    source = glue_source()
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [warning_title]
+
+
+def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    transform = {
+        "Id": "Transform0",
+        "NodeType": "ApplyMapping",
+        "Args": [],
+        "LineNumber": 1,
+    }
+    sink = _make_dynamodb_node(
+        node_id="DataSink0",
+        node_type="DataSink",
+        connection_options={
+            "dynamodb.output.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+    graph = {
+        "DagNodes": [transform, sink],
+        "DagEdges": [{"Source": "Transform0", "Target": "DataSink0"}],
+    }
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        nodes = source.process_dataflow_graph(graph, flow_urn)
+
+    sink_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+    assert nodes["DataSink0"]["urn"] == sink_urn
+    assert nodes["Transform0"]["outputDatasets"] == [sink_urn]
+
+
+def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
+    source = glue_source()
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value=None):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [
+        "Could not resolve DynamoDB account id for node"
+    ]
+
+
+def test_get_aws_account_id_caches_success() -> None:
+    source = glue_source()
+    # Patch on the class, not the pydantic-v2 config instance (instance setattr is intercepted).
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.return_value = {
+            "Account": "999999999999"
+        }
+        assert source._get_aws_account_id() == "999999999999"
+        assert source._get_aws_account_id() == "999999999999"
+        # A successful lookup is cached: STS is called once, not per node.
+        assert mock_sts.return_value.get_caller_identity.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "sts_result",
+    [
+        pytest.param(Exception("throttled"), id="sts-error"),
+        pytest.param({}, id="no-account-in-response"),
+    ],
+)
+def test_get_aws_account_id_failure_is_cached_and_warned_once(
+    sts_result: Union[Exception, Dict[str, str]],
+) -> None:
+    source = glue_source()
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        get_caller_identity = mock_sts.return_value.get_caller_identity
+        if isinstance(sts_result, Exception):
+            get_caller_identity.side_effect = sts_result
+        else:
+            get_caller_identity.return_value = sts_result
+        assert source._get_aws_account_id() is None
+        assert source._get_aws_account_id() is None
+        assert get_caller_identity.call_count == 1
+    account_id_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not resolve AWS account id via STS"
+    ]
+    assert len(account_id_warnings) == 1
+    assert len(account_id_warnings[0].context) == 1
 
 
 @pytest.mark.parametrize(
