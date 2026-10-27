@@ -211,26 +211,7 @@ def diagnose_airbyte_proxy_issue() -> None:
     except Exception:
         pass
 
-    try:
-        kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
-        result = subprocess.run(
-            [
-                "kubectl",
-                "--kubeconfig",
-                kubeconfig,
-                "get",
-                "pods",
-                "-n",
-                AIRBYTE_NAMESPACE,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
-            print(result.stdout)
-    except Exception:
-        pass
+    _print_kubectl(["get", "pods", "-n", AIRBYTE_NAMESPACE])
 
 
 def get_api_url_for_test() -> Tuple[str, bool]:
@@ -986,37 +967,45 @@ def install_abctl(test_resources_dir: Path) -> Path:
         raise RuntimeError(f"Failed to download abctl: {e}") from e
 
 
-def _output_tail(output: object, max_lines: int = 40) -> str:
+def _output_tail(*outputs: object, max_lines: int = 40) -> str:
     """Last distinct lines of abctl output, without its spinner redraws."""
-    if isinstance(output, bytes):
-        output = output.decode(errors="replace")
-    if not isinstance(output, str):
-        return ""
+    # On a timeout subprocess hands back raw bytes even with text=True.
+    text = "\n".join(
+        o.decode(errors="replace") if isinstance(o, bytes) else o
+        for o in outputs
+        if isinstance(o, (bytes, str))
+    )
     lines: List[str] = []
-    for line in re.split(r"[\r\n]+", _ANSI_ESCAPE.sub("", output)):
+    for line in re.split(r"[\r\n]+", _ANSI_ESCAPE.sub("", text)):
         line = line.strip()
         if line and (not lines or lines[-1] != line):
             lines.append(line)
     return "\n".join(lines[-max_lines:])
 
 
+def _print_kubectl(args: List[str]) -> None:
+    kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
+    try:
+        result = subprocess.run(
+            ["kubectl", "--kubeconfig", kubeconfig, *args],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        print(
+            f"kubectl {' '.join(args)}:\n"
+            f"{_output_tail(result.stdout, result.stderr, max_lines=60)}"
+        )
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        print(f"kubectl {' '.join(args)} failed: {e}")
+
+
 def _print_install_diagnostics(output: str) -> None:
     print(f"abctl output (tail):\n{output}")
-    kubeconfig = str(Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig")
-    for args in (
-        ["get", "pods", "-A", "-o", "wide"],
-        ["get", "events", "-n", AIRBYTE_NAMESPACE, "--sort-by=.lastTimestamp"],
-    ):
-        try:
-            result = subprocess.run(
-                ["kubectl", "--kubeconfig", kubeconfig, *args],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            print(f"kubectl {' '.join(args)}:\n{_output_tail(result.stdout, 60)}")
-        except (subprocess.SubprocessError, FileNotFoundError) as e:
-            print(f"kubectl {' '.join(args)} failed: {e}")
+    _print_kubectl(["get", "pods", "-A", "-o", "wide"])
+    _print_kubectl(
+        ["get", "events", "-n", AIRBYTE_NAMESPACE, "--sort-by=.lastTimestamp"]
+    )
 
 
 def install_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
@@ -1046,15 +1035,14 @@ def install_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
             )
         except subprocess.TimeoutExpired as e:
             print(f"abctl install timed out after {timeout}s")
-            # On timeout the captured output is raw bytes even with text=True.
-            _print_install_diagnostics(_output_tail(e.stderr) or _output_tail(e.stdout))
+            _print_install_diagnostics(_output_tail(e.stdout, e.stderr))
         else:
             elapsed = time.monotonic() - started
             if result.returncode == 0:
                 print(f"Airbyte installation completed in {elapsed:.0f}s")
                 return
             print(f"abctl install failed after {elapsed:.0f}s")
-            _print_install_diagnostics(_output_tail(result.stderr + result.stdout))
+            _print_install_diagnostics(_output_tail(result.stdout, result.stderr))
         if attempt == 2:
             break
         cleanup_airbyte(abctl_path, test_resources_dir)
