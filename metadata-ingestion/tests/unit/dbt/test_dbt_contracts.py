@@ -1090,21 +1090,43 @@ def test_dbt_contract_is_rewritten_in_place_with_fresh_entries() -> None:
     node = _make_model()
     schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
     source.ctx.graph = _graph_with_contracts(
-        {_UI_CONTRACT_URN: _existing_contract(schema_urn, "urn:li:assertion:old")}
+        {_contract_urn(node): _existing_contract(schema_urn, "urn:li:assertion:old")}
     )
     mcps = _contract_mcps(source, [node])
-    assert _written_contracts(mcps) == [_UI_CONTRACT_URN]
+    assert _written_contracts(mcps) == [_contract_urn(node)]
     assert _dq_urns(mcps) == [schema_urn]
 
 
-def test_soft_deleted_contract_is_treated_as_dbts() -> None:
+def test_soft_deleted_contract_at_dbt_urn_is_revived() -> None:
     source = _make_source()
     node = _make_model()
     source.ctx.graph = _graph_with_contracts(
-        {_UI_CONTRACT_URN: _existing_contract("urn:li:assertion:authored")},
+        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")},
         removed=True,
     )
-    assert _written_contracts(_contract_mcps(source, [node])) == [_UI_CONTRACT_URN]
+    assert _written_contracts(_contract_mcps(source, [node])) == [_contract_urn(node)]
+
+
+@pytest.mark.parametrize("replace", [False, True])
+def test_ui_contract_listing_dbt_schema_assertion_is_not_dbts(replace: bool) -> None:
+    source = _make_source(replace_existing_contracts_with_dbt=replace)
+    node = _make_model()
+    schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
+    source.ctx.graph = _graph_with_contracts(
+        {_UI_CONTRACT_URN: _existing_contract(schema_urn)}
+    )
+    written = _written_contracts(_contract_mcps(source, [node]))
+    assert written == ([_UI_CONTRACT_URN] if replace else [])
+
+
+def test_yaml_contract_at_dbt_urn_without_dbt_schema_assertion_is_skipped() -> None:
+    source = _make_source()
+    node = _make_model()
+    source.ctx.graph = _graph_with_contracts(
+        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")}
+    )
+    assert _written_contracts(_contract_mcps(source, [node])) == []
+    assert source.report.num_contracts_skipped_existing == 1
 
 
 def test_new_contract_uses_the_fixed_urn() -> None:
@@ -1197,7 +1219,7 @@ def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
     if other == "authored":
         contracts[_UI_CONTRACT_URN] = _existing_contract("urn:li:assertion:authored")
     elif other == "dbt":
-        contracts[_UI_CONTRACT_URN] = _existing_contract(schema_urn)
+        contracts[_contract_urn(node)] = _existing_contract(schema_urn)
     source.ctx.graph = _graph_with_contracts(
         contracts, ghost_urns=["urn:li:dataContract:ghost"]
     )
@@ -1205,7 +1227,7 @@ def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
     expected = {
         None: [_contract_urn(node)],
         "authored": [],
-        "dbt": [_UI_CONTRACT_URN],
+        "dbt": [_contract_urn(node)],
     }
     assert written == expected[other]
     assert not source.report.warnings

@@ -6252,8 +6252,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _is_dbt_contract(
         pending: _PendingContract, existing: _ExistingContract
     ) -> bool:
-        """Whether an existing contract is dbt's: it was soft-deleted, or it
-        still references this model's schema assertion."""
+        """Whether an existing contract is dbt's: it is at dbt's dataset-derived
+        URN and was soft-deleted or still references the schema assertion.
+
+        Content alone is not enough (a UI contract can list dbt's assertion),
+        nor is the URN (YAML-authored contracts share it)."""
+        if existing.urn != pending.contract_urn:
+            return False
         if existing.status is not None and existing.status.removed:
             return True
         assertion_urns = {
@@ -6449,34 +6454,35 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return
 
         for pending in pending_contracts:
-            existing = existing_contracts.get(pending.entity_urn, [])
-            # Soft-deleted contracts do not count when a live one exists. If
-            # several exist and all are soft-deleted, the dataset's own
-            # contract URN is written (and revived).
-            live = [c for c in existing if not (c.status and c.status.removed)]
-            if live or len(existing) > 1:
-                existing = live
-            if len(existing) > 1:
+            # Soft-deleted contracts do not count. With no live contract, dbt's
+            # is written at the dataset-derived URN, reviving it if it was
+            # soft-deleted there.
+            live = [
+                c
+                for c in existing_contracts.get(pending.entity_urn, [])
+                if not (c.status and c.status.removed)
+            ]
+            if not live:
+                yield from self._create_data_contract_for_node(
+                    pending, pending.contract_urn
+                )
+                self.report.num_contracts_emitted += 1
+            elif len(live) > 1:
                 self.report.warning(
                     title="Multiple Data Contracts on a dataset",
                     message="The dataset has more than one Data Contract, so "
                     "dbt left them untouched. Remove the extra contracts.",
                     context=pending.entity_urn,
                 )
-                yield from self._skip_existing_contracts(pending, existing)
-            elif not existing:
-                yield from self._create_data_contract_for_node(
-                    pending, pending.contract_urn
-                )
-                self.report.num_contracts_emitted += 1
+                yield from self._skip_existing_contracts(pending, live)
             elif self.config.replace_existing_contracts_with_dbt or (
-                self._is_dbt_contract(pending, existing[0])
+                self._is_dbt_contract(pending, live[0])
             ):
                 # Written to the existing URN so the dataset keeps one contract.
-                yield from self._create_data_contract_for_node(pending, existing[0].urn)
+                yield from self._create_data_contract_for_node(pending, live[0].urn)
                 self.report.num_contracts_emitted += 1
             else:
-                yield from self._skip_existing_contracts(pending, existing)
+                yield from self._skip_existing_contracts(pending, live)
 
     def get_report(self):
         return self.report
