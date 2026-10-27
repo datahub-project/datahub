@@ -14,9 +14,9 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
 import SelectServiceAccountModal from '@app/settingsV2/SelectServiceAccountModal';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
+import { getLocaleTimezone } from '@app/sharedV2/time/timeUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
@@ -148,12 +148,12 @@ export const AccessTokens = () => {
     }, [currentUserUrn]);
 
     const isTokenAuthEnabled = useAppConfig().config?.authConfig?.tokenAuthEnabled;
-    const allowNoExpiry = useAppConfig().config?.authConfig?.allowNoExpiry ?? false;
     const canGeneratePersonalAccessTokens =
         isTokenAuthEnabled && authenticatedUser?.platformPrivileges?.generatePersonalAccessTokens;
 
     const canManageToken = authenticatedUser?.platformPrivileges?.manageTokens;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts;
+    const canManageIngestion = authenticatedUser?.platformPrivileges?.manageIngestion;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -434,7 +434,7 @@ export const AccessTokens = () => {
                             icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
-                        ...(allowNoExpiry
+                        ...(canManageIngestion
                             ? ([
                                   {
                                       type: 'item',

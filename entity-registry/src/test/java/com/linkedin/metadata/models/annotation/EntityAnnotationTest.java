@@ -2,6 +2,7 @@ package com.linkedin.metadata.models.annotation;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -39,7 +40,7 @@ public class EntityAnnotationTest {
 
     assertEquals(annotation.getName(), "testEntity");
     assertEquals(annotation.getKeyAspect(), "testKey");
-    assertEquals(annotation.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertNull(annotation.getSearchGroup());
   }
 
   @Test
@@ -87,7 +88,7 @@ public class EntityAnnotationTest {
 
     assertEquals(annotation.getName(), "testEntity");
     assertEquals(annotation.getKeyAspect(), "testKey");
-    assertEquals(annotation.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertNull(annotation.getSearchGroup());
     assertFalse(annotation.isViewUnrestricted());
   }
 
@@ -149,7 +150,6 @@ public class EntityAnnotationTest {
 
   @Test
   public void testConstants() {
-    assertEquals(EntityAnnotation.DEFAULT_SEARCH_GROUP, "default");
     assertEquals(EntityAnnotation.ANNOTATION_NAME, "Entity");
   }
 

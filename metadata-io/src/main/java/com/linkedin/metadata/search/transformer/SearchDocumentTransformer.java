@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -41,6 +42,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -52,14 +54,12 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Class that provides a utility function that transforms the snapshot object into a search document
  */
 @Slf4j
-@Setter
 @RequiredArgsConstructor
 public class SearchDocumentTransformer {
   // Number of elements to index for a given array.
@@ -70,6 +70,18 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
+
+  /**
+   * When true, omit string-backed structured property values whose UTF-8 length exceeds {@link
+   * #keywordMaxLength} from the search document (they remain in primary storage).
+   */
+  private final boolean dropOversizedKeywordValuesFromIndex;
+
+  /**
+   * UTF-8 byte threshold for omitting string-backed structured properties from the search document.
+   * Callers pass {@link ESUtils#KEYWORD_MAXLENGTH} unless a different configured limit is in use.
+   */
+  private final int keywordMaxLength;
 
   /**
    * Aspects that contain semantic/embedding data for vector search. These aspects are transformed
@@ -557,6 +569,7 @@ public class SearchDocumentTransformer {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
               } else {
                 ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+                int[] omittedOversized = new int[] {0};
 
                 propertyEntry
                     .getValue()
@@ -583,34 +596,83 @@ public class SearchDocumentTransformer {
                                                   JsonNodeFactory.instance.numberNode(doubleValue));
                                           break;
                                         default:
-                                          searchValue =
-                                              propertyValue.getString().isEmpty()
-                                                  ? Optional.empty()
-                                                  : Optional.of(
-                                                      JsonNodeFactory.instance.textNode(
-                                                          propertyValue.getString()));
+                                          if (propertyValue.getString() == null
+                                              || propertyValue.getString().isEmpty()) {
+                                            searchValue = Optional.empty();
+                                          } else if (dropOversizedKeywordValuesFromIndex
+                                              && ESUtils.exceedsKeywordMaxBytes(
+                                                  propertyValue.getString(), keywordMaxLength)) {
+                                            omittedOversized[0]++;
+                                            log.warn(
+                                                "Omitting structured property {} from the search"
+                                                    + " document: value is {} UTF-8 bytes, exceeding"
+                                                    + " keywordMaxLength {}",
+                                                propertyEntry.getKey(),
+                                                propertyValue
+                                                    .getString()
+                                                    .getBytes(StandardCharsets.UTF_8)
+                                                    .length,
+                                                keywordMaxLength);
+                                            searchValue = Optional.empty();
+                                          } else {
+                                            searchValue =
+                                                Optional.of(
+                                                    JsonNodeFactory.instance.textNode(
+                                                        propertyValue.getString()));
+                                          }
                                           break;
                                       }
                                       searchValue.ifPresent(arrayNode::add);
                                     }));
 
-                searchDocument.set(fieldName, arrayNode);
+                if (arrayNode.isEmpty() && omittedOversized[0] > 0) {
+                  searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+                } else {
+                  searchDocument.set(fieldName, arrayNode);
+                }
               }
             });
   }
 
-  /** Sets semantic content (embeddings) in the search document for vector search. */
-  private void setSemanticContentSearchValue(
+  /** Sets semantic content (embeddings + skip marker) in the search document for vector search. */
+  @VisibleForTesting
+  void setSemanticContentSearchValue(
       final RecordTemplate aspect, final ObjectNode searchDocument, final Boolean forDelete) {
     if (forDelete || aspect == null) {
       searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      searchDocument.set("skipReason", JsonNodeFactory.instance.nullNode());
+      searchDocument.set("skippedAt", JsonNodeFactory.instance.nullNode());
       return;
     }
     try {
       // Direct pass-through - PDL camelCase matches OpenSearch camelCase
       ObjectMapper mapper = new ObjectMapper();
-      JsonNode embeddingsNode = mapper.valueToTree(aspect.data().get("embeddings"));
-      searchDocument.set("embeddings", embeddingsNode);
+      Object embeddings = aspect.data().get("embeddings");
+      // An empty embeddings map (skip marker) must project as an explicit null: under
+      // doc_as_upsert an empty object is a merge no-op, so {} could not clear a previous
+      // model entry on an embedded -> skipped transition when the diff-mode removal pass
+      // is unavailable (e.g. FORCE_INDEXING / restore), leaving the document permanently
+      // misclassified as embedded-and-stale.
+      if (embeddings instanceof Map && ((Map<?, ?>) embeddings).isEmpty()) {
+        searchDocument.set("embeddings", JsonNodeFactory.instance.nullNode());
+      } else {
+        searchDocument.set("embeddings", mapper.valueToTree(embeddings));
+      }
+      // Skip marker fields are ALWAYS set (value or explicit null): index updates merge via
+      // doc_as_upsert, so omitting them after a real embed would leave a previous skip marker
+      // in place and misclassify an embedded document as deliberately skipped.
+      Object skipReason = aspect.data().get("skipReason");
+      searchDocument.set(
+          "skipReason",
+          skipReason != null
+              ? JsonNodeFactory.instance.textNode(skipReason.toString())
+              : JsonNodeFactory.instance.nullNode());
+      Object skippedAt = aspect.data().get("skippedAt");
+      searchDocument.set(
+          "skippedAt",
+          skippedAt instanceof Number
+              ? JsonNodeFactory.instance.numberNode(((Number) skippedAt).longValue())
+              : JsonNodeFactory.instance.nullNode());
       log.debug("Set semantic content embeddings in search document");
     } catch (Exception e) {
       log.error("Error transforming SemanticContent aspect to search document", e);

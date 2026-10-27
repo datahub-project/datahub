@@ -90,6 +90,72 @@ The `use_connect_topics_api` flag controls topic retrieval behavior:
 - **When `true` (default)**: Uses environment-specific topic discovery with full transform support
 - **When `false`**: Disables all topic discovery for air-gapped environments or performance optimization
 
+#### Confluent Cloud Stream Catalog
+
+Confluent Cloud's Stream Catalog exposes each connector together with the topics it reads or writes, plus any tags and business metadata curated in Stream Governance. Enable the `confluent_catalog` block to read it:
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    confluent_cloud_environment_id: "env-xyz123"
+    confluent_cloud_cluster_id: "lkc-abc456"
+    username: "your-connect-api-key"
+    password: "your-connect-api-secret"
+
+    confluent_catalog:
+      enabled: true
+      # Stream Catalog GraphQL lives at <schema_registry_url>/catalog/graphql
+      schema_registry_url: "https://psrc-xxxxx.region.provider.confluent.cloud"
+      api_key: "your-schema-registry-api-key"
+      api_secret: "your-schema-registry-api-secret"
+
+      include_tags: true # catalog tags as DataHub tags (default)
+      include_business_metadata: true # catalog business metadata as custom properties (default)
+
+      # Off by default - read the trade-off below before enabling
+      include_lineage: false
+```
+
+**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment - tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants Stream Catalog read access - in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough, as it administers the environment but does not carry the catalog read permission. This has no equivalent on self-hosted Kafka Connect - the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
+
+**What each option changes:**
+
+- `include_tags` - catalog tags on a connector are written to its DataHub pipeline (`dataFlow`).
+- `include_business_metadata` - catalog business metadata attributes on a connector become custom properties on the same pipeline.
+- `include_lineage` - for **source** connectors, lineage is taken from the catalog's topic list instead of being predicted by the transform pipeline. Off by default; see the trade-off below.
+
+This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](kafka.md) source, which owns those datasets - enable `confluent_catalog` there to pick them up.
+
+##### The `include_lineage` trade-off
+
+Catalog lineage is `connector -> topic` only. The catalog reports topic names _after_ topic-routing SMTs have been applied, so that one edge is exact rather than inferred, but the catalog has no view of the source system, so it cannot say which table a row came from.
+
+Enabling `include_lineage` therefore changes source connectors from:
+
+```
+postgres.ecommerce.public.orders  ->  kafka.public.orders     (plus column-level lineage)
+```
+
+to:
+
+```
+(no input)  ->  kafka.public.orders
+```
+
+The Kafka topic edge becomes exact, but the source table disappears from the graph, and with it the column-level lineage derived from that table's schema. If you want `postgres -> kafka -> snowflake` to read as one connected chain, leave this off.
+
+Toggling `include_lineage` also **re-keys the DataJob URNs**: config-inferred jobs are keyed on the source table, while catalog jobs are keyed on the target topic, so tags, documentation, and ownership attached to the old job URNs are orphaned when you flip the flag. Treat enabling it as a one-way move for a given connector rather than something to turn on and off.
+
+Scope of the change:
+
+- **Sink connectors are unaffected.** `topic -> table` lineage always comes from the connector config, because the catalog knows nothing about the destination system.
+- **Connectors missing from the catalog are unaffected.** They fall back to the config-matching path automatically. When a connector _is_ in the catalog but lists no topics, the count is reported as `catalog_lineage_fallbacks`.
+
+Leaving `include_lineage: false` still gives you every tag and business metadata attribute from Stream Governance.
+
+The catalog is read once per ingestion run, paged via `page_size` (default 100).
+
 #### Advanced Scenarios: Complex Transform Chains
 
 The new reverse transform pipeline strategy handles complex scenarios automatically:
@@ -768,6 +834,26 @@ provided_configs:
     path_key: MYSQL_CONNECTION_URL
     value: jdbc:mysql://test_mysql:3306/librarydb
 ```
+
+#### Probe support
+
+`datahub recipe probe` reads the Connect REST API with the recipe's credentials and answers the way ingestion will. It returns metadata only. Connector config values are never returned, apart from the keys lineage inference reads (topics, table lists, transforms), so passwords, connection URLs and query text stay on the cluster. Key names are listed, so you can still see that a connector sets `connection.password`.
+
+| Command             | Answers                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `connectors`        | every connector name, including those `connector_patterns` excludes                          |
+| `connector`         | handler, platform, whether ingestion emits it, configured key names, lineage-relevant values |
+| `connector_topics`  | runtime topics ingestion uses for one connector (self-hosted only)                           |
+| `connector_lineage` | the DataJobs and dataset URNs ingestion emits for one connector                              |
+| `cluster_topics`    | Confluent Cloud only: the Kafka REST topic list used to infer sink and routed topics         |
+
+```shell
+datahub recipe probe run connectors --recipe recipe.yml
+datahub recipe probe filter --recipe recipe.yml --kind Connector --name orders-sink
+datahub recipe probe run connector_lineage --recipe recipe.yml --connector orders-sink
+```
+
+`probe filter` judges `connector_patterns` only. An unsupported source connector is dropped by ingestion even when the pattern allows it, and `probe run connector` reports that as `emitted: false`. The probe has no DataHub connection, so with `use_schema_resolver` on (the Confluent Cloud default) it does not expand table patterns or compute column-level lineage, and says so in `warnings`. It does not read the Stream Catalog either. There is no raw `api` command, because every Connect endpoint beyond the connector list returns connector configs or stack traces.
 
 ### Limitations
 

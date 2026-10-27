@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate uv.toml for the 'custom' (from-scratch) profile, or layer extra
-# indexes onto an existing profile. Used by the Python 3.10-based images
+# indexes onto an existing profile. Used by the Python 3.11-based images
 # (datahub-ingestion) where tomllib is not available. Appending [[index]]
 # blocks to a base profile is valid TOML and needs no parsing, so bash suffices.
 #

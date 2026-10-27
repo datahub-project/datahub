@@ -76,7 +76,6 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
       int limit) {
     this.opContext = opContext;
     this.entityRegistry = opContext.getEntityRegistry();
-    this.elasticsearchClient = elasticSearchComponents.getSearchClient();
     this.entityService = entityService;
     this.batchSize = batchSize;
     this.batchDelayMs = batchDelayMs;
@@ -85,6 +84,11 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
         elasticSearchComponents
             .getIndexConvention()
             .getEntityIndexName(opContext, SCHEMA_FIELD_ENTITY_NAME);
+    this.elasticsearchClient =
+        opContext
+            .getSearchContext()
+            .requireSearchClusterAccess()
+            .clientForIndex(elasticSearchComponents.getIndexConvention(), indexName);
     // FIXME: This is a legacy job that was doing bad things with the bulk processor, moved to the
     // standard, but
     //        ideally this should pull from config

@@ -3,7 +3,7 @@
 Build a deployed agent on Databricks that combines SQL execution (via a [Genie Space](https://docs.databricks.com/en/genie/set-up-genie-space.html)) with DataHub's catalog context in a single conversation. The agent discovers tools from both [MCP](../../features/feature-guides/mcp.md) endpoints and the LLM decides which to call per request — search DataHub to find the right table, then query the Genie Space for the actual data.
 
 :::tip OAuth MCP alternative (DataHub Cloud v1.0.2+)
-The setup below uses a Databricks Unity Catalog connection to broker DataHub MCP calls. If you'd rather have the agent talk directly to DataHub, add `https://<tenant>.acryl.io/integrations/ai/mcp` as an external MCP tool with **OAuth 2.0** auth — DataHub Cloud v1.0.2+ supports Dynamic Client Registration so Databricks registers itself automatically. Your tenant URL is required here; the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks. See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended).
+The setup below uses a Databricks Unity Catalog connection to broker DataHub MCP calls. If you'd rather have the agent talk directly to DataHub, add `https://<tenant>.acryl.io/mcp` as an external MCP tool with **OAuth 2.0** auth — DataHub Cloud v1.0.2+ supports Dynamic Client Registration so Databricks registers itself automatically. Your tenant URL is required here; the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks. See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended).
 :::
 
 ## Prerequisites
@@ -68,6 +68,6 @@ For a full list of available DataHub tools, see the [Agent Context Kit](./agent-
 
 - **DataHub not showing up?** Check the connection under **Catalog > Connections**, verify the MCP URL and base path, and confirm the bearer token is still valid.
 - **`401 Unauthorized`?** Regenerate the DataHub access token and update the UC connection.
-- **No tools discovered?** Make sure DataHub's [MCP server](../../features/feature-guides/mcp.md) is enabled. Base path is `/integrations/ai/mcp` (Cloud) or `/mcp` (self-hosted).
+- **No tools discovered?** Make sure DataHub's [MCP server](../../features/feature-guides/mcp.md) is enabled. The base path is `/mcp`.
 
 **Links:** [MCP on Databricks](https://docs.databricks.com/en/generative-ai/agent-framework/mcp.html) · [DataHub MCP Server](../../features/feature-guides/mcp.md) · [Agent Context Kit](./agent-context.md)

@@ -9,11 +9,12 @@ from pyathena import error as athena_errors
 from pyathena.cursor import Cursor
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -217,7 +218,7 @@ class AthenaAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -240,11 +241,11 @@ class AthenaAdapter(PlatformAdapter):
         quoted_column = self.quote_identifier(column)
         # Athena/Trino: approx_percentile(col, ARRAY[0.05, 0.25, ...])
         array_str = f"ARRAY[{', '.join(str(q) for q in quantiles)}]"
-        athena_expr = sa.literal_column(
+        athena_expr: Label = sa.literal_column(
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
-        query = sa.select([athena_expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        query = sa.select(athena_expr).select_from(table)
+        result = conn.execute_rows(query).scalar()
         logger.debug(
             f"Athena quantiles for {column}: result type={type(result)}, "
             f"value={result}, expected_length={len(quantiles)}"

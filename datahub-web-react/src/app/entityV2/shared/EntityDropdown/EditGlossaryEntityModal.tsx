@@ -1,8 +1,10 @@
-import { ColorPicker, Editor, Input, Modal, toast } from '@components';
+import { ColorPicker, Input, Modal, toast } from '@components';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components/macro';
+
+import { Editor } from '@components/components/Editor';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';

@@ -2,8 +2,7 @@ import styled from 'styled-components';
 
 import { TextProps } from '@components/components/Text/types';
 import { typography } from '@components/theme';
-import { ColorOptions } from '@components/theme/config';
-import { getColor, getFontSize } from '@components/theme/utils';
+import { getFontSize, getThemedTextColor } from '@components/theme/utils';
 
 import { Theme } from '@conf/theme/types';
 
@@ -25,11 +24,7 @@ const propStyles = (props: ThemedTextProps, isText = false) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
     if (props.color) {
-        const semantic = props.color ? props.theme.colors?.[props.color as keyof typeof props.theme.colors] : undefined;
-        styles.color =
-            typeof semantic === 'string'
-                ? semantic
-                : getColor(props.color as ColorOptions, props.colorLevel, props.theme);
+        styles.color = getThemedTextColor(props.color, props.colorLevel, props.theme);
     }
     if (props.weight) styles.fontWeight = typography.fontWeights[props.weight];
     if (isText) styles.lineHeight = typography.lineHeights[props.lineHeight || props.size || 'md'];

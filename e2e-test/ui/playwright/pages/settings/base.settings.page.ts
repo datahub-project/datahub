@@ -11,7 +11,6 @@ export interface PageOptions {
 }
 
 export class BaseSettingsPage extends BasePage {
-  protected readonly dropdownSearchInput: Locator;
   private readonly navSignOut: Locator;
   private readonly emailInput: Locator;
   private readonly nameInput: Locator;
@@ -24,7 +23,6 @@ export class BaseSettingsPage extends BasePage {
   constructor(page: Page, options?: PageOptions) {
     super(page, options?.logger, options?.logDir);
     this.cleanup = options?.cleanup;
-    this.dropdownSearchInput = page.getByTestId('dropdown-search-input');
     this.navSignOut = page.getByTestId('nav-sidebar-sign-out');
     this.emailInput = page.getByTestId('email');
     this.nameInput = page.getByTestId('name');
@@ -34,53 +32,18 @@ export class BaseSettingsPage extends BasePage {
     this.modalDialog = page.getByRole('dialog');
   }
 
-  // ── Dropdown helper selectors ────────────────────────────────────────────
-  private getDropdownOption(dropdown: Locator, value: string): Locator {
-    return dropdown.filter({ hasText: value });
-  }
-
-  private getDropdownCheckbox(optionRow: Locator): Locator {
-    return optionRow.getByRole('checkbox');
-  }
-
-  private getDropdownSearchInput(): Locator {
-    return this.dropdownSearchInput.or(this.page.getByPlaceholder(/search/i));
-  }
-
   async selectFromDropdown(base: Locator, dropdown: Locator, value: string): Promise<void> {
-    await base.waitFor({ state: 'attached', timeout: SHORT_TIMEOUT });
+    await base.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
     await base.click();
-    await this.page.waitForLoadState('networkidle');
+    await dropdown.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
 
-    // Use fallback selector if main dropdown-search-input is not found
-    const searchInput = this.getDropdownSearchInput();
-    const isSearchVisible = await searchInput.isVisible().catch(() => false);
-
-    // Fill search input if visible
-    if (isSearchVisible) {
-      await searchInput.clear();
-      await searchInput.fill(value);
-      // Wait for filter results to appear
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(ANIMATION_TIMEOUT);
-    }
-
-    const optionRow = this.getDropdownOption(dropdown, value);
-    await optionRow.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
-    const checkboxInput = this.getDropdownCheckbox(optionRow);
-    if ((await checkboxInput.count()) > 0) {
-      await optionRow.scrollIntoViewIfNeeded();
-      // Click using bounding box to handle styled checkboxes that may not be directly visible
-      const box = await checkboxInput.boundingBox();
-      if (box) {
-        await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-      } else {
-        await checkboxInput.click();
-      }
-    } else {
-      await optionRow.scrollIntoViewIfNeeded();
-      await optionRow.click();
-    }
+    // The signed-in user is already in the unfiltered actor list. Searching replaces that
+    // list with autocomplete results, and filtering the dropdown container matches every
+    // checkbox inside it.
+    const option = dropdown.getByTestId(`option-urn:li:corpuser:${value}`);
+    const checkbox = option.getByTestId('checkbox-base');
+    await checkbox.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+    await checkbox.click();
   }
 
   async logout(): Promise<void> {

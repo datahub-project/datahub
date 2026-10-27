@@ -1,26 +1,43 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNotNullCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.HitsMetadata;
+import co.elastic.clients.transport.TransportOptions;
+import co.elastic.clients.transport.rest_client.RestClientOptions;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.apache.http.client.config.RequestConfig;
 import org.mockito.ArgumentCaptor;
+import org.opensearch.index.query.QueryBuilders;
 import org.testng.annotations.Test;
 
 public class Es8SearchKnnTest {
@@ -208,5 +225,149 @@ public class Es8SearchKnnTest {
 
     assertEquals(response.hits().size(), 1, "Only hits with non-empty ids should be returned");
     assertEquals(response.hits().get(0).id(), "urn:li:dataset:abc");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnAcceptsFilterBuiltWithOpenSearchQueryBuilders() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
+
+    // Semantic search builds its filter with OpenSearch query builders, whose serialization carries
+    // bool.adjust_pure_negative at every level; the strict kNN body parse rejected it
+    Map<String, Object> filter =
+        new ObjectMapper()
+            .readValue(
+                QueryBuilders.boolQuery()
+                    .must(
+                        QueryBuilders.boolQuery()
+                            .should(QueryBuilders.termQuery("urn", "urn:li:dataset:abc")))
+                    .mustNot(QueryBuilders.termQuery("removed", true))
+                    .toString(),
+                Map.class);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("dataset_semantic_v1")
+            .vectorField("embeddings.gemini_embedding_001.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f, 0.3f})
+            .k(5)
+            .filter(filter)
+            .build();
+
+    Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, request);
+
+    ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient).search(captor.capture(), eq(Map.class));
+    String sent = captor.getValue().toString();
+    assertTrue(sent.contains("urn:li:dataset:abc"), sent);
+    assertTrue(sent.contains("must_not"), sent);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnAcceptsFilterShapesSemanticSearchBuilds() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
+
+    // What the semantic search filter builder emits: terms, a case-insensitive wildcard, a legacy
+    // range, a negated term and an exists check, across two disjuncts (minimum_should_match)
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.EQUAL,
+                                    "urn:li:dataPlatform:notion",
+                                    "urn:li:dataPlatform:confluence"),
+                                buildCriterion("name", Condition.CONTAIN, "revenue"),
+                                buildCriterion(
+                                    "lastModifiedAt", Condition.GREATER_THAN, "1700000000000"),
+                                buildCriterion("removed", Condition.EQUAL, true, "true"),
+                                buildIsNotNullCriterion("description"))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("urn", Condition.EQUAL, "urn:li:document:a")))));
+    Map<String, Object> filterMap =
+        ESUtils.buildFilterMap(filter, false, Map.of(), OP_CONTEXT, QueryFilterRewriteChain.EMPTY);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("dataset_semantic_v1")
+            .vectorField("embeddings.gemini_embedding_001.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f, 0.3f})
+            .k(5)
+            .filter(filterMap)
+            .build();
+
+    Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, request);
+
+    ArgumentCaptor<SearchRequest> captor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient).search(captor.capture(), eq(Map.class));
+    String sent = captor.getValue().toString();
+    assertTrue(sent.contains("revenue"), sent);
+    assertTrue(sent.contains("1700000000000"), sent);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnBoundsTheCallAndFlagsTimedOutResponses() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    when(mockClient.withTransportOptions(any(TransportOptions.class))).thenReturn(mockClient);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockResponse.timedOut()).thenReturn(true);
+    ArgumentCaptor<SearchRequest> sent = ArgumentCaptor.forClass(SearchRequest.class);
+    when(mockClient.search(sent.capture(), eq(Map.class))).thenReturn(mockResponse);
+    KnnSearchRequest request =
+        KnnSearchRequest.builder()
+            .indexName("document_v3")
+            .vectorField("embeddings.model.chunks.vector")
+            .queryVector(new float[] {0.1f, 0.2f})
+            .k(5)
+            .timeout(Duration.ofMillis(1_500))
+            .build();
+
+    KnnSearchResponse response =
+        Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, request);
+
+    assertTrue(response.partial());
+    assertEquals(sent.getValue().timeout(), "1500ms");
+    ArgumentCaptor<TransportOptions> options = ArgumentCaptor.forClass(TransportOptions.class);
+    verify(mockClient).withTransportOptions(options.capture());
+    RequestConfig config =
+        ((RestClientOptions) options.getValue()).restClientRequestOptions().getRequestConfig();
+    assertEquals(config.getConnectTimeout(), 1_500);
+    assertEquals(config.getConnectionRequestTimeout(), 1_500);
+    assertEquals(config.getSocketTimeout(), 1_500);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void searchKnnFlagsFailedShards() throws IOException {
+    ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+    HitsMetadata<Map> hitsMetadata = mock(HitsMetadata.class);
+    when(hitsMetadata.hits()).thenReturn(List.of());
+    SearchResponse<Map> mockResponse = mock(SearchResponse.class);
+    when(mockResponse.hits()).thenReturn(hitsMetadata);
+    when(mockResponse.shards())
+        .thenReturn(ShardStatistics.of(b -> b.total(2).successful(1).failed(1)));
+    when(mockClient.search(any(SearchRequest.class), eq(Map.class))).thenReturn(mockResponse);
+
+    assertTrue(
+        Es8SearchClientShim.forTest(mockClient).searchKnn(OP_CONTEXT, testRequest()).partial());
   }
 }

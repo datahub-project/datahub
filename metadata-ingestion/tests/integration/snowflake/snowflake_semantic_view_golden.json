@@ -3510,10 +3510,7 @@
                 "time": 1654473600000,
                 "actor": "urn:li:corpuser:unknown"
             },
-            "datasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.customers,PROD)"
-            ],
+            "datasets": [],
             "relationships": [
                 {
                     "name": "orders_to_customers",
@@ -3531,8 +3528,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1786912380419,
-        "runId": "snowflake-2026_08_16-22_32_58-0qa8m5",
+        "lastObserved": 1787191278669,
+        "runId": "snowflake-2026_08_19-19_01_17-78rkk8",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4103,6 +4100,26 @@
     "entityType": "metric",
     "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,Total_Amount)",
     "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787191278673,
+        "runId": "snowflake-2026_08_19-19_01_17-78rkk8",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,Total_Amount)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -4193,6 +4210,26 @@
     "systemMetadata": {
         "lastObserved": 1786912380426,
         "runId": "snowflake-2026_08_16-22_32_58-0qa8m5",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,Double_Amount)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1787191278674,
+        "runId": "snowflake-2026_08_19-19_01_17-78rkk8",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -193,3 +193,45 @@ def test_tls_verify_true_sets_demand(mock_ldap):
 
         # Verify NO security warning was logged (secure mode)
         mock_logger.warning.assert_not_called()
+
+
+def _timeout_config(**overrides):
+    return LDAPSourceConfig.model_validate(
+        {
+            "ldap_server": "ldap://example.com",
+            "ldap_user": "cn=admin,dc=example,dc=com",
+            "ldap_password": "password",
+            "base_dn": "dc=example,dc=com",
+            **overrides,
+        }
+    )
+
+
+@patch("datahub.ingestion.source.ldap.ldap")
+def test_timeouts_are_set_on_the_connection(mock_ldap):
+    """Both bounds are applied to the client before bind, so a stalled server errors out."""
+    mock_ldap.OPT_X_TLS_REQUIRE_CERT = ldap_module.OPT_X_TLS_REQUIRE_CERT
+    mock_ldap.OPT_X_TLS_DEMAND = ldap_module.OPT_X_TLS_DEMAND
+    mock_ldap.OPT_REFERRALS = ldap_module.OPT_REFERRALS
+    mock_ldap.OPT_NETWORK_TIMEOUT = ldap_module.OPT_NETWORK_TIMEOUT
+    mock_ldap.OPT_TIMEOUT = ldap_module.OPT_TIMEOUT
+    mock_client = MagicMock()
+    mock_ldap.initialize.return_value = mock_client
+
+    LDAPSource(
+        PipelineContext(run_id="test"),
+        _timeout_config(connect_timeout=5, request_timeout=15),
+    )
+
+    mock_client.set_option.assert_any_call(ldap_module.OPT_NETWORK_TIMEOUT, 5.0)
+    mock_client.set_option.assert_any_call(ldap_module.OPT_TIMEOUT, 15.0)
+
+    # The timeouts must be in place before the bind, which is what actually connects.
+    option_calls = [
+        i for i, c in enumerate(mock_client.mock_calls) if c[0] == "set_option"
+    ]
+    bind_calls = [
+        i for i, c in enumerate(mock_client.mock_calls) if c[0] == "simple_bind_s"
+    ]
+    assert option_calls and bind_calls
+    assert max(option_calls) < min(bind_calls)

@@ -64,7 +64,7 @@ class DataHubLiteWrapper(DataHubLiteLocal):
         as_of: Optional[int] = None,
         details: Optional[bool] = False,
     ) -> Optional[Dict[str, Union[str, dict, _Aspect]]]:
-        return self.get(id, aspects, typed, as_of, details)
+        return self.lite.get(id, aspects, typed, as_of, details)
 
     def search(
         self,

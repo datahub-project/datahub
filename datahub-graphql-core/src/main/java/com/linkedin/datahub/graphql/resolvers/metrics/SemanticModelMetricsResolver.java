@@ -27,6 +27,10 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Resolver for {@code SemanticModel.metrics}: scrolls root metrics ({@code hasParentMetric=false})
+ * whose {@code metricInfo.semanticModel} equals this SemanticModel URN.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class SemanticModelMetricsResolver implements DataFetcher<CompletableFuture<ScrollResults>> {

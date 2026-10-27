@@ -10,7 +10,8 @@ import {
     GlossarySidebarSortValue,
 } from '@app/glossaryV2/glossarySidebarFilters/glossarySidebarSort';
 import { DEFAULT_GLOSSARY_CHILDREN_COUNT } from '@app/glossaryV2/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { mergeUrnEntities } from '@app/sharedV2/utils/mergeUrnEntities';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
 
@@ -24,7 +25,7 @@ interface Props {
 }
 
 export default function useGlossaryChildren({ entityUrn, skip, sort: sortOverride }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const { sortSelection } = useGlossarySidebarFilters();
     const sort = sortOverride ?? sortSelection ?? DEFAULT_GLOSSARY_SIDEBAR_SORT;
     const {
@@ -73,17 +74,8 @@ export default function useGlossaryChildren({ entityUrn, skip, sort: sortOverrid
     useEffect(() => {
         if (scrollData?.scrollAcrossEntities?.searchResults) {
             const fresh = scrollData.scrollAcrossEntities.searchResults.map((r) => r.entity);
-            const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
 
-            setData((currData) => {
-                const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
-                const seenUrns = new Set(updated.map((e) => e.urn));
-                const additions = fresh.filter((e) => !seenUrns.has(e.urn));
-                if (additions.length === 0 && updated.every((e, i) => e === currData[i])) {
-                    return currData;
-                }
-                return [...updated, ...additions];
-            });
+            setData((currData) => mergeUrnEntities(currData, fresh, currData.length === 0));
             setDataUrnsSet((currSet) => {
                 if (fresh.every((e) => currSet.has(e.urn))) return currSet;
                 const next = new Set(currSet);

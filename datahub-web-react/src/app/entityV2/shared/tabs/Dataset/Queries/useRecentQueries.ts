@@ -10,21 +10,27 @@ interface Props {
     entityUrn?: string;
     siblingUrn?: string;
     filterText: string;
+    /**
+     * This query selects usageStats.topSqlQueries, which the server denies with a GraphQL
+     * AuthorizationException (not a graceful empty result) when the actor lacks
+     * VIEW_ENTITY_QUERIES/VIEW_ALL_QUERIES on the dataset.
+     */
+    canViewQueries: boolean;
 }
 
-export const useRecentQueries = ({ entityUrn, siblingUrn, filterText }: Props) => {
+export const useRecentQueries = ({ entityUrn, siblingUrn, filterText, canViewQueries }: Props) => {
     // const appConfig = useAppConfig();
     const isSeparateSiblings = useIsSeparateSiblingsMode();
 
     const { data: recentQueriesData, loading } = useGetRecentQueriesQuery({
         variables: { urn: entityUrn as string },
-        skip: !entityUrn,
+        skip: !entityUrn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
 
     const { data: siblingRecentQueriesData, loading: siblingsLoading } = useGetRecentQueriesQuery({
         variables: { urn: siblingUrn as string },
-        skip: !siblingUrn || isSeparateSiblings,
+        skip: !siblingUrn || isSeparateSiblings || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
 

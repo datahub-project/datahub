@@ -9,10 +9,14 @@ from datahub.ingestion.source.microstrategy.lineage import (
     MicroStrategyLineageExtractor,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
+    consolidation_attribute_ids,
     datahub_platform_for_source_type,
     extract_field_names_from_expression,
+    metric_attribute_ids_from_model,
+    metric_consolidation_ids_from_model,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
+    parse_attribute_relationships,
     qualify_table_name,
     unique_derived_object_owners,
     warehouse_context_from_datasource,
@@ -623,6 +627,133 @@ def test_metric_metric_ids_from_model_accepts_nested_and_top_level_tokens() -> N
 
     assert metric_metric_ids_from_model(nested_model) == ["METRIC-2"]
     assert metric_metric_ids_from_model(top_level_model) == ["METRIC-2"]
+
+
+def test_metric_attribute_ids_from_model_accepts_nested_and_top_level_tokens() -> None:
+    nested_model: Dict[str, Any] = {
+        "expression": {
+            "tokens": [{"target": {"objectId": "attr-1", "subType": "attribute"}}]
+        }
+    }
+    top_level_model: Dict[str, Any] = {
+        "expression": {"tokens": [{"objectId": "attr-1", "subType": "attribute"}]}
+    }
+
+    assert metric_attribute_ids_from_model(nested_model) == ["ATTR-1"]
+    assert metric_attribute_ids_from_model(top_level_model) == ["ATTR-1"]
+
+
+def test_metric_consolidation_ids_from_model_accepts_nested_and_top_level_tokens() -> (
+    None
+):
+    nested_model: Dict[str, Any] = {
+        "expression": {
+            "tokens": [{"target": {"objectId": "consol-1", "subType": "consolidation"}}]
+        }
+    }
+    top_level_model: Dict[str, Any] = {
+        "expression": {"tokens": [{"objectId": "consol-1", "subType": "consolidation"}]}
+    }
+
+    assert metric_consolidation_ids_from_model(nested_model) == ["CONSOL-1"]
+    assert metric_consolidation_ids_from_model(top_level_model) == ["CONSOL-1"]
+
+
+def test_consolidation_attribute_ids_walks_element_expression_trees() -> None:
+    consolidation_model: Dict[str, Any] = {
+        "elements": [
+            {
+                "expression": {
+                    "tree": {
+                        "type": "elements_object",
+                        "elements": [
+                            {
+                                "attribute": {
+                                    "objectId": "attr-1",
+                                    "subType": "attribute",
+                                }
+                            }
+                        ],
+                    }
+                }
+            },
+            {
+                "expression": {
+                    "tree": {
+                        "type": "operator",
+                        "function": "plus",
+                        "left": {
+                            "type": "elements_object",
+                            "elements": [
+                                {
+                                    "attribute": {
+                                        "objectId": "attr-2",
+                                        "subType": "attribute",
+                                    }
+                                }
+                            ],
+                        },
+                        "right": {
+                            "type": "elements_object",
+                            "elements": [
+                                {
+                                    "attribute": {
+                                        "objectId": "attr-1",
+                                        "subType": "attribute",
+                                    }
+                                }
+                            ],
+                        },
+                    }
+                }
+            },
+        ]
+    }
+
+    assert consolidation_attribute_ids(consolidation_model) == ["ATTR-1", "ATTR-2"]
+
+
+def test_consolidation_attribute_ids_handles_missing_elements() -> None:
+    assert consolidation_attribute_ids({}) == []
+    assert consolidation_attribute_ids({"elements": "not-a-list"}) == []
+
+
+def test_parse_attribute_relationships_extracts_parent_child_and_table() -> None:
+    response: Dict[str, Any] = {
+        "relationships": [
+            {
+                "parent": {"objectId": "parent-1", "subType": "attribute"},
+                "child": {"objectId": "child-1", "subType": "attribute"},
+                "relationshipTable": {
+                    "objectId": "table-1",
+                    "subType": "logical_table",
+                    "name": "LU_MONTH",
+                },
+                "relationshipType": "one_to_many",
+            }
+        ]
+    }
+
+    relationships = parse_attribute_relationships(response)
+
+    assert len(relationships) == 1
+    relationship = relationships[0]
+    assert relationship.parent_attribute_id == "PARENT-1"
+    assert relationship.child_attribute_id == "CHILD-1"
+    assert relationship.relationship_table_id == "TABLE-1"
+    assert relationship.relationship_type == "one_to_many"
+
+
+def test_parse_attribute_relationships_skips_entries_missing_parent_or_child() -> None:
+    response: Dict[str, Any] = {
+        "relationships": [
+            {"child": {"objectId": "child-1"}},
+            {"parent": {"objectId": "parent-1"}},
+            "not-a-dict",
+        ]
+    }
+
+    assert parse_attribute_relationships(response) == []
 
 
 def test_physical_table_uses_context_database_over_mstr_namespace() -> None:

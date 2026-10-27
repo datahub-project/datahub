@@ -45,12 +45,14 @@ from datahub.metadata.schema_classes import (
     DialectClass,
     DialectExpressionClass,
     DimensionClass,
+    EdgeClass,
     ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
+    MetricUpstreamsClass,
     MySqlDDLClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -99,8 +101,11 @@ class SnowflakeSemanticModelMapper:
     back-reference and a ``schemaMetadata`` projection of its dimension/fact
     columns; per-field semantic metadata is layered on each column's
     ``schemaField`` via ``semanticFieldAnnotation``. ``METRIC`` columns become
-    first-class ``metric`` entities linked back to the model (``ModeledBy``).
-    Lineage flows ``Metric -> SemanticModel -> Logical Dataset -> Physical Dataset``.
+    first-class ``metric`` entities linked back to the model (``ModeledBy``,
+    containment). The SemanticModel is a container of its datasets and metrics;
+    lineage flows ``Metric -> Logical Dataset -> Physical Dataset`` via
+    ``metricUpstreams.datasetUpstreams`` and each logical dataset's
+    ``upstreamLineage``.
     """
 
     platform = "snowflake"
@@ -211,6 +216,7 @@ class SnowflakeSemanticModelMapper:
                 view_scoped_metrics=view_scoped_metrics,
                 shadowed_metric_names=shadowed_metric_names,
                 model_urn=model_urn,
+                logical_dataset_urns=logical_dataset_urns,
                 semantic_view=semantic_view,
                 schema_name=schema_name,
                 db_name=db_name,
@@ -221,6 +227,8 @@ class SnowflakeSemanticModelMapper:
         semantic_view: SnowflakeSemanticView,
         logical_dataset_urns: "Dict[str, str]",
     ) -> SemanticModelInfoClass:
+        # Membership lives on members (metricInfo.semanticModel /
+        # semanticModelProperties.semanticModel), not on this aspect.
         return SemanticModelInfoClass(
             name=semantic_view.name,
             description=semantic_view.comment,
@@ -231,7 +239,6 @@ class SnowflakeSemanticModelMapper:
                 if self.config.include_view_definitions
                 else None
             ),
-            datasets=list(logical_dataset_urns.values()),
             relationships=self._build_relationships(
                 semantic_view, logical_dataset_urns
             ),
@@ -243,7 +250,7 @@ class SnowflakeSemanticModelMapper:
         schema_name: str,
         db_name: str,
     ) -> "Dict[str, str]":
-        # Preserve declaration order so SemanticModelInfo.datasets is stable
+        # Preserve declaration order so logical-dataset URN maps stay stable
         # across re-ingestions (dict iteration order == insertion order).
         urns: Dict[str, str] = {}
         claimed_by: Dict[str, str] = {}
@@ -459,9 +466,10 @@ class SnowflakeSemanticModelMapper:
         semantic_view: SnowflakeSemanticView,
     ) -> Dict[str, List[FineGrainedLineageClass]]:
         # Group non-metric FGLs by their downstream schemaField's parent dataset
-        # (the logical dataset that owns the column). Metric FGLs are dropped:
-        # metric lineage flows Metric -> SemanticModel -> Logical Dataset, with
-        # no metricUpstreams for semantic-model-backed metrics.
+        # (the logical dataset that owns the column). Metric FGLs are dropped
+        # here: metric lineage is authored on the metric entity's
+        # metricUpstreams aspect (Metric -> Logical Dataset), not as a
+        # schemaField FGL on the logical dataset.
         #
         # A column that is a METRIC on a given logical table is emitted as a metric
         # entity, not a schemaField on that logical dataset, so an FGL onto it would
@@ -637,8 +645,7 @@ class SnowflakeSemanticModelMapper:
                 logical_dataset_urn=logical_dataset_urn,
             )
 
-        # Re-home the base-table lineage that previously hung off the model:
-        # one table-level Upstream to the physical base table for this logical
+        # One table-level Upstream to the physical base table for this logical
         # table, plus the column-level FGLs routed to this logical dataset.
         yield MetadataChangeProposalWrapper(
             entityUrn=logical_dataset_urn,
@@ -787,11 +794,9 @@ class SnowflakeSemanticModelMapper:
                         ),
                     ),
                 ).as_workunit()
-                # Column synonyms live on the first-class aiContext aspect of
-                # the same schemaField (the model no longer embeds them on the
-                # field). Read from this table's own occurrence rather than the
-                # view-merged map so synonyms don't leak across same-named columns
-                # on different logical tables. Emit only when non-empty.
+                # Read synonyms from this table's own occurrence rather than the
+                # view-merged map so they don't leak across same-named columns on
+                # different logical tables. Emit aiContext only when non-empty.
                 synonyms = occurrence.synonyms or []
                 if synonyms:
                     yield MetadataChangeProposalWrapper(
@@ -807,6 +812,7 @@ class SnowflakeSemanticModelMapper:
         view_scoped_metrics: Dict[str, SemanticViewColumnMetadata],
         shadowed_metric_names: Set[str],
         model_urn: str,
+        logical_dataset_urns: "Dict[str, str]",
         semantic_view: SnowflakeSemanticView,
         schema_name: str,
         db_name: str,
@@ -837,10 +843,9 @@ class SnowflakeSemanticModelMapper:
             ),
         ).as_workunit()
 
-        # Metric synonyms live on the first-class aiContext aspect of the
-        # metric entity (the model no longer embeds them on metricInfo). Read from
-        # this metric's own occurrence rather than the view-merged map so synonyms
-        # don't leak across same-named metrics on different logical tables.
+        # Read synonyms from this metric's own occurrence rather than the
+        # view-merged map so they don't leak across same-named metrics on
+        # different logical tables.
         metric_synonyms = occurrence.synonyms or []
         if metric_synonyms:
             yield MetadataChangeProposalWrapper(
@@ -867,6 +872,9 @@ class SnowflakeSemanticModelMapper:
             metric_urn, semantic_view, schema_name, db_name
         )
 
+        # Parse once; both derivedFrom and datasetUpstreams walk the same AST.
+        parsed = self._parse_metric_expression(occurrence, semantic_view)
+
         derived_from = self._derived_from_metrics(
             occurrence=occurrence,
             logical_table=logical_table,
@@ -876,17 +884,118 @@ class SnowflakeSemanticModelMapper:
             semantic_view=semantic_view,
             schema_name=schema_name,
             db_name=db_name,
+            parsed=parsed,
         )
         # Always emit metricRelationships (even with empty derivedFrom) so
         # hasParentMetric is indexed as false - the /metrics sidebar lists root
         # metrics via hasParentMetric=false. These metrics have no parent, so
-        # parentMetric is left unset. metricUpstreams is intentionally not
-        # emitted: lineage flows Metric -> SemanticModel (ModeledBy) -> Logical
-        # Dataset (Contains) -> Physical Dataset (upstreamLineage).
+        # parentMetric is left unset.
         yield MetadataChangeProposalWrapper(
             entityUrn=metric_urn,
             aspect=MetricRelationshipsClass(derivedFrom=derived_from),
         ).as_workunit()
+
+        # Always emit metricUpstreams (even empty) so re-ingestion clears stale
+        # server-side datasetUpstreams via whole-aspect UPSERT.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=metric_urn,
+            aspect=MetricUpstreamsClass(
+                datasetUpstreams=self._metric_dataset_upstreams(
+                    logical_table=logical_table,
+                    logical_dataset_urns=logical_dataset_urns,
+                    table_bound_metrics=table_bound_metrics,
+                    parsed=parsed,
+                )
+            ),
+        ).as_workunit()
+
+    def _parse_metric_expression(
+        self,
+        occurrence: SemanticViewColumnMetadata,
+        semantic_view: SnowflakeSemanticView,
+    ) -> Optional[sqlglot.expressions.Expr]:
+        """Parse a metric expression once for derivedFrom and datasetUpstreams.
+
+        Warns and increments the parse-failure counter on ``SqlglotError``;
+        callers treat ``None`` as "no edges from this expression".
+        """
+        if not occurrence.expression:
+            return None
+        try:
+            return sqlglot.parse_one(occurrence.expression, dialect="snowflake")
+        except sqlglot.errors.SqlglotError as e:
+            # Catch the SqlglotError base, not just ParseError: parse_one tokenizes
+            # first and can raise TokenError (e.g. an unclosed quote), which would
+            # otherwise escape and abort the remaining metrics for this view.
+            self.report.warning(
+                title="Could not parse semantic view metric expression",
+                message=(
+                    "A metric expression failed to parse, so its metric-to-metric "
+                    "derivedFrom lineage and any expression-derived Metric → SMD "
+                    "upstreams were skipped. The metric is still emitted."
+                ),
+                context=f"{semantic_view.name}.{occurrence.name}: {e}",
+            )
+            self.report.num_semantic_view_metric_expr_parse_failures += 1
+            return None
+
+    def _metric_dataset_upstreams(
+        self,
+        logical_table: Optional[str],
+        logical_dataset_urns: "Dict[str, str]",
+        table_bound_metrics: "Dict[Tuple[str, str], SemanticViewColumnMetadata]",
+        parsed: Optional[sqlglot.expressions.Expr],
+    ) -> List[EdgeClass]:
+        """Resolve the Semantic Model Dataset URNs this metric reads from.
+
+        Table-bound metrics have exactly one SMD upstream (their logical table).
+        View-scoped/derived metrics may reference multiple logical tables via
+        qualified column refs in their expression; those become SMD upstreams.
+        Qualified refs that resolve to table-bound metrics are skipped — those
+        are metric-to-metric edges via ``derivedFrom``. Metrics that only
+        reference other metrics return an empty list — lineage reaches SMDs
+        transitively via ``derivedFrom``.
+        """
+        if logical_table is not None:
+            dataset_urn = logical_dataset_urns.get(logical_table)
+            if dataset_urn:
+                return [EdgeClass(destinationUrn=dataset_urn)]
+            return []
+
+        if parsed is None:
+            return []
+
+        # Qualified TABLE.col refs whose TABLE is a known logical dataset become
+        # Metric → SMD edges, unless TABLE.NAME is itself a table-bound metric
+        # (those are derivedFrom edges). Unqualified refs are metric-to-metric
+        # or ambiguous, so they are skipped here.
+        # Fold identifiers the same way _derived_from_metrics does: an unquoted
+        # identifier folds to uppercase, a quoted one is already the stored
+        # spelling. table_bound_metrics / logical_dataset_urns are keyed by that
+        # stored spelling (and by column_identity_key for the name half).
+        upstream_urns: Dict[str, EdgeClass] = {}
+        for column in parsed.find_all(sqlglot.expressions.Column):
+            if not column.table:
+                continue
+            stored_name = (
+                column.name
+                if getattr(column.this, "quoted", False)
+                else column.name.upper()
+            )
+            name_key = self.identifiers.column_identity_key(stored_name)
+            ref_table = (
+                column.table
+                if getattr(column.args.get("table"), "quoted", False)
+                else column.table.upper()
+            )
+            if (ref_table, name_key) in table_bound_metrics:
+                continue
+            dataset_urn = logical_dataset_urns.get(ref_table)
+            if dataset_urn:
+                upstream_urns.setdefault(
+                    dataset_urn, EdgeClass(destinationUrn=dataset_urn)
+                )
+        return [upstream_urns[urn] for urn in sorted(upstream_urns)]
 
     def _derived_from_metrics(
         self,
@@ -898,6 +1007,7 @@ class SnowflakeSemanticModelMapper:
         semantic_view: SnowflakeSemanticView,
         schema_name: str,
         db_name: str,
+        parsed: Optional[sqlglot.expressions.Expr],
     ) -> List[DerivedMetricInputClass]:
         # A derived metric references other metrics. Snowflake qualifies a
         # table-bound metric reference by its logical table (ORDERS.GROSS_REVENUE)
@@ -907,26 +1017,7 @@ class SnowflakeSemanticModelMapper:
         #   - unqualified NAME resolves to a view-scoped metric; ambiguous names
         #     (also a column) are omitted - derivedFrom is isLineage:true, so a wrong
         #     edge is worse than a missing one. sqlglot skips string literals.
-        if not occurrence.expression:
-            return []
-        try:
-            parsed = sqlglot.parse_one(occurrence.expression, dialect="snowflake")
-        except sqlglot.errors.SqlglotError as e:
-            # Catch the SqlglotError base, not just ParseError: parse_one tokenizes
-            # first and can raise TokenError (e.g. an unclosed quote), which would
-            # otherwise escape and abort the remaining metrics for this view.
-            # A metric whose expression won't parse loses its derivedFrom lineage.
-            # Surface it (not just a debug log + counter) so operators can see which
-            # metric was affected; the metric itself is still emitted without edges.
-            self.report.warning(
-                title="Could not parse semantic view metric expression",
-                message=(
-                    "A metric expression failed to parse, so its metric-to-metric "
-                    "derivedFrom lineage was skipped. The metric is still emitted."
-                ),
-                context=f"{semantic_view.name}.{occurrence.name}: {e}",
-            )
-            self.report.num_semantic_view_metric_expr_parse_failures += 1
+        if parsed is None:
             return []
         self_urn = self.identifiers.gen_metric_urn(
             occurrence.name,

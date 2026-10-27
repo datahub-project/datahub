@@ -35,7 +35,9 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphBounds;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.GraphEdgeTriplet;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.LocalEvictionLimits;
 import com.linkedin.metadata.graph.cache.config.EntityGraphModel.ResolvedGraphEdge;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot.DirectedEdge;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder.BuildResult;
+import com.linkedin.metadata.graph.cache.snapshot.TraversalCoverage.DirectionCoverage;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -607,6 +609,68 @@ public class EntityGraphSnapshotBuilderPartialTest {
     assertEquals(
         result.getSnapshot().getTraversalCoverage().getDirections().get(0).getTruncationReason(),
         "edge_limit");
+  }
+
+  @Test
+  public void forwardBuildKeepsTrustedReverseCoverage() {
+    EntityGraphDefinition graphDefinition =
+        partialDefinition(GraphSnapshotSource.GRAPH, resolvedEdges, 100);
+    when(graphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(new RelatedEntitiesScrollResult(0, 0, null, List.of()));
+
+    DirectedEdge downward =
+        DirectedEdge.builder()
+            .sourceUrn(CHILD)
+            .destinationUrn(ROOT)
+            .relationshipType("IsPartOf")
+            .build();
+    TraversalCoverage existingCoverage =
+        TraversalCoverage.builder()
+            .direction(
+                DirectionCoverage.builder()
+                    .direction(TraversalDirection.REVERSE)
+                    .explored(true)
+                    .exploredDepth(4)
+                    .configuredMaxDepth(2)
+                    .complete(true)
+                    .trustedSeeds(List.of(ROOT))
+                    .build())
+            .build();
+
+    BuildResult result =
+        builder.buildPartial(
+            opContext,
+            graphDefinition,
+            GraphSnapshotSource.GRAPH,
+            Set.of(CHILD),
+            TraversalDirection.FORWARD,
+            List.of(downward),
+            existingCoverage,
+            "domain@graph:existing");
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertTrue(
+        result.getSnapshot().getTraversalCoverage().isTrustedFullWalk(TraversalDirection.REVERSE));
+    assertFalse(
+        result.getSnapshot().getTraversalCoverage().isTrustedFullWalk(TraversalDirection.FORWARD));
+    assertEquals(
+        result
+            .getSnapshot()
+            .getTraversalCoverage()
+            .getDirection(TraversalDirection.REVERSE)
+            .getExploredDepth(),
+        4);
   }
 
   private EntityGraphDefinition partialDefinition(

@@ -3,9 +3,45 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.dialects.postgresql import (
+    CIDR,
+    CITEXT,
+    INT4MULTIRANGE,
+    INT4RANGE,
+    TSTZMULTIRANGE,
+    base as pg_base,
+)
+from sqlalchemy.dialects.postgresql.base import PGDialect
 
+from datahub.ingestion.agent.probe_methods import _provider_class
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+
+# Importing the placeholder types directly (rather than relying on the
+# module-level registration side effects of importing the source) makes the
+# dependency on postgres/source.py explicit and enforced.
+from datahub.ingestion.source.sql.postgres.source import (
+    BOX,
+    CIRCLE,
+    LINE,
+    LSEG,
+    LTREE,
+    PATH,
+    POINT,
+    POLYGON,
+    VECTOR,
+    XML,
+)
+from datahub.ingestion.source.sql.sql_common import get_column_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BytesTypeClass,
+    StringTypeClass,
+)
+from datahub.utilities.sqlalchemy_type_converter import (
+    get_native_data_type_for_sqlalchemy_type,
+)
 
 
 def _base_config():
@@ -25,7 +61,10 @@ def test_initial_database(create_engine_mock):
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
 def test_get_inspectors_multiple_databases(create_engine_mock):
     execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
-    execute_mock.return_value = [{"datname": "db1"}, {"datname": "db2"}]
+    execute_mock.return_value.mappings.return_value = [
+        {"datname": "db1"},
+        {"datname": "db2"},
+    ]
 
     config = PostgresConfig.model_validate(
         {**_base_config(), "initial_database": "db0"}
@@ -62,6 +101,64 @@ def tests_get_inspectors_with_sqlalchemy_uri_provided(create_engine_mock):
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
     assert create_engine_mock.call_args_list[0][0][0] == "custom_url"
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_engines_default_to_autocommit(create_engine_mock):
+    # On SA 2.0 a failed statement would otherwise abort the autobegun
+    # transaction and fail every later query on the connection (25P02).
+    execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+    execute_mock.return_value.mappings.return_value = [{"datname": "db1"}]
+
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "options": {"pool_size": 3}}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+
+    # Both the initial-database engine and the per-database engine.
+    assert create_engine_mock.call_count == 2
+    for call in create_engine_mock.call_args_list:
+        assert call.kwargs == {"isolation_level": "AUTOCOMMIT", "pool_size": 3}
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_user_isolation_level_overrides_autocommit_default(create_engine_mock):
+    config = PostgresConfig.model_validate(
+        {
+            **_base_config(),
+            "database": "custom_db",
+            "options": {"isolation_level": "REPEATABLE READ"},
+        }
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+    _ = list(source.get_inspectors())
+
+    assert create_engine_mock.call_args.kwargs == {"isolation_level": "REPEATABLE READ"}
+
+
+def test_view_names_include_materialized_views():
+    # SA 2.0's PG get_view_names() omits materialized views (1.4 included them).
+    source = PostgresSource(
+        PostgresConfig.model_validate(_base_config()), PipelineContext(run_id="test")
+    )
+    inspector = mock.MagicMock()
+    inspector.get_view_names.return_value = ["v1", "mv_shared"]
+    inspector.get_materialized_view_names.return_value = ["mv1", "mv_shared"]
+
+    assert source._get_view_names(inspector, "public") == ["v1", "mv_shared", "mv1"]
+
+
+def test_view_names_survive_materialized_view_listing_failure():
+    source = PostgresSource(
+        PostgresConfig.model_validate(_base_config()), PipelineContext(run_id="test")
+    )
+    inspector = mock.MagicMock()
+    inspector.get_view_names.return_value = ["v1"]
+    inspector.get_materialized_view_names.side_effect = RuntimeError("boom")
+
+    assert source._get_view_names(inspector, "public") == ["v1"]
+    assert source.report.warnings
 
 
 def test_database_in_identifier():
@@ -339,3 +436,99 @@ def test_get_procedures_for_schema(create_engine_mock):
     assert "INSERT INTO processed_orders" in proc.procedure_definition
     # prosrc returns body only — no CREATE PROCEDURE wrapper that would break lineage
     assert not proc.procedure_definition.strip().upper().startswith("CREATE")
+
+
+def test_postgres_special_types_map_to_datahub_types():
+    """
+    PostGIS, pgvector, built-in geometric, xml, ltree, citext, cidr, range and
+    multirange columns must map to real DataHub types instead of NullType
+    (#18575).
+    """
+    # Resolve through ischema_names, as reflection does, rather than through
+    # DataHub's placeholders: when SQLAlchemy ships a native class for a name
+    # (e.g. the multiranges and CITEXT on 2.0) the placeholder is never used,
+    # and only the native class's mapping matters.
+    expected_by_ischema_name = {
+        "geometry": BytesTypeClass,
+        "geography": BytesTypeClass,
+        "raster": BytesTypeClass,
+        "vector": ArrayTypeClass,
+        "halfvec": ArrayTypeClass,
+        "sparsevec": ArrayTypeClass,
+        "point": BytesTypeClass,
+        "line": BytesTypeClass,
+        "lseg": BytesTypeClass,
+        "box": BytesTypeClass,
+        "path": BytesTypeClass,
+        "polygon": BytesTypeClass,
+        "circle": BytesTypeClass,
+        "xml": StringTypeClass,
+        "ltree": StringTypeClass,
+        "citext": StringTypeClass,
+        "cidr": StringTypeClass,
+        "int4range": StringTypeClass,
+        "int8range": StringTypeClass,
+        "numrange": StringTypeClass,
+        "daterange": StringTypeClass,
+        "tsrange": StringTypeClass,
+        "tstzrange": StringTypeClass,
+        "int4multirange": StringTypeClass,
+        "int8multirange": StringTypeClass,
+        "nummultirange": StringTypeClass,
+        "datemultirange": StringTypeClass,
+        "tsmultirange": StringTypeClass,
+        "tstzmultirange": StringTypeClass,
+    }
+
+    report = SQLSourceReport()
+    for ischema_name, expected_class in expected_by_ischema_name.items():
+        column_type = pg_base.ischema_names[ischema_name]()
+        actual = get_column_type(report, "test_dataset", column_type)
+        assert isinstance(actual.type, expected_class), (
+            f"{ischema_name} ({column_type!r}) mapped to {actual.type}, "
+            f"expected {expected_class.__name__}"
+        )
+
+    # None of these should have hit the "Unable to map" fallback.
+    assert not report.infos
+
+
+def test_postgres_special_types_preserve_native_names():
+    """nativeDataType must carry the real type name, not 'null' (#18575)."""
+    inspector = mock.MagicMock()
+    inspector.dialect = PGDialect()
+
+    expected_native = {
+        VECTOR: "VECTOR",
+        POINT: "POINT",
+        LINE: "LINE",
+        LSEG: "LSEG",
+        BOX: "BOX",
+        PATH: "PATH",
+        POLYGON: "POLYGON",
+        CIRCLE: "CIRCLE",
+        XML: "XML",
+        LTREE: "LTREE",
+        CITEXT: "CITEXT",
+        INT4MULTIRANGE: "INT4MULTIRANGE",
+        TSTZMULTIRANGE: "TSTZMULTIRANGE",
+    }
+    for column_type_cls, native in expected_native.items():
+        assert (
+            get_native_data_type_for_sqlalchemy_type(column_type_cls(), inspector)
+            == native
+        )
+
+    assert get_native_data_type_for_sqlalchemy_type(CIDR(), inspector) == "CIDR"
+    assert (
+        get_native_data_type_for_sqlalchemy_type(INT4RANGE(), inspector) == "INT4RANGE"
+    )
+
+    # Reflection passes type modifiers through, e.g. a vector(4) column.
+    assert get_native_data_type_for_sqlalchemy_type(VECTOR(4), inspector) == "VECTOR(4)"
+
+
+def test_probe_support_loads_with_core_dependencies():
+    # Needs only core dependencies, so the registry-wide probe contract tests
+    # are guaranteed at least this provider in any environment.
+    assert _provider_class("postgres") is not None

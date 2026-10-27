@@ -103,22 +103,6 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
               RelationshipDirection.OUTGOING,
               config.getPageSize(),
               config.getLimit());
-        default:
-          T defaultDescendantQuery =
-              expandUrnsByGraph(
-                  opContext,
-                  filterQuery,
-                  Set.of("IsPartOf"),
-                  RelationshipDirection.INCOMING,
-                  config.getPageSize(),
-                  config.getLimit());
-          return expandUrnsByGraph(
-              opContext,
-              defaultDescendantQuery,
-              Set.of("IsPartOf"),
-              RelationshipDirection.OUTGOING,
-              config.getPageSize(),
-              config.getLimit());
       }
     }
 

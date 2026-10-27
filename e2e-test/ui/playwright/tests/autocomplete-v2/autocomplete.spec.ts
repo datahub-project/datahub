@@ -16,6 +16,8 @@
 
 import { test } from '../../fixtures/base-test';
 import { AutocompletePage } from '../../pages/autocomplete.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'autocomplete-v2' });
 
@@ -29,7 +31,8 @@ const SAMPLE_CHART_URN = 'urn:li:chart:(looker,sample-chart)';
 test.describe('Autocomplete Search Bar', () => {
   let autocompletePage: AutocompletePage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     autocompletePage = new AutocompletePage(page, logger, logDir);
     await autocompletePage.navigateToHome();
   });
@@ -47,8 +50,12 @@ test.describe('Autocomplete Search Bar', () => {
     await autocompletePage.searchAndVerifyResult(SAMPLE_CHART_NAME, SAMPLE_CHART_URN);
   });
 
-  test('should send you to the entity profile after clicking on an auto-complete option', async () => {
-    // Search for dataset, verify autocomplete, click result, and verify navigation
-    await autocompletePage.searchAndNavigateToEntity(SAMPLE_DATASET_NAME, SAMPLE_DATASET_URN);
-  });
+  test(
+    'should send you to the entity profile after clicking on an auto-complete option',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async () => {
+      // Search for dataset, verify autocomplete, click result, and verify navigation
+      await autocompletePage.searchAndNavigateToEntity(SAMPLE_DATASET_NAME, SAMPLE_DATASET_URN);
+    },
+  );
 });

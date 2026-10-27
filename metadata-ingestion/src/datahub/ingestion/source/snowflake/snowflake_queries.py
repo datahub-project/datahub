@@ -9,7 +9,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 import pydantic
 from typing_extensions import Self
@@ -86,6 +86,10 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 
 _SYS_VIEW_PLACEHOLDER_PREFIX = "$SYS_VIEW_"
+
+# Snowflake's per-refresh bookkeeping statement for a dynamic table
+# (`alter dynamic table /* NAME */ identifier(<id>) refresh at <ts>`), as tagged in QUERY_HISTORY.
+REFRESH_DYNAMIC_TABLE_QUERY_TYPE = "REFRESH_DYNAMIC_TABLE_AT_REFRESH_VERSION"
 
 
 @dataclass(frozen=True)
@@ -207,10 +211,17 @@ class SnowflakeQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     aggregator_generate_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
+    # Best-effort path (the intended one, not confirmed) for a cleanup-failure
+    # warning to cite. Recorded here, not read from local_temp_path in the
+    # finally, which mkdtemps on access and would leave a stray dir on error.
+    audit_log_path: Optional[str] = None
+
     sql_aggregator: Optional[SqlAggregatorReport] = None
     stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
     num_ddl_queries_dropped: int = 0
+    num_dynamic_table_refresh_stmts_filtered: int = 0
+    num_dynamic_table_write_stmts_filtered: int = 0
     num_stream_queries_observed: int = 0
     num_stream_queries_clean_fast_path: int = 0
     num_stream_bypass_by_query_type: Dict[str, int] = dataclasses.field(
@@ -245,6 +256,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[List[str]] = None,
+        dynamic_table_identifiers: Optional[Set[str]] = None,
     ):
         self.connection = connection
 
@@ -253,6 +265,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self.filters = filters
         self.identifiers = identifiers
         self.discovered_tables = set(discovered_tables) if discovered_tables else None
+        # Dynamic tables whose query-log rows are suppressed (see _row_modifies_dynamic_table). Held
+        # by reference to schema-gen's set, not copied, so construction order vs discovery is moot.
+        self.dynamic_table_identifiers = (
+            dynamic_table_identifiers
+            if dynamic_table_identifiers is not None
+            else set()
+        )
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
         self._structured_report = structured_report
@@ -361,6 +380,41 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             name, SnowflakeObjectDomain.TABLE
         )
 
+    def _row_modifies_dynamic_table(self, row: Dict[str, Any]) -> bool:
+        """True if a query-log row writes a known dynamic table. Those rows are the table's own
+        refresh; their derived lineage is spurious (self-loops, phantom column lineage), so the caller
+        drops them and lets the definition/INPUTS path be authoritative for dynamic-table lineage.
+
+        Scope is intentionally the schema-discovered dynamic tables (the ones that also receive
+        definition/INPUTS lineage). DTs only the standalone queries source or allowlist-only DBs
+        surface are left unsuppressed: they have no replacement lineage."""
+        if not self.dynamic_table_identifiers:
+            return False
+        objects_modified = row.get("OBJECTS_MODIFIED")
+        if isinstance(objects_modified, str):
+            try:
+                objects_modified = json.loads(objects_modified)
+            except json.JSONDecodeError:
+                return False
+            # Reuse this parse downstream; OBJECTS_MODIFIED is the largest column in the row.
+            row["OBJECTS_MODIFIED"] = objects_modified
+        # Runs outside the per-row try/except, so an unexpected non-list shape must return, not raise:
+        # a raise here would abort the whole query-log stage rather than skip one row.
+        if not isinstance(objects_modified, list):
+            return False
+        for obj in objects_modified:
+            if not isinstance(obj, dict):
+                continue
+            name = obj.get("objectName")
+            if not isinstance(name, str) or not name:
+                continue
+            identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
+                name
+            )
+            if identifier in self.dynamic_table_identifiers:
+                return True
+        return False
+
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
@@ -369,6 +423,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         # TODO: Add some logic to check if the cached audit log is stale or not.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
+        self.report.audit_log_path = str(audit_log_file)
         use_cached_audit_log = audit_log_file.exists()
 
         if self.config.local_temp_path is None:
@@ -538,6 +593,21 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     logger.info(f"Processed {i} query log rows so far")
 
                 assert isinstance(row, dict)
+
+                # Every dynamic-table refresh normalizes to the same DataHub query fingerprint, so
+                # keeping them cross-attributes one table's upstreams onto others. Dropped for every
+                # config (unlike the DT-scoped OBJECTS_MODIFIED check below). Skipping the whole row
+                # also drops its usage/operation signal, which is intended: a refresh is
+                # Snowflake-internal, not user activity, so it should not count as usage of the sources.
+                if row.get("QUERY_TYPE") == REFRESH_DYNAMIC_TABLE_QUERY_TYPE:
+                    self.report.num_dynamic_table_refresh_stmts_filtered += 1
+                    continue
+
+                # A statement that writes a dynamic table names it in OBJECTS_MODIFIED.
+                if self._row_modifies_dynamic_table(row):
+                    self.report.num_dynamic_table_write_stmts_filtered += 1
+                    continue
+
                 try:
                     yield from self._parse_audit_log_row(row, users)
                 except Exception as e:
@@ -607,7 +677,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         res = {}
         for key, value in row.items():
-            if key in json_fields and value:
+            if key in json_fields and isinstance(value, str) and value:
                 value = json.loads(value)
             key = key.lower()
             res[key] = value
@@ -1069,7 +1139,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self._exit_stack.close()
 
 
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(SnowflakeQueriesSourceConfig)
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):

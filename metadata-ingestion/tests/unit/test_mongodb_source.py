@@ -1,8 +1,11 @@
-from typing import Any, Dict, List, Set
+import uuid
+from typing import Any, Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import bson
 import pytest
+from bson.binary import UuidRepresentation
+from bson.codec_options import CodecOptions
 from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -15,10 +18,14 @@ from datahub.ingestion.source.mongodb import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from datahub.metadata.schema_classes import (
+    BytesTypeClass,
     ContainerPropertiesClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    SchemaFieldClass,
     SchemaMetadataClass,
+    StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -261,6 +268,134 @@ def test_mongodb_schema_inference_with_deeply_nested_structures(
         "_id",
     }
     assert field_paths == expected_paths
+
+
+def infer_mongodb_fields(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    document: Dict[str, object],
+) -> Dict[str, SchemaFieldClass]:
+    mock_mongo_client.list_database_names.return_value = ["test_db"]
+    mock_mongo_client.server_info.return_value = {"versionArray": [8, 0, 0]}
+    mock_database = mock_mongo_client["test_db"]
+    mock_database.list_collection_names.return_value = ["typed"]
+    mock_database["typed"].aggregate.return_value = [document]
+
+    source = MongoDBSource(
+        ctx=pipeline_context,
+        config=MongoDBConfig(connect_uri="mongodb://localhost:27017"),
+    )
+    schema_metadata_aspects = get_schema_metadata_aspects(
+        list(source.get_workunits_internal())
+    )
+    assert len(schema_metadata_aspects) == 1
+    assert not source.report.warnings
+    return {f.fieldPath: f for f in schema_metadata_aspects[0].fields}
+
+
+def test_mongodb_native_bson_types_are_mapped(
+    mock_mongo_client: MagicMock, pipeline_context: PipelineContext
+) -> None:
+    """Cover added BSON mappings and preserve existing binary/date behavior."""
+    fields = infer_mongodb_fields(
+        mock_mongo_client,
+        pipeline_context,
+        {
+            "_id": bson.ObjectId("507f1f77bcf86cd799439011"),
+            "raw": b"\x00\x01",
+            "raw_subtyped": bson.Binary(
+                uuid.UUID("12345678-1234-5678-1234-567812345678").bytes, 4
+            ),
+            "uid": uuid.UUID("12345678-1234-5678-1234-567812345678"),
+            "pattern": bson.Regex("^foo", "i"),
+            "js": bson.Code("function() { return 1; }"),
+            "lo": bson.MinKey(),
+            "hi": bson.MaxKey(),
+            # BSON Date beyond Python's datetime range, as returned by pymongo
+            # with datetime_conversion=DATETIME_AUTO (year 10000).
+            "far_future": bson.DatetimeMS(253402300800000),
+        },
+    )
+    expected = {
+        "raw": ("binary", BytesTypeClass),
+        "raw_subtyped": ("binary", BytesTypeClass),
+        "uid": ("uuid", StringTypeClass),
+        "pattern": ("regex", StringTypeClass),
+        "js": ("javascript", StringTypeClass),
+        "lo": ("minKey", StringTypeClass),
+        "hi": ("maxKey", StringTypeClass),
+        "far_future": ("date", TimeTypeClass),
+    }
+    for field_path, (native_type, type_class) in expected.items():
+        assert fields[field_path].nativeDataType == native_type
+        assert isinstance(fields[field_path].type.type, type_class)
+
+
+@pytest.mark.parametrize(
+    "subtype",
+    [
+        pytest.param(0, id="generic"),
+        pytest.param(1, id="function"),
+        pytest.param(2, id="old-binary"),
+        pytest.param(3, id="old-uuid"),
+        pytest.param(4, id="uuid"),
+        pytest.param(5, id="md5"),
+        pytest.param(6, id="encrypted"),
+        pytest.param(7, id="compressed-column"),
+        pytest.param(8, id="sensitive"),
+        pytest.param(9, id="vector"),
+        pytest.param(128, id="user-defined"),
+    ],
+)
+def test_mongodb_binary_subtypes_are_mapped_after_bson_decoding(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    subtype: int,
+) -> None:
+    # UUID subtypes require 16 bytes. Non-UUID payloads remain opaque to inference.
+    payload = uuid.UUID("12345678-1234-5678-1234-567812345678").bytes
+    document: Dict[str, object] = bson.decode(
+        bson.encode({"value": bson.Binary(payload, subtype)})
+    )
+    assert type(document["value"]) is (bytes if subtype == 0 else bson.Binary)
+
+    fields = infer_mongodb_fields(mock_mongo_client, pipeline_context, document)
+    assert fields["value"].nativeDataType == "binary"
+    assert isinstance(fields["value"].type.type, BytesTypeClass)
+
+
+@pytest.mark.parametrize("subtype", [3, 4])
+@pytest.mark.parametrize(
+    "uuid_representation,decoded_uuid_subtype",
+    [
+        pytest.param(UuidRepresentation.UNSPECIFIED, None, id="unspecified"),
+        pytest.param(UuidRepresentation.STANDARD, 4, id="standard"),
+        pytest.param(UuidRepresentation.PYTHON_LEGACY, 3, id="python-legacy"),
+        pytest.param(UuidRepresentation.JAVA_LEGACY, 3, id="java-legacy"),
+        pytest.param(UuidRepresentation.CSHARP_LEGACY, 3, id="csharp-legacy"),
+    ],
+)
+def test_mongodb_uuid_representations_are_mapped_after_bson_decoding(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    subtype: int,
+    uuid_representation: int,
+    decoded_uuid_subtype: Optional[int],
+) -> None:
+    payload = uuid.UUID("12345678-1234-5678-1234-567812345678").bytes
+    document: Dict[str, object] = bson.decode(
+        bson.encode({"value": bson.Binary(payload, subtype)}),
+        codec_options=CodecOptions(uuid_representation=uuid_representation),
+    )
+    fields = infer_mongodb_fields(mock_mongo_client, pipeline_context, document)
+    if subtype == decoded_uuid_subtype:
+        assert isinstance(document["value"], uuid.UUID)
+        assert fields["value"].nativeDataType == "uuid"
+        assert isinstance(fields["value"].type.type, StringTypeClass)
+    else:
+        assert isinstance(document["value"], bson.Binary)
+        assert fields["value"].nativeDataType == "binary"
+        assert isinstance(fields["value"].type.type, BytesTypeClass)
 
 
 def test_mongodb_schema_inference_disabled(mock_mongo_client, pipeline_context):

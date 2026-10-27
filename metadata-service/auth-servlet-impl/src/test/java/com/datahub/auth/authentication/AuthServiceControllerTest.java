@@ -30,11 +30,11 @@ import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.InviteToken;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -277,6 +277,38 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     verifyLoginMetric("success", "unknown", "none");
+  }
+
+  @Test
+  public void testGenerateSessionTokenForUserEnumNameLoginSourceHeader() throws Exception {
+    // Some clients send LoginSource.name() (PASSWORD_LOGIN) rather than getSource()
+    // (passwordLogin). Both must resolve so loginSource is retained on the usage event.
+    String userId = "testUser";
+    String generatedToken = "test-token";
+
+    Authentication systemAuth = mock(Authentication.class);
+    Actor systemActor = new Actor(ActorType.USER, SYSTEM_CLIENT_ID);
+    when(systemAuth.getActor()).thenReturn(systemActor);
+    when(systemAuth.getCredentials())
+        .thenReturn(String.format("Basic %s:%s", SYSTEM_CLIENT_ID, "systemSecret"));
+    AuthenticationContext.setAuthentication(systemAuth);
+
+    when(mockTokenService.generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong()))
+        .thenReturn(generatedToken);
+    when(mockConfigProvider.getAuthentication()).thenReturn(new AuthenticationConfiguration());
+
+    ObjectNode requestBody = objectMapper.createObjectNode();
+    requestBody.put("userId", userId);
+    HttpHeaders headers = new HttpHeaders();
+    headers.add(DATAHUB_LOGIN_SOURCE_HEADER_NAME, "PASSWORD_LOGIN");
+    HttpEntity<String> httpEntity =
+        new HttpEntity<>(objectMapper.writeValueAsString(requestBody), headers);
+
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(request, httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    verifyLoginMetric("success", LoginSource.PASSWORD_LOGIN.getSource(), "none");
   }
 
   @Test
@@ -543,12 +575,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     String title = "Software Engineer";
     String password = "securePassword123";
     String inviteToken = "valid-invite-token";
-    Urn inviteTokenUrn = mock(Urn.class);
-
     // Mock invite token service
-    when(mockInviteTokenService.getInviteTokenUrn(inviteToken)).thenReturn(inviteTokenUrn);
-    when(mockInviteTokenService.isInviteTokenValid(any(OperationContext.class), eq(inviteTokenUrn)))
-        .thenReturn(true);
+    when(mockInviteTokenService.getVerifiedInviteToken(
+            any(OperationContext.class), eq(inviteToken)))
+        .thenReturn(new InviteToken().setToken("encrypted-invite-token"));
 
     // Create request body
     ObjectNode requestBody = objectMapper.createObjectNode();
@@ -595,12 +625,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     String title = "Software Engineer";
     String password = "securePassword123";
     String inviteToken = "invalid-invite-token";
-    Urn inviteTokenUrn = mock(Urn.class);
-
     // Mock invite token service to return invalid token
-    when(mockInviteTokenService.getInviteTokenUrn(inviteToken)).thenReturn(inviteTokenUrn);
-    when(mockInviteTokenService.isInviteTokenValid(any(OperationContext.class), eq(inviteTokenUrn)))
-        .thenReturn(false);
+    when(mockInviteTokenService.getVerifiedInviteToken(
+            any(OperationContext.class), eq(inviteToken)))
+        .thenReturn(null);
 
     // Create request body
     ObjectNode requestBody = objectMapper.createObjectNode();
@@ -631,12 +659,10 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     String email = "test@example.com";
     String password = "securePassword123";
     String inviteToken = "valid-invite-token";
-    Urn inviteTokenUrn = mock(Urn.class);
-
     // Mock invite token service
-    when(mockInviteTokenService.getInviteTokenUrn(inviteToken)).thenReturn(inviteTokenUrn);
-    when(mockInviteTokenService.isInviteTokenValid(any(OperationContext.class), eq(inviteTokenUrn)))
-        .thenReturn(true);
+    when(mockInviteTokenService.getVerifiedInviteToken(
+            any(OperationContext.class), eq(inviteToken)))
+        .thenReturn(new InviteToken().setToken("encrypted-invite-token"));
 
     // Create request body without title field
     ObjectNode requestBody = objectMapper.createObjectNode();
@@ -966,7 +992,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
     verify(mockNativeUserService, never())
         .createNativeUser(any(), anyString(), anyString(), anyString(), any(), anyString());
-    verify(mockInviteTokenService, never()).isInviteTokenValid(any(), any());
+    verify(mockInviteTokenService, never()).getVerifiedInviteToken(any(), any());
   }
 
   @Test

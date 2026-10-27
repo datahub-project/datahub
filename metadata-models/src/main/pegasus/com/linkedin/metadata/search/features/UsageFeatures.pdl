@@ -8,7 +8,8 @@ import com.linkedin.common.Urn
  * eliminating per-result OpenSearch fan-out on search pages.
  */
 @Aspect = {
-  "name": "usageFeatures"
+  "name": "usageFeatures",
+  "schemaVersion": 2
 }
 record UsageFeatures {
   /**
@@ -29,6 +30,13 @@ record UsageFeatures {
   /**
    * Percentile rank of query count relative to all datasets, over the last 30 days.
    */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "usagePercentile30d"
+    }
+  }
   queryCountPercentileLast30Days: optional int
 
   /**

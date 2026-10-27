@@ -663,10 +663,11 @@ class TestMetricNamesFollowTheColumnRule:
             "Derived": [col("Derived", SemanticViewColumnSubtype.METRIC, "col * 2")],
         }
         distinct = mapper._distinct_metrics(view)
+        occurrence = view.column_occurrences["Derived"][0]
 
         edges = list(
             mapper._derived_from_metrics(
-                occurrence=view.column_occurrences["Derived"][0],
+                occurrence=occurrence,
                 semantic_view=view,
                 table_bound_metrics={},
                 view_scoped_metrics={
@@ -678,6 +679,7 @@ class TestMetricNamesFollowTheColumnRule:
                 schema_name="SCH",
                 db_name="DB",
                 logical_table=None,
+                parsed=mapper._parse_metric_expression(occurrence, view),
             )
         )
 
