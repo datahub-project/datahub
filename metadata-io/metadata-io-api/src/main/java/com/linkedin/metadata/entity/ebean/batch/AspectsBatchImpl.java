@@ -272,6 +272,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                           trustAttributedActor);
                     } catch (IllegalArgumentException e) {
                       log.error("Invalid proposal, skipping and proceeding with batch: {}", mcp, e);
+                      reject(mcp, e);
                       return null;
                     }
                   })
