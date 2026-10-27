@@ -29,6 +29,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateChecks;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHoles;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
@@ -67,18 +68,28 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
   private final int maxRoutes;
   private final int maxRoutePatternLength;
   @Nonnull private final List<EntitySpec> entitySpecs;
+  @Nonnull private final SearchTemplateComponentRegistry registry;
 
   public SearchTemplateValidator(
       @Nonnull SearchTemplateLoader loader, @Nonnull SearchConfiguration searchConfiguration) {
-    this(loader, searchConfiguration, List.of());
+    this(loader, searchConfiguration, List.of(), SearchTemplateComponentRegistry.empty());
   }
 
   public SearchTemplateValidator(
       @Nonnull SearchTemplateLoader loader,
       @Nonnull SearchConfiguration searchConfiguration,
       @Nonnull Collection<EntitySpec> entitySpecs) {
+    this(loader, searchConfiguration, entitySpecs, SearchTemplateComponentRegistry.empty());
+  }
+
+  public SearchTemplateValidator(
+      @Nonnull SearchTemplateLoader loader,
+      @Nonnull SearchConfiguration searchConfiguration,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     this.loader = loader;
     this.entitySpecs = List.copyOf(entitySpecs);
+    this.registry = registry;
     boolean configured =
         searchConfiguration.getV3() != null && searchConfiguration.getV3().getTemplates() != null;
     this.maxLeafClauses =
@@ -191,7 +202,8 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
         maxRoutePatternLength,
         operationContext,
         retrieverContext.getAspectRetriever(),
-        entitySpecs.isEmpty() ? null : entitySpecs);
+        entitySpecs.isEmpty() ? null : entitySpecs,
+        registry);
   }
 
   private void validateBody(
@@ -223,7 +235,8 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
         maxRoutePatternLength,
         operationContext,
         retrieverContext.getAspectRetriever(),
-        entitySpecs.isEmpty() ? null : entitySpecs);
+        entitySpecs.isEmpty() ? null : entitySpecs,
+        registry);
     validateRoutes(operationContext, urn, merged, retrieverContext, batch, deleted);
     validateLadder(operationContext, urn, merged, retrieverContext, batch, deleted);
     validateFilledHoles(operationContext, urn, properties, retrieverContext, batch, deleted);

@@ -93,13 +93,13 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 
 abstract class SearchTemplateFixture {
@@ -162,7 +162,6 @@ abstract class SearchTemplateFixture {
     stored.clear();
     writtenAt.clear();
     definitions.clear();
-    SearchTemplates.install(null);
     registry = TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
     retriever = mock(CachingAspectRetriever.class);
     when(retriever.getEntityRegistry()).thenReturn(registry);
@@ -253,11 +252,6 @@ abstract class SearchTemplateFixture {
     clock.addAndGet(600_000L + 1);
   }
 
-  @AfterMethod
-  public void clearTemplates() {
-    SearchTemplates.install(null);
-  }
-
   protected SearchTemplateWalk.Served<SearchResult> walk(
       String urn,
       String query,
@@ -279,12 +273,17 @@ abstract class SearchTemplateFixture {
         loader,
         executor,
         urn,
-        new SearchTemplateWalk.Request(query, null, sort, size),
+        new SearchTemplateWalk.Request(query, null, sort, size, SearchTemplateWalk.identity()),
         templateUrn -> {
           try {
             SearchResult page = pages.apply(templateUrn);
             return SearchTemplateWalk.AttemptResult.ok(
-                page, page.getNumEntities(), new ArrayList<>(page.getEntities()), List.of(), false);
+                page,
+                page.getNumEntities(),
+                new ArrayList<>(page.getEntities()),
+                List.of(),
+                false,
+                null);
           } catch (RuntimeException e) {
             return SearchTemplateWalk.AttemptResult.failed(e);
           }
@@ -344,8 +343,13 @@ abstract class SearchTemplateFixture {
     return ladder;
   }
 
+  protected SearchTemplateCoordinator useRuntime(@Nullable SearchTemplateCoordinator coordinator) {
+    opContext = opContext.withSearchTemplateRuntime(coordinator);
+    return coordinator;
+  }
+
   protected static List<String> routeChain(OperationContext context, String query) {
-    return SearchTemplates.current()
+    return SearchTemplateRuntimes.coordinator(context)
         .bind(context, query)
         .getSearchContext()
         .getResolvedSearchTemplate()

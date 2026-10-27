@@ -182,7 +182,7 @@ def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
     return kept or None
 
 
-# The v3.2 keys below were ignored before this source parsed them, so an
+# The keys below were ignored before this source parsed them, so an
 # off-spec value must not now reject a contract that used to ingest. Bad values
 # are dropped here; lenient mode already reports them as JSON Schema warnings.
 
@@ -479,7 +479,7 @@ ODCSProperty.model_rebuild()
 ODCSSchemaObject.model_rebuild()
 
 
-# v3.2 keys whose off-spec values the validators above drop instead of
+# Keys whose off-spec values the validators above drop instead of
 # rejecting the contract. Kept next to the validators so the source's
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {

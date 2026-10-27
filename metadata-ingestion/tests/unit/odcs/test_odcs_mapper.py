@@ -12,6 +12,7 @@ from datahub.ingestion.source.odcs.odcs_config import (
 )
 from datahub.ingestion.source.odcs.odcs_mapper import (
     RefusalKind,
+    _is_storable_link_url,
     _make_owners,
     _operator_and_params_from_threshold,
     build_schema_metadata,
@@ -24,6 +25,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_schema_assertion_mcps,
     substitute_object_placeholder,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSContract,
@@ -534,7 +536,7 @@ def test_logical_dataset_mcps_carry_provenance_and_schema() -> None:
     assert props.description is not None and "**purpose**: P" in props.description
 
 
-def _dataset_description(contract: ODCSContract) -> Optional[str]:
+def _logical_description(contract: ODCSContract) -> Optional[str]:
     mcps, _ = odcs_to_logical_dataset_mcps(
         contract=contract,
         schema_entry=_first_schema(contract),
@@ -555,7 +557,7 @@ def test_dataset_description_combines_table_grain_and_contract() -> None:
         ],
         description={"purpose": "Revenue analysis.", "usage": "Join on order_id."},
     )
-    assert _dataset_description(contract) == (
+    assert _logical_description(contract) == (
         "One row per order.\n\n**Grain:** One row per order_id.\n\n"
         "**purpose**: Revenue analysis.\n\n**usage**: Join on order_id."
     )
@@ -565,7 +567,7 @@ def test_dataset_description_blank_grain_ignored() -> None:
     contract = _make_contract(
         schema=[{"name": "t", "description": "T.", "dataGranularityDescription": "   "}]
     )
-    assert _dataset_description(contract) == "T."
+    assert _logical_description(contract) == "T."
 
 
 def test_grain_off_spec_value_dropped() -> None:
@@ -575,17 +577,11 @@ def test_grain_off_spec_value_dropped() -> None:
     assert entry.dataGranularityDescription is None
 
 
-def test_contract_description_is_fallback() -> None:
+def test_contract_description_alone_when_table_has_none() -> None:
     contract = _make_contract(
         schema=[{"name": "t"}], description="Contract-level description."
     )
-    mcps, _ = odcs_to_logical_dataset_mcps(
-        contract=contract,
-        schema_entry=_first_schema(contract),
-        logical_urn=LOGICAL_URN,
-    )
-    props = next(m.aspect for m in mcps if isinstance(m.aspect, DatasetPropertiesClass))
-    assert props.description == "Contract-level description."
+    assert _logical_description(contract) == "Contract-level description."
 
 
 def test_description_object_renders_non_spec_extra_prose_keys() -> None:
@@ -630,6 +626,88 @@ def test_institutional_memory_includes_root_authoritative_definitions() -> None:
     urls = [e.url for e in memory.elements]
     assert "https://root.example/contract" in urls
     assert "https://schema.example/def" in urls
+
+
+def test_institutional_memory_skips_urls_gms_rejects() -> None:
+    contract = _make_contract(
+        schema=[
+            {
+                "name": "t",
+                "authoritativeDefinitions": [
+                    {"url": "jdbc:postgresql://db.example/t", "type": "implementation"}
+                ],
+                "properties": [
+                    {
+                        "name": "col",
+                        "logicalType": "string",
+                        "authoritativeDefinitions": [
+                            {"url": "docs/col.md", "type": "businessDefinition"},
+                            {"url": "https://example.com/def", "type": "glossary"},
+                        ],
+                    }
+                ],
+            }
+        ],
+        authoritative_definitions=[
+            {"url": "../docs/orders.md", "type": "implementation"}
+        ],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    memory = next(
+        m.aspect for m in mcps if isinstance(m.aspect, InstitutionalMemoryClass)
+    )
+    assert [e.url for e in memory.elements] == ["https://example.com/def"]
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "../docs/orders.md",
+        "docs/col.md",
+        "jdbc:postgresql://db.example/t",
+    ]
+
+
+@pytest.mark.parametrize(
+    "url, storable",
+    [
+        ("HTTPS://Example.com/x", True),
+        ("mailto:data-team@example.com", True),
+        ("ftp://files.example.com/spec.pdf", True),
+        ("jdbc:postgresql://db.example/t", False),
+        ("../docs/x.md", False),
+        ("javascript:alert(1)", False),
+        ("https://[2001:db8::1/x", False),
+        ("https://wiki.example/My Page", False),
+        ("https://grafana.example/d?var={a}", False),
+        ("https://wiki.example/My\u00a0Page", False),
+    ],
+)
+def test_is_storable_link_url(url: str, storable: bool) -> None:
+    assert _is_storable_link_url(url) == storable
+
+
+def test_institutional_memory_omitted_when_every_url_skipped() -> None:
+    # An empty institutionalMemory UPSERT would wipe links added in the UI.
+    # `https://[2001:db8::1/x` makes urlparse raise; it must be skipped, not
+    # abort the contract.
+    contract = _make_contract(
+        schema=[{"name": "t"}],
+        authoritative_definitions=[
+            {"url": "../docs/orders.md", "type": "implementation"},
+            {"url": "https://[2001:db8::1/x", "type": "implementation"},
+        ],
+    )
+    mcps, _ = odcs_to_logical_dataset_mcps(
+        contract=contract,
+        schema_entry=_first_schema(contract),
+        logical_urn=LOGICAL_URN,
+    )
+    assert not any(isinstance(m.aspect, InstitutionalMemoryClass) for m in mcps)
+    assert unstorable_authoritative_definition_urls(contract) == [
+        "../docs/orders.md",
+        "https://[2001:db8::1/x",
+    ]
 
 
 def test_replicate_false_skips_ownership() -> None:
@@ -1932,6 +2010,11 @@ def _field_descriptions(properties: List[Dict[str, Any]]) -> Dict[str, Optional[
             {"transformDescription": "Sum of line items."},
             "Order total.\n\n**Derivation:** Sum of line items.",
         ),
+        (
+            # A fence in the logic must not close the block early.
+            {"transformLogic": "SELECT '```' AS x"},
+            "Order total.\n\n**Derivation:**\n\n````sql\nSELECT '```' AS x\n````",
+        ),
         ({"transformDescription": "  ", "transformLogic": ""}, "Order total."),
         ({}, "Order total."),
     ],
@@ -2087,8 +2170,8 @@ def test_binding_table_name_excludes_platform_instance() -> None:
     assert bindings[0].table_name == "db.sch.tbl"
 
 
-def test_binding_table_name_from_override_and_malformed_override() -> None:
-    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+def test_override_that_is_not_a_dataset_urn_is_refused() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}, {"name": "c"}])
     bindings = odcs_to_physical_bindings(
         contract,
         _config(
@@ -2096,12 +2179,63 @@ def test_binding_table_name_from_override_and_malformed_override() -> None:
                 "c1": {
                     "a": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.a,PROD)",
                     "b": "urn:li:datset:typo",
+                    "c": "appdb.public.c",
                 }
             }
         ),
     )
     assert bindings[0].table_name == "db.sch.a"
-    assert bindings[1].table_name is None
+    for refused, value in (
+        (bindings[1], "urn:li:datset:typo"),
+        (bindings[2], "appdb.public.c"),
+    ):
+        assert refused.physical_urn is None
+        assert refused.table_name is None
+        assert refused.refusal is not None
+        assert refused.refusal.kind is RefusalKind.INVALID_OVERRIDE
+        assert value in refused.refusal.message
+
+
+def test_override_table_name_strips_configured_platform_instance() -> None:
+    contract = _make_contract(schema=[{"name": "a"}, {"name": "b"}])
+    bindings = odcs_to_physical_bindings(
+        contract,
+        _config(
+            server_overrides=[{"server": "srv", "platform_instance": "inst1"}],
+            physical_urn_overrides={
+                "c1": {
+                    "a": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.db.sch.a,PROD)",
+                    "b": "urn:li:dataset:(urn:li:dataPlatform:postgres,other.db.sch.b,PROD)",
+                }
+            },
+        ),
+    )
+    assert bindings[0].table_name == "db.sch.a"
+    # An instance the recipe does not name cannot be told apart from the path.
+    assert bindings[1].table_name == "other.db.sch.b"
+
+
+@pytest.mark.parametrize(
+    "lowercase, expected", [(True, "db.sch.mytable"), (False, "DB.Sch.MyTable")]
+)
+def test_binding_table_name_follows_lowercase_setting(
+    lowercase: bool, expected: str
+) -> None:
+    contract = _make_contract(
+        servers=[
+            {"server": "srv", "type": "snowflake", "database": "DB", "schema": "Sch"}
+        ],
+        schema=[{"name": "t1", "physicalName": "MyTable"}],
+    )
+    bindings = odcs_to_physical_bindings(
+        contract, _config(lowercase_physical_urns=lowercase)
+    )
+    assert bindings[0].table_name == expected
+
+
+def test_substitute_object_placeholder_leaves_longer_tokens() -> None:
+    query = "SELECT ${object_id}, ${object:-x} FROM {objects}"
+    assert substitute_object_placeholder(query, "db.sch.orders") == query
 
 
 def test_dataset_description_context_section() -> None:
@@ -2130,7 +2264,7 @@ def test_dataset_description_context_section() -> None:
             ).context
         }
     )
-    assert _dataset_description(contract) == (
+    assert _logical_description(contract) == (
         "T.\n\n## Guidance for AI and analysts\n\n"
         "Use for revenue analysis.\n\nPrefer the daily view.\n\n"
         "**Do not:**\n- Do not join without tenant_id.\n\n"
@@ -2144,7 +2278,7 @@ def test_context_string_with_variable_kept_verbatim() -> None:
     contract = ODCSContract.model_validate(
         {"id": "c1", "context": "Filter on ${REGION}.", "schema": [{"name": "t"}]}
     )
-    assert "Filter on ${REGION}." in (_dataset_description(contract) or "")
+    assert "Filter on ${REGION}." in (_logical_description(contract) or "")
 
 
 def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
@@ -2156,4 +2290,4 @@ def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
             "schema": [{"name": "t", "description": "T."}],
         }
     )
-    assert _dataset_description(contract) == "T."
+    assert _logical_description(contract) == "T."

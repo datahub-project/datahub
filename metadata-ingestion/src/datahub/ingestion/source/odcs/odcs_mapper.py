@@ -1,7 +1,17 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, TypeGuard, Union
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeGuard,
+    Union,
+)
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import (
@@ -76,6 +86,7 @@ from datahub.ingestion.source.odcs.odcs_constants import (
     VARIABLE_MARKER,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSAuthoritativeDefinition,
     ODCSContext,
     ODCSContract,
     ODCSDescription,
@@ -146,6 +157,7 @@ class RefusalKind(StrEnum):
     UNRESOLVED_VARIABLE = "unresolved_variable"
     EXPLICITLY_UNBOUND = "explicitly_unbound"
     NO_TABLE_NAME = "no_table_name"
+    INVALID_OVERRIDE = "invalid_override"
 
 
 @dataclass(frozen=True)
@@ -173,7 +185,8 @@ class PhysicalBinding:
     refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
     # The table as SQL names it: the URN's dataset name without a platform
-    # instance prefix. None when unbound or when an override URN is malformed.
+    # instance prefix. An override keeps an instance prefix that no
+    # `server_overrides` entry names. None when unbound.
     table_name: Optional[str] = None
 
     @property
@@ -450,15 +463,51 @@ def _compose_physical_name(
     return name.lower() if lowercase else name, None, False
 
 
-def _override_table_name(override_urn: str) -> Optional[str]:
-    # An override URN may carry a platform instance in its name; it cannot be
-    # told apart from the table path, so the name is used as written.
+def _strip_platform_instance(urn: DatasetUrn, mappings: List[ServerMapping]) -> str:
+    # An instance prefix cannot be told apart from the table path, so only the
+    # instances the recipe names are stripped.
+    platform = urn.get_data_platform_urn().platform_name
+    for mapping in mappings:
+        prefix = f"{mapping.platform_instance}."
+        if (
+            mapping.platform_instance
+            and mapping.platform in (None, platform)
+            and urn.name.startswith(prefix)
+        ):
+            return urn.name[len(prefix) :]
+    return urn.name
+
+
+def _override_binding(
+    index: int,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+    override_urn: str,
+    config: ODCSSourceConfig,
+) -> PhysicalBinding:
+    binding = PhysicalBinding(
+        index=index,
+        schema_entry=schema_entry,
+        logical_urn=logical_urn,
+        physical_urn=None,
+    )
     if not override_urn:
-        return None
+        binding.refusal = BindingRefusal(
+            RefusalKind.EXPLICITLY_UNBOUND,
+            "explicitly unbound by physical_urn_overrides",
+        )
+        return binding
     try:
-        return DatasetUrn.from_string(override_urn).name
+        urn = DatasetUrn.from_string(override_urn)
     except InvalidUrnError:
-        return None
+        binding.refusal = BindingRefusal(
+            RefusalKind.INVALID_OVERRIDE,
+            f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
+        )
+        return binding
+    binding.physical_urn = override_urn
+    binding.table_name = _strip_platform_instance(urn, config.server_overrides)
+    return binding
 
 
 def odcs_to_physical_bindings(
@@ -487,22 +536,13 @@ def odcs_to_physical_bindings(
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
 
         if overrides is not None and schema_entry.name in overrides:
-            override_urn = (overrides[schema_entry.name] or "").strip()
             bindings.append(
-                PhysicalBinding(
-                    index=index,
-                    schema_entry=schema_entry,
-                    logical_urn=logical_urn,
-                    physical_urn=override_urn or None,
-                    table_name=_override_table_name(override_urn),
-                    refusal=(
-                        None
-                        if override_urn
-                        else BindingRefusal(
-                            RefusalKind.EXPLICITLY_UNBOUND,
-                            "explicitly unbound by physical_urn_overrides",
-                        )
-                    ),
+                _override_binding(
+                    index,
+                    schema_entry,
+                    logical_urn,
+                    (overrides[schema_entry.name] or "").strip(),
+                    config,
                 )
             )
             continue
@@ -692,6 +732,12 @@ def _native_data_type(prop: ODCSProperty) -> str:
     return prop.physicalType or prop.logicalType or "unknown"
 
 
+def _backtick_fence(text: str, minimum: int) -> str:
+    # Longer than any backtick run in the text, so the text cannot close it.
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    return "`" * max(minimum, longest + 1)
+
+
 def _field_description(prop: ODCSProperty) -> Optional[str]:
     """The property description followed by how the column is derived.
 
@@ -699,14 +745,15 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
     never accumulate and disappear when the contract drops them.
     """
     parts = [_description_to_str(prop.description)]
-    transform_description = (prop.transformDescription or "").strip()
-    transform_logic = (prop.transformLogic or "").strip()
+    transform_description = _description_to_str(prop.transformDescription)
+    transform_logic = _description_to_str(prop.transformLogic)
     if transform_description or transform_logic:
         derivation = "**Derivation:**"
         if transform_description:
             derivation += f" {transform_description}"
         if transform_logic:
-            derivation += f"\n\n```sql\n{transform_logic}\n```"
+            fence = _backtick_fence(transform_logic, minimum=3)
+            derivation += f"\n\n{fence}sql\n{transform_logic}\n{fence}"
         parts.append(derivation)
     if prop.enum:
         parts.append(
@@ -781,6 +828,50 @@ def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
     return count
 
 
+# Schemes GMS UrlValidator accepts for institutionalMemory links; keep in sync
+# with InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES. ODCS allows relative paths
+# and non-web URLs (e.g. jdbc:), which GMS rejects.
+_LINK_URL_SCHEMES: FrozenSet[str] = frozenset({"http", "https", "ftp", "mailto"})
+# Characters java.net.URI never accepts unescaped, as found in hand-written
+# links (spaces in Confluence titles, Grafana {}, Kibana |). Not full URI
+# validation: other syntax errors are still rejected by GMS.
+_URI_ILLEGAL_CHARS = re.compile(r'[\s\x00-\x1f\x7f-\x9f"<>\\^`{|}]')
+
+
+def _is_storable_link_url(url: str) -> bool:
+    """Whether GMS accepts `url` as an institutionalMemory link."""
+    if _URI_ILLEGAL_CHARS.search(url):
+        return False
+    try:
+        return urlparse(url).scheme in _LINK_URL_SCHEMES
+    except ValueError:
+        return False
+
+
+def _authoritative_definitions(
+    contract: ODCSContract, schema_entries: List[ODCSSchemaObject]
+) -> List[ODCSAuthoritativeDefinition]:
+    defs = list(contract.authoritativeDefinitions or [])
+    for schema_entry in schema_entries:
+        defs.extend(schema_entry.authoritativeDefinitions or [])
+        for _, prop in _walk_properties(schema_entry.properties):
+            defs.extend(prop.authoritativeDefinitions or [])
+    return defs
+
+
+def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str]:
+    """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
+    would reject as links (relative paths, other schemes), so the source can
+    report them; `_institutional_memory_mcp` skips them."""
+    return sorted(
+        {
+            d.url
+            for d in _authoritative_definitions(contract, contract.schema_ or [])
+            if d.url and not _is_storable_link_url(d.url)
+        }
+    )
+
+
 def _institutional_memory_mcp(
     logical_urn: str, schema_entry: ODCSSchemaObject, contract: ODCSContract
 ) -> Optional[MetadataChangeProposalWrapper]:
@@ -790,14 +881,10 @@ def _institutional_memory_mcp(
     ingesting host's filesystem). The source-file basename is carried in
     DatasetProperties.customProperties instead.
     """
-    seen: set = set()
+    seen: Set[str] = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    defs = list(contract.authoritativeDefinitions or [])
-    defs.extend(schema_entry.authoritativeDefinitions or [])
-    for _, prop in _walk_properties(schema_entry.properties):
-        defs.extend(prop.authoritativeDefinitions or [])
-    for d in defs:
-        if not d.url or d.url in seen:
+    for d in _authoritative_definitions(contract, [schema_entry]):
+        if not d.url or d.url in seen or not _is_storable_link_url(d.url):
             continue
         seen.add(d.url)
         elements.append(
@@ -876,7 +963,7 @@ def _dataset_description(
     A multi-table contract repeats the contract description on every table:
     each logical dataset is read on its own, by people and by Ask DataHub.
     """
-    grain = (schema_entry.dataGranularityDescription or "").strip()
+    grain = _description_to_str(schema_entry.dataGranularityDescription)
     parts = [
         _description_to_str(schema_entry.description),
         f"**Grain:** {grain}" if grain else None,
