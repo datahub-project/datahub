@@ -115,6 +115,17 @@ class NotebookExecutionConfig(ConfigModel):
             "`enabled=True`."
         ),
     )
+    case_sensitive_columns: bool = Field(
+        default=False,
+        description=(
+            "Resolve notebook column names the way a case-sensitive Spark "
+            'session does. Off by default, so `select("name")` finds a column '
+            'stored as `NAME` and keeps that spelling, and `drop("name")` '
+            "removes it. Set true only when the Spark session has "
+            "`spark.sql.caseSensitive` enabled and `Name` and `NAME` are "
+            "different columns. Used when `reconcile_code=True`."
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_reconcile_code_requires_enabled(self):

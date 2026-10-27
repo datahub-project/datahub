@@ -119,6 +119,7 @@ class NotebookProcessEmitter:
         env: str,
         execution_history_days: int,
         reconcile_code: bool = False,
+        case_sensitive_columns: bool = False,
         report: FabricOneLakeSourceReport,
         client: OneLakeClient,
         known_table_urns: Set[str],
@@ -129,6 +130,7 @@ class NotebookProcessEmitter:
         self._env = env
         self._execution_history_days = execution_history_days
         self._reconcile_code = reconcile_code
+        self._case_sensitive_columns = case_sensitive_columns
         self._report = report
         self._client = client
         self._known_table_urns = known_table_urns
@@ -342,7 +344,10 @@ class NotebookProcessEmitter:
             SparkTableRef, Dict[str, Set[Tuple[SparkTableRef, str]]]
         ] = {}
         if self._reconcile_code and nb.content and nb.language in (None, "python"):
-            code = analyze_notebook_code(nb.content)
+            code = analyze_notebook_code(
+                nb.content,
+                case_sensitive_columns=self._case_sensitive_columns,
+            )
             if code is not None and code.tables:
                 reconciled = reconcile_spark_lineage(
                     code.tables, raw, self._normalize_name

@@ -49,12 +49,15 @@ class NotebookCodeAnalysis:
     columns: Dict[CodeTable, ColumnLineage]
 
 
-def analyze_notebook_code(source: str) -> Optional[NotebookCodeAnalysis]:
+def analyze_notebook_code(
+    source: str, *, case_sensitive_columns: bool = False
+) -> Optional[NotebookCodeAnalysis]:
     """Recover per-write table lineage and column renames from notebook source.
 
     Returns None when ``source`` is not parseable Python, so the caller can
     keep the Spark-plan lineage unchanged. Empty mappings mean the code parsed
-    and contains no writes.
+    and contains no writes. Column names match without regard to case unless
+    ``case_sensitive_columns`` is set, and the dataframe's own spelling is kept.
     """
     try:
         tree = ast.parse(_strip_magics(source))
@@ -62,7 +65,7 @@ def analyze_notebook_code(source: str) -> Optional[NotebookCodeAnalysis]:
         logger.debug("Notebook source is not parseable Python; skipping code lineage")
         return None
 
-    extractor = _Extractor()
+    extractor = _Extractor(case_sensitive_columns=case_sensitive_columns)
     extractor.walk(tree.body)
     columns: Dict[CodeTable, ColumnLineage] = {}
     for target, mapping in extractor.column_lineage.items():
@@ -395,11 +398,31 @@ _COLUMN_FUNCS = {"col", "column", "upper", "lower", "trim", "ltrim", "rtrim"}
 _LITERAL_FUNCS = {"lit", "current_timestamp", "current_date", "now", "expr"}
 
 
-def _visible_columns(proj: _Projection) -> List[Tuple[str, Set["_ColRef"]]]:
+def _known_column(
+    names: Iterable[str], column: str, *, case_sensitive: bool
+) -> Optional[str]:
+    """Return the stored spelling of ``column``.
+
+    Spark resolves column names without regard to case unless
+    ``spark.sql.caseSensitive`` is on. The stored spelling is the one the
+    dataframe already uses.
+    """
+    if case_sensitive:
+        return column if column in names else None
+    folded = column.casefold()
+    for name in names:
+        if name.casefold() == folded:
+            return name
+    return None
+
+
+def _visible_columns(
+    proj: _Projection, *, case_sensitive: bool
+) -> List[Tuple[str, Set["_ColRef"]]]:
     return [
         (column, refs)
         for column, refs in proj.explicit.items()
-        if column not in proj.dropped
+        if _known_column(proj.dropped, column, case_sensitive=case_sensitive) is None
     ]
 
 
@@ -416,7 +439,8 @@ def _clone(proj: _Projection) -> _Projection:
 
 
 class _Extractor:
-    def __init__(self) -> None:
+    def __init__(self, *, case_sensitive_columns: bool = False) -> None:
+        self._case_sensitive_columns = case_sensitive_columns
         self.lineage: Dict[CodeTable, Set[CodeTable]] = {}
         self.column_lineage: Dict[CodeTable, Dict[str, Set[_ColRef]]] = {}
         self._frames: Dict[str, Set[CodeTable]] = {}
@@ -622,7 +646,7 @@ class _Extractor:
     def _record_columns(self, target: CodeTable, proj: _Projection) -> None:
         bucket = self.column_lineage.setdefault(target, {})
         for column, refs in proj.explicit.items():
-            if column in proj.dropped:
+            if self._is_dropped(proj, column):
                 continue
             kept = {ref for ref in refs if not _same_table(ref.table, target)}
             if kept:
@@ -689,8 +713,11 @@ class _Extractor:
         if not name:
             return base
         cloned = _clone(base)
+        existing = self._known_column(cloned.explicit, name)
+        if existing is not None and existing != name:
+            cloned.explicit.pop(existing, None)
         cloned.explicit[name] = self._origins_in(call.args[1], base)
-        cloned.dropped.discard(name)
+        self._undrop(cloned, name)
         return cloned
 
     def _rename_column(self, base: _Projection, call: ast.Call) -> _Projection:
@@ -702,12 +729,16 @@ class _Extractor:
             return base
         cloned = _clone(base)
         origins = self._lookup(base, old)
+        existing = self._known_column(cloned.explicit, old)
         if cloned.projected:
-            cloned.explicit.pop(old, None)
+            cloned.explicit.pop(existing if existing is not None else old, None)
         else:
-            cloned.dropped.add(old)
+            cloned.dropped.add(existing if existing is not None else old)
+        replaced = self._known_column(cloned.explicit, new)
+        if replaced is not None and replaced != new:
+            cloned.explicit.pop(replaced, None)
         cloned.explicit[new] = origins
-        cloned.dropped.discard(new)
+        self._undrop(cloned, new)
         return cloned
 
     def _drop(self, base: _Projection, call: ast.Call) -> _Projection:
@@ -716,10 +747,12 @@ class _Extractor:
             name = _eval_tail(arg, self._strings)
             if not name:
                 continue
+            existing = self._known_column(cloned.explicit, name)
+            stored = existing if existing is not None else name
             if cloned.projected:
-                cloned.explicit.pop(name, None)
+                cloned.explicit.pop(stored, None)
             else:
-                cloned.dropped.add(name)
+                cloned.dropped.add(stored)
         return cloned
 
     def _join(self, base: _Projection, call: ast.Call) -> _Projection:
@@ -743,12 +776,17 @@ class _Extractor:
         right = self._projection_of(call.args[0])
         if right is None or not base.projected or not right.projected:
             return _Projection(reads=base.reads | (right.reads if right else set()))
-        left_columns = _visible_columns(base)
-        right_columns = _visible_columns(right)
+        case_sensitive = self._case_sensitive_columns
+        left_columns = _visible_columns(base, case_sensitive=case_sensitive)
+        right_columns = _visible_columns(right, case_sensitive=case_sensitive)
         if by_name:
             explicit = {column: set(refs) for column, refs in left_columns}
             for column, refs in right_columns:
-                explicit.setdefault(column, set()).update(refs)
+                key = _known_column(explicit, column, case_sensitive=case_sensitive)
+                if key is None:
+                    explicit[column] = set(refs)
+                else:
+                    explicit[key].update(refs)
         else:
             explicit = {}
             for index, (column, refs) in enumerate(left_columns):
@@ -1008,27 +1046,42 @@ class _Extractor:
             return [
                 (column, set(refs))
                 for column, refs in proj.explicit.items()
-                if column not in proj.dropped
+                if not self._is_dropped(proj, column)
             ]
         if "." in name:
             qual, column = name.split(".", 1)
             proj = self._qualified(current, qual)
             if proj is None:
                 return []
-            return [(column, self._lookup(proj, column))]
-        return [(name, self._lookup(current, name))]
+            return [(self._canonical(proj, column), self._lookup(proj, column))]
+        return [(self._canonical(current, name), self._lookup(current, name))]
 
     def _qualified(self, current: _Projection, qual: str) -> Optional[_Projection]:
         if current.alias == qual:
             return current
         return current.aliases.get(qual) or self._projections.get(qual)
 
+    def _known_column(self, names: Iterable[str], column: str) -> Optional[str]:
+        return _known_column(names, column, case_sensitive=self._case_sensitive_columns)
+
+    def _canonical(self, proj: _Projection, column: str) -> str:
+        return self._known_column(proj.explicit, column) or column
+
+    def _is_dropped(self, proj: _Projection, column: str) -> bool:
+        return self._known_column(proj.dropped, column) is not None
+
+    def _undrop(self, proj: _Projection, column: str) -> None:
+        dropped = self._known_column(proj.dropped, column)
+        if dropped is not None:
+            proj.dropped.discard(dropped)
+
     def _lookup(self, proj: _Projection, column: str) -> Set[_ColRef]:
-        if column in proj.dropped and column not in proj.explicit:
+        explicit = self._known_column(proj.explicit, column)
+        if self._is_dropped(proj, column) and explicit is None:
             return set()
-        if proj.projected or column in proj.explicit:
-            if column in proj.explicit:
-                return set(proj.explicit[column])
+        if proj.projected or explicit is not None:
+            if explicit is not None:
+                return set(proj.explicit[explicit])
             if proj.projected:
                 return set()
         if proj.passthrough is not None:
@@ -1044,7 +1097,7 @@ class _Extractor:
         column = _eval_tail(expr.slice, self._strings)
         if not column:
             return None
-        return (column, self._lookup(proj, column))
+        return (self._canonical(proj, column), self._lookup(proj, column))
 
     def _origins_in(
         self,

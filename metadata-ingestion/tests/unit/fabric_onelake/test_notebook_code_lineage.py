@@ -321,6 +321,39 @@ out.write.format("delta").save(f"{destination}combined")
     }
 
 
+def test_column_match_ignores_case_and_keeps_spelling() -> None:
+    source = """
+source = f"{bronze}/Tables/dbo/"
+destination = f"{silver}/Tables/silver/"
+orders = spark.read.format("delta").load(f"{source}orders").select(
+    col("NAME").alias("NAME"),
+    col("ID").alias("ID"),
+)
+renamed = orders.withColumnRenamed("NAME", "Name").select("name")
+kept = orders.drop("name")
+renamed.write.format("delta").save(f"{destination}renamed_customers")
+kept.write.format("delta").save(f"{destination}kept_customers")
+"""
+    columns = _columns(source)
+    assert columns["renamed_customers"] == {"Name": {("orders", "NAME")}}
+    assert columns["kept_customers"] == {"ID": {("orders", "ID")}}
+
+
+def test_case_sensitive_columns_require_an_exact_name() -> None:
+    source = """
+source = f"{bronze}/Tables/dbo/"
+destination = f"{silver}/Tables/silver/"
+orders = spark.read.format("delta").load(f"{source}orders").select(
+    col("NAME").alias("NAME"),
+)
+renamed = orders.withColumnRenamed("NAME", "Name").select("name")
+renamed.write.format("delta").save(f"{destination}customers")
+"""
+    analysis = analyze_notebook_code(source, case_sensitive_columns=True)
+    assert analysis is not None
+    assert analysis.columns == {}
+
+
 def test_union_by_name_keeps_distinct_column_names() -> None:
     source = """
 source = f"{bronze}/Tables/dbo/"
