@@ -283,6 +283,7 @@ _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
 _DBT_GRAPHQL_MODEL_TIMING_FIELDS = """
     executeStartedAt
     executeCompletedAt
+    runGeneratedAt
 """
 
 _DBT_FIELDS_BY_TYPE = {
@@ -571,16 +572,35 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
 
+            environment_id = source_config.environment_id
             if (
                 source_config.ingest_contracts
-                and source_config.environment_id is not None
+                and environment_id is None
+                and not is_auto_discovery
             ):
+                # Contracts default to the run's environment; read it from the
+                # job's models so the contract query is probed too.
+                job_data = DBTCloudSource._send_graphql_query(
+                    source_config.metadata_endpoint,
+                    source_config.token.get_secret_value(),
+                    _DBT_GRAPHQL_QUERY.format(type="models", fields="environmentId"),
+                    {"jobId": source_config.job_id, "runId": source_config.run_id},
+                )
+                environment_id = next(
+                    (
+                        model["environmentId"]
+                        for model in (job_data.get("job") or {}).get("models") or []
+                        if model.get("environmentId")
+                    ),
+                    None,
+                )
+            if source_config.ingest_contracts and environment_id is not None:
                 discovery_data = DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token.get_secret_value(),
                     _DBT_DISCOVERY_CONTRACT_QUERY,
                     {
-                        "environmentId": source_config.environment_id,
+                        "environmentId": environment_id,
                         "first": 1,
                         "after": None,
                     },
@@ -588,7 +608,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 if not discovery_data.get("environment"):
                     raise ValueError(
                         "Discovery API returned no environment for "
-                        f"environment_id={source_config.environment_id}"
+                        f"environment_id={environment_id}"
                     )
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
@@ -1195,7 +1215,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         re-ingesting a run does not add new run events. A success without
         timings did not execute the model (as for ``dbt compile``), so it is
         marked as not built; an error without timings (e.g. a contract
-        preflight failure) falls back to ingestion time. The record is marked
+        preflight failure) is stamped with the run's ``runGeneratedAt``, and
+        with ingestion time only if that is missing too. The record is marked
         inferred, keeping it out of process-run emission.
         """
         if node.get("skip"):
@@ -1205,9 +1226,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             return []
         started = node.get("executeStartedAt")
         completed = node.get("executeCompletedAt")
+        generated = node.get("runGeneratedAt")
         started_at = parse_dbt_timestamp(started) if started else None
         completed_at = parse_dbt_timestamp(completed) if completed else None
-        end_time = completed_at or started_at or datetime.now()
+        generated_at = parse_dbt_timestamp(generated) if generated else None
+        end_time = completed_at or started_at or generated_at or datetime.now()
         start_time = started_at or end_time
         job_id = node.get("jobId")
         run_id = node.get("runId")

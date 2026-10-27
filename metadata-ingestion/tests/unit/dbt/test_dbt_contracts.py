@@ -1026,13 +1026,24 @@ def test_model_success_reports_schema_and_ddl_enforced_constraints() -> None:
     assert len(_dq_urns(mcps)) == 2
 
 
-@pytest.mark.parametrize("materialization", ["view", "incremental"])
-def test_non_table_success_reports_schema_only(materialization: str) -> None:
-    # dbt never applies constraints to views, and applies them to an
-    # incremental model only when its table is (re)created.
+@pytest.mark.parametrize(
+    "adapter, materialization",
+    [
+        # dbt never applies constraints to views, and applies them to an
+        # incremental model only when its table is (re)created.
+        ("postgres", "view"),
+        ("postgres", "incremental"),
+        # Databricks adds constraints after writing, so a later failed build
+        # would leave a stale pass.
+        ("databricks", "table"),
+    ],
+)
+def test_success_without_constraint_pass_reports_schema_only(
+    adapter: str, materialization: str
+) -> None:
     source = _make_source()
     node = _make_model(
-        adapter="postgres",
+        adapter=adapter,
         materialization=materialization,
         columns=[_column("id", DBTConstraint(type="not_null"))],
     )
@@ -1973,6 +1984,15 @@ def test_cloud_model_without_timings(status: str, built: bool) -> None:
     assert perf.built_relation is built
 
 
+def test_cloud_error_without_timings_uses_run_generated_at() -> None:
+    # Re-ingesting the same failed run must not add a new result.
+    source = _cloud_source()
+    (perf,) = source._extract_model_performance(
+        {**_cloud_model_node(), "runGeneratedAt": "2025-01-01T00:02:00Z"}
+    )
+    assert perf.end_time == datetime(2025, 1, 1, 0, 2, tzinfo=timezone.utc)
+
+
 def test_cloud_contract_skipped_for_run_from_other_environment() -> None:
     source = _cloud_source(environment_id=42)
     with mock.patch.object(
@@ -2006,6 +2026,30 @@ def test_cloud_skips_model_performance_when_contracts_disabled() -> None:
     parsed = source._parse_into_dbt_node(_cloud_model_node())
     assert parsed.contract is None
     assert parsed.model_performances == []
+
+
+def test_cloud_test_connection_probes_contracts_in_run_environment() -> None:
+    # Without environment_id, the contract query uses the run's environment.
+    with mock.patch.object(DBTCloudSource, "_send_graphql_query") as mock_send:
+        mock_send.side_effect = [
+            {"job": {"id": 1}},
+            {"job": {"models": [{"environmentId": 42}]}},
+            {"environment": None},
+        ]
+        report = DBTCloudSource.test_connection(
+            {
+                "access_url": "https://test.getdbt.com",
+                "token": "dummy_token",
+                "account_id": 123456,
+                "project_id": 1234567,
+                "job_id": 12345678,
+                "target_platform": "snowflake",
+                "ingest_contracts": True,
+            }
+        )
+    assert mock_send.call_args_list[2].args[3]["environmentId"] == 42
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is False
 
 
 def test_cloud_test_connection_rejects_unknown_environment() -> None:

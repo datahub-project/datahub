@@ -509,7 +509,7 @@ def extract_dbt_entities(
                     column_name=kw_args.get("column_name"),
                     kw_args=kw_args,
                     attached_node=manifest_node.get("attached_node"),
-                    where=manifest_node.get("config", {}).get("where"),
+                    where=(manifest_node.get("config") or {}).get("where"),
                 )
 
             contract = None

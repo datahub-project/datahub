@@ -5813,6 +5813,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         "spark": _ALL_STANDARD_CONSTRAINTS,
         "athena": frozenset(),
     }
+    # Adapters that create the table first and add constraints with ALTER, so
+    # a failing constraint leaves the failing data in the table.
+    _CONSTRAINTS_ADDED_AFTER_WRITE = frozenset({"databricks"})
     # Adapters whose primary key makes its columns NOT NULL in the warehouse.
     _PK_ENFORCES_NOT_NULL = frozenset({"postgres", "snowflake", "databricks"})
     _CONSTRAINT_DDL_ENFORCED: Dict[str, FrozenSet[str]] = {
@@ -6198,6 +6201,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # A table build re-creates the table with the constraint DDL, so its
         # success proves DATABASE-enforced constraints. An incremental build
         # gets that DDL only when the table is (re)created, so it may not.
+        # Where constraints are added after the data is written, a failed
+        # build leaves the failing data behind, so a pass would go stale.
         ddl_constraint_urns = (
             [
                 assertion.urn
@@ -6205,6 +6210,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if assertion.enforced_by == ConstraintEnforcement.DATABASE
             ]
             if node.materialization == "table"
+            and (node.dbt_adapter or "").lower()
+            not in self._CONSTRAINTS_ADDED_AFTER_WRITE
             else []
         )
         for perf in node.model_performances:
