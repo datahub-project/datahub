@@ -71,6 +71,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.ingestion.source.common.semantic_model_gate import (
     resolve_emit_semantic_model_entities,
 )
@@ -936,7 +937,9 @@ class DBTCommonConfig(
             "When ``ingest_contracts`` is enabled and a dataset already has a "
             "Data Contract that dbt did not create, replace it with the dbt "
             "contract. By default such contracts are left untouched; the dbt "
-            "contract assertions are still emitted as standalone assertions."
+            "contract assertions are still emitted as standalone assertions. "
+            "Also lets dbt write contracts without a DataHub graph connection, "
+            "where existing contracts cannot be checked."
         ),
     )
 
@@ -1172,10 +1175,18 @@ class ConstraintScope(str, Enum):
 _CONTRACT_SCHEMA_SOURCE = "dbt_contract"
 _DBT_UNIQUE_ID_PROPERTY = "dbt_unique_id"
 _DATA_CONTRACT_ENTITY_TYPE = "dataContract"
+_CONTRACT_FOR_RELATIONSHIP = "ContractFor"
 # dbt applies constraints only to these materializations; views and
 # ephemerals get the column/type preflight but no constraint DDL.
 _CONSTRAINT_MATERIALIZATIONS = frozenset({"table", "incremental"})
 _CONTRACT_PREFETCH_CHUNK_SIZE = 200
+
+
+# Older foreign key form: ``expression: "other_table (id)"``, optionally
+# starting with ``references``.
+_FK_EXPRESSION_RE = re.compile(
+    r"^\s*(?:references\s+)?([^\s(]+)\s*\(([^)]*)\)\s*$", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -1184,6 +1195,21 @@ class _DeclaredConstraint:
     columns: FrozenSet[str]
     to: Optional[str] = None
     to_columns: FrozenSet[str] = field(default_factory=frozenset)
+
+    @classmethod
+    def of(
+        cls, constraint: "DBTConstraint", columns: FrozenSet[str]
+    ) -> "_DeclaredConstraint":
+        to = constraint.to
+        to_columns = frozenset(constraint.to_columns or [])
+        if not to and constraint.expression:
+            match = _FK_EXPRESSION_RE.match(constraint.expression)
+            if match:
+                to = match.group(1)
+                to_columns = frozenset(
+                    c.strip() for c in match.group(2).split(",") if c.strip()
+                )
+        return cls(type=constraint.type, columns=columns, to=to, to_columns=to_columns)
 
 
 _REF_OR_SOURCE_RE = re.compile(r"""\b(ref|source)\s*\(""", re.IGNORECASE)
@@ -1365,6 +1391,7 @@ class _ContractAssertion:
 @dataclass(frozen=True)
 class _PendingContract:
     entity_urn: str
+    # Used when the dataset has no contract yet.
     contract_urn: str
     schema_assertion_urn: str
     data_quality_assertion_urns: List[str]
@@ -1372,6 +1399,7 @@ class _PendingContract:
 
 @dataclass(frozen=True)
 class _ExistingContract:
+    urn: str
     properties: Optional[DataContractPropertiesClass]
     status: Optional[StatusClass]
 
@@ -1406,17 +1434,16 @@ def _foreign_key_matches_test(
     if test_columns and constraint.columns and test_columns != constraint.columns:
         return False
     kw_args = test_info.kw_args or {}
-    if constraint.to:
-        # Both targets must resolve to the same relation; a target that cannot
-        # be resolved is not assumed to match.
-        test_to = resolver.resolve(kw_args.get("to"))
-        constraint_to = resolver.resolve(constraint.to)
-        if (
-            test_to is None
-            or constraint_to is None
-            or not _relation_keys_match(test_to, constraint_to)
-        ):
-            return False
+    # Both targets must resolve to the same relation; a target that cannot be
+    # resolved (or a foreign key without one) is not assumed to match.
+    test_to = resolver.resolve(kw_args.get("to"))
+    constraint_to = resolver.resolve(constraint.to)
+    if (
+        test_to is None
+        or constraint_to is None
+        or not _relation_keys_match(test_to, constraint_to)
+    ):
+        return False
     test_field = kw_args.get("field")
     if (
         test_field
@@ -5713,6 +5740,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _enforced_by_for_constraint(
         self, node: DBTNode, constraint_type: str
     ) -> ConstraintEnforcement:
+        # dbt adds a custom constraint's expression to the DDL as written on
+        # every adapter; whether the warehouse enforces it depends on the text.
+        if constraint_type == DBTConstraintType.CUSTOM.value:
+            return ConstraintEnforcement.DBT_CONTRACT
         adapter = (node.dbt_adapter or "").lower()
         definable = self._CONSTRAINT_DEFINABLE.get(adapter)
         if definable is None:
@@ -5969,21 +6000,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for column in self._contract_columns(model_node):
             for constraint in column.constraints:
                 declared.append(
-                    _DeclaredConstraint(
-                        type=constraint.type,
-                        columns=frozenset({column.name}),
-                        to=constraint.to,
-                        to_columns=frozenset(constraint.to_columns or []),
-                    )
+                    _DeclaredConstraint.of(constraint, frozenset({column.name}))
                 )
         for constraint in model_node.model_constraints:
             declared.append(
-                _DeclaredConstraint(
-                    type=constraint.type,
-                    columns=frozenset(constraint.columns or []),
-                    to=constraint.to,
-                    to_columns=frozenset(constraint.to_columns or []),
-                )
+                _DeclaredConstraint.of(constraint, frozenset(constraint.columns or []))
             )
         return declared
 
@@ -5993,6 +6014,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         model_node: DBTNode,
         declared: Sequence[_DeclaredConstraint],
         resolver: _RelationResolver,
+        num_upstreams: int,
     ) -> bool:
         contract_tag = self.config.tag_prefix + self.config.contract_test_tag
         if contract_tag in test_node.tags:
@@ -6001,7 +6023,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             attached_node = (
                 test_node.test_info.attached_node if test_node.test_info else None
             )
-            return attached_node is None or attached_node == model_node.dbt_name
+            if attached_node is not None:
+                return attached_node == model_node.dbt_name
+            # The declaring model is unknown (dbt Cloud, singular tests), so
+            # only a test that reads this model alone is attached.
+            return num_upstreams == 1
         return self._test_matches_model_constraint(test_node, declared, resolver)
 
     def _test_matches_model_constraint(
@@ -6090,37 +6116,46 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     external_url=external_url,
                 )
 
-    def _read_existing_contracts(
-        self, contract_urns: Sequence[str]
-    ) -> Optional[Dict[str, _ExistingContract]]:
-        """Batch-read existing contracts; None if the read failed.
+    def _find_existing_contracts(
+        self, entity_urns: Sequence[str]
+    ) -> Optional[Dict[str, List[_ExistingContract]]]:
+        """Existing contracts per dataset; None if the lookup failed.
 
-        A failed read is reported as a failure, which also makes stale entity
-        removal keep the previous state, so no contract is soft-deleted because
-        this run could not read it.
+        Contracts are found through the dataset's incoming ``ContractFor``
+        relationships, as the UI does, since a contract created there has a
+        random URN. A failed lookup is reported as a failure, which also makes
+        stale entity removal keep the previous state, so no contract is
+        soft-deleted because this run could not read it.
         """
         graph = self.ctx.graph
         assert graph is not None
-        result: Dict[str, _ExistingContract] = {}
         try:
-            for chunk in more_itertools.chunked(
-                contract_urns, _CONTRACT_PREFETCH_CHUNK_SIZE
-            ):
-                entities = graph.get_entities(
-                    entity_name=_DATA_CONTRACT_ENTITY_TYPE,
-                    urns=list(chunk),
-                    aspects=[
-                        DataContractPropertiesClass.ASPECT_NAME,
-                        StatusClass.ASPECT_NAME,
-                    ],
-                )
-                for urn, aspects in entities.items():
-                    result[urn] = _ExistingContract(
-                        properties=_get_prefetched_aspect(
-                            aspects, DataContractPropertiesClass
-                        ),
-                        status=_get_prefetched_aspect(aspects, StatusClass),
+            contract_urns = {
+                entity_urn: [
+                    related.urn
+                    for related in graph.get_related_entities(
+                        entity_urn=entity_urn,
+                        relationship_types=[_CONTRACT_FOR_RELATIONSHIP],
+                        direction=RelationshipDirection.INCOMING,
                     )
+                ]
+                for entity_urn in entity_urns
+            }
+            aspects_by_urn: Dict[str, Dict[str, Tuple[Any, Any]]] = {}
+            for chunk in more_itertools.chunked(
+                sorted({urn for urns in contract_urns.values() for urn in urns}),
+                _CONTRACT_PREFETCH_CHUNK_SIZE,
+            ):
+                aspects_by_urn.update(
+                    graph.get_entities(
+                        entity_name=_DATA_CONTRACT_ENTITY_TYPE,
+                        urns=list(chunk),
+                        aspects=[
+                            DataContractPropertiesClass.ASPECT_NAME,
+                            StatusClass.ASPECT_NAME,
+                        ],
+                    )
+                )
         except Exception as e:
             self.report.failure(
                 title="Failed to read existing Data Contracts",
@@ -6130,15 +6165,29 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 exc=e,
             )
             return None
-        return result
+        return {
+            entity_urn: [
+                _ExistingContract(
+                    urn=urn,
+                    properties=_get_prefetched_aspect(
+                        aspects_by_urn.get(urn, {}), DataContractPropertiesClass
+                    ),
+                    status=_get_prefetched_aspect(
+                        aspects_by_urn.get(urn, {}), StatusClass
+                    ),
+                )
+                for urn in urns
+            ]
+            for entity_urn, urns in contract_urns.items()
+        }
 
     @staticmethod
     def _is_dbt_contract(
-        pending: _PendingContract, existing: Optional[_ExistingContract]
+        pending: _PendingContract, existing: _ExistingContract
     ) -> bool:
-        """Whether dbt may write this contract: none exists, it was
-        soft-deleted, or it still references this model's schema assertion."""
-        if existing is None or existing.properties is None:
+        """Whether an existing contract is dbt's: it was soft-deleted, or it
+        still references this model's schema assertion."""
+        if existing.properties is None:
             return True
         if existing.status is not None and existing.status.removed:
             return True
@@ -6150,7 +6199,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     @staticmethod
     def _create_data_contract_for_node(
-        pending: _PendingContract,
+        pending: _PendingContract, contract_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
         properties = DataContractPropertiesClass(
             entity=pending.entity_urn,
@@ -6160,14 +6209,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ],
         )
         return [
+            MetadataChangeProposalWrapper(entityUrn=contract_urn, aspect=properties),
             MetadataChangeProposalWrapper(
-                entityUrn=pending.contract_urn, aspect=properties
-            ),
-            MetadataChangeProposalWrapper(
-                entityUrn=pending.contract_urn,
+                entityUrn=contract_urn,
                 aspect=DataContractStatusClass(state=DataContractStateClass.ACTIVE),
             ),
         ]
+
+    def _skip_existing_contracts(
+        self, pending: _PendingContract, existing: Sequence[_ExistingContract]
+    ) -> Iterable[MetadataWorkUnit]:
+        self.report.num_contracts_skipped_existing += 1
+        self.report.contracts_skipped_existing.append(pending.entity_urn)
+        for contract in existing:
+            # Re-emit the contract's own status as a non-primary workunit, so
+            # stale entity removal neither tracks nor soft-deletes a contract
+            # this source wrote earlier but no longer owns.
+            yield MetadataChangeProposalWrapper(
+                entityUrn=contract.urn,
+                aspect=contract.status or StatusClass(removed=False),
+            ).as_workunit(is_primary_source=False)
 
     def _create_contract_assertions_for_node(
         self,
@@ -6193,7 +6254,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if node.dbt_name not in filtered_upstreams:
                     continue
                 if not self._should_attach_test_to_contract(
-                    test_node, node, declared, resolver
+                    test_node, node, declared, resolver, len(filtered_upstreams)
                 ):
                     continue
                 test_urns.append(
@@ -6309,39 +6370,48 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not pending_contracts:
             return
 
-        existing_contracts: Dict[str, _ExistingContract] = {}
-        if not self.config.replace_existing_contracts_with_dbt:
-            if self.ctx.graph is None:
-                self.report.warning(
-                    title="Existing Data Contracts not checked",
-                    message="No DataHub graph is available (e.g. file sink), so "
-                    "dbt Data Contracts replace any existing contract on the same "
-                    "dataset.",
-                )
-            else:
-                read = self._read_existing_contracts(
-                    [pending.contract_urn for pending in pending_contracts]
-                )
-                if read is None:
-                    return
-                existing_contracts = read
+        existing_contracts: Dict[str, List[_ExistingContract]] = {}
+        if self.ctx.graph is not None:
+            found = self._find_existing_contracts(
+                [pending.entity_urn for pending in pending_contracts]
+            )
+            if found is None:
+                return
+            existing_contracts = found
+        elif not self.config.replace_existing_contracts_with_dbt:
+            self.report.warning(
+                title="dbt Data Contracts not written",
+                message="No DataHub graph is available (e.g. file sink), so "
+                "existing Data Contracts cannot be checked and no Data Contract "
+                "was written; contract assertions are still emitted. Configure "
+                "datahub_api, or set replace_existing_contracts_with_dbt, to "
+                "write Data Contracts.",
+            )
+            return
 
         for pending in pending_contracts:
-            existing = existing_contracts.get(pending.contract_urn)
-            if self._is_dbt_contract(pending, existing):
-                yield from self._create_data_contract_for_node(pending)
+            existing = existing_contracts.get(pending.entity_urn, [])
+            if len(existing) > 1:
+                self.report.warning(
+                    title="Multiple Data Contracts on a dataset",
+                    message="The dataset has more than one Data Contract, so "
+                    "dbt left them untouched. Remove the extra contracts.",
+                    context=pending.entity_urn,
+                )
+                yield from self._skip_existing_contracts(pending, existing)
+            elif not existing:
+                yield from self._create_data_contract_for_node(
+                    pending, pending.contract_urn
+                )
                 self.report.num_contracts_emitted += 1
-                continue
-            assert existing is not None
-            self.report.num_contracts_skipped_existing += 1
-            self.report.contracts_skipped_existing.append(pending.entity_urn)
-            # Re-emit the contract's own status as a non-primary workunit, so
-            # stale entity removal neither tracks nor soft-deletes a contract
-            # this source wrote earlier but no longer owns.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=pending.contract_urn,
-                aspect=existing.status or StatusClass(removed=False),
-            ).as_workunit(is_primary_source=False)
+            elif self.config.replace_existing_contracts_with_dbt or (
+                self._is_dbt_contract(pending, existing[0])
+            ):
+                # Written to the existing URN so the dataset keeps one contract.
+                yield from self._create_data_contract_for_node(pending, existing[0].urn)
+                self.report.num_contracts_emitted += 1
+            else:
+                yield from self._skip_existing_contracts(pending, existing)
 
     def get_report(self):
         return self.report

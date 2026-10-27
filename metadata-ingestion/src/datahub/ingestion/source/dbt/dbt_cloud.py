@@ -512,13 +512,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 f"Discovery API returned contract data for {len(data)} model(s)"
             )
         except Exception as e:
-            # Recoverable: surface via report and proceed without contracts
-            # rather than failing the whole ingestion.
-            self.report.warning(
+            # Reported as a failure so stale entity removal keeps the
+            # contracts and contract assertions from the previous run.
+            self.report.failure(
                 title="Failed to fetch dbt Cloud contract data",
                 message=(
                     "Could not query the Discovery API for contract data. "
-                    "Contract assertions will not be emitted for this run. "
+                    "Contracts and contract assertions are not updated or "
+                    "removed in this run. "
                     "Check the environment_id, token permissions, and "
                     "dbt Cloud Discovery API availability."
                 ),

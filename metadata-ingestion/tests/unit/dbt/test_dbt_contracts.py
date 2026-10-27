@@ -10,6 +10,7 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.ingestion.source.dbt.dbt_cloud import (
     DBTCloudConfig,
     DBTCloudSource,
@@ -61,7 +62,12 @@ _PREFLIGHT_MESSAGE = (
 
 
 def _make_source(**config_overrides: Any) -> DBTCoreSource:
-    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-source")
+    # A graph with no existing contracts, so contracts are written.
+    ctx = PipelineContext(
+        run_id="test-contract",
+        pipeline_name="dbt-source",
+        graph=_graph_with_contracts({}),
+    )
     config = DBTCoreConfig(
         manifest_path="temp/manifest.json",
         catalog_path="temp/catalog.json",
@@ -403,6 +409,7 @@ def test_named_constraint_becomes_assertion_name() -> None:
         ("spark", "not_null", "dbt_contract"),
         ("databricks", "check", "database"),
         ("athena", "not_null", "unsupported"),
+        ("athena", "custom", "dbt_contract"),
         ("some_new_adapter", "not_null", "dbt_contract"),
     ],
 )
@@ -494,16 +501,21 @@ def test_contract_test_urn_uses_filtered_upstreams() -> None:
     assert source._make_test_assertion_urn(test_node, model.dbt_name, 1) in urns
 
 
-def test_tagged_multi_model_test_attaches_to_declaring_model_only() -> None:
+@pytest.mark.parametrize("declared_on_orders", [True, False])
+def test_tagged_multi_model_test_attaches_to_declaring_model_only(
+    declared_on_orders: bool,
+) -> None:
+    # dbt Cloud does not say which model a test is declared on; such a test
+    # is not attached to any of the models it reads.
     source = _make_source()
     orders = _make_model(name="orders")
     customers = _make_model(name="customers")
     test_node = _make_test(
         "relationships_orders_customer_id",
-        [orders.dbt_name, customers.dbt_name],
+        [orders.dbt_name, customers.dbt_name, "macro.dbt.test_relationships"],
         tagged=True,
         qualified_test_name="relationships",
-        attached_node=orders.dbt_name,
+        attached_node=orders.dbt_name if declared_on_orders else None,
     )
     by_entity = _dq_urns_by_entity(
         _contract_mcps(source, [orders, customers], [test_node])
@@ -513,7 +525,7 @@ def test_tagged_multi_model_test_attaches_to_declaring_model_only() -> None:
     assert (
         source._make_test_assertion_urn(test_node, orders.dbt_name, 2)
         in (by_entity[orders_urn])
-    )
+    ) is declared_on_orders
     assert (
         source._make_test_assertion_urn(test_node, customers.dbt_name, 2)
         not in (by_entity[customers_urn])
@@ -594,6 +606,41 @@ def test_relationships_test_matches_foreign_key_target(constraint_to: str) -> No
     )
     assert source._make_test_assertion_urn(matched, orders.dbt_name, 2) in urns
     assert source._make_test_assertion_urn(mismatched, orders.dbt_name, 1) not in urns
+
+
+@pytest.mark.parametrize(
+    "expression, matches",
+    [
+        ("dim_customers (id)", True),
+        ("dim_stores (id)", False),
+        ("not parseable", False),
+    ],
+)
+def test_foreign_key_expression_matches_only_its_target(
+    expression: str, matches: bool
+) -> None:
+    source = _make_source()
+    customers = _make_model(name="customers", alias="dim_customers")
+    orders = _make_model(
+        model_constraints=[
+            DBTConstraint(
+                type="foreign_key", columns=["customer_id"], expression=expression
+            )
+        ]
+    )
+    test_node = _make_test(
+        "relationships_orders_customer",
+        [orders.dbt_name, customers.dbt_name],
+        qualified_test_name="relationships",
+        column_name="customer_id",
+        kw_args={"to": "ref('customers')", "field": "id"},
+    )
+    urns = _dq_urns(
+        _contract_mcps(source, [orders], [test_node], other_nodes=[customers])
+    )
+    assert (source._make_test_assertion_urn(test_node, orders.dbt_name, 2) in urns) is (
+        matches
+    )
 
 
 def test_unresolvable_foreign_key_target_is_not_matched_by_name() -> None:
@@ -769,6 +816,16 @@ def test_inferred_timing_is_not_emitted_as_process_run() -> None:
     assert list(source._create_dataprocess_instance_mcps(node, None))
 
 
+def _related_contracts(
+    contracts: Dict[str, DataContractPropertiesClass], entity_urn: str
+) -> List[RelatedEntity]:
+    return [
+        RelatedEntity(urn=urn, relationship_type="ContractFor")
+        for urn, properties in contracts.items()
+        if properties.entity == entity_urn
+    ]
+
+
 def _graph_with_contracts(
     contracts: Dict[str, DataContractPropertiesClass],
     removed: bool = False,
@@ -787,12 +844,19 @@ def _graph_with_contracts(
 
     graph = mock.Mock()
     graph.get_entities.side_effect = get_entities
+    graph.get_related_entities.side_effect = lambda entity_urn, **_: _related_contracts(
+        contracts, entity_urn
+    )
     return graph
 
 
 def _contract_urn(node: DBTNode, env: str = "PROD") -> str:
     entity_urn = node.get_urn("dbt", env, None)
     return f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn})}"
+
+
+# A contract created in the UI gets a random URN.
+_UI_CONTRACT_URN = "urn:li:dataContract:5f0c1a52-ui-created"
 
 
 def _existing_contract(*dq_urns: str) -> DataContractPropertiesClass:
@@ -802,71 +866,106 @@ def _existing_contract(*dq_urns: str) -> DataContractPropertiesClass:
     )
 
 
+def _written_contracts(mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
+    return [
+        str(mcp.entityUrn)
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    ]
+
+
 def test_existing_non_dbt_contract_is_left_untouched() -> None:
     source = _make_source()
     node = _make_model()
     source.ctx.graph = _graph_with_contracts(
-        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")}
+        {_UI_CONTRACT_URN: _existing_contract("urn:li:assertion:authored")}
     )
     mcps = _contract_mcps(source, [node])
-    assert _dq_urns_by_entity(mcps) == {}
+    assert _written_contracts(mcps) == []
     assert source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn in (
         _assertion_infos(mcps)
     )
     assert source.report.num_contracts_skipped_existing == 1
 
 
-def test_dbt_contract_is_rewritten_with_fresh_entries() -> None:
+def test_dbt_contract_is_rewritten_in_place_with_fresh_entries() -> None:
     source = _make_source()
     node = _make_model()
     schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
     source.ctx.graph = _graph_with_contracts(
-        {_contract_urn(node): _existing_contract(schema_urn, "urn:li:assertion:old")}
+        {_UI_CONTRACT_URN: _existing_contract(schema_urn, "urn:li:assertion:old")}
     )
-    assert _dq_urns(_contract_mcps(source, [node])) == [schema_urn]
+    mcps = _contract_mcps(source, [node])
+    assert _written_contracts(mcps) == [_UI_CONTRACT_URN]
+    assert _dq_urns(mcps) == [schema_urn]
 
 
-def test_soft_deleted_contract_is_treated_as_absent() -> None:
+def test_soft_deleted_contract_is_treated_as_dbts() -> None:
     source = _make_source()
     node = _make_model()
     source.ctx.graph = _graph_with_contracts(
-        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")},
+        {_UI_CONTRACT_URN: _existing_contract("urn:li:assertion:authored")},
         removed=True,
     )
-    assert _dq_urns(_contract_mcps(source, [node])) == [
-        source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
-    ]
+    assert _written_contracts(_contract_mcps(source, [node])) == [_UI_CONTRACT_URN]
 
 
-def test_replace_existing_contracts_writes_without_reading() -> None:
+def test_new_contract_uses_the_fixed_urn() -> None:
+    source = _make_source()
+    node = _make_model()
+    source.ctx.graph = _graph_with_contracts({})
+    assert _written_contracts(_contract_mcps(source, [node])) == [_contract_urn(node)]
+
+
+def test_replace_existing_contracts_writes_to_the_existing_urn() -> None:
     source = _make_source(replace_existing_contracts_with_dbt=True)
     node = _make_model()
-    graph = _graph_with_contracts(
-        {_contract_urn(node): _existing_contract("urn:li:assertion:authored")}
+    source.ctx.graph = _graph_with_contracts(
+        {_UI_CONTRACT_URN: _existing_contract("urn:li:assertion:authored")}
     )
-    source.ctx.graph = graph
-    assert _dq_urns(_contract_mcps(source, [node])) == [
+    mcps = _contract_mcps(source, [node])
+    assert _written_contracts(mcps) == [_UI_CONTRACT_URN]
+    assert _dq_urns(mcps) == [
         source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
     ]
-    graph.get_entities.assert_not_called()
 
 
-def test_contract_written_with_warning_when_no_graph() -> None:
-    source = _make_source()
-    assert source.ctx.graph is None
-    assert _dq_urns_by_entity(_contract_mcps(source, [_make_model()]))
+def test_multiple_existing_contracts_are_left_untouched() -> None:
+    source = _make_source(replace_existing_contracts_with_dbt=True)
+    node = _make_model()
+    source.ctx.graph = _graph_with_contracts(
+        {
+            _UI_CONTRACT_URN: _existing_contract(),
+            _contract_urn(node): _existing_contract(),
+        }
+    )
+    assert _written_contracts(_contract_mcps(source, [node])) == []
     assert source.report.warnings
+
+
+@pytest.mark.parametrize("replace", [False, True])
+def test_no_graph_writes_contract_only_when_replacing(replace: bool) -> None:
+    source = _make_source(replace_existing_contracts_with_dbt=replace)
+    source.ctx.graph = None
+    node = _make_model()
+    mcps = _contract_mcps(source, [node])
+    assert _assertion_infos(mcps)
+    if replace:
+        assert _written_contracts(mcps) == [_contract_urn(node)]
+    else:
+        assert _written_contracts(mcps) == []
+        assert source.report.warnings
 
 
 def test_contract_read_failure_is_reported_as_failure() -> None:
     # A failure makes stale entity removal keep the previous state.
     source = _make_source()
     graph = mock.Mock()
-    graph.get_entities.side_effect = RuntimeError("GMS unavailable")
+    graph.get_related_entities.side_effect = RuntimeError("GMS unavailable")
     source.ctx.graph = graph
     mcps = _contract_mcps(source, [_make_model()])
     assert _assertion_infos(mcps)
-    assert _dq_urns_by_entity(mcps) == {}
+    assert _written_contracts(mcps) == []
     assert source.report.failures
 
 
@@ -899,6 +998,16 @@ class _WriteThroughGraph:
         self.aspects: Dict[str, Dict[str, Any]] = {}
         self.mock = mock.Mock()
         self.mock.get_entities.side_effect = self.get_entities
+        self.mock.get_related_entities.side_effect = lambda entity_urn, **_: (
+            _related_contracts(
+                {
+                    urn: aspects[DataContractPropertiesClass.ASPECT_NAME]
+                    for urn, aspects in self.aspects.items()
+                    if DataContractPropertiesClass.ASPECT_NAME in aspects
+                },
+                entity_urn,
+            )
+        )
         self.mock.get_config.return_value = {"statefulIngestionCapable": True}
 
     def write(self, mcp: Any) -> None:
@@ -1001,7 +1110,7 @@ _E2E_CONTRACT_URN = "urn:li:dataContract:" + mce_builder.datahub_guid(
 
 def test_stateful_read_failure_does_not_soft_delete_contract(tmp_path: Path) -> None:
     graph = mock.Mock()
-    graph.get_entities.side_effect = RuntimeError("GMS unavailable")
+    graph.get_related_entities.side_effect = RuntimeError("GMS unavailable")
     workunits, _ = _run_stateful(
         tmp_path, enforced=True, previous_urns=[_E2E_CONTRACT_URN], graph=graph
     )
@@ -1023,16 +1132,16 @@ def test_stateful_skipped_contract_is_not_soft_deleted(tmp_path: Path) -> None:
     # was removed from the contract in DataHub).
     graph = _WriteThroughGraph()
     authored = _existing_contract("urn:li:assertion:authored")
-    graph.aspects[_E2E_CONTRACT_URN] = {
+    graph.aspects[_UI_CONTRACT_URN] = {
         DataContractPropertiesClass.ASPECT_NAME: authored
     }
     workunits, state = _run_stateful(
-        tmp_path, enforced=True, previous_urns=[_E2E_CONTRACT_URN], graph=graph
+        tmp_path, enforced=True, previous_urns=[_UI_CONTRACT_URN], graph=graph
     )
-    assert _E2E_CONTRACT_URN not in _soft_deleted(workunits)
-    assert _E2E_CONTRACT_URN not in state
+    assert _UI_CONTRACT_URN not in _soft_deleted(workunits)
+    assert _UI_CONTRACT_URN not in state
     assert (
-        graph.aspects[_E2E_CONTRACT_URN][DataContractPropertiesClass.ASPECT_NAME]
+        graph.aspects[_UI_CONTRACT_URN][DataContractPropertiesClass.ASPECT_NAME]
         is authored
     )
 
@@ -1180,7 +1289,11 @@ def test_contract_ingestion_end_to_end(tmp_path: Path) -> None:
             enable_meta_mapping=False,
             write_semantics="OVERRIDE",
         ),
-        PipelineContext(run_id="contract-e2e", pipeline_name="dbt-contract-e2e"),
+        PipelineContext(
+            run_id="contract-e2e",
+            pipeline_name="dbt-contract-e2e",
+            graph=_graph_with_contracts({}),
+        ),
     )
     mcps = [
         wu if isinstance(wu, MetadataChangeProposalWrapper) else wu.metadata
@@ -1373,7 +1486,7 @@ def test_cloud_contract_skipped_for_run_from_other_environment() -> None:
     assert source.report.warnings
 
 
-def test_cloud_discovery_failure_is_warned_and_cached() -> None:
+def test_cloud_discovery_failure_is_a_failure_and_cached() -> None:
     source = _cloud_source()
     with mock.patch.object(
         DBTCloudSource,
@@ -1383,7 +1496,8 @@ def test_cloud_discovery_failure_is_warned_and_cached() -> None:
         assert source._get_discovery_contract_data(42) == {}
         assert source._get_discovery_contract_data(42) == {}
     assert mock_fetch.call_count == 1
-    assert source.report.warnings
+    # A failure makes stale entity removal keep the previous contracts.
+    assert source.report.failures
 
 
 def test_cloud_skips_model_performance_when_contracts_disabled() -> None:
