@@ -3,20 +3,27 @@ import i18next from 'i18next';
 import {
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
+    CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
     ChangeCategoryType,
     ChangeOperationType,
+    DEPRECATION_STATUS_ACTIVE,
     GLOSSARY_RELATIONSHIP_TYPE_LABELS,
     PARAM_DESCRIPTION,
     PARAM_DOMAIN_URN,
     PARAM_FIELD_PATH,
+    PARAM_NEW_PARENT,
+    PARAM_NOTE,
+    PARAM_OLD_PARENT,
     PARAM_OWNER_TYPE,
     PARAM_OWNER_TYPE_URN,
     PARAM_OWNER_URN,
     PARAM_PROPERTY_URN,
     PARAM_PROPERTY_VALUES,
     PARAM_RELATIONSHIP_TYPE,
+    PARAM_STATUS,
     PARAM_TAG_URN,
     PARAM_TERM_URN,
     UNINFORMATIVE_OWNER_TYPES,
@@ -278,6 +285,31 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
             displayString = i18next.t('entity.profile.schema:changeEventString.addedToApplication', { appName });
         } else if (changeEvent.operation === ChangeOperationType.Remove) {
             displayString = i18next.t('entity.profile.schema:changeEventString.removedFromApplication', { appName });
+        }
+    } else if (category === CATEGORY_DEPRECATION) {
+        const status = getParameter(changeEvent.parameters, PARAM_STATUS);
+        const note = getParameter(changeEvent.parameters, PARAM_NOTE);
+        if (status === DEPRECATION_STATUS_ACTIVE) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.undeprecated');
+        } else if (note) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.deprecatedWithNote', { note });
+        } else {
+            displayString = i18next.t('entity.profile.schema:changeEventString.deprecated');
+        }
+    } else if (category === CATEGORY_PARENT) {
+        const oldParent = getParameter(changeEvent.parameters, PARAM_OLD_PARENT);
+        const newParent = getParameter(changeEvent.parameters, PARAM_NEW_PARENT);
+        if (oldParent && newParent) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.movedFromTo', {
+                fromName: extractNameFromUrn(oldParent, nameMap),
+                toName: extractNameFromUrn(newParent, nameMap),
+            });
+        } else if (newParent) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.movedTo', {
+                parentName: extractNameFromUrn(newParent, nameMap),
+            });
+        } else if (oldParent) {
+            displayString = i18next.t('entity.profile.schema:changeEventString.movedToTopLevel');
         }
     } else if (category === CATEGORY_ASSET_MEMBERSHIP) {
         const assetUrn = changeEvent.modifier || '';

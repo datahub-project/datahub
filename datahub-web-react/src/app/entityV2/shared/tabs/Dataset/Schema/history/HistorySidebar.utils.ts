@@ -20,6 +20,11 @@ export const PARAM_OWNER_TYPE_URN = 'ownerTypeUrn';
 export const PARAM_DOMAIN_URN = 'domainUrn';
 export const PARAM_PROPERTY_URN = 'propertyUrn';
 export const PARAM_PROPERTY_VALUES = 'propertyValues';
+export const PARAM_STATUS = 'status';
+export const PARAM_NOTE = 'note';
+export const PARAM_OLD_PARENT = 'oldParent';
+export const PARAM_NEW_PARENT = 'newParent';
+export const DEPRECATION_STATUS_ACTIVE = 'ACTIVE';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Glossary relationship type labels — maps backend relationship type strings
