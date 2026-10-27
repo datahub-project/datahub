@@ -33,7 +33,8 @@ import lombok.experimental.Accessors;
 /**
  * Authorizes {@code domains} writes for domain-separated writers.
  *
- * <p>CREATE / UPSERT establishing domains still match Create/Edit Entity against proposed domains.
+ * <p>CREATE / UPSERT establishing domains match Create/Edit Entity against proposed domains.
+ * DataProduct creates also accept Manage Data Products on a proposed domain.
  * Updates on existing entities (including {@code PATCH}) accept {@code EDIT_ENTITY} <em>or</em>
  * {@code EDIT_DOMAINS_PRIVILEGE}; domain resource filters still apply. {@code PATCH} on a missing
  * entity is authorized as Create/Edit Entity only. On an existing entity, PATCH requires the actor

@@ -124,6 +124,10 @@ is applied as metadata (or derived from the source) instead of being used as the
 boundary. Use domain-separated writers when you need hard isolation between writers that must only
 create into a specific domain.
 
+Data Product creation through entity APIs also accepts **Manage Data Products** (`MANAGE_DATA_PRODUCTS`)
+on one of the proposed Domains. This matches the Data Product UI create permission and applies only
+to Data Product creation; it does not grant create access to other entity types.
+
 ###### How to authorize CREATE_ENTITY with a domain-scoped policy
 
 There are two halves: the **policy** (which domains are allowed) and the **create write** (which
