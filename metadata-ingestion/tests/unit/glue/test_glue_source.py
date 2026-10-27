@@ -33,6 +33,7 @@ from datahub.ingestion.source.aws.glue import (
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -451,17 +452,14 @@ def test_resource_link_emits_upstream_edge_to_owner():
             },
         ),
     )
-    upstreams = source._resource_link_owner_upstreams(
+    owner_urn = source._resource_link_lineage_owner_urn(
         resource_link_table_in_mixed_database, "urn:li:dataset:(consumer)"
     )
 
-    assert [u.dataset for u in upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
-    ]
-    assert upstreams[0].type == models.DatasetLineageTypeClass.COPY
+    assert owner_urn == OWNER_TABLE_URN
 
 
-def test_resource_link_owner_upstreams_handles_malformed_target():
+def test_resource_link_owner_urn_handles_malformed_target():
     # A TargetTable missing its Name must not crash the whole run; it should be skipped with a
     # reported warning and no upstream produced.
     source = GlueSource(
@@ -474,11 +472,11 @@ def test_resource_link_owner_upstreams_handles_malformed_target():
         "TargetTable": {"CatalogId": "432143214321", "DatabaseName": "test-database"},
     }
 
-    upstreams = source._resource_link_owner_upstreams(
+    owner_urn = source._resource_link_lineage_owner_urn(
         malformed, "urn:li:dataset:(consumer)"
     )
 
-    assert upstreams == []
+    assert owner_urn is None
     assert source.report.warnings
     assert source.report.num_resource_link_missing_target == 1
 
@@ -515,8 +513,8 @@ def test_database_resource_link_without_owner_catalog_reports_missing_target() -
 def test_resource_link_upstream_merged_with_storage_lineage(
     include_column_lineage: bool,
 ) -> None:
-    # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
-    # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
+    # Glue's GetTables returns a table-level resource link with its target's StorageDescriptor, so
+    # storage lineage also fires. The link must not lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
     # UpstreamLineage aspect on the dataset, not two aspects that clobber each other. With column
     # lineage on, that aspect must carry both the storage and the owner column edges.
     source = GlueSource(
@@ -558,24 +556,22 @@ def test_resource_link_upstream_merged_with_storage_lineage(
         and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
     ]
     assert len(upstream_aspects) == 1
-    datasets = {u.dataset for u in upstream_aspects[0].upstreams}
-    assert (
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
-        in datasets
-    )
-    assert any("dataPlatform:s3" in d for d in datasets)
+    storage_urn = make_s3_urn_for_lineage("s3://owner-bucket/transactions", "PROD")
+    assert {u.dataset for u in upstream_aspects[0].upstreams} == {
+        OWNER_TABLE_URN,
+        storage_urn,
+    }
 
-    column_upstreams = [
-        upstream
-        for fgl in upstream_aspects[0].fineGrainedLineages or []
-        for upstream in fgl.upstreams or []
-    ]
-    if include_column_lineage:
-        assert len(column_upstreams) == 2
-        assert make_schema_field_urn(OWNER_TABLE_URN, "txn_id") in column_upstreams
-        assert any("dataPlatform:s3" in u for u in column_upstreams)
-    else:
-        assert column_upstreams == []
+    expected_column_edges = {
+        (
+            (make_schema_field_urn(upstream, "txn_id"),),
+            (make_schema_field_urn(CONSUMER_LINK_URN, "txn_id"),),
+        )
+        for upstream in (OWNER_TABLE_URN, storage_urn)
+    }
+    assert _column_edges(upstream_aspects[0]) == (
+        expected_column_edges if include_column_lineage else set()
+    )
 
 
 def test_resource_link_no_self_lineage_when_owner_unresolved():
@@ -598,9 +594,9 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
     }
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,acct.db.shared,PROD)"
 
-    upstreams = source._resource_link_owner_upstreams(table, dataset_urn)
+    owner_urn = source._resource_link_lineage_owner_urn(table, dataset_urn)
 
-    assert upstreams == []
+    assert owner_urn is None
     assert source.report.num_resource_link_self_referential == 1
     assert "Resource link owner catalog not mapped" in [
         w.title for w in source.report.warnings
@@ -867,9 +863,12 @@ def test_resource_link_schema_not_resolved_when_disabled():
     graph.get_schema_metadata.assert_not_called()
 
 
-def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_resource_link_downstream_direction_emits_separate_dataset_aspect(
+    include_column_lineage: bool,
+) -> None:
     # In downstream storage-lineage mode the storage aspect targets the S3 URN, so the resource-link
-    # owner edge must be emitted as its own aspect on the dataset URN (no clobber, no merge).
+    # owner edge, and its column edges, must be emitted as their own aspect on the dataset URN.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -877,7 +876,7 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
             platform_instance="consumer_inst",
             emit_storage_lineage=True,
             glue_storage_lineage_direction="downstream",
-            include_column_lineage=False,
+            include_column_lineage=include_column_lineage,
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
@@ -908,13 +907,21 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
     }
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_inst.mixed-database.shared-transactions,PROD)"
-    # One aspect on the S3 URN (storage downstream) and one on the dataset URN (resource link).
-    assert any(e and "dataPlatform:s3" in e for e in by_entity)
-    assert dataset_urn in by_entity
-    assert [u.dataset for u in by_entity[dataset_urn].upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    storage_urn = make_s3_urn_for_lineage("s3://owner-bucket/transactions", "PROD")
+    assert set(by_entity) == {storage_urn, CONSUMER_LINK_URN}
+    assert by_entity[storage_urn].fineGrainedLineages is None
+    assert [u.dataset for u in by_entity[CONSUMER_LINK_URN].upstreams] == [
+        OWNER_TABLE_URN
     ]
+    expected_column_edges = {
+        (
+            (make_schema_field_urn(OWNER_TABLE_URN, "txn_id"),),
+            (make_schema_field_urn(CONSUMER_LINK_URN, "txn_id"),),
+        )
+    }
+    assert _column_edges(by_entity[CONSUMER_LINK_URN]) == (
+        expected_column_edges if include_column_lineage else set()
+    )
 
 
 def test_dataflow_node_uses_owning_catalog_instance():
@@ -1317,13 +1324,7 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     assert all("owner_db" not in urn for urn in snapshot_urns)
 
     # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
-    upstreams = [
-        aspect
-        for wu in wus
-        if wu.get_urn() == shared_events_urn
-        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
-        if aspect is not None
-    ]
+    upstreams = _upstream_lineage(wus, shared_events_urn)
     assert len(upstreams) == 1
     assert [u.dataset for u in upstreams[0].upstreams] == [owner_urn]
 
@@ -1448,6 +1449,7 @@ def _ingest_database_resource_link(
     graph: Optional[DataHubGraph] = None,
     owner_get_table_response: Optional[Dict[str, Any]] = None,
     include_column_lineage: bool = True,
+    resolve_resource_link_schema: bool = True,
 ) -> Tuple[GlueSource, List[Dict[str, Any]], List[MetadataWorkUnit]]:
     # resource-link-test-database (catalog 123412341234) is a database-level link to
     # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
@@ -1467,6 +1469,7 @@ def _ingest_database_resource_link(
             use_s3_object_tags=False,
             catalog_to_platform_instance=catalog_to_platform_instance,
             include_column_lineage=include_column_lineage,
+            resolve_resource_link_schema=resolve_resource_link_schema,
         ),
     )
     source.ctx.graph = graph
@@ -1495,15 +1498,33 @@ def _ingest_database_resource_link(
     return source, tables, wus
 
 
-def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
+def _upstream_lineage(
+    wus: List[MetadataWorkUnit], dataset_urn: str
+) -> List[models.UpstreamLineageClass]:
     return [
-        upstream.dataset
+        aspect
         for wu in wus
         if wu.get_urn() == dataset_urn
         for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
         if aspect is not None
+    ]
+
+
+def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
+    return [
+        upstream.dataset
+        for aspect in _upstream_lineage(wus, dataset_urn)
         for upstream in aspect.upstreams
     ]
+
+
+def _column_edges(
+    lineage: models.UpstreamLineageClass,
+) -> Set[Tuple[Tuple[str, ...], Tuple[str, ...]]]:
+    return {
+        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or []))
+        for fgl in lineage.fineGrainedLineages or []
+    }
 
 
 def test_database_resource_link_tables_rekeyed_to_link() -> None:
@@ -1656,6 +1677,18 @@ DB_LINK_URN = (
 )
 
 
+def _same_name_column_edges(
+    link_urn: str, columns: Tuple[str, ...]
+) -> Set[Tuple[Tuple[str, ...], Tuple[str, ...]]]:
+    return {
+        (
+            (make_schema_field_urn(OWNER_TABLE_URN, column),),
+            (make_schema_field_urn(link_urn, column),),
+        )
+        for column in columns
+    }
+
+
 def _schemaless_database_link_tables() -> Dict[str, Any]:
     tables_response = copy.deepcopy(get_tables_response_for_target_database)
     del tables_response["TableList"][0]["StorageDescriptor"]
@@ -1719,6 +1752,12 @@ def test_database_resource_link_schema_resolved_from_owner(
         assert fields == {"txn_id", "amount"}
         assert source.report.num_resource_link_schema_from_glue == 1
 
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert _column_edges(lineage[0]) == _same_name_column_edges(
+        DB_LINK_URN, tuple(fields)
+    )
+
 
 def test_database_resource_link_table_placed_in_link_database_container() -> None:
     # Through the full pipeline, the link table must sit in the container emitted for the local
@@ -1774,27 +1813,25 @@ def test_database_resource_link_emits_column_lineage_to_owner(
         include_column_lineage=include_column_lineage,
     )
 
-    lineage = [
-        aspect
-        for wu in wus
-        if wu.get_urn() == DB_LINK_URN
-        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
-        if aspect is not None
-    ]
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
     assert len(lineage) == 1
     assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
-    column_edges = {
-        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or []))
-        for fgl in lineage[0].fineGrainedLineages or []
-    }
-    expected = {
-        (
-            (make_schema_field_urn(OWNER_TABLE_URN, column),),
-            (make_schema_field_urn(DB_LINK_URN, column),),
-        )
-        for column in ("id", "name")
-    }
-    assert column_edges == (expected if include_column_lineage else set())
+    expected = _same_name_column_edges(DB_LINK_URN, ("id", "name"))
+    assert _column_edges(lineage[0]) == (expected if include_column_lineage else set())
+
+
+def test_schemaless_resource_link_gets_table_lineage_only() -> None:
+    # Without a schema there are no columns to map, so the link keeps only its table-level edge.
+    _, _, wus = _ingest_database_resource_link(
+        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        tables_response=_schemaless_database_link_tables(),
+        resolve_resource_link_schema=False,
+    )
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
+    assert lineage[0].fineGrainedLineages is None
 
 
 def test_database_resource_link_preserves_existing_target_table() -> None:

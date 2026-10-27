@@ -781,7 +781,9 @@ class GlueViewDefinition:
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default via `include_column_lineage` for Lake Formation resource links; "
+    "storage column lineage also needs `emit_storage_lineage`",
 )
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -1052,22 +1054,20 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=owner.platform_instance,
         )
 
-    def _resource_link_owner_upstreams(
+    def _resource_link_lineage_owner_urn(
         self, table: Dict, dataset_urn: str
-    ) -> List[UpstreamClass]:
-        """Table-level upstream edge from a Lake Formation resource link to its owning table.
+    ) -> Optional[str]:
+        """URN of the owning table a Lake Formation resource link should get lineage to.
 
         A resource-link table carries a ``TargetTable`` pointing at the shared table in the owning
-        account. Emit a COPY edge to the owner's table URN — stamped with the owner account's
-        instance — so the shared dataset stitches back to its source instead of appearing as an
-        unrelated duplicate. Only the table-level upstream edge is built here; the link's own schema
-        is populated separately by ``_resource_link_schema`` (when ``resolve_resource_link_schema``
-        is enabled). Returns [] for non-resource-link tables, or when the target is missing
-        identifiers or resolves to the dataset's own URN (no catalog mapping).
+        account. The owner's URN is stamped with the owner account's instance so the shared dataset
+        stitches back to its source instead of appearing as an unrelated duplicate. Returns None for
+        non-resource-link tables, or when the target is missing identifiers or resolves to the
+        dataset's own URN (no catalog mapping).
         """
         target = table.get("TargetTable")
         if not target:
-            return []
+            return None
 
         owner_urn = self._resource_link_owner_urn(target)
         if owner_urn is None:
@@ -1079,7 +1079,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 "The shared table will be ingested without lineage back to its owner.",
                 context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
             )
-            return []
+            return None
 
         if owner_urn == dataset_urn:
             # The owner resolves to the link's own URN, so a self-upstream edge would be
@@ -1098,9 +1098,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 "rename the link.",
                 context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
-            return []
+            return None
 
-        return [UpstreamClass(dataset=owner_urn, type=DatasetLineageTypeClass.COPY)]
+        return owner_urn
 
     def _resource_link_schema(
         self, table: Dict, dataset_urn: str, table_name: str
@@ -2140,22 +2140,11 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_lineage_if_enabled(
         self,
         mce: MetadataChangeEventClass,
-        resource_link_upstreams: Optional[List[UpstreamClass]] = None,
+        resource_link_owner_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the dataset's UpstreamLineage, combining storage lineage with ``resource_link_upstreams``.
-
-        This method is the single owner of the dataset's own ``UpstreamLineage`` aspect: the Lake
-        Formation resource-link edge is folded into the one aspect that targets ``dataset_urn`` — so
-        two independent sources can't emit two full-replace aspects on the same URN and clobber each
-        other.
-
-        ``resource_link_upstreams`` must only hold COPY edges from a resource link to the shared table
-        it points at: the link is a 1:1 copy with the owner's schema, so when
-        ``include_column_lineage`` is enabled each link column is mapped to the same-named owner
-        column. Don't pass other kinds of upstream here, or they get fabricated column lineage.
-        """
+        """Emit the dataset's single UpstreamLineage aspect, merging storage lineage with the
+        resource-link edge to ``resource_link_owner_urn`` so neither overwrites the other."""
         dataset_urn = mce.proposedSnapshot.urn
-        resource_link_upstreams = resource_link_upstreams or []
         schema_metadata: Optional[SchemaMetadataClass] = (
             mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
         )
@@ -2194,14 +2183,11 @@ class GlueSource(StatefulIngestionSourceBase):
                         else None
                     )
                     if self.source_config.include_column_lineage and schema_metadata:
-                        storage_fine_grained = (
-                            self.get_fine_grained_lineages(
-                                dataset_urn,
-                                table_storage_urn,
-                                schema_metadata,
-                                schema_metadata_for_upstream or schema_metadata,
-                            )
-                            or []
+                        storage_fine_grained = self.get_fine_grained_lineages(
+                            dataset_urn,
+                            table_storage_urn,
+                            schema_metadata,
+                            schema_metadata_for_upstream or schema_metadata,
                         )
                     storage_upstreams = [
                         UpstreamClass(
@@ -2224,17 +2210,26 @@ class GlueSource(StatefulIngestionSourceBase):
                         ),
                     ).as_workunit()
 
+        link_upstreams: List[UpstreamClass] = []
         link_fine_grained: List[FineGrainedLineageClass] = []
-        if self.source_config.include_column_lineage and schema_metadata:
-            for upstream in resource_link_upstreams:
-                link_fine_grained.extend(
-                    self.get_fine_grained_lineages(
-                        dataset_urn, upstream.dataset, schema_metadata, schema_metadata
-                    )
-                    or []
+        if resource_link_owner_urn:
+            link_upstreams = [
+                UpstreamClass(
+                    dataset=resource_link_owner_urn, type=DatasetLineageTypeClass.COPY
+                )
+            ]
+            # Glue returns the owner's live table for both kinds of resource link, and a
+            # schemaless link gets the owner's schema copied in, so the link's columns are the
+            # owner's columns.
+            if self.source_config.include_column_lineage and schema_metadata:
+                link_fine_grained = self.get_fine_grained_lineages(
+                    dataset_urn,
+                    resource_link_owner_urn,
+                    schema_metadata,
+                    schema_metadata,
                 )
 
-        upstreams = storage_upstreams + resource_link_upstreams
+        upstreams = storage_upstreams + link_upstreams
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -2251,44 +2246,32 @@ class GlueSource(StatefulIngestionSourceBase):
         upstream_urn: str,
         schema_metadata: SchemaMetadata,
         schema_metadata_for_upstream: SchemaMetadata,
-    ) -> Optional[List[FineGrainedLineageClass]]:
-        def simplify_field_path(field_path):
-            return Dataset._simplify_field_path(field_path)
-
-        if schema_metadata and schema_metadata_for_upstream:
-            fine_grained_lineages: List[FineGrainedLineageClass] = []
-            for field in schema_metadata.fields:
-                field_path_v1 = simplify_field_path(field.fieldPath)
-                matching_upstream_field = next(
-                    (
-                        f
-                        for f in schema_metadata_for_upstream.fields
-                        if simplify_field_path(f.fieldPath) == field_path_v1
-                    ),
-                    None,
-                )
-                if matching_upstream_field:
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    dataset_urn, field_path_v1
-                                )
-                            ],
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn,
-                                    simplify_field_path(
-                                        matching_upstream_field.fieldPath
-                                    ),
-                                )
-                            ],
-                        )
+    ) -> List[FineGrainedLineageClass]:
+        upstream_paths = {
+            Dataset._simplify_field_path(f.fieldPath)
+            for f in schema_metadata_for_upstream.fields
+        }
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        for field in schema_metadata.fields:
+            field_path_v1 = Dataset._simplify_field_path(field.fieldPath)
+            if field_path_v1 in upstream_paths:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            mce_builder.make_schema_field_urn(
+                                dataset_urn, field_path_v1
+                            )
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            mce_builder.make_schema_field_urn(
+                                upstream_urn, field_path_v1
+                            )
+                        ],
                     )
-            return fine_grained_lineages
-        return None
+                )
+        return fine_grained_lineages
 
     def _create_profile_mcp(
         self,
@@ -2897,11 +2880,11 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_parameters:
             yield from self._get_column_param_workunits(table, dataset_urn)
 
-        # Pass the resource-link table-level edge to get_lineage_if_enabled so it merges with any
+        # Pass the resource-link owner to get_lineage_if_enabled so its edge merges with any
         # storage lineage into one aspect rather than being emitted as a competing one.
         yield from self.get_lineage_if_enabled(
             metadata_record,
-            self._resource_link_owner_upstreams(table, dataset_urn),
+            self._resource_link_lineage_owner_urn(table, dataset_urn),
         )
 
         # Add profile if enabled
