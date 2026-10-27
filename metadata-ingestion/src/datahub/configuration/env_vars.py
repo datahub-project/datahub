@@ -501,7 +501,7 @@ def get_sql_lineage_timeout_seconds() -> int:
 
 
 def get_max_transform_operation_length() -> Optional[int]:
-    """Characters of column transformation logic kept in fine-grained lineage; unset keeps all of it."""
+    """Characters of transformOperation kept before "..." in fine-grained lineage; None when unset."""
     var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
     if not os.getenv(var, "").strip():
         return None

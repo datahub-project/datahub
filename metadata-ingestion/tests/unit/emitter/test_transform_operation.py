@@ -1,3 +1,4 @@
+import importlib
 import json
 from typing import List, Optional
 from unittest.mock import MagicMock
@@ -77,6 +78,18 @@ def test_max_length_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(ENV_VAR, invalid)
         with pytest.raises(ValueError):
             get_max_transform_operation_length()
+
+
+def test_char_limit_is_read_from_env_at_import(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(ENV_VAR, "8")
+    try:
+        module = importlib.reload(transform_operation)
+        assert module.TRANSFORM_OPERATION_CHAR_LIMIT == 8
+    finally:
+        monkeypatch.delenv(ENV_VAR)
+        importlib.reload(transform_operation)
 
 
 def _set_char_limit(monkeypatch: pytest.MonkeyPatch, char_limit: Optional[int]) -> None:
