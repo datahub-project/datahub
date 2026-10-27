@@ -77,6 +77,7 @@ describe('timelineSupportedCategories.json', () => {
     // Categories the backend serves that this sidebar deliberately has no filter for.
     const NO_SIDEBAR_OPTION: Record<string, string> = {
         RELATED_ENTITIES: 'document-only; documents show their history in DocumentChangeHistoryDrawer',
+        LIFECYCLE: 'lifecycle-stage changes are not rendered in this sidebar yet',
     };
 
     it('has a sidebar filter option for every category it lists', () => {

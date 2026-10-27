@@ -43,10 +43,6 @@ public class TimelineSupportedCategoriesJsonTest {
           "../datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Schema/history/"
               + "timelineSupportedCategories.json");
 
-  /** Categories the backend registers that the GraphQL timeline API does not serve. */
-  private static final Map<ChangeCategory, String> NOT_EXPOSED_IN_GRAPHQL =
-      Map.of(ChangeCategory.LIFECYCLE, "document lifecycle is served by the document history API");
-
   private static final ObjectMapper OBJECT_MAPPER =
       new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
@@ -84,7 +80,6 @@ public class TimelineSupportedCategoriesJsonTest {
                   .collect(Collectors.toSet());
           List<String> supported =
               categories.entrySet().stream()
-                  .filter(e -> !NOT_EXPOSED_IN_GRAPHQL.containsKey(e.getKey()))
                   .filter(e -> !Collections.disjoint(e.getValue(), entityAspects))
                   .map(e -> ChangeCategoryType.valueOf(e.getKey().name()).name())
                   .sorted()
@@ -128,7 +123,6 @@ public class TimelineSupportedCategoriesJsonTest {
                 // produce events.
                 .filter(e -> !e.getValue().isEmpty())
                 .map(Map.Entry::getKey)
-                .filter(category -> !NOT_EXPOSED_IN_GRAPHQL.containsKey(category))
                 .filter(category -> !graphqlCategories.contains(category.name()))
                 .forEach(category -> missing.add(entityName + "." + category)));
     assertTrue(

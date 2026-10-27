@@ -37,7 +37,6 @@ public class TimelineCoverageGuardTest {
       Map.of(
           GLOSSARY_TERM_ENTITY_NAME,
           Map.of(
-              "status", "soft-delete is out of Change History scope",
               "schemaMetadata", "unused on glossary terms",
               "displayProperties", "cosmetic",
               "forms", "compliance workflow, not a term change",
