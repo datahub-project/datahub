@@ -1776,3 +1776,21 @@ def test_upstream_lineage_patch_left_unchanged_when_fits_or_not_trimmable(proces
 
     assert [patch_operations(wu) for wu in results] == original
     assert not processor.report.num_truncations_by_aspect
+
+
+def test_upstream_lineage_sizes_are_reported(processor):
+    small_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,small,DEV)"
+    big_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,big,DEV)"
+    processor.ensure_upstream_lineage_size(small_urn, proper_upstream_lineage())
+    processor.ensure_upstream_lineage_size(big_urn, too_big_upstream_lineage())
+
+    report = processor.report
+    assert report.max_upstream_lineage_urn == big_urn
+    assert report.max_upstream_lineage_bytes > 4 * 1024 * 1024
+    assert report.num_upstream_lineage_over_1mb == 1
+    assert report.num_upstream_lineage_over_4mb == 1
+    assert set(report.largest_upstream_lineage_aspects) == {small_urn, big_urn}
+    assert (
+        report.largest_upstream_lineage_aspects[big_urn]
+        > report.largest_upstream_lineage_aspects[small_urn]
+    )
