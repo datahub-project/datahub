@@ -3,6 +3,9 @@ package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.DATAHUB_STOP_WORDS_LIST;
 
 import com.linkedin.metadata.search.MatchedField;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
+import com.linkedin.metadata.search.utils.ESUtils;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,50 +55,174 @@ public final class MatchedFields {
   private static final String STEM_OVERRIDE_RULES = "elasticsearch/stem_override.txt";
   private static final Map<String, String> STEM_OVERRIDES = stemOverrides();
 
+  private final String query;
   private final int minWordLength;
   private final EnglishStemmer stemmer = new EnglishStemmer();
   private final Set<String> queryStems;
   // The forms of the query's last word, which match as a prefix
   private final List<String> lastQueryForms;
+  private final List<String> queryTokens;
+  private final List<List<String>> queryWordForms;
 
   /**
    * @param minWordLength words shorter than this are dropped, as the analyzers' {@code min_length}
    *     filter drops them
    */
   public MatchedFields(@Nonnull final String query, final int minWordLength) {
+    this.query = query;
     this.minWordLength = minWordLength;
     final List<List<String>> queryWords = new ArrayList<>();
+    final List<String> tokens = new ArrayList<>();
     final Matcher matcher = WORD.matcher(query);
     while (matcher.find()) {
-      final List<String> forms = forms(matcher.group());
-      if (!forms.isEmpty()) {
-        queryWords.add(forms);
+      final List<String> wordForms = forms(matcher.group());
+      if (!wordForms.isEmpty()) {
+        queryWords.add(wordForms);
+        tokens.add(matcher.group());
       }
     }
     this.queryStems =
         queryWords.stream().flatMap(List::stream).map(this::stem).collect(Collectors.toSet());
     this.lastQueryForms = queryWords.isEmpty() ? List.of() : queryWords.get(queryWords.size() - 1);
+    this.queryWordForms = List.copyOf(queryWords);
+    this.queryTokens = List.copyOf(tokens);
   }
 
   /** The fields among {@code fields}, in that order, whose value in {@code source} matches. */
   @Nonnull
   public List<MatchedField> find(
       @Nonnull final Map<String, Object> source, @Nonnull final Collection<String> fields) {
-    final List<MatchedField> matchedFields = new ArrayList<>();
+    return find(source, fields, Map.of());
+  }
+
+  /**
+   * One pass over the fetched values. Each field stops at its first match. The explanation is
+   * filled only when {@code includeExplain} is set, from that same match.
+   */
+  @Nonnull
+  public SearchHitMatches matches(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names,
+      final boolean includeExplain) {
     if (lastQueryForms.isEmpty()) {
-      return matchedFields;
+      return SearchHitMatches.EMPTY;
     }
+    final List<MatchedField> matchedFields = new ArrayList<>();
+    final List<MatchEvidence> evidence = new ArrayList<>();
     for (String field : fields) {
-      for (Object value : values(source.get(field))) {
+      final String reported = names.getOrDefault(field, field);
+      for (Object value : values(at(source, field))) {
         final String text = String.valueOf(value);
         final int match = firstMatch(text);
         if (match >= 0) {
-          matchedFields.add(new MatchedField().setName(field).setValue(fragment(text, match)));
+          matchedFields.add(new MatchedField().setName(reported).setValue(fragment(text, match)));
+          if (includeExplain) {
+            evidence.add(evidence(reported, text, match));
+          }
           break;
         }
       }
     }
-    return matchedFields;
+    return new SearchHitMatches(matchedFields, evidence);
+  }
+
+  /**
+   * {@code names} reports a fetched path under another name. A nulled URN label is fetched from the
+   * aspect field that stores its parsed name.
+   */
+  @Nonnull
+  public List<MatchedField> find(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names) {
+    return matches(source, fields, names, false).matched();
+  }
+
+  /**
+   * The same matches as {@link #find}, with the subfield, match kind, and query word. Shared {@code
+   * copy_to} fields are not stored, so the subfield is inferred: an exact value or a prefix is the
+   * keyword subfield, and a stem or word match is the stemmed subfield.
+   */
+  @Nonnull
+  public List<MatchEvidence> explain(
+      @Nonnull final Map<String, Object> source,
+      @Nonnull final Collection<String> fields,
+      @Nonnull final Map<String, String> names) {
+    return matches(source, fields, names, true).explain();
+  }
+
+  @Nonnull
+  private MatchEvidence evidence(
+      @Nonnull final String field, @Nonnull final String text, final int match) {
+    final int rank = matchRank(text, match);
+    final String mode =
+        rank == 0 ? MatchEvidence.EXACT : rank == 1 ? MatchEvidence.PREFIX : MatchEvidence.WORD;
+    final String subfield = subfield(field, mode);
+    final String matchedQuery = MatchEvidence.WORD.equals(mode) ? queryWord(text) : query.trim();
+    return new MatchEvidence(field, fragment(text, match), subfield, mode, matchedQuery);
+  }
+
+  @Nonnull
+  private static String subfield(@Nonnull final String field, @Nonnull final String mode) {
+    if (field.endsWith(ESUtils.KEYWORD_SUFFIX)
+        || field.endsWith(V3SearchFields.STEMMED_SUFFIX)
+        || field.endsWith(V3SearchFields.TEXT_SUFFIX)) {
+      return field;
+    }
+    return MatchEvidence.WORD.equals(mode)
+        ? field + V3SearchFields.STEMMED_SUFFIX
+        : field + ESUtils.KEYWORD_SUFFIX;
+  }
+
+  /** The query token whose stem or prefix matched, or the whole query when none is found. */
+  @Nonnull
+  private String queryWord(@Nonnull final String text) {
+    final Matcher matcher = WORD.matcher(text);
+    while (matcher.find()) {
+      for (String form : forms(matcher.group())) {
+        if (lastQueryForms.stream().anyMatch(form::startsWith) && !queryTokens.isEmpty()) {
+          return queryTokens.get(queryTokens.size() - 1);
+        }
+        final String stemmed = stem(form);
+        for (int i = 0; i < queryWordForms.size(); i++) {
+          for (String queryForm : queryWordForms.get(i)) {
+            if (queryForm.equals(form) || stem(queryForm).equals(stemmed)) {
+              return queryTokens.get(i);
+            }
+          }
+        }
+      }
+    }
+    return query.trim();
+  }
+
+  /** Exact, then a value that starts with the query, then the earliest word match. */
+  private int matchRank(@Nonnull final String text, final int match) {
+    final String trimmed = query.trim();
+    if (text.equalsIgnoreCase(trimmed)) {
+      return 0;
+    }
+    if (!trimmed.isEmpty() && text.regionMatches(true, 0, trimmed, 0, trimmed.length())) {
+      return 1;
+    }
+    return 2 + match;
+  }
+
+  /** A dotted field is either a flat key or a path through nested objects. */
+  @Nullable
+  private static Object at(@Nonnull final Map<String, Object> source, @Nonnull final String field) {
+    if (source.containsKey(field)) {
+      return source.get(field);
+    }
+    Object current = source;
+    for (String part : field.split("\\.", -1)) {
+      if (!(current instanceof Map<?, ?> map) || !map.containsKey(part)) {
+        return null;
+      }
+      current = map.get(part);
+    }
+    return current;
   }
 
   /** Whether the query has a word a field could match. */

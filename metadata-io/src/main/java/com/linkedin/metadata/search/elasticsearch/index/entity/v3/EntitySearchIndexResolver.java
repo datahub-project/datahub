@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.LinkedHashSet;

@@ -185,14 +185,18 @@ def comparable_type(type_text: str) -> str:
 
 
 def record_fields(rdef: dict) -> dict[str, dict]:
-    """`bsv.parse_top_level_defs` fields in the shape `rac.fields` returns."""
+    """`bsv.parse_record_fields` fields in the shape `rac.fields` returns.
+
+    The bumper's tuple is (type, optional, annotations, deprecated). Deprecation
+    does not change the stored value, so rollback ignores that flag.
+    """
     return {
         name: {
             "optional": opt,
             "type": re.sub(r"^optional\s+", "", typ, count=1),
             "annotations": ann,
         }
-        for name, (typ, opt, ann) in rdef["fields"].items()
+        for name, (typ, opt, ann, *_) in rdef["fields"].items()
     }
 
 

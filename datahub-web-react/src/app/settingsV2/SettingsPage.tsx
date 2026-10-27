@@ -20,7 +20,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button } from '@src/alchemy-components';

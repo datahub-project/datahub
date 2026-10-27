@@ -22,10 +22,10 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
-import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';

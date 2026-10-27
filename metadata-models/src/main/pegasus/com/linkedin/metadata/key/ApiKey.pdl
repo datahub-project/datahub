@@ -12,6 +12,10 @@ record ApiKey {
   /**
    * Unique identifier for the API, e.g. "order-lookup-mcp" or a generated UUID.
    */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   id: string
 }

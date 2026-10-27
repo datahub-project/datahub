@@ -20,8 +20,8 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { NoPageFound } from '@app/shared/NoPageFound';
-import { useUrlQueryParam } from '@app/shared/useUrlQueryParam';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { useUrlQueryParam } from '@app/sharedV2/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';

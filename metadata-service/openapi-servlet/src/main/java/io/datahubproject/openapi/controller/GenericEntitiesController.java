@@ -65,6 +65,7 @@ import io.datahubproject.openapi.models.GenericAspect;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
 import io.datahubproject.openapi.util.RequestInputUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -239,7 +240,18 @@ public abstract class GenericEntitiesController<
               description =
                   "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
           @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepAlive)
+          String pitKeepAlive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Caller-selected search template URN (urn:li:searchTemplate:<id>).")
+          @RequestParam(value = "searchTemplate", required = false)
+          String searchTemplate,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "When true, the response includes the templates visited while choosing the result.")
+          @RequestParam(value = "includeExplain", required = false)
+          Boolean includeExplain)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -286,14 +298,17 @@ public abstract class GenericEntitiesController<
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
                 .withSearchFlags(
                     flags ->
-                        flags
-                            .setSkipCache(skipCache)
-                            .setIncludeSoftDeleted(includeSoftDelete)
-                            .setSliceOptions(
-                                sliceId != null && sliceMax != null
-                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                    : null,
-                                SetMode.IGNORE_NULL)),
+                        SearchTemplateFlags.apply(
+                            flags
+                                .setSkipCache(skipCache)
+                                .setIncludeSoftDeleted(includeSoftDelete)
+                                .setSliceOptions(
+                                    sliceId != null && sliceMax != null
+                                        ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                        : null,
+                                    SetMode.IGNORE_NULL),
+                            searchTemplate,
+                            includeExplain)),
             List.of(entitySpec.getName()),
             query,
             null,
@@ -340,13 +355,30 @@ public abstract class GenericEntitiesController<
         buildScrollResult(
             opContext,
             authorizedEntities,
-            null,
+            routeChainOnly(result),
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
             true,
             result.getNumEntities(),
             false));
+  }
+
+  /**
+   * The per-entity scroll has never returned facets, so only the route chain travels with the
+   * result. Aggregations stay on the cross-entity scroll, which takes a {@code skipAggregates}
+   * parameter.
+   */
+  @Nullable
+  private static SearchResultMetadata routeChainOnly(@Nonnull ScrollResult result) {
+    if (!result.hasMetadata() || result.getMetadata() == null) {
+      return null;
+    }
+    SearchResultMetadata metadata = result.getMetadata();
+    if (!metadata.hasRouteChain() || metadata.getRouteChain() == null) {
+      return null;
+    }
+    return new SearchResultMetadata().setRouteChain(metadata.getRouteChain());
   }
 
   @Tag(name = "Generic Entities")

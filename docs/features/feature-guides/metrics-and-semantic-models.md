@@ -13,6 +13,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 Metrics & Semantic Models is currently in **Beta**. The underlying entity model is stable, but the UI experience, lineage visualization, and ingestion coverage are actively evolving. Expect ongoing improvements to sidebar navigation, entity page layouts, and lineage rendering across the next few releases.
 :::
 
+:::tip Looking for modeling guidance?
+This guide covers _what_ Metrics & Semantic Models are and _how_ to turn them on. For opinionated patterns on how to model your business concepts in them — when to use a Glossary Term vs a Metric, how to represent the same KPI across Snowflake and dbt, how metric lineage works end to end — see [Metrics & Semantic Models — Best Practices](./metrics-and-semantic-models-best-practices.md).
+:::
+
 ## Why Use Metrics & Semantic Models?
 
 DataHub Metrics is a **catalog for metric definitions**, transforming how your team documents, discovers, and governs business measurements:
@@ -21,7 +25,7 @@ DataHub Metrics is a **catalog for metric definitions**, transforming how your t
 - **Lineage from KPI to source and consumers** — Trace every metric through the logical datasets it reads down to the physical tables and columns that feed it, and out to the Charts, Dashboards, and Datasets that consume it.
 - **AI-ready context** — Attach synonyms, natural-language instructions, and example questions to every metric so agents and Ask DataHub can resolve natural language questions against cataloged definitions instead of guessing.
 - **Governed like everything else** — Metrics and Semantic Models are full DataHub entities: owners, domains, tags, glossary terms, structured properties, and documentation all attach to them the same way they attach to Datasets.
-- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views today; dbt Semantic Layer, Databricks metric views, and BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
+- **Portable, tool-agnostic model** — The model is designed to accept metrics from any semantic layer (Snowflake Semantic Views and dbt today, Cube and MicroStrategy in alpha; Databricks metric views and more BI-tool metrics on the roadmap), so investing in the catalog is not a bet on one tool. Field-level overlap with [Apache Ossie](./ossie-compatibility.md) is documented separately.
 
 ## What's Included
 
@@ -213,7 +217,7 @@ Future releases will ensure AI Context feeds directly into Ask DataHub and any a
 We're actively investing in the Metrics experience. Near-term work includes:
 
 - **Metrics & Semantic Models via DataHub MCP** so agents can retrieve them during agentic workflows.
-- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views to cover dbt Semantic Layer / MetricFlow, Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
+- **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views and dbt to cover Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
 - **Column-level lineage from source columns through to metrics.** Full column-to-metric impact analysis — see which KPIs are affected by a change to a raw column.
 - **Lineage visualization improvements.** Cleaner node labels, collapsed intermediate nodes, and a Semantic Model container view that reduces graph noise.
 - **AI-native discovery.** Ask DataHub resolving natural-language questions to cataloged metric definitions using synonyms and expression-aware SQL.
@@ -239,4 +243,5 @@ Yes. Metrics support Structured Properties — typed, governance-controlled, sea
 
 ## Related
 
+- [Metrics & Semantic Models — Best Practices](./metrics-and-semantic-models-best-practices.md) — opinionated modeling patterns, how to represent cross-platform metrics, and how metric lineage works end to end
 - [Semantic Models & Metrics SDK Tutorial](../../api/tutorials/semantic-models.md)
