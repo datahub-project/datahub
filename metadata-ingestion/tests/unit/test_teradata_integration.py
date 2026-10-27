@@ -406,17 +406,7 @@ class TestConfigurationIntegration:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Test that profiling affects SQL configuration
-            mock_sql_config = MagicMock()
-            mock_sql_config.is_profiling_enabled.return_value = True
-            mock_sql_config.options = {}
-
-            source._add_default_options(mock_sql_config)
-
-            # Should add QueuePool for profiling
             from sqlalchemy.pool import QueuePool
-
-            assert mock_sql_config.options["poolclass"] == QueuePool
 
             # The Teradata dialect defaults to SingletonThreadPool. The base class
             # applies _profiling_pool_class before deciding on max_overflow, so the

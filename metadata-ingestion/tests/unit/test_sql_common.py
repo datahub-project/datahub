@@ -380,6 +380,39 @@ def test_add_default_options_sets_max_overflow_when_pooled() -> None:
     assert config.options["max_overflow"] == config.profiling.max_workers
 
 
+class _TestPooledProfilingSource(_TestSQLAlchemySource):
+    _profiling_pool_class = QueuePool
+
+
+def test_profiling_pool_class_sets_poolclass_and_max_overflow() -> None:
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
+    config = _TestSQLiteConfig.model_validate({"profiling": {"enabled": True}})
+
+    source._add_default_options(config)
+
+    # The declared pool replaces the dialect default (SingletonThreadPool for
+    # in-memory SQLite), and because it is a QueuePool, max_overflow follows.
+    assert config.options["poolclass"] is QueuePool
+    assert config.options["max_overflow"] == config.profiling.max_workers
+    create_engine(config.get_sql_alchemy_url(), **config.options).dispose()
+
+
+def test_profiling_pool_class_does_not_override_user_poolclass() -> None:
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
+    config = _TestSQLiteConfig.model_validate(
+        {"profiling": {"enabled": True}, "options": {"poolclass": NullPool}}
+    )
+
+    source._add_default_options(config)
+
+    assert config.options["poolclass"] is NullPool
+    assert "max_overflow" not in config.options
+
+
 def test_add_default_options_noop_without_profiling() -> None:
     source = get_test_sql_alchemy_source()
     config = _TestSQLAlchemyConfig.model_validate({})

@@ -365,6 +365,12 @@ class ProfileMetadata:
 class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
+    # Pool class to default `poolclass` to when profiling is enabled. Sources whose
+    # dialect defaults to a pool that cannot serve parallel connections (for
+    # example Teradata's SingletonThreadPool) set this to QueuePool. It is a
+    # default: a `poolclass` in the user's options still wins.
+    _profiling_pool_class: ClassVar[Optional[Type[Pool]]] = None
+
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
         self.config: SQLCommonConfig = config
@@ -407,14 +413,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
-    # Pool class to default `poolclass` to when profiling is enabled. Sources whose
-    # dialect defaults to a pool that cannot serve parallel connections (for
-    # example Teradata's SingletonThreadPool) set this to QueuePool. It is a
-    # default: a `poolclass` in the user's options still wins.
-    _profiling_pool_class: ClassVar[Optional[Type[Pool]]] = None
-
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
-        """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
+        """Add default SQLAlchemy options.
+
+        Can be overridden by subclasses to add additional defaults. To make
+        profiling default to a particular pool, set `_profiling_pool_class`
+        on the subclass rather than overriding this method.
+        """
         if not sql_config.is_profiling_enabled():
             return
         if self._profiling_pool_class is not None:
