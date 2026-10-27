@@ -8,9 +8,11 @@ import {
     CATEGORY_VERSIONING,
     CategoryOption,
     filterChangeEntries,
+    findDescriptionChange,
     getCategoryOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
-import { ChangeCategoryType, EntityType } from '@src/types.generated';
+import timelineSupportedCategories from '@app/entityV2/shared/tabs/Dataset/Schema/history/timelineSupportedCategories.json';
+import { ChangeCategoryType, ChangeOperationType, EntityType } from '@src/types.generated';
 
 const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: ChangeCategoryType.TechnicalSchema, label: 'Schema' },
@@ -68,6 +70,40 @@ describe('getCategoryOptions', () => {
 
         const expectedOrder = allValues.filter((v) => glossaryValues.includes(v));
         expect(glossaryValues).toEqual(expectedOrder);
+    });
+});
+
+describe('timelineSupportedCategories.json', () => {
+    // Categories the backend serves that this sidebar deliberately has no filter for.
+    const NO_SIDEBAR_OPTION: Record<string, string> = {
+        RELATED_ENTITIES: 'document-only; documents show their history in DocumentChangeHistoryDrawer',
+    };
+
+    it('has a sidebar filter option for every category it lists', () => {
+        const optionValues = new Set(getCategoryOptions(undefined).map((o) => o.value));
+        const missing = Object.entries(timelineSupportedCategories as Record<string, string[]>).flatMap(
+            ([entityType, categories]) =>
+                categories
+                    .filter((category) => !optionValues.has(category) && !(category in NO_SIDEBAR_OPTION))
+                    .map((category) => `${entityType}.${category}`),
+        );
+        expect(missing).toEqual([]);
+    });
+});
+
+describe('findDescriptionChange', () => {
+    it('picks the documentation change that carries a description, not the first one', () => {
+        const nameChange = {
+            category: ChangeCategoryType.Documentation,
+            operation: ChangeOperationType.Modify,
+            parameters: [{ key: 'field', value: 'name' }],
+        };
+        const definitionChange = {
+            category: ChangeCategoryType.Documentation,
+            operation: ChangeOperationType.Modify,
+            parameters: [{ key: 'description', value: 'New definition' }],
+        };
+        expect(findDescriptionChange([nameChange, definitionChange])).toBe(definitionChange);
     });
 });
 

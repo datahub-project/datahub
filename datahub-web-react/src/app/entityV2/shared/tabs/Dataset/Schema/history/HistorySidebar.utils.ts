@@ -11,6 +11,7 @@ import { ChangeCategoryType, ChangeOperationType, EntityType } from '@types';
 export const PARAM_FIELD_PATH = 'fieldPath';
 export const PARAM_DESCRIPTION = 'description';
 export const PARAM_PREVIOUS_DESCRIPTION = 'previousDescription';
+export const PARAM_DOCUMENTATION = 'documentation';
 export const PARAM_TAG_URN = 'tagUrn';
 export const PARAM_TERM_URN = 'termUrn';
 export const PARAM_RELATIONSHIP_TYPE = 'relationshipType';
@@ -131,6 +132,20 @@ export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
     const supported = entityType ? ENTITY_SUPPORTED_CATEGORIES[entityType] : undefined;
     if (!supported) return allOptions;
     return allOptions.filter((o) => supported.includes(o.value));
+}
+
+/**
+ * Returns the Documentation change that carries a description. A transaction can hold several Documentation
+ * changes (e.g. a glossary term's name and definition), and only the description one feeds the diff view.
+ */
+export function findDescriptionChange<
+    C extends { category?: string | null; parameters?: Array<{ key?: string | null }> | null } | null,
+>(changes: C[]): C | undefined {
+    return changes.find(
+        (c) =>
+            c?.category === ChangeCategoryType.Documentation &&
+            (c.parameters ?? []).some((p) => p.key === PARAM_DESCRIPTION),
+    );
 }
 
 /**

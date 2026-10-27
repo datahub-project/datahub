@@ -792,6 +792,18 @@ describe('getChangeEventString for deprecation, hierarchy and info-aspect change
         expect(getChangeEventString(changeEvent)).toBe("Custom property 'owner_team' has been set: 'risk'.");
     });
 
+    it('renders an attributed documentation-aspect change without a field prefix', () => {
+        const changeEvent = {
+            ...event(
+                ChangeCategoryType.Documentation,
+                [{ key: 'documentation', value: 'Docs' }],
+                "Documentation for 'urn:li:dataset:d' has been added: 'Docs'.",
+            ),
+            modifier: 'urn:li:dataHubAction:propagation',
+        };
+        expect(getChangeEventString(changeEvent)).toBe("Documentation has been added: 'Docs'.");
+    });
+
     it('renders a documentation-aspect change', () => {
         const changeEvent = event(
             ChangeCategoryType.Documentation,

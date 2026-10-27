@@ -12,6 +12,7 @@ import {
     DEPRECATION_STATUS_ACTIVE,
     GLOSSARY_RELATIONSHIP_TYPE_LABELS,
     PARAM_DESCRIPTION,
+    PARAM_DOCUMENTATION,
     PARAM_DOMAIN_URN,
     PARAM_FIELD_PATH,
     PARAM_NEW_PARENT,
@@ -156,6 +157,9 @@ export function getChangeEventString(changeEvent: ChangeEvent, nameMap?: Map<str
                 const fieldPath = changeEvent.modifier;
                 displayString = description === '' ? emptyFieldDoc(fieldPath) : setFieldDoc(fieldPath, description);
             }
+        } else if ((changeEvent.parameters || []).some((p) => p.key === PARAM_DOCUMENTATION)) {
+            // Documentation-aspect events: the modifier is the attribution source, not a field path, so keep
+            // the backend description.
         } else if (changeEvent.modifier) {
             // SchemaMetadata-sourced field description changes: modifier holds the field path
             // but no description parameter. Prefix the column name to the backend description
