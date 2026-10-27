@@ -6,6 +6,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Optional
 from unittest.mock import AsyncMock, patch
 
 import anyio
@@ -22,6 +23,7 @@ from datahub.executor.execution.runner import (
     VenvReference,
     _bundled_constraints_path,
     _expand_pip_req,
+    _plugin_missing_dependency,
     _validate_wheel_url,
     setup_venv,
     validate_dependency_resolution_enabled,
@@ -686,6 +688,38 @@ class TestValidateDependencyResolutionEnabled:
             validate_dependency_resolution_enabled("0.12.1")
 
 
+class _EntryPoint:
+    def __init__(self, name: str, error: Optional[BaseException] = None) -> None:
+        self.name = name
+        self._error = error
+
+    def load(self) -> None:
+        if self._error is not None:
+            raise self._error
+
+
+def test_plugin_missing_dependency_ignores_unregistered_plugin() -> None:
+    with patch("importlib.metadata.entry_points", return_value=[]):
+        assert _plugin_missing_dependency("fabric-onelake") is None
+
+
+def test_plugin_missing_dependency_returns_module_not_found() -> None:
+    missing = ModuleNotFoundError("sqlparse")
+    with patch(
+        "importlib.metadata.entry_points",
+        return_value=[_EntryPoint("fabric-onelake", missing)],
+    ):
+        assert _plugin_missing_dependency("fabric-onelake") is missing
+
+
+def test_plugin_missing_dependency_ignores_other_load_errors() -> None:
+    with patch(
+        "importlib.metadata.entry_points",
+        return_value=[_EntryPoint("fabric-onelake", RuntimeError("boom"))],
+    ):
+        assert _plugin_missing_dependency("fabric-onelake") is None
+
+
 class TestSetupVenv:
     @pytest.fixture
     def temp_dir(self):
@@ -709,6 +743,67 @@ class TestSetupVenv:
 
         assert venv_ref.venv_loc == Path(sys.prefix)
         assert venv_ref.venv_config == config
+        mock_runner.execute.assert_not_called()
+
+    async def test_setup_venv_native_installs_missing_plugin_extra(
+        self, mock_runner, temp_dir
+    ):
+        config = VenvConfig(version=VENV_VERSION_NATIVE, main_plugin="fabric-onelake")
+        checkout = temp_dir / "metadata-ingestion"
+
+        with (
+            patch(
+                "datahub.executor.execution.runner._plugin_missing_dependency",
+                return_value=ModuleNotFoundError("sqlparse"),
+            ),
+            patch(
+                "datahub.executor.execution.runner._metadata_ingestion_root",
+                return_value=checkout,
+            ),
+            patch(
+                "datahub.executor.execution.runner._find_uv",
+                return_value="uv",
+            ),
+        ):
+            venv_ref = await setup_venv(config, mock_runner, temp_dir)
+
+        assert venv_ref.venv_loc == Path(sys.prefix)
+        mock_runner.execute.assert_awaited_once_with(
+            ["uv", "pip", "install", "-e", f"{checkout}[fabric-onelake]"]
+        )
+
+    async def test_setup_venv_native_skips_install_without_checkout(
+        self, mock_runner, temp_dir
+    ):
+        config = VenvConfig(version=VENV_VERSION_NATIVE, main_plugin="fabric-onelake")
+
+        with (
+            patch(
+                "datahub.executor.execution.runner._plugin_missing_dependency",
+                return_value=ModuleNotFoundError("sqlparse"),
+            ),
+            patch(
+                "datahub.executor.execution.runner._metadata_ingestion_root",
+                return_value=None,
+            ),
+        ):
+            venv_ref = await setup_venv(config, mock_runner, temp_dir)
+
+        assert venv_ref.venv_loc == Path(sys.prefix)
+        mock_runner.execute.assert_not_called()
+        assert "No metadata-ingestion checkout" in mock_runner.logs.get_logs()
+
+    async def test_setup_venv_native_skips_install_when_plugin_loads(
+        self, mock_runner, temp_dir
+    ):
+        config = VenvConfig(version=VENV_VERSION_NATIVE, main_plugin="fabric-onelake")
+
+        with patch(
+            "datahub.executor.execution.runner._plugin_missing_dependency",
+            return_value=None,
+        ):
+            await setup_venv(config, mock_runner, temp_dir)
+
         mock_runner.execute.assert_not_called()
 
     async def test_setup_venv_bundled_version_not_found(self, mock_runner, temp_dir):

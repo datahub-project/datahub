@@ -107,6 +107,80 @@ def _validate_wheel_url(url: str) -> bool:
     return True
 
 
+def _metadata_ingestion_root() -> Optional[pathlib.Path]:
+    """Checkout that owns this module, when native mode is running from source."""
+    candidate = pathlib.Path(__file__).resolve().parents[4]
+    if (candidate / "setup.py").is_file():
+        return candidate
+    return None
+
+
+def _plugin_missing_dependency(plugin: str) -> Optional[ModuleNotFoundError]:
+    """Missing-module error from loading a registered source plugin, if any.
+
+    An unregistered plugin, or a load failure that is not a missing module, is
+    left alone. Native setup must keep working for runs that do not need an
+    extra installed.
+    """
+    try:
+        from importlib.metadata import entry_points
+
+        match = next(
+            (
+                entry_point
+                for entry_point in entry_points(
+                    group="datahub.ingestion.source.plugins"
+                )
+                if entry_point.name == plugin
+            ),
+            None,
+        )
+    except Exception:
+        logger.debug("Could not read source plugin entry points", exc_info=True)
+        return None
+    if match is None:
+        return None
+    try:
+        match.load()
+    except ModuleNotFoundError as exc:
+        return exc
+    except Exception:
+        logger.debug("Plugin %s failed to load", plugin, exc_info=True)
+        return None
+    return None
+
+
+async def _install_native_plugin_extra(
+    venv_config: "VenvConfig", runner: "SubprocessRunner"
+) -> None:
+    """Install a missing source extra when native mode is running from a checkout.
+
+    Native mode uses the executor's own environment, which is not built with
+    every source extra. A registered plugin can then fail to import (for
+    example ``sqlparse`` for ``fabric-onelake``). Install that extra from the
+    mounted checkout. With no checkout, leave the environment unchanged.
+    """
+    plugin = venv_config.main_plugin
+    if not plugin:
+        return
+    missing = _plugin_missing_dependency(plugin)
+    if missing is None:
+        return
+    root = _metadata_ingestion_root()
+    if root is None:
+        runner._logs.append(
+            f"Native environment cannot import {plugin} ({missing}). "
+            "No metadata-ingestion checkout is available to install it from.\n"
+        )
+        return
+    extras = ",".join(dict.fromkeys([plugin, *venv_config.extra_pip_plugins]))
+    requirement = f"{root}[{extras}]"
+    runner._logs.append(
+        f"Native environment cannot import {plugin}. Installing {requirement}\n"
+    )
+    await runner.execute([_find_uv(), "pip", "install", "-e", requirement])
+
+
 def _bundled_constraints_path(venv_loc: pathlib.Path) -> Optional[pathlib.Path]:
     """Locate datahub/constraints.txt inside an installed acryl-datahub."""
     matches = list(venv_loc.glob("lib/python*/site-packages/datahub/constraints.txt"))
@@ -493,6 +567,7 @@ async def setup_venv(
     validate_dependency_resolution_enabled(venv_config.version)
 
     if venv_config.version == VENV_VERSION_NATIVE:
+        await _install_native_plugin_extra(venv_config, runner)
         return VenvReference(
             venv_loc=pathlib.Path(sys.prefix),
             venv_config=venv_config,
