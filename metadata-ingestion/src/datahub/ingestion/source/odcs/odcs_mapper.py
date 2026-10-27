@@ -87,8 +87,10 @@ from datahub.ingestion.source.odcs.odcs_constants import (
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     ODCSAuthoritativeDefinition,
+    ODCSContext,
     ODCSContract,
     ODCSDescription,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityArguments,
     ODCSQualityRule,
@@ -790,7 +792,35 @@ def _field_description(prop: ODCSProperty) -> Optional[str]:
             fence = _backtick_fence(transform_logic, minimum=3)
             derivation += f"\n\n{fence}sql\n{transform_logic}\n{fence}"
         parts.append(derivation)
+    if prop.enum:
+        parts.append(
+            "**Allowed values:**\n"
+            + "\n".join(_enum_value_line(entry) for entry in prop.enum)
+        )
     return "\n\n".join(p for p in parts if p) or None
+
+
+def _one_line(text: Optional[str]) -> Optional[str]:
+    # A newline would end a list item and let the rest render as new items.
+    return " ".join((text or "").split()) or None
+
+
+def _code_span(text: str) -> str:
+    fence = _backtick_fence(text, minimum=1)
+    # A span that starts or ends with a backtick needs a space inside the fence.
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def _enum_value_line(entry: ODCSEnumValue) -> str:
+    line = f"- {_code_span(entry.value)}"
+    label = _one_line(entry.label)
+    if label and label != entry.value:
+        line += f" ({label})"
+    description = _one_line(entry.description)
+    if description:
+        line += f": {description}"
+    return line
 
 
 def build_schema_metadata(
@@ -987,8 +1017,47 @@ def _dataset_description(
         _description_to_str(schema_entry.description),
         f"**Grain:** {grain}" if grain else None,
         _description_to_str(contract.description),
+        _context_section([contract.context, schema_entry.context]),
     ]
     return "\n\n".join(p for p in parts if p) or None
+
+
+def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
+    """v3.2 `context`, contract level first, as one description section.
+
+    Datasets have no aiContext aspect, so the guidance goes where people and
+    Ask DataHub both read it. `${VAR}` in it is prose and kept verbatim.
+    """
+    instructions: List[str] = []
+    constraints: List[str] = []
+    statements: List[str] = []
+    for context in contexts:
+        if context is None:
+            continue
+        text = _description_to_str(context.instructions)
+        if text:
+            instructions.append(text)
+        for c in context.constraints or []:
+            constraint = _one_line(c.constraint)
+            if constraint:
+                constraints.append(f"- {constraint}")
+        for v in context.verifiedStatements or []:
+            question = _one_line(v.question)
+            if not question:
+                continue
+            statement = f"- Q: {question}"
+            answer = _one_line(v.answer)
+            if answer:
+                statement += f" A: {answer}"
+            statements.append(statement)
+    parts = list(instructions)
+    if constraints:
+        parts.append("**Constraints:**\n" + "\n".join(constraints))
+    if statements:
+        parts.append("**Verified Q&A:**\n" + "\n".join(statements))
+    if not parts:
+        return None
+    return "\n\n".join(["**Guidance for AI and analysts:**", *parts])
 
 
 def odcs_to_logical_dataset_mcps(

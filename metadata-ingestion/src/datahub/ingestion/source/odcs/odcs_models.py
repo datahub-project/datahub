@@ -1,4 +1,5 @@
-from typing import Dict, List, Optional, Tuple, Union
+import json
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
@@ -13,7 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
     (
-        "context",
         "price",
         "roles",
         "slaDefaultElement",
@@ -24,7 +24,6 @@ KNOWN_UNMAPPED_CONTRACT_FIELDS = frozenset(
 
 KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
     (
-        "context",
         "customProperties",
         "id",
         "relationships",
@@ -35,7 +34,6 @@ KNOWN_UNMAPPED_SCHEMA_FIELDS = frozenset(
 KNOWN_UNMAPPED_PROPERTY_FIELDS = frozenset(
     (
         "businessName",
-        "enum",
         "examples",
         "id",
         "items",
@@ -106,6 +104,10 @@ READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS = frozenset(("dateIn", "replacedByUsername"
 
 # v3.1 adds `id` and `description` to authoritative-definition entries.
 KNOWN_UNMAPPED_AUTHDEF_FIELDS = frozenset(("description", "id"))
+# v3.2 context entries and enum values share these keys, which are not recorded.
+KNOWN_UNMAPPED_ENTRY_FIELDS = frozenset(
+    ("id", "tags", "customProperties", "authoritativeDefinitions")
+)
 
 
 class ODCSBaseModel(BaseModel):
@@ -167,6 +169,41 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
     return kept or None
 
 
+def _enum_text(raw: object) -> Optional[str]:
+    # Shown exactly, on one line: JSON spelling (`true`, `null`) rather than
+    # Python's, and a string with blanks or line breaks a single space can't
+    # show is quoted. Values are rendered, not compared.
+    if isinstance(raw, str):
+        return raw if raw and " ".join(raw.split()) == raw else json.dumps(raw)
+    if raw is None or isinstance(raw, (int, float, bool)):
+        return json.dumps(raw)
+    return None
+
+
+def _enum_entries(value: object) -> Optional[List[Dict[str, object]]]:
+    """Keep enum entries whose `value` is a scalar, `null` included.
+
+    Bare scalars are off-spec but read as values, since their intent is clear;
+    a bare `null` or an entry with no `value` key has nothing to show. An empty
+    list is dropped too: the spec requires at least one value.
+    """
+    if not isinstance(value, list):
+        return None
+    kept: List[Dict[str, object]] = []
+    for entry in value:
+        if isinstance(entry, dict):
+            if "value" not in entry:
+                continue
+            fields = entry
+        elif entry is None:
+            continue
+        else:
+            fields = {"value": entry}
+        if _enum_text(fields["value"]) is not None:
+            kept.append(fields)
+    return kept or None
+
+
 # The keys below were ignored before this source parsed them, so an
 # off-spec value must not now reject a contract that used to ingest. Bad values
 # are dropped here; lenient mode already reports them as JSON Schema warnings.
@@ -174,11 +211,77 @@ def _synonym_entries(value: object) -> Optional[List[Union[str, Dict[str, object
 
 class ODCSSynonym(ODCSBaseModel):
     # v3.2 (RFC 0041). `synonym` is mapped and `status: deprecated` entries are
-    # dropped; `locale`, `source` etc. are not recorded.
+    # dropped.
     synonym: Optional[str] = None
     status: Optional[str] = None
 
     _lenient_strings = field_validator("synonym", "status", mode="before")(_str_or_none)
+
+
+def _context_or_none(value: object) -> Optional[Dict[str, object]]:
+    # The string shorthand is the instructions; anything but it or the object
+    # form is off-spec and dropped.
+    if isinstance(value, str):
+        return {"instructions": value}
+    return value if isinstance(value, dict) else None
+
+
+def _entries_with(
+    key: str,
+) -> Callable[[object], Optional[List[Dict[str, object]]]]:
+    """Validator keeping list entries that are objects with a string `key`."""
+
+    def keep(value: object) -> Optional[List[Dict[str, object]]]:
+        if not isinstance(value, list):
+            return None
+        # An empty list is valid and stays empty, so it isn't reported as dropped.
+        if not value:
+            return []
+        return [
+            e for e in value if isinstance(e, dict) and isinstance(e.get(key), str)
+        ] or None
+
+    return keep
+
+
+class ODCSContextConstraint(ODCSBaseModel):
+    constraint: str
+
+
+class ODCSVerifiedStatement(ODCSBaseModel):
+    question: str
+    answer: Optional[str] = None
+
+    _lenient_answer = field_validator("answer", mode="before")(_str_or_none)
+
+
+class ODCSContext(ODCSBaseModel):
+    """v3.2 (RFC 0038) guidance for AI agents and tools."""
+
+    instructions: Optional[str] = None
+    constraints: Optional[List[ODCSContextConstraint]] = None
+    verifiedStatements: Optional[List[ODCSVerifiedStatement]] = None
+
+    _lenient_instructions = field_validator("instructions", mode="before")(_str_or_none)
+    _lenient_constraints = field_validator("constraints", mode="before")(
+        _entries_with("constraint")
+    )
+    _lenient_statements = field_validator("verifiedStatements", mode="before")(
+        _entries_with("question")
+    )
+
+
+class ODCSEnumValue(ODCSBaseModel):
+    # v3.2 (RFC 0033).
+    value: str
+    label: Optional[str] = None
+    description: Optional[str] = None
+
+    _value_text = field_validator("value", mode="before")(_enum_text)
+
+    _lenient_strings = field_validator("label", "description", mode="before")(
+        _str_or_none
+    )
 
 
 class ODCSProperty(ODCSBaseModel):
@@ -207,9 +310,11 @@ class ODCSProperty(ODCSBaseModel):
     semanticType: Optional[str] = None
     transformLogic: Optional[str] = None
     transformDescription: Optional[str] = None
+    enum: Optional[List[ODCSEnumValue]] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_synonyms = field_validator("synonyms", mode="before")(_synonym_entries)
+    _lenient_enum = field_validator("enum", mode="before")(_enum_entries)
     _lenient_strings = field_validator(
         "semanticType", "transformLogic", "transformDescription", mode="before"
     )(_str_or_none)
@@ -228,11 +333,13 @@ class ODCSSchemaObject(ODCSBaseModel):
     quality: Optional[List["ODCSQualityRule"]] = None
     deprecated: Optional[bool] = None
     dataGranularityDescription: Optional[str] = None
+    context: Optional[ODCSContext] = None
 
     _lenient_deprecated = field_validator("deprecated", mode="before")(_bool_or_none)
     _lenient_grain = field_validator("dataGranularityDescription", mode="before")(
         _str_or_none
     )
+    _lenient_context = field_validator("context", mode="before")(_context_or_none)
 
 
 class ODCSQualityArguments(ODCSBaseModel):
@@ -381,6 +488,9 @@ class ODCSContract(ODCSBaseModel):
     customProperties: Optional[List[ODCSCustomProperty]] = None
     authoritativeDefinitions: Optional[List[ODCSAuthoritativeDefinition]] = None
     contractCreatedTs: Optional[str] = None
+    context: Optional[ODCSContext] = None
+
+    _lenient_context = field_validator("context", mode="before")(_context_or_none)
 
     @property
     def team_members(self) -> List[ODCSTeamMember]:
@@ -399,12 +509,18 @@ ODCSSchemaObject.model_rebuild()
 # rejecting the contract. Kept next to the validators so the source's
 # "dropped as off-spec" report cannot drift from them.
 LENIENT_FIELDS_BY_MODEL: Dict[type, Tuple[str, ...]] = {
-    ODCSSchemaObject: ("deprecated", "dataGranularityDescription"),
+    ODCSContract: ("context",),
+    ODCSContext: ("instructions", "constraints", "verifiedStatements"),
+    ODCSVerifiedStatement: ("answer",),
+    ODCSEnumValue: ("label", "description"),
+    ODCSSynonym: ("status",),
+    ODCSSchemaObject: ("deprecated", "dataGranularityDescription", "context"),
     ODCSProperty: (
         "deprecated",
         "synonyms",
         "semanticType",
         "transformLogic",
         "transformDescription",
+        "enum",
     ),
 }

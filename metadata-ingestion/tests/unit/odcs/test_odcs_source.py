@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     LogicalParentClass,
     OwnershipClass,
+    SchemaMetadataClass,
     StatusClass,
 )
 
@@ -2503,3 +2504,145 @@ def test_object_placeholder_in_implementation_still_warns(
         for a in _aspects_of(workunits, AssertionInfoClass)
         if a.customAssertion is not None
     ] == [f"SELECT 1 FROM {placeholder}"]
+
+
+def test_unquoted_timestamp_does_not_reject_the_contract(
+    tmp_path: pathlib.Path,
+) -> None:
+    # YAML would load it as a datetime, which the str-typed field rejects.
+    body = _SPEC_VALID_BODY.replace(
+        "status: active\n", "status: active\ncontractCreatedTs: 2024-01-01T10:00:00Z\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    workunits = list(src.get_workunits_internal())
+    assert not src.report.failures
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
+def test_off_spec_contract_context_is_reported(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_BODY.replace("status: active\n", "status: active\ncontext: 5\n")
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    assert "<root>.context" in _messages(src.report.warnings)
+
+
+_OFF_SPEC_NESTED_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: nested
+version: 1.0.0
+status: active
+context:
+  instructions: 5
+  constraints: ["bare", {constraint: 5}, {constraint: Keep it.}]
+  verifiedStatements: [{question: q, answer: 7}, "bad"]
+schema:
+  - name: t
+    context: 5
+    properties:
+      - name: s
+        enum: [{value: a, label: 5, description: [x]}, {label: only}, {value: c, label: 7}]
+        synonyms: [{synonym: alias, status: 5}]
+"""
+
+
+def test_off_spec_values_inside_context_and_enum_are_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _synonym_source(tmp_path, _OFF_SPEC_NESTED_BODY)
+    workunits = list(src.get_workunits_internal())
+    assert not src.report.failures
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+    warnings = _messages(src.report.warnings)
+    for dropped in (
+        "<root>.context.instructions",
+        "<root>.context.constraints (2 of 3 entries)",
+        "<root>.context.verifiedStatements (1 of 2 entries)",
+        "<root>.context.verifiedStatements[0].answer",
+        "<root>.schema[0].context",
+        "<root>.schema[0].properties[0].enum (1 of 3 entries)",
+        "<root>.schema[0].properties[0].enum[0].label",
+        "<root>.schema[0].properties[0].enum[0].description",
+        # Entries are checked by position in the contract, after a dropped one.
+        "<root>.schema[0].properties[0].enum[2].label",
+        "<root>.schema[0].properties[0].synonyms[0].status",
+    ):
+        assert dropped in warnings
+
+
+_SPEC_VALID_EDGES_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: edges
+version: 1.0.0
+status: active
+context:
+  constraints: []
+  verifiedStatements: []
+schema:
+  - name: t
+    properties:
+      - name: s
+        enum: [{value: null, label: Unknown}, {value: ""}, {value: 2024-01-01}]
+"""
+
+
+def test_spec_valid_edge_values_are_not_reported_as_dropped(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _synonym_source(tmp_path, _SPEC_VALID_EDGES_BODY)
+    workunits = list(src.get_workunits_internal())
+    titles = [w.title for w in src.report.warnings]
+    assert "ODCS values dropped as off-spec" not in titles
+    assert not any("JSON Schema" in (title or "") for title in titles)
+    (schema,) = _aspects_of(workunits, SchemaMetadataClass)
+    assert schema.fields[0].description == (
+        '**Allowed values:**\n- `null` (Unknown)\n- `""`\n- `2024-01-01`'
+    )
+
+
+def test_map_form_child_list_is_not_walked_as_fields(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_EDGES_BODY.replace(
+        'enum: [{value: null, label: Unknown}, {value: ""}, {value: 2024-01-01}]',
+        "enum: {a: A}",
+    )
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    titles = [w.title for w in src.report.warnings]
+    assert "ODCS values dropped as off-spec" in titles
+    assert "Unknown ODCS field" not in titles
+
+
+_NESTED_KEYS_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: nested-keys
+version: 1.0.0
+status: active
+context:
+  instruction: typo
+  constraints: [{constraint: Keep it., id: c1, tags: [a], customProperties: []}]
+  verifiedStatements: [{question: q, id: v1, anwser: typo, authoritativeDefinitions: []}]
+schema:
+  - name: t
+    properties:
+      - name: s
+        enum: [{value: a, lable: typo, id: e1}]
+"""
+
+
+def test_unknown_keys_inside_context_and_enum_warn(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _NESTED_KEYS_BODY)
+    list(src.get_workunits_internal())
+    unknown = _messages(
+        w for w in src.report.warnings if w.title == "Unknown ODCS field"
+    )
+    assert "<root>.context.instruction " in unknown
+    assert "<root>.context.verifiedStatements[0].anwser " in unknown
+    assert "<root>.schema[0].properties[0].enum[0].lable " in unknown
+    # Spec keys the source does not map are infos, not unknown fields.
+    assert src.report.unknown_fields_count == 3
+    ignored = " ".join(src.report.spec_fields_ignored)
+    assert "<root>.context.constraints[*].id" in ignored
+    assert "<root>.context.verifiedStatements[*].id" in ignored
+    assert "<root>.schema[*].properties[*].enum[*].id" in ignored

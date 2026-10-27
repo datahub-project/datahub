@@ -1,9 +1,10 @@
 """Unit tests for the ODCS mapper — spec-exact routing, logical-dataset targeting."""
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type, cast
 
 import pytest
+from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.odcs.odcs_config import (
@@ -28,10 +29,14 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
+    LENIENT_FIELDS_BY_MODEL,
+    ODCSContext,
     ODCSContract,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
+    ODCSSynonym,
 )
 from datahub.metadata.schema_classes import (
     AiContextClass,
@@ -2106,6 +2111,121 @@ def test_sql_rule_object_kept_when_unbound() -> None:
     assert sql_info.sqlAssertion.statement == "SELECT count(*) FROM {object}"
 
 
+def test_field_description_allowed_values_after_derivation() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "status",
+                "description": "Order status.",
+                "transformLogic": "upper(s)",
+                "enum": [
+                    {
+                        "value": "open",
+                        "label": "Open",
+                        "description": "Not shipped yet",
+                    },
+                    {"value": "shipped", "label": "shipped"},
+                    {"value": "void", "description": "Cancelled"},
+                    "legacy",
+                    {"label": "no value"},
+                ],
+            }
+        ]
+    )
+    assert (descriptions["status"] or "").endswith(
+        "```\n\n**Allowed values:**\n"
+        "- `open` (Open): Not shipped yet\n"
+        "- `shipped`\n"
+        "- `void`: Cancelled\n"
+        "- `legacy`"
+    )
+
+
+def test_field_description_allowed_values_on_nested_field() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "address",
+                "logicalType": "object",
+                "properties": [{"name": "country", "enum": [{"value": "DE"}]}],
+            }
+        ]
+    )
+    assert descriptions["address.country"] == "**Allowed values:**\n- `DE`"
+
+
+def test_enum_values_render_in_json_spelling() -> None:
+    prop = ODCSProperty.model_validate(
+        {
+            "name": "s",
+            "enum": [
+                True,
+                0,
+                1.5,
+                {"value": False},
+                {"value": None, "label": "Unknown"},
+            ],
+        }
+    )
+    assert [e.value for e in prop.enum or []] == [
+        "true",
+        "0",
+        "1.5",
+        "false",
+        "null",
+    ]
+    assert (prop.enum or [])[-1].label == "Unknown"
+
+
+def test_enum_values_whitespace_shown_exactly() -> None:
+    prop = ODCSProperty.model_validate(
+        {
+            "name": "s",
+            "enum": [{"value": ""}, "  ", "open", "a  b", "x\ny", "a b"],
+        }
+    )
+    assert [e.value for e in prop.enum or []] == [
+        '""',
+        '"  "',
+        "open",
+        '"a  b"',
+        '"x\\ny"',
+        "a b",
+    ]
+
+
+def test_enum_value_model_normalizes_its_own_value() -> None:
+    assert ODCSEnumValue.model_validate({"value": "a\n- b"}).value == '"a\\n- b"'
+
+
+def test_allowed_values_cannot_break_the_markdown() -> None:
+    descriptions = _field_descriptions(
+        [
+            {
+                "name": "s",
+                "enum": [
+                    {"value": "a`b", "label": "A\nB"},
+                    {"value": "`x", "description": "d1\n\n- injected"},
+                    {"value": "x`"},
+                    {"value": "a\n\nb"},
+                ],
+            }
+        ]
+    )
+    assert descriptions["s"] == (
+        "**Allowed values:**\n- ``a`b`` (A B)\n- `` `x ``: d1 - injected\n"
+        '- `` x` ``\n- `"a\\n\\nb"`'
+    )
+
+
+def test_enum_off_spec_dropped() -> None:
+    assert ODCSProperty.model_validate({"name": "s", "enum": "open"}).enum is None
+    prop = ODCSProperty.model_validate(
+        {"name": "s", "enum": [{"label": "x"}, None, {"value": [1]}, {"value": {}}]}
+    )
+    assert prop.enum is None
+
+
 def test_binding_table_name_excludes_platform_instance() -> None:
     contract = _make_contract(
         servers=[
@@ -2301,3 +2421,108 @@ def test_binding_table_name_follows_lowercase_setting(
 def test_substitute_object_placeholder_leaves_longer_tokens() -> None:
     query = "SELECT ${object_id}, ${object:-x} FROM {objects}"
     assert substitute_object_placeholder(query, "db.sch.orders") == query
+
+
+def test_dataset_description_context_section() -> None:
+    contract = _make_contract(
+        schema=[{"name": "t", "description": "T.", "context": "Prefer the daily view."}]
+    )
+    contract = contract.model_copy(
+        update={
+            "context": ODCSContract.model_validate(
+                {
+                    "id": "c1",
+                    "context": {
+                        "instructions": "Use for revenue analysis.",
+                        "constraints": [
+                            {"constraint": "Do not join without tenant_id."}
+                        ],
+                        "verifiedStatements": [
+                            {
+                                "question": "How is revenue defined?",
+                                "answer": "SUM(amount) of shipped orders.",
+                            },
+                            {"question": "Which orders are late?"},
+                        ],
+                    },
+                }
+            ).context
+        }
+    )
+    assert _logical_description(contract) == (
+        "T.\n\n**Guidance for AI and analysts:**\n\n"
+        "Use for revenue analysis.\n\nPrefer the daily view.\n\n"
+        "**Constraints:**\n- Do not join without tenant_id.\n\n"
+        "**Verified Q&A:**\n"
+        "- Q: How is revenue defined? A: SUM(amount) of shipped orders.\n"
+        "- Q: Which orders are late?"
+    )
+
+
+def test_context_string_form_is_instructions() -> None:
+    contract = ODCSContract.model_validate({"id": "c1", "context": "Use daily."})
+    assert contract.context == ODCSContext(instructions="Use daily.")
+
+
+def test_context_list_items_are_single_lines_and_blanks_skipped() -> None:
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "context": {
+                "constraints": [{"constraint": "  "}, {"constraint": "No\njoins."}],
+                "verifiedStatements": [
+                    {"question": "  ", "answer": "x"},
+                    {"question": "Q\n1?", "answer": "A\n\n- 1"},
+                ],
+            },
+            "schema": [{"name": "t"}],
+        }
+    )
+    assert _logical_description(contract) == (
+        "**Guidance for AI and analysts:**\n\n"
+        "**Constraints:**\n- No joins.\n\n"
+        "**Verified Q&A:**\n- Q: Q 1? A: A - 1"
+    )
+
+
+def test_context_string_with_variable_kept_verbatim() -> None:
+    contract = ODCSContract.model_validate(
+        {"id": "c1", "context": "Filter on ${REGION}.", "schema": [{"name": "t"}]}
+    )
+    assert "Filter on ${REGION}." in (_logical_description(contract) or "")
+
+
+def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
+    assert ODCSContract.model_validate({"id": "c1", "context": 5}).context is None
+    contract = ODCSContract.model_validate(
+        {
+            "id": "c1",
+            "context": {"instructions": "  ", "constraints": [{"id": "x"}, "bad"]},
+            "schema": [{"name": "t", "description": "T."}],
+        }
+    )
+    assert _logical_description(contract) == "T."
+    # No usable entry left is a dropped field, not an empty list.
+    assert contract.context is not None
+    assert contract.context.constraints is None
+
+
+def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
+    # The source's "dropped as off-spec" report reads this map; a lenient
+    # validator missing from it would drop values without a report.
+    # `ODCSSynonym.synonym` is pre-filtered by the list validator instead.
+    reported = {
+        (model, field_name)
+        for model, fields in LENIENT_FIELDS_BY_MODEL.items()
+        for field_name in fields
+    }
+    lenient = {
+        (model, field_name)
+        for model in LENIENT_FIELDS_BY_MODEL
+        for name, decorator in cast(
+            Type[BaseModel], model
+        ).__pydantic_decorators__.field_validators.items()
+        if name.startswith("_lenient")
+        for field_name in decorator.info.fields
+    } - {(ODCSSynonym, "synonym")}
+    assert lenient <= reported

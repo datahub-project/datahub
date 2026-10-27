@@ -62,6 +62,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    KNOWN_UNMAPPED_ENTRY_FIELDS,
     KNOWN_UNMAPPED_PROPERTY_FIELDS,
     KNOWN_UNMAPPED_QUALITY_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
@@ -76,13 +77,17 @@ from datahub.ingestion.source.odcs.odcs_models import (
     READ_BUT_UNMAPPED_SERVER_FIELDS,
     READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
+    ODCSContext,
+    ODCSContextConstraint,
     ODCSContract,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
     ODCSTeam,
     ODCSTeamMember,
+    ODCSVerifiedStatement,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -143,6 +148,9 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+    ODCSContextConstraint: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSVerifiedStatement: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSEnumValue: KNOWN_UNMAPPED_ENTRY_FIELDS,
 }
 
 _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
@@ -161,13 +169,16 @@ class _ContractYamlLoader(yaml.SafeLoader):
     YAML 1.1 reads an unquoted `0777` as octal 511 and `12:30` as base-60 750,
     so an identifier such as a database name or an AWS account ID would turn
     into a different value and bind the contract to a table that does not
-    exist. Such values stay strings here, exactly as written.
+    exist. Such values stay strings here, exactly as written. Unquoted dates
+    stay strings too: the JSON Schema types them as strings, and a `date`
+    object fails validation.
     """
 
 
+_DROPPED_IMPLICIT_TAGS = ("tag:yaml.org,2002:int", "tag:yaml.org,2002:timestamp")
 _ContractYamlLoader.yaml_implicit_resolvers = {
     first: [
-        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+        (tag, regexp) for tag, regexp in resolvers if tag not in _DROPPED_IMPLICIT_TAGS
     ]
     for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
 }
@@ -193,8 +204,19 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "team": ODCSTeamMember,
     },
     ODCSTeam: {"members": ODCSTeamMember},
-    ODCSSchemaObject: {"properties": ODCSProperty, "quality": ODCSQualityRule},
-    ODCSProperty: {"properties": ODCSProperty, "quality": ODCSQualityRule},
+    ODCSSchemaObject: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+    },
+    ODCSProperty: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+        "enum": ODCSEnumValue,
+    },
+    ODCSContext: {
+        "constraints": ODCSContextConstraint,
+        "verifiedStatements": ODCSVerifiedStatement,
+    },
 }
 
 
@@ -812,6 +834,10 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if child_cls is not None and isinstance(value, list):
                     for i, item in enumerate(value):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
+                elif key == "context" and isinstance(value, dict):
+                    # `context` is the one child object; a child list given as
+                    # a map is already reported by schema validation.
+                    walk(value, ODCSContext, f"{path_hint}.{key}")
 
         walk(raw_dict, ODCSContract, "<root>")
         # One entry per field, not per column: `properties[3].unique` and
@@ -1162,12 +1188,28 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if raw_value is None:
                     continue
                 value = getattr(parsed, key)
-                if value is None or (
-                    isinstance(raw_value, list)
-                    and isinstance(value, list)
-                    and len(value) < len(raw_value)
-                ):
+                if value is None:
                     dropped.append(f"{path}.{key}")
+                elif isinstance(value, BaseModel):
+                    check(raw_value, value, f"{path}.{key}")
+                elif isinstance(raw_value, list) and isinstance(value, list):
+                    if len(value) < len(raw_value):
+                        dropped.append(
+                            f"{path}.{key} ({len(raw_value) - len(value)} of "
+                            f"{len(raw_value)} entries)"
+                        )
+                    for i, item in enumerate(raw_value):
+                        # Each entry is re-validated alone so it lines up with
+                        # what the list validator kept from it. That holds while
+                        # the lenient list validators judge each entry on its own.
+                        single = getattr(
+                            type(parsed).__pydantic_validator__.validate_assignment(
+                                parsed.model_copy(), key, [item]
+                            ),
+                            key,
+                        )
+                        if single and isinstance(single[0], BaseModel):
+                            check(item, single[0], f"{path}.{key}[{i}]")
             raw_props = raw.get("properties")
             props = getattr(parsed, "properties", None) or []
             if isinstance(raw_props, list):
@@ -1176,6 +1218,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ):
                     check(raw_prop, prop, f"{path}.properties[{i}]")
 
+        check(raw_dict, contract, "<root>")
         raw_schema = raw_dict.get("schema")
         if isinstance(raw_schema, list):
             for i, (raw_entry, entry) in enumerate(
