@@ -11,6 +11,7 @@ from pathlib import PurePath
 from typing import IO, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
+from azure.core.exceptions import HttpResponseError
 from azure.storage.blob import BlobServiceClient
 from more_itertools import peekable
 from smart_open import open as smart_open
@@ -49,10 +50,6 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
 )
-from datahub.ingestion.source.data_lake_common.path_spec import (
-    SUPPORTED_FILE_TYPES,
-)
-from datahub.ingestion.source.data_lake_common.seekable_file import SeekableRangeFile
 from datahub.ingestion.source.data_lake_common.zip_utils import (
     ZipEntry,
     is_zip_path,
@@ -84,28 +81,6 @@ PAGE_SIZE = 1000
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
-
-class SeekableABSFile(SeekableRangeFile):
-    """Seekable file-like wrapper around an Azure Blob Storage object."""
-
-    def __init__(
-        self,
-        blob_service_client: BlobServiceClient,
-        container_name: str,
-        blob_name: str,
-    ) -> None:
-        super().__init__()
-        self._blob_client = blob_service_client.get_blob_client(
-            container=container_name, blob=blob_name
-        )
-        self._size = self._blob_client.get_blob_properties()["size"]
-
-    def _fetch_range(self, start: int, length: int) -> bytes:
-        data: bytes = self._blob_client.download_blob(
-            offset=start, length=length
-        ).readall()
-        return data
 
 
 # config flags to emit telemetry for
@@ -227,44 +202,31 @@ class ABSSource(StatefulIngestionSourceBase):
         blob_service_client: Optional[BlobServiceClient],
         path_spec: PathSpec,
     ) -> Optional[ZipEntry]:
-        """Read the first supported entry inside a .zip archive.
-
-        For ABS paths a seekable range-request wrapper is used so that only the
-        bytes actually needed are downloaded (central directory + chosen entry).
-        For local paths the file is already seekable so zipfile works directly.
-
-        Returns the extracted entry, or None when no supported entry is found.
-        """
-        if (
-            blob_service_client is not None
-            and self.source_config.azure_config is not None
-        ):
-            # typeshed's RawIOBase is not an IO[bytes] subtype, hence the ignore.
-            zip_file: IO[bytes] = SeekableABSFile(  # type: ignore[assignment]
-                blob_service_client,
-                self.source_config.azure_config.container_name,
-                table_data.rel_path,
-            )
-        else:
-            zip_file = open(table_data.full_path, "rb")
-
+        # smart_open's Azure reader is seekable, so zipfile fetches only the
+        # central directory and the chosen member with ranged downloads.
         try:
-            return read_first_supported_zip_entry(
-                zip_file,
+            with self._smart_open(table_data, blob_service_client) as zip_file:
+                return read_first_supported_zip_entry(
+                    zip_file,
+                    context=table_data.full_path,
+                    report=self.report,
+                    file_types=path_spec.file_types,
+                    max_entry_size=path_spec.max_zip_entry_size,
+                )
+        except HttpResponseError as e:
+            self.report.warning(
+                title="Failed to read zip archive",
+                message="Could not read zip archive from Azure Blob Storage",
                 context=table_data.full_path,
-                report=self.report,
-                supported_suffixes=[f".{ext}" for ext in SUPPORTED_FILE_TYPES],
-                max_entry_size=path_spec.max_zip_entry_size,
+                exc=e,
             )
-        finally:
-            zip_file.close()
+            return None
 
     def _smart_open(
         self,
         table_data: TableData,
         blob_service_client: Optional[BlobServiceClient],
     ) -> IO[bytes]:
-        """Open a file for reading, routing ABS paths through smart_open's client."""
         if (
             blob_service_client is not None
             and self.source_config.azure_config is not None

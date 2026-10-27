@@ -33,7 +33,7 @@ SUPPORTED_FILE_TYPES: List[str] = [
 ]
 
 # gz and bz2 come from the smart_open library (streamed, transparent decompression).
-# zip is handled separately using zipfile + seekable S3 range requests.
+# zip is read with zipfile; only the archive's first supported member is used.
 SUPPORTED_COMPRESSIONS: List[str] = [
     "gz",
     "bz2",

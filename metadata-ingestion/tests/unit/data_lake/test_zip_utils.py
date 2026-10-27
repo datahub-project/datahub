@@ -10,7 +10,7 @@ from datahub.ingestion.source.data_lake_common.zip_utils import (
     read_first_supported_zip_entry,
 )
 
-SUPPORTED = [".csv", ".json", ".parquet", ".avro", ".tsv"]
+SUPPORTED = ["csv", "json", "parquet", "avro", "tsv"]
 
 
 def _make_zip(entries: dict) -> io.BytesIO:
@@ -28,7 +28,7 @@ def test_reads_single_supported_entry():
         _make_zip({"data.csv": b"a,b\n1,2\n"}),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
     )
     assert result is not None
     assert result.data == b"a,b\n1,2\n"
@@ -36,35 +36,116 @@ def test_reads_single_supported_entry():
     assert not report.warnings
 
 
-def test_single_supported_among_unsupported_does_not_warn(caplog):
+def test_single_supported_among_unsupported_does_not_warn():
     # A README next to a single data file must not trigger the multi-entry warning.
     report = SourceReport()
-    with caplog.at_level("WARNING"):
-        result = read_first_supported_zip_entry(
-            _make_zip({"README.txt": b"docs", "data.csv": b"a,b\n1,2\n"}),
-            context="archive.zip",
-            report=report,
-            supported_suffixes=SUPPORTED,
-        )
+    result = read_first_supported_zip_entry(
+        _make_zip({"README.txt": b"docs", "data.csv": b"a,b\n1,2\n"}),
+        context="archive.zip",
+        report=report,
+        file_types=SUPPORTED,
+    )
     assert result is not None
     assert result.suffix == ".csv"
-    assert not any("supported extension" in r.message for r in caplog.records)
+    assert not report.warnings
 
 
-def test_multiple_supported_entries_warns_on_supported_count(caplog):
+def test_multiple_supported_entries_reads_first_and_reports_it():
     report = SourceReport()
-    with caplog.at_level("WARNING"):
-        result = read_first_supported_zip_entry(
-            _make_zip({"README.txt": b"docs", "a.csv": b"x\n1\n", "b.csv": b"y\n2\n"}),
-            context="archive.zip",
-            report=report,
-            supported_suffixes=SUPPORTED,
-        )
-    assert result is not None
-    # Warning counts the two supported entries, not the three total members.
-    assert any(
-        "2 files with a supported extension" in r.message for r in caplog.records
+    result = read_first_supported_zip_entry(
+        _make_zip({"README.txt": b"docs", "a.csv": b"x\n1\n", "b.csv": b"y\n2\n"}),
+        context="archive.zip",
+        report=report,
+        file_types=SUPPORTED,
     )
+    assert result is not None
+    assert result.data == b"x\n1\n"
+    assert len(report.warnings) == 1
+
+
+def test_macos_metadata_members_are_ignored():
+    # Finder-created archives list __MACOSX/._data.csv before the real file.
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        _make_zip(
+            {
+                "__MACOSX/._data.csv": b"\x00\x05\x16\x07",
+                "._data.csv": b"\x00\x05\x16\x07",
+                "data.csv": b"a,b\n1,2\n",
+            }
+        ),
+        context="archive.zip",
+        report=report,
+        file_types=SUPPORTED,
+    )
+    assert result is not None
+    assert result.data == b"a,b\n1,2\n"
+    assert not report.warnings
+
+
+def test_member_suffix_is_matched_case_insensitively():
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        _make_zip({"DATA.CSV": b"a,b\n1,2\n"}),
+        context="archive.zip",
+        report=report,
+        file_types=SUPPORTED,
+    )
+    assert result is not None
+    assert result.suffix == ".csv"
+
+
+def test_member_outside_file_types_is_not_read():
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        _make_zip({"data.json": b"{}", "data.csv": b"a\n1\n"}),
+        context="archive.zip",
+        report=report,
+        file_types=["csv"],
+    )
+    assert result is not None
+    assert result.suffix == ".csv"
+
+
+def test_encrypted_member_is_skipped():
+    buf = _make_zip({"data.csv": b"a,b\n1,2\n"})
+    raw = bytearray(buf.getvalue())
+    # Set the "encrypted" general-purpose flag in the local and central headers.
+    raw[6] |= 0x1
+    central = raw.rfind(b"PK\x01\x02")
+    raw[central + 8] |= 0x1
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        io.BytesIO(bytes(raw)),
+        context="archive.zip",
+        report=report,
+        file_types=SUPPORTED,
+    )
+    assert result is None
+    assert report.warnings
+
+
+def test_under_declared_member_size_is_still_capped():
+    payload = b"a,b\n" + b"1,2\n" * 4096
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("data.csv", payload)
+    raw = bytearray(buf.getvalue())
+    # Rewrite the declared uncompressed size to 10 bytes in both headers so the
+    # header pre-check passes and only the bounded read can catch it.
+    raw[22:26] = (10).to_bytes(4, "little")
+    central = raw.rfind(b"PK\x01\x02")
+    raw[central + 24 : central + 28] = (10).to_bytes(4, "little")
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        io.BytesIO(bytes(raw)),
+        context="archive.zip",
+        report=report,
+        file_types=SUPPORTED,
+        max_entry_size=1024,
+    )
+    assert result is None
+    assert report.warnings
 
 
 def test_no_supported_entry_reports_warning():
@@ -73,7 +154,7 @@ def test_no_supported_entry_reports_warning():
         _make_zip({"README.txt": b"nothing here"}),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
     )
     assert result is None
     assert report.warnings
@@ -85,7 +166,7 @@ def test_bad_zip_reports_warning():
         io.BytesIO(b"this is not a zip"),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
     )
     assert result is None
     assert report.warnings
@@ -99,7 +180,7 @@ def test_zip_bomb_entry_over_limit_is_skipped():
         _make_zip({"big.csv": payload}),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
         max_entry_size=1024,
     )
     assert result is None
@@ -113,7 +194,7 @@ def test_entry_within_limit_is_read():
         _make_zip({"ok.csv": payload}),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
         max_entry_size=10 * 1024 * 1024,
     )
     assert result is not None
@@ -131,7 +212,7 @@ def test_duplicate_member_names_reads_the_first_selected_entry():
     buf.seek(0)
     report = SourceReport()
     result = read_first_supported_zip_entry(
-        buf, context="archive.zip", report=report, supported_suffixes=SUPPORTED
+        buf, context="archive.zip", report=report, file_types=SUPPORTED
     )
     assert result is not None
     assert result.data == b"first\n"
@@ -150,7 +231,7 @@ def test_uncappable_compression_method_is_skipped(monkeypatch):
         _make_zip({"data.csv": b"a\n1\n"}),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
     )
     assert result is None
     assert report.warnings
@@ -174,7 +255,7 @@ def test_crc_mismatch_is_skipped_not_raised():
         io.BytesIO(bytes(raw)),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
     )
     assert result is None
     assert report.warnings
@@ -197,7 +278,7 @@ def test_decompressor_error_is_skipped_not_raised(monkeypatch, exc):
         _make_zip({"data.csv": b"a\n1\n"}),
         context="archive.zip",
         report=report,
-        supported_suffixes=SUPPORTED,
+        file_types=SUPPORTED,
     )
     assert result is None
     assert report.warnings
@@ -213,7 +294,7 @@ def test_directory_entry_with_supported_suffix_is_ignored():
     buf.seek(0)
     report = SourceReport()
     result = read_first_supported_zip_entry(
-        buf, context="archive.zip", report=report, supported_suffixes=SUPPORTED
+        buf, context="archive.zip", report=report, file_types=SUPPORTED
     )
     assert result is not None
     assert result.data == b"a\n1\n"

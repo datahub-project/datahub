@@ -285,8 +285,9 @@ When `path_spec.enable_compression` is `true` (the default), the connector trans
 
 For `.zip` archives:
 
-- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is emitted and only the first is processed.
-- The inner file's extension determines how the content is parsed (for example `data.csv.zip` or a zip containing `data.csv` is treated as CSV).
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is added to the ingestion report and only the first is processed.
+- The archive is selected by its name like any other compressed file, so name it with the inner format (`data.csv.zip`) or set `default_extension` for bare `archive.zip` files. The member that is read is the first one whose extension is in `file_types`, and its extension decides how it is parsed.
+- macOS `__MACOSX/` and `._*` metadata members are ignored.
 - Only the bytes needed (the central directory and the selected entry) are downloaded from S3 via range requests, so large archives are not fully downloaded for schema inference.
 - To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
 

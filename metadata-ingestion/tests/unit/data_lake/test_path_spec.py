@@ -702,14 +702,24 @@ def test_validate_path_spec_compression_extension() -> None:
     assert path_spec.enable_compression is True
 
 
-def test_validate_path_spec_zip_extension() -> None:
-    assert "zip" in SUPPORTED_COMPRESSIONS
+@pytest.mark.parametrize(
+    "path, enable_compression, allowed, extension",
+    [
+        ("s3://bucket/orders/data.csv.zip", True, True, ".csv"),
+        ("s3://bucket/orders/data.csv.zip", False, False, ""),
+        ("s3://bucket/orders/data.htm.zip", True, False, ""),
+        # Like a bare .gz, a bare archive needs default_extension.
+        ("s3://bucket/orders/archive.zip", True, False, ""),
+    ],
+)
+def test_zip_archive_selection(
+    path: str, enable_compression: bool, allowed: bool, extension: str
+) -> None:
     path_spec = PathSpec(
-        include="s3://bucket/{table}/*.csv.zip",
-        file_types=["csv"],
-        enable_compression=True,
+        include="s3://bucket/{table}/*.zip", enable_compression=enable_compression
     )
-    assert path_spec.enable_compression is True
+    assert path_spec.allowed(path) is allowed
+    assert path_spec.resolve_format_extension(path) == extension
 
 
 def test_max_zip_entry_size_rejects_non_positive() -> None:
@@ -717,18 +727,6 @@ def test_max_zip_entry_size_rejects_non_positive() -> None:
     # rejected at config load rather than failing quietly at ingestion time.
     with pytest.raises(ValidationError):
         PathSpec(include="s3://bucket/{table}/*.csv.zip", max_zip_entry_size=0)
-
-
-def test_validate_path_spec_zip_inner_extension_is_ignored_by_validation() -> None:
-    # PathSpec only inspects the outer `.zip` extension; the inner type
-    # (`.csv`, `.json`, ...) is resolved later by the source's zip reader, so
-    # validation must accept a `.zip` include regardless of the inner suffix.
-    # Inner-type handling itself is covered by the zip_utils / source tests.
-    path_spec = PathSpec(
-        include="s3://bucket/{table}/*.parquet.zip", enable_compression=True
-    )
-    assert path_spec.include.endswith(".zip")
-    assert path_spec.enable_compression is True
 
 
 # Tests for partition extraction

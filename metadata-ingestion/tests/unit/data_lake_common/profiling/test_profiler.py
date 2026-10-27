@@ -263,8 +263,6 @@ def test_profiles_zip_archive_first_supported_entry(tmp_path: Path) -> None:
 
 
 def test_profiles_zip_archive_with_jsonl_entry(tmp_path: Path) -> None:
-    # jsonl is profilable but not in SUPPORTED_FILE_TYPES; the profiler's zip
-    # reader must still pick it up.
     path = tmp_path / "data.jsonl.zip"
     _write_zip(path, {"data.jsonl": '{"id": 1}\n{"id": 2}\n'})
     path_spec = PathSpec(include=f"{tmp_path}/*.zip", enable_compression=True)
@@ -277,6 +275,31 @@ def test_profiles_zip_archive_with_jsonl_entry(tmp_path: Path) -> None:
     )
 
     assert get_profile(work_units[0]).rowCount == 2
+
+
+def test_unreadable_zip_partition_drops_the_table_profile(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # One partition's archive has no usable member, so a profile built from the
+    # other partitions would undercount rows.
+    good = tmp_path / "part-0.zip"
+    _write_zip(good, {"data.csv": "id\n1\n2\n"})
+    bad = tmp_path / "part-1.zip"
+    _write_zip(bad, {"README.txt": "no data"})
+    path_spec = PathSpec(include=f"{tmp_path}/*.zip", enable_compression=True)
+
+    profiler = make_profiler()
+    monkeypatch.setattr(
+        profiler, "_iter_table_paths", lambda table_data: [str(good), str(bad)]
+    )
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(good)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert work_units == []
+    assert report_of(profiler).warnings.total_elements > 0
 
 
 def test_zip_archive_skipped_when_compression_disabled(tmp_path: Path) -> None:

@@ -9,7 +9,6 @@ import time
 from datetime import datetime
 from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
-from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from smart_open import open as smart_open
@@ -58,11 +57,9 @@ from datahub.ingestion.source.data_lake_common.path_listing import (
     table_marker_prefix,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import (
-    SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
 )
-from datahub.ingestion.source.data_lake_common.seekable_file import SeekableRangeFile
 from datahub.ingestion.source.data_lake_common.zip_utils import (
     ZipEntry,
     is_zip_path,
@@ -98,24 +95,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
-
-class SeekableS3File(SeekableRangeFile):
-    """Seekable file-like wrapper around an S3 object using HTTP range requests."""
-
-    def __init__(self, s3_client: "S3Client", bucket: str, key: str) -> None:
-        super().__init__()
-        self._s3 = s3_client
-        self._bucket = bucket
-        self._key = key
-        self._size = s3_client.head_object(Bucket=bucket, Key=key)["ContentLength"]
-
-    def _fetch_range(self, start: int, length: int) -> bytes:
-        end = start + length - 1
-        data: bytes = self._s3.get_object(
-            Bucket=self._bucket, Key=self._key, Range=f"bytes={start}-{end}"
-        )["Body"].read()
-        return data
 
 
 # config flags to emit telemetry for
@@ -352,36 +331,18 @@ class S3Source(StatefulIngestionSourceBase):
         s3_client: Optional["S3Client"],
         path_spec: PathSpec,
     ) -> Optional[ZipEntry]:
-        """Read the first supported entry inside a .zip archive.
-
-        For S3 paths a seekable range-request wrapper is used so that only the
-        bytes actually needed are downloaded (central directory + chosen entry).
-        For local paths the file is already seekable so zipfile works directly.
-
-        Returns the extracted entry, or None when no supported entry is found.
-        """
-        if s3_client is not None:
-            parsed = urlparse(re.sub(URI_SCHEME_REGEX, "s3://", full_path))
-            # typeshed's RawIOBase is not an IO[bytes] subtype, hence the ignore.
-            zip_file: IO[bytes] = SeekableS3File(  # type: ignore[assignment]
-                s3_client, parsed.netloc, parsed.path.lstrip("/")
-            )
-        else:
-            zip_file = open(full_path, "rb")
-
-        try:
+        # smart_open's S3 reader is seekable, so zipfile fetches only the central
+        # directory and the chosen member with range requests.
+        with self._smart_open(full_path, s3_client) as zip_file:
             return read_first_supported_zip_entry(
                 zip_file,
                 context=full_path,
                 report=self.report,
-                supported_suffixes=[f".{ext}" for ext in SUPPORTED_FILE_TYPES],
+                file_types=path_spec.file_types,
                 max_entry_size=path_spec.max_zip_entry_size,
             )
-        finally:
-            zip_file.close()
 
     def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
-        """Open a file for reading, routing S3 paths through smart_open's client."""
         if s3_client is not None:
             path = re.sub(URI_SCHEME_REGEX, "s3://", full_path)
             return smart_open(path, "rb", transport_params={"client": s3_client})
