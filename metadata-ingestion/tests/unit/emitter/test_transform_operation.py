@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import List, Optional
 from unittest.mock import MagicMock
 
@@ -8,6 +9,7 @@ from datahub.configuration.env_vars import get_max_transform_operation_length
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.transform_operation import truncate_transform_operation
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.metadata.lineage import (
     EntityConfig,
     EntityNodeConfig,
@@ -68,12 +70,26 @@ def test_truncate_transform_operation_is_idempotent(max_length: int) -> None:
 def test_max_length_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(ENV_VAR, raising=False)
     assert get_max_transform_operation_length() is None
+    monkeypatch.setenv(ENV_VAR, "  ")
+    assert get_max_transform_operation_length() is None
     monkeypatch.setenv(ENV_VAR, "8")
     assert get_max_transform_operation_length() == 8
     for invalid in ["0", "-1", "abc"]:
         monkeypatch.setenv(ENV_VAR, invalid)
         with pytest.raises(ValueError):
             get_max_transform_operation_length()
+
+
+def test_pipeline_rejects_invalid_value_at_start(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv(ENV_VAR, "0")
+    recipe = {
+        "source": {"type": "file", "config": {"path": str(tmp_path / "in.json")}},
+        "sink": {"type": "console"},
+    }
+    with pytest.raises(ValueError, match=ENV_VAR):
+        Pipeline.create(recipe)
 
 
 def _fine_grained(
@@ -105,7 +121,7 @@ def _transform_operations(
 
 
 def test_aggregator_cuts_lineage_it_builds(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv(ENV_VAR, "8")
+    monkeypatch.setenv(ENV_VAR, "5")
     aggregator = SqlParsingAggregator(
         platform="postgres",
         generate_lineage=True,
@@ -125,7 +141,7 @@ def test_aggregator_cuts_lineage_it_builds(monkeypatch: pytest.MonkeyPatch) -> N
         if isinstance(mcp, MetadataChangeProposalWrapper)
         and isinstance(mcp.aspect, UpstreamLineageClass)
     ]
-    assert _transform_operations(lineage) == ['SQL: "so...']
+    assert _transform_operations(lineage) == ["SQL: ..."]
 
 
 def _serialized_operations(mcpw: MetadataChangeProposalWrapper) -> List[str]:
@@ -172,10 +188,12 @@ def test_patch_builders_cut_key(monkeypatch: pytest.MonkeyPatch) -> None:
         DataJobPatchBuilder(DATAJOB),
     ]
     for builder in builders:
-        [mcp] = builder.add_fine_grained_lineage(_fine_grained()).build()
+        builder.add_fine_grained_lineage(_fine_grained())
+        builder.add_fine_grained_lineage(_fine_grained(None))
+        [mcp] = builder.build()
         assert mcp.aspect is not None
-        paths = [op["path"] for op in json.loads(mcp.aspect.value)]
-        assert paths and all(f"/fineGrainedLineages/{CUT_AT_8}/" in p for p in paths)
+        keys = [op["path"].split("/")[2] for op in json.loads(mcp.aspect.value)]
+        assert keys == [CUT_AT_8, "NONE"]
 
 
 def test_set_fine_grained_lineages_cuts_copy_only(
@@ -185,12 +203,12 @@ def test_set_fine_grained_lineages_cuts_copy_only(
     fine_grained = _fine_grained()
     [mcp] = (
         DatasetPatchBuilder(DOWNSTREAM)
-        .set_fine_grained_lineages([fine_grained])
+        .set_fine_grained_lineages([fine_grained, _fine_grained(None)])
         .build()
     )
     assert mcp.aspect is not None
     [op] = json.loads(mcp.aspect.value)
-    assert op["value"][0]["transformOperation"] == CUT_AT_8
+    assert [f.get("transformOperation") for f in op["value"]] == [CUT_AT_8, None]
     assert fine_grained.transformOperation == LOGIC
 
 
