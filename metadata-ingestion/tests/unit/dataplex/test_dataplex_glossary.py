@@ -392,6 +392,20 @@ class TestProcessTermAssociations:
         result = processor._lookup_entry_links("my-project", "us-central1", "term-path")
         assert result == []
 
+    def test_lookup_entry_links_is_rate_limited(
+        self,
+        processor: DataplexGlossaryProcessor,
+        ctx: DataplexContext,
+    ) -> None:
+        ctx.authed_session = Mock()
+        ctx.authed_session.get.return_value = Mock(status_code=404)
+        limiter = Mock()
+        processor._lookup_rate_limiter = limiter
+
+        processor._lookup_entry_links("my-project", "us-central1", "term-path")
+
+        limiter.acquire.assert_called_once()
+
     def test_non_definition_links_ignored(
         self,
         processor: DataplexGlossaryProcessor,
@@ -726,8 +740,10 @@ def _platform_resource_wus(
 
 
 def _make_processor(repo: Optional[Mock]) -> DataplexGlossaryProcessor:
+    ctx = MagicMock()
+    ctx.config.glossary_lookup_max_calls_per_minute = 600
     return DataplexGlossaryProcessor(
-        ctx=MagicMock(),
+        ctx=ctx,
         glossary_client=MagicMock(),
         report=DataplexGlossaryReport(),
         source_report=MagicMock(),
@@ -765,8 +781,10 @@ class TestReconcileTerm:
         repo = MagicMock()
         repo.search_entity_by_urn.side_effect = Exception("boom")
         source_report = MagicMock()
+        ctx = MagicMock()
+        ctx.config.glossary_lookup_max_calls_per_minute = 600
         proc = DataplexGlossaryProcessor(
-            ctx=MagicMock(),
+            ctx=ctx,
             glossary_client=MagicMock(),
             report=DataplexGlossaryReport(),
             source_report=source_report,

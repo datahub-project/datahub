@@ -1,10 +1,18 @@
 """Schema extraction utilities for Dataplex source."""
 
+import json
 import logging
-from typing import Any, Optional
+import re
+from collections.abc import Iterable, Iterator
+from itertools import count
+from typing import Any, Dict, List, Optional
 
 from google.cloud import dataplex_v1
+from google.protobuf import struct_pb2
 
+from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
+from datahub.ingestion.source.dataplex.dataplex_helpers import GCS_URI_SCHEME
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -19,6 +27,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
+from datahub.utilities.hive_schema_to_avro import HiveColumnToAvroConverter
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +225,292 @@ def process_schema_field_item(field_value: Any, entry_id: str) -> Optional[Any]:
     return None
 
 
+# e.g. ``array<struct<id:string>>``; a bare ``struct`` word has nothing to parse.
+_HIVE_COMPLEX_NATIVE_TYPE = re.compile(
+    r"^(struct|array|map|list|uniontype)<", re.IGNORECASE
+)
+
+# Fallback for leaf spellings the Hive parser cannot read, such as ``STRING(MAX)``.
+_METADATA_TYPE_TO_AVRO: Dict[str, Dict[str, Any]] = {
+    "STRING": {"type": "string"},
+    "NUMBER": {"type": "double"},
+    "BOOLEAN": {"type": "boolean"},
+    "BYTES": {"type": "bytes"},
+    "DATETIME": {"type": "int", "logicalType": "timestamp-millis"},
+    "TIMESTAMP": {"type": "int", "logicalType": "timestamp-millis"},
+}
+
+_REPEATED_MODE = "REPEATED"
+_REQUIRED_MODE = "REQUIRED"
+_RECORD_TYPES = ("RECORD", "STRUCT")
+_ARRAY_OR_MAP_TYPE = re.compile(r"^(array|list|map)(<|$)", re.IGNORECASE)
+_MAP_TYPE = re.compile(r"^map(<|$)", re.IGNORECASE)
+_MAP_KEY_FIELD = "key"
+_MAP_VALUE_FIELD = "value"
+
+_BIGQUERY_PLATFORM = "bigquery"
+# Dataplex returns BigQuery REST type names; the BigQuery connector parses the
+# standard SQL names, which the Hive parser maps to long/double, not int/float.
+_BIGQUERY_REST_TO_STANDARD_SQL_TYPE: Dict[str, str] = {
+    "INTEGER": "INT64",
+    "FLOAT": "FLOAT64",
+}
+
+_FLAT_FALLBACK_TITLE = "Complex column emitted as a flat row"
+_FLAT_FALLBACK_MESSAGE = (
+    "Could not convert a column with nested structure to nested fieldPaths; "
+    "emitted it as a single flat row instead."
+)
+
+
+class _NoStructureError(ValueError):
+    """The column's type spelling yields nothing to nest, so it stays flat."""
+
+
+def _extract_nested_field_items(field_data: Any) -> List[Any]:
+    """A field's nested ``fields``, from either a protobuf Value or exported JSON."""
+    if isinstance(field_data, dict):
+        nested = field_data.get("fields")
+    else:
+        nested = getattr(field_data, "fields", None)
+    if nested is None or isinstance(nested, (str, bytes)):
+        return []
+    if isinstance(nested, struct_pb2.Value):
+        return list(nested.list_value.values)
+    if isinstance(nested, Iterable):
+        return list(nested)
+    return []
+
+
+def _is_complex_field(field_data: Any, data_type: str, mode: str) -> bool:
+    """True when a field carries structure the flat mapping would drop."""
+    return bool(
+        mode == _REPEATED_MODE
+        or _extract_nested_field_items(field_data)
+        or _HIVE_COMPLEX_NATIVE_TYPE.match(data_type.strip())
+    )
+
+
+def _leaf_avro_type(
+    data_type: str, metadata_type: str, platform: str
+) -> Dict[str, Any]:
+    """Avro node for a leaf field, parsed as the BigQuery connector parses one.
+
+    Unknown types become ``null`` (NullType).
+    """
+    parsed_type = data_type
+    if platform == _BIGQUERY_PLATFORM:
+        parsed_type = _BIGQUERY_REST_TO_STANDARD_SQL_TYPE.get(
+            data_type.upper(), data_type
+        )
+    node = dict(
+        HiveColumnToAvroConverter._parse_basic_datatype_string(parsed_type.lower())
+    )
+    if node.get("type") == "null":
+        node.update(_METADATA_TYPE_TO_AVRO.get(metadata_type.upper(), {}))
+    node["native_data_type"] = data_type
+    return node
+
+
+def _element_unparsed(node: Any) -> bool:
+    """True when an array or map parsed with an unreadable element type."""
+    if not isinstance(node, dict):
+        return False
+    if node.get("type") == "array":
+        element = node.get("items")
+    elif node.get("type") == "map":
+        element = node.get("values")
+    else:
+        return False
+    return isinstance(element, dict) and element.get("type") == "null"
+
+
+def _map_from_key_value_fields(
+    data_type: str, child_fields: List[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """Avro map for a map column that Dataplex lists as key/value child fields."""
+    if not _MAP_TYPE.match(data_type):
+        return None
+    child_types = {child["name"]: child["type"] for child in child_fields}
+    if len(child_fields) != 2 or set(child_types) != {_MAP_KEY_FIELD, _MAP_VALUE_FIELD}:
+        return None
+    key_type = child_types[_MAP_KEY_FIELD]
+    return {
+        "type": "map",
+        "values": child_types[_MAP_VALUE_FIELD],
+        "native_data_type": data_type,
+        "key_type": key_type,
+        "key_native_data_type": (
+            key_type.get("native_data_type", "") if isinstance(key_type, dict) else ""
+        ),
+    }
+
+
+def _kc_field_to_avro_type(
+    field_data: Any, entry_id: str, platform: str, struct_names: Iterator[int]
+) -> Any:
+    """Avro node for one catalog schema field, recursing into nested fields."""
+    data_type = str(
+        extract_field_value(field_data, "type")
+        or extract_field_value(field_data, "dataType", "string")
+    ).strip()
+    # The BigQuery connector types fields from the type name alone; using
+    # metadataType here would change fieldPath tokens on BigQuery entries.
+    metadata_type = (
+        ""
+        if platform == _BIGQUERY_PLATFORM
+        else str(extract_field_value(field_data, "metadataType"))
+    )
+    mode = str(extract_field_value(field_data, "mode")).upper()
+    nested_items = _extract_nested_field_items(field_data)
+
+    core: Any
+    if nested_items:
+        child_fields: List[Dict[str, Any]] = []
+        for nested_item in nested_items:
+            child_data = process_schema_field_item(nested_item, entry_id)
+            if child_data is None:
+                continue
+            child_name = extract_field_value(child_data, "name") or extract_field_value(
+                child_data, "column"
+            )
+            if not child_name:
+                continue
+            # The BigQuery connector parses the lowercased STRUCT type string, so
+            # nested names (not top-level ones) come out lowercased there.
+            if platform == _BIGQUERY_PLATFORM:
+                child_name = child_name.lower()
+            child_field: Dict[str, Any] = {
+                "name": child_name,
+                "type": _kc_field_to_avro_type(
+                    child_data, entry_id, platform, struct_names
+                ),
+            }
+            child_desc = extract_field_value(child_data, "description")
+            if child_desc:
+                child_field["doc"] = child_desc
+            child_fields.append(child_field)
+        core = _map_from_key_value_fields(data_type, child_fields)
+        if core is not None and _element_unparsed(core):
+            return {"type": "null", "native_data_type": data_type}
+        if core is None:
+            core = {
+                # Must be unique per schema; schema_util renders it as [type=struct].
+                "type": "record",
+                "name": f"__struct_{next(struct_names)}",
+                "fields": child_fields,
+                "native_data_type": data_type,
+            }
+    elif _HIVE_COMPLEX_NATIVE_TYPE.match(data_type):
+        # Private entry point on purpose: the public one wraps the result in an
+        # extra record layer, which would double-nest the column.
+        try:
+            core = HiveColumnToAvroConverter._parse_datatype_string(data_type.lower())
+        except Exception:
+            logger.debug(
+                "Could not parse native type %r for entry %s", data_type, entry_id
+            )
+            core = None
+        if core is None or _element_unparsed(core):
+            # e.g. ARRAY<STRING(MAX)>: a SQL spelling the Hive parser cannot read.
+            # Returned before the REPEATED wrap, so no array<null> is emitted.
+            return {"type": "null", "native_data_type": data_type}
+    elif data_type.upper() in _RECORD_TYPES or metadata_type.upper() in _RECORD_TYPES:
+        core = {
+            "type": "record",
+            "name": f"__struct_{next(struct_names)}",
+            "fields": [],
+            "native_data_type": data_type,
+        }
+    else:
+        core = _leaf_avro_type(data_type, metadata_type, platform)
+
+    kind = core.get("type") if isinstance(core, dict) else None
+    # Dataplex marks map columns REPEATED, as a list of key/value pairs.
+    if mode == _REPEATED_MODE and kind != "map":
+        if kind != "array":
+            if _ARRAY_OR_MAP_TYPE.match(data_type):
+                array_native = data_type
+            else:
+                inner_native = (
+                    core.get("native_data_type", data_type)
+                    if isinstance(core, dict)
+                    else data_type
+                )
+                array_native = f"ARRAY<{inner_native}>"
+            core = {"type": "array", "items": core, "native_data_type": array_native}
+        core["_nullable"] = False
+        return core
+    if isinstance(core, dict):
+        core["_nullable"] = mode != _REQUIRED_MODE
+    return core
+
+
+def _convert_complex_column(
+    field_data: Any, field_name: str, description: str, entry_id: str, platform: str
+) -> List[SchemaFieldClass]:
+    """Nested v2 SchemaFields for one complex column, via ``avro_schema_to_mce_fields``.
+
+    Raises when no structure is found, so the caller falls back to a flat row.
+    """
+    avro_type = _kc_field_to_avro_type(field_data, entry_id, platform, count())
+    if isinstance(avro_type, dict) and avro_type.get("type") == "null":
+        raise _NoStructureError(f"no structure extracted for column {field_name}")
+    column_field: Dict[str, Any] = {"name": field_name, "type": avro_type}
+    if description:
+        column_field["doc"] = description
+    avro_schema = {"type": "record", "name": "__struct_", "fields": [column_field]}
+    schema_fields = avro_schema_to_mce_fields(
+        json.dumps(avro_schema), swallow_exceptions=False
+    )
+    if not schema_fields:
+        raise ValueError(f"Avro conversion yielded no fields for column {field_name}")
+    if description and not schema_fields[0].description:
+        schema_fields[0].description = description
+    return schema_fields
+
+
+def _complex_column_fields(
+    field_data: Any,
+    field_name: str,
+    field_type: str,
+    description: str,
+    entry_id: str,
+    platform: str,
+    report: Optional[SourceReport],
+) -> Optional[List[SchemaFieldClass]]:
+    """Nested v2 SchemaFields for a complex column; None means emit a flat row."""
+    mode = str(extract_field_value(field_data, "mode")).upper()
+    if not _is_complex_field(field_data, field_type, mode):
+        return None
+    try:
+        schema_fields = _convert_complex_column(
+            field_data, field_name, description, entry_id, platform
+        )
+    except _NoStructureError:
+        logger.debug(
+            f"Keeping column '{field_name}' ({field_type}) flat in entry "
+            f"{entry_id}: nothing to nest"
+        )
+        return None
+    except Exception as conversion_error:
+        context = f"entry={entry_id}, column={field_name}, type={field_type}"
+        if report is not None:
+            report.warning(
+                title=_FLAT_FALLBACK_TITLE,
+                message=_FLAT_FALLBACK_MESSAGE,
+                context=context,
+                exc=conversion_error,
+            )
+        else:
+            logger.warning(f"{_FLAT_FALLBACK_MESSAGE} {context}: {conversion_error}")
+        return None
+    logger.debug(
+        f"Extracted complex field '{field_name}' ({field_type}) for entry {entry_id}"
+    )
+    return schema_fields
+
+
 def map_aspect_type_to_datahub(type_str: str) -> SchemaFieldDataTypeClass:
     """Map aspect schema type string to DataHub schema type.
 
@@ -261,8 +556,52 @@ def map_aspect_type_to_datahub(type_str: str) -> SchemaFieldDataTypeClass:
         return SchemaFieldDataTypeClass(type=StringTypeClass())
 
 
+CLOUD_STORAGE_SERVICE = "CLOUD_STORAGE"
+STORAGE_ASPECT_SUFFIXES = (".storage", "/storage")
+STORAGE_SERVICE_KEY = "service"
+STORAGE_RESOURCE_NAME_KEY = "resourceName"
+
+
+def extract_gcs_storage_bucket_from_entry_aspects(
+    entry: dataplex_v1.Entry, entry_id: str
+) -> Optional[str]:
+    """GCS bucket from an entry's ``storage`` aspect, or None.
+
+    Only ``service: CLOUD_STORAGE`` counts; BigQuery entries point at themselves.
+    """
+    if not entry.aspects:
+        return None
+
+    storage_aspect = None
+    for aspect_key in entry.aspects:
+        # Keys are project-number prefixed, e.g. "1234.global.storage".
+        if aspect_key.endswith(STORAGE_ASPECT_SUFFIXES):
+            storage_aspect = entry.aspects[aspect_key]
+            break
+    if storage_aspect is None or not storage_aspect.data:
+        return None
+
+    data = dict(storage_aspect.data)
+    if data.get(STORAGE_SERVICE_KEY) != CLOUD_STORAGE_SERVICE:
+        return None
+
+    resource_name = data.get(STORAGE_RESOURCE_NAME_KEY)
+    if not isinstance(resource_name, str) or not resource_name.startswith(
+        GCS_URI_SCHEME
+    ):
+        return None
+    bucket = resource_name[len(GCS_URI_SCHEME) :].split("/", 1)[0]
+    if not bucket:
+        logger.debug(f"Entry {entry_id} storage resourceName has no bucket")
+        return None
+    return bucket
+
+
 def extract_schema_from_entry_aspects(
-    entry: dataplex_v1.Entry, entry_id: str, platform: str
+    entry: dataplex_v1.Entry,
+    entry_id: str,
+    platform: str,
+    report: Optional[SourceReport] = None,
 ) -> Optional[SchemaMetadataClass]:
     """Extract schema metadata from Entry aspects.
 
@@ -273,6 +612,8 @@ def extract_schema_from_entry_aspects(
         entry: Entry object from Catalog API
         entry_id: Entry ID for naming the schema
         platform: Platform name (bigquery, gcs, etc.)
+        report: Receives a warning when an unexpected error stops a complex
+            column from converting
 
     Returns:
         SchemaMetadataClass if schema aspect found, None otherwise
@@ -385,6 +726,19 @@ def extract_schema_from_entry_aspects(
                     field_desc = extract_field_value(field_data, "description")
 
                     if field_name:
+                        complex_fields = _complex_column_fields(
+                            field_data,
+                            str(field_name),
+                            str(field_type),
+                            field_desc,
+                            entry_id,
+                            platform,
+                            report,
+                        )
+                        if complex_fields is not None:
+                            fields.extend(complex_fields)
+                            continue
+
                         # Map the type string to DataHub schema type
                         datahub_type = map_aspect_type_to_datahub(str(field_type))
 

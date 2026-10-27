@@ -1,0 +1,396 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "bigquery",
+                "project_id": "test-project",
+                "dataplex_ingested": "true",
+                "dataplex_project_id": "test-project",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/bigquery-table",
+                "dataplex_source_platform": "bigquery"
+            },
+            "name": "test-project"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "projects/test-project/locations/us/entryGroups/@bigquery/entries/daily_orders",
+            "platform": "urn:li:dataPlatform:bigquery",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "STRING",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total",
+                    "nullable": true,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FLOAT64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dataplex_ingested": "true",
+                "dataplex_entry_id": "projects/test-project/locations/us/entryGroups/@bigquery/entries/daily_orders",
+                "dataplex_entry_group": "@bigquery",
+                "dataplex_fully_qualified_name": "bigquery:test-project.analytics.daily_orders",
+                "dataplex_entry_type": "projects/test-project/locations/us/entryTypes/bigquery-table",
+                "dataplex_aspect_schema": "schema",
+                "dataplex_schema_fields": "[{\"dataType\": \"STRING\", \"name\": \"order_id\"}, {\"dataType\": \"FLOAT64\", \"name\": \"total\"}]"
+            },
+            "name": "daily_orders",
+            "created": {
+                "time": 1704326400000
+            },
+            "lastModified": {
+                "time": 1705104000000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1705320000000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.raw.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:dataplex_9ce9ffcbf76eaab58925c76fc53eca1196bad51ccc7faaa510bf32f188ba3552"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1705320000000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.raw.fx_rates,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.raw.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD),order_id)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:dataplex_9ce9ffcbf76eaab58925c76fc53eca1196bad51ccc7faaa510bf32f188ba3552"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.raw.orders,PROD),amount)",
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.raw.fx_rates,PROD),rate)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD),total)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:dataplex_9ce9ffcbf76eaab58925c76fc53eca1196bad51ccc7faaa510bf32f188ba3552",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "gcp_process_name": "projects/test-project/locations/us/processes/daily-orders-load",
+                "gcp_origin_source_type": "BIGQUERY",
+                "bigquery_job_id": "job_daily_orders",
+                "bigquery_job_type": "query",
+                "total_bytes_processed": "1024",
+                "job_label_team": "data"
+            },
+            "statement": {
+                "value": "INSERT INTO analytics.daily_orders SELECT * FROM raw.orders",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1705316700000,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1705316700000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:dataplex_9ce9ffcbf76eaab58925c76fc53eca1196bad51ccc7faaa510bf32f188ba3552",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.raw.orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD),order_id)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:dataplex_9ce9ffcbf76eaab58925c76fc53eca1196bad51ccc7faaa510bf32f188ba3552",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1e7aac5351abb73dcf3caf70b47ee23f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.analytics.daily_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:dataplex_9ce9ffcbf76eaab58925c76fc53eca1196bad51ccc7faaa510bf32f188ba3552",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "dataplex-2024_01_15-12_00_00-48hg38",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
