@@ -159,14 +159,6 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:datahub"
                     }
-                },
-                {
-                    "url": "jdbc:postgresql://localhost:5432/adventureworks/tbl_1/rcvr_cntry_code",
-                    "description": "implementation",
-                    "createStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
                 }
             ]
         }

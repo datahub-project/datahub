@@ -1113,7 +1113,11 @@ query getSearchAcrossLineageCounts(
         count
         total
         facets {
-            ...facetFields
+            field
+            aggregations {
+                value
+                count
+            }
         }
     }
     downstreams: searchAcrossLineage(
@@ -1131,7 +1135,11 @@ query getSearchAcrossLineageCounts(
         count
         total
         facets {
-            ...facetFields
+            field
+            aggregations {
+                value
+                count
+            }
         }
     }
 }

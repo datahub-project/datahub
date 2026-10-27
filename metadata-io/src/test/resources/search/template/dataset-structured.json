@@ -12,16 +12,6 @@
     }, {
       "filter" : {
         "term" : {
-          "materialized" : {
-            "boost" : 1.0,
-            "value" : "true"
-          }
-        }
-      },
-      "weight" : 0.5
-    }, {
-      "filter" : {
-        "term" : {
           "deprecated" : {
             "boost" : 1.0,
             "value" : "true"
@@ -180,6 +170,6 @@
         } ]
       }
     },
-    "score_mode" : "avg"
+    "score_mode" : "multiply"
   }
 }

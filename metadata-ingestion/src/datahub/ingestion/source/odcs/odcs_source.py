@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import tempfile
 from dataclasses import dataclass, field
 from functools import partial
@@ -38,8 +39,11 @@ from datahub.ingestion.source.common.object_store_files import (
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
+from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
+    RefusalKind,
+    iter_schema_rules,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
     odcs_to_data_product_output_port_mcps,
@@ -50,6 +54,7 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
@@ -60,6 +65,13 @@ from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_SERVER_FIELDS,
     KNOWN_UNMAPPED_TEAM_FIELDS,
     KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
+    LENIENT_FIELDS_BY_MODEL,
+    READ_BUT_UNMAPPED_CONTRACT_FIELDS,
+    READ_BUT_UNMAPPED_PROPERTY_FIELDS,
+    READ_BUT_UNMAPPED_QUALITY_FIELDS,
+    READ_BUT_UNMAPPED_SCHEMA_FIELDS,
+    READ_BUT_UNMAPPED_SERVER_FIELDS,
+    READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
     ODCSContract,
     ODCSProperty,
@@ -82,6 +94,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     DataProductPropertiesClass,
     LogicalParentClass,
     OwnershipClass,
@@ -90,6 +103,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DataProductUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +113,11 @@ _VERSION_TO_SCHEMA = {
     "3.0.1": "odcs-v3.0.2.json",
     "3.0.2": "odcs-v3.0.2.json",
     "3.1.0": "odcs-v3.1.0.json",
+    "3.2.0": "odcs-v3.2.0.json",
 }
-_DEFAULT_VERSION = "3.1.0"
+# v3.2 is an additive superset, so contracts without an exact validator match
+# validate against the widest schema.
+_DEFAULT_VERSION = "3.2.0"
 
 _MODEL_FIELDS_CACHE: Dict[type, Set[str]] = {}
 
@@ -124,6 +141,43 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
 }
+
+_READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
+    ODCSContract: READ_BUT_UNMAPPED_CONTRACT_FIELDS,
+    ODCSSchemaObject: READ_BUT_UNMAPPED_SCHEMA_FIELDS,
+    ODCSProperty: READ_BUT_UNMAPPED_PROPERTY_FIELDS,
+    ODCSQualityRule: READ_BUT_UNMAPPED_QUALITY_FIELDS,
+    ODCSServer: READ_BUT_UNMAPPED_SERVER_FIELDS,
+    ODCSTeamMember: READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
+}
+
+
+class _ContractYamlLoader(yaml.SafeLoader):
+    """YAML 1.1 loader whose implicit integers are plain decimals only.
+
+    YAML 1.1 reads an unquoted `0777` as octal 511 and `12:30` as base-60 750,
+    so an identifier such as a database name or an AWS account ID would turn
+    into a different value and bind the contract to a table that does not
+    exist. Such values stay strings here, exactly as written.
+    """
+
+
+_ContractYamlLoader.yaml_implicit_resolvers = {
+    first: [
+        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+    ]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+_ContractYamlLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:int",
+    re.compile(r"^[-+]?(?:0|[1-9][0-9]*)$"),
+    list("-+0123456789"),
+)
+
+
+def _load_contract_yaml(raw_text: str) -> object:
+    return yaml.load(raw_text, Loader=_ContractYamlLoader)
+
 
 # Which list-valued keys of each model recurse into which child model, for the
 # unknown-field walker. `authoritativeDefinitions` is handled generically, and
@@ -206,6 +260,8 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     unknown_fields_count: int = 0
     validation_errors: int = 0
     unmappable_servers: int = 0
+    unresolved_variable_bindings: int = 0
+    ai_context_merge_skipped: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
     physical_urns_link_conflicts: int = 0
@@ -283,6 +339,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         # Logical `odcs` dataset URNs emitted this run, to detect collisions when
         # two contracts resolve to the same {contract_id}.{schema_name}.
         self._seen_logical_urns: Set[str] = set()
+        self._ai_context_unmerged_reported = False
         # Physical URNs already claimed by a logicalParent link this run:
         # logicalParent is single-valued, so a second contract binding the same
         # physical dataset silently overwrites the first (last-writer-wins).
@@ -622,7 +679,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         try:
             raw_text = file_path.read_text(encoding="utf-8")
-            raw_dict = yaml.safe_load(raw_text)
+            raw_dict = _load_contract_yaml(raw_text)
         except (OSError, yaml.YAMLError) as e:
             self.report.warning(
                 title="Failed to read ODCS file",
@@ -677,7 +734,7 @@ class ODCSSource(StatefulIngestionSourceBase):
             return None
         try:
             raw_text = raw_bytes.decode("utf-8")
-            raw_dict = yaml.safe_load(raw_text)
+            raw_dict = _load_contract_yaml(raw_text)
         except (UnicodeDecodeError, yaml.YAMLError) as e:
             self.report.warning(
                 title="Failed to read ODCS file",
@@ -704,7 +761,9 @@ class ODCSSource(StatefulIngestionSourceBase):
           1. Declared on the model — parsed; recurse into known list shapes.
           2. Spec-valid but unmapped (`KNOWN_UNMAPPED_*`) — collected and
              reported once per file as an info, NOT a warning: the field is
-             legitimate ODCS that this source deliberately does not map.
+             legitimate ODCS that this source deliberately does not map. Keys
+             the model reads but no mapping uses (`READ_BUT_UNMAPPED_*`) are
+             reported the same way.
           3. Genuinely unknown — a per-field warning. Pydantic's
              `extra="ignore"` silently drops these, and a silent drop of a
              typo'd field is a footgun.
@@ -716,6 +775,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 return
             allowed = _model_field_keys(model_cls)
             known_unmapped = _KNOWN_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
+            read_unmapped = _READ_BUT_UNMAPPED_BY_MODEL.get(model_cls, frozenset())
             child_models = _CHILD_MODEL_BY_KEY.get(model_cls, {})
             for key, value in node.items():
                 if key not in allowed:
@@ -729,6 +789,8 @@ class ODCSSource(StatefulIngestionSourceBase):
                         context=f"{source_uri}: {path_hint}.{key} (model={model_cls.__name__})",
                     )
                     continue
+                if key in read_unmapped:
+                    spec_ignored.append(f"{path_hint}.{key}")
                 if (
                     model_cls is ODCSContract
                     and key == "team"
@@ -748,6 +810,11 @@ class ODCSSource(StatefulIngestionSourceBase):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
 
         walk(raw_dict, ODCSContract, "<root>")
+        # One entry per field, not per column: `properties[3].unique` and
+        # `properties[7].unique` are the same unmapped field.
+        spec_ignored = list(
+            dict.fromkeys(re.sub(r"\[\d+\]", "[*]", path) for path in spec_ignored)
+        )
         if spec_ignored:
             self.report.spec_fields_ignored.extend(spec_ignored)
             self.report.info(
@@ -913,8 +980,31 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.contracts_skipped += 1
             return
 
-        for role_key in unmapped_owner_roles(contract):
-            self.report.owners_role_defaulted.append(f"{contract.id}: {role_key}")
+        defaulted_roles = unmapped_owner_roles(contract)
+        if defaulted_roles:
+            self.report.owners_role_defaulted.extend(
+                f"{contract.id}: {role_key}" for role_key in defaulted_roles
+            )
+            self.report.info(
+                title="ODCS team roles mapped to Technical Owner",
+                message=(
+                    "These team roles have no DataHub ownership type mapping, so "
+                    "their members were added as Technical Owners."
+                ),
+                context=f"{source_uri}: {', '.join(defaulted_roles)}",
+            )
+        unstorable_urls = unstorable_authoritative_definition_urls(contract)
+        if unstorable_urls:
+            self.report.warning(
+                title="ODCS authoritativeDefinitions URLs skipped",
+                message=(
+                    "DataHub only stores absolute http, https, ftp or mailto links "
+                    'that are valid URIs (no spaces or characters like | { } " < >), '
+                    "so these authoritativeDefinitions URLs were not added as links."
+                ),
+                context=f"{source_uri}: {', '.join(unstorable_urls)}",
+            )
+        self._report_lossy_mappings(raw_dict, contract, source_uri)
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
         if overrides:
@@ -1024,11 +1114,162 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         self._check_owner_resolution(logical_mcps, source_uri)
         for mcp in logical_mcps:
-            yield mcp.as_workunit()
+            is_field = guess_entity_type(mcp.entityUrn or "") == "schemaField"
+            if is_field and isinstance(mcp.aspect, AiContextClass):
+                merged = self._merge_ai_context(
+                    mcp.entityUrn or "", mcp.aspect, source_uri
+                )
+                if merged is None:
+                    continue
+                mcp.aspect = merged
+            # Field-level aspects (v3.2 deprecation/aiContext) are not
+            # primary-source: a schemaField URN in the checkpoint would be
+            # soft-deleted once a later contract drops the flag.
+            yield mcp.as_workunit(is_primary_source=not is_field)
         for unmapped in unmapped_types:
             self.report.schema_type_fallbacks.append(
                 f"{contract.id}/{schema_entry.name}: {unmapped}"
             )
+
+    def _report_lossy_mappings(
+        self, raw_dict: dict, contract: ODCSContract, source_uri: str
+    ) -> None:
+        """Report contract content that parses but does not reach DataHub as written."""
+        self._report_dropped_values(raw_dict, contract, source_uri)
+        self._report_shadowed_description(contract, source_uri)
+        self._report_variables_in_rules(contract, source_uri)
+
+    def _report_dropped_values(
+        self, raw_dict: dict, contract: ODCSContract, source_uri: str
+    ) -> None:
+        dropped: List[str] = []
+
+        def check(raw: object, parsed: BaseModel, path: str) -> None:
+            if not isinstance(raw, dict):
+                return
+            for key in LENIENT_FIELDS_BY_MODEL.get(type(parsed), ()):
+                raw_value = raw.get(key)
+                if raw_value is None:
+                    continue
+                value = getattr(parsed, key)
+                if value is None or (
+                    isinstance(raw_value, list)
+                    and isinstance(value, list)
+                    and len(value) < len(raw_value)
+                ):
+                    dropped.append(f"{path}.{key}")
+            raw_props = raw.get("properties")
+            props = getattr(parsed, "properties", None) or []
+            if isinstance(raw_props, list):
+                for i, (raw_prop, prop) in enumerate(
+                    zip(raw_props, props, strict=False)
+                ):
+                    check(raw_prop, prop, f"{path}.properties[{i}]")
+
+        raw_schema = raw_dict.get("schema")
+        if isinstance(raw_schema, list):
+            for i, (raw_entry, entry) in enumerate(
+                zip(raw_schema, contract.schema_ or [], strict=False)
+            ):
+                check(raw_entry, entry, f"<root>.schema[{i}]")
+        if dropped:
+            self.report.warning(
+                title="ODCS values dropped as off-spec",
+                message=(
+                    "These v3.2 values do not match the spec's type and were not "
+                    "mapped; the rest of the contract was ingested."
+                ),
+                context=f"{source_uri}: {', '.join(dropped)}",
+            )
+
+    def _report_shadowed_description(
+        self, contract: ODCSContract, source_uri: str
+    ) -> None:
+        if contract.description is None:
+            return
+        shadowed = [
+            entry.name
+            for entry in contract.schema_ or []
+            if entry.description is not None
+        ]
+        if shadowed:
+            # Info, not warning: tables with their own description are the
+            # common case (the official Bitol examples do it).
+            self.report.info(
+                title="ODCS contract description not applied",
+                message=(
+                    "These tables have their own description, so the contract "
+                    "`description` (usage, purpose, limitations) is not written "
+                    "to them."
+                ),
+                context=f"{source_uri}: {', '.join(shadowed)}",
+            )
+
+    def _report_variables_in_rules(
+        self, contract: ODCSContract, source_uri: str
+    ) -> None:
+        found: List[str] = []
+        for entry in contract.schema_ or []:
+            for rule, column, _ in iter_schema_rules(entry):
+                body = rule.query or rule.implementation
+                text = body if isinstance(body, str) else json.dumps(body)
+                if body is not None and VARIABLE_MARKER in text:
+                    location = f"{entry.name}.{column}" if column else entry.name
+                    found.append(f"{location}: {text}")
+        if found:
+            self.report.warning(
+                title="ODCS quality rule contains an unresolved variable",
+                message=(
+                    "The rule is copied into its assertion as written; resolve the "
+                    "variables before ingestion or the assertion cannot run."
+                ),
+                context=f"{source_uri}: {'; '.join(found)}",
+            )
+
+    def _merge_ai_context(
+        self, field_urn: str, contract_ai: AiContextClass, source_uri: str
+    ) -> Optional[AiContextClass]:
+        """The field's aiContext with only `synonyms` taken from the contract.
+
+        `aiContext` is written as a whole aspect, so the contract's synonyms
+        replace the field's synonyms while its instructions and examples are
+        kept. Without a graph the aspect is written as is, unless it would be
+        empty: loaded later, an empty aspect would erase that context.
+        Returns None when the existing aspect cannot be read: overwriting it
+        blindly could erase user-entered context.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            if not self._ai_context_unmerged_reported:
+                self._ai_context_unmerged_reported = True
+                self.report.info(
+                    title="ODCS synonyms written as whole AI context aspects",
+                    message=(
+                        "No DataHub connection, so a field's existing AI context "
+                        "cannot be read; the aspect is written with only the "
+                        "contract's synonyms, replacing instructions and examples."
+                    ),
+                    context=source_uri,
+                )
+            return contract_ai if contract_ai.synonyms else None
+        try:
+            existing = graph.get_aspect(field_urn, AiContextClass)
+        except Exception as e:
+            self.report.ai_context_merge_skipped += 1
+            self.report.warning(
+                title="Could not read existing AI context; synonyms not written",
+                message="Skipped this field's ODCS synonyms to avoid overwriting "
+                "user-entered AI context.",
+                context=field_urn,
+                exc=e,
+            )
+            return None
+        if existing is None:
+            # Nothing to clear: skip writing an empty aspect.
+            return contract_ai if contract_ai.synonyms else None
+        # The contract owns the field's synonyms: they replace the existing ones.
+        existing.synonyms = contract_ai.synonyms
+        return existing
 
     def _emit_assertions(
         self,
@@ -1106,8 +1347,22 @@ class ODCSSource(StatefulIngestionSourceBase):
         if binding.physical_urn is None:
             # No binding costs only the logicalParent link — never the
             # assertions. The unmapped reason is informational.
-            if binding.unmapped_reason:
-                self.report.unmappable_servers += 1
+            if binding.unresolved_variable:
+                self.report.unresolved_variable_bindings += 1
+                self.report.warning(
+                    title="ODCS physical binding refused: unresolved variable",
+                    message=(
+                        f"{binding.unmapped_reason}. Emitted the logical "
+                        "dataset and its assertions; no logicalParent link."
+                    ),
+                    context=(
+                        f"file={source_uri} schema_index={binding.index} "
+                        f"schema_name={schema_entry.name}"
+                    ),
+                )
+            elif binding.refusal is not None:
+                if binding.refusal.kind is RefusalKind.UNMAPPABLE:
+                    self.report.unmappable_servers += 1
                 self.report.info(
                     title="ODCS schema entry has no physical binding",
                     message=(

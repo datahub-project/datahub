@@ -1,3 +1,4 @@
+import { MockedProvider } from '@apollo/client/testing';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,9 +55,11 @@ beforeAll(() => {
 
 const renderModal = () =>
     render(
-        <CustomThemeProvider>
-            <AddRelatedTermsModal onClose={vi.fn()} relationshipType={TermRelationshipType.HasA} />
-        </CustomThemeProvider>,
+        <MockedProvider>
+            <CustomThemeProvider>
+                <AddRelatedTermsModal onClose={vi.fn()} relationshipType={TermRelationshipType.HasA} />
+            </CustomThemeProvider>
+        </MockedProvider>,
     );
 
 describe('AddRelatedTermsModal', () => {
