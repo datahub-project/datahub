@@ -10,6 +10,9 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.SearchTemplateSource;
+import com.linkedin.search.template.EntityTypeBoostArray;
+import com.linkedin.search.template.FieldFactorArray;
+import com.linkedin.search.template.FieldValueScoreArray;
 import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.search.template.SearchFieldOverrides;
 import com.linkedin.search.template.SearchTemplateBoostArray;
@@ -22,6 +25,7 @@ import com.linkedin.search.template.SearchTemplateRetrieval;
 import com.linkedin.search.template.SearchTemplateRetrievalBridge;
 import com.linkedin.search.template.SearchTemplateRoute;
 import com.linkedin.search.template.StructuredPropertyQuery;
+import com.linkedin.search.template.TermWeightArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -341,6 +345,10 @@ public class SearchTemplateLoader {
     HighlightFieldOverrides highlights = null;
     SearchTemplateBoostArray boosts = null;
     StructuredPropertyQuery structuredPropertyQuery = null;
+    FieldValueScoreArray fieldValueScores = null;
+    FieldFactorArray fieldFactors = null;
+    TermWeightArray termWeights = null;
+    EntityTypeBoostArray entityTypeBoosts = null;
     SearchTemplateNormalization normalization = null;
     List<SearchTemplateRoute> routes = null;
     String defaultRoute = null;
@@ -376,6 +384,30 @@ public class SearchTemplateLoader {
         structuredPropertyQuery =
             StructuredPropertyClauses.merge(
                 structuredPropertyQuery, props.getStructuredPropertyQuery());
+      }
+      if (props.hasFieldValueScores()) {
+        fieldValueScores =
+            props.getFieldValueScores() == null || props.getFieldValueScores().isEmpty()
+                ? null
+                : new FieldValueScoreArray(props.getFieldValueScores());
+      }
+      if (props.hasFieldFactors()) {
+        fieldFactors =
+            props.getFieldFactors() == null || props.getFieldFactors().isEmpty()
+                ? null
+                : new FieldFactorArray(props.getFieldFactors());
+      }
+      if (props.hasTermWeights()) {
+        termWeights =
+            props.getTermWeights() == null || props.getTermWeights().isEmpty()
+                ? null
+                : new TermWeightArray(props.getTermWeights());
+      }
+      if (props.hasEntityTypeBoosts()) {
+        entityTypeBoosts =
+            props.getEntityTypeBoosts() == null || props.getEntityTypeBoosts().isEmpty()
+                ? null
+                : new EntityTypeBoostArray(props.getEntityTypeBoosts());
       }
       if (props.hasNormalization()) {
         normalization =
@@ -426,6 +458,10 @@ public class SearchTemplateLoader {
     builder.highlightFields(highlights);
     builder.boosts(boosts);
     builder.structuredPropertyQuery(structuredPropertyQuery);
+    builder.fieldValueScores(fieldValueScores);
+    builder.fieldFactors(fieldFactors);
+    builder.termWeights(termWeights);
+    builder.entityTypeBoosts(entityTypeBoosts);
     builder.normalization(normalization);
     builder.routes(SearchTemplateRoutes.compile(routes, maxRoutes, maxRoutePatternLength));
     builder.defaultRoute(defaultRouteSet ? defaultRoute : null);
@@ -454,6 +490,12 @@ public class SearchTemplateLoader {
     if (props.hasFunctionScore()) {
       builder.functionScore(blankToNull(props.getFunctionScore()));
     }
+    if (props.hasScoreMode() && props.getScoreMode() != null) {
+      builder.scoreMode(props.getScoreMode());
+    }
+    if (props.hasBoostMode() && props.getBoostMode() != null) {
+      builder.boostMode(props.getBoostMode());
+    }
     if (props.hasRescore()) {
       builder.rescore(blankToNull(props.getRescore()));
     }
@@ -462,6 +504,10 @@ public class SearchTemplateLoader {
     }
     if (props.hasRanking()) {
       builder.ranking(emptyRanking(props.getRanking()) ? null : props.getRanking());
+    }
+    if (props.hasComponent()) {
+      builder.component(
+          SearchTemplateComponents.empty(props.getComponent()) ? null : props.getComponent());
     }
     if (props.hasRetrieval()) {
       builder.retrieval(emptyRetrieval(props.getRetrieval()) ? null : props.getRetrieval());

@@ -27,7 +27,7 @@ import com.linkedin.metadata.models.annotation.SearchableRefAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -95,7 +95,7 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator != null && coordinator.executes(opContext)) {
       return buildPlan(opContext, entitySpecs, query, fulltext, null, false).query();
     }
@@ -148,7 +148,7 @@ public class SearchQueryBuilder {
       boolean fulltext,
       @Nullable String renderUrn,
       boolean scroll) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator != null && coordinator.executes(opContext)) {
       if (searchValidationConfiguration.isEnabled()) {
         validateSearchQuery(query);

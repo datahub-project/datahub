@@ -25,7 +25,6 @@ record MetricRelationships {
     "hasValuesFieldName": "hasParentMetric",
     "v3": {
       "searchLabel": "parent",
-      "queryByDefault": false,
       "hasValuesFieldName": "hasParent",
     }
   }

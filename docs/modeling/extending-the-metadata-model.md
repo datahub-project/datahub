@@ -427,8 +427,8 @@ It takes the following parameters:
 
 - **queryByDefault**: boolean (optional) - Whether we should match the field for the default search query. True by
   default for text and urn fields. On Search V3, a field queried by default that names no shared field copies into
-  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). Set
-  `"v3": { "queryByDefault": false }` to change that for Search V3 only.
+  the root field `other` (see [Shared search fields on Search V3](#shared-search-fields-on-search-v3)). Search V3
+  leaves the field out of an unqualified query until `"v3": { "queryByDefault": true }` opts it in.
 
 - **enableAutocomplete**: boolean (optional) - Whether we should use the field for autocomplete. Defaults to false.
   Search V2 reads the field for typeahead. Search V3 autocomplete prefixes `name.text`, or the caller's resolved field, and does not read this flag.
@@ -571,7 +571,7 @@ A label can appear on the entity and again on a child or related record. Each di
 
 The degree belongs to the place the shared aspect is used. The same record can be the entity's own metadata in one embedding and a child field in another. A path override that sets only `v3.degree`, `v3.boostScore`, `v3.queryByDefault`, or a combination is merged onto the annotation already in effect. An override that sets `fieldType` still replaces that annotation, and the replacement carries the degree and the V3 score.
 
-`v3.boostScore` is the Search V3 weight of that indexed field. Sources of one indexed field must agree on it, and a farther degree must score lower than a nearer one. `v3.queryByDefault` must agree for that same indexed field, and it may differ across degrees of one label. When it is unset, Search V3 uses the top-level `queryByDefault`. V2 keeps reading the top-level `boostScore` and `queryByDefault`. A dataset's own description, tags, and glossary terms stay on `description`, `tags`, and `glossaryTerms` and stay in an unqualified search. The same values on a schema field index as `description_1`, `tags_1`, and `glossaryTerms_1`, and a schema field path or label indexes as `name_1`. Those column fields set `v3.queryByDefault` false, including an edited column on a dataset, so an unqualified Search V3 query does not read them. Search V2 still reads them through the top-level flag. A business attribute's own edited description, tags, and glossary terms stay queried. An explicit filter on the column field still matches.
+`v3.boostScore` is the Search V3 weight of that indexed field. Sources of one indexed field must agree on it, and a farther degree must score lower than a nearer one. `v3.queryByDefault` must agree for that same indexed field, and it may differ across degrees of one label. When it is unset, Search V3 leaves the field out of an unqualified query. A custom model sets `v3.queryByDefault` true to opt in. V2 keeps reading the top-level `boostScore` and `queryByDefault`. A dataset's own description, tags, and glossary terms stay on `description`, `tags`, and `glossaryTerms` and stay in an unqualified search. The same values on a schema field index as `description_1`, `tags_1`, and `glossaryTerms_1`, and a schema field path or label indexes as `name_1`. A schema field leaves `v3.queryByDefault` unset, so an unqualified Search V3 query does not read it. An edited column sets `v3.queryByDefault` false on its path override, because the field annotation itself opts in for a business attribute. Search V2 still reads them through the top-level flag. A business attribute's own edited description, tags, and glossary terms stay queried. An explicit filter on the column field still matches.
 
 The existence boolean follows the same degree. Degree 0 keeps `hasDescription`, `hasTags`, and `hasGlossaryTerms`. Degree 1 indexes `hasDescription_1`, `hasTags_1`, and `hasGlossaryTerms_1`. The aspect document still writes the declared name, and V2 filters keep reading it.
 

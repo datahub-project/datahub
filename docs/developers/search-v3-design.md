@@ -29,7 +29,7 @@ The per-field V2 query surface is not this contract. A new entity maps its PDL f
 
 Some facts live on the entity and again on things related to it. A dataset has tags, and its columns have tags. The dataset's own tags say more about it than the tags on its columns, and a value further away can say less again. Glossary terms, owners, and any other shared field follow the same pattern. Tags are the example.
 
-Each distance is a field a template, a filter, or a `/q` query can name on its own. The value on the entity is degree 0, `tags`. One step away is `tags_1`. Two steps away is `tags_2`. The number is the distance, and the same number means the same distance on every entity. Column name, description, tags, and glossary terms are degree 1: `name_1`, `description_1`, `tags_1`, and `glossaryTerms_1`. Those column fields set `v3.queryByDefault` false, so an unqualified query does not read them. A filter or `fields.add` names that degree. Search V2 still reads the same values through the top-level `queryByDefault`. An entity with nothing at that distance has no such field.
+Each distance is a field a template, a filter, or a `/q` query can name on its own. The value on the entity is degree 0, `tags`. One step away is `tags_1`. Two steps away is `tags_2`. The number is the distance, and the same number means the same distance on every entity. Column name, description, tags, and glossary terms are degree 1: `name_1`, `description_1`, `tags_1`, and `glossaryTerms_1`. Those column fields stay out of an unqualified query. A schema field leaves `v3.queryByDefault` unset. An edited column sets it false, because that field annotation also opts a business attribute in. A filter or `fields.add` names that degree. Search V2 still reads the same values through the top-level `queryByDefault`. An entity with nothing at that distance has no such field.
 
 The model sets the distance and its default weight. A nearer distance weighs at least as much as a farther one. The default query includes a distance when `v3.queryByDefault` is true, at `v3.boostScore`. Column degrees are left out. A template then decides what a request actually runs:
 
@@ -63,7 +63,7 @@ A ladder tries one template, then another. The rules for entering a rung, keepin
 
 A rung renders the template sections. The ladder owns selection, stopping, joins, and `next`.
 
-`@Searchable` maps a PDL field onto a shared field. `v3.searchLabel` and `v3.degree` name the indexed field. `v3.queryByDefault` puts that field in the default queried set, and `v3.boostScore` is its default weight. The top-level `queryByDefault` and `boostScore` stay the Search V2 values. `fields.add`, `fields.remove`, `fields.replace`, and `fields.override` choose which fields are queried and the weight of each. The author writes the `term`, `prefix`, `wildcard`, or `match` clause in the Mustache body, and the boost and `dis_max` around it. The composed keyword query adds the generated whole-value terms and the name-and-value group around that body. See [Field weights](#field-weights).
+`@Searchable` maps a PDL field onto a shared field. `v3.searchLabel` and `v3.degree` name the indexed field. `v3.queryByDefault` true puts that field in the default queried set, and an unset flag leaves it out. `v3.boostScore` is its default weight. The top-level `queryByDefault` and `boostScore` stay the Search V2 values. `fields.add`, `fields.remove`, `fields.replace`, and `fields.override` choose which fields are queried and the weight of each. The author writes the `term`, `prefix`, `wildcard`, or `match` clause in the Mustache body, and the boost and `dis_max` around it. The composed keyword query adds the generated whole-value terms and the name-and-value group around that body. See [Field weights](#field-weights).
 
 A template declares the section names this release accepts. An unknown name is rejected when the template is written and when it is loaded. `apiVersion` is 1. A ranking preset other than `none`, a window sizer other than `fixed`, vector retrieval, a bridge, and a merge join fail when that template is selected. See [Capabilities](#capabilities).
 
@@ -75,7 +75,7 @@ The composed keyword query is the rendered body, then whole-value terms and the 
 
 A vector participates in one of three ways, and each is a different template shape. `knn` on a keyword template reorders rows already in the keyword window and adds no hits. Corpus kNN is its own rung. A keyword rung and a vector rung can run together and add hits that only the vector leg found. In OSS the three shapes run for the Document entity only. Hybrid adds vector-only hits once a fusion policy is chosen. See [Document rerank](#document-rerank) and [Vector retrieval](#vector-retrieval).
 
-The search box is a search. Which field matched is read from the returned document, on that page, for the fields the query searched. The default query stays one body. Highlighting stays off on a template request. `skipHighlighting` does not turn it on. `highlightFields` is still stored. See [Highlight fields](#highlight-fields).
+The search box is a search. Which field matched is read from the returned page, for the fields the request opted into. The default set is empty, so the default query stays one body and fetches no highlight source. The engine highlighter stays off. A non-empty set opts into final-page source matching, and `skipHighlighting` clears that set. See [Highlight fields](#highlight-fields).
 
 Hydration from `_source` is not implemented. Search responses still read aspects from the primary store. See [Hydrating from `_source`](#hydrating-from-_source).
 
@@ -92,7 +92,7 @@ A template is the `searchTemplateProperties` aspect, addressed as `urn:li:search
 - `SearchFlags.searchTemplate` selects a URN for that call.
 - `sortCriteria` replaces the template sort. On a from/size search it also replaces engine `rescore`, `ranking`, and `knn`.
 - `skipAggregates` and `includeDefaultFacets` adjust aggregations for the request.
-- Highlighting stays off. `skipHighlighting` does not turn it on. `highlightFields` is still stored, and a request may add, remove, or replace fields for that call.
+- A non-empty highlight set opts into final-page source matching. `skipHighlighting` clears that set, including a template set and a caller override. A request may add, remove, or replace the template set, and `customHighlightingFields` replaces it.
 
 The result cache key combines those service discriminators with the template discriminators, so two requests that differ in template do not share a hit and an edit does not keep serving the previous ranking.
 
@@ -114,6 +114,8 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `clauses`                 | Extra bool clauses merged into that body.                                                                                                                      | [Query composition](#query-composition)                                          |
 | `functionScore`           | Score functions wrapped around the body. A filter snippet is for a boost that is not list membership.                                                          | [Query composition](#query-composition), [List boosts](#list-boosts)             |
 | `boosts`                  | List-membership weights. Each entry is a field, an injectable list, and a weight.                                                                              | [List boosts](#list-boosts)                                                      |
+| `fieldValueScores`        | Numeric multipliers for an index field or a structured property. Naming a property turns scoring on. Omitted extents come from the definition's `score`.       | [Numeric property scores](#numeric-property-scores)                              |
+| `entityTypeBoosts`        | Positive weights for named entity types, multiplied onto the rendered query. A weight of 1 is omitted. A request that names one entity type skips the section. |                                                                                  |
 | `rescore`                 | An engine rescore window after that wrapper, on a from/size search. Scroll drops it.                                                                           | [Query composition](#query-composition), [Search and scroll](#search-and-scroll) |
 | `ranking`                 | Preset that reorders the engine window after the query returns, on a from/size search. Scroll drops it.                                                        | [Ranking](#ranking), [Search and scroll](#search-and-scroll)                     |
 | `routes`                  | Ordered query matchers that choose another template before this body runs. An empty list pins this template. A miss stays here unless a default target is set. | [Selection](#selection)                                                          |
@@ -124,7 +126,7 @@ These are the sections on `searchTemplateProperties`. The bodies behind the boot
 | `sort`                    | Sort for this rung. Unset keeps score, then URN, unless engine `rescore`, `ranking`, or `knn` is applied.                                                      | [Query composition](#query-composition)                                          |
 | `fields`                  | Queried fields and one weight each. Each degree of separation is its own field.                                                                                | [Field weights](#field-weights)                                                  |
 | `structuredPropertyQuery` | Analyzed value, exact value, and name-and-value clauses. A child replaces only the clauses it sets.                                                            | [Name and value](#name-and-value)                                                |
-| `highlightFields`         | Stored field set. This release does not run the engine highlighter.                                                                                            | [Highlight fields](#highlight-fields)                                            |
+| `highlightFields`         | Fields opted into final-page source matching. The engine highlighter stays off.                                                                                | [Highlight fields](#highlight-fields)                                            |
 | `parameters`              | Named values the body can reference, such as `deprecatedBoost`.                                                                                                | [Render context](#render-context)                                                |
 | `created`                 | When the template was first written. Callers omit it.                                                                                                          | [Stamps](#stamps)                                                                |
 | `lastModified`            | When the template was last written. Callers omit it. Part of the result cache key.                                                                             | [Stamps](#stamps)                                                                |
@@ -187,13 +189,15 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 | `highlights`              | `highlightFields`                                |
 | `sort`                    | Sort                                             |
 | `boosts`                  | List-membership weights                          |
+| `fieldValueScores`        | Numeric field and property scores                |
+| `entityTypeBoosts`        | Entity-type weights                              |
 | `queryFragments`          | Query holes                                      |
 
 After parent merge, a ranking preset other than `none`, a window sizer other than `fixed`, vector retrieval, a bridge, and a merge join fail the search. `knn` runs when the request includes the Document entity. The service does not drop that section and return keyword order. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
 
 ### Field weights
 
-`fields` exists so a template can change which shared fields are searched, and how hard, without a code change. The default set is every indexed field whose `v3.queryByDefault` is true, at that field's `v3.boostScore`, plus every structured property whose `searchConfiguration.queryByDefault` is true, at that configuration's `boostScore`. When `v3.queryByDefault` or `v3.boostScore` is unset, Search V3 uses the top-level value. The top-level flags stay the Search V2 values. The indexed field is the shared field at degree 0, and `<sharedField>_<degree>` above that. Column degrees set `v3.queryByDefault` false and stay out of that set. Those annotation values are schema defaults: `v3.boostScore` does not increase with degree on one entity and shared field. Schema validation requires one degree for an aspect location and one `v3.queryByDefault` and `v3.boostScore` for an indexed name, including across entities. See [Documents](#documents). A structured property has one definition, so its `queryByDefault` and `boostScore` are the same on every entity type that definition allows. The annotation or definition weight applies only where the template sets no weight, and the template's field set and weights are what the request runs.
+`fields` exists so a template can change which shared fields are searched, and how hard, without a code change. The default set is every indexed field whose `v3.queryByDefault` is true, at that field's `v3.boostScore`, plus every structured property whose `searchConfiguration.queryByDefault` is true, at that configuration's `boostScore`. When `v3.boostScore` is unset, Search V3 uses the top-level `boostScore`. When `v3.queryByDefault` is unset, the field stays out of an unqualified Search V3 query; set it true to opt in. The top-level flags stay the Search V2 values. The indexed field is the shared field at degree 0, and `<sharedField>_<degree>` above that. Column degrees stay out of that set. Those annotation values are schema defaults: `v3.boostScore` does not increase with degree on one entity and shared field. Schema validation requires one degree for an aspect location and one `v3.queryByDefault` and `v3.boostScore` for an indexed name, including across entities. See [Documents](#documents). A structured property has one definition, so its `queryByDefault` and `boostScore` are the same on every entity type that definition allows. The annotation or definition weight applies only where the template sets no weight, and the template's field set and weights are what the request runs.
 
 `override` sets the weight of a field that is already in the queried set. One field, one weight. That weight is what the weighted field list uses, and what a structured property's generated whole-value term uses as its boost. In the list, text is queried at that weight and the stemmed subfield at half, except on the name fields, which have no stemmed subfield. A numeric boost written in the body stays the boost the author wrote. Override does not change `nameAndValue.weight`. The same documents match. `rescore` and `ranking` read the resulting score. They do not carry a field-weight list of their own. An `override` of a field that is not in the queried set is rejected at write time.
 
@@ -263,11 +267,11 @@ boosts:
     weight: 1.5
 ```
 
-`functionScore` stays the wrapper for a boost that is not list membership. It holds `functions`, `score_mode`, and `boost_mode`. Each function is a score function the engine accepts, such as `weight`, `field_value_factor`, or a decay function. A filter on that function is a snippet the author writes for a term on one literal, a numeric field, or a decay. The snippet and the function's other fields reference parameters, the same way a weight references `{{deprecatedBoost}}`. The service supplies those values and leaves that function list as the author wrote it. A snippet that references `viewerUrn`, `viewerGroupsJson`, `viewerDomainsJson`, or `domainsJson` is rejected at write time. A clause may still reference those values to narrow.
+`functionScore` stays the wrapper for a boost that is not list membership. It holds `functions`, `score_mode`, and `boost_mode`. Shipped keyword templates set `score_mode` to `multiply`, so each matching weight scales the text score and a document that misses a filter is unchanged. Each function is a score function the engine accepts, such as `weight`, `field_value_factor`, or a decay function. A filter on that function is a snippet the author writes for a term on one literal, a numeric field, or a decay. The snippet and the function's other fields reference parameters, the same way a weight references `{{deprecatedBoost}}`. The service supplies those values and leaves that function list as the author wrote it. A snippet that references `viewerUrn`, `viewerGroupsJson`, `viewerDomainsJson`, or `domainsJson` is rejected at write time. A clause may still reference those values to narrow.
 
 ### Highlight fields
 
-Which field matched is read from values already on the returned document, for the fields this query searched, on that page of hits. The check grows with the page. The default query stays one body.
+Which field matched is read from values already on the returned page, for the fields this request opted into and this query searches. The check runs after ranking and page selection, so a discarded window row is not scanned, and it stops at the first matching value in each field. An empty set fetches nothing. The default query stays one body.
 
 A named query identifies a field only when that field is its own clause. A `multi_match` does not say which inner field matched. Lucene already scores a sub-query per field inside that one body, so a `_name` on every field costs template size rather than query time. The template does not grow one per queried field, including every degree of separation and every structured property the query searched. An author may still name a distinct clause. That name is what a structured-property match reports. It does not replace the field check.
 
@@ -275,7 +279,7 @@ A structured-property match reports the definition URN and the matched value. It
 
 The comparison uses values on the returned document. A shared field filled only by `copy_to` is not stored, which keeps that cost off every write, so the check reads the source fields copied into it. A keyword is the value itself, folded the same way as the folded copy when the match was case-insensitive. Analyzed text uses the same approximate mark the UI applies. That mark can miss a hit found only through a stem, a fuzzy edit, a synonym, or a phrase with slop. The drift is accepted. The engine highlighter stays off on a template request.
 
-`highlightFields` is still stored. A child changes the set with `add`, `remove`, and `replace`. `replace` cannot be combined with `add` or `remove`. The section has no weight. It names an indexed field, including a degree field such as `tags_1`. Declaring `highlights` does not run the engine highlighter. `skipHighlighting` does not turn it on. Which field matched is read from the returned document, for the fields this query searched.
+Shipped templates leave `highlightFields` unset, so the default set is empty. A template opts fields in only when that cost is warranted. A child changes the set with `add`, `remove`, and `replace`. `replace` cannot be combined with `add` or `remove`. An explicit empty section clears the set. A request applies the same section after the template set. `customHighlightingFields` replaces that set outright, including a V2 subfield normalized to its indexed root, and the request section is not applied on top of it. `skipHighlighting` then clears whatever remains. The section has no weight. It names an indexed field, including a degree field such as `tags_1` and a structured property such as `structuredProperties.tier`, which is read where it is stored because `copy_to` does not put its value on the shared field. A field this query does not read, an aspect path, a wildcard, or a subfield the index does not store is dropped. The engine highlighter stays off. A non-empty set fetches those source paths, including the fields copied into a selected shared field, and matches them on the final page.
 
 ### Examples
 
@@ -288,7 +292,7 @@ clauses: |
 functionScore: |
   {
     "functions": [
-      { "filter": { "term": { "materialized": { "value": true } } }, "weight": 0.25 }
+      { "filter": { "term": { "deprecated": { "value": true } } }, "weight": 0.5 }
     ],
     "score_mode": "multiply",
     "boost_mode": "multiply"
@@ -411,7 +415,7 @@ The same template URN serves both. On scroll the ladder section is left unread, 
 | `query`, `clauses`, `fields`, `functionScore`, `boosts` | Part of that query                                                | Part of that query                                        |
 | Whole-value terms and name-and-value                    | Run                                                               | Run                                                       |
 | `aggregations`                                          | Run when the request asks                                         | Run when the request asks                                 |
-| Highlight                                               | Stays off                                                         | Stays off                                                 |
+| Highlight                                               | Final-page source match when the set is non-empty                 | Same, on the scrolled page                                |
 | `sort` and `sortCriteria`                               | Run. `sortCriteria` also replaces `rescore`, `ranking`, and `knn` | Run. The default is score, then URN                       |
 | `rescore`                                               | Runs on the top `window_size`                                     | Dropped. The engine rejects `rescore` with `search_after` |
 | `ranking`                                               | Reorders the fetched window                                       | Dropped                                                   |
@@ -823,7 +827,7 @@ The index is one mapping per entity. Shared field names are unified: the same na
 
 `@Searchable` on the traditional PDL model maps a source field onto a shared field. `v3.searchLabel` is the shared name and `v3.degree` is the distance. Unset degree is 0, the value on the entity. The annotation author sets a higher degree for a more distant or more weakly associated value. `name` collects title and name. `description` collects every description: info aspects, properties, ingested, edited, and generated. Platform is its own field, separate from the name. Analyzed text is copied onto the shared fields. Root fields stay keywords for filters, facets, and sort. `_entityType` names the entity on every document.
 
-Every shared field follows the same rule. Each degree above 0 is indexed as a flat sibling of the degree-0 field, named `<sharedField>_<degree>`: `tags` and `tags_1`, `glossaryTerms` and `glossaryTerms_1`, `owners` and `owners_1`. Tags, glossary terms, and owners are examples, not a closed list. For a dataset, degree 1 holds the values copied from its columns. The degree belongs to that aspect location, so every entity that includes the location uses the same degree. The suffix means the same distance on every entity. `v3.queryByDefault` and `v3.boostScore` apply to that indexed field. The top-level `queryByDefault` and `boostScore` stay the Search V2 values. Column name, description, tags, and glossary terms set `v3.queryByDefault` false. Schema validation rejects two annotations on one entity that set the same field and degree with different defaults, a `v3.boostScore` that increases with degree, a different degree for the same aspect location, and a different `v3.queryByDefault` or `v3.boostScore` for the same indexed name. See [Degrees of separation](#degrees-of-separation). A filter, a facet, or a template names one of the fields.
+Every shared field follows the same rule. Each degree above 0 is indexed as a flat sibling of the degree-0 field, named `<sharedField>_<degree>`: `tags` and `tags_1`, `glossaryTerms` and `glossaryTerms_1`, `owners` and `owners_1`. Tags, glossary terms, and owners are examples, not a closed list. For a dataset, degree 1 holds the values copied from its columns. The degree belongs to that aspect location, so every entity that includes the location uses the same degree. The suffix means the same distance on every entity. `v3.queryByDefault` and `v3.boostScore` apply to that indexed field. The top-level `queryByDefault` and `boostScore` stay the Search V2 values. Column name, description, tags, and glossary terms stay out of an unqualified query. Schema validation rejects two annotations on one entity that set the same field and degree with different defaults, a `v3.boostScore` that increases with degree, a different degree for the same aspect location, and a different `v3.queryByDefault` or `v3.boostScore` for the same indexed name. See [Degrees of separation](#degrees-of-separation). A filter, a facet, or a template names one of the fields.
 
 #### Fields under each aspect
 
@@ -852,6 +856,28 @@ A template names a structured property by its definition URN, such as `urn:li:st
 The examples are in [Examples](#examples). A string, rich-text, or URN value matches as one whole term at its field weight, whether or not the body also names the field. A multi-word query matches when the whole value is that term. One identifier token keeps a hyphenated value as one term. A date or a number stays on its typed field. In a query body, a clause, or a highlight, write the URN as `{{urn:li:structuredProperty:certification.status}}`. The template names the form after that reference. See [Structured property references](#structured-property-references).
 
 A string or rich-text structured property keeps its keyword form and also has one analyzed text form, using the shared `word_delimited` and `query_word_delimited` analyzers on the `.text` multi-field. URN, date, and number stay keyword, date, or number. Nothing is copied into `_search.structuredProperties` or `customProperties`. Adding the analyzed form is a Search V3 mapping change and a rebuild. Search V2 does not index the analyzed form. Search V2 and Search V2.5 keep their current structured-property full-text behavior until those paths are deprecated.
+
+#### Numeric property scores
+
+`fieldValueScores` names the property URN. That entry is what turns scoring on. A `score` on the property definition does not. The shipped templates do not set `fieldValueScores`. A deployment adds it by writing the section on its own template.
+
+Omitted `inputMin`, `inputMax`, and `maxMultiplier` come from the definition's `score`. A value on the template replaces the definition. If the definition and the template together still lack a finite range with `inputMax` greater than `inputMin` and a multiplier of at least 1, that entry is skipped.
+
+A raw index field has no definition, so the template sets all three extents.
+
+Values at or below `inputMin` stay at multiplier 1. Values at or above `inputMax` get `maxMultiplier`. The span maps as `1 + slope * (value - inputMin)`, where `slope` is `(maxMultiplier - 1) / (inputMax - inputMin)`. A missing field stays at 1. A multi-valued field uses its smallest value.
+
+```yaml
+fieldValueScores:
+  - propertyUrn: urn:li:structuredProperty:io.example.priority
+```
+
+```yaml
+score:
+  inputMin: 0
+  inputMax: 100
+  maxMultiplier: 2
+```
 
 #### Name and value
 
@@ -927,7 +953,7 @@ Analyzed text stays on the shared text fields. A structured property stays on it
 
 A keyword field filtered either with or without case is stored in both forms: the original value, and the value lowercased and ASCII-folded. An annotation-derived URN is two fields. The logical name is the parsed name. `<field>_urn` is the full URN used by filters, facets, sorts, and ranges, and `<field>_urn.lowercase` is the case-insensitive full URN. Callers still use `tags`, `owners`, and `parent`. Full text reads the logical field only when that field is included in full text, so `owners` has neither `text` nor `stemmed`. The document `urn` is the exact entity URN, and `urn_name` is its parsed identity and is not full text. A string or rich-text structured property follows the dual-form rule. A structured-property URN stays on `structuredProperties.<field>` and `__urn_name`. A date or a number has no case form.
 
-`v3.queryByDefault` selects each indexed field, at any degree, and `v3.boostScore` is its default weight until a template `fields.add`, `fields.override`, or `fields.replace` sets one. When `v3.queryByDefault` or `v3.boostScore` is unset, Search V3 uses the top-level value. The top-level `boostScore` stays the Search V2 weight. Column degrees set `v3.queryByDefault` false and stay out of an unqualified query. Schema validation requires one `v3.queryByDefault` and one `v3.boostScore` for each indexed name. A structured property uses `queryByDefault` and `boostScore` on its `searchConfiguration` the same way, and that pair is one value for every entity type the definition allows.
+`v3.queryByDefault` selects each indexed field, at any degree, and `v3.boostScore` is its default weight until a template `fields.add`, `fields.override`, or `fields.replace` sets one. When `v3.boostScore` is unset, Search V3 uses the top-level `boostScore`. When `v3.queryByDefault` is unset, the field stays out of an unqualified Search V3 query; set it true to opt in. The top-level `boostScore` stays the Search V2 weight. Column degrees stay out of an unqualified query. Schema validation requires one `v3.queryByDefault` and one `v3.boostScore` for each indexed name. A structured property uses `queryByDefault` and `boostScore` on its `searchConfiguration` the same way, and that pair is one value for every entity type the definition allows.
 
 The Document entity carries kNN vector fields with classical document embeddings. Document rerank, pure semantic search, and hybrid retrieval query those fields. In OSS they apply to the Document entity only.
 

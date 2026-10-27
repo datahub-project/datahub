@@ -9,7 +9,7 @@
             "customProperties": {
                 "schema_inferred_from": "gs://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv"
             },
-            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv",
+            "externalUrl": "https://console.cloud.google.com/storage/browser/my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/",
             "name": "folder_aaa.food_csv",
             "description": "",
             "tags": []

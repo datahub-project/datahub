@@ -23,7 +23,7 @@ import com.linkedin.search.template.SearchTemplateRetrieval;
 import com.linkedin.search.template.SearchTemplateRetrievalBridge;
 import java.util.List;
 import java.util.Map;
-import org.testng.annotations.AfterMethod;
+import java.util.concurrent.ForkJoinPool;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -49,11 +49,6 @@ public class SearchTemplateValidationTest {
   public void setup() {
     harness = new SearchTemplateFixtures.Harness();
     harness.setup();
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
   }
 
   @DataProvider
@@ -142,7 +137,12 @@ public class SearchTemplateValidationTest {
 
   private void bind(SearchTemplateProperties properties) {
     harness.store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
-    new SearchTemplateCoordinator(harness.elastic(), null, harness.loader)
+    new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty())
         .bind(harness.opContext, "customer orders");
   }
 
