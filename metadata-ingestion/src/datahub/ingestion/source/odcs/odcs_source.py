@@ -168,13 +168,18 @@ class _ContractYamlLoader(yaml.SafeLoader):
     YAML 1.1 reads an unquoted `0777` as octal 511 and `12:30` as base-60 750,
     so an identifier such as a database name or an AWS account ID would turn
     into a different value and bind the contract to a table that does not
-    exist. Such values stay strings here, exactly as written.
+    exist. Such values stay strings here, exactly as written. Unquoted dates
+    stay strings too: the JSON Schema types them as strings, and a `date`
+    object fails validation.
     """
 
 
+_DROPPED_IMPLICIT_TAGS = ("tag:yaml.org,2002:int", "tag:yaml.org,2002:timestamp")
 _ContractYamlLoader.yaml_implicit_resolvers = {
     first: [
-        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+        (tag, regexp)
+        for tag, regexp in resolvers
+        if tag not in _DROPPED_IMPLICIT_TAGS
     ]
     for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
 }

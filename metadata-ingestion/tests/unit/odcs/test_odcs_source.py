@@ -2521,6 +2521,7 @@ def test_spec_valid_edge_values_are_not_reported_as_dropped(
     workunits = list(src.get_workunits_internal())
     titles = [w.title for w in src.report.warnings]
     assert "ODCS values dropped as off-spec" not in titles
+    assert not any("JSON Schema" in (title or "") for title in titles)
     (schema,) = _aspects_of(workunits, SchemaMetadataClass)
     assert schema.fields[0].description == (
         '**Allowed values:**\n- `null` (Unknown)\n- `""`\n- `2024-01-01`'
