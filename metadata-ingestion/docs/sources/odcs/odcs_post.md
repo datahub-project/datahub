@@ -49,13 +49,15 @@ and reordering do not churn identities.
 
 When a table binds to a physical dataset, `{object}` and `${object}` in a rule's `query`
 are replaced with the bound table's name, for example `my_catalog.my_schema.orders`, without
-the platform instance. A `physical_urn_overrides` URN's dataset name is used as written,
-minus a platform instance that a `server_overrides` entry names. The name is not quoted, and
-it is lowercased when `lowercase_physical_urns` lowercases the URN. With
-`verify_physical_urns_exist`, a table that is not found in DataHub is not substituted. A
-table that is not bound or not found keeps the placeholder and gets a warning, unless it was
-unbound on purpose with an empty `physical_urn_overrides` entry. Placeholders in
-`implementation` are not replaced and are reported as unresolved variables.
+the platform instance. The name is not quoted. A name derived from `servers[]` is lowercased
+when `lowercase_physical_urns` lowercases the URN. A `physical_urn_overrides` URN's dataset
+name is used as written, minus the platform instance of the contract's server when that
+server's `server_overrides` entry sets one. With `verify_physical_urns_exist`, a table that is
+not found in DataHub is not substituted. A table that is not bound or not found keeps the
+placeholder and gets a warning, unless it was unbound on purpose with an empty
+`physical_urn_overrides` entry. An override value that is not a dataset URN, or that contains
+`${VAR}`, leaves the table unbound with a warning. Placeholders in `implementation` are not
+replaced and are reported as unresolved variables. `{{object}}` is left as written.
 
 :::warning Routing is exact; nothing is approximated
 
@@ -214,8 +216,9 @@ in place.
   team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
   `region`. These may land in a follow-up.
 - **Lossy mappings are reported.** Besides the info above: off-spec values that were
-  dropped, `${VAR}` references in quality `query` text, and `{object}` placeholders on a
-  table that is not bound, are warnings; team roles defaulted to Technical Owner are infos.
+  dropped, `${VAR}` references in quality `query` text, `{object}` placeholders on a table
+  that is not bound or not found in DataHub, and `physical_urn_overrides` values that are not
+  dataset URNs, are warnings; team roles defaulted to Technical Owner are infos.
 - **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the
   mappings below are implemented. `logicalType: vector` maps to an array type (dimensions and
   element type are not recorded); `deprecated: true` on a schema object or property emits a

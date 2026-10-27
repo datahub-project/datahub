@@ -43,6 +43,7 @@ from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     RefusalKind,
+    has_object_placeholder,
     iter_schema_rules,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
@@ -1052,8 +1053,9 @@ class ODCSSource(StatefulIngestionSourceBase):
                 contract, binding, source_uri, source_file
             )
             # Checked once, before the assertions, so a table the run reports
-            # as missing is not written into their SQL.
-            physical_exists = binding.physical_urn is not None and (
+            # as missing is not written into their SQL. True without a check
+            # when verify_physical_urns_exist is off.
+            physical_usable = binding.physical_urn is not None and (
                 not self.config.verify_physical_urns_exist
                 or self._physical_urn_exists(binding.physical_urn)
             )
@@ -1061,7 +1063,10 @@ class ODCSSource(StatefulIngestionSourceBase):
             schema_assertion_urn: Optional[str] = None
             if self.config.emit_assertions:
                 assertion_urns = yield from self._emit_assertions(
-                    contract, binding, source_uri, physical_exists
+                    contract,
+                    binding,
+                    source_uri,
+                    bound_table=binding.table_name if physical_usable else None,
                 )
             if self.config.emit_schema_assertion:
                 schema_assertion_urn = yield from self._emit_schema_assertion(
@@ -1074,7 +1079,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 assertion_urns,
             )
             physical_urn = yield from self._emit_logical_parent(
-                contract, binding, source_uri, physical_exists
+                contract, binding, source_uri, physical_usable
             )
             if physical_urn is not None:
                 yield from self._emit_physical_contract(
@@ -1189,27 +1194,22 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
 
     def _report_unreplaced_object_placeholder(
-        self, binding: PhysicalBinding, source_uri: str
+        self, binding: PhysicalBinding, source_uri: str, reason: str
     ) -> None:
-        refusal = binding.refusal
-        if refusal is not None and refusal.kind is RefusalKind.EXPLICITLY_UNBOUND:
+        if binding.refusal_kind is RefusalKind.EXPLICITLY_UNBOUND:
             return
         schema_entry = binding.schema_entry
         if any(
-            rule.query and substitute_object_placeholder(rule.query, "") != rule.query
+            rule.query and has_object_placeholder(rule.query)
             for rule, _, _ in iter_schema_rules(schema_entry)
         ):
-            reason = (
-                binding.unmapped_reason
-                or "the bound physical table was not found in DataHub"
-            )
             self.report.warning(
                 title="ODCS quality rule table placeholder not replaced",
                 message=(
-                    f"{{object}} in the schema entry's SQL rules stays as "
-                    f"written: {reason}."
+                    "{object} in the schema entry's SQL rules stays as written "
+                    "because the entry has no usable physical table."
                 ),
-                context=f"{source_uri}: {schema_entry.name}",
+                context=f"{source_uri}: {schema_entry.name}: {reason}",
             )
 
     def _report_variables_in_rules(
@@ -1222,11 +1222,15 @@ class ODCSSource(StatefulIngestionSourceBase):
                 text = body if isinstance(body, str) else json.dumps(body)
                 # `${object}` in a query is the table placeholder, replaced
                 # once bound (or reported as unbound), not a variable to
-                # resolve. Only queries are substituted.
-                checked = (
-                    substitute_object_placeholder(text, "") if rule.query else text
-                )
-                if body is not None and VARIABLE_MARKER in checked:
+                # resolve. Only queries are substituted, so either placeholder
+                # in `implementation` stays as written and is reported here.
+                if rule.query:
+                    unresolved = VARIABLE_MARKER in substitute_object_placeholder(
+                        text, ""
+                    )
+                else:
+                    unresolved = VARIABLE_MARKER in text or has_object_placeholder(text)
+                if body is not None and unresolved:
                     location = f"{entry.name}.{column}" if column else entry.name
                     found.append(f"{location}: {text}")
         if found:
@@ -1289,16 +1293,20 @@ class ODCSSource(StatefulIngestionSourceBase):
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
-        physical_exists: bool,
+        bound_table: Optional[str],
     ) -> Generator[MetadataWorkUnit, None, List[str]]:
         # Assertions target the LOGICAL dataset and are emitted whether or not a
         # physical binding resolved. Propagation onto bound physical datasets is
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
         # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
-        bound_table = binding.table_name if physical_exists else None
         if bound_table is None:
-            self._report_unreplaced_object_placeholder(binding, source_uri)
+            self._report_unreplaced_object_placeholder(
+                binding,
+                source_uri,
+                binding.unmapped_reason
+                or "the bound physical table was not found in DataHub",
+            )
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
             contract=contract,
             schema_entry=schema_entry,
@@ -1358,7 +1366,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
-        physical_exists: bool,
+        physical_usable: bool,
     ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
         # Returns the bound physical URN (or None) so the caller can attach an
         # optional native contract to the physical dataset.
@@ -1366,47 +1374,34 @@ class ODCSSource(StatefulIngestionSourceBase):
         if binding.physical_urn is None:
             # No binding costs only the logicalParent link — never the
             # assertions. The unmapped reason is informational.
-            if binding.unresolved_variable:
+            message = (
+                "Emitted the logical dataset and its assertions; no logicalParent link."
+            )
+            context = (
+                f"file={source_uri} schema_index={binding.index} "
+                f"schema_name={schema_entry.name}: {binding.unmapped_reason}"
+            )
+            kind = binding.refusal_kind
+            if kind is RefusalKind.UNRESOLVED_VARIABLE:
                 self.report.unresolved_variable_bindings += 1
                 self.report.warning(
                     title="ODCS physical binding refused: unresolved variable",
-                    message=(
-                        f"{binding.unmapped_reason}. Emitted the logical "
-                        "dataset and its assertions; no logicalParent link."
-                    ),
-                    context=(
-                        f"file={source_uri} schema_index={binding.index} "
-                        f"schema_name={schema_entry.name}"
-                    ),
+                    message=message,
+                    context=context,
                 )
-            elif (
-                binding.refusal is not None
-                and binding.refusal.kind is RefusalKind.INVALID_OVERRIDE
-            ):
+            elif kind is RefusalKind.INVALID_OVERRIDE:
                 self.report.warning(
                     title="ODCS physical_urn_overrides entry is not a dataset URN",
-                    message=(
-                        f"{binding.unmapped_reason}. Emitted the logical "
-                        "dataset and its assertions; no logicalParent link."
-                    ),
-                    context=(
-                        f"file={source_uri} schema_index={binding.index} "
-                        f"schema_name={schema_entry.name}"
-                    ),
+                    message=message,
+                    context=context,
                 )
-            elif binding.refusal is not None:
-                if binding.refusal.kind is RefusalKind.UNMAPPABLE:
+            elif kind is not None:
+                if kind is RefusalKind.UNMAPPABLE:
                     self.report.unmappable_servers += 1
                 self.report.info(
                     title="ODCS schema entry has no physical binding",
-                    message=(
-                        f"{binding.unmapped_reason}. Emitted the logical "
-                        "dataset and its assertions; no logicalParent link."
-                    ),
-                    context=(
-                        f"file={source_uri} schema_index={binding.index} "
-                        f"schema_name={schema_entry.name}"
-                    ),
+                    message=message,
+                    context=context,
                 )
             return None
 
@@ -1414,17 +1409,18 @@ class ODCSSource(StatefulIngestionSourceBase):
         if binding.name_passthrough:
             self.report.physical_names_passthrough += 1
 
-        if not physical_exists:
+        if not physical_usable:
             self.report.physical_urns_unverified += 1
             self.report.warning(
-                title="Derived physical dataset not found in DataHub",
+                title="Physical dataset not found in DataHub",
                 message=(
-                    "The physical URN derived from the contract's servers[] "
-                    "does not exist in DataHub, so no logicalParent link was "
-                    "emitted (this avoids creating a stub dataset). Ingest "
-                    "the physical platform first, fix the derived name via "
-                    "physical_urn_overrides, or set "
-                    "verify_physical_urns_exist=false to emit optimistically."
+                    "The physical URN, derived from the contract's servers[] "
+                    "or given in physical_urn_overrides, does not exist in "
+                    "DataHub, so no logicalParent link was emitted (this "
+                    "avoids creating a stub dataset). Ingest the physical "
+                    "platform first, correct the URN via physical_urn_overrides, "
+                    "or set verify_physical_urns_exist=false to emit "
+                    "optimistically."
                 ),
                 context=(
                     f"file={source_uri} schema_name={schema_entry.name} "
