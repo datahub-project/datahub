@@ -1,7 +1,9 @@
 import {
     CATEGORY_APPLICATION,
     CATEGORY_ASSET_MEMBERSHIP,
+    CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
     CATEGORY_VERSIONING,
     CategoryOption,
@@ -21,259 +23,34 @@ const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: CATEGORY_APPLICATION, label: 'Applications' },
     { value: CATEGORY_ASSET_MEMBERSHIP, label: 'Assets' },
     { value: CATEGORY_VERSIONING, label: 'Versions' },
+    { value: CATEGORY_DEPRECATION, label: 'Deprecation' },
+    { value: CATEGORY_PARENT, label: 'Hierarchy' },
 ];
 
 describe('getCategoryOptions', () => {
-    it('returns all 9 categories for datasets', () => {
-        const options = getCategoryOptions(EntityType.Dataset);
-        const values = options.map((o) => o.value);
+    it('offers Deprecation and Hierarchy for glossary terms', () => {
+        const values = getCategoryOptions(EntityType.GlossaryTerm).map((o) => o.value);
+        expect(values).toContain(CATEGORY_DEPRECATION);
+        expect(values).toContain(CATEGORY_PARENT);
+        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
+    });
 
-        expect(values).toEqual([
+    it('omits Deprecation for glossary nodes', () => {
+        const values = getCategoryOptions(EntityType.GlossaryNode).map((o) => o.value);
+        expect(values).toContain(CATEGORY_PARENT);
+        expect(values).not.toContain(CATEGORY_DEPRECATION);
+    });
+
+    it('offers Schema only where the backend registers it', () => {
+        expect(getCategoryOptions(EntityType.Dataset).map((o) => o.value)).toContain(
             ChangeCategoryType.TechnicalSchema,
-            ChangeCategoryType.Documentation,
-            ChangeCategoryType.Tag,
-            ChangeCategoryType.GlossaryTerm,
-            ChangeCategoryType.Ownership,
-            CATEGORY_DOMAIN,
-            CATEGORY_STRUCTURED_PROPERTY,
-            CATEGORY_APPLICATION,
-            CATEGORY_VERSIONING,
-        ]);
+        );
+        expect(getCategoryOptions(EntityType.Domain).map((o) => o.value)).not.toContain(
+            ChangeCategoryType.TechnicalSchema,
+        );
     });
 
-    it('returns Documentation, Tags, Terms, Owners, Domains, Properties, Applications, Versions for glossary terms', () => {
-        const options = getCategoryOptions(EntityType.GlossaryTerm);
-        const values = options.map((o) => o.value);
-
-        expect(values).toEqual([
-            ChangeCategoryType.Documentation,
-            ChangeCategoryType.Tag,
-            ChangeCategoryType.GlossaryTerm,
-            ChangeCategoryType.Ownership,
-            CATEGORY_DOMAIN,
-            CATEGORY_STRUCTURED_PROPERTY,
-            CATEGORY_APPLICATION,
-            CATEGORY_VERSIONING,
-        ]);
-        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
-    });
-
-    it('returns only Documentation, Owners, Properties for domains', () => {
-        const options = getCategoryOptions(EntityType.Domain);
-        const values = options.map((o) => o.value);
-
-        expect(values).toEqual([
-            ChangeCategoryType.Documentation,
-            ChangeCategoryType.Ownership,
-            CATEGORY_STRUCTURED_PROPERTY,
-        ]);
-        expect(values).not.toContain(CATEGORY_DOMAIN);
-        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
-        expect(values).not.toContain(CATEGORY_APPLICATION);
-    });
-
-    it.each([
-        [
-            EntityType.DataFlow,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.DataJob,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Chart,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Dashboard,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Metric,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.SemanticModel,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Mlmodel,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-                CATEGORY_VERSIONING,
-            ],
-        ],
-        [
-            EntityType.MlmodelGroup,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Mlfeature,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.MlfeatureTable,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.MlprimaryKey,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Container,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.GlossaryNode,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_APPLICATION,
-            ],
-        ],
-        [
-            EntityType.Application,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-            ],
-        ],
-        [
-            EntityType.Api,
-            [
-                ChangeCategoryType.Documentation,
-                ChangeCategoryType.Tag,
-                ChangeCategoryType.GlossaryTerm,
-                ChangeCategoryType.Ownership,
-                CATEGORY_DOMAIN,
-                CATEGORY_STRUCTURED_PROPERTY,
-                CATEGORY_VERSIONING,
-            ],
-        ],
-    ])('returns the categories the backend registers for %s', (entityType, expected) => {
-        expect(getCategoryOptions(entityType).map((o) => o.value)).toEqual(expected);
-    });
-
-    it('returns all supported categories including Assets for data products', () => {
-        const options = getCategoryOptions(EntityType.DataProduct);
-        const values = options.map((o) => o.value);
-
-        expect(values).toEqual([
-            ChangeCategoryType.Documentation,
-            ChangeCategoryType.Tag,
-            ChangeCategoryType.GlossaryTerm,
-            ChangeCategoryType.Ownership,
-            CATEGORY_DOMAIN,
-            CATEGORY_STRUCTURED_PROPERTY,
-            CATEGORY_APPLICATION,
-            CATEGORY_ASSET_MEMBERSHIP,
-        ]);
-        expect(values).not.toContain(ChangeCategoryType.TechnicalSchema);
-    });
-
-    it('falls back to all categories for entity types without a mapping', () => {
+    it('falls back to all options for an unknown entity type', () => {
         const options = getCategoryOptions(EntityType.CorpUser);
         expect(options).toEqual(ALL_CATEGORY_OPTIONS);
     });

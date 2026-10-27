@@ -1,0 +1,162 @@
+{
+    "API": ["DOCUMENTATION", "DOMAIN", "GLOSSARY_TERM", "OWNERSHIP", "STRUCTURED_PROPERTY", "TAG", "VERSIONING"],
+    "APPLICATION": ["DOCUMENTATION", "DOMAIN", "GLOSSARY_TERM", "OWNERSHIP", "STRUCTURED_PROPERTY", "TAG"],
+    "CHART": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "CONTAINER": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "DASHBOARD": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "DATASET": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG",
+        "TECHNICAL_SCHEMA",
+        "VERSIONING"
+    ],
+    "DATA_FLOW": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "DATA_JOB": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "DATA_PRODUCT": [
+        "APPLICATION",
+        "ASSET_MEMBERSHIP",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "DOCUMENT": ["DOCUMENTATION", "PARENT", "RELATED_ENTITIES"],
+    "DOMAIN": ["DEPRECATION", "DOCUMENTATION", "OWNERSHIP", "STRUCTURED_PROPERTY"],
+    "GLOSSARY_NODE": ["APPLICATION", "DOCUMENTATION", "DOMAIN", "OWNERSHIP", "PARENT", "STRUCTURED_PROPERTY", "TAG"],
+    "GLOSSARY_TERM": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "PARENT",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "METRIC": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "MLFEATURE": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "MLFEATURE_TABLE": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "MLMODEL": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG",
+        "VERSIONING"
+    ],
+    "MLMODEL_GROUP": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "MLPRIMARY_KEY": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ],
+    "SEMANTIC_MODEL": [
+        "APPLICATION",
+        "DEPRECATION",
+        "DOCUMENTATION",
+        "DOMAIN",
+        "GLOSSARY_TERM",
+        "OWNERSHIP",
+        "STRUCTURED_PROPERTY",
+        "TAG"
+    ]
+}
