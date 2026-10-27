@@ -2541,7 +2541,7 @@ schema:
     context: 5
     properties:
       - name: s
-        enum: [{value: a, label: 5, description: [x]}, {value: b}, {label: only}]
+        enum: [{value: a, label: 5, description: [x]}, {label: only}, {value: c, label: 7}]
         synonyms: [{synonym: alias, status: 5}]
 """
 
@@ -2563,6 +2563,8 @@ def test_off_spec_values_inside_context_and_enum_are_reported(
         "<root>.schema[0].properties[0].enum (1 of 3 entries)",
         "<root>.schema[0].properties[0].enum[0].label",
         "<root>.schema[0].properties[0].enum[0].description",
+        # Entries are checked by position in the contract, after a dropped one.
+        "<root>.schema[0].properties[0].enum[2].label",
         "<root>.schema[0].properties[0].synonyms[0].status",
     ):
         assert dropped in warnings
@@ -2619,7 +2621,8 @@ version: 1.0.0
 status: active
 context:
   instruction: typo
-  constraints: [{constraint: Keep it., id: c1, tags: [a]}]
+  constraints: [{constraint: Keep it., id: c1, tags: [a], customProperties: []}]
+  verifiedStatements: [{question: q, id: v1, anwser: typo, authoritativeDefinitions: []}]
 schema:
   - name: t
     properties:
@@ -2635,8 +2638,11 @@ def test_unknown_keys_inside_context_and_enum_warn(tmp_path: pathlib.Path) -> No
         w for w in src.report.warnings if w.title == "Unknown ODCS field"
     )
     assert "<root>.context.instruction " in unknown
+    assert "<root>.context.verifiedStatements[0].anwser " in unknown
     assert "<root>.schema[0].properties[0].enum[0].lable " in unknown
     # Spec keys the source does not map are infos, not unknown fields.
+    assert src.report.unknown_fields_count == 3
     ignored = " ".join(src.report.spec_fields_ignored)
     assert "<root>.context.constraints[*].id" in ignored
+    assert "<root>.context.verifiedStatements[*].id" in ignored
     assert "<root>.schema[*].properties[*].enum[*].id" in ignored

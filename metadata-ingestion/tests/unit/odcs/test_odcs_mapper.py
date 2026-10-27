@@ -2206,18 +2206,23 @@ def test_allowed_values_cannot_break_the_markdown() -> None:
                 "enum": [
                     {"value": "a`b", "label": "A\nB"},
                     {"value": "`x", "description": "d1\n\n- injected"},
+                    {"value": "x`"},
+                    {"value": "a\n\nb"},
                 ],
             }
         ]
     )
     assert descriptions["s"] == (
-        "**Allowed values:**\n- ``a`b`` (A B)\n- `` `x ``: d1 - injected"
+        "**Allowed values:**\n- ``a`b`` (A B)\n- `` `x ``: d1 - injected\n"
+        '- `` x` ``\n- `"a\\n\\nb"`'
     )
 
 
 def test_enum_off_spec_dropped() -> None:
     assert ODCSProperty.model_validate({"name": "s", "enum": "open"}).enum is None
-    prop = ODCSProperty.model_validate({"name": "s", "enum": [{"label": "x"}, None]})
+    prop = ODCSProperty.model_validate(
+        {"name": "s", "enum": [{"label": "x"}, None, {"value": [1]}, {"value": {}}]}
+    )
     assert prop.enum is None
 
 
@@ -2494,6 +2499,9 @@ def test_context_off_spec_dropped_and_blank_context_adds_nothing() -> None:
         }
     )
     assert _logical_description(contract) == "T."
+    # No usable entry left is a dropped field, not an empty list.
+    assert contract.context is not None
+    assert contract.context.constraints is None
 
 
 def test_lenient_fields_by_model_matches_the_lenient_validators() -> None:
