@@ -382,10 +382,21 @@ public class EntityUtils {
                       && handling().failsOnlyOnValuesFromNewerVersion(validationFailure)) {
                     entitySystemAspect.setFromNewerVersion(true);
                   }
-                  log.warn(
-                      String.format(
-                          "Failed to validate record %s against its schema.",
-                          systemAspect.getRecordTemplate()));
+                  if (handling().toleratesUnknownData()) {
+                    // After a rollback, every read of an aspect a newer version wrote can fail
+                    // here: log it once a minute per aspect, without the record.
+                    UNKNOWN_DATA.invalid(
+                        systemAspect.getAspectName(),
+                        systemAspect.getAspectName()
+                            + " against its schema: "
+                            + validationFailure.getMessages(),
+                        systemAspect.getUrn());
+                  } else {
+                    log.warn(
+                        String.format(
+                            "Failed to validate record %s against its schema.",
+                            systemAspect.getRecordTemplate()));
+                  }
                 }));
 
     // TODO consider applying write validation plugins
