@@ -1,6 +1,7 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
-from typing import List
+from typing import Dict, Iterator, List, Set
 from unittest.mock import Mock, patch
 
 import pytest
@@ -90,12 +91,16 @@ def emitted_proposals(tmp_path: Path, run: str) -> List[MetadataChangeProposalWr
     ]
 
 
-@pytest.mark.parametrize(
-    "failure_mode", ["permission", "later_page", "malformed_export"]
-)
-def test_http_pipeline_preserves_checkpoint_on_partial_scan(
-    tmp_path: Path, failure_mode: str
-) -> None:
+def soft_deleted_urns(tmp_path: Path, run: str) -> Set[str]:
+    return {
+        p.entityUrn
+        for p in emitted_proposals(tmp_path, run)
+        if p.entityUrn and isinstance(p.aspect, StatusClass) and p.aspect.removed
+    }
+
+
+@contextmanager
+def mocked_workspace() -> Iterator[requests_mock.Mocker]:
     workspace = Mock()
     workspace.api_client = ApiClient(
         Config(host=HOST, token="fake-token", auth_type="pat")
@@ -109,17 +114,31 @@ def test_http_pipeline_preserves_checkpoint_on_partial_scan(
         patch.object(UnityCatalogSource, "process_catalogs", return_value=()),
         patch.object(UnityCatalogSource, "get_view_lineage", return_value=()),
     ):
+        yield http
+
+
+def mock_space(http: requests_mock.Mocker, summary: Dict[str, str]) -> None:
+    http.get(
+        f"{SPACES_URL}/{summary['space_id']}",
+        json={
+            **summary,
+            "create_time": "2020-01-01T00:00:00Z",
+            "serialized_space": '{"version":2,"data_sources":{"tables":[{"identifier":"catalog.schema.orders"}]}}',
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "failure_mode", ["permission", "later_page", "malformed_export"]
+)
+def test_http_pipeline_preserves_checkpoint_on_partial_scan(
+    tmp_path: Path, failure_mode: str
+) -> None:
+    with mocked_workspace() as http:
         summaries = [{"space_id": name, "title": name} for name in ["a", "b"]]
         http.get(SPACES_URL, json={"spaces": summaries})
         for summary in summaries:
-            http.get(
-                f"{SPACES_URL}/{summary['space_id']}",
-                json={
-                    **summary,
-                    "create_time": "2020-01-01T00:00:00Z",
-                    "serialized_space": '{"version":2,"data_sources":{"tables":[{"identifier":"catalog.schema.orders"}]}}',
-                },
-            )
+            mock_space(http, summary)
         first = run_pipeline(tmp_path, "initial")
         first.raise_from_status()
         proposals = emitted_proposals(tmp_path, "initial")
@@ -164,30 +183,44 @@ def test_http_pipeline_preserves_checkpoint_on_partial_scan(
         else:
             http.get(f"{SPACES_URL}/b", json={**summaries[1], "serialized_space": "{"})
         partial = run_pipeline(tmp_path, "partial")
+        partial.raise_from_status()
         report = partial.source.get_report()
-        assert not any(
-            isinstance(p.aspect, StatusClass) and p.aspect.removed
-            for p in emitted_proposals(tmp_path, "partial")
-        )
-        if failure_mode == "later_page":
-            assert report.failures
-        else:
-            partial.raise_from_status()
-            messages = [warning.message for warning in report.warnings]
-            if failure_mode == "permission":
-                assert "Genie agent export requires CAN EDIT" in messages
-            else:
-                assert "Invalid Genie agent export" in messages
+        assert not report.failures
+        assert soft_deleted_urns(tmp_path, "partial") == set()
+        expected_warning = {
+            "permission": "Genie agent export requires CAN EDIT",
+            "later_page": "Failed to list Genie agents",
+            "malformed_export": "Invalid Genie agent export",
+        }[failure_mode]
+        assert expected_warning in [warning.message for warning in report.warnings]
 
-        # b stays checkpointed across the partial run: a warning carries its URN
-        # forward, and a listing failure copies the previous state. Dropping b
-        # from the next listing soft-deletes it.
+        # b stays checkpointed across the partial run, so dropping it from the
+        # next listing soft-deletes it.
         http.get(SPACES_URL, json={"spaces": [summaries[0]]})
         recovered = run_pipeline(tmp_path, "recovered")
         recovered.raise_from_status()
-        deleted = {
-            p.entityUrn
-            for p in emitted_proposals(tmp_path, "recovered")
-            if isinstance(p.aspect, StatusClass) and p.aspect.removed
-        }
-        assert deleted == {agents["b"]}
+        assert soft_deleted_urns(tmp_path, "recovered") == {agents["b"]}
+
+
+def test_never_ingested_space_is_not_soft_deleted(tmp_path: Path) -> None:
+    with mocked_workspace() as http:
+        a, b = ({"space_id": name, "title": name} for name in ["a", "b"])
+        mock_space(http, a)
+        http.get(SPACES_URL, json={"spaces": [a]})
+        run_pipeline(tmp_path, "initial").raise_from_status()
+
+        http.get(SPACES_URL, json={"spaces": [a, b]})
+        http.get(
+            f"{SPACES_URL}/b",
+            status_code=403,
+            json={"error_code": "PERMISSION_DENIED", "message": "Denied"},
+        )
+        warned = run_pipeline(tmp_path, "warned")
+        warned.raise_from_status()
+        assert "Genie agent export requires CAN EDIT" in [
+            warning.message for warning in warned.source.get_report().warnings
+        ]
+
+        http.get(SPACES_URL, json={"spaces": [a]})
+        run_pipeline(tmp_path, "dropped").raise_from_status()
+        assert soft_deleted_urns(tmp_path, "dropped") == set()

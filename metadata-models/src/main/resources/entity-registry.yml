@@ -904,7 +904,6 @@ entities:
     aspects:
       - aiAgentInfo
       - aiAgentDependencies
-      - subTypes
       - dataPlatformInstance
       - displayProperties
       - ownership

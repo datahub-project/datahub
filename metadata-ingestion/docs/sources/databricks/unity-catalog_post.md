@@ -28,9 +28,12 @@ export version, or an oversized metadata payload is reported as a warning. The
 warning names the space ID and, when relevant, the bad identifier or the aspect
 that exceeded the payload limit. If that agent was ingested on a previous run,
 it is kept so stateful stale-entity deletion does not remove it, and deletion
-continues for the rest of the run. A failure while listing spaces is reported
-as an ingestion failure. Stale-entity deletion is skipped for that run, because
-the full set of spaces is unknown. Export versions 1 and 2 are supported.
+continues for the rest of the run. A failure while listing spaces is also
+reported as a warning. Because the full set of spaces is unknown, every
+previously ingested agent is kept for that run; stale-entity deletion still runs
+for tables, views, notebooks, and other Unity Catalog entities. An unexpected
+error is reported as an ingestion failure, which skips stale-entity deletion for
+the whole run. Export versions 1 and 2 are supported.
 Oversized metadata is rejected before any aspects for that space are emitted;
 instructions and declared dependencies are not silently truncated.
 A valid empty source list emits empty lineage to remove obsolete dependencies

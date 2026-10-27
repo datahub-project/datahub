@@ -49,6 +49,10 @@ class InvalidGenieExport(ValueError):
     pass
 
 
+class InvalidGenieListing(ValueError):
+    pass
+
+
 class GenieSpaceDefinition(BaseModel):
     version: Literal[1, 2]
     data_sources: GenieDataSources
@@ -61,9 +65,13 @@ class GenieSpaceDefinition(BaseModel):
         payload = json.loads(serialized)
         if not isinstance(payload, dict):
             raise InvalidGenieExport("Genie agent export is not a JSON object")
-        if payload.get("version") not in (1, 2):
+        version = payload.get("version")
+        # An exact type check, because bool is an int subclass and True == 1.
+        if type(version) is not int:
+            raise InvalidGenieExport("Genie agent export has no integer version")
+        if version not in (1, 2):
             raise UnsupportedGenieExportVersion(
-                f"Unsupported Genie export version: {payload.get('version')}"
+                f"Unsupported Genie export version: {version}"
             )
         return cls.model_validate(payload)
 
@@ -85,7 +93,7 @@ class GenieSpaceClient:
             if not page.next_page_token:
                 return
             if page.next_page_token in seen_tokens:
-                raise ValueError("Genie space listing repeated a page token")
+                raise InvalidGenieListing("Genie space listing repeated a page token")
             seen_tokens.add(page.next_page_token)
             query = {"page_token": page.next_page_token}
 

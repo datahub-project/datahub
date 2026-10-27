@@ -3,7 +3,8 @@ from datetime import datetime
 from typing import Callable, Iterable, List, Optional, Set
 from uuid import NAMESPACE_URL, uuid5
 
-from databricks.sdk.errors import PermissionDenied
+import requests
+from databricks.sdk.errors import DatabricksError, PermissionDenied
 from pydantic import ValidationError
 from typing_extensions import LiteralString
 
@@ -21,6 +22,7 @@ from datahub.ingestion.source.unity.genie_client import (
     GenieSpaceClient,
     GenieSpaceDefinition,
     InvalidGenieExport,
+    InvalidGenieListing,
     UnsupportedGenieExportVersion,
 )
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
@@ -69,6 +71,24 @@ class _GenieSpaceWarning(Exception):
         self.size = size
 
 
+# What the SDK transport and response parsing raise. The SDK raises TimeoutError
+# when retries run out, and requests errors that it does not retry pass through.
+_GENIE_API_ERRORS = (
+    DatabricksError,
+    requests.RequestException,
+    TimeoutError,
+    json.JSONDecodeError,
+    ValidationError,
+)
+_GENIE_LISTING_ERRORS = (*_GENIE_API_ERRORS, InvalidGenieListing)
+_GENIE_SPACE_ERRORS = (
+    *_GENIE_API_ERRORS,
+    _GenieSpaceWarning,
+    InvalidGenieExport,
+    UnsupportedGenieExportVersion,
+)
+
+
 class GenieSpaceExtractor:
     def __init__(
         self,
@@ -79,6 +99,7 @@ class GenieSpaceExtractor:
         platform_instance: Optional[str],
         metastore: Optional[str],
         preserve_urn: Callable[[str], None],
+        preserve_all_urns: Callable[[], None],
     ) -> None:
         self.config = config
         self.client = client
@@ -87,6 +108,7 @@ class GenieSpaceExtractor:
         self.platform_instance = platform_instance
         self.metastore = metastore
         self.preserve_urn = preserve_urn
+        self.preserve_all_urns = preserve_all_urns
         self.workspace_url = config.workspace_url.rstrip("/").lower()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -102,22 +124,50 @@ class GenieSpaceExtractor:
                     # Construct everything before emitting so invalid definitions do
                     # not replace previously ingested lineage with an empty set.
                     workunits = self._space_workunits(space)
-                except Exception as exc:
+                except _GENIE_SPACE_ERRORS as exc:
                     self._warn_space(summary.space_id, exc)
+                    continue
+                except Exception as exc:
+                    self.report.failure(
+                        message="Unexpected error ingesting Genie agent",
+                        context=f"space_id={summary.space_id}",
+                        exc=exc,
+                    )
                     continue
                 yield from workunits
                 self.report.genie_spaces.processed(space.space_id)
+        except _GENIE_LISTING_ERRORS as exc:
+            self._warn_listing(exc)
         except Exception as exc:
-            # The set of spaces is unknown, so stale removal must stay off.
-            self.report.failure(message="Failed to list Genie agents", exc=exc)
+            self.report.failure(
+                message="Unexpected error listing Genie agents", exc=exc
+            )
+
+    def _warn_listing(self, exc: Exception) -> None:
+        # The set of spaces is unknown. Agents processed before the failure are
+        # already in the current state, and the rest are carried forward.
+        self.report.warning(message="Failed to list Genie agents", exc=exc)
+        try:
+            self.preserve_all_urns()
+        except Exception as preserve_exc:
+            self.report.failure(
+                message="Failed to preserve Genie agent state", exc=preserve_exc
+            )
 
     def _warn_space(self, space_id: str, exc: Exception) -> None:
-        self.preserve_urn(self._agent_urn(space_id))
         self.report.warning(
             message=self._warning_message(exc),
             context=self._warning_context(space_id, exc),
-            exc=exc,
+            exc=None if isinstance(exc, _GenieSpaceWarning) else exc,
         )
+        try:
+            self.preserve_urn(self._agent_urn(space_id))
+        except Exception as preserve_exc:
+            self.report.failure(
+                message="Failed to preserve Genie agent state",
+                context=f"space_id={space_id}",
+                exc=preserve_exc,
+            )
 
     @staticmethod
     def _warning_message(exc: Exception) -> LiteralString:

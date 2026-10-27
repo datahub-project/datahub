@@ -7,6 +7,7 @@ import time
 from typing import (
     AbstractSet,
     Any,
+    Callable,
     Dict,
     FrozenSet,
     Iterable,
@@ -165,6 +166,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import (
+    AiAgentUrn,
     MlModelGroupUrn,
     MlModelUrn,
     StructuredPropertyUrn,
@@ -177,6 +179,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -785,21 +788,34 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # A warned space is not emitted, so stale removal would soft-delete it.
         # Copy the URN forward only when a previous run ingested it. A space
         # that has never been ingested is not tracked.
-        if not self.state_provider.is_stateful_ingestion_configured():
-            return
-        job_id = StaleEntityRemovalHandler.compute_job_id(self.platform)
-        last_checkpoint = self.state_provider.get_last_checkpoint(
-            job_id, GenericCheckpointState
+        self._carry_forward_checkpoint_urns(lambda previous: previous == urn)
+
+    def _preserve_all_genie_agent_urns(self) -> None:
+        # Genie is the only aiAgent producer in this source, so after a listing
+        # failure every previously ingested agent is kept and stale removal for
+        # the other entity types still runs.
+        self._carry_forward_checkpoint_urns(
+            lambda previous: guess_entity_type(previous) == AiAgentUrn.ENTITY_TYPE
         )
-        if last_checkpoint is None or urn not in last_checkpoint.state.urns:
-            return
+
+    def _carry_forward_checkpoint_urns(self, keep: Callable[[str], bool]) -> None:
+        job_id = StaleEntityRemovalHandler.compute_job_id(self.platform)
+        # The current checkpoint is None without reading state when stale
+        # removal is off, so check it before loading the last checkpoint.
         current_checkpoint = self.state_provider.get_current_checkpoint(job_id)
         if current_checkpoint is None:
             return
         current_state = current_checkpoint.state
         if not isinstance(current_state, GenericCheckpointState):
             return
-        current_state.add_checkpoint_urn(type="aiAgent", urn=urn)
+        last_checkpoint = self.state_provider.get_last_checkpoint(
+            job_id, GenericCheckpointState
+        )
+        if last_checkpoint is None:
+            return
+        for urn in last_checkpoint.state.urns:
+            if keep(urn):
+                current_state.add_checkpoint_urn(type=AiAgentUrn.ENTITY_TYPE, urn=urn)
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore: Optional[Metastore] = None
@@ -823,6 +839,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     platform_instance=self.platform_instance_name,
                     metastore=metastore.id if metastore else None,
                     preserve_urn=self._preserve_genie_agent_urn,
+                    preserve_all_urns=self._preserve_all_genie_agent_urns,
                 ).get_workunits()
         if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)
