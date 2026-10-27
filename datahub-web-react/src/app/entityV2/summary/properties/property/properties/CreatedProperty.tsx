@@ -6,7 +6,7 @@ import { useEntityContext } from '@app/entity/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { formatTimestamp } from '@app/sharedV2/time/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Popover } from '@src/alchemy-components';
 
 const DATE_TIME_FORMAT = 'll LTS';
@@ -23,7 +23,7 @@ const DateWithTooltip = styled.span`
 
 export default function CreatedProperty(props: PropertyComponentProps) {
     const { entityData, entityType, loading } = useEntityContext();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const createdTimestamp =
         entityRegistry.getCreatedTime(entityType, entityData) ?? entityData?.properties?.createdOn?.time;

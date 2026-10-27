@@ -22,10 +22,10 @@ import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/
 import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
-import CompactContext from '@src/app/shared/CompactContext';
+import CompactContext from '@src/app/sharedV2/CompactContext';
 
 import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
 

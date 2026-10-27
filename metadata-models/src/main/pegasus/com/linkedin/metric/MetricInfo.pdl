@@ -22,6 +22,7 @@ record MetricInfo includes ExternalReference {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -39,6 +40,7 @@ record MetricInfo includes ExternalReference {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -95,6 +97,9 @@ record MetricInfo includes ExternalReference {
     "entityTypes": [ "semanticModel" ]
   }
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "semanticModel",
     "fieldType": "URN",
     "hasValuesFieldName": "hasSemanticModel"

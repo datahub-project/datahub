@@ -397,7 +397,7 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.processed_costs,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,DEV)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": [
@@ -489,13 +489,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,DEV)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "/",
+            "name": "athena-results-bucket",
             "origin": "DEV"
         }
     }
@@ -577,7 +577,7 @@
         "json": {
             "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.processed_costs,DEV)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,DEV)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,DEV)"
             ]
         }
     }

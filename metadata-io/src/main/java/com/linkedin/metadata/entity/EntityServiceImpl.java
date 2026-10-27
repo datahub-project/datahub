@@ -2693,6 +2693,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return aspectDao.countAspect(opContext, args);
   }
 
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    // Same store the delete ceiling is read from; a lagging replica would under-count.
+    return aspectDao.countUrnRows(primaryRead(opContext), urn.toString());
+  }
+
   @Nonnull
   @Override
   public List<RestoreIndicesResult> restoreIndices(
@@ -3547,8 +3553,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               result.getNewValue(),
                               result.getOldSystemMetadata(),
                               result.getNewSystemMetadata(),
-                              // TODO: use properly attributed audit stamp.
-                              createSystemAuditStamp(),
+                              // The caller's stamp, so the changelog names who removed it.
+                              opContext.getAuditStamp(),
                               result.getChangeType())
                           .getFirst();
                     } else {
@@ -3842,10 +3848,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean hardDelete,
       DeletePurpose deletePurpose,
       @Nullable DeleteCeiling ceiling) {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
+    // The caller's stamp, as on the delete changelog: the soft-delete status and the side-effect
+    // changelogs name who removed it, and the system only when the system runs it.
+    final AuditStamp auditStamp = opContext.getAuditStamp();
 
     // Validate pre-conditions before running queries
     Urn entityUrn = UrnUtils.getUrn(urn);

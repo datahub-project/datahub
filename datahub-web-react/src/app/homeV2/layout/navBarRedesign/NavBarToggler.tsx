@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
-import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/shared/constants';
+import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/sharedV2/constants';
 import analytics, { EventType } from '@src/app/analytics';
 
 const Toggler = styled.button<{ $isCollapsed?: boolean }>`

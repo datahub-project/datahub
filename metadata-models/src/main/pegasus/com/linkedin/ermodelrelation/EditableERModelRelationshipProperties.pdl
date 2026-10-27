@@ -19,6 +19,7 @@ record EditableERModelRelationshipProperties includes ChangeAuditStamps {
     "fieldName": "editedDescription",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -37,6 +38,7 @@ record EditableERModelRelationshipProperties includes ChangeAuditStamps {
     "fieldName": "editedName",
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
