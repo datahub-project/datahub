@@ -60,6 +60,7 @@ public class DomainWriteAuthorizationUtilsTest {
 
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
+  private static final Urn DATA_PRODUCT_URN = UrnUtils.getUrn("urn:li:dataProduct:test-product");
   private static final Urn CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,chart.1)");
   private static final Urn DOMAIN_X = UrnUtils.getUrn("urn:li:domain:engineering");
   private static final Urn DOMAIN_Y = UrnUtils.getUrn("urn:li:domain:marketing");
@@ -202,6 +203,36 @@ public class DomainWriteAuthorizationUtilsTest {
     AuthorizationSession session =
         sessionAllowing(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType());
     Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATASET_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_createAllowsManageDataProductsOnProposedDomain() {
+    AuthorizationSession session = sessionAllowingPrivilegeOnDomain(DOMAIN_X);
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_createRequiresManageDataProductsOnProposedDomain() {
+    AuthorizationSession session = sessionAllowingPrivilegeOnDomain(DOMAIN_X);
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_Y)));
+
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_manageDataProductsDoesNotCreateOtherEntityTypes() {
+    AuthorizationSession session = sessionAllowingPrivilegeOnDomain(DOMAIN_X);
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
             session, DATASET_URN, ApiOperation.CREATE, true, proposed));
@@ -544,6 +575,24 @@ public class DomainWriteAuthorizationUtilsTest {
             invocation -> {
               String privilege = invocation.getArgument(0);
               boolean allowed = privilegeType.equals(privilege);
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+    return session;
+  }
+
+  private static AuthorizationSession sessionAllowingPrivilegeOnDomain(Urn domainUrn) {
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    when(session.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              String privilege = invocation.getArgument(0);
+              com.datahub.authorization.EntitySpec resourceSpec = invocation.getArgument(1);
+              boolean allowed =
+                  PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType().equals(privilege)
+                      && domainUrn.toString().equals(resourceSpec.getEntity());
               return new AuthorizationResult(
                   null,
                   allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
