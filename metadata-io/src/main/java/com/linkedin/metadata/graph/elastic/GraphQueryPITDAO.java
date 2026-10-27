@@ -153,7 +153,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     String pitId = null;
     String keepAlive = config.getSearch().getGraph().getImpact().getKeepAlive();
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
+    final LineageBenchLog.Walk benchWalk = LineageBenchLog.current();
     try {
+      final long benchPitStart = System.nanoTime();
       pitId =
           ESUtils.computePointInTime(
               opContext,
@@ -165,6 +167,10 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                   .getIndexConvention()
                   .getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
       final String tempPitId = pitId;
+      if (benchWalk != null) {
+        benchWalk.pitCreateMs.addAndGet(LineageBenchLog.msSince(benchPitStart));
+      }
+      final long benchSlicesStart = System.nanoTime();
 
       // Every page of every slice sends the same query, so render it once for the hop.
       final QueryBuilder pageQuery;
@@ -183,6 +189,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
+        final long benchSubmitNanos = System.nanoTime();
 
         CompletableFuture<List<LineageRelationship>> sliceFuture =
             CompletableFuture.supplyAsync(
@@ -206,7 +213,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       allowPartialResults,
                       tempPitId,
                       keepAlive,
-                      sliceIncomplete);
+                      sliceIncomplete,
+                      benchWalk,
+                      benchSubmitNanos);
                 },
                 pitTaskExecutor); // Dedicated pool with CallerRunsPolicy for backpressure
         sliceFutures.add(sliceFuture);
@@ -216,11 +225,13 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
       // limit check can miss it when cross-slice duplicates merge away. Likewise mark partial when
       // a slice stopped on a server-side timeout (its collected results are incomplete).
+      LineageSliceFetchResult sliceResult =
+          processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+      if (benchWalk != null) {
+        benchWalk.slicesMs.addAndGet(LineageBenchLog.msSince(benchSlicesStart));
+      }
       return markPartialIfSliceIncomplete(
-          markPartialIfSharedBudgetExhausted(
-              processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
-              sharedRemaining,
-              allowPartialResults),
+          markPartialIfSharedBudgetExhausted(sliceResult, sharedRemaining, allowPartialResults),
           sliceIncomplete,
           allowPartialResults);
     } finally {
@@ -229,8 +240,12 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       // interrupt the supplier), so a slice mid-request can still hit a deleted PIT; a real
       // completion signal is a planned follow-up.
       cancelAndDrainSliceFutures(sliceFutures);
+      final long benchPitDeleteStart = System.nanoTime();
       ESUtils.cleanupPointInTime(
           opContext, graphClient(opContext), pitId, "lineage search: " + entityUrns);
+      if (benchWalk != null) {
+        benchWalk.pitDeleteMs.addAndGet(LineageBenchLog.msSince(benchPitDeleteStart));
+      }
     }
   }
 
@@ -260,11 +275,19 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       boolean allowPartialResults,
       String pitId,
       String keepAlive,
-      AtomicBoolean sliceIncomplete) {
+      AtomicBoolean sliceIncomplete,
+      @Nullable LineageBenchLog.Walk benchWalk,
+      long benchSubmitNanos) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
     Object[] searchAfter = null;
     long deadline = System.currentTimeMillis() + remainingTime;
+    final long benchSliceStart = System.nanoTime();
+    final LineageBenchLog.Slice bench =
+        benchWalk == null ? null : new LineageBenchLog.Slice(benchSubmitNanos);
+    if (bench != null) {
+      bench.startNanos = benchSliceStart;
+    }
 
     try {
       // Fixed page size (capped to maxRelations so a small limit does not over-fetch). Retention is
@@ -276,12 +299,18 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       while (true) {
         // Check for thread interruption (from future.cancel(true))
         if (Thread.currentThread().isInterrupted()) {
+          if (bench != null) {
+            bench.endReason = "interrupted";
+          }
           log.warn("Slice {} was interrupted, cleaning up PIT and stopping", sliceId);
           throw new RuntimeException("Slice " + sliceId + " was interrupted");
         }
 
         // Hop deadline passed between pages: same policy as a server-side timed_out page.
         if (System.currentTimeMillis() >= deadline) {
+          if (bench != null) {
+            bench.endReason = "deadline";
+          }
           stopSliceOnTimeout(sliceId, "hop deadline passed", allowPartialResults, sliceIncomplete);
           break;
         }
@@ -291,10 +320,14 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         // hop partial. Retention is already bounded by the reservation below.
         if (stopSliceIfSharedBudgetExhausted(
             sharedRemaining, maxRelations, sliceId, allowPartialResults)) {
+          if (bench != null) {
+            bench.endReason = "budget";
+          }
           break;
         }
 
         // Build search request with PIT and slice configuration
+        final long benchBuildStart = System.nanoTime();
         SearchRequest searchRequest = new SearchRequest();
         SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
         searchSourceBuilder.query(query);
@@ -318,6 +351,8 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         searchRequest.source(searchSourceBuilder);
 
         // Execute search
+        final long benchQueryStart = System.nanoTime();
+        final long benchBuildNanos = benchQueryStart - benchBuildStart;
         SearchResponse response =
             opContext.withSpan(
                 "esQuery",
@@ -334,6 +369,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 },
                 MetricUtils.DROPWIZARD_NAME,
                 MetricUtils.name(this.getClass(), "esQuery"));
+        final long benchQueryEnd = System.nanoTime();
 
         // A timed-out page still carries the hits collected before the shard budget ran out.
         // Extract them first, then stop; an empty timed-out page must not read as "no more
@@ -343,6 +379,25 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         if (response == null
             || response.getHits() == null
             || response.getHits().getHits().length == 0) {
+          benchPage(
+              benchWalk,
+              bench,
+              numHops,
+              sliceId,
+              entityUrns.size(),
+              response,
+              benchBuildNanos,
+              benchQueryStart,
+              benchQueryEnd,
+              benchQueryEnd);
+          if (bench != null) {
+            bench.endReason =
+                pageTimedOut
+                    ? "server_timeout"
+                    : response != null && response.getFailedShards() > 0
+                        ? "shard_failure"
+                        : "empty_page";
+          }
           if (pageTimedOut) {
             stopSliceOnTimeout(
                 sliceId, "server-side timed_out", allowPartialResults, sliceIncomplete);
@@ -404,7 +459,22 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                 maxRelations,
                 sliceId,
                 allowPartialResults);
+        benchPage(
+            benchWalk,
+            bench,
+            numHops,
+            sliceId,
+            entityUrns.size(),
+            response,
+            benchBuildNanos,
+            benchQueryStart,
+            benchQueryEnd,
+            System.nanoTime());
         if (budgetExhausted || pageTimedOut || pageShardsFailed) {
+          if (bench != null) {
+            bench.endReason =
+                pageTimedOut ? "server_timeout" : pageShardsFailed ? "shard_failure" : "budget";
+          }
           break; // shared budget exhausted, page timed out or shards failed; partial results
         }
 
@@ -413,6 +483,9 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         // failed shards already stopped the slice above.
         SearchHit[] hits = response.getHits().getHits();
         if (hits.length < pageSize) {
+          if (bench != null) {
+            bench.endReason = "short_page";
+          }
           log.debug("Slice {} completed on a short page ({} hits)", sliceId, hits.length);
           break;
         }
@@ -430,9 +503,49 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
     } catch (Exception e) {
       log.error("Failed to execute PIT search for slice {}", sliceId, e);
       throw new RuntimeException("Failed to execute PIT search for slice " + sliceId, e);
+    } finally {
+      if (benchWalk != null) {
+        long end = System.nanoTime();
+        benchWalk.recordSlice((end - benchSliceStart) / 1_000_000L);
+        LineageBenchLog.slice(benchWalk, numHops, sliceId, bench, sliceRelationships.size(), end);
+      }
     }
 
     return sliceRelationships;
+  }
+
+  /** Lineage-bench: account one page to its slice and log it (no-op unless bench logging is on). */
+  private static void benchPage(
+      @Nullable LineageBenchLog.Walk walk,
+      @Nullable LineageBenchLog.Slice slice,
+      int hop,
+      int sliceId,
+      int urns,
+      @Nullable SearchResponse response,
+      long buildNanos,
+      long queryStartNanos,
+      long queryEndNanos,
+      long extractEndNanos) {
+    if (walk == null || slice == null) {
+      return;
+    }
+    long extractNanos = extractEndNanos - queryEndNanos;
+    slice.buildNanos += buildNanos;
+    slice.esqueryNanos += queryEndNanos - queryStartNanos;
+    slice.extractNanos += extractNanos;
+    LineageBenchLog.esquery(
+        walk,
+        hop,
+        sliceId,
+        slice.pages++,
+        urns,
+        response == null || response.getHits() == null ? 0 : response.getHits().getHits().length,
+        response == null || response.getTook() == null ? -1 : response.getTook().millis(),
+        (queryEndNanos - queryStartNanos) / 1_000_000L,
+        response != null && response.isTimedOut(),
+        response == null ? 0 : response.getFailedShards(),
+        buildNanos,
+        extractNanos);
   }
 
   /**
