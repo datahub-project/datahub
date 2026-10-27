@@ -99,6 +99,20 @@ public class UnknownDataGuardTest {
   }
 
   @Test
+  public void testInvalidStoredValuesAreLoggedOncePerKeyPerInterval() {
+    for (int i = 0; i < 5; i++) {
+      guard.invalid("ownership", "ownership against its schema: ...", "urn" + i);
+    }
+    clock.addAndGet(TimeUnit.MINUTES.toNanos(1));
+    guard.invalid("ownership", "ownership against its schema: ...", "urn5");
+
+    // The first, then one report with the four suppressed in between; nothing is counted.
+    verify(log).warn(anyString(), any(), any(), any());
+    verify(log).warn(anyString(), any(), any(), any(), any());
+    verifyNoMoreInteractions(log);
+  }
+
+  @Test
   public void testDifferentKindsOfDataAtOneSiteHaveSeparateWindows() {
     UnknownDataGuard other =
         UnknownDataGuard.forSite(UnknownDataGuardTest.class, "rollback row", log, clock::get);

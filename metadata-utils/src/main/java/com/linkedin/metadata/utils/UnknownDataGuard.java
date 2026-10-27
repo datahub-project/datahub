@@ -209,6 +209,15 @@ public final class UnknownDataGuard {
     report(metricUtils, KEPT_METRIC, count, "Keeping", key, reason, subject);
   }
 
+  /**
+   * Reports a stored value this version's schema doesn't accept (e.g. an enum symbol a newer
+   * version added). The value is still served, so nothing is counted.
+   */
+  public void invalid(
+      @Nonnull final String key, @Nonnull final String reason, @Nullable final Object subject) {
+    report(Optional.empty(), null, 0, "Failed to validate", key, reason, subject);
+  }
+
   private boolean admit(
       @Nonnull final RegistryFit fit,
       @Nonnull final Optional<MetricUtils> metricUtils,
@@ -228,7 +237,7 @@ public final class UnknownDataGuard {
 
   private void report(
       @Nonnull final Optional<MetricUtils> metricUtils,
-      @Nonnull final String metric,
+      @Nullable final String metric,
       final int count,
       @Nonnull final String verb,
       @Nonnull final String key,
