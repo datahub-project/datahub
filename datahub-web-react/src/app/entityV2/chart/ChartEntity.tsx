@@ -84,6 +84,7 @@ const InputFieldsTab = lazyProfileComponent('InputFieldsTab', () =>
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
