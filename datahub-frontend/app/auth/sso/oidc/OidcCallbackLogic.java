@@ -615,8 +615,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
                 corpGroupSnapshot.getUrn());
             groupsToCreate.add(extractedGroup);
           } else {
-            log.debug(
-                "Group {} already exists. Skipping provisioning", corpGroupSnapshot.getUrn());
+            log.debug("Group {} already exists. Skipping provisioning", corpGroupSnapshot.getUrn());
           }
         } else {
           // Should not occur until we stop returning default Key aspects for unrecognized entities.
