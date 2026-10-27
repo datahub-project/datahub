@@ -56,6 +56,10 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentPage;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRequest;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
@@ -64,8 +68,8 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateL
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -76,6 +80,7 @@ import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -116,6 +121,8 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.document.DocumentField;
+import org.opensearch.common.lucene.search.function.CombineFunction;
+import org.opensearch.common.lucene.search.function.FunctionScoreQuery;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
@@ -123,6 +130,7 @@ import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
@@ -1424,7 +1432,7 @@ public class ESSearchDAO {
 
   @Nonnull
   private String autocompleteQuery(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator != null) {
       MergedSearchTemplate template =
           coordinator.load(opContext, Constants.SEARCH_TEMPLATE_AUTOCOMPLETE_URN);
@@ -2030,14 +2038,15 @@ public class ESSearchDAO {
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
     String renderUrn = resolved == null ? null : resolved.getUrn();
     if (!scroll && renderUrn != null) {
-      SearchTemplateCoordinator coordinator = SearchTemplates.current();
+      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
       SearchTemplateWalk.Served<SearchResult> served =
           SearchTemplateWalk.walk(
               bound,
               coordinator.loader(),
               coordinator.ladderExecutor(),
               renderUrn,
-              new SearchTemplateWalk.Request(query, postFilters, sortCriteria, size),
+              new SearchTemplateWalk.Request(
+                  query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
               urn ->
                   searchAttempt(
                       bound, urn, entityNames, query, postFilters, sortCriteria, 0, size, facets),
@@ -2163,7 +2172,7 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size,
       @Nonnull List<String> facets) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null || !coordinator.executes(opContext)) {
       return new BoundSearch(
           opContext,
@@ -2182,7 +2191,14 @@ public class ESSearchDAO {
             coordinator.loader(),
             coordinator.ladderExecutor(),
             resolved.getUrn(),
-            new SearchTemplateWalk.Request(input, postFilters, sortCriteria, size),
+            new SearchTemplateWalk.Request(
+                input,
+                postFilters,
+                sortCriteria,
+                size,
+                (urn, raw) ->
+                    componentReorder(
+                        bound, urn, raw, input, postFilters, sortCriteria, from, size)),
             urn ->
                 searchAttempt(
                     bound, urn, entityNames, input, postFilters, sortCriteria, from, size, facets),
@@ -2216,7 +2232,7 @@ public class ESSearchDAO {
     if (opContext.getSearchContext().getResolvedSearchTemplate() != null) {
       return opContext;
     }
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null) {
       return opContext;
     }
@@ -2235,12 +2251,88 @@ public class ESSearchDAO {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     try {
+      SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+      int fetchFrom = from;
+      Integer fetchSize = size;
+      if (coordinator != null) {
+        MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
+        com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+        if (!SearchTemplateComponents.empty(spec)
+            && spec.getMode() == SearchTemplateComponentMode.OWN_RUNG) {
+          Map<String, String> config = SearchTemplateComponents.config(spec);
+          SearchTemplateComponent implementation =
+              coordinator.components().require(spec.getName(), spec.getVersion());
+          SearchTemplateComponentPage ranked =
+              implementation.execute(
+                  SearchTemplateComponentRequest.builder()
+                      .opContext(opContext)
+                      .query(input)
+                      .filter(postFilters)
+                      .sort(sortCriteria)
+                      .from(from)
+                      .size(size)
+                      .config(config)
+                      .mode(spec.getMode())
+                      .build());
+          SearchResult owned = new SearchResult();
+          owned.setEntities(new SearchEntityArray(ranked.hits()));
+          owned.setNumEntities((int) Math.min(Integer.MAX_VALUE, Math.max(0, ranked.total())));
+          owned.setFrom(from);
+          owned.setPageSize(size == null ? ranked.hits().size() : size);
+          if (ranked.metadata() != null) {
+            owned.setMetadata(ranked.metadata());
+          }
+          return SearchTemplateWalk.AttemptResult.ok(
+              owned,
+              owned.getNumEntities(),
+              new ArrayList<>(owned.getEntities()),
+              List.of(),
+              ranked.shardFailed(),
+              null);
+        }
+        if (!SearchTemplateComponents.empty(spec)
+            && spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
+          Map<String, String> config = SearchTemplateComponents.config(spec);
+          SearchTemplateComponentRequest planned =
+              SearchTemplateComponentRequest.builder()
+                  .opContext(opContext)
+                  .query(input)
+                  .filter(postFilters)
+                  .sort(sortCriteria)
+                  .from(from)
+                  .size(size)
+                  .config(config)
+                  .mode(spec.getMode())
+                  .build();
+          int window =
+              coordinator
+                  .components()
+                  .require(spec.getName(), spec.getVersion())
+                  .plan(planned, config);
+          if (!SearchTemplateComponents.skip(false, size, sortCriteria, from, window)) {
+            fetchFrom = 0;
+            fetchSize = window;
+          }
+        }
+      }
       SearchExecution<SearchResult> execution =
           searchOnceExecution(
-              opContext, entityNames, input, postFilters, sortCriteria, from, size, facets, urn);
+              opContext,
+              entityNames,
+              input,
+              postFilters,
+              sortCriteria,
+              fetchFrom,
+              fetchSize,
+              facets,
+              urn);
       SearchResult page = execution.page();
       List<SearchEntity> entities =
           page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
+      String rendered =
+          execution.renderedTemplate() == null
+              ? null
+              : execution.renderedTemplate().query().toString();
       return SearchTemplateWalk.AttemptResult.ok(
           page,
           page.getNumEntities(),
@@ -2248,10 +2340,58 @@ public class ESSearchDAO {
           execution.renderedTemplate() == null
               ? List.of()
               : execution.renderedTemplate().highlights(),
-          execution.shardFailed());
+          execution.shardFailed(),
+          rendered);
     } catch (RuntimeException e) {
       return SearchTemplateWalk.AttemptResult.failed(e);
     }
+  }
+
+  @Nonnull
+  private SearchTemplateWalk.AttemptResult<?> componentReorder(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nonnull SearchTemplateWalk.AttemptResult<?> raw,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size) {
+    if (!(raw.page() instanceof SearchResult page)) {
+      return raw;
+    }
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    if (coordinator == null) {
+      return raw;
+    }
+    MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
+    com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+    if (SearchTemplateComponents.empty(spec) || spec.getMode() == null) {
+      return raw;
+    }
+    @SuppressWarnings("unchecked")
+    SearchTemplateWalk.AttemptResult<SearchResult> typed =
+        (SearchTemplateWalk.AttemptResult<SearchResult>) raw;
+    List<SearchEntity> hits =
+        page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
+    return SearchTemplateComponents.reorder(
+        coordinator.components(),
+        template,
+        SearchTemplateComponentRequest.builder()
+            .opContext(opContext)
+            .query(input)
+            .renderedQuery(typed.renderedQuery())
+            .filter(postFilters)
+            .sort(sortCriteria)
+            .from(from)
+            .size(size)
+            .hits(hits)
+            .total(page.getNumEntities())
+            .metadata(page.getMetadata())
+            .config(SearchTemplateComponents.config(spec))
+            .mode(spec.getMode())
+            .build(),
+        typed);
   }
 
   @Nonnull
@@ -2375,7 +2515,7 @@ public class ESSearchDAO {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       @Nullable Integer size) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     if (coordinator != null && resolved != null) {
       SearchExecution<ScrollResult> execution =
@@ -2582,7 +2722,7 @@ public class ESSearchDAO {
   }
 
   private boolean templateReads(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     return coordinator != null && coordinator.executes(opContext);
   }
 
@@ -2595,7 +2735,7 @@ public class ESSearchDAO {
       @Nonnull List<String> entityNames,
       @Nonnull String query,
       boolean scroll) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null
         || entityNames.isEmpty()
         || coordinator.effect(opContext) != SearchTemplateRollout.Effect.SHADOW) {
@@ -2621,6 +2761,74 @@ public class ESSearchDAO {
         .request()
         .source()
         .query();
+  }
+
+  /**
+   * Painless body of the field-value multiplier. {@code field_value_factor} cannot subtract {@code
+   * inputMin}, and a constant weight of {@code -slope * inputMin} is negative whenever {@code
+   * inputMin * maxMultiplier > inputMax}. A script returns the whole multiplier, which stays at
+   * least 1, so a negative stored value cannot fail the shard.
+   */
+  static final String FIELD_VALUE_MULTIPLIER_SCRIPT =
+      "if (doc[params.field].size() == 0) { return 1.0; }"
+          + " double v = ((Number) doc[params.field].get(0)).doubleValue();"
+          + " for (int i = 1; i < doc[params.field].size(); i++) {"
+          + "   double next = ((Number) doc[params.field].get(i)).doubleValue();"
+          + "   if (next < v) { v = next; }"
+          + " }"
+          + " double min = ((Number) params.min).doubleValue();"
+          + " double max = ((Number) params.max).doubleValue();"
+          + " if (v <= min) { return 1.0; }"
+          + " if (v >= max) { return ((Number) params.cap).doubleValue(); }"
+          + " double slope = ((Number) params.slope).doubleValue();"
+          + " return 1.0 + slope * (v - min);";
+
+  /**
+   * Wraps {@code originalQuery} so each document's score is multiplied by 1 at or below {@code
+   * inputMin}, by {@code maxMultiplier} at or above {@code inputMax}, and by {@code 1 + slope *
+   * (value - inputMin)} between them. A missing field stays at 1. A multi-valued field uses its
+   * smallest value. Empty when the range cannot boost anything.
+   */
+  @VisibleForTesting
+  public static Optional<QueryBuilder> structuredPropertyScoreBrowseQuery(
+      @Nonnull QueryBuilder originalQuery,
+      @Nonnull String field,
+      double inputMin,
+      double inputMax,
+      double maxMultiplier) {
+    if (!Double.isFinite(inputMin)
+        || !Double.isFinite(inputMax)
+        || !Double.isFinite(maxMultiplier)
+        || !(inputMax > inputMin)
+        || !(maxMultiplier > 1.0)) {
+      return Optional.empty();
+    }
+    double slope = (maxMultiplier - 1.0) / (inputMax - inputMin);
+    return Optional.of(
+        QueryBuilders.functionScoreQuery(
+                originalQuery,
+                new FunctionScoreQueryBuilder.FilterFunctionBuilder[] {
+                  new FunctionScoreQueryBuilder.FilterFunctionBuilder(
+                      QueryBuilders.existsQuery(field),
+                      ScoreFunctionBuilders.scriptFunction(
+                          new Script(
+                              ScriptType.INLINE,
+                              "painless",
+                              FIELD_VALUE_MULTIPLIER_SCRIPT,
+                              Map.of(
+                                  "field",
+                                  field,
+                                  "min",
+                                  inputMin,
+                                  "max",
+                                  inputMax,
+                                  "slope",
+                                  slope,
+                                  "cap",
+                                  maxMultiplier))))
+                })
+            .scoreMode(FunctionScoreQuery.ScoreMode.SUM)
+            .boostMode(CombineFunction.MULTIPLY));
   }
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {

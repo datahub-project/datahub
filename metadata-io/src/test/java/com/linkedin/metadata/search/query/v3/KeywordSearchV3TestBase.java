@@ -101,11 +101,12 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -145,6 +146,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -314,9 +316,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .v3(new SearchV3Configuration().setTemplates(shippedTemplateConfiguration()))
                     .build())
             .build();
-    SearchTemplates.install(
+    SearchTemplateCoordinator coordinator =
         new SearchTemplateCoordinator(
-            config, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH)));
+            config,
+            null,
+            new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -390,6 +396,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             SearchContext.builder()
                 .indexConvention(indexConvention)
                 .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                .searchTemplateRuntime(coordinator)
                 .searchableFieldTypes(
                     ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
@@ -727,7 +734,6 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @AfterClass(alwaysRun = true)
   public void deleteV3Indices() throws IOException {
-    SearchTemplates.install(null);
     for (String index : createdIndices) {
       getSearchClient()
           .deleteIndex(
@@ -2328,6 +2334,158 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
   }
 
+  /**
+   * A complete qualified-name path outranks an exact terminal name whose identity contains the
+   * earlier segments as one run. A namesake that shares only one of those segments, a namesake
+   * without them, and a longer final segment stay off those tiers.
+   */
+  protected void assertSpacelessDottedPathOutranksPartialOverlap() throws Exception {
+    Urn path =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)");
+    Urn contextual =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.pet_details,PROD)");
+    Urn history =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)");
+    Urn orderDetails =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sales.order_details,PROD)");
+    Urn namesake =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,other_db.mart.pet_details,PROD)");
+    Urn oneSegment =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:hive,other.analytics.pet_details,PROD)");
+    Urn archive =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.pet_details_archive,PROD)");
+    List<Urn> seeded =
+        List.of(path, contextual, history, orderDetails, namesake, oneSegment, archive);
+    UpdateIndicesV3Strategy indexer = longQueryIndexer();
+    try {
+      indexer.processBatch(
+          opContext,
+          seedEvents(
+              path,
+              events(
+                  path,
+                  new DatasetProperties()
+                      .setName("pet_details")
+                      .setQualifiedName("long_tail_companions.analytics.pet_details")),
+              contextual,
+              events(contextual, new DatasetProperties().setName("pet_details")),
+              history,
+              events(
+                  history,
+                  new DatasetProperties()
+                      .setName("pet_status_history")
+                      .setQualifiedName("long_tail_companions.analytics.pet_status_history")),
+              orderDetails,
+              events(
+                  orderDetails,
+                  new DatasetProperties()
+                      .setName("order_details")
+                      .setQualifiedName("sales.order_details")),
+              namesake,
+              events(namesake, new DatasetProperties().setName("pet_details")),
+              oneSegment,
+              events(oneSegment, new DatasetProperties().setName("pet_details")),
+              archive,
+              events(
+                  archive,
+                  new DatasetProperties()
+                      .setName("pet_details_archive")
+                      .setQualifiedName("analytics.pet_details_archive"))),
+          false);
+      syncAfterWrite(getBulkProcessor());
+      OperationContext light =
+          pagedSearch().withSearchFlags(flags -> flags.setFulltext(true).setIncludeExplain(true));
+      assertShippedClasspathTemplate(
+          light,
+          "analytics.pet_details",
+          "urn:li:searchTemplate:searchLight",
+          "urn:li:searchTemplate:light");
+      SearchEntityArray hits =
+          searchService
+              .search(
+                  light, List.of(DATASET_ENTITY_NAME), "analytics.pet_details", null, null, 0, 20)
+              .getEntities();
+      List<Urn> ranked = hits.stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+      assertTrue(ranked.containsAll(seeded), hits.toString());
+      assertTrue(ranked.indexOf(path) < ranked.indexOf(contextual), hits.toString());
+      assertTrue(ranked.indexOf(contextual) < ranked.indexOf(history), hits.toString());
+      assertTrue(ranked.indexOf(contextual) < ranked.indexOf(orderDetails), hits.toString());
+      Map<Urn, SearchEntity> byUrn =
+          hits.stream().collect(Collectors.toMap(SearchEntity::getEntity, hit -> hit));
+      assertRelativeTextScore(byUrn.get(path), "qualifiedName.text");
+      assertRelativeTextScore(byUrn.get(contextual), "name.text");
+      assertNoConstantScore(byUrn.get(namesake));
+      assertNoConstantScore(byUrn.get(archive));
+      assertTrue(byUrn.get(path).getScore() > byUrn.get(archive).getScore(), hits.toString());
+      assertTrue(
+          byUrn.get(contextual).getScore() > byUrn.get(namesake).getScore(), hits.toString());
+      SearchEntityArray deep =
+          searchService
+              .search(
+                  light,
+                  List.of(DATASET_ENTITY_NAME),
+                  "long_tail_companions.analytics.pet_details",
+                  null,
+                  null,
+                  0,
+                  20)
+              .getEntities();
+      Map<Urn, SearchEntity> deepHits =
+          deep.stream().collect(Collectors.toMap(SearchEntity::getEntity, hit -> hit));
+      assertRelativeTextScore(deepHits.get(contextual), "name.text");
+      SearchEntity sharedSegment = deepHits.get(oneSegment);
+      if (sharedSegment != null) {
+        assertNoConstantScore(sharedSegment);
+      }
+    } finally {
+      Map<Urn, List<MCLItem>> deletions = new java.util.LinkedHashMap<>();
+      for (Urn urn : seeded) {
+        deletions.put(urn, keyDeletion(urn));
+      }
+      indexer.processBatch(opContext, deletions, false);
+      syncAfterWrite(getBulkProcessor());
+    }
+  }
+
+  private static void assertRelativeTextScore(SearchEntity hit, String field) throws Exception {
+    String explain = explainOf(hit);
+    assertFalse(explain.contains("ConstantScore"), explain);
+    assertTrue(explain.contains(field), explain);
+  }
+
+  private static void assertNoConstantScore(SearchEntity hit) throws Exception {
+    assertFalse(explainOf(hit).contains("ConstantScore"), explainOf(hit));
+  }
+
+  private static String explainOf(SearchEntity hit) throws Exception {
+    return String.join("\n", explainLines(hit));
+  }
+
+  private static List<String> explainLines(SearchEntity hit) throws Exception {
+    JsonNode explanation = new ObjectMapper().readTree(hit.getExtraFields().get("_explain"));
+    List<String> lines = new ArrayList<>();
+    collectExplain(explanation, lines);
+    return lines;
+  }
+
+  private static void collectExplain(JsonNode node, List<String> lines) {
+    if (node == null) {
+      return;
+    }
+    if (node.isObject() && node.has("description") && node.has("value")) {
+      lines.add(node.get("description").asText() + " " + node.get("value").asDouble());
+    }
+    JsonNode details = node.get("details");
+    if (details != null && details.isArray()) {
+      details.forEach(child -> collectExplain(child, lines));
+    }
+  }
+
   /** Map.of takes at most 10 entries; the fixture seeds more. */
   @SuppressWarnings("unchecked")
   private static Map<Urn, List<MCLItem>> seedEvents(Object... urnsAndEvents) {
@@ -2464,7 +2622,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   private static void assertShippedClasspathTemplate(
       OperationContext context, String query, boolean scroll, String... expectedChain) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(context);
     assertNotNull(coordinator);
     OperationContext bound = coordinator.bind(context, query, scroll);
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
