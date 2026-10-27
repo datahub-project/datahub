@@ -496,7 +496,6 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     # Datasets whose existing, non-dbt Data Contract was left untouched.
     num_contracts_skipped_existing: int = 0
     contracts_skipped_existing: LossyList[str] = field(default_factory=LossyList)
-    num_contract_constraint_assertions_emitted: int = 0
     contract_constraints_skipped_unsupported: LossyList[str] = field(
         default_factory=LossyList
     )
@@ -1165,6 +1164,13 @@ class ConstraintEnforcement(str, Enum):
     DBT_CONTRACT = "dbt_contract"
     # The adapter cannot define this constraint type at all.
     UNSUPPORTED = "unsupported"
+
+
+_ENFORCEMENT_STRENGTH: Dict[Optional[ConstraintEnforcement], int] = {
+    ConstraintEnforcement.UNSUPPORTED: 0,
+    ConstraintEnforcement.DBT_CONTRACT: 1,
+    ConstraintEnforcement.DATABASE: 2,
+}
 
 
 class ConstraintScope(str, Enum):
@@ -1943,7 +1949,6 @@ class DBTContract:
     """Represents DBT model contract configuration."""
 
     enforced: bool
-    alias_types: bool = True
     checksum: Optional[str] = None
 
 
@@ -5612,6 +5617,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         A ``primary_key`` expands into a uniqueness assertion plus one
         not-null assertion per column. Unsupported types are recorded on
         ``report.contract_constraints_skipped_unsupported`` and skipped.
+        The same check declared twice (e.g. ``not_null`` and ``primary_key``
+        on one column) is emitted once, with the strongest enforcement.
         """
         results: List[_ContractAssertion] = []
         for col in self._contract_columns(node):
@@ -5635,7 +5642,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     scope=ConstraintScope.MODEL,
                 )
             )
-        return results
+        deduped: Dict[str, _ContractAssertion] = {}
+        for assertion in results:
+            kept = deduped.get(assertion.urn)
+            strength = _ENFORCEMENT_STRENGTH[assertion.enforced_by]
+            if kept is None or strength > _ENFORCEMENT_STRENGTH[kept.enforced_by]:
+                deduped[assertion.urn] = assertion
+        return list(deduped.values())
 
     def _build_constraint_assertions(
         self,
@@ -5744,6 +5757,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # every adapter; whether the warehouse enforces it depends on the text.
         if constraint_type == DBTConstraintType.CUSTOM.value:
             return ConstraintEnforcement.DBT_CONTRACT
+        # dbt applies constraint DDL only to tables and incrementals.
+        if node.materialization not in _CONSTRAINT_MATERIALIZATIONS:
+            return ConstraintEnforcement.DBT_CONTRACT
         adapter = (node.dbt_adapter or "").lower()
         definable = self._CONSTRAINT_DEFINABLE.get(adapter)
         if definable is None:
@@ -5785,11 +5801,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> _ContractAssertion:
         assertion_urn = self._make_contract_assertion_urn(
             node,
-            {
-                "constraint": constraint.type,
-                "check": "not_null",
-                "columns": [column_name],
-            },
+            {"check": "not_null", "columns": [column_name]},
         )
         # The not-null half of a primary key is labelled with the primary
         # key's enforcement: on adapters that only define PKs (e.g. BigQuery),
@@ -5833,11 +5845,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         sorted_columns = sorted(column_names)
         assertion_urn = self._make_contract_assertion_urn(
             node,
-            {
-                "constraint": constraint.type,
-                "check": "unique",
-                "columns": sorted_columns,
-            },
+            {"check": "unique", "columns": sorted_columns},
         )
         enforced_by = self._enforced_by_for_constraint(node, constraint.type)
         custom_props = self._constraint_custom_properties(
@@ -5888,9 +5896,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             node,
             {
                 "constraint": constraint.type,
+                # A named constraint keeps its URN when its expression changes.
                 "name": constraint.name,
+                "expression": None if constraint.name else constraint.expression,
                 "columns": sorted_columns,
-                "expression": constraint.expression,
                 "to": constraint.to,
                 "to_columns": constraint.to_columns,
             },
@@ -6040,6 +6049,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return False
         qname = test_node.test_info.qualified_test_name
         test_columns = _test_column_set(test_node.test_info)
+        # A filtered test checks only some rows, so it does not prove an
+        # unfiltered constraint.
+        if test_node.test_info.where:
+            return False
 
         if qname in _NOT_NULL_TEST_NAMES:
             if not test_columns:
@@ -6073,17 +6086,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         constraint_assertions: Sequence[_ContractAssertion],
     ) -> Iterable[MetadataChangeProposalWrapper]:
         external_url = self.get_external_url(node)
-        # dbt applies constraint DDL only to tables and incrementals; a view
-        # build succeeding says nothing about its declared constraints.
-        ddl_constraint_urns = (
-            [
-                assertion.urn
-                for assertion in constraint_assertions
-                if assertion.enforced_by == ConstraintEnforcement.DATABASE
-            ]
-            if node.materialization in _CONSTRAINT_MATERIALIZATIONS
-            else []
-        )
+        # Only table and incremental constraints are DATABASE-enforced, so a
+        # view build succeeding says nothing about its declared constraints.
+        ddl_constraint_urns = [
+            assertion.urn
+            for assertion in constraint_assertions
+            if assertion.enforced_by == ConstraintEnforcement.DATABASE
+        ]
         for perf in node.model_performances:
             if not perf.built_relation:
                 continue
@@ -6393,6 +6402,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         for pending in pending_contracts:
             existing = existing_contracts.get(pending.entity_urn, [])
+            # Soft-deleted contracts do not count when a live one exists.
+            live = [c for c in existing if not (c.status and c.status.removed)]
+            if live:
+                existing = live
             if len(existing) > 1:
                 self.report.warning(
                     title="Multiple Data Contracts on a dataset",

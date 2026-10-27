@@ -514,6 +514,7 @@ def extract_dbt_entities(
                     column_name=kw_args.get("column_name"),
                     kw_args=kw_args,
                     attached_node=manifest_node.get("attached_node"),
+                    where=manifest_node.get("config", {}).get("where"),
                 )
 
             contract = None
@@ -523,7 +524,6 @@ def extract_dbt_entities(
                 top_level_contract = manifest_node.get("contract", {})
                 contract = DBTContract(
                     enforced=True,
-                    alias_types=contract_config.get("alias_types", True),
                     checksum=top_level_contract.get("checksum"),
                 )
                 contract_columns = extract_contract_columns(manifest_node, tag_prefix)

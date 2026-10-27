@@ -50,6 +50,8 @@ class DBTTest:
     kw_args: dict
     # The model the test is declared on (manifest ``attached_node``, dbt 1.5+).
     attached_node: Optional[str] = None
+    # The test's ``where:`` filter, if any.
+    where: Optional[str] = None
 
 
 @dataclass

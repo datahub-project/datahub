@@ -456,6 +456,58 @@ def test_constraint_urns_are_distinct_for_ambiguous_column_names() -> None:
     assert len(set(urns)) == 4
 
 
+def test_same_check_at_two_levels_is_emitted_once() -> None:
+    source = _make_source()
+    node = _make_model(
+        columns=[
+            _column(
+                "id",
+                DBTConstraint(type="not_null"),
+                DBTConstraint(type="primary_key"),
+            )
+        ]
+    )
+    assertions = source._create_constraint_assertions(node, _ENTITY_URN)
+    not_null = [
+        info
+        for info in _assertion_infos([m for a in assertions for m in a.mcps]).values()
+        if info.customAssertion is not None
+        and info.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    ]
+    assert len(not_null) == 1
+    # Snowflake enforces NOT NULL but not primary keys; the stronger wins.
+    assert not_null[0].customProperties is not None
+    assert not_null[0].customProperties["enforced_by"] == "database"
+    dq_urns = _dq_urns(_contract_mcps(source, [node]))
+    assert len(dq_urns) == len(set(dq_urns))
+
+
+def test_constraints_on_views_are_not_database_enforced() -> None:
+    source = _make_source()
+    node = _make_model(adapter="postgres", materialization="view")
+    assert source._enforced_by_for_constraint(node, "not_null").value == (
+        "dbt_contract"
+    )
+
+
+def test_named_constraint_urn_ignores_expression() -> None:
+    source = _make_source()
+
+    def urn(expression: str) -> str:
+        node = _make_model(
+            columns=[
+                _column(
+                    "age",
+                    DBTConstraint(type="check", name="ck_age", expression=expression),
+                )
+            ]
+        )
+        (assertion,) = source._create_constraint_assertions(node, _ENTITY_URN)
+        return assertion.urn
+
+    assert urn("age >= 0") == urn("age > 0")
+
+
 def test_unknown_constraint_type_is_reported_not_raised() -> None:
     source = _make_source()
     node = _make_model(columns=[_column("id", DBTConstraint(type="exclusion"))])
@@ -557,8 +609,20 @@ def test_constraint_matching_tests_are_auto_linked() -> None:
         qualified_test_name="accepted_values",
         column_name="status",
     )
-    urns = _dq_urns(_contract_mcps(source, [model], [not_null, unique_id, unrelated]))
+    # A filtered test checks only some rows.
+    filtered = _make_test(
+        "not_null_orders_email_filtered",
+        [model.dbt_name],
+        qualified_test_name="not_null",
+        column_name="email",
+    )
+    assert filtered.test_info is not None
+    filtered.test_info.where = "status = 'shipped'"
+    urns = _dq_urns(
+        _contract_mcps(source, [model], [not_null, unique_id, unrelated, filtered])
+    )
     assert source._make_test_assertion_urn(not_null, model.dbt_name, 1) in urns
+    assert source._make_test_assertion_urn(filtered, model.dbt_name, 1) not in urns
     assert source._make_test_assertion_urn(unique_id, model.dbt_name, 1) not in urns
     assert source._make_test_assertion_urn(unrelated, model.dbt_name, 1) not in urns
 
@@ -830,6 +894,7 @@ def _graph_with_contracts(
     contracts: Dict[str, DataContractPropertiesClass],
     removed: bool = False,
     ghost_urns: Sequence[str] = (),
+    removed_urns: Sequence[str] = (),
 ) -> mock.Mock:
     def get_entities(
         entity_name: str, urns: List[str], aspects: List[str], **kwargs: Any
@@ -837,7 +902,10 @@ def _graph_with_contracts(
         return {
             urn: {
                 DataContractPropertiesClass.ASPECT_NAME: (contracts[urn], None),
-                StatusClass.ASPECT_NAME: (StatusClass(removed=removed), None),
+                StatusClass.ASPECT_NAME: (
+                    StatusClass(removed=removed or urn in removed_urns),
+                    None,
+                ),
             }
             for urn in urns
             if urn in contracts
@@ -947,6 +1015,21 @@ def test_multiple_existing_contracts_are_left_untouched() -> None:
     )
     assert _written_contracts(_contract_mcps(source, [node])) == []
     assert source.report.warnings
+
+
+def test_soft_deleted_contract_does_not_count_as_multiple() -> None:
+    source = _make_source()
+    node = _make_model()
+    schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
+    source.ctx.graph = _graph_with_contracts(
+        {
+            _UI_CONTRACT_URN: _existing_contract(),
+            _contract_urn(node): _existing_contract(schema_urn),
+        },
+        removed_urns=[_UI_CONTRACT_URN],
+    )
+    assert _written_contracts(_contract_mcps(source, [node])) == [_contract_urn(node)]
+    assert not source.report.warnings
 
 
 @pytest.mark.parametrize("other", [None, "authored", "dbt"])
@@ -1499,6 +1582,18 @@ def test_cloud_contract_uses_run_environment_by_default() -> None:
     (perf,) = parsed.model_performances
     assert perf.status == "error"
     assert perf.timing_inferred
+
+
+def test_cloud_model_performance_uses_execute_timings() -> None:
+    source = _cloud_source()
+    node = {
+        **_cloud_model_node(),
+        "executeStartedAt": "2025-01-01T00:00:00Z",
+        "executeCompletedAt": "2025-01-01T00:01:00Z",
+    }
+    (perf,) = source._extract_model_performance(node)
+    assert perf.start_time == datetime(2025, 1, 1, tzinfo=timezone.utc)
+    assert perf.end_time == datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc)
 
 
 def test_cloud_contract_skipped_for_run_from_other_environment() -> None:

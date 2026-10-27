@@ -796,6 +796,8 @@ source:
 
 If `environment_id` is set and the ingested run belongs to a different environment, those models get no contract and the ingestion report carries a warning.
 
+If the Discovery API request for contract data fails, the whole ingestion run is marked as failed, so stateful ingestion does not soft-delete the contracts from earlier runs.
+
 ##### What Gets Ingested
 
 When a dbt model has `contract.enforced: true`, DataHub creates:
@@ -806,16 +808,17 @@ When a dbt model has `contract.enforced: true`, DataHub creates:
    - `unique` → a unique-proportion assertion with parameter `1.0`
    - `primary_key` → **both** a unique assertion and a not-null assertion (PK = unique AND not null)
    - Composite primary keys produce a single multi-column unique assertion over the tuple, plus per-column not-null assertions
+   - The same check declared more than once (for example `not_null` and `primary_key` on one column) produces one assertion, labelled with the strongest enforcement
    - `foreign_key` carries `to` (referenced model) and `to_columns` on custom properties. dbt foreign keys do **not** use `expression`.
    - `check` and `custom` carry the expression on custom properties
 3. **Matching dbt tests** — existing test assertions (already CUSTOM + run events) are attached when tagged or when the test type and column match a declared constraint.
 4. **Data Contract entity** — bundles the assertions above and links them to the dbt dataset.
 
-dbt never merges into a Data Contract it did not create. dbt finds a dataset's existing contract the same way the DataHub UI does (the contract that points at the dataset), so contracts created in the UI or from YAML are found too. An existing contract is treated as dbt's when it was soft-deleted or still lists this model's dbt schema assertion; dbt then rewrites it in place. A dataset without a contract gets a new one at a URN derived from the dataset. dbt's contract is rewritten on every run with only the current run's assertions, so removed constraints, tests, and columns drop out.
+dbt never merges into a Data Contract it did not create. dbt finds a dataset's existing contract the same way the DataHub UI does (the contract that points at the dataset), so contracts created in the UI or from YAML are found too. An existing contract is treated as dbt's when it was soft-deleted or still lists this model's dbt schema assertion; dbt then rewrites it in place. A dataset without a contract gets a new one at a URN derived from the dataset. dbt's contract is rewritten on every run with only the current run's assertions, so removed constraints, tests, and columns drop out. Edits made in DataHub to a dbt-owned contract (freshness, schema, state, or extra entries) are overwritten on the next run; make those changes in dbt instead.
 
 If the dataset already has a contract that is not dbt's, it is left untouched by default. The dbt contract assertions are still emitted as standalone assertions, and the dataset is listed on the ingestion report (`contracts_skipped_existing`). Removing the dbt schema assertion from a contract in DataHub hands that contract over: dbt stops updating it. Set `replace_existing_contracts_with_dbt: true` to always write dbt's contract instead, replacing whatever is there; it is written to the existing contract, so the dataset keeps one contract. A dataset with more than one contract is always left untouched and reported as a warning.
 
-Finding existing contracts needs a DataHub graph connection. With a sink that has none (for example the file sink, or a Kafka sink without `datahub_api`), no Data Contract is written: contract assertions are still emitted and the report carries a warning. Configure `datahub_api`, or set `replace_existing_contracts_with_dbt: true`, to write contracts. If existing contracts cannot be read, the run reports a failure, contract assertions are still emitted, and no Data Contract is written or removed.
+Finding existing contracts needs a DataHub graph connection. With a sink that has none (for example the file sink, or a Kafka sink without `datahub_api`), no Data Contract is written: contract assertions are still emitted and the report carries a warning. Configure `datahub_api`, or set `replace_existing_contracts_with_dbt: true`, to write contracts. If existing contracts cannot be read, the whole ingestion run is marked as failed (so stateful ingestion does not soft-delete earlier contracts), contract assertions are still emitted, and no Data Contract is written or removed.
 
 With stateful ingestion, dbt's contracts are soft-deleted like other stale dbt entities when a model stops enforcing its contract or `ingest_contracts` is turned off. Contracts dbt left untouched are never soft-deleted.
 
@@ -836,7 +839,7 @@ Only `run_results.json` from `dbt run`, `dbt build`, and `dbt retry` produce con
 
 Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no synthetic success**. They stay `notRunning` until a matching test reports, and they do not flip the contract red by themselves. The not-null half of a `primary_key` carries the primary key's enforcement, since on most warehouses declaring a primary key does not enforce it.
 
-On dbt Cloud the job API has no build timings, so contract run events are stamped with the ingestion time (as dbt Cloud test results are). Ingesting the same run again adds another run event.
+On dbt Cloud, contract run events are stamped with the model's `executeCompletedAt` (or `executeStartedAt`) from the job API, so ingesting the same run again does not add new run events. Only when dbt Cloud reports no timings is the ingestion time used.
 
 ##### Configuration Options
 
@@ -854,7 +857,7 @@ dbt itself does not bundle specific tests with model contracts — contracts val
 
 DataHub attaches a test to the generated Data Contract when either:
 
-- the test type and column match a declared constraint (`not_null`, `unique`, `relationships` ↔ `foreign_key`), or
+- the test type and column match a declared constraint (`not_null`, `unique`, `relationships` ↔ `foreign_key`) and the test has no `where:` filter (a filtered test checks only some rows), or
 - the test is tagged with `contract_test_tag` (default: `contract`) — use this for `accepted_values` and other extra checks.
 
 The tag is a DataHub-specific extension, not a dbt feature — your dbt project will still run the tagged tests as ordinary dbt tests. Matching tests reuse the same assertion URN the test path already emits, so run history stays on one entity.
@@ -907,6 +910,7 @@ dbt's [constraint support matrix](https://docs.getdbt.com/reference/resource-pro
 - **`enforced_by: unsupported`** means this adapter cannot define that constraint type. The assertion is still emitted so the contract declaration is visible.
 - If `dbt_adapter` is missing or unrecognized, DataHub falls back to `dbt_contract` rather than guessing.
 - `custom` constraints are added to the DDL as written on every adapter, so they are always `dbt_contract`: whether the warehouse enforces one depends on its expression.
+- dbt applies constraint DDL only to `table` and `incremental` models, so constraints on other materializations (for example views) are always `dbt_contract`.
 
 The table is a snapshot of dbt's published matrix. Prefer `warn_unenforced` / `warn_unsupported` on the assertion custom properties (copied from the manifest when present) as the source of truth for a given project.
 

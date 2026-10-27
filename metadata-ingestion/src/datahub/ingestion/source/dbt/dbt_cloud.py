@@ -286,6 +286,8 @@ _DBT_FIELDS_BY_TYPE = {
     {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     dependsOn
     materializedType
+    executeStartedAt
+    executeCompletedAt
 """,
     "seeds": f"""
     {_DBT_GRAPHQL_COMMON_FIELDS}
@@ -1183,24 +1185,30 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
     def _extract_model_performance(self, node: Dict) -> List[DBTModelPerformance]:
         """Map job-scoped model status/error onto DBTModelPerformance.
 
-        Only feeds contract run events. The job-scoped query has no execute
-        timings, so the time is ingestion time (as for Cloud test results) and
-        the record is marked inferred, keeping it out of process-run emission.
+        Only feeds contract run events. Uses the model's execute timings so
+        re-ingesting a run does not add new run events; falls back to
+        ingestion time only when dbt Cloud reports no timings. The record is
+        marked inferred, keeping it out of process-run emission.
         """
         if node.get("skip"):
             return []
         status = (node.get("status") or "").lower()
         if status not in {"success", "error"}:
             return []
-        now = datetime.now()
+        started = node.get("executeStartedAt")
+        completed = node.get("executeCompletedAt")
+        started_at = parse_dbt_timestamp(started) if started else None
+        completed_at = parse_dbt_timestamp(completed) if completed else None
+        end_time = completed_at or started_at or datetime.now()
+        start_time = started_at or end_time
         job_id = node.get("jobId")
         run_id = node.get("runId")
         return [
             DBTModelPerformance(
                 run_id=f"job{job_id}-run{run_id}",
                 status=status,
-                start_time=now,
-                end_time=now,
+                start_time=start_time,
+                end_time=end_time,
                 message=node.get("error"),
                 timing_inferred=True,
             )
@@ -1307,8 +1315,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
 
         # Contract data lives on environment.applied.models in the Discovery
-        # API, not on the job-scoped query everything else uses. Neither
-        # ``alias_types`` nor the contract checksum are exposed there.
+        # API, not on the job-scoped query everything else uses. The contract
+        # checksum is not exposed there.
         contract = None
         contract_columns: Optional[List[DBTColumn]] = None
         model_constraints: List[DBTConstraint] = []
@@ -1322,7 +1330,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 contract_environment
             ).get(key)
             if discovery_data and discovery_data.contract_enforced:
-                contract = DBTContract(enforced=True, alias_types=True, checksum=None)
+                contract = DBTContract(enforced=True, checksum=None)
                 model_constraints = discovery_data.model_constraints
                 contract_columns = discovery_data.contract_columns or None
 
