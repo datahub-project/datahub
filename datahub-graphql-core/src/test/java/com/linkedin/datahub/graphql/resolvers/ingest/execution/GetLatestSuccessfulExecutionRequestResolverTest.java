@@ -2,11 +2,13 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.AspectLoadContext;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -22,6 +24,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +55,7 @@ public class GetLatestSuccessfulExecutionRequestResolverTest {
                             new SearchEntity()
                                 .setEntity(Urn.createFromString(TEST_EXECUTION_REQUEST_URN))))));
     ExecutionRequestType mockExecutionRequestType = Mockito.mock(ExecutionRequestType.class);
+    Mockito.when(mockExecutionRequestType.name()).thenReturn("ExecutionRequest");
     Mockito.when(
             mockExecutionRequestType.batchLoad(
                 Mockito.eq(List.of(TEST_EXECUTION_REQUEST_URN)), any()))
@@ -70,6 +74,15 @@ public class GetLatestSuccessfulExecutionRequestResolverTest {
     var result = resolver.get(mockEnv).get();
 
     assertEquals(result.getUrn(), TEST_EXECUTION_REQUEST_URN);
+
+    // Direct batchLoad must widen to FETCH_ALL before loading.
+    InOrder inOrder = Mockito.inOrder(mockContext, mockExecutionRequestType);
+    inOrder
+        .verify(mockContext)
+        .mergeAspectLoadContext(eq("ExecutionRequest"), eq(AspectLoadContext.fetchAll()));
+    inOrder
+        .verify(mockExecutionRequestType)
+        .batchLoad(eq(List.of(TEST_EXECUTION_REQUEST_URN)), eq(mockContext));
   }
 
   @Test

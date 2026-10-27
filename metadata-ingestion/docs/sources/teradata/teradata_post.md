@@ -30,7 +30,7 @@ By default the connector uses Teradata `HELP` statements for every view to ensur
 
 **Profiling at scale**
 
-Profiling all tables in a large installation is impractical. Use `profiling.limit` (part of the standard `GEProfilingConfig`) to cap how many tables are profiled per run. You can also combine it with `profile_pattern` to restrict profiling to specific schemas or tables.
+Profiling all tables in a large installation is impractical. Use `profiling.limit` (part of the standard `ProfilingConfig`) to cap how many tables are profiled per run. You can also combine it with `profile_pattern` to restrict profiling to specific schemas or tables.
 
 ```yaml
 profiling:

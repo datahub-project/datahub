@@ -22,7 +22,11 @@ Managing Compliance Forms via the DataHub UI is only available in DataHub Cloud.
 
 ### Prerequisites
 
-In order to create, edit, or remove Compliance Forms, you must have the **Manage Compliance Forms** Platform privilege.
+In order to create, edit, or remove Compliance Forms, or to assign them to assets (including dynamic assignment filters), you must have the **Manage Compliance Forms** Platform privilege.
+
+:::note API parity
+Through the UI and the GraphQL mutations (`batchAssignForm`, `batchRemoveForm`, `createDynamicFormAssignment`), **Manage Compliance Forms** is sufficient to assign forms. Writing the `forms` or `dynamicFormAssignment` aspects directly through OpenAPI, Rest.li, or CLI metadata emitters additionally requires **Edit Entity** on the target, because those APIs authorize every aspect write as a generic entity update (unless REST API authorization is disabled). Completing or verifying a form that has already been assigned to you does not require **Manage Compliance Forms** on any API.
+:::
 
 ### Step 1: Create a new Compliance Form
 

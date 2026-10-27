@@ -11,10 +11,10 @@ import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
  * `borderless` — inline-with-text usage (breadcrumbs, mentions, modal option rows). No chip body.
  * `highlighted` — chip is the active search match. Uses the hover border/background tokens.
  */
-export type GlossaryTermPillVariant = 'default' | 'borderless' | 'highlighted';
+type GlossaryTermPillVariant = 'default' | 'borderless' | 'highlighted';
 
 /** `md` is the canonical sidebar/modal size; `sm` is the compact size used in dense filter rows. */
-export type GlossaryTermPillSize = 'sm' | 'md';
+type GlossaryTermPillSize = 'sm' | 'md';
 
 const PillRoot = styled.span<{
     $variant: GlossaryTermPillVariant;

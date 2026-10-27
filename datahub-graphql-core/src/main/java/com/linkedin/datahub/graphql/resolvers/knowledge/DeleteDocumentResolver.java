@@ -6,6 +6,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.metadata.service.DocumentDeleteLimitException;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.SearchIndexMode;
 import com.linkedin.metadata.service.ServiceAuthorizationException;
@@ -16,9 +19,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver responsible for soft deleting a particular Document by setting the Status aspect removed
- * field to true. Requires the DELETE_ENTITY metadata privilege on the document or the
- * MANAGE_DOCUMENTS platform privilege.
+ * Resolver responsible for soft deleting a Document and its live nested documents by setting the
+ * Status aspect removed field to true. Requires the DELETE_ENTITY metadata privilege on the root
+ * document or the MANAGE_DOCUMENTS platform privilege.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -48,6 +51,9 @@ public class DeleteDocumentResolver implements DataFetcher<CompletableFuture<Boo
             return true;
           } catch (ServiceAuthorizationException e) {
             throw new AuthorizationException(e.getMessage(), e);
+          } catch (DocumentDeleteLimitException e) {
+            throw new DataHubGraphQLException(
+                e.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, e);
           } catch (Exception e) {
             log.error(
                 "Failed to delete Document with URN {}: {}", documentUrnString, e.getMessage());

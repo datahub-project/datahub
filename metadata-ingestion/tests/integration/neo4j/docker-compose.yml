@@ -1,10 +1,11 @@
 services:
   neo4j:
     image: neo4j:2025.06-community
-    container_name: neo4j
+    container_name: test-neo4j
+    # Ephemeral: only the bolt port is used from the host (by the test process).
+    # The HTTP port (7474) isn't reached from the host, so it isn't published.
     ports:
-      - 7474:7474
-      - 7687:7687
+      - "7687"
     environment:
       - NEO4J_AUTH=neo4j/testpassword
       - NEO4J_PLUGINS=["apoc"]
@@ -24,7 +25,7 @@ services:
   # automatically execute .cypher files, so we need this container to load test data.
   neo4j-init:
     image: neo4j:2025.06-community
-    container_name: neo4j-init
+    container_name: test-neo4j-init
     depends_on:
       neo4j:
         condition: service_healthy

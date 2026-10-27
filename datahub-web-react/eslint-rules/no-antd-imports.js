@@ -4,16 +4,16 @@
  * Disallows importing from `antd` or `antd/…`. New UI should use alchemy
  * components from `@components` instead.
  *
- * Files that already imported antd on the baseline ref (origin/master, or
- * ANTD_IMPORT_BASELINE_REF / options.baselineRef) are grandfathered. 
+ * Files that already imported antd on the baseline ref (origin/HEAD, or
+ * ANTD_IMPORT_BASELINE_REF / options.baselineRef) are grandfathered.
  * Alchemy wrappers, tests, and generated GraphQL are excluded in .eslintrc.js.
  */
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const { execFileSync } = require('child_process');
 const path = require('path');
 
-const ANTD_IMPORT_GREP =
-    '(from|require\\(|import\\()[[:space:]]*[\'"]antd(/[^\'"]*)?[\'"]';
+const ANTD_IMPORT_GREP = '(from|require\\(|import\\()[[:space:]]*[\'"]antd(/[^\'"]*)?[\'"]';
 
 function isAntdSource(value) {
     return typeof value === 'string' && (value === 'antd' || value.startsWith('antd/'));
@@ -24,6 +24,38 @@ function toPosixAbs(filePath) {
 }
 
 let gitBaselineCache;
+
+/** Parses `git diff --name-status -M` output into [oldPath, newPath] pairs for renamed files. */
+function parseRenamedFiles(output) {
+    return output
+        .split('\n')
+        .map((line) => line.split('\t'))
+        .filter((parts) => parts.length === 3 && parts[0].startsWith('R'))
+        .map(([, from, to]) => [from, to]);
+}
+
+// Moving a grandfathered file is not new antd usage, so its new path stays grandfathered.
+function addRenamedFiles(files, baselineRef, toplevel) {
+    try {
+        const out = execFileSync(
+            'git',
+            ['diff', '--name-status', '-M', '--diff-filter=R', baselineRef, '--', 'datahub-web-react/src'],
+            {
+                cwd: toplevel,
+                encoding: 'utf8',
+                maxBuffer: 10 * 1024 * 1024,
+                stdio: ['ignore', 'pipe', 'ignore'],
+            },
+        );
+        parseRenamedFiles(out).forEach(([from, to]) => {
+            if (files.has(toPosixAbs(path.join(toplevel, from)))) {
+                files.add(toPosixAbs(path.join(toplevel, to)));
+            }
+        });
+    } catch (err) {
+        // Without rename info, only files at their baseline paths are grandfathered.
+    }
+}
 
 function loadGitBaseline(baselineRef) {
     try {
@@ -50,6 +82,7 @@ function loadGitBaseline(baselineRef) {
             if (!rel) return;
             files.add(toPosixAbs(path.join(toplevel, rel)));
         });
+        addRenamedFiles(files, baselineRef, toplevel);
         return files;
     } catch (err) {
         // git grep exits 1 when the search succeeds but finds nothing.
@@ -66,7 +99,11 @@ function getAllowedFiles(options) {
         return new Set(options.allowedFiles.map(toPosixAbs));
     }
 
-    const baselineRef = options.baselineRef || process.env.ANTD_IMPORT_BASELINE_REF || 'origin/master';
+    // Default to origin/HEAD (the origin remote's default branch) so the baseline
+    // is correct in both OSS (origin/master) and the cloud fork (origin/acryl-main)
+    // without callers having to set ANTD_IMPORT_BASELINE_REF. CI still overrides it
+    // explicitly with origin/<base_ref> (see .github/workflows/lint-jobs.yml).
+    const baselineRef = options.baselineRef || process.env.ANTD_IMPORT_BASELINE_REF || 'origin/HEAD';
     if (!gitBaselineCache || gitBaselineCache.ref !== baselineRef) {
         gitBaselineCache = { ref: baselineRef, files: loadGitBaseline(baselineRef) };
     }
@@ -79,15 +116,14 @@ function isGrandfathered(filename, allowed) {
     return allowed.has(toPosixAbs(filename));
 }
 
-const MESSAGE =
-    "Don't import from '{{source}}'. Use alchemy components from `@components` instead.";
+const MESSAGE = "Don't import from '{{source}}'. Use alchemy components from `@components` instead.";
 
 module.exports = {
+    parseRenamedFiles,
     meta: {
         type: 'suggestion',
         docs: {
-            description:
-                'Disallow imports from antd / antd/*. Use alchemy components from @components instead.',
+            description: 'Disallow imports from antd / antd/*. Use alchemy components from @components instead.',
         },
         schema: [
             {

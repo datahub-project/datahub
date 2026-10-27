@@ -1,9 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.Iterables;
+import com.linkedin.datahub.graphql.AspectLoadContext;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.OwnerType;
 import com.linkedin.datahub.graphql.types.LoadableType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -15,7 +18,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.dataloader.DataLoader;
-import org.dataloader.DataLoaderRegistry;
 
 /**
  * GraphQL resolver responsible for
@@ -61,10 +63,7 @@ public class OwnerTypeBatchResolver implements DataFetcher<CompletableFuture<Lis
     // 3. Generate batch load requests for each EntityType
     final List<CompletableFuture<List<OwnerType>>> batchLoadFutures =
         filteredEntitiesMap.entrySet().stream()
-            .map(
-                (set) ->
-                    loadUniformTypes(
-                        environment.getDataLoaderRegistry(), set.getKey(), set.getValue()))
+            .map((set) -> loadUniformTypes(environment, set.getKey(), set.getValue()))
             .toList();
 
     // 4. Flatmap the results of the futures
@@ -78,13 +77,23 @@ public class OwnerTypeBatchResolver implements DataFetcher<CompletableFuture<Lis
   }
 
   private CompletableFuture<List<OwnerType>> loadUniformTypes(
-      DataLoaderRegistry dataLoaderRegistry,
-      String filteredEntityName,
-      List<OwnerType> ownerTypes) {
+      DataFetchingEnvironment environment, String filteredEntityName, List<OwnerType> ownerTypes) {
     final DataLoader<Object, OwnerType> loader =
-        dataLoaderRegistry.getDataLoader(filteredEntityName);
+        environment.getDataLoaderRegistry().getDataLoader(filteredEntityName);
     final List<Object> keyList =
         ownerTypes.stream().map(ownerType -> (Object) ((Entity) ownerType).getUrn()).toList();
+
+    // Contribute this field's selection to the request-scoped union and pass it as the DataLoader
+    // key context, exactly like LoadableTypeBatchResolver. Without it, owner hydration silently
+    // reuses whatever (possibly narrower) union other selections accumulated for these types.
+    QueryContext context = environment.getContext();
+    if (context != null) {
+      AspectLoadContext loadContext =
+          AspectUtils.computeLoadContext(
+              context.getAspectMappingRegistry(), filteredEntityName, environment);
+      context.mergeAspectLoadContext(filteredEntityName, loadContext);
+      return loader.loadMany(keyList, Collections.nCopies(keyList.size(), loadContext));
+    }
     return loader.loadMany(keyList);
   }
 }

@@ -61,33 +61,33 @@ extend type Domain {
   """
   Settings associated with this asset
   """
-  settings: AssetSettings
+  settings: AssetSettings @aspectMapping(aspects: ["assetSettings"])
 }
 
 extend type DataProduct {
   """
   Settings associated with this asset
   """
-  settings: AssetSettings
+  settings: AssetSettings @aspectMapping(aspects: ["assetSettings"])
 }
 
 extend type GlossaryTerm {
   """
   Settings associated with this asset
   """
-  settings: AssetSettings
+  settings: AssetSettings @aspectMapping(aspects: ["assetSettings"])
 }
 
 extend type GlossaryNode {
   """
   Settings associated with this asset
   """
-  settings: AssetSettings
+  settings: AssetSettings @aspectMapping(aspects: ["assetSettings"])
 }
 
 extend type Dataset {
   """
   Settings associated with this asset
   """
-  settings: AssetSettings
+  settings: AssetSettings @aspectMapping(aspects: ["assetSettings"])
 }

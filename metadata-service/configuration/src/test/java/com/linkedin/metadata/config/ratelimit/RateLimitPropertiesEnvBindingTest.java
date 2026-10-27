@@ -4,33 +4,25 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Map;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.MapPropertySource;
-import org.springframework.core.env.PropertySource;
 import org.springframework.core.env.StandardEnvironment;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.testng.annotations.Test;
 
 /**
- * Proves the config-loading contract behind the per-tenant design: rate-limit settings live in a
- * YAML file with {@code ${ENV:default}} placeholders, and Spring resolves those placeholders
- * against the environment at bind time. That is what lets a single {@code rate-limit-config.yaml}
- * be shared across every deployment — each tenant sets different env values (e.g. {@code
- * RATE_LIMITS_SCOPED_SDK_CAPACITY}) and gets a different bound {@link RateLimitProperties}, with no
- * per-tenant duplication of the file. Loading via {@link YamlPropertySourceLoader} + {@link Binder}
- * exercises the exact same resolution path Spring uses for {@code application.yaml}.
+ * Proves Spring binds {@code ${ENV:default}} placeholders on {@code datahub.gms.rateLimits} the
+ * same way it does for the rest of {@code application.yaml}. File/JSON overlays are covered by
+ * {@link RateLimitConfigLoaderTest}.
  */
 public class RateLimitPropertiesEnvBindingTest {
 
   private static final String RESOURCE = "rate-limit-env-binding-test.yaml";
   // Canonical (kebab) form — Binder rejects a bind name with uppercase letters. Spring's relaxed
   // binding still matches the camelCase source keys (datahub.gms.rateLimits.*) to this name.
-  private static final String PREFIX = "datahub.gms.rate-limits";
+  private static final String PREFIX = RateLimitEffectiveConfig.BIND_PREFIX;
 
   /**
    * Binds {@link RateLimitProperties} from the test YAML with the given env vars overlaid at
@@ -49,28 +41,6 @@ public class RateLimitPropertiesEnvBindingTest {
       throw new IllegalStateException("failed to load " + RESOURCE, e);
     }
     return Binder.get(environment).bind(PREFIX, RateLimitProperties.class).get();
-  }
-
-  /**
-   * Binds with two YAML sources layered like the real deployment: bundled defaults (Tier 1, from
-   * application.yaml) at lower precedence, and an operator-mounted override (Tier 2, from {@code
-   * RATE_LIMITS_CONFIG_FILE}) on top. Proves the merge semantics the override mechanism promises.
-   */
-  private static RateLimitProperties bindWithOverlay(String bundledYaml, String overrideYaml) {
-    StandardEnvironment environment = new StandardEnvironment();
-    try {
-      // Override (Tier 2) added first = higher precedence; bundled defaults (Tier 1) below.
-      loadYaml("override", overrideYaml).forEach(environment.getPropertySources()::addFirst);
-      loadYaml("bundled", bundledYaml).forEach(environment.getPropertySources()::addLast);
-    } catch (Exception e) {
-      throw new IllegalStateException("failed to load overlay sources", e);
-    }
-    return Binder.get(environment).bind(PREFIX, RateLimitProperties.class).get();
-  }
-
-  private static List<PropertySource<?>> loadYaml(String name, String yaml) throws Exception {
-    return new YamlPropertySourceLoader()
-        .load(name, new ByteArrayResource(yaml.getBytes(StandardCharsets.UTF_8)));
   }
 
   @Test
@@ -192,62 +162,5 @@ public class RateLimitPropertiesEnvBindingTest {
         bindWithEnv(Map.of()).getScoped().getHeavyResolvers();
     assertTrue(resolvers.get("getEntities").isExemptSystemActor());
     assertFalse(resolvers.get("searchAcrossEntities").isExemptSystemActor());
-  }
-
-  // --- Tier-1 (bundled defaults) + Tier-2 (mounted override) overlay merge ---
-
-  @Test
-  public void testOverrideFileAddsEndpointRuleOverEmptyBundled() {
-    // Bundled ships empty endpoint.rules; the mounted override provides one. The rule must appear
-    // (this is the whole point of the optional override file for per-deployment rules).
-    String bundled = "datahub:\n  gms:\n    rateLimits:\n      endpoint:\n        rules: []\n";
-    String override =
-        "datahub:\n"
-            + "  gms:\n"
-            + "    rateLimits:\n"
-            + "      endpoint:\n"
-            + "        rules:\n"
-            + "          - id: auth-signup\n"
-            + "            pathPattern: /auth/signUp\n"
-            + "            methods: [POST]\n"
-            + "            capacity: 200\n"
-            + "            refillTokens: 200\n"
-            + "            refillPeriodSeconds: 60\n";
-    List<RateLimitProperties.Rule> rules =
-        bindWithOverlay(bundled, override).getEndpoint().getRules();
-    assertEquals(rules.size(), 1);
-    assertEquals(rules.get(0).getId(), "auth-signup");
-    assertEquals(rules.get(0).getPathPattern(), "/auth/signUp");
-  }
-
-  @Test
-  public void testOverrideFileAddsHeavyResolverOverEmptyBundled() {
-    // Bundled ships an empty heavyResolvers map; the override adds an entry. Maps merge by key, so
-    // the resolver from the override is present.
-    String bundled =
-        "datahub:\n  gms:\n    rateLimits:\n      scoped:\n        heavyResolvers: {}\n";
-    String override =
-        "datahub:\n"
-            + "  gms:\n"
-            + "    rateLimits:\n"
-            + "      scoped:\n"
-            + "        heavyResolvers:\n"
-            + "          searchAcrossEntities:"
-            + " { capacity: 100, refillTokens: 100, refillPeriodSeconds: 60 }\n";
-    RateLimitProperties.BucketLimits heavy =
-        bindWithOverlay(bundled, override)
-            .getScoped()
-            .getHeavyResolvers()
-            .get("searchAcrossEntities");
-    assertEquals(heavy.getCapacity(), 100);
-    assertEquals(heavy.getRefillPeriodSeconds(), 60);
-  }
-
-  @Test
-  public void testOverrideFileScalarWinsOverBundled() {
-    // A scalar declared in both sources: the higher-precedence override wins.
-    String bundled = "datahub:\n  gms:\n    rateLimits:\n      minRetryAfterSeconds: 60\n";
-    String override = "datahub:\n  gms:\n    rateLimits:\n      minRetryAfterSeconds: 120\n";
-    assertEquals(bindWithOverlay(bundled, override).getMinRetryAfterSeconds(), 120);
   }
 }

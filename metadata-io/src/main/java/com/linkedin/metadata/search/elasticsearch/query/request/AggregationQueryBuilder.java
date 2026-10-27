@@ -17,6 +17,8 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.FilterValueArray;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
@@ -48,6 +50,7 @@ import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 
 @Slf4j
 public class AggregationQueryBuilder {
@@ -56,15 +59,25 @@ public class AggregationQueryBuilder {
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
-  private final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
+  protected final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
+
+  @Nullable private final SearchFieldResolver v3FieldResolver;
 
   private Map<String, String> filtersToDisplayName;
 
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
+    this(configs, entitySearchAnnotations, null);
+  }
+
+  public AggregationQueryBuilder(
+      @Nonnull final SearchConfiguration configs,
+      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
+      @Nullable SearchFieldResolver v3FieldResolver) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
+    this.v3FieldResolver = v3FieldResolver;
 
     List<SearchableAnnotation> annotations =
         this.entitySearchAnnotations.values().stream()
@@ -93,6 +106,26 @@ public class AggregationQueryBuilder {
     facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
+        .collect(Collectors.toList());
+  }
+
+  /** {@code _entityType} and the {@code _entityType} + {@code typeNames} aggregation. */
+  public List<AggregationBuilder> getEntityTypeAggregations(@Nonnull OperationContext opContext) {
+    List<AggregationBuilder> aggregations = new ArrayList<>();
+    aggregations.add(facetToAggregationBuilder(opContext, INDEX_VIRTUAL_FIELD));
+    aggregations.add(
+        facetToAggregationBuilder(
+            opContext,
+            String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames")));
+    return aggregations;
+  }
+
+  /** Caller facets only. Invalid names are dropped, matching {@link #getAggregations}. */
+  public List<AggregationBuilder> getCallerAggregations(
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
+    return facets.stream()
+        .filter(this::isValidAggregate)
+        .map(facet -> facetToAggregationBuilder(opContext, facet))
         .collect(Collectors.toList());
   }
 
@@ -156,7 +189,7 @@ public class AggregationQueryBuilder {
                     ? AggregationBuilders.missing(inputFacet)
                         .field(
                             getAggregationField(
-                                opContext, ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                                opContext, entityTypeField(), opContext.getAspectRetriever()))
                     : AggregationBuilders.missing(inputFacet)
                         .field(
                             getAggregationField(
@@ -171,12 +204,7 @@ public class AggregationQueryBuilder {
       } else {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                ? AggregationBuilders.terms(inputFacet)
-                    .field(
-                        getAggregationField(
-                            opContext, ES_INDEX_FIELD, opContext.getAspectRetriever()))
-                    .size(maxTermBuckets)
-                    .minDocCount(0)
+                ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
                 : AggregationBuilders.terms(inputFacet)
                     .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
                     .size(maxTermBuckets);
@@ -190,7 +218,20 @@ public class AggregationQueryBuilder {
     return lastAggBuilder;
   }
 
-  private String getAggregationField(
+  /** V2 derives the entity type from the index name. Search V3 overrides this. */
+  protected String entityTypeField() {
+    return ES_INDEX_FIELD;
+  }
+
+  protected TermsAggregationBuilder entityTypeAggregation(
+      @Nonnull OperationContext opContext, @Nonnull String name, int maxTermBuckets) {
+    return AggregationBuilders.terms(name)
+        .field(getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
+        .size(maxTermBuckets)
+        .minDocCount(0);
+  }
+
+  protected String getAggregationField(
       @Nullable final Object opContext,
       final String facet,
       @Nullable AspectRetriever aspectRetriever) {
@@ -198,7 +239,11 @@ public class AggregationQueryBuilder {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
+    if (v3FieldResolver != null && v3FieldResolver.contains(facet)) {
+      return v3FieldResolver.exactPath(facet, Intent.FACET);
+    }
+    // Structured properties and V2 keyword fields share one resolver (SP type → parent vs
+    // .keyword).
     return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
   }
 
@@ -320,12 +365,14 @@ public class AggregationQueryBuilder {
       Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
     final String key = bucket.getKeyAsString();
     String finalKey = key;
-    try {
-      // if the value is a date string, convert to milliseconds since epoch
-      OffsetDateTime time = OffsetDateTime.parse(key);
-      finalKey = String.valueOf(time.toEpochSecond() * 1000);
-    } catch (DateTimeParseException e) {
-      // do nothing, this is expected if the value is not a date
+    if (looksLikeIsoOffsetDateTime(key)) {
+      try {
+        // if the value is a date string, convert to milliseconds since epoch
+        OffsetDateTime time = OffsetDateTime.parse(key);
+        finalKey = String.valueOf(time.toEpochSecond() * 1000);
+      } catch (DateTimeParseException e) {
+        // do nothing, this is expected if the value is not a date
+      }
     }
     // Gets filtered sub aggregation doc count if exist
     Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
@@ -337,6 +384,21 @@ public class AggregationQueryBuilder {
     if (includeZeroes || docCount > 0) {
       aggResult.put(finalKey, docCount);
     }
+  }
+
+  // Minimal valid OffsetDateTime.parse() input is "yyyy-MM-ddTHH:mmZ" (17 chars)
+  private static final int MIN_ISO_OFFSET_DATE_TIME_LENGTH = "2000-01-01T00:00Z".length();
+
+  /**
+   * Cheap check for strings that cannot possibly be a valid {@link OffsetDateTime}, so that {@link
+   * #processTermBucket} avoids paying for a {@link DateTimeParseException} on every non-date bucket
+   * key (A very common case).
+   */
+  private static boolean looksLikeIsoOffsetDateTime(String value) {
+    return value.length() >= MIN_ISO_OFFSET_DATE_TIME_LENGTH
+        && value.charAt(4) == '-'
+        && value.charAt(7) == '-'
+        && value.charAt(10) == 'T';
   }
 
   private static void recurseMissingAgg(ParsedMissing missing, Map<String, Long> aggResult) {

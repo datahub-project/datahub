@@ -1,11 +1,12 @@
-import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Button, Form, Modal, Select, Tag } from 'antd';
 import React, { ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';

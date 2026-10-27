@@ -1,9 +1,10 @@
-import { Pill, Tooltip } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Pill } from '@components/components/Pills';
 import type { ResizablePillsProps } from '@components/components/ResizablePills/types';
+import { Tooltip } from '@components/components/Tooltip';
 
 const Container = styled.div`
     display: flex;

@@ -156,6 +156,7 @@ describe('PageTemplateContext', () => {
         it('should call useTemplateState without parameters', () => {
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -166,6 +167,7 @@ describe('PageTemplateContext', () => {
         it('should call useTemplateOperations with setPersonalTemplate and personalTemplate', () => {
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -180,6 +182,7 @@ describe('PageTemplateContext', () => {
         it('should call useModuleOperations with correct parameters', () => {
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -284,6 +287,7 @@ describe('PageTemplateContext', () => {
 
             render(
                 <PageTemplateProvider templateType={PageTemplateSurfaceType.HomePage}>
+                    {/* eslint-disable-next-line i18next/no-literal-string */}
                     <div>Test</div>
                 </PageTemplateProvider>,
             );

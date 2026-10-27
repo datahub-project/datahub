@@ -1,4 +1,9 @@
-import { buildFilters, extractUserRole, getUserStatusText } from '@app/identity/user/UserListV2.utils';
+import {
+    buildFilters,
+    canResetUserPassword,
+    extractUserRole,
+    getUserStatusText,
+} from '@app/identity/user/UserListV2.utils';
 
 import { CorpUser, CorpUserStatus, EntityType } from '@types';
 
@@ -105,6 +110,20 @@ describe('UserList.utils', () => {
                 },
             };
             expect(extractUserRole(user, mockRoles)).toBeUndefined();
+        });
+    });
+
+    describe('canResetUserPassword', () => {
+        it('allows reset for native users when the viewer can manage credentials', () => {
+            expect(canResetUserPassword(createMockUser({ isNativeUser: true }), true)).toBe(true);
+        });
+
+        it('disallows reset for non-native users such as SSO or the root user', () => {
+            expect(canResetUserPassword(createMockUser({ isNativeUser: false }), true)).toBe(false);
+        });
+
+        it('disallows reset when the viewer cannot manage credentials', () => {
+            expect(canResetUserPassword(createMockUser({ isNativeUser: true }), false)).toBe(false);
         });
     });
 });

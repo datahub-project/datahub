@@ -17,9 +17,11 @@ TBD
 #### Recommended Versions
 
 - **CLI/SDK**: TBD
-- **Remote Executor**: TBD
+- **Remote Executor**:
+  - **Image**: TBD
+  - **Helm chart**: TBD ([`datahub-executor-worker`](https://executor-helm.acryl.io/index.yaml) from `https://executor-helm.acryl.io`)
 - **On-Prem Versions**:
-  - **Helm**: TBD
+  - **Helm**: TBD ([`acryl-datahub`](https://helm.acryl.io/index.yaml) from `https://helm.acryl.io`)
   - **API Gateway**: TBD
 
 ## Release Changelog
@@ -36,7 +38,7 @@ New Features:
 
 Fixes:
 
-- TODO
+- **(GMS rate limiting)** Mounted `RATE_LIMITS_CONFIG_FILE` rule lists now apply: policy is loaded once by `RateLimitEffectiveConfig` (Binder + classpath default, file replaces it, `RATE_LIMITS_CONFIG_JSON` overlays) and shared by Hazelcast bootstrap and the engine. Previously `@PropertySource` sat below packaged `application.yaml` and Boot kept the bundled empty `endpoint.rules` list. **Action:** none if the file URI already has a `file:` prefix. Confirm `GET /openapi/v1/rate-limits/config` shows the mounted rules after upgrade.
 
 ## Known Issues
 

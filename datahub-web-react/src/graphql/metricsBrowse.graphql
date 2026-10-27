@@ -66,6 +66,8 @@ query getSemanticModelsBrowse($input: GetRootEntitiesInput!) {
 }
 
 fragment metricBrowseFields on Metric {
+    urn
+    type
     id
     path
     platform {
@@ -86,6 +88,27 @@ fragment metricBrowseFields on Metric {
     }
 }
 
+fragment groupedMetricBrowseFields on Metric {
+    urn
+    type
+    info {
+        name
+    }
+    semanticModel {
+        info {
+            name
+        }
+    }
+}
+
+fragment groupedSemanticModelBrowseFields on SemanticModel {
+    urn
+    type
+    info {
+        name
+    }
+}
+
 # Cursor-based scroll for metrics. Works for both model-children and metric-children — callers
 # supply the appropriate orFilters.
 query scrollMetrics($input: ScrollAcrossEntitiesInput!) {
@@ -99,6 +122,27 @@ query scrollMetrics($input: ScrollAcrossEntitiesInput!) {
                 type
                 ... on Metric {
                     ...metricBrowseFields
+                }
+            }
+        }
+    }
+}
+
+# Cursor-based scroll for the mixed entity lists shown under platform/domain group headers.
+query scrollGroupedMetricsEntities($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        nextScrollId
+        count
+        total
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Metric {
+                    ...groupedMetricBrowseFields
+                }
+                ... on SemanticModel {
+                    ...groupedSemanticModelBrowseFields
                 }
             }
         }

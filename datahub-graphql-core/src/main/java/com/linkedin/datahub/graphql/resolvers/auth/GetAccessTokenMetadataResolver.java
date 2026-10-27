@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
@@ -46,6 +47,8 @@ public class GetAccessTokenMetadataResolver
           final String tokenHash = _tokenService.hash(token);
           final String tokenUrn = _tokenService.tokenUrnFromKey(tokenHash).toString();
           try {
+            // Direct batchLoad bypasses DataLoader selection merge; widen to fetch-all first.
+            AspectUtils.ensureFetchAllForDirectLoad(context, metadataType.name());
             List<DataFetcherResult<AccessTokenMetadata>> batchLoad =
                 metadataType.batchLoad(ImmutableList.of(tokenUrn), context);
             if (batchLoad.isEmpty()) {

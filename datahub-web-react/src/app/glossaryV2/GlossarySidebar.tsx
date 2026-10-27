@@ -1,4 +1,4 @@
-import { Avatar, Menu } from '@components';
+import { Avatar, Menu, Tooltip } from '@components';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
@@ -89,6 +89,7 @@ function GlossarySidebarInner() {
 
     const user = useUserContext();
     const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
+    const showCreateGlossary = canManageGlossaries;
 
     const entityRegistry = useEntityRegistry();
     const generateColor = useGenerateGlossaryColorFromPalette();
@@ -139,22 +140,39 @@ function GlossarySidebarInner() {
         [t],
     );
 
-    const headerActions = (
-        <Menu
-            open={isCreateMenuOpen}
-            onOpenChange={setIsCreateMenuOpen}
-            items={createMenuItems}
-            trigger={['click']}
-            placement="bottomRight"
-        >
-            <SidebarCreateButton
-                variant="filled"
-                color="primary"
-                isCircle
-                icon={{ icon: Plus }}
-                data-testid="create-glossary-button"
-            />
-        </Menu>
+    // Users who cannot create glossary entities get a disabled button plus a contact-admin
+    // tooltip rather than no button at all, so the action stays discoverable.
+    const headerActions = showCreateGlossary ? (
+        <Tooltip title={t('page.createGlossary')} placement="left" showArrow={false}>
+            <Menu
+                open={isCreateMenuOpen}
+                onOpenChange={setIsCreateMenuOpen}
+                items={createMenuItems}
+                trigger={['click']}
+                placement="bottomRight"
+            >
+                <SidebarCreateButton
+                    variant="filled"
+                    color="primary"
+                    isCircle
+                    icon={{ icon: Plus }}
+                    data-testid="create-glossary-button"
+                />
+            </Menu>
+        </Tooltip>
+    ) : (
+        <Tooltip title={t('page.contactAdmin')} placement="left" showArrow={false}>
+            <span style={{ display: 'inline-block' }}>
+                <SidebarCreateButton
+                    variant="filled"
+                    color="primary"
+                    isCircle
+                    icon={{ icon: Plus }}
+                    disabled
+                    data-testid="create-glossary-button"
+                />
+            </span>
+        </Tooltip>
     );
 
     const ownerOptions = useMemo(

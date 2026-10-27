@@ -21,7 +21,6 @@ import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.GenericPayload;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -63,7 +62,6 @@ public class KafkaEventProducerTest {
   private static final String MCP_TOPIC = "MetadataChangeProposal_v1";
   private static final String FMCP_TOPIC = "FailedMetadataChangeProposal_v1";
   private static final String PLATFORM_EVENT_TOPIC = "PlatformEvent_v1";
-  private static final String UPGRADE_HISTORY_TOPIC = "DataHubUpgradeHistory_v1";
 
   @BeforeMethod
   public void setup() {
@@ -79,7 +77,6 @@ public class KafkaEventProducerTest {
     when(mockTopicConvention.getMetadataChangeProposalTopicName()).thenReturn(MCP_TOPIC);
     when(mockTopicConvention.getFailedMetadataChangeProposalTopicName()).thenReturn(FMCP_TOPIC);
     when(mockTopicConvention.getPlatformEventTopicName()).thenReturn(PLATFORM_EVENT_TOPIC);
-    when(mockTopicConvention.getDataHubUpgradeHistoryTopicName()).thenReturn(UPGRADE_HISTORY_TOPIC);
 
     // Setup health checker callback
     Callback mockCallback = mock(Callback.class);
@@ -289,34 +286,6 @@ public class KafkaEventProducerTest {
       verify(mockProducer, never()).send(any(ProducerRecord.class), any(Callback.class));
       assertTrue(result.isDone());
     }
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventAlwaysWrites() {
-    // Set to read-only
-    eventProducer.setWritable(false);
-
-    DataHubUpgradeHistoryEvent event = new DataHubUpgradeHistoryEvent();
-    event.setVersion("1.0.0");
-
-    // Should still write even when not writable
-    eventProducer.produceDataHubUpgradeHistoryEvent(opContext, event);
-
-    // Verify it was sent despite being read-only
-    verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
-  }
-
-  @Test
-  public void testProduceDataHubUpgradeHistoryEventWhenWritable() {
-    // Set to writable
-    eventProducer.setWritable(true);
-
-    DataHubUpgradeHistoryEvent event = new DataHubUpgradeHistoryEvent();
-    event.setVersion("2.0.0");
-
-    eventProducer.produceDataHubUpgradeHistoryEvent(opContext, event);
-
-    verify(mockProducer, times(1)).send(any(ProducerRecord.class), any(Callback.class));
   }
 
   @Test
@@ -566,23 +535,6 @@ public class KafkaEventProducerTest {
     String normalTopic = eventProducer.getMetadataChangeLogTopicName(normalAspect);
     assertNotNull(normalTopic);
     verify(mockTopicConvention, times(2)).getMetadataChangeLogVersionedTopicName();
-  }
-
-  @Test
-  public void testUpgradeHistoryEventBypassesWritabilityCheck() {
-    // Explicitly test that upgrade history events bypass the writability check
-    eventProducer.setWritable(false);
-
-    DataHubUpgradeHistoryEvent event1 = new DataHubUpgradeHistoryEvent();
-    event1.setVersion("1.0.0");
-    eventProducer.produceDataHubUpgradeHistoryEvent(opContext, event1);
-
-    DataHubUpgradeHistoryEvent event2 = new DataHubUpgradeHistoryEvent();
-    event2.setVersion("1.1.0");
-    eventProducer.produceDataHubUpgradeHistoryEvent(opContext, event2);
-
-    // Both should have been sent despite being read-only
-    verify(mockProducer, times(2)).send(any(ProducerRecord.class), any(Callback.class));
   }
 
   @Test

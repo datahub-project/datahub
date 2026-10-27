@@ -27,3 +27,22 @@ def test_password_auth_rejects_blank_username(username: str) -> None:
                 },
             }
         )
+
+
+def test_emit_semantic_model_entities_defaults_to_false() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+
+    assert config.emit_semantic_model_entities is False
+
+
+def test_emit_semantic_model_entities_can_be_enabled() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "emit_semantic_model_entities": True,
+        }
+    )
+
+    assert config.emit_semantic_model_entities is True

@@ -2,7 +2,7 @@ import { Card, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 
 import { Highlight as HighlightType } from '@types';
 
@@ -12,23 +12,22 @@ type Props = {
 };
 
 const HighlightCard = styled(Card)`
-    width: 160px;
-    height: 160px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     line-height: 0;
-    margin: 10px;
     box-shadow: ${(props) => props.theme.colors.shadowMd};
 `;
 
 const TitleText = styled(Typography.Text)`
     line-height: 1.4em;
     margin-top: -6px;
+    font-weight: 800;
+    font-size: 14px;
 `;
 const BodyText = styled(Typography.Text)`
-    font-size: 8px;
+    font-size: 10px;
     line-height: 1.4em;
 `;
 
@@ -47,7 +46,7 @@ export const Highlight = ({ highlight, shortenValue }: Props) => {
                 {(shortenValue && formatNumber(highlight.value)) || highlight.value}
             </Typography.Title>
             <TitleContainer>
-                <TitleText strong>{highlight.title}</TitleText>
+                <TitleText>{highlight.title}</TitleText>
             </TitleContainer>
             <BodyContainer>
                 <BodyText>{highlight.body}</BodyText>

@@ -35,6 +35,13 @@ source:
     extract_metric_expressions: true
     extract_model_lineage: true
 
+    # Additionally emit each project's schema as a first-class semanticModel
+    # (one logical dataset per MicroStrategy logical table, one metric entity
+    # per project metric with lineage). Additive; existing dashboard/report
+    # datasets are unaffected. Requires a server that registers those entities
+    # (Cloud >= 2.1.0, or OSS with METRICS_ENABLED=true).
+    # emit_semantic_model_entities: true
+
     # Optional coarse table-level lineage from MicroStrategy SQL-view APIs.
     # Keep disabled unless you want dataset -> warehouse table edges without
     # field-level metric / attribute / fact lineage.

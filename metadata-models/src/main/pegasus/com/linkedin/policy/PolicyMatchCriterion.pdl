@@ -6,14 +6,23 @@ namespace com.linkedin.policy
 record PolicyMatchCriterion {
 
   /**
-   * The name of the field that the criterion refers to
+   * The name of the field that the criterion refers to.
+   * Examples: TYPE, TAG, DOMAIN, STRUCTURED_PROPERTY
    */
   field: string
 
   /**
-   * Values. Matches criterion if any one of the values matches condition (OR-relationship)
+   * Values for traditional fields (TYPE, TAG, DOMAIN, etc).
+   * Matches criterion if any one of the values matches condition (OR-relationship).
+   * Use empty array [] when using structuredPropertyValues instead.
    */
   values: array[string]
+
+  /**
+   * Values for structured property matching.
+   * Used when field is STRUCTURED_PROPERTY.
+   */
+  structuredPropertyValues: optional array[StructuredPropertyCriterionValue]
 
   /**
    * The condition for the criterion

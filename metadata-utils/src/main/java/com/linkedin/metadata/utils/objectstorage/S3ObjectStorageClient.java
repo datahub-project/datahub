@@ -8,7 +8,6 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
@@ -35,31 +34,6 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
   @Nullable private final String pathPrefix;
   private final int multipartThresholdBytes;
   private final int multipartPartSizeBytes;
-
-  public S3ObjectStorageClient(
-      @Nonnull S3Client s3Client, @Nonnull String bucketName, @Nullable String pathPrefix) {
-    this(
-        s3Client,
-        bucketName,
-        pathPrefix,
-        DEFAULT_MULTIPART_THRESHOLD_BYTES,
-        DEFAULT_MULTIPART_PART_SIZE_BYTES);
-  }
-
-  public S3ObjectStorageClient(
-      @Nonnull S3Client s3Client,
-      @Nonnull String bucketName,
-      @Nullable String pathPrefix,
-      int multipartThresholdBytes,
-      int multipartPartSizeBytes) {
-    this(
-        s3Client,
-        createPresigner(s3Client),
-        bucketName,
-        pathPrefix,
-        multipartThresholdBytes,
-        multipartPartSizeBytes);
-  }
 
   public S3ObjectStorageClient(
       @Nonnull S3Client s3Client,
@@ -240,26 +214,6 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
       throw new IllegalArgumentException(
           "Object storage reference bucket does not match configured bucket");
     }
-  }
-
-  @Nonnull
-  private static S3Presigner createPresigner(@Nonnull S3Client s3Client) {
-    var presignerBuilder =
-        S3Presigner.builder()
-            .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
-            .region(s3Client.serviceClientConfiguration().region());
-
-    String endpointUrl = System.getenv("AWS_ENDPOINT_URL");
-    if (endpointUrl == null || endpointUrl.isEmpty()) {
-      endpointUrl = System.getProperty("AWS_ENDPOINT_URL");
-    }
-    if (endpointUrl != null && !endpointUrl.isEmpty()) {
-      presignerBuilder.endpointOverride(java.net.URI.create(endpointUrl));
-      presignerBuilder.serviceConfiguration(
-          S3Configuration.builder().pathStyleAccessEnabled(true).build());
-    }
-
-    return presignerBuilder.build();
   }
 
   @Override

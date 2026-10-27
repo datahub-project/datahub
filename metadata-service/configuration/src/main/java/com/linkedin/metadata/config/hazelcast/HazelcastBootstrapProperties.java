@@ -1,8 +1,12 @@
 package com.linkedin.metadata.config.hazelcast;
 
-import org.springframework.core.env.PropertyResolver;
+import com.linkedin.metadata.config.ratelimit.RateLimitEffectiveConfig;
+import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 
 /** Shared Spring environment property keys for Hazelcast bootstrap conditions. */
+@Slf4j
 public final class HazelcastBootstrapProperties {
 
   public static final String SEARCH_CACHE_IMPLEMENTATION = "searchService.cacheImplementation";
@@ -55,9 +59,28 @@ public final class HazelcastBootstrapProperties {
    * scoped chain (per-actor/class/global buckets) live in Hazelcast, so either being enabled
    * requires it — provisioning must not key on {@code endpoint.enabled} alone, or a scoped-only
    * deployment gets no Hazelcast instance and GMS fails to start.
+   *
+   * <p>Reads {@link RateLimitEffectiveConfig} (Binder + file + JSON overlay) so file/JSON toggles
+   * provision map config the same way {@code RATE_LIMITS_ENDPOINT_ENABLED} does. The rate-limit
+   * engine reuses that instance; this does not put overlay lists into the Spring {@code
+   * Environment}.
+   *
+   * <p>A missing or invalid overlay must not fail Hazelcast {@code @Conditional} evaluation:
+   * MAE/MCE/upgrade scan {@code CacheConfig} and share {@code RATE_LIMITS_CONFIG_FILE} in some
+   * deployments, but they never construct the engine. Those processes fall back to Environment
+   * flags. GMS still fail-fasts when the engine loads the same path.
    */
-  public static boolean rateLimitNeedsHazelcast(PropertyResolver environment) {
-    return Boolean.parseBoolean(environment.getProperty(RATE_LIMIT_ENDPOINT_ENABLED, "false"))
-        || Boolean.parseBoolean(environment.getProperty(RATE_LIMIT_SCOPED_ENABLED, "false"));
+  public static boolean rateLimitNeedsHazelcast(Environment environment) {
+    try {
+      RateLimitProperties config = RateLimitEffectiveConfig.get(environment);
+      boolean endpoint = config.getEndpoint() != null && config.getEndpoint().isEnabled();
+      boolean scoped = config.getScoped() != null && config.getScoped().isEnabled();
+      return endpoint || scoped;
+    } catch (IllegalStateException e) {
+      log.debug(
+          "Rate-limit overlay unavailable during Hazelcast bootstrap; using Environment flags", e);
+      return Boolean.parseBoolean(environment.getProperty(RATE_LIMIT_ENDPOINT_ENABLED, "false"))
+          || Boolean.parseBoolean(environment.getProperty(RATE_LIMIT_SCOPED_ENABLED, "false"));
+    }
   }
 }

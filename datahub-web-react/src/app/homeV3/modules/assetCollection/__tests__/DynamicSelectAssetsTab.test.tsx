@@ -19,7 +19,7 @@ vi.mock('@components', () => ({
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({ getTypeFromGraphName: () => undefined }),
+    useEntityRegistry: () => ({ getTypeFromGraphName: () => undefined }),
 }));
 
 // t() returns the key so assertions pin exactly which message is selected.

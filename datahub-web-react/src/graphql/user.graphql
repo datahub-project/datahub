@@ -26,6 +26,12 @@ query getUser($urn: String!, $groupsCount: Int!) {
             displayName
             title
             email
+            persona {
+                urn
+            }
+            platforms {
+                urn
+            }
         }
         privileges {
             ...entityPrivileges

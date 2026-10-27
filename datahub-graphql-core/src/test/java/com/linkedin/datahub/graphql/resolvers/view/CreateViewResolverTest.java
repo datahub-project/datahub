@@ -52,10 +52,9 @@ public class CreateViewResolverTest {
                           false,
                           FilterOperator.EQUAL),
                       new FacetFilterInput(
-                          "test2",
-                          ImmutableList.of("value1", "value2"),
-                          true,
-                          FilterOperator.IN)))));
+                          "test2", ImmutableList.of("value1", "value2"), true, FilterOperator.IN)),
+                  null,
+                  null)));
 
   private static final Urn TEST_VIEW_URN = UrnUtils.getUrn("urn:li:dataHubView:test");
 

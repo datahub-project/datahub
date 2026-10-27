@@ -24,8 +24,8 @@ import {
     removeFromListIngestionSourcesCache,
 } from '@app/ingest/source/utils';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {
@@ -343,7 +343,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: 'Loading...', duration: 3 });
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -383,7 +383,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         if (shouldRun && result.data?.createIngestionSource) {
                             executeIngestionSource(result.data.createIngestionSource);
                         }
-                    }, 2000);
+                    }, 3000);
                     setIsBuildingSource(false);
                     setFocusSourceUrn(undefined);
                     resetState();

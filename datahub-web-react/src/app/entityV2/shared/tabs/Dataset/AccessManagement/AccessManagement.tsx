@@ -4,14 +4,13 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import {
-    RoleAccessData,
-    renderAccessButton,
-} from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessButtonHelpers';
+import { renderAccessButton } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessButtonHelpers';
 import AccessManagerDescription from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagerDescription';
 import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
 
 import { useGetExternalRolesQuery } from '@graphql/dataset.generated';
+
+const SCROLL_X = 'max-content';
 
 const StyledTable = styled(Table)`
     overflow: inherit;
@@ -31,36 +30,14 @@ const StyledTable = styled(Table)`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${(props) => props.theme.colors.bgSurface};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
 ` as typeof Table;
 
 /**
- * Styled component for empty access state display
- */
-const EmptyAccessSection = styled.section`
-    background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.text};
-    width: 83px;
-    text-align: center;
-    border-radius: 3px;
-    border: none;
-    font-weight: bold;
-`;
-
-/**
- * Renders the access button or empty state based on role data
- */
-const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
-    const roleData = { hasAccess, url: record.url, name: record.name };
-    const button = renderAccessButton(roleData);
-
-    return button || <EmptyAccessSection />;
-};
-
-/**
  * AccessManagement component displays a table of roles with access request functionality.
  * Shows "Granted" (disabled) buttons for roles the user already has access to,
+ * "Not Granted" (disabled) buttons for roles the user has no access to and cannot request access to (no request link)
  * and "Request" (enabled) buttons for roles they can request access to.
  */
 export default function AccessManagement() {
@@ -96,8 +73,7 @@ export default function AccessManagement() {
             title: t('accessManagement.columnAccess'),
             dataIndex: 'hasAccess',
             key: 'hasAccess',
-            render: renderAccessCell,
-            hidden: true,
+            render: (hasAccess, record) => renderAccessButton({ hasAccess, url: record.url, name: record.name }),
         },
     ];
 
@@ -108,6 +84,7 @@ export default function AccessManagement() {
             dataSource={tableData}
             columns={columns}
             pagination={false}
+            scroll={{ x: SCROLL_X }}
             aria-label={t('accessManagement.tableAriaLabel')}
         />
     );

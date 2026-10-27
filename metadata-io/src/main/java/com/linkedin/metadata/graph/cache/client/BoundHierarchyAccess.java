@@ -1,11 +1,11 @@
 package com.linkedin.metadata.graph.cache.client;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.cache.AncestorWalkResult;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.graph.cache.GraphReadResult;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.Collections;
@@ -53,9 +53,7 @@ public final class BoundHierarchyAccess {
                   .limit(Integer.MAX_VALUE)
                   .build());
       if (result.isHit()) {
-        return result.verticesOrEmpty().stream()
-            .map(UrnUtils::getUrn)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+        return EntityGraphEndpoints.toUrnSet(result.verticesOrEmpty());
       }
     }
     return AspectParentWalker.expandAncestors(opContext, spec, new LinkedHashSet<>(roots));
@@ -89,9 +87,7 @@ public final class BoundHierarchyAccess {
               seedUrn.toString(),
               maxDepth);
       if (walkResult.isHit()) {
-        return walkResult.ancestorsOrEmpty().stream()
-            .map(UrnUtils::getUrn)
-            .collect(Collectors.toList());
+        return EntityGraphEndpoints.toUrnList(walkResult.ancestorsOrEmpty());
       }
     }
     return AspectParentWalker.orderedParents(opContext, spec, seedUrn, maxDepth);
@@ -130,10 +126,10 @@ public final class BoundHierarchyAccess {
                 .maxDepth(cacheMaxDepth)
                 .build());
     if (result.isHit()) {
-      return result.verticesOrEmpty().stream()
-          .filter(urn -> !urn.equals(rootUrn.toString()))
-          .map(UrnUtils::getUrn)
-          .collect(Collectors.toCollection(LinkedHashSet::new));
+      return EntityGraphEndpoints.toUrnSet(
+          result.verticesOrEmpty().stream()
+              .filter(urn -> !urn.equals(rootUrn.toString()))
+              .collect(Collectors.toCollection(LinkedHashSet::new)));
     }
     return GraphScrollFallback.allDescendants(opContext, spec, rootUrn);
   }
@@ -185,10 +181,10 @@ public final class BoundHierarchyAccess {
                 .build());
     if (result.isHit()) {
       Set<Urn> children =
-          result.verticesOrEmpty().stream()
-              .filter(urn -> !urn.equals(parentUrn.toString()))
-              .map(UrnUtils::getUrn)
-              .collect(Collectors.toCollection(LinkedHashSet::new));
+          EntityGraphEndpoints.toUrnSet(
+              result.verticesOrEmpty().stream()
+                  .filter(urn -> !urn.equals(parentUrn.toString()))
+                  .collect(Collectors.toCollection(LinkedHashSet::new)));
       return new DirectChildrenResult(children, false);
     }
     return GraphScrollFallback.directChildren(opContext, spec, parentUrn);

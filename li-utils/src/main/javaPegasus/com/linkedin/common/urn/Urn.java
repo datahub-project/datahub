@@ -389,15 +389,27 @@ public class Urn {
 
   // Regex word class (\w) is defined as: [a-zA-Z_0-9]
   // Source: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
+  private static final boolean[] WORD_CLASS_ASCII_LOOKUP = buildWordClassAsciiLookup();
+
+  private static boolean[] buildWordClassAsciiLookup() {
+    boolean[] lookup = new boolean[128];
+    for (char c = 'a'; c <= 'z'; c++) {
+      lookup[c] = true;
+    }
+    for (char c = 'A'; c <= 'Z'; c++) {
+      lookup[c] = true;
+    }
+    for (char c = '0'; c <= '9'; c++) {
+      lookup[c] = true;
+    }
+    lookup['_'] = true;
+    return lookup;
+  }
+
   private static boolean charsAreWordClass(String input) {
     for (int index = 0; index < input.length(); index++) {
       char c = input.charAt(index);
-      // Not using Character.isLowerCase etc on purpose because that is
-      // unicode-aware and we only need ASCII. Handling only ASCII is faster.
-      if (!((c >= 'a' && c <= 'z')
-          || (c >= 'A' && c <= 'Z')
-          || (c >= '0' && c <= '9')
-          || c == '_')) {
+      if (c >= WORD_CLASS_ASCII_LOOKUP.length || !WORD_CLASS_ASCII_LOOKUP[c]) {
         return false;
       }
     }

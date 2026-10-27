@@ -31,6 +31,47 @@ def javaVersion = ""
 // Otherwise, compute the tag from the version.
 def versionTag = ""
 
+// A namespaced tag such as release-base/v2.2.2-cloud must not be copied into
+// Gradle version as-is: "/" is a path separator, so every ${name}-${version}.jar
+// collapses to one basename. Dropping the namespace entirely publishes that tag
+// as the plain release (same jars and Docker tags). Reuse the leaf only when
+// that exact tag is also on the commit. Otherwise keep the namespace as a
+// hyphen suffix: the version stays distinct, and the last dotted segment is
+// not an integer, so snapshot handling does not bump it into the next release.
+def normalizeNamespacedTag = { String lastTag, Collection tagsAtCommit ->
+  if (lastTag == null || !lastTag.contains("/")) {
+    return lastTag
+  }
+  int slash = lastTag.lastIndexOf("/")
+  String leaf = lastTag.substring(slash + 1)
+  String namespace = lastTag.substring(0, slash).replaceAll("[^A-Za-z0-9._-]", "-")
+  if (tagsAtCommit != null && tagsAtCommit.contains(leaf)) {
+    return leaf
+  }
+  String leafVersion = leaf.startsWith("v") ? leaf.substring(1) : leaf
+  return leafVersion + "-" + namespace
+}
+
+def tagsPointingAtTag = { String tagName ->
+  try {
+    def revParse = ["git", "rev-parse", tagName + "^{}"].execute(null, rootProject.projectDir)
+    if (revParse.waitFor() != 0) {
+      return null
+    }
+    def sha = revParse.text.trim()
+    if (!sha) {
+      return null
+    }
+    def pointsAt = ["git", "tag", "--points-at", sha].execute(null, rootProject.projectDir)
+    if (pointsAt.waitFor() != 0) {
+      return null
+    }
+    return pointsAt.text.readLines().collect { it.trim() }.findAll { it }
+  } catch (Exception ignored) {
+    return null
+  }
+}
+
 if (project.hasProperty("releaseVersion")) {
   version = releaseVersion
   detailedVersionString = releaseVersion
@@ -42,6 +83,9 @@ if (project.hasProperty("releaseVersion")) {
       def details = versionDetails()
       detailedVersionString = gitVersion()
       version = details.lastTag
+      if (version != null && version.contains("/")) {
+        version = normalizeNamespacedTag(version, tagsPointingAtTag(version))
+      }
       version = version.startsWith("v")? version.substring(1): version
       def suffix = details.isCleanTag? "": "-SNAPSHOT"
       snapshotVersion = ! details.isCleanTag
@@ -115,4 +159,33 @@ task printVersionDetails() {
   println("cliVersion=" + project.ext.cliVersion)
   println("version=" +  version)
   println("versionTag=" + versionTag)
+}
+
+task checkVersionTagNormalization {
+  group = "verification"
+  description = "Checks namespaced git tag version normalization"
+  doLast {
+    assert normalizeNamespacedTag("v2.2.2-cloud", []) == "v2.2.2-cloud"
+
+    assert normalizeNamespacedTag(
+        "release-base/v2.2.2-cloud",
+        ["v2.2.2-cloud", "release-base/v2.2.2-cloud"]) == "v2.2.2-cloud"
+
+    assert normalizeNamespacedTag("release-base/v2.2.2-cloud", []) == "2.2.2-cloud-release-base"
+    assert normalizeNamespacedTag("release-base/v2.2.2-cloud", null) == "2.2.2-cloud-release-base"
+
+    assert normalizeNamespacedTag("release-base/v2.2.2-cloud", ["v2.3.0"]) == "2.2.2-cloud-release-base"
+
+    def nested = normalizeNamespacedTag("foo/bar/v1.2.3", [])
+    assert nested == "1.2.3-foo-bar"
+    assert !nested.contains("/")
+
+    // Hyphen suffix stays in the last dotted segment so snapshot handling
+    // appends -SNAPSHOT instead of incrementing 2.2.2 to 2.2.3.
+    def numericLeaf = normalizeNamespacedTag("release-base/v2.2.2", [])
+    def parts = numericLeaf.tokenize(".")
+    assert parts.size() == 3
+    assert parts[-1] == "2-release-base"
+    assert !parts[-1].isInteger()
+  }
 }

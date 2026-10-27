@@ -7,7 +7,7 @@ import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import i18next from 'i18next';
 
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
-import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
+import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/sharedV2/constants';
 
 import { SummaryElementType } from '@types';
 
@@ -81,3 +81,7 @@ export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [
     URN_TYPE_URN,
     DATE_TYPE_URN,
 ];
+
+/** Domain pill icon sizing in the summary properties row (Created / Owners / Domain / …). */
+export const SUMMARY_DOMAIN_ICON_SIZE = 20;
+export const SUMMARY_DOMAIN_ICON_FONT_SIZE = 12;

@@ -1,4 +1,7 @@
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import useEditableSchemaFieldInfoMaps, {
+    EditableFieldInfoMaps,
+} from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import { EditableSchemaMetadata, GlossaryTerms, SchemaField } from '@src/types.generated';
 
 type ReturnValue = {
@@ -11,7 +14,11 @@ type ReturnType = (record: SchemaField, defaultUneditableTerms?: GlossaryTerms |
 
 export default function useExtractFieldGlossaryTermsInfo(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
+    fieldInfoMaps?: EditableFieldInfoMaps,
 ): ReturnType {
+    const fallbackMaps = useEditableSchemaFieldInfoMaps(fieldInfoMaps ? undefined : editableSchemaMetadata);
+    const { exactMap, v2NormalizedMap } = fieldInfoMaps ?? fallbackMaps;
+
     return (record: SchemaField, defaultUneditableTerms: GlossaryTerms | null = null) => {
         // Three term locations: schema field entity, EditableSchemaMetadata, SchemaMetadata (uneditable)
         const schemaFieldTerms = record?.schemaFieldEntity?.glossaryTerms?.terms || [];
@@ -23,9 +30,7 @@ export default function useExtractFieldGlossaryTermsInfo(
                 ?.glossaryTerms?.terms || [];
 
         // Editable terms: from EditableSchemaMetadata and not on schema field entity itself
-        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidate) =>
-            pathMatchesExact(candidate.fieldPath, record.fieldPath),
-        );
+        const editableFieldInfo = exactMap.get(record.fieldPath);
         const baseEditableTerms = editableFieldInfo?.glossaryTerms?.terms || [];
         const editableTerms = baseEditableTerms.filter((t) => !schemaFieldTermUrns.has(t.term.urn));
         const editableTermUrns = new Set(editableTerms.map((t) => t.term.urn));
@@ -37,12 +42,11 @@ export default function useExtractFieldGlossaryTermsInfo(
         const baseUneditableTerms = defaultUneditableTerms?.terms || record?.glossaryTerms?.terms || [];
         const baseUneditableTermUrns = new Set(baseUneditableTerms.map((t) => t.term.urn));
 
-        // Collect extra uneditable terms from path-insensitive matches
-        const extraUneditableTerms =
-            editableSchemaMetadata?.editableSchemaFieldInfo
-                .filter((candidate) => pathMatchesInsensitiveToV2(candidate.fieldPath, record.fieldPath))
-                .flatMap((info) => info.glossaryTerms?.terms || [])
-                .filter((t) => !baseUneditableTermUrns.has(t.term.urn)) || [];
+        // Collect extra uneditable terms from path-insensitive matches (O(1) map lookup)
+        const normalizedRecordPath = normalizeFieldPathKey(record.fieldPath);
+        const extraUneditableTerms = (normalizedRecordPath ? (v2NormalizedMap.get(normalizedRecordPath) ?? []) : [])
+            .flatMap((info) => info.glossaryTerms?.terms || [])
+            .filter((t) => !baseUneditableTermUrns.has(t.term.urn));
 
         // Combine all uneditable terms including business attribute terms and remove duplicates
         const allUneditableTerms = [...baseUneditableTerms, ...extraUneditableTerms, ...businessAttributeTerms];

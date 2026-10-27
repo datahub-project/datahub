@@ -1,12 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Input, Text } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Spin } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePrevious } from 'react-js-cron/dist/cjs/utils';
 import { useDebounce } from 'react-use';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
@@ -17,6 +17,14 @@ import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { useSearchAcrossLineageNamesQuery } from '@graphql/lineage.generated';
 import { EntityType } from '@types';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 const SearchWrapper = styled.div`
     margin-top: 6px;
     width: 100%;
@@ -121,7 +129,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches, z
                     setValue={setInputValue}
                     inputTestId="search-input"
                 />
-                <LoadingWrapper>{loading && <Spin indicator={<LoadingOutlined />} />}</LoadingWrapper>
+                <LoadingWrapper>{loading && <Spin indicator={<SpinningCircleNotch />} />}</LoadingWrapper>
             </SearchLine>
             <SearchMatchesText type="div" size="xs" color="textTertiary" data-testid="matches">
                 {searchQuery.length >= 3 &&

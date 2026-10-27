@@ -105,11 +105,3 @@ schemas:
         ordinal_id: "METADATA_AUDIT_EVENT"
         description: "New MAE schema"
     compatibility: "NONE"  # Breaking changes between versions
-
-  DataHubUpgradeHistoryEvent:
-    description: "DataHub upgrade history events"
-    versions:
-      - version: 1
-        ordinal_id: "DATAHUB_UPGRADE_HISTORY_EVENT"
-        description: "DataHub upgrade history schema"
-    compatibility: "BACKWARD"  # Single version, can evolve backward-compatibly

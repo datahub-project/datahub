@@ -19,6 +19,8 @@ from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
 from datahub.ingestion.run.pipeline_config import PipelineConfig
 from datahub.ingestion.sink.sink_registry import sink_registry
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceConfigClass,
     DataHubIngestionSourceInfoClass,
@@ -276,10 +278,13 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         ctx: PipelineContext,
     ) -> None:
         # Prepare a nicely formatted summary
-        structured_report_str = json.dumps(report, indent=2)
+        masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
+        structured_report_str = json.dumps(
+            masking_filter.mask_structure(report), indent=2
+        )
         summary = f"~~~~ Ingestion Report ~~~~\n{structured_report_str}\n\n"
         summary += "~~~~ Ingestion Logs ~~~~\n"
-        summary += get_log_buffer().format_lines()
+        summary += masking_filter.mask_text(get_log_buffer().format_lines())
 
         # Construct the dataHubExecutionRequestResult aspect
         structured_report = StructuredExecutionReportClass(

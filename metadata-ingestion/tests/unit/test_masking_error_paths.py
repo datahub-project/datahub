@@ -12,6 +12,7 @@ from datahub.masking.bootstrap import (
     initialize_secret_masking,
     shutdown_secret_masking,
 )
+from datahub.masking.constants import CIRCUIT_OPEN_MESSAGE
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -92,10 +93,10 @@ class TestPatternRebuildFailures:
             return original_compile(pattern, flags)
 
         with mock.patch("re.compile", side_effect=mock_compile_fail):
-            # Try to rebuild pattern - should handle error gracefully
-            masking_filter._check_and_rebuild_pattern()
+            pattern, _ = registry.get_pattern_and_replacements()
+            assert pattern is None
 
-            # Filter should still work (with old pattern or graceful degradation)
+            # Fail closed: records pass through with output suppressed
             record = logging.LogRecord(
                 name="test",
                 level=logging.INFO,
@@ -107,6 +108,7 @@ class TestPatternRebuildFailures:
             )
             result = masking_filter.filter(record)
             assert result is True
+            assert record.msg == CIRCUIT_OPEN_MESSAGE
 
 
 class TestBootstrapConfiguration:
@@ -127,7 +129,7 @@ class TestBootstrapConfiguration:
             http.client.HTTPConnection.debuglevel = 1
 
             # Initialize masking
-            initialize_secret_masking(force=True)
+            initialize_secret_masking()
 
             # Debug level should be set to 0
             assert http.client.HTTPConnection.debuglevel == 0
@@ -141,7 +143,7 @@ class TestBootstrapConfiguration:
         """Test that warnings are captured to logging."""
         import warnings
 
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
         try:
             # Check that warnings are being captured

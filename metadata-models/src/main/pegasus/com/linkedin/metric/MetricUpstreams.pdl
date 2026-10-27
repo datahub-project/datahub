@@ -3,17 +3,26 @@ namespace com.linkedin.metric
 import com.linkedin.common.Edge
 
 /**
- * Physical data-flow lineage from a metric to the datasets and columns it reads.
+ * Data-flow lineage from a metric to the datasets and columns it reads.
  * Metric-to-metric derivation lineage lives on `metricRelationships.derivedFrom`.
  *
- * Populate this aspect only for metrics that have no semantic model
- * (`metricInfo.semanticModel` is unset) — e.g. thin catalog / BI metrics or
- * SDK-authored metrics. When a metric is backed by a semantic model, leave
- * `metricUpstreams` empty and let lineage flow through
- * Metric → SemanticModel → Logical Dataset → Physical Dataset
- * (via `ModeledBy`, `Contains`, and the logical dataset's `upstreamLineage`).
- * Emitting both creates a redundant Metric → Dataset shortcut that bypasses
- * the semantic model in the lineage explorer.
+ * Point `datasetUpstreams` and `fieldUpstreams` at the metric's direct
+ * upstreams. For a semantic-model-backed metric those are Semantic Model
+ * Dataset URNs and their schemaFields. For a standalone metric they are
+ * physical dataset and schemaField URNs. Do not copy the Semantic Model
+ * Dataset-to-physical column mapping here; that lives on the Semantic Model
+ * Dataset's `upstreamLineage.fineGrainedLineages`.
+ *
+ * If `fieldUpstreams` is non-empty, every destination's SchemaFieldUrn parent
+ * must also appear in `datasetUpstreams`. Dataset-only writes (absent or empty
+ * `fieldUpstreams`) are valid. Column writes without those parents are not.
+ * MetricUpstreamsValidator enforces this.
+ *
+ * LineageRegistry.getSchemaFieldRelationships lists Consumes incoming from metric
+ * so a schema-field downstream walk finds the metric.
+ *
+ * Always write `fieldUpstreams`. Use an empty array when there are no columns
+ * so the next ingest replaces stale column edges, as with `datasetUpstreams`.
  */
 @Aspect = {
   "name": "metricUpstreams"
@@ -46,9 +55,14 @@ record MetricUpstreams {
   datasetUpstreams: optional array[Edge]
 
   /**
-   * Specific schema fields (columns) this metric reads (column-level lineage).
-   * May be populated even when datasetUpstreams is absent, and vice versa --
-   * ingestion sources vary in what granularity they can extract.
+   * Schema fields this metric reads (column-level lineage).
+   * The parent dataset is SchemaFieldUrn.parent. There is no per-entry
+   * transform; the SQL lives on metricInfo.expression.
+   * `isLineage` is omitted so these edges do not appear in entity-level
+   * upstream expansion.
+   *
+   * Write an empty array to clear stale column edges. Every entry's parent
+   * dataset must also appear in datasetUpstreams.
    */
   @Relationship = {
     "/*/destinationUrn": {
