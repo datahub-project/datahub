@@ -1265,6 +1265,8 @@ class _RelationResolver:
         self._refs: Dict[Tuple[str, str], Dict[str, _RelationKey]] = {}
         self._by_source: Dict[Tuple[str, str], _RelationKey] = {}
         self._relations: Set[_RelationKey] = set()
+        # (package, name) -> latest version, for unversioned refs.
+        self._latest: Dict[Tuple[str, str], str] = {}
         for node in nodes:
             # A source's relation is its identifier, which may differ from
             # its name; compiled ``to`` values use the identifier.
@@ -1287,6 +1289,10 @@ class _RelationResolver:
                     else _UNVERSIONED
                 )
                 self._refs.setdefault((id_parts[1], id_parts[2]), {})[version] = key
+                if node.latest_version is not None:
+                    self._latest[(id_parts[1], id_parts[2])] = _normalize_ref_version(
+                        node.latest_version
+                    )
 
     def _resolve_ref(
         self, package: Optional[str], name: str, version: Optional[str]
@@ -1295,14 +1301,15 @@ class _RelationResolver:
         for (ref_package, ref_name), versions in self._refs.items():
             if ref_name != name or (package is not None and ref_package != package):
                 continue
-            if version is not None:
-                if version in versions:
-                    candidates.append(versions[version])
+            # An unversioned ref to a versioned model means its latest version.
+            wanted = version or self._latest.get((ref_package, ref_name))
+            if wanted is not None:
+                if wanted in versions:
+                    candidates.append(versions[wanted])
             else:
                 candidates.extend(versions.values())
-        # An unversioned ref to a model with several versions means its latest
-        # version, which the manifest node alone does not say; treat that, and
-        # a name shared across packages, as unresolved.
+        # A versioned model without a known latest version, or a name shared
+        # across packages, is unresolved.
         return candidates[0] if len(candidates) == 1 else None
 
     def resolve(
@@ -2079,6 +2086,8 @@ class DBTNode:
     semantic_model_def: Optional[DBTSemanticModelDefinition] = None
     # A source's warehouse table name, when it differs from its name.
     identifier: Optional[str] = None
+    # The latest version of a versioned model, from the manifest.
+    latest_version: Optional[str] = None
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
@@ -3351,6 +3360,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if self.config.skip_missing_upstreams_in_lineage:
             self.ctx.require_graph(
                 "Using dbt with skip_missing_upstreams_in_lineage=True"
+            )
+        stateful = self.config.stateful_ingestion
+        if (
+            self.config.ingest_contracts
+            and not self.config.replace_existing_contracts_with_dbt
+            and stateful is not None
+            and stateful.remove_stale_metadata
+            and self.state_provider.is_stateful_ingestion_configured()
+        ):
+            # Without a graph no contract is written, so earlier contracts
+            # would drop out of the checkpoint and be soft-deleted.
+            self.ctx.require_graph(
+                "Using dbt with ingest_contracts and stale metadata removal"
             )
 
         if (
@@ -6345,7 +6367,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_upstreams: Dict[str, Dict[str, str]],
         tagged_tests: Set[str],
         resolver: _RelationResolver,
+        emit_definitions: bool = True,
     ) -> Tuple[List[MetadataChangeProposalWrapper], _PendingContract]:
+        """Contract assertions and run events for one model.
+
+        As for dbt tests, definitions follow the model's emission setting and
+        run events follow ``test_results``, so a ``test_results: Only`` recipe
+        still reports runs against the same assertion URNs."""
         entity_urn = node.get_urn(
             target_platform=DBT_PLATFORM,
             env=self.config.env,
@@ -6380,7 +6408,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         schema_assertion = self._create_schema_assertion_for_contract(
             node=node, entity_urn=entity_urn
         )
-        mcps.extend(schema_assertion.mcps)
+        if emit_definitions:
+            mcps.extend(schema_assertion.mcps)
         assertion_urns = [schema_assertion.urn]
 
         constraint_assertions: List[_ContractAssertion] = []
@@ -6390,7 +6419,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ):
                 constraint_assertions.append(assertion)
                 assertion_urns.append(assertion.urn)
-                mcps.extend(assertion.mcps)
+                if emit_definitions:
+                    mcps.extend(assertion.mcps)
 
         if self.config.entities_enabled.can_emit_test_results:
             mcps.extend(
@@ -6447,9 +6477,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         for node in non_test_nodes:
             if not node.contract or not node.contract.enforced:
                 continue
-            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+            emit_definitions = self.config.entities_enabled.can_emit_node_type(
+                node.node_type
+            )
+            if not emit_definitions and not (
+                self.config.entities_enabled.can_emit_test_results
+            ):
                 continue
-            contract_tests = contract_tests_by_upstream.get(node.dbt_name, [])
+            contract_tests = (
+                contract_tests_by_upstream.get(node.dbt_name, [])
+                if emit_definitions
+                else []
+            )
             try:
                 for test_node in contract_tests:
                     if test_node.dbt_name not in test_upstreams:
@@ -6465,6 +6504,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     test_upstreams=test_upstreams,
                     tagged_tests=tagged_tests,
                     resolver=resolver,
+                    emit_definitions=emit_definitions,
                 )
             except Exception as e:
                 self._record_node_failure(
@@ -6477,7 +6517,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 )
                 continue
             yield from mcps
-            pending_contracts.append(pending)
+            if emit_definitions:
+                pending_contracts.append(pending)
 
         if not pending_contracts:
             return
@@ -6491,25 +6532,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 return
             existing_contracts = found
         elif not self.config.replace_existing_contracts_with_dbt:
-            title = "dbt Data Contracts not written"
-            message = (
-                "No DataHub graph is available (e.g. file sink), so "
+            self.report.warning(
+                title="dbt Data Contracts not written",
+                message="No DataHub graph is available (e.g. file sink), so "
                 "existing Data Contracts cannot be checked and no Data Contract "
                 "was written; contract assertions are still emitted. Configure "
                 "datahub_api, or set replace_existing_contracts_with_dbt, to "
-                "write Data Contracts."
+                "write Data Contracts.",
             )
-            # Contracts not written this run would drop out of the stateful
-            # checkpoint and be soft-deleted; a failure skips that removal.
-            stateful = self.config.stateful_ingestion
-            if (
-                stateful is not None
-                and stateful.remove_stale_metadata
-                and self.state_provider.is_stateful_ingestion_configured()
-            ):
-                self.report.failure(title=title, message=message)
-            else:
-                self.report.warning(title=title, message=message)
             return
 
         for pending in pending_contracts:

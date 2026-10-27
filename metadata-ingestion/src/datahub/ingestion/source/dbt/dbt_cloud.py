@@ -1192,9 +1192,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         """Map job-scoped model status/error onto DBTModelPerformance.
 
         Only feeds contract run events. Uses the model's execute timings so
-        re-ingesting a run does not add new run events; falls back to
-        ingestion time only when dbt Cloud reports no timings. The record is
-        marked inferred, keeping it out of process-run emission.
+        re-ingesting a run does not add new run events. A success without
+        timings did not execute the model (as for ``dbt compile``), so it is
+        marked as not built; an error without timings (e.g. a contract
+        preflight failure) falls back to ingestion time. The record is marked
+        inferred, keeping it out of process-run emission.
         """
         if node.get("skip"):
             return []
@@ -1217,6 +1219,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 end_time=end_time,
                 message=node.get("error"),
                 timing_inferred=True,
+                built_relation=status == "error" or bool(started_at or completed_at),
             )
         ]
 

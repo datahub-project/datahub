@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -951,6 +952,29 @@ def test_versioned_ref_resolves_to_its_version() -> None:
     assert resolver.resolve("ref('orders')")[0] is None
 
 
+def test_unversioned_ref_uses_latest_version_for_fk_identity() -> None:
+    source = _make_source()
+    versions = []
+    for version in ("1", "2"):
+        node = _make_model(name="orders", alias=f"orders_v{version}")
+        node.dbt_name = f"model.test_pkg.orders.v{version}"
+        node.latest_version = "2"
+        versions.append(node)
+
+    def urn(to: str) -> str:
+        node = _make_model(
+            name="returns",
+            columns=[_column("order_id", DBTConstraint(type="foreign_key", to=to))],
+        )
+        (assertion,) = source._create_constraint_assertions(
+            node, _ENTITY_URN, _RelationResolver([node, *versions])
+        )
+        return assertion.urn
+
+    # `dbt parse` keeps the raw ref; `dbt compile` renders the latest version.
+    assert urn("ref('orders')") == urn('"test_db"."test_schema"."orders_v2"')
+
+
 def test_test_urns_omitted_when_test_definitions_disabled() -> None:
     source = _make_source(entities_enabled={"test_definitions": "NO"})
     model = _make_model()
@@ -961,8 +985,29 @@ def test_test_urns_omitted_when_test_definitions_disabled() -> None:
 
 
 def test_contract_skipped_when_node_type_emission_disabled() -> None:
-    source = _make_source(entities_enabled={"models": "NO"})
-    assert _contract_mcps(source, [_make_model()]) == []
+    source = _make_source(entities_enabled={"models": "NO", "test_results": "NO"})
+    node = _make_model()
+    node.model_performances = [_perf()]
+    assert _contract_mcps(source, [node]) == []
+
+
+@pytest.mark.parametrize("test_results", ["ONLY", "NO"])
+def test_split_test_results_recipes(test_results: str) -> None:
+    # The documented two-recipe setup: one recipe with test_results: Only,
+    # the other with test_results: No. Together they emit everything once.
+    source = _make_source(entities_enabled={"test_results": test_results})
+    node = _make_model()
+    node.model_performances = [_perf()]
+    mcps = _contract_mcps(source, [node])
+    schema_urn = source._create_schema_assertion_for_contract(node, _ENTITY_URN).urn
+    if test_results == "ONLY":
+        assert schema_urn in {e.assertionUrn for e in _run_events(mcps)}
+        assert _assertion_infos(mcps) == {}
+        assert _written_contracts(mcps) == []
+    else:
+        assert _run_events(mcps) == []
+        assert schema_urn in _assertion_infos(mcps)
+        assert _written_contracts(mcps) == [_contract_urn(node)]
 
 
 def test_model_success_reports_schema_and_ddl_enforced_constraints() -> None:
@@ -1334,17 +1379,19 @@ def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
     assert not source.report.warnings
 
 
-def test_no_graph_with_stateful_ingestion_is_a_failure() -> None:
+def test_no_graph_with_stale_removal_fails_at_startup() -> None:
     # Unwritten contracts would drop out of the checkpoint and be soft-deleted.
-    source = _make_source(stateful_ingestion={"enabled": True})
+    source = _make_source(
+        stateful_ingestion={"enabled": True}, write_semantics="OVERRIDE"
+    )
     source.ctx.graph = None
-    with mock.patch.object(
-        source.state_provider, "is_stateful_ingestion_configured", return_value=True
+    with (
+        mock.patch.object(
+            source.state_provider, "is_stateful_ingestion_configured", return_value=True
+        ),
+        pytest.raises(ConfigurationError, match="ingest_contracts"),
     ):
-        assert _written_contracts(_contract_mcps(source, [_make_model()])) == []
-    assert [f.title for f in source.report.failures] == [
-        "dbt Data Contracts not written"
-    ]
+        next(iter(source.get_workunits_internal()))
 
 
 @pytest.mark.parametrize("replace", [False, True])
@@ -1902,6 +1949,17 @@ def test_cloud_model_performance_uses_execute_timings() -> None:
     (perf,) = source._extract_model_performance(node)
     assert perf.start_time == datetime(2025, 1, 1, tzinfo=timezone.utc)
     assert perf.end_time == datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize("status, built", [("success", False), ("error", True)])
+def test_cloud_model_without_timings(status: str, built: bool) -> None:
+    # A success without timings did not run the model, so it reports nothing;
+    # a preflight error still does.
+    source = _cloud_source()
+    (perf,) = source._extract_model_performance(
+        {**_cloud_model_node(), "status": status}
+    )
+    assert perf.built_relation is built
 
 
 def test_cloud_contract_skipped_for_run_from_other_environment() -> None:

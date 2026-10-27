@@ -537,6 +537,11 @@ def extract_dbt_entities(
                 name=name,
                 alias=manifest_node.get("alias"),
                 identifier=manifest_node.get("identifier"),
+                latest_version=(
+                    str(manifest_node["latest_version"])
+                    if manifest_node.get("latest_version") is not None
+                    else None
+                ),
                 dbt_file_path=manifest_node["original_file_path"],
                 node_type=manifest_node["resource_type"],
                 max_loaded_at=max_loaded_at,
