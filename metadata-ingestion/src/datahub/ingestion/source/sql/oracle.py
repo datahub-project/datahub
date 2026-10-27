@@ -428,7 +428,7 @@ def normalize_db_name(name: str) -> str:
 
     Oracle stores unquoted identifiers in uppercase; SQLAlchemy's normalize_name
     converts them to lowercase for consistency. We apply the same rule wherever
-    we use urn_db_name without access to the dialect (e.g. in OracleConfig methods).
+    we use urn_db_name without access to the dialect (e.g. in get_db_schema).
     """
     return name.lower() if name.isupper() else name
 
@@ -586,8 +586,9 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             "Override the database name used in URN construction. "
             "Only relevant when add_database_name_to_urn is true and service_name is used "
             "(i.e. database is not set). "
-            "The connector auto-detects the name by querying sys_context('USERENV','CON_NAME') "
-            "(the PDB name in multitenant setups) with a fallback to DB_NAME. "
+            "When unset, the connector auto-detects the name by querying "
+            "sys_context('USERENV','CON_NAME') (the PDB name in multitenant setups) with a "
+            "fallback to DB_NAME, and uses it for both dataset URNs and containers. "
             "Set this explicitly if auto-detection returns the wrong value — for example "
             "if your service_name does not route directly to the target PDB. "
             "Do not set this alongside database; only one should be used."
@@ -597,7 +598,10 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default=False,
         description=(
             "Include database name in URNs. Default is False (schema.table format). "
-            "Set to True for database.schema.table format when ingesting from multiple Oracle databases."
+            "Set to True for database.schema.table format when ingesting from multiple Oracle databases. "
+            "The database name comes from `database`, else `urn_db_name`, else is auto-detected "
+            "from the connection (service_name). If auto-detection fails, URNs fall back to "
+            "schema.table and a warning is reported."
         ),
     )
     # custom
@@ -761,18 +765,6 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             url = f"{url}/?service_name={self.service_name}"
 
         return url
-
-    def get_identifier(self, schema: str, table: str) -> str:
-        regular = f"{schema}.{table}"
-        if self.add_database_name_to_urn:
-            db = self.database
-            if not db and self.urn_db_name:
-                # get_db_name normalises via the dialect; replicate that here so
-                # entity URNs and lineage URNs share the same db casing.
-                db = normalize_db_name(self.urn_db_name)
-            if db:
-                return f"{db}.{regular}"
-        return regular
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
@@ -1534,6 +1526,9 @@ class OracleSource(SQLAlchemySource):
         # created in super().__init__(); re-point it at our subclass report so
         # classification warnings/counters land on the report we actually use.
         self.classification_handler.report = self.report
+        # Database name for URNs auto-detected from the connection: None until
+        # resolved, "" when detection failed. See _get_urn_db_name.
+        self._detected_urn_db_name: Optional[str] = None
 
         # if connecting to oracle with enable_thick_mode, it must be initialized before calling
         # create_engine, which is called in get_inspectors()
@@ -1637,6 +1632,46 @@ class OracleSource(SQLAlchemySource):
 
         return db_name
 
+    def _get_configured_urn_db_name(self) -> Optional[str]:
+        """The URN database name the config pins: `database`, else `urn_db_name`."""
+        if self.config.database:
+            return self.config.database
+        if self.config.urn_db_name:
+            # get_db_name normalises via the dialect; replicate that here so
+            # entity URNs and lineage URNs share the same db casing.
+            return normalize_db_name(self.config.urn_db_name)
+        return None
+
+    def _get_urn_db_name(self, inspector: Inspector) -> Optional[str]:
+        """The database name to prefix URNs with, or None for schema.table URNs.
+
+        Precedence: `database` > `urn_db_name` > auto-detected from the
+        connection (service_name), so dataset URNs carry the same database name
+        as the database/schema containers built from get_db_name.
+        """
+        if not self.config.add_database_name_to_urn:
+            return None
+        configured = self._get_configured_urn_db_name()
+        if configured:
+            return configured
+        if self._detected_urn_db_name is None:
+            self._detected_urn_db_name = self.get_db_name(inspector)
+            if not self._detected_urn_db_name:
+                self.report.warning(
+                    title="Could not detect Oracle database name for URNs",
+                    message="add_database_name_to_urn is enabled but the database name "
+                    "could not be detected, so URNs use schema.table. "
+                    "Set urn_db_name to pin the database name.",
+                )
+        return self._detected_urn_db_name or None
+
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = f"{schema}.{entity}"
+        db = self._get_urn_db_name(inspector)
+        return f"{db}.{regular}" if db else regular
+
     def get_inspectors(self) -> Iterable[Inspector]:
         for inspector in super().get_inspectors():
             event.listen(
@@ -1665,16 +1700,14 @@ class OracleSource(SQLAlchemySource):
                 if len(parts) >= 3:
                     return parts[-3], parts[-2]  # db, schema
                 elif len(parts) >= 2:
-                    # Identifier is missing the db component — fall back to config.
+                    # Identifier is missing the db component — fall back to the
+                    # configured or detected name, as get_identifier does.
                     # Using str(None) here would produce "None.schema.table" URNs.
-                    # Normalise urn_db_name the same way as get_identifier so that
-                    # view-lineage default_db matches entity URN db components.
-                    urn_db = (
-                        normalize_db_name(self.config.urn_db_name)
-                        if self.config.urn_db_name
-                        else None
+                    db_name = (
+                        self._get_configured_urn_db_name()
+                        or self._detected_urn_db_name
+                        or None
                     )
-                    db_name = self.config.database or urn_db or None
                     return db_name, parts[-2]  # db (or None), schema
             else:
                 if len(parts) >= 2:
@@ -1801,7 +1834,7 @@ class OracleSource(SQLAlchemySource):
                 exc=e,
             )
 
-    def _get_procedure_default_db(self) -> Optional[str]:
+    def _get_procedure_default_db(self, inspector: Inspector) -> Optional[str]:
         """
         Determine the default_db value for procedure lineage URN generation.
 
@@ -1812,9 +1845,7 @@ class OracleSource(SQLAlchemySource):
 
         This ensures procedure lineage URNs match the URN format of tables/views.
         """
-        if self.config.add_database_name_to_urn and self.config.database:
-            return self.config.database
-        return ""
+        return self._get_urn_db_name(inspector) or ""
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -1854,7 +1885,7 @@ class OracleSource(SQLAlchemySource):
                     tables_prefix=tables_prefix,
                 )
 
-                default_db = self._get_procedure_default_db()
+                default_db = self._get_procedure_default_db(inspector)
 
                 for row in procedures:
                     source_code = source_codes.get((row.name, row.type))
@@ -2358,8 +2389,8 @@ class OracleSource(SQLAlchemySource):
         try:
             with engine.connect() as conn:
                 inspector = inspect(conn)
-                # Get database name once outside the loop since it doesn't change per row
-                db_name = self.get_db_name(inspector)
+                # Same database name as dataset URNs (None when they are schema.table).
+                db_name = self._get_urn_db_name(inspector)
                 result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:

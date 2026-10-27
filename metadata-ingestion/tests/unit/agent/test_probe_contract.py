@@ -1107,8 +1107,8 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
             # Both mechanisms count, because the shim reaches get_identifier
             # two ways: the deprecated config-level hook that
             # SQLAlchemySource.get_identifier routes through (druid, mysql,
-            # trino, oracle and their aliases) and a Source-class override
-            # that _source_class_for resolves (postgres, db2, mssql,
+            # trino and their aliases) and a Source-class override that
+            # _source_class_for resolves (postgres, db2, mssql, oracle,
             # teradata, vertica, starrocks, cockroachdb, timescaledb).
             #
             # Checking only the config MRO would call the second group
