@@ -232,6 +232,31 @@ public class SemanticNoOpEntityServiceTest {
     assertEquals(captured.getValue().get(0).getAspectName(), "upstreamLineage");
   }
 
+  @Test
+  public void unchangedBodyDoesNotEnqueueRetentionWithoutARule() throws Exception {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mock(AspectDao.class),
+            mock(com.linkedin.metadata.event.EventProducer.class),
+            mock(PreProcessHooks.class),
+            new EntityServiceConfiguration().setPostCommitRetentionEnabled(true),
+            null);
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> retention = mock(RetentionService.class);
+    service.setRetentionService(retention);
+
+    // A re-sent aspect is a separate record with an equal body and is not a semantic no-op.
+    UpstreamLineage stored = lineage(1L);
+    UpstreamLineage resent = lineage(1L);
+    assertTrue(stored != resent);
+    service.applyRetentionPostCommit(opContext, List.of(upsertResult(stored, resent, false, 2L)));
+    verify(retention, never()).applyRetentionWithPolicyDefaults(any(), anyList());
+
+    service.applyRetentionPostCommit(
+        opContext, List.of(upsertResult(stored, lineage(2L), false, 3L)));
+    verify(retention, times(1)).applyRetentionWithPolicyDefaults(any(), anyList());
+  }
+
   private SemanticNoOpComparator compile(String rules) {
     return SemanticNoOpComparator.compile(true, rules, registry, null);
   }
