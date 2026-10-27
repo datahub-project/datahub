@@ -19,9 +19,6 @@ export function gql(literals: any, ...args: any[]): DocumentNode {
 
     return new Proxy({} as DocumentNode, {
         get(_target, prop, receiver) {
-            if (prop === Symbol.toStringTag) {
-                return 'Object';
-            }
             return Reflect.get(get() as object, prop, receiver);
         },
         has(_target, prop) {
@@ -42,8 +39,3 @@ export function gql(literals: any, ...args: any[]): DocumentNode {
 }
 
 export default gql;
-
-export const { resetCaches } = parseGql;
-export const { disableFragmentWarnings } = parseGql;
-export const { enableExperimentalFragmentVariables } = parseGql;
-export const { disableExperimentalFragmentVariables } = parseGql;
