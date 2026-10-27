@@ -59,6 +59,7 @@ attrs==25.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   aiohttp
     #   cattrs
     #   confluent-kafka
+    #   feast
     #   jsonlines
     #   jsonschema
     #   looker-sdk
@@ -368,7 +369,9 @@ fastavro==1.12.1 ; python_full_version >= '3.11' and python_full_version < '3.14
     # via
     #   acryl-datahub
     #   confluent-kafka
-feast==0.47.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+feast==0.47.0 ; python_full_version >= '3.11' and python_full_version < '3.13'
+    # via acryl-datahub
+feast==0.67.0 ; python_full_version == '3.13.*'
     # via acryl-datahub
 filelock==3.25.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
@@ -825,7 +828,21 @@ notion-client==3.0.0 ; python_full_version >= '3.11' and python_full_version < '
     # via unstructured-ingest
 numba==0.67.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via unstructured
-numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
+numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.13'
+    # via
+    #   acryl-datahub
+    #   blis
+    #   dask
+    #   datasketches
+    #   db-dtypes
+    #   feast
+    #   numba
+    #   onnxruntime
+    #   pandas
+    #   spacy
+    #   thinc
+    #   unstructured
+numpy==2.5.4 ; python_full_version == '3.13.*'
     # via
     #   acryl-datahub
     #   blis
@@ -1357,7 +1374,7 @@ semver==3.0.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via dlt
 sentry-sdk==2.54.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-setuptools==84.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+setuptools==84.2.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   dlt
     #   grpcio-tools
@@ -1470,6 +1487,7 @@ starlette==1.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14
     # via
     #   acryl-datahub
     #   fastapi
+    #   feast
 starrocks==1.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 strictyaml==1.7.3 ; python_full_version >= '3.11' and python_full_version < '3.14'

@@ -1,5 +1,9 @@
-import { FetchedEntity } from '@app/lineage/types';
-import { decodeSchemaField, encodeSchemaField, getPopulatedColumnsByUrn } from '@app/lineage/utils/columnLineageUtils';
+import { FetchedEntity } from '@app/lineageV3/types';
+import {
+    decodeSchemaField,
+    encodeSchemaField,
+    getPopulatedColumnsByUrn,
+} from '@app/lineageV3/utils/columnLineageUtils';
 import { dataJob1, dataset1, dataset2 } from '@src/Mocks';
 
 import { FineGrainedLineage, SchemaFieldDataType } from '@types';
