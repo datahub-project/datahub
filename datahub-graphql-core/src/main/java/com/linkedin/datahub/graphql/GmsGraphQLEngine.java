@@ -359,6 +359,7 @@ import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
 import com.linkedin.datahub.graphql.types.post.PostType;
 import com.linkedin.datahub.graphql.types.query.QueryType;
+import com.linkedin.datahub.graphql.types.repository.RepositoryType;
 import com.linkedin.datahub.graphql.types.restricted.RestrictedType;
 import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
 import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
@@ -557,6 +558,7 @@ public class GmsGraphQLEngine {
   private final DataProductType dataProductType;
   private final ApplicationType applicationType;
   private final ApiType apiType;
+  private final RepositoryType repositoryType;
   private final OwnershipType ownershipType;
   private final StructuredPropertyType structuredPropertyType;
   private final DataTypeType dataTypeType;
@@ -710,6 +712,7 @@ public class GmsGraphQLEngine {
     this.dataProductType = new DataProductType(entityClient);
     this.applicationType = new ApplicationType(entityClient);
     this.apiType = new ApiType(entityClient);
+    this.repositoryType = new RepositoryType(entityClient);
     this.ownershipType = new OwnershipType(entityClient);
     this.structuredPropertyType = new StructuredPropertyType(entityClient);
     this.dataTypeType = new DataTypeType(entityClient);
@@ -784,6 +787,7 @@ public class GmsGraphQLEngine {
                 dataProcessInstanceType,
                 applicationType,
                 apiType,
+                repositoryType,
                 executionRequestType,
                 dataHubPageTemplateType,
                 dataHubPageModuleType,
@@ -869,6 +873,7 @@ public class GmsGraphQLEngine {
     configureDataProductResolvers(builder);
     configureApplicationResolvers(builder);
     configureApiResolvers(builder);
+    configureRepositoryResolvers(builder);
     configureAssertionResolvers(builder);
     configureContractResolvers(builder);
     configurePolicyResolvers(builder);
@@ -974,7 +979,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(API_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(API_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(REPOSITORY_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1720,7 +1726,10 @@ public class GmsGraphQLEngine {
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
                   "createDataHubFile",
-                  new CreateDataHubFileResolver(this.dataHubFileService, this.objectStorageClient))
+                  new CreateDataHubFileResolver(
+                      this.dataHubFileService,
+                      this.objectStorageClient,
+                      this.datahubConfiguration.getObjectStorage()))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
@@ -3629,6 +3638,48 @@ public class GmsGraphQLEngine {
                                       .map(datasetType.getKeyProvider())
                                       .collect(Collectors.toList());
                             }))));
+  }
+
+  private void configureRepositoryResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Query",
+        typeWiring -> typeWiring.dataFetcher("repository", getResolver(this.repositoryType)));
+    builder.type(
+        "Repository",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
+                .dataFetcher(
+                    "relationships",
+                    new EntityRelationshipsResultResolver(graphClient, entityService))
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
+                .dataFetcher(
+                    "lineage",
+                    new EntityLineageResultResolver(
+                        siblingGraphService, restrictedService, this.authorizationConfiguration))
+                .dataFetcher(
+                    "platform",
+                    new LoadableTypeResolver<>(
+                        this.dataPlatformType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.Repository repository =
+                              env.getSource();
+                          return repository.getPlatform() != null
+                              ? repository.getPlatform().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "forkOf",
+                    new LoadableTypeResolver<>(
+                        this.repositoryType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.Repository repository =
+                              env.getSource();
+                          return repository.getForkOf() != null
+                              ? repository.getForkOf().getUrn()
+                              : null;
+                        })));
   }
 
   /**

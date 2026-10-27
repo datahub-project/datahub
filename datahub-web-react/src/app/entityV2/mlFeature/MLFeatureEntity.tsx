@@ -45,6 +45,7 @@ const FeatureTableTab = lazyProfileComponent('FeatureTableTab', () =>
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,

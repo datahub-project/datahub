@@ -39,6 +39,7 @@ import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.MetricUpstreamsValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.RepositoryLineageDestinationValidator;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.StructuredPropertyPrivilegeConstraintsValidator;
@@ -70,6 +71,7 @@ import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateStampHook;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -93,6 +95,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -1190,14 +1193,18 @@ public class SpringStandardPluginConfiguration {
   public AspectPayloadValidator searchTemplateValidator(
       SearchTemplateLoader searchTemplateLoader,
       ConfigurationProvider configProvider,
-      @Qualifier("entityRegistry") EntityRegistry entityRegistry) {
+      @Qualifier("entityRegistry") EntityRegistry entityRegistry,
+      ObjectProvider<SearchTemplateComponentRegistry> searchTemplateComponentRegistry) {
     SearchConfiguration searchConfiguration =
         configProvider.getElasticSearch() == null
                 || configProvider.getElasticSearch().getSearch() == null
             ? new SearchConfiguration()
             : configProvider.getElasticSearch().getSearch();
     return new SearchTemplateValidator(
-            searchTemplateLoader, searchConfiguration, entityRegistry.getEntitySpecs().values())
+            searchTemplateLoader,
+            searchConfiguration,
+            entityRegistry.getEntitySpecs().values(),
+            searchTemplateComponentRegistry.getIfAvailable(SearchTemplateComponentRegistry::empty))
         .setConfig(
             AspectPluginConfig.builder()
                 .className(SearchTemplateValidator.class.getName())
@@ -1386,6 +1393,27 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(DATASET_ENTITY_NAME)
                             .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator repositoryLineageDestinationValidator() {
+    return new RepositoryLineageDestinationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(RepositoryLineageDestinationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_JOB_ENTITY_NAME)
+                            .aspectName(REPOSITORY_LINEAGE_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_FLOW_ENTITY_NAME)
+                            .aspectName(REPOSITORY_LINEAGE_ASPECT_NAME)
                             .build()))
                 .build());
   }
