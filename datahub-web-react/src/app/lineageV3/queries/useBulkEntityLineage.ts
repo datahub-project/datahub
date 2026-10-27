@@ -1,6 +1,5 @@
 import { useCallback, useContext, useEffect, useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     LineageEdge,
@@ -17,6 +16,7 @@ import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdge
 import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import usePrevious from '@app/sharedV2/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
