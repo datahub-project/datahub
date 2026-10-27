@@ -888,7 +888,7 @@ models:
 
 With the default `contract_test_tag: "contract"`, any test tagged with `contract` is added to the Data Contract's data quality assertions and also continues to run as a regular dbt test. A tagged test that reads several models (such as `relationships`) is attached only to the model it is declared on. A `relationships` test is matched to a `foreign_key` only when both targets resolve to the same relation in the ingested project (a foreign key declared with `expression: "other_table (id)"` is matched on that table and column); for a target in another project or package, or a `ref` without `v=` to a versioned model, tag the test instead.
 
-On dbt Cloud, the API exposes neither test arguments nor the model a test is declared on. So `relationships` tests are never auto-attached to a `foreign_key` constraint; tag a test with `contract_test_tag` to include it. A tagged test is attached only when it reads that one model, so a tagged test that reads several models (such as `relationships`) is not attached on dbt Cloud; use the dbt Core source to include those.
+On dbt Cloud, the API exposes neither test arguments nor the model a test is declared on. So `relationships` tests are never auto-attached to a `foreign_key` constraint; tag a test with `contract_test_tag` to include it. A tagged test is attached only when it reads that one model, so a tagged test that reads several models (such as `relationships`) is not attached on dbt Cloud; use the dbt Core source to include those. The API also exposes no test `where:` config, so on dbt Cloud a filtered `not_null` or `unique` test is still auto-attached to a matching constraint.
 
 ##### Warehouse Constraint Enforcement
 

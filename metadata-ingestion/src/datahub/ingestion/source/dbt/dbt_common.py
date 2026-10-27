@@ -6402,9 +6402,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         for pending in pending_contracts:
             existing = existing_contracts.get(pending.entity_urn, [])
-            # Soft-deleted contracts do not count when a live one exists.
+            # Soft-deleted contracts do not count when a live one exists. If
+            # several exist and all are soft-deleted, the dataset's own
+            # contract URN is written (and revived).
             live = [c for c in existing if not (c.status and c.status.removed)]
-            if live:
+            if live or len(existing) > 1:
                 existing = live
             if len(existing) > 1:
                 self.report.warning(

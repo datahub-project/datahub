@@ -1032,6 +1032,20 @@ def test_soft_deleted_contract_does_not_count_as_multiple() -> None:
     assert not source.report.warnings
 
 
+def test_all_soft_deleted_contracts_revive_the_dataset_contract() -> None:
+    source = _make_source()
+    node = _make_model()
+    source.ctx.graph = _graph_with_contracts(
+        {
+            _UI_CONTRACT_URN: _existing_contract(),
+            _contract_urn(node): _existing_contract(),
+        },
+        removed=True,
+    )
+    assert _written_contracts(_contract_mcps(source, [node])) == [_contract_urn(node)]
+    assert not source.report.warnings
+
+
 @pytest.mark.parametrize("other", [None, "authored", "dbt"])
 def test_contract_without_properties_is_ignored(other: Optional[str]) -> None:
     source = _make_source()
@@ -1582,6 +1596,20 @@ def test_cloud_contract_uses_run_environment_by_default() -> None:
     (perf,) = parsed.model_performances
     assert perf.status == "error"
     assert perf.timing_inferred
+
+
+@pytest.mark.parametrize("ingest_contracts", [True, False])
+def test_cloud_models_query_requests_timings_only_for_contracts(
+    ingest_contracts: bool,
+) -> None:
+    source = _cloud_source(ingest_contracts=ingest_contracts)
+    with mock.patch.object(
+        DBTCloudSource, "_send_graphql_query", side_effect=RuntimeError("stop")
+    ) as mock_send:
+        source._fetch_nodes_and_exposures()
+    queries = [call.kwargs["query"] for call in mock_send.call_args_list]
+    assert any("models" in q for q in queries)
+    assert any("executeStartedAt" in q for q in queries) is ingest_contracts
 
 
 def test_cloud_model_performance_uses_execute_timings() -> None:

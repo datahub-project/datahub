@@ -279,6 +279,12 @@ _DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS = """
   compiledCode
 """
 
+# Model run timings, requested only when contracts are ingested.
+_DBT_GRAPHQL_MODEL_TIMING_FIELDS = """
+    executeStartedAt
+    executeCompletedAt
+"""
+
 _DBT_FIELDS_BY_TYPE = {
     "models": f"""
     {_DBT_GRAPHQL_COMMON_FIELDS}
@@ -286,8 +292,6 @@ _DBT_FIELDS_BY_TYPE = {
     {_DBT_GRAPHQL_MODEL_SEED_SNAPSHOT_FIELDS}
     dependsOn
     materializedType
-    executeStartedAt
-    executeCompletedAt
 """,
     "seeds": f"""
     {_DBT_GRAPHQL_COMMON_FIELDS}
@@ -998,6 +1002,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     and not self.config.entities_enabled.can_emit_semantic_models
                 ):
                     continue
+                if node_type == "models" and self.config.ingest_contracts:
+                    fields += _DBT_GRAPHQL_MODEL_TIMING_FIELDS
 
                 try:
                     logger.info(
