@@ -588,29 +588,6 @@ public interface AspectDao {
   }
 
   /**
-   * Whether {@link #deleteUrn} deletes rows by aspect name rather than by urn alone, so rows of
-   * aspects this registry doesn't know survive unless their names are passed in.
-   */
-  @OperationContextExempt(reason = "Describes the store, not an operation on it")
-  default boolean deletesUrnByAspectName() {
-    return false;
-  }
-
-  /**
-   * {@link #deleteUrnExcept(OperationContext, TransactionContext, String, Set)} that also deletes
-   * rows of {@code storedAspectNames}, e.g. ones a newer version wrote that this registry doesn't
-   * know. Stores that delete by urn alone already remove them and ignore the names.
-   */
-  default int deleteUrnExcept(
-      @Nonnull OperationContext opContext,
-      @Nullable TransactionContext txContext,
-      @Nonnull final String urn,
-      @Nonnull final Set<String> keptAspectNames,
-      @Nonnull final Set<String> storedAspectNames) {
-    return deleteUrnExcept(opContext, txContext, urn, keptAspectNames);
-  }
-
-  /**
    * Optionally serialize concurrent writers on the given {@code (urn, aspect)} pairs before any row
    * locks are acquired. Default is a no-op; the Ebean/Postgres implementation may take a
    * transaction-scoped advisory lock per {@code (urn, aspect)} when enabled.
