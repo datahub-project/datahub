@@ -16,7 +16,10 @@ from pydantic import ValidationError
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
+    check_credential_redirects,
+    find_credential_redirects,
 )
+from datahub.executor.execution.task import TaskError
 
 
 class TestFormatSubprocessError:
@@ -476,3 +479,113 @@ class TestGetCombinedEnvVars:
         assert combined_env.get("TEST_VAR1") == "user_override1"
         assert combined_env.get("TEST_VAR2") == "user_override2"
         assert combined_env.get("NEW_VAR") == "new_value"
+
+
+class TestFindCredentialRedirects:
+    """A run must not send the executor's DataHub credentials to another server."""
+
+    GMS = "http://datahub-gms:8080"
+
+    @pytest.fixture(autouse=True)
+    def _env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for var in ("DATAHUB_GMS_HOST", "DATAHUB_GMS_PORT", "DATAHUB_GMS_PROTOCOL"):
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv("DATAHUB_GMS_URL", self.GMS)
+
+    @staticmethod
+    def _find(recipe: dict, secret_values: dict | None = None, **args: object) -> list:
+        task_args = SubProcessRecipeTaskArgs(recipe="{}", **args)  # type: ignore[arg-type]
+        return find_credential_redirects(recipe, task_args, secret_values or {})
+
+    def test_default_sink_is_allowed(self) -> None:
+        assert self._find({"source": {"type": "file", "config": {}}}) == []
+
+    def test_sink_to_configured_server_is_allowed(self) -> None:
+        recipe = {"sink": {"type": "datahub-rest", "config": {"server": self.GMS}}}
+        assert self._find(recipe) == []
+
+    def test_sink_with_own_token_is_allowed(self) -> None:
+        recipe = {
+            "sink": {
+                "type": "datahub-rest",
+                "config": {"server": "http://other:8080", "token": "tok"},
+            }
+        }
+        assert self._find(recipe) == []
+
+    @pytest.mark.parametrize(
+        "recipe, problem",
+        [
+            (
+                {"sink": {"type": "datahub-rest", "config": {"server": "http://x"}}},
+                "sink.config.server",
+            ),
+            ({"datahub_api": {"server": "http://x"}}, "datahub_api.server"),
+            (
+                {"source": {"config": {"datahub": {"server": "http://x"}}}},
+                "source.config.datahub.server",
+            ),
+            (
+                {
+                    "reporting": [
+                        {"config": {"sink": {"config": {"server": "http://x"}}}}
+                    ]
+                },
+                "reporting[0].config.sink.config.server",
+            ),
+            (
+                {"sink": {"config": {"rest_fallback": {"server": "http://x"}}}},
+                "sink.config.rest_fallback.server",
+            ),
+        ],
+    )
+    def test_other_server_without_token_is_rejected(
+        self, recipe: dict, problem: str
+    ) -> None:
+        assert self._find(recipe) == [problem]
+
+    def test_placeholders_are_resolved_before_checking(self) -> None:
+        recipe = {
+            "sink": {"config": {"server": "${SINK_SERVER}", "token": "${SINK_TOKEN}"}}
+        }
+        # A token placeholder that resolves to nothing leaves the client without one.
+        assert self._find(recipe, {"SINK_SERVER": "http://x", "SINK_TOKEN": ""}) == [
+            "sink.config.server"
+        ]
+        assert (
+            self._find(recipe, {"SINK_SERVER": "http://x", "SINK_TOKEN": "tok"}) == []
+        )
+
+    def test_credential_references_are_rejected(self) -> None:
+        recipe = {"source": {"config": {"password": "${DATAHUB_SYSTEM_CLIENT_SECRET}"}}}
+        assert self._find(recipe) == ["recipe.source.config.password"]
+        assert self._find(
+            {},
+            extra_pip_requirements=["pkg @ https://x/$DATAHUB_GMS_TOKEN/pkg.whl"],
+        ) == ["extra_pip_requirements[0]"]
+
+    @pytest.mark.parametrize(
+        "name",
+        ["DATAHUB_GMS_URL", "DATAHUB_GMS_HOST", "https_proxy", "DATAHUB_AUTH_TYPE"],
+    )
+    def test_protected_env_overrides_are_rejected(self, name: str) -> None:
+        assert self._find({}, extra_env_vars={name: "http://x"}) == [
+            f"extra_env_vars.{name}"
+        ]
+
+    def test_ordinary_env_vars_are_allowed(self) -> None:
+        assert self._find({}, extra_env_vars={"MY_TIMEOUT": "30"}) == []
+
+    def test_without_configured_server_any_tokenless_server_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("DATAHUB_GMS_URL")
+        recipe = {"sink": {"config": {"server": self.GMS}}}
+        assert self._find(recipe) == ["sink.config.server"]
+
+    def test_check_raises_task_error(self) -> None:
+        recipe = {"datahub_api": {"server": "http://x"}}
+        with pytest.raises(TaskError, match=r"datahub_api\.server"):
+            check_credential_redirects(
+                recipe, SubProcessRecipeTaskArgs(recipe="{}"), {}
+            )

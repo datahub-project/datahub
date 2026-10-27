@@ -25,15 +25,145 @@ from typing import Any
 
 import pydantic
 
+from datahub.cli import config_utils
+from datahub.cli.cli_utils import is_same_gms_origin
+from datahub.configuration.config_loader import resolve_env_variables
 from datahub.executor.common.config import PermissiveConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import referenced_env_values
+from datahub.executor.execution.task import TaskError
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
+
+# Environment variables that decide which DataHub server the executor's own credentials go to,
+# carry those credentials, or route that traffic through a proxy. A run's extra_env_vars must not
+# override them. Compared upper-cased, since requests also honors lower-case proxy variables.
+_PROTECTED_ENV_VARS = frozenset(
+    {
+        "DATAHUB_GMS_URL",
+        "DATAHUB_GMS_HOST",
+        "DATAHUB_GMS_PORT",
+        "DATAHUB_GMS_PROTOCOL",
+        "DATAHUB_GMS_TOKEN",
+        "DATAHUB_SYSTEM_CLIENT_ID",
+        "DATAHUB_SYSTEM_CLIENT_SECRET",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+    }
+)
+# Env-configured OAuth for DataHub clients (DATAHUB_AUTH_TYPE, DATAHUB_AUTH_CLIENT_ID, ...).
+_PROTECTED_ENV_VAR_PREFIX = "DATAHUB_AUTH_"
+
+# ${NAME}, ${NAME:-default} and $NAME references to the executor's DataHub credentials. Recipe
+# placeholders and pip requirement templates are filled from the executor's environment.
+_CREDENTIAL_ENV_REFERENCE = re.compile(
+    r"\$\{?\s*(DATAHUB_SYSTEM_CLIENT_ID|DATAHUB_SYSTEM_CLIENT_SECRET|DATAHUB_GMS_TOKEN)\b"
+)
+
+# Recipe keys whose value is a DataHub client config (DatahubClientConfig or a subclass).
+_DATAHUB_CLIENT_CONFIG_KEYS = frozenset({"datahub_api", "datahub", "rest_fallback"})
+
+
+def find_credential_redirects(
+    recipe: dict, args: "SubProcessRecipeTaskArgs", secret_values: dict[str, str]
+) -> list[str]:
+    """Settings in a run that would send the executor's DataHub credentials elsewhere.
+
+    A DataHub client built without a token picks up the executor's credentials from the
+    environment. Newer clients only send them to the env-configured server, but the run may
+    use an older CLI version, so the executor checks before starting it:
+
+    - a DataHub client config in the recipe whose server is not the env-configured one and
+      that has no token or auth of its own;
+    - references to the credential environment variables in the recipe or pip settings;
+    - extra_env_vars that redirect the configured server, replace its credentials or set a
+      proxy.
+    """
+    problems = [
+        f"extra_env_vars.{name}"
+        for name in args.extra_env_vars
+        if name.strip().upper() in _PROTECTED_ENV_VARS
+        or name.strip().upper().startswith(_PROTECTED_ENV_VAR_PREFIX)
+    ]
+    for label, value in (
+        ("recipe", recipe),
+        ("extra_pip_requirements", args.extra_pip_requirements),
+        ("extra_pip_plugins", args.extra_pip_plugins),
+    ):
+        problems.extend(_credential_references(value, label))
+
+    # Check the servers and tokens the subprocess will actually see, placeholders filled in.
+    try:
+        effective_recipe = resolve_env_variables(
+            recipe, environ={**args.get_combined_env_vars(), **secret_values}
+        )
+    except Exception:
+        effective_recipe = recipe
+    env_url = config_utils.get_url_from_env()
+    for path, client_config in _datahub_client_configs(effective_recipe, ""):
+        server = client_config.get("server")
+        if not isinstance(server, str) or not server:
+            continue
+        if client_config.get("token") or client_config.get("auth"):
+            continue
+        if env_url is not None and is_same_gms_origin(env_url, server):
+            continue
+        problems.append(f"{path}.server")
+    return problems
+
+
+def check_credential_redirects(
+    recipe: dict, args: "SubProcessRecipeTaskArgs", secret_values: dict[str, str]
+) -> None:
+    problems = find_credential_redirects(recipe, args, secret_values)
+    if problems:
+        raise TaskError(
+            "This run cannot use "
+            + ", ".join(problems)
+            + ": these settings would send the executor's DataHub credentials to another"
+            " server. Remove them, or give the DataHub connection its own token."
+        )
+
+
+def _credential_references(value: Any, path: str) -> list[str]:
+    if isinstance(value, str):
+        return [path] if _CREDENTIAL_ENV_REFERENCE.search(value) else []
+    found: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}"
+            if isinstance(key, str) and _CREDENTIAL_ENV_REFERENCE.search(key):
+                found.append(child_path)
+            found.extend(_credential_references(child, child_path))
+    elif isinstance(value, list):
+        for i, child in enumerate(value):
+            found.extend(_credential_references(child, f"{path}[{i}]"))
+    return found
+
+
+def _datahub_client_configs(value: Any, path: str) -> list[tuple[str, dict]]:
+    found: list[tuple[str, dict]] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}" if path else str(key)
+            if key in _DATAHUB_CLIENT_CONFIG_KEYS and isinstance(child, dict):
+                found.append((child_path, child))
+            elif (
+                key == "sink"
+                and isinstance(child, dict)
+                and isinstance(child.get("config"), dict)
+            ):
+                found.append((f"{child_path}.config", child["config"]))
+            found.extend(_datahub_client_configs(child, child_path))
+    elif isinstance(value, list):
+        for i, child in enumerate(value):
+            found.extend(_datahub_client_configs(child, f"{path}[{i}]"))
+    return found
 
 
 class SubProcessTaskUtil:
